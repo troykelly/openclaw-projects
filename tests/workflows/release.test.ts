@@ -228,19 +228,57 @@ describe('release.yml workflow', () => {
       expect(step).toBeDefined();
     });
 
-    it('should create GitHub Release using softprops/action-gh-release', () => {
-      const releaseStep = releaseSteps.find((s) =>
-        s.uses?.includes('softprops/action-gh-release')
-      );
-      expect(releaseStep).toBeDefined();
-    });
+    describe('draft-then-undraft pattern', () => {
+      it('should create GitHub Release as a draft', () => {
+        const releaseStep = releaseSteps.find((s) =>
+          s.uses?.includes('softprops/action-gh-release')
+        );
+        expect(releaseStep).toBeDefined();
+        expect(releaseStep?.with?.draft).toBe(true);
+      });
 
-    it('should use SHA-pinned softprops/action-gh-release', () => {
-      const releaseStep = releaseSteps.find((s) =>
-        s.uses?.includes('softprops/action-gh-release')
-      );
-      const sha = releaseStep?.uses?.split('@')[1];
-      expect(sha).toMatch(/^[a-f0-9]{40}$/);
+      it('should use SHA-pinned softprops/action-gh-release', () => {
+        const releaseStep = releaseSteps.find((s) =>
+          s.uses?.includes('softprops/action-gh-release')
+        );
+        const sha = releaseStep?.uses?.split('@')[1];
+        expect(sha).toMatch(/^[a-f0-9]{40}$/);
+      });
+
+      it('should have the release step produce an output with the release id', () => {
+        const releaseStep = releaseSteps.find((s) =>
+          s.uses?.includes('softprops/action-gh-release')
+        );
+        expect(releaseStep?.id).toBeDefined();
+      });
+
+      it('should have an undraft step after the release creation step', () => {
+        const releaseStepIndex = releaseSteps.findIndex((s) =>
+          s.uses?.includes('softprops/action-gh-release')
+        );
+        const undraftStep = releaseSteps.find(
+          (s, i) => i > releaseStepIndex && s.name?.toLowerCase().includes('undraft')
+        );
+        expect(undraftStep).toBeDefined();
+      });
+
+      it('should undraft using gh CLI', () => {
+        const undraftStep = releaseSteps.find((s) =>
+          s.name?.toLowerCase().includes('undraft')
+        );
+        expect(undraftStep).toBeDefined();
+        const run = undraftStep?.run ?? '';
+        expect(run).toContain('gh release edit');
+      });
+
+      it('should only undraft if previous steps succeeded (no if: failure())', () => {
+        const undraftStep = releaseSteps.find((s) =>
+          s.name?.toLowerCase().includes('undraft')
+        );
+        const ifCondition = undraftStep?.if ?? '';
+        expect(ifCondition).not.toContain('failure()');
+        expect(ifCondition).not.toContain('always()');
+      });
     });
   });
 
