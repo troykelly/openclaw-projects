@@ -232,7 +232,7 @@ export function namespacesPaths(): OpenApiDomainModule {
         get: {
           operationId: 'listNamespaces',
           summary: 'List namespaces',
-          description: 'For user tokens: returns namespaces the user has grants for. For M2M tokens: returns all distinct namespaces with grant counts.',
+          description: 'For user tokens: returns namespaces the user has grants for. For M2M tokens: returns only namespaces the token has explicit grants for; returns an empty list if no grants exist.',
           tags: ['Namespaces'],
           responses: {
             '200': jsonResponse('List of namespaces', {
