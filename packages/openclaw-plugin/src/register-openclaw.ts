@@ -1438,7 +1438,10 @@ export async function refreshNamespacesAsync(state: PluginState): Promise<void> 
 
     const items = Array.isArray(response.data) ? response.data : [];
     if (items.length === 0) {
-      state.logger.debug('Namespace discovery returned empty list, keeping cached');
+      state.logger.warn(
+        'Namespace discovery returned empty list — M2M tokens may lack namespace grants. ' +
+          'Ensure the server returns all namespaces for M2M tokens with api:full scope (#1561).',
+      );
       // Successful call — stamp to prevent immediate re-fetch
       state.lastNamespaceRefreshMs = Date.now();
       return;
@@ -4259,6 +4262,14 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     user_id,
     toolCount: tools.length,
     config: redactConfig(config),
+  });
+
+  // Issue #1564: Log resolved namespace config on startup for debugging
+  logger.debug('Namespace config resolved', {
+    default: state.resolvedNamespace.default,
+    recall: state.resolvedNamespace.recall,
+    hasStaticRecall,
+    refreshInterval: config.namespaceRefreshIntervalMs ?? 300_000,
   });
 
   // Issue #1537: Fire-and-forget initial namespace discovery.
