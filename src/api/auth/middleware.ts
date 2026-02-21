@@ -174,8 +174,9 @@ export class RoleError extends Error {
 }
 
 /**
- * Extracts the requested namespace from the request.
+ * Extracts the requested namespace from the request (singular).
  * Checks (in priority order): X-Namespace header, ?namespace= query, body.namespace.
+ * Used for store operations that target a single namespace.
  */
 function extractRequestedNamespace(req: FastifyRequest): string | undefined {
   const header = req.headers['x-namespace'];
@@ -190,6 +191,63 @@ function extractRequestedNamespace(req: FastifyRequest): string | undefined {
   }
 
   return undefined;
+}
+
+/**
+ * Extracts requested namespaces (plural) from the request.
+ * Issue #1534: Supports multi-namespace queries for M2M tokens.
+ *
+ * Checks (in priority order):
+ * 1. X-Namespaces header (comma-separated)
+ * 2. X-Namespace header (single)
+ * 3. ?namespaces= query param (comma-separated)
+ * 4. ?namespace= query param (single)
+ * 5. body.namespaces array
+ * 6. body.namespace string (single)
+ *
+ * @returns Array of namespace strings (empty if none specified).
+ */
+export function extractRequestedNamespaces(req: FastifyRequest): string[] {
+  // 1. X-Namespaces header (comma-separated)
+  const multiHeader = req.headers['x-namespaces'];
+  if (typeof multiHeader === 'string' && multiHeader.length > 0) {
+    return multiHeader.split(',').map((s) => s.trim()).filter(Boolean);
+  }
+
+  // 2. X-Namespace header (single)
+  const singleHeader = req.headers['x-namespace'];
+  if (typeof singleHeader === 'string' && singleHeader.length > 0) {
+    return [singleHeader];
+  }
+
+  const q = req.query as Record<string, unknown> | undefined;
+
+  // 3. ?namespaces= query param (comma-separated)
+  if (q && typeof q.namespaces === 'string' && q.namespaces.length > 0) {
+    return q.namespaces.split(',').map((s) => s.trim()).filter(Boolean);
+  }
+
+  // 4. ?namespace= query param (single)
+  if (q && typeof q.namespace === 'string' && q.namespace.length > 0) {
+    return [q.namespace];
+  }
+
+  const b = req.body as Record<string, unknown> | undefined | null;
+  if (b && typeof b === 'object') {
+    // 5. body.namespaces array
+    if (Array.isArray(b.namespaces) && b.namespaces.length > 0) {
+      return (b.namespaces as unknown[]).filter(
+        (v): v is string => typeof v === 'string' && v.length > 0,
+      );
+    }
+
+    // 6. body.namespace string (single)
+    if (typeof b.namespace === 'string' && b.namespace.length > 0) {
+      return [b.namespace];
+    }
+  }
+
+  return [];
 }
 
 /**
@@ -230,6 +288,17 @@ export async function resolveNamespaces(
   }
 
   if (identity.type === 'm2m') {
+    // Issue #1534: M2M tokens support multi-namespace queries
+    const requestedMulti = extractRequestedNamespaces(req);
+    if (requestedMulti.length > 0) {
+      return {
+        storeNamespace: requestedMulti[0],
+        queryNamespaces: requestedMulti,
+        isM2M: true,
+        roles: {},
+      };
+    }
+    // Fallback: single namespace from extractRequestedNamespace (backward compat)
     const ns = requested || 'default';
     return { storeNamespace: ns, queryNamespaces: [ns], isM2M: true, roles: {} };
   }
