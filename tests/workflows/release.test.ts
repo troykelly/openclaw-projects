@@ -283,6 +283,12 @@ describe('release.yml workflow', () => {
   });
 
   describe('publish jobs', () => {
+    it('should require release environment for all publish jobs', () => {
+      expect(workflow.jobs['publish-npm'].environment).toBe('release');
+      expect(workflow.jobs['publish-github-packages'].environment).toBe('release');
+      expect(workflow.jobs['publish-containers'].environment).toBe('release');
+    });
+
     it('should publish npm with provenance (id-token: write)', () => {
       expect(workflow.jobs['publish-npm'].permissions?.['id-token']).toBe('write');
     });

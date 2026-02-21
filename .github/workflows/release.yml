@@ -290,6 +290,7 @@ jobs:
     name: Publish to npm
     needs: [validate, test]
     runs-on: ubuntu-latest
+    environment: release
     permissions:
       contents: read
       id-token: write  # npm provenance
@@ -356,6 +357,7 @@ jobs:
     name: Publish to GitHub Packages
     needs: [validate, test]
     runs-on: ubuntu-latest
+    environment: release
     permissions:
       contents: read
       packages: write
@@ -398,6 +400,7 @@ jobs:
     name: Build ${{ matrix.image.name }}
     needs: [validate, test]
     runs-on: ubuntu-latest
+    environment: release
     permissions:
       contents: read
       packages: write
