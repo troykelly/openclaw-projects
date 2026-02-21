@@ -661,6 +661,33 @@ function applyKeywordBoost<T extends { similarity: number; content: string }>(re
 }
 
 /**
+ * Apply namespace priority boost to search results.
+ * Adds a small boost (0.00-0.05) based on namespace priority (0-100).
+ * This acts as a tie-breaker — a highly relevant result from a low-priority
+ * namespace still outranks a low-relevance result from a high-priority namespace.
+ * Issue #1535
+ */
+function applyNamespacePriorityBoost<T extends { similarity: number; namespace?: string }>(
+  results: T[],
+  priorities: Record<string, number>,
+): T[] {
+  if (Object.keys(priorities).length === 0) return results;
+
+  const boosted = results.map((result) => {
+    const nsPriority = result.namespace ? (priorities[result.namespace] ?? 50) : 50;
+    // Map 0-100 priority to 0.00-0.05 boost
+    const boost = nsPriority / 2000;
+    return {
+      ...result,
+      similarity: result.similarity + boost,
+      namespace_priority: nsPriority,
+    };
+  });
+
+  return boosted.sort((a, b) => b.similarity - a.similarity);
+}
+
+/**
  * Searches memories semantically using embeddings or falls back to text search.
  * Applies keyword boosting to semantic results to improve ranking.
  * Issue #1146
@@ -743,7 +770,7 @@ export async function searchMemories(pool: Pool, query: string, options: SearchM
             title, content, memory_type::text, tags,
             created_by_agent, created_by_human, source_url,
             importance, confidence, expires_at, superseded_by::text,
-            embedding_status, lat, lng, address, place_label, created_at, updated_at,
+            embedding_status, lat, lng, address, place_label, namespace, created_at, updated_at,
             1 - (embedding <=> $1::vector) as similarity
           FROM memory
           WHERE embedding IS NOT NULL
@@ -754,14 +781,20 @@ export async function searchMemories(pool: Pool, query: string, options: SearchM
           allParams,
         );
 
-        // Map results with similarity scores
+        // Map results with similarity scores and namespace
         const rawResults = result.rows.map((row) => ({
           ...mapRowToMemory(row as Record<string, unknown>),
           similarity: Number.parseFloat(row.similarity as string),
+          namespace: row.namespace as string,
         }));
 
         // Apply keyword boosting to improve ranking
-        const boostedResults = applyKeywordBoost(rawResults, query);
+        const keywordBoosted = applyKeywordBoost(rawResults, query);
+
+        // Issue #1535: Apply namespace priority boost as tie-breaker
+        const boostedResults = options.namespacePriorities
+          ? applyNamespacePriorityBoost(keywordBoosted, options.namespacePriorities)
+          : keywordBoosted;
 
         return {
           results: boostedResults,
@@ -838,7 +871,7 @@ export async function searchMemories(pool: Pool, query: string, options: SearchM
       title, content, memory_type::text, tags,
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at, superseded_by::text,
-      embedding_status, lat, lng, address, place_label, created_at, updated_at,
+      embedding_status, lat, lng, address, place_label, namespace, created_at, updated_at,
       ts_rank(search_vector, websearch_to_tsquery('english', $1)) as similarity
     FROM memory
     WHERE search_vector @@ websearch_to_tsquery('english', $1)
@@ -848,11 +881,19 @@ export async function searchMemories(pool: Pool, query: string, options: SearchM
     textParams,
   );
 
+  const textResults = result.rows.map((row) => ({
+    ...mapRowToMemory(row as Record<string, unknown>),
+    similarity: Number.parseFloat(row.similarity as string),
+    namespace: row.namespace as string,
+  }));
+
+  // Issue #1535: Apply namespace priority boost as tie-breaker
+  const boostedTextResults = options.namespacePriorities
+    ? applyNamespacePriorityBoost(textResults, options.namespacePriorities)
+    : textResults;
+
   return {
-    results: result.rows.map((row) => ({
-      ...mapRowToMemory(row as Record<string, unknown>),
-      similarity: Number.parseFloat(row.similarity as string),
-    })),
+    results: boostedTextResults,
     search_type: 'text',
   };
 }

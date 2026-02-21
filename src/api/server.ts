@@ -790,11 +790,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     try {
       if (identity.type === 'user') {
         // User: return namespaces they have grants for
+        // Issue #1535: include priority in response
         const result = await pool.query(
-          `SELECT DISTINCT ng.namespace, ng.role, ng.is_default, ng.created_at
+          `SELECT DISTINCT ng.namespace, ng.role, ng.is_default, ng.priority, ng.created_at
            FROM namespace_grant ng
            WHERE ng.email = $1
-           ORDER BY ng.namespace`,
+           ORDER BY ng.priority DESC, ng.namespace`,
           [identity.email],
         );
         return result.rows;
@@ -1007,14 +1008,21 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     const params = req.params as { ns: string; id: string };
-    const body = req.body as { role?: string; is_default?: boolean } | null;
+    const body = req.body as { role?: string; is_default?: boolean; priority?: number } | null;
 
-    if (!body || (body.role === undefined && body.is_default === undefined)) {
-      return reply.code(400).send({ error: 'role or is_default is required' });
+    if (!body || (body.role === undefined && body.is_default === undefined && body.priority === undefined)) {
+      return reply.code(400).send({ error: 'role, is_default, or priority is required' });
     }
 
     if (body.role && !['owner', 'admin', 'member', 'observer'].includes(body.role)) {
       return reply.code(400).send({ error: 'role must be one of: owner, admin, member, observer' });
+    }
+
+    // Issue #1535: validate priority range
+    if (body.priority !== undefined) {
+      if (!Number.isInteger(body.priority) || body.priority < 0 || body.priority > 100) {
+        return reply.code(400).send({ error: 'priority must be an integer between 0 and 100' });
+      }
     }
 
     const pool = createPool();
@@ -1059,6 +1067,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         sets.push(`is_default = $${paramIdx++}`);
         values.push(body.is_default);
       }
+      // Issue #1535: priority update support
+      if (body.priority !== undefined) {
+        sets.push(`priority = $${paramIdx++}`);
+        values.push(body.priority);
+      }
 
       sets.push(`updated_at = now()`);
       values.push(params.id, params.ns);
@@ -1066,7 +1079,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const result = await pool.query(
         `UPDATE namespace_grant SET ${sets.join(', ')}
          WHERE id = $${paramIdx++} AND namespace = $${paramIdx}
-         RETURNING id::text, email, namespace, role, is_default, created_at, updated_at`,
+         RETURNING id::text, email, namespace, role, is_default, priority, created_at, updated_at`,
         values,
       );
 
