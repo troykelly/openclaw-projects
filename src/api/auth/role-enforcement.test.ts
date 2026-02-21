@@ -214,7 +214,7 @@ describe('Role enforcement (#1485, #1486)', () => {
       expect(ctx!.isM2M).toBe(true);
     });
 
-    it('should return empty roles when auth is disabled', async () => {
+    it('should return empty roles and isM2M=true when auth is disabled', async () => {
       vi.stubEnv('OPENCLAW_PROJECTS_AUTH_DISABLED', 'true');
       vi.resetModules();
 
@@ -230,10 +230,12 @@ describe('Role enforcement (#1485, #1486)', () => {
 
       expect(ctx).not.toBeNull();
       expect(ctx!.roles).toEqual({});
-      expect(ctx!.isM2M).toBe(false);
+      // Auth-disabled mode bypasses role enforcement, so isM2M is always
+      // true to ensure requireMinRole skips checks.
+      expect(ctx!.isM2M).toBe(true);
     });
 
-    it('should set isM2M=true when auth disabled but M2M JWT is present', async () => {
+    it('should set isM2M=true when auth disabled with M2M JWT present', async () => {
       vi.stubEnv('OPENCLAW_PROJECTS_AUTH_DISABLED', 'true');
       vi.resetModules();
 
