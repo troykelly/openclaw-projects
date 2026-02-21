@@ -311,6 +311,7 @@ export function oauthDriveSyncPaths(): OpenApiDomainModule {
           summary: 'Handle OAuth callback',
           description: 'Processes the OAuth authorization callback, exchanges code for tokens, saves the connection, and redirects to the SPA.',
           tags: ['OAuth'],
+          security: [],
           parameters: [
             {
               name: 'code',

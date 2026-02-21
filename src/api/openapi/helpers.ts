@@ -61,8 +61,12 @@ export function errorResponses(...codes: number[]): Record<string, ResponseObjec
     404: 'Not found',
     409: 'Conflict — resource already exists or version mismatch',
     422: 'Unprocessable entity — validation failed',
+    410: 'Gone — resource has expired or been revoked',
+    413: 'Payload too large — request body exceeds size limit',
+    415: 'Unsupported media type — Content-Type must be application/json',
     429: 'Too many requests — rate limit exceeded',
     500: 'Internal server error',
+    502: 'Bad gateway — upstream provider returned an error',
     503: 'Service unavailable',
   };
   const result: Record<string, ResponseObject> = {};

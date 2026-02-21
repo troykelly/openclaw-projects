@@ -54,21 +54,21 @@ describe('OpenAPI Route Coverage', () => {
   it('documents at least 95% of registered API routes', async () => {
     // Get all registered Fastify routes
     const registeredRoutes = new Set<string>();
-    // Fastify provides printRoutes() but not a programmatic list.
-    // We use the internal routing tree via app.routeList or similar.
-    // Fastify v4/v5: iterate via app[Symbol.iterator]
-    const routesOutput: string[] = [];
+    // Fastify v5 printRoutes({ commonPrefix: false }) outputs lines like:
+    //   ├── /api/health (GET, HEAD)
+    //   └── /api/work-items/:id (GET, PUT, DELETE, HEAD)
     app.printRoutes({ commonPrefix: false }).split('\n').forEach((line: string) => {
-      // Extract route paths from printRoutes output
-      // Format varies but typically: "METHOD  /path (handler)"
-      const match = line.match(/(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\s+(\/\S+)/);
+      // Match: tree chars + /path + (METHOD1, METHOD2, ...)
+      const match = line.match(/([/][^\s(]+)\s+\(([^)]+)\)/);
       if (match) {
-        const method = match[1].toLowerCase();
-        const path = normaliseRoute(match[2]);
-        if (path.startsWith('/api/')) {
-          const key = `${method}:${path}`;
-          registeredRoutes.add(key);
-          routesOutput.push(key);
+        const path = normaliseRoute(match[1]);
+        const methods = match[2].split(',').map((m: string) => m.trim().toLowerCase());
+        for (const method of methods) {
+          if (['get', 'post', 'put', 'patch', 'delete'].includes(method)) {
+            if (path.startsWith('/api/')) {
+              registeredRoutes.add(`${method}:${path}`);
+            }
+          }
         }
       }
     });
@@ -96,9 +96,12 @@ describe('OpenAPI Route Coverage', () => {
       }
     }
 
+    // Guard: printRoutes must have found routes, otherwise regex is broken
+    expect(registeredRoutes.size).toBeGreaterThan(0);
+
     const total = registeredRoutes.size;
     const documented = total - undocumented.length;
-    const coverage = total > 0 ? (documented / total) * 100 : 100;
+    const coverage = (documented / total) * 100;
 
     // Log for visibility
     if (undocumented.length > 0) {

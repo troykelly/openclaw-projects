@@ -122,6 +122,7 @@ describe('OpenAPI Spec Validity', () => {
       }
 
       checkRefs(spec.paths, 'paths');
+      checkRefs(spec.components.schemas, 'components.schemas');
       expect(unresolvedRefs).toEqual([]);
     });
   });

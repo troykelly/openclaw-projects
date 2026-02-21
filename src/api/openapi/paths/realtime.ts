@@ -145,9 +145,9 @@ export function realtimePaths(): OpenApiDomainModule {
           summary: 'WebSocket connection stats',
           description: 'Returns the number of currently connected WebSocket clients. Useful for monitoring.',
           tags: ['Realtime'],
-          security: [],
           responses: {
             '200': jsonResponse('WebSocket stats', { $ref: '#/components/schemas/WebSocketStatsResponse' }),
+            ...errorResponses(401, 500),
           },
         },
       },
@@ -171,38 +171,6 @@ export function realtimePaths(): OpenApiDomainModule {
               },
             },
             ...errorResponses(401),
-          },
-        },
-      },
-      '/api/activity/stream': {
-        get: {
-          operationId: 'streamActivity',
-          summary: 'Activity SSE stream',
-          description: 'Server-Sent Events stream of recent activity. Sends an initial heartbeat event, followed by up to 20 recent activity events. Can be scoped to a specific project and its descendants.',
-          tags: ['Realtime'],
-          parameters: [
-            {
-              name: 'project_id',
-              in: 'query',
-              description: 'Filter activity to a specific project and all its descendants',
-              example: 'd290f1ee-6c54-4b01-90e6-d701748f0851',
-              schema: { type: 'string', format: 'uuid' },
-            },
-          ],
-          responses: {
-            '200': {
-              description: 'SSE activity stream',
-              content: {
-                'text/event-stream': {
-                  schema: {
-                    type: 'string',
-                    description: 'Server-sent events with "heartbeat" and "activity" event types',
-                    example: 'event: activity\ndata: {"id":"d290f1ee-6c54-4b01-90e6-d701748f0851","type":"work_item.updated"}\n\n',
-                  },
-                },
-              },
-            },
-            ...errorResponses(401, 500),
           },
         },
       },
