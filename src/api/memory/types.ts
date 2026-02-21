@@ -140,7 +140,7 @@ export interface ListMemoriesResult {
 
 /** Result of semantic memory search */
 export interface MemorySearchResult {
-  results: Array<MemoryEntry & { similarity: number }>;
+  results: Array<MemoryEntry & { similarity: number; namespace?: string; namespace_priority?: number }>;
   search_type: 'semantic' | 'text';
   query_embedding_provider?: string;
 }
@@ -159,4 +159,6 @@ export interface SearchMemoriesOptions extends MemoryScope {
   min_similarity?: number;
   /** Epic #1418: namespace scoping */
   queryNamespaces?: string[];
+  /** Issue #1535: namespace priorities for recall scoring (namespace -> priority 0-100) */
+  namespacePriorities?: Record<string, number>;
 }

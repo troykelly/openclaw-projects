@@ -12,7 +12,7 @@ import websocket from '@fastify/websocket';
 import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify';
 import { createPool } from '../db.ts';
 import { sendMagicLinkEmail } from '../email/magicLink.ts';
-import { getAuthIdentity, getSessionEmail, resolveNamespaces, requireMinRole, RoleError } from './auth/middleware.ts';
+import { type AuthIdentity, getAuthIdentity, getSessionEmail, resolveNamespaces, requireMinRole, RoleError } from './auth/middleware.ts';
 import { isAuthDisabled, verifyAccessToken, signAccessToken } from './auth/jwt.ts';
 import { createRefreshToken, consumeRefreshToken, revokeTokenFamily } from './auth/refresh-tokens.ts';
 import { logAuthEvent } from './auth/audit.ts';
@@ -790,21 +790,24 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     try {
       if (identity.type === 'user') {
         // User: return namespaces they have grants for
+        // Issue #1535: include priority in response
         const result = await pool.query(
-          `SELECT DISTINCT ng.namespace, ng.role, ng.is_default, ng.created_at
+          `SELECT DISTINCT ng.namespace, ng.role, ng.is_default, ng.priority, ng.created_at
            FROM namespace_grant ng
            WHERE ng.email = $1
-           ORDER BY ng.namespace`,
+           ORDER BY ng.priority DESC, ng.namespace`,
           [identity.email],
         );
         return result.rows;
       } else {
-        // M2M: return all distinct namespaces
+        // M2M: return only namespaces with explicit grants for this identity.
+        // Returns empty list if no grants exist — no fallback to all namespaces.
         const result = await pool.query(
-          `SELECT DISTINCT namespace, COUNT(*)::int as grant_count
-           FROM namespace_grant
-           GROUP BY namespace
-           ORDER BY namespace`,
+          `SELECT DISTINCT ng.namespace, ng.role, ng.is_default, ng.priority, ng.created_at
+           FROM namespace_grant ng
+           WHERE ng.email = $1
+           ORDER BY ng.priority DESC, ng.namespace`,
+          [identity.email],
         );
         return result.rows;
       }
@@ -929,6 +932,33 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
+  /**
+   * Verify the caller has owner or admin role in the given namespace.
+   * Applies to both user tokens and M2M tokens (Issue #1533 review fix).
+   * For M2M tokens without any grant, the check is skipped only for
+   * read operations — admin mutations always require a grant.
+   * Returns null if authorized, or an error response string if denied.
+   */
+  async function requireNamespaceAdmin(
+    identity: AuthIdentity,
+    namespace: string,
+    pool: ReturnType<typeof createPool>,
+  ): Promise<string | null> {
+    const email = identity.email;
+    const access = await pool.query(
+      `SELECT role FROM namespace_grant WHERE email = $1 AND namespace = $2`,
+      [email, namespace],
+    );
+    if (access.rows.length === 0) {
+      return 'No access to namespace';
+    }
+    const callerRole = access.rows[0].role as string;
+    if (callerRole !== 'owner' && callerRole !== 'admin') {
+      return 'Only owner or admin can manage grants';
+    }
+    return null;
+  }
+
   // POST /api/namespaces/:ns/grants — grant access to a user
   app.post('/api/namespaces/:ns/grants', async (req, reply) => {
     const identity = await getAuthIdentity(req);
@@ -962,19 +992,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         return reply.code(404).send({ error: `user '${email}' not found` });
       }
 
-      // For user tokens, verify they have admin/owner role in this namespace
-      if (identity.type === 'user') {
-        const access = await pool.query(
-          `SELECT role FROM namespace_grant WHERE email = $1 AND namespace = $2`,
-          [identity.email, params.ns],
-        );
-        if (access.rows.length === 0) {
-          return reply.code(403).send({ error: 'No access to namespace' });
-        }
-        const callerRole = access.rows[0].role as string;
-        if (callerRole !== 'owner' && callerRole !== 'admin') {
-          return reply.code(403).send({ error: 'Only owner or admin can manage grants' });
-        }
+      // Verify caller has admin/owner role (applies to both user and M2M tokens)
+      const roleError = await requireNamespaceAdmin(identity, params.ns, pool);
+      if (roleError) {
+        return reply.code(403).send({ error: roleError });
       }
 
       // If setting as default, unset any existing default for this user first
@@ -1007,30 +1028,29 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     const params = req.params as { ns: string; id: string };
-    const body = req.body as { role?: string; is_default?: boolean } | null;
+    const body = req.body as { role?: string; is_default?: boolean; priority?: number } | null;
 
-    if (!body || (body.role === undefined && body.is_default === undefined)) {
-      return reply.code(400).send({ error: 'role or is_default is required' });
+    if (!body || (body.role === undefined && body.is_default === undefined && body.priority === undefined)) {
+      return reply.code(400).send({ error: 'role, is_default, or priority is required' });
     }
 
     if (body.role && !['owner', 'admin', 'member', 'observer'].includes(body.role)) {
       return reply.code(400).send({ error: 'role must be one of: owner, admin, member, observer' });
     }
 
+    // Issue #1535: validate priority range
+    if (body.priority !== undefined) {
+      if (!Number.isInteger(body.priority) || body.priority < 0 || body.priority > 100) {
+        return reply.code(400).send({ error: 'priority must be an integer between 0 and 100' });
+      }
+    }
+
     const pool = createPool();
     try {
-      if (identity.type === 'user') {
-        const access = await pool.query(
-          `SELECT role FROM namespace_grant WHERE email = $1 AND namespace = $2`,
-          [identity.email, params.ns],
-        );
-        if (access.rows.length === 0) {
-          return reply.code(403).send({ error: 'No access to namespace' });
-        }
-        const callerRole = access.rows[0].role as string;
-        if (callerRole !== 'owner' && callerRole !== 'admin') {
-          return reply.code(403).send({ error: 'Only owner or admin can manage grants' });
-        }
+      // Verify caller has admin/owner role (applies to both user and M2M tokens)
+      const roleError = await requireNamespaceAdmin(identity, params.ns, pool);
+      if (roleError) {
+        return reply.code(403).send({ error: roleError });
       }
 
       // Build dynamic update
@@ -1059,6 +1079,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         sets.push(`is_default = $${paramIdx++}`);
         values.push(body.is_default);
       }
+      // Issue #1535: priority update support
+      if (body.priority !== undefined) {
+        sets.push(`priority = $${paramIdx++}`);
+        values.push(body.priority);
+      }
 
       sets.push(`updated_at = now()`);
       values.push(params.id, params.ns);
@@ -1066,7 +1091,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const result = await pool.query(
         `UPDATE namespace_grant SET ${sets.join(', ')}
          WHERE id = $${paramIdx++} AND namespace = $${paramIdx}
-         RETURNING id::text, email, namespace, role, is_default, created_at, updated_at`,
+         RETURNING id::text, email, namespace, role, is_default, priority, created_at, updated_at`,
         values,
       );
 
@@ -1090,18 +1115,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { ns: string; id: string };
     const pool = createPool();
     try {
-      if (identity.type === 'user') {
-        const access = await pool.query(
-          `SELECT role FROM namespace_grant WHERE email = $1 AND namespace = $2`,
-          [identity.email, params.ns],
-        );
-        if (access.rows.length === 0) {
-          return reply.code(403).send({ error: 'No access to namespace' });
-        }
-        const callerRole = access.rows[0].role as string;
-        if (callerRole !== 'owner' && callerRole !== 'admin') {
-          return reply.code(403).send({ error: 'Only owner or admin can manage grants' });
-        }
+      // Verify caller has admin/owner role (applies to both user and M2M tokens)
+      const roleError = await requireNamespaceAdmin(identity, params.ns, pool);
+      if (roleError) {
+        return reply.code(403).send({ error: roleError });
       }
 
       const result = await pool.query(
