@@ -667,7 +667,7 @@ function applyKeywordBoost<T extends { similarity: number; content: string }>(re
  * namespace still outranks a low-relevance result from a high-priority namespace.
  * Issue #1535
  */
-function applyNamespacePriorityBoost<T extends { similarity: number; namespace?: string }>(
+export function applyNamespacePriorityBoost<T extends { similarity: number; namespace?: string }>(
   results: T[],
   priorities: Record<string, number>,
 ): T[] {
