@@ -191,6 +191,14 @@ export const RawPluginConfigSchema = z
         message: 'namespace must be lowercase alphanumeric with dots, hyphens, underscores; must start with letter or digit',
       }).transform((s: string) => ({ default: s } as NamespaceConfig)),
     ]).optional().describe('Namespace configuration for data scoping'),
+
+    /** How often to refresh namespace list from API in ms. 0 disables dynamic discovery. (Issue #1537) */
+    namespaceRefreshIntervalMs: z
+      .number()
+      .int()
+      .min(0, 'namespaceRefreshIntervalMs must be at least 0')
+      .default(300_000)
+      .describe('Namespace refresh interval in ms (0 to disable)'),
   })
   .strip(); // Remove unknown properties instead of rejecting with error
 
@@ -260,6 +268,9 @@ export const PluginConfigSchema = z.object({
 
   /** Namespace configuration for data scoping (Issue #1428) */
   namespace: NamespaceConfigSchema.optional(),
+
+  /** How often to refresh namespace list from API in ms. 0 disables dynamic discovery. (Issue #1537) */
+  namespaceRefreshIntervalMs: z.number().int().default(300_000),
 });
 
 export type PluginConfig = z.infer<typeof PluginConfigSchema>;
@@ -413,6 +424,7 @@ export async function resolveConfigSecrets(rawConfig: RawPluginConfig): Promise<
     nominatimUrl: rawConfig.nominatimUrl,
     promptGuardUrl: rawConfig.promptGuardUrl,
     namespace: rawConfig.namespace,
+    namespaceRefreshIntervalMs: rawConfig.namespaceRefreshIntervalMs,
   };
 
   // Validate the resolved config
@@ -464,6 +476,7 @@ export function resolveConfigSecretsSync(rawConfig: RawPluginConfig): PluginConf
     baseUrl: rawConfig.baseUrl,
     nominatimUrl: rawConfig.nominatimUrl,
     namespace: rawConfig.namespace,
+    namespaceRefreshIntervalMs: rawConfig.namespaceRefreshIntervalMs,
   };
 
   // Validate the resolved config

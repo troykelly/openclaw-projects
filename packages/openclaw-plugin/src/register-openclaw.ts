@@ -63,8 +63,12 @@ interface PluginState {
   logger: Logger;
   apiClient: ApiClient;
   user_id: string;
-  /** Resolved namespace config (Issue #1428) */
+  /** Resolved namespace config (Issue #1428). Mutable: recall may be updated by dynamic discovery (#1537). */
   resolvedNamespace: { default: string; recall: string[] };
+  /** Whether static recall config was explicitly set (Issue #1537) */
+  hasStaticRecall: boolean;
+  /** Timestamp of last namespace refresh (Issue #1537) */
+  lastNamespaceRefreshMs: number;
 }
 
 /**
@@ -1410,6 +1414,47 @@ const namespaceRevokeSchema: JSONSchema = {
 };
 
 /**
+ * Async namespace discovery — fetches accessible namespaces from the API
+ * and updates state.resolvedNamespace.recall in-place (Issue #1537).
+ * Exported for testing.
+ */
+export async function refreshNamespacesAsync(state: PluginState): Promise<void> {
+  // Stamp immediately to prevent concurrent refreshes
+  state.lastNamespaceRefreshMs = Date.now();
+
+  try {
+    const response = await state.apiClient.get<Array<{ namespace: string; priority?: number; role?: string }>>(
+      '/api/namespaces',
+      { user_id: state.user_id },
+    );
+
+    if (!response.success) {
+      state.logger.warn('Namespace discovery failed, keeping cached list', { error: response.error.message });
+      return;
+    }
+
+    const items = Array.isArray(response.data) ? response.data : [];
+    if (items.length === 0) {
+      state.logger.debug('Namespace discovery returned empty list, keeping cached');
+      return;
+    }
+
+    // Sort by priority descending, then alphabetically
+    const discovered = items
+      .sort((a, b) => (b.priority ?? 50) - (a.priority ?? 50) || a.namespace.localeCompare(b.namespace))
+      .map((ns) => ns.namespace);
+
+    // Update in-place so existing references see the change
+    state.resolvedNamespace.recall = discovered;
+    state.logger.info('Namespace list refreshed via dynamic discovery', { namespaces: discovered });
+  } catch (error) {
+    state.logger.warn('Namespace discovery error, keeping cached list', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+/**
  * Create tool execution handlers
  */
 function createToolHandlers(state: PluginState) {
@@ -1428,10 +1473,18 @@ function createToolHandlers(state: PluginState) {
   /**
    * Get the effective namespaces for a query/list operation.
    * Uses explicit tool param if provided, otherwise falls back to config recall list.
+   * Triggers async refresh if stale (Issue #1537).
    */
   function getRecallNamespaces(params: Record<string, unknown>): string[] {
     const ns = params.namespaces;
     if (Array.isArray(ns) && ns.length > 0) return ns as string[];
+
+    // Issue #1537: trigger background refresh if stale
+    const interval = config.namespaceRefreshIntervalMs ?? 300_000;
+    if (interval > 0 && !state.hasStaticRecall && Date.now() - state.lastNamespaceRefreshMs > interval) {
+      refreshNamespacesAsync(state);
+    }
+
     return resolvedNamespace.recall;
   }
 
@@ -3460,14 +3513,17 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
 
   // Resolve namespace config (Issue #1428)
   const resolvedNamespace = resolveNamespaceConfig(config.namespace, context.agent.agentId);
+  // Issue #1537: detect whether static recall was explicitly configured
+  const hasStaticRecall = Array.isArray(config.namespace?.recall) && config.namespace.recall.length > 0;
   logger.info('Namespace config resolved', {
     agentId: context.agent.agentId,
     defaultNamespace: resolvedNamespace.default,
     recallNamespaces: resolvedNamespace.recall,
+    hasStaticRecall,
   });
 
   // Store plugin state
-  const state: PluginState = { config, logger, apiClient, user_id, resolvedNamespace };
+  const state: PluginState = { config, logger, apiClient, user_id, resolvedNamespace, hasStaticRecall, lastNamespaceRefreshMs: 0 };
 
   // Create tool handlers
   const handlers = createToolHandlers(state);
@@ -4194,6 +4250,15 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     toolCount: tools.length,
     config: redactConfig(config),
   });
+
+  // Issue #1537: Fire-and-forget initial namespace discovery.
+  // Static recall config takes precedence — only discover dynamically if recall is not explicitly set.
+  const refreshInterval = config.namespaceRefreshIntervalMs ?? 300_000;
+  if (refreshInterval > 0 && !hasStaticRecall) {
+    refreshNamespacesAsync(state).catch((err) => {
+      logger.warn('Initial namespace discovery failed', { error: err instanceof Error ? err.message : String(err) });
+    });
+  }
 };
 
 /** Default export for OpenClaw 2026 API compatibility */

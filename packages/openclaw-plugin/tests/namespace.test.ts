@@ -8,7 +8,7 @@
  * - Tool handlers pass namespace to API calls
  */
 
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 import {
   validateConfig,
   safeValidateRawConfig,
@@ -208,6 +208,173 @@ describe('Namespace Configuration (Issue #1428)', () => {
       });
       expect(config.userScoping).toBeUndefined();
     });
+  });
+});
+
+describe('Dynamic namespace discovery (Issue #1537)', () => {
+  it('should accept namespaceRefreshIntervalMs in config', () => {
+    const result = safeValidateRawConfig({
+      apiUrl: 'https://example.com',
+      apiKey: 'test-key',
+      namespaceRefreshIntervalMs: 60000,
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.namespaceRefreshIntervalMs).toBe(60000);
+    }
+  });
+
+  it('should default namespaceRefreshIntervalMs to 300000', () => {
+    const result = safeValidateRawConfig({
+      apiUrl: 'https://example.com',
+      apiKey: 'test-key',
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.namespaceRefreshIntervalMs).toBe(300_000);
+    }
+  });
+
+  it('should accept namespaceRefreshIntervalMs: 0 to disable dynamic discovery', () => {
+    const result = safeValidateRawConfig({
+      apiUrl: 'https://example.com',
+      apiKey: 'test-key',
+      namespaceRefreshIntervalMs: 0,
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.namespaceRefreshIntervalMs).toBe(0);
+    }
+  });
+
+  it('should reject negative namespaceRefreshIntervalMs', () => {
+    const result = safeValidateRawConfig({
+      apiUrl: 'https://example.com',
+      apiKey: 'test-key',
+      namespaceRefreshIntervalMs: -1,
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('refreshNamespacesAsync (Issue #1537)', () => {
+  // Import the async refresh function
+  let refreshNamespacesAsync: (state: import('../src/register-openclaw.js').default extends never ? never : Parameters<typeof import('../src/register-openclaw.js').refreshNamespacesAsync>[0]) => Promise<void>;
+
+  beforeAll(async () => {
+    const mod = await import('../src/register-openclaw.js');
+    refreshNamespacesAsync = mod.refreshNamespacesAsync;
+  });
+
+  function createMockState(overrides: Partial<{
+    recallNamespaces: string[];
+    hasStaticRecall: boolean;
+    lastNamespaceRefreshMs: number;
+    fetchResponse: { success: boolean; data?: unknown; error?: { message: string } };
+  }> = {}) {
+    const mockLogger = {
+      namespace: 'test',
+      info: vi.fn(),
+      debug: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+    };
+
+    const mockApiClient = {
+      get: vi.fn().mockResolvedValue(overrides.fetchResponse ?? {
+        success: true,
+        data: [
+          { namespace: 'troy', priority: 90, role: 'owner' },
+          { namespace: 'default', priority: 10, role: 'member' },
+          { namespace: 'shared', priority: 50, role: 'member' },
+        ],
+      }),
+    };
+
+    return {
+      config: { namespaceRefreshIntervalMs: 300_000 } as any,
+      logger: mockLogger,
+      apiClient: mockApiClient as any,
+      user_id: 'test-agent',
+      resolvedNamespace: {
+        default: 'troy',
+        recall: overrides.recallNamespaces ?? ['troy'],
+      },
+      hasStaticRecall: overrides.hasStaticRecall ?? false,
+      lastNamespaceRefreshMs: overrides.lastNamespaceRefreshMs ?? 0,
+    };
+  }
+
+  it('should update recall namespaces from API response sorted by priority', async () => {
+    const state = createMockState();
+    await refreshNamespacesAsync(state);
+
+    // Sorted by priority desc: troy(90), shared(50), default(10)
+    expect(state.resolvedNamespace.recall).toEqual(['troy', 'shared', 'default']);
+  });
+
+  it('should stamp lastNamespaceRefreshMs', async () => {
+    const state = createMockState();
+    const before = Date.now();
+    await refreshNamespacesAsync(state);
+    expect(state.lastNamespaceRefreshMs).toBeGreaterThanOrEqual(before);
+  });
+
+  it('should keep cached list on API failure', async () => {
+    const state = createMockState({
+      recallNamespaces: ['original'],
+      fetchResponse: { success: false, error: { message: 'Server error' } },
+    });
+    await refreshNamespacesAsync(state);
+
+    expect(state.resolvedNamespace.recall).toEqual(['original']);
+    expect(state.logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining('failed'),
+      expect.any(Object),
+    );
+  });
+
+  it('should keep cached list when API returns empty', async () => {
+    const state = createMockState({
+      recallNamespaces: ['original'],
+      fetchResponse: { success: true, data: [] },
+    });
+    await refreshNamespacesAsync(state);
+
+    expect(state.resolvedNamespace.recall).toEqual(['original']);
+  });
+
+  it('should sort alphabetically when priorities are equal', async () => {
+    const state = createMockState({
+      fetchResponse: {
+        success: true,
+        data: [
+          { namespace: 'bravo', priority: 50 },
+          { namespace: 'alpha', priority: 50 },
+          { namespace: 'charlie', priority: 50 },
+        ],
+      },
+    });
+    await refreshNamespacesAsync(state);
+
+    expect(state.resolvedNamespace.recall).toEqual(['alpha', 'bravo', 'charlie']);
+  });
+
+  it('should use default priority 50 when priority is undefined', async () => {
+    const state = createMockState({
+      fetchResponse: {
+        success: true,
+        data: [
+          { namespace: 'high', priority: 90 },
+          { namespace: 'none' },
+          { namespace: 'low', priority: 10 },
+        ],
+      },
+    });
+    await refreshNamespacesAsync(state);
+
+    // high(90), none(50 default), low(10)
+    expect(state.resolvedNamespace.recall).toEqual(['high', 'none', 'low']);
   });
 });
 
