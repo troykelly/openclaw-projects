@@ -70,10 +70,9 @@ describe('containers.yml workflow', () => {
       expect(workflow.on.push?.branches).toContain('main');
     });
 
-    it('should trigger on semver tags (v*.*.*)', () => {
-      expect(workflow.on.push?.tags).toBeDefined();
-      const tags = workflow.on.push?.tags ?? [];
-      expect(tags.some((t) => t.includes('v'))).toBe(true);
+    it('should NOT trigger on tags (release.yml handles tag-triggered builds)', () => {
+      // Tag-triggered container builds moved to release.yml (#1538)
+      expect(workflow.on.push?.tags).toBeUndefined();
     });
 
     it('should trigger on pull requests', () => {
@@ -238,21 +237,18 @@ describe('containers.yml workflow', () => {
     });
 
     describe('tag strategy', () => {
-      it('should configure metadata-action with correct tag types', () => {
+      it('should configure metadata-action with edge and SHA tags only (semver handled by release.yml)', () => {
         const metadata = workflow.jobs.build.steps.find((s) => s.uses?.includes('docker/metadata-action'));
         const tags = String(metadata?.with?.tags ?? '');
 
         // Edge tag for main branch
         expect(tags).toContain('type=edge');
 
-        // Semver tags
-        expect(tags).toContain('type=semver');
-      });
-
-      it('should include SHA tag for traceability', () => {
-        const metadata = workflow.jobs.build.steps.find((s) => s.uses?.includes('docker/metadata-action'));
-        const tags = String(metadata?.with?.tags ?? '');
+        // SHA tag for traceability
         expect(tags).toContain('type=sha');
+
+        // Semver tags are NOT in containers.yml — they're in release.yml (#1538)
+        expect(tags).not.toContain('type=semver');
       });
     });
 
