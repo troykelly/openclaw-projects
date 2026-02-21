@@ -2,8 +2,8 @@
  * @vitest-environment jsdom
  */
 import * as React from 'react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, fireEvent, waitFor, within, cleanup } from '@testing-library/react';
 import { SettingsPage } from '@/ui/components/settings/settings-page';
 import type { UserSettings, EmbeddingSettings } from '@/ui/components/settings/types';
 
@@ -119,6 +119,19 @@ describe('SettingsPage', () => {
     vi.mocked(apiClient.patch).mockImplementation((_path: string, data: unknown) => {
       return Promise.resolve({ ...defaultSettings, ...(data as Record<string, unknown>) });
     });
+  });
+
+  afterEach(() => {
+    // Unmount React trees and clear pending timers before JSDOM teardown to
+    // prevent stray async state updates (e.g. save-confirmation setTimeout)
+    // from firing after the window global has been removed (Issue #1550).
+    cleanup();
+    // Clear any timers that were scheduled but not yet fired (e.g. the 2s
+    // save-confirmation timeout). Without this, a timer callback may fire
+    // after JSDOM has torn down the window global, causing
+    // "ReferenceError: window is not defined" in React's dispatchSetState.
+    vi.clearAllTimers();
+    vi.restoreAllMocks();
   });
 
   describe('Loading state', () => {
@@ -608,6 +621,11 @@ describe('useSettings hook behavior', () => {
     vi.mocked(apiClient.patch).mockImplementation((_path: string, data: unknown) => {
       return Promise.resolve({ ...defaultSettings, ...(data as Record<string, unknown>) });
     });
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
   });
 
   it('fetches settings on mount', async () => {

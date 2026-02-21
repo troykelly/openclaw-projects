@@ -628,9 +628,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.addHook('onRequest', async (req, reply) => {
     const url = req.url.split('?')[0]; // Remove query string
 
-    // Skip auth for public file share downloads (Issue #610)
+    // Skip auth for public share link downloads (Issue #610, #1549)
     // These URLs contain dynamic tokens, so we use prefix matching
-    if (url.startsWith('/api/files/shared/')) {
+    if (url.startsWith('/api/files/shared/') || url.startsWith('/api/shared/')) {
       return;
     }
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { apiClient, ApiRequestError } from '@/ui/lib/api-client';
 import type { UserSettings, SettingsUpdatePayload } from './types';
 
@@ -7,6 +7,7 @@ export type SettingsState = { kind: 'loading' } | { kind: 'error'; message: stri
 export function useSettings() {
   const [state, setState] = useState<SettingsState>({ kind: 'loading' });
   const [isSaving, setIsSaving] = useState(false);
+  const mountedRef = useRef(true);
 
   useEffect(() => {
     let alive = true;
@@ -30,6 +31,7 @@ export function useSettings() {
     fetchSettings();
     return () => {
       alive = false;
+      mountedRef.current = false;
     };
   }, []);
 
@@ -47,14 +49,16 @@ export function useSettings() {
 
       try {
         const data = await apiClient.patch<UserSettings>('/api/settings', updates);
+        if (!mountedRef.current) return true;
         setState({ kind: 'loaded', data });
         return true;
       } catch {
+        if (!mountedRef.current) return false;
         // Revert on error
         setState({ kind: 'loaded', data: previousData });
         return false;
       } finally {
-        setIsSaving(false);
+        if (mountedRef.current) setIsSaving(false);
       }
     },
     [state],
