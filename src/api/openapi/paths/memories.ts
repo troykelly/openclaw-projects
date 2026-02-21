@@ -366,6 +366,73 @@ export function memoriesPaths(): OpenApiDomainModule {
         },
       },
 
+      // -- Memory search (/api/memories/search) --------------------------------
+      '/api/memories/search': {
+        get: {
+          operationId: 'searchMemories',
+          summary: 'Semantic search across memories using embeddings',
+          description: 'Uses vector similarity search when embeddings are available, falls back to full-text search otherwise.',
+          tags: ['Memories'],
+          parameters: [
+            namespaceParam(),
+            {
+              name: 'q',
+              in: 'query',
+              required: true,
+              description: 'Natural language search query',
+              schema: { type: 'string' },
+              example: 'What does the user prefer for notifications?',
+            },
+            {
+              name: 'limit',
+              in: 'query',
+              description: 'Maximum number of results (max 50)',
+              schema: { type: 'integer', default: 10, maximum: 50 },
+              example: 10,
+            },
+            {
+              name: 'threshold',
+              in: 'query',
+              description: 'Minimum similarity threshold (0-1)',
+              schema: { type: 'number', default: 0.5, minimum: 0, maximum: 1 },
+              example: 0.5,
+            },
+            {
+              name: 'memory_type',
+              in: 'query',
+              description: 'Filter by memory type',
+              schema: { type: 'string', enum: ['preference', 'fact', 'note', 'decision', 'context', 'reference'] },
+              example: 'preference',
+            },
+          ],
+          responses: {
+            '200': jsonResponse('Search results', {
+              type: 'object',
+              required: ['memories'],
+              properties: {
+                memories: {
+                  type: 'array',
+                  description: 'Memories matching the search query, ordered by relevance',
+                  items: {
+                    allOf: [
+                      ref('Memory'),
+                      {
+                        type: 'object',
+                        properties: {
+                          similarity: { type: 'number', description: 'Cosine similarity score (0-1)', example: 0.89 },
+                        },
+                      },
+                    ],
+                  },
+                },
+                search_type: { type: 'string', enum: ['semantic', 'fulltext'], description: 'Which search method was used', example: 'semantic' },
+              },
+            }),
+            ...errorResponses(400, 401, 500),
+          },
+        },
+      },
+
       // -- Unified Memory API (/api/memories) -----------------------------------
       '/api/memories/global': {
         get: {

@@ -45,6 +45,7 @@ import { homeAutomationPaths } from './paths/home-automation.ts';
 import { ingestPaths } from './paths/ingest.ts';
 import { entityLinksPaths } from './paths/entity-links.ts';
 import { activityPaths } from './paths/activity.ts';
+import { namespaceMovesPaths } from './paths/namespace-moves.ts';
 
 /** Derive the API server URL from PUBLIC_BASE_URL */
 function deriveApiUrl(publicBaseUrl: string): string {
@@ -106,6 +107,7 @@ function allDomainModules(): OpenApiDomainModule[] {
     ingestPaths(),
     entityLinksPaths(),
     activityPaths(),
+    namespaceMovesPaths(),
   ];
 }
 

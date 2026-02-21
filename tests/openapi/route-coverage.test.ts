@@ -21,9 +21,25 @@ describe('OpenAPI Route Coverage', () => {
     await app.close();
   });
 
-  /** Normalise Fastify route param syntax (:id) to OpenAPI ({id}) */
+  /**
+   * Normalise Fastify route param syntax (:id) to OpenAPI ({id}).
+   * Also strips merged parameter alternatives (:id|:work_item_id → {id}).
+   * Fastify's radix tree merges parametric nodes that share the same
+   * position but use different names, showing them separated by `|`.
+   */
   function normaliseRoute(route: string): string {
-    return route.replace(/:([a-zA-Z_]+)/g, '{$1}');
+    return route
+      .replace(/:([a-zA-Z_]+)/g, '{$1}')
+      .replace(/\|\{[^}]+\}/g, '');
+  }
+
+  /**
+   * Normalise parameter names for comparison.
+   * Replaces all `{param_name}` with `{_}` so that
+   * `/api/work-items/{id}` matches `/api/work-items/{work_item_id}`.
+   */
+  function normaliseForComparison(route: string): string {
+    return route.replace(/\{[^}]+\}/g, '{_}');
   }
 
   /** Known routes that are intentionally undocumented (internal, debug, or static) */
@@ -38,6 +54,9 @@ describe('OpenAPI Route Coverage', () => {
     /^\/manifest/, // PWA manifest
     /^\/sw\.js/, // Service worker
     /\*$/, // Wildcard routes
+    /^\/api\/twilio\//, // Twilio webhook callbacks (external integration)
+    /^\/api\/postmark\//, // Postmark webhook callbacks (external integration)
+    /^\/api\/cloudflare\//, // Cloudflare email webhook (external integration)
   ];
 
   it('GET /api/openapi.json returns the spec from assembleSpec()', async () => {
@@ -119,25 +138,25 @@ describe('OpenAPI Route Coverage', () => {
       }
     }
 
-    // Get spec paths
+    // Get spec paths (normalised for parameter-name-independent comparison)
     const spec = assembleSpec() as {
       paths: Record<string, Record<string, unknown>>;
     };
-    const specRoutes = new Set<string>();
+    const specRoutesNormalised = new Set<string>();
     for (const [path, methods] of Object.entries(spec.paths)) {
       for (const method of Object.keys(methods)) {
         if (['get', 'post', 'put', 'patch', 'delete'].includes(method)) {
-          specRoutes.add(`${method}:${path}`);
+          specRoutesNormalised.add(normaliseForComparison(`${method}:${path}`));
         }
       }
     }
 
-    // Find undocumented routes
+    // Find undocumented routes (compare using normalised parameter names)
     const undocumented: string[] = [];
     for (const route of apiRoutes) {
       const path = route.split(':').slice(1).join(':');
       const isExcluded = excludedPatterns.some((pat) => pat.test(path));
-      if (!isExcluded && !specRoutes.has(route)) {
+      if (!isExcluded && !specRoutesNormalised.has(normaliseForComparison(route))) {
         undocumented.push(route);
       }
     }

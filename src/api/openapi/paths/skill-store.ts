@@ -1337,6 +1337,84 @@ export function skillStorePaths(): OpenApiDomainModule {
         },
       },
 
+      // ── Search ──────────────────────────────────────────────────────────
+      '/api/skill-store/search': {
+        post: {
+          operationId: 'searchSkillStoreItems',
+          summary: 'Full-text search across skill store items',
+          tags: ['Skill Store Items'],
+          parameters: [namespaceParam()],
+          requestBody: jsonBody({
+            type: 'object',
+            required: ['query'],
+            properties: {
+              query: { type: 'string', description: 'Full-text search query', example: 'weather forecast Sydney' },
+              skill_id: { type: 'string', description: 'Restrict search to a specific skill', example: 'weather-forecast' },
+              collection: { type: 'string', description: 'Restrict search to a specific collection', example: 'daily-reports' },
+              limit: { type: 'integer', default: 20, minimum: 1, maximum: 100, description: 'Maximum results', example: 20 },
+              offset: { type: 'integer', default: 0, minimum: 0, description: 'Pagination offset', example: 0 },
+            },
+          }),
+          responses: {
+            '200': jsonResponse('Search results', {
+              type: 'object',
+              required: ['items', 'total'],
+              properties: {
+                items: { type: 'array', items: ref('SkillStoreItem'), description: 'Items matching the search query' },
+                total: { type: 'integer', description: 'Total number of matching items', example: 15 },
+              },
+            }),
+            ...errorResponses(400, 401, 500),
+          },
+        },
+      },
+
+      '/api/skill-store/search/semantic': {
+        post: {
+          operationId: 'semanticSearchSkillStoreItems',
+          summary: 'Semantic (vector) search across skill store items with full-text fallback',
+          tags: ['Skill Store Items'],
+          parameters: [namespaceParam()],
+          requestBody: jsonBody({
+            type: 'object',
+            required: ['query'],
+            properties: {
+              query: { type: 'string', description: 'Natural language query for semantic search', example: 'What was the temperature in Sydney last week?' },
+              skill_id: { type: 'string', description: 'Restrict search to a specific skill', example: 'weather-forecast' },
+              collection: { type: 'string', description: 'Restrict search to a specific collection', example: 'daily-reports' },
+              limit: { type: 'integer', default: 10, minimum: 1, maximum: 50, description: 'Maximum results', example: 10 },
+              threshold: { type: 'number', default: 0.5, minimum: 0, maximum: 1, description: 'Minimum similarity threshold', example: 0.5 },
+            },
+          }),
+          responses: {
+            '200': jsonResponse('Semantic search results', {
+              type: 'object',
+              required: ['items', 'search_type'],
+              properties: {
+                items: {
+                  type: 'array',
+                  description: 'Items matching the semantic query, ordered by relevance',
+                  items: {
+                    allOf: [
+                      ref('SkillStoreItem'),
+                      {
+                        type: 'object',
+                        properties: {
+                          similarity: { type: 'number', description: 'Cosine similarity score (0-1)', example: 0.87 },
+                        },
+                      },
+                    ],
+                  },
+                },
+                search_type: { type: 'string', enum: ['semantic', 'fulltext'], description: 'Which search method was used (falls back to fulltext if embeddings unavailable)', example: 'semantic' },
+                total: { type: 'integer', description: 'Total number of matching items', example: 8 },
+              },
+            }),
+            ...errorResponses(400, 401, 500),
+          },
+        },
+      },
+
       // ── Admin — Skill Store Embeddings ──────────────────────────────────
       '/api/admin/skill-store/embeddings/status': {
         get: {
