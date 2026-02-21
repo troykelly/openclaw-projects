@@ -800,8 +800,19 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         );
         return result.rows;
       } else {
-        // M2M: return only namespaces with explicit grants for this identity.
-        // Returns empty list if no grants exist — no fallback to all namespaces.
+        // M2M with api:full scope: return ALL namespaces across all grants.
+        // M2M tokens (e.g., openclaw-gateway) have no personal grants but need
+        // visibility into all namespaces for agent orchestration (#1561).
+        const hasFullScope = identity.scopes?.includes('api:full') ?? false;
+        if (hasFullScope) {
+          const result = await pool.query(
+            `SELECT DISTINCT ng.namespace, ng.role, ng.is_default, ng.priority, ng.created_at
+             FROM namespace_grant ng
+             ORDER BY ng.priority DESC, ng.namespace`,
+          );
+          return result.rows;
+        }
+        // M2M without api:full: return only explicitly granted namespaces
         const result = await pool.query(
           `SELECT DISTINCT ng.namespace, ng.role, ng.is_default, ng.priority, ng.created_at
            FROM namespace_grant ng
@@ -845,13 +856,25 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         return reply.code(409).send({ error: `namespace '${name}' already exists` });
       }
 
-      // If user token, create grant for the user as owner
+      // Create owner grant for the namespace creator
       if (identity.type === 'user') {
         await pool.query(
           `INSERT INTO namespace_grant (email, namespace, role, is_default)
            VALUES ($1, $2, 'owner', false)`,
           [identity.email, name],
         );
+      } else {
+        // M2M: create owner grant for the agent identity from X-Agent-Id header (#1562)
+        const agentId = req.headers['x-agent-id'] as string | undefined;
+        if (agentId) {
+          await pool.query(
+            `INSERT INTO namespace_grant (email, namespace, role, is_default)
+             VALUES ($1, $2, 'owner', false)`,
+            [agentId, name],
+          );
+        } else {
+          req.log.warn('M2M namespace_create without X-Agent-Id header — no owner grant created');
+        }
       }
 
       return reply.code(201).send({ namespace: name, created: true });
