@@ -16,6 +16,7 @@ export function uuidParam(name = 'id', description = 'Resource UUID'): Parameter
     required: true,
     description,
     schema: { type: 'string', format: 'uuid' },
+    example: 'd290f1ee-6c54-4b01-90e6-d701748f0851',
   };
 }
 
@@ -27,12 +28,14 @@ export function paginationParams(): ParameterObject[] {
       in: 'query',
       description: 'Maximum number of results to return',
       schema: { type: 'integer', default: 50, minimum: 1, maximum: 500 },
+      example: 50,
     },
     {
       name: 'offset',
       in: 'query',
       description: 'Number of results to skip',
       schema: { type: 'integer', default: 0, minimum: 0 },
+      example: 0,
     },
   ];
 }
@@ -42,8 +45,10 @@ export function namespaceParam(): ParameterObject {
   return {
     name: 'X-Namespace',
     in: 'header',
-    description: 'Target namespace for the request',
+    description:
+      'Target namespace for the request. Determines which namespace context the operation runs in. If omitted, the default namespace for the authenticated user is used.',
     schema: { type: 'string' },
+    example: 'my-workspace',
   };
 }
 
@@ -119,5 +124,6 @@ export function searchParam(description = 'Full-text search query'): ParameterOb
     in: 'query',
     description,
     schema: { type: 'string' },
+    example: 'authentication',
   };
 }

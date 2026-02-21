@@ -5,7 +5,46 @@ import type { OpenApiDomainModule, SchemaObject } from './types.ts';
 import { commonSchemas } from './schemas/common.ts';
 
 // ---- Path module imports (added as modules are created) ----
-// import { healthPaths } from './paths/health.ts';
+import { healthPaths } from './paths/health.ts';
+import { authPaths } from './paths/auth.ts';
+import { namespacesPaths } from './paths/namespaces.ts';
+import { usersPaths } from './paths/users.ts';
+import { bootstrapPaths } from './paths/bootstrap.ts';
+import { realtimePaths } from './paths/realtime.ts';
+import { threadsPaths } from './paths/threads.ts';
+import { workItemsPaths } from './paths/work-items.ts';
+import { bulkOperationsPaths } from './paths/bulk-operations.ts';
+import { backlogInboxPaths } from './paths/backlog-inbox.ts';
+import { recurrencePaths } from './paths/recurrence.ts';
+import { auditTimelinePaths } from './paths/audit-timeline.ts';
+import { dependenciesLinksPaths } from './paths/dependencies-links.ts';
+import { filesPaths } from './paths/files.ts';
+import { contactsPaths } from './paths/contacts.ts';
+import { memoriesPaths } from './paths/memories.ts';
+import { notesPaths } from './paths/notes.ts';
+import { notebooksPaths } from './paths/notebooks.ts';
+import { relationshipsPaths } from './paths/relationships.ts';
+import { skillStorePaths } from './paths/skill-store.ts';
+// Communications & Miscellaneous domain modules
+import { webhooksNotificationsPaths } from './paths/webhooks-notifications.ts';
+import { analyticsPaths } from './paths/analytics.ts';
+import { oauthDriveSyncPaths } from './paths/oauth-drive-sync.ts';
+import { emailPaths } from './paths/email.ts';
+import { calendarPaths } from './paths/calendar.ts';
+import { geolocationPaths } from './paths/geolocation.ts';
+import { contextsPaths } from './paths/contexts.ts';
+import { identityPaths } from './paths/identity.ts';
+import { listsPaths } from './paths/lists.ts';
+import { pantryPaths } from './paths/pantry.ts';
+import { devSessionsPaths } from './paths/dev-sessions.ts';
+import { recipesMealsPaths } from './paths/recipes-meals.ts';
+import { promptTemplatesPaths } from './paths/prompt-templates.ts';
+import { inboundChannelsPaths } from './paths/inbound-channels.ts';
+import { voicePaths } from './paths/voice.ts';
+import { homeAutomationPaths } from './paths/home-automation.ts';
+import { ingestPaths } from './paths/ingest.ts';
+import { entityLinksPaths } from './paths/entity-links.ts';
+import { activityPaths } from './paths/activity.ts';
 
 /** Derive the API server URL from PUBLIC_BASE_URL */
 function deriveApiUrl(publicBaseUrl: string): string {
@@ -24,7 +63,49 @@ function deriveApiUrl(publicBaseUrl: string): string {
 /** All domain modules — order determines tag ordering in the spec */
 function allDomainModules(): OpenApiDomainModule[] {
   return [
-    // Modules will be added here as they are created by the agent team
+    // Core Infrastructure — health, auth, namespaces, users, bootstrap, realtime, threads
+    healthPaths(),
+    authPaths(),
+    namespacesPaths(),
+    usersPaths(),
+    bootstrapPaths(),
+    realtimePaths(),
+    threadsPaths(),
+    // Work Items & Operations
+    workItemsPaths(),
+    bulkOperationsPaths(),
+    backlogInboxPaths(),
+    recurrencePaths(),
+    auditTimelinePaths(),
+    dependenciesLinksPaths(),
+    filesPaths(),
+    // Memory, Contacts & Content
+    contactsPaths(),
+    memoriesPaths(),
+    notesPaths(),
+    notebooksPaths(),
+    relationshipsPaths(),
+    skillStorePaths(),
+    // Communications & Miscellaneous
+    webhooksNotificationsPaths(),
+    analyticsPaths(),
+    oauthDriveSyncPaths(),
+    emailPaths(),
+    calendarPaths(),
+    geolocationPaths(),
+    contextsPaths(),
+    identityPaths(),
+    listsPaths(),
+    pantryPaths(),
+    devSessionsPaths(),
+    recipesMealsPaths(),
+    promptTemplatesPaths(),
+    inboundChannelsPaths(),
+    voicePaths(),
+    homeAutomationPaths(),
+    ingestPaths(),
+    entityLinksPaths(),
+    activityPaths(),
   ];
 }
 
