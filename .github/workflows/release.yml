@@ -144,6 +144,15 @@ jobs:
           # Update lockfile to reflect new versions
           pnpm install --lockfile-only
 
+      - name: Update test snapshots for new version
+        run: |
+          set -euo pipefail
+          # Install dependencies so we can build and run snapshot tests.
+          # The lockfile was just updated by the bump step above.
+          pnpm install --frozen-lockfile
+          pnpm --filter @troykelly/openclaw-projects run build
+          pnpm exec vitest run packages/openclaw-plugin/tests/schema-snapshots.test.ts -u
+
       - name: Commit version bump to main
         env:
           RELEASE_VERSION: ${{ steps.version.outputs.version }}
@@ -165,6 +174,7 @@ jobs:
             package.json \
             packages/openclaw-plugin/package.json \
             packages/openclaw-plugin/openclaw.plugin.json \
+            packages/openclaw-plugin/tests/__snapshots__/schema-snapshots.test.ts.snap \
             pnpm-lock.yaml
 
           git commit -m "chore(release): v${FILE_VERSION} [skip ci]"
@@ -183,6 +193,7 @@ jobs:
             package.json
             packages/openclaw-plugin/package.json
             packages/openclaw-plugin/openclaw.plugin.json
+            packages/openclaw-plugin/tests/__snapshots__/schema-snapshots.test.ts.snap
             pnpm-lock.yaml
           if-no-files-found: error
           retention-days: 3
