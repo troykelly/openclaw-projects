@@ -1432,8 +1432,7 @@ export async function refreshNamespacesAsync(state: PluginState): Promise<void> 
 
     if (!response.success) {
       state.logger.warn('Namespace discovery failed, keeping cached list', { error: response.error.message });
-      // Allow retry after 30s, not the full interval
-      state.lastNamespaceRefreshMs = Date.now() - Math.max(0, (state.config.namespaceRefreshIntervalMs ?? 300_000) - 30_000);
+      // Do NOT update timestamp on failure — let the next check retry sooner
       return;
     }
 
@@ -1459,8 +1458,7 @@ export async function refreshNamespacesAsync(state: PluginState): Promise<void> 
     state.logger.warn('Namespace discovery error, keeping cached list', {
       error: error instanceof Error ? error.message : String(error),
     });
-    // Allow retry after 30s, not the full interval
-    state.lastNamespaceRefreshMs = Date.now() - Math.max(0, (state.config.namespaceRefreshIntervalMs ?? 300_000) - 30_000);
+    // Do NOT update timestamp on failure — let the next check retry sooner
   } finally {
     state.refreshInFlight = false;
   }

@@ -334,19 +334,16 @@ describe('refreshNamespacesAsync (Issue #1537)', () => {
     );
   });
 
-  it('should allow retry sooner after failure (not full interval)', async () => {
+  it('should NOT update timestamp on failure (allows immediate retry)', async () => {
     const state = createMockState({
       recallNamespaces: ['original'],
       fetchResponse: { success: false, error: { message: 'Server error' } },
     });
-    const beforeRefresh = Date.now();
+    const originalTimestamp = state.lastNamespaceRefreshMs;
     await refreshNamespacesAsync(state);
 
-    // On failure, timestamp should be set to allow retry after ~30s, not the full 5 min
-    const interval = state.config.namespaceRefreshIntervalMs;
-    const expectedEarlyStamp = beforeRefresh - (interval - 30_000);
-    expect(state.lastNamespaceRefreshMs).toBeLessThanOrEqual(beforeRefresh);
-    expect(state.lastNamespaceRefreshMs).toBeGreaterThan(expectedEarlyStamp - 2000);
+    // On failure, timestamp must remain unchanged so the next check triggers a retry
+    expect(state.lastNamespaceRefreshMs).toBe(originalTimestamp);
   });
 
   it('should keep cached list when API returns empty', async () => {
