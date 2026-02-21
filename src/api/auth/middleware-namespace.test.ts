@@ -158,6 +158,48 @@ describe('extractRequestedNamespaces validation (Issue #1533 review)', () => {
     const req = mockReq({ body: { namespaces: ['valid', 'INVALID', '', 'also-valid'] } });
     expect(extractRequestedNamespaces(req)).toEqual(['valid', 'also-valid']);
   });
+
+  it('should reject namespace names containing unicode characters', async () => {
+    const { extractRequestedNamespaces } = await import('./middleware.ts');
+    const req = mockReq({ query: { namespaces: 'valid,ns\u00e9bad,ns\u2603,\u4f60\u597d' } });
+    expect(extractRequestedNamespaces(req)).toEqual(['valid']);
+  });
+
+  it('should reject SQL injection attempts in namespace names', async () => {
+    const { extractRequestedNamespaces } = await import('./middleware.ts');
+    const req = mockReq({
+      query: { namespaces: "valid,'; DROP TABLE namespace_grant;--,ns' OR '1'='1" },
+    });
+    expect(extractRequestedNamespaces(req)).toEqual(['valid']);
+  });
+
+  it('should reject namespace names with path traversal attempts', async () => {
+    const { extractRequestedNamespaces } = await import('./middleware.ts');
+    const req = mockReq({ query: { namespaces: 'valid,../etc/passwd,ns/../../root' } });
+    expect(extractRequestedNamespaces(req)).toEqual(['valid']);
+  });
+
+  it('should reject namespace names with control characters', async () => {
+    const { extractRequestedNamespaces } = await import('./middleware.ts');
+    const req = mockReq({ query: { namespaces: 'valid,ns\x00bad,ns\ttab,ns\nnewline' } });
+    expect(extractRequestedNamespaces(req)).toEqual(['valid']);
+  });
+
+  it('should accept exactly 63-character namespace name and reject 64', async () => {
+    const { extractRequestedNamespaces } = await import('./middleware.ts');
+    const exactly63 = 'a'.repeat(63);
+    const exactly64 = 'a'.repeat(64);
+    const req = mockReq({ query: { namespaces: `${exactly63},${exactly64}` } });
+    expect(extractRequestedNamespaces(req)).toEqual([exactly63]);
+  });
+
+  it('should reject namespace names that are only dots or hyphens', async () => {
+    const { extractRequestedNamespaces } = await import('./middleware.ts');
+    const req = mockReq({ query: { namespaces: 'valid,.,..,.--' } });
+    // . and .. start with dot which doesn't match [a-z0-9] at start
+    // .-- starts with dot
+    expect(extractRequestedNamespaces(req)).toEqual(['valid']);
+  });
 });
 
 describe('extractRequestedNamespaces malformed input (Issue #1533)', () => {

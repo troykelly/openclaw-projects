@@ -74,11 +74,17 @@ describe('Namespace & User Provisioning API', () => {
         expect(body[1].namespace).toBe('test-ns-two');
       });
 
-      it('returns all namespaces for M2M token', async () => {
-        // Setup: create some grants
+      it('returns only granted namespaces for M2M token', async () => {
+        // Setup: create a grant for the M2M identity (test-service)
+        // and a separate grant for a user — M2M should NOT see the user's namespace
+        await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, ['test-service']);
         await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, [TEST_EMAIL]);
         await pool.query(
-          `INSERT INTO namespace_grant (email, namespace, role) VALUES ($1, 'test-ns-m2m', 'owner')`,
+          `INSERT INTO namespace_grant (email, namespace, role) VALUES ($1, 'test-ns-m2m-granted', 'owner')`,
+          ['test-service'],
+        );
+        await pool.query(
+          `INSERT INTO namespace_grant (email, namespace, role) VALUES ($1, 'test-ns-user-only', 'owner')`,
           [TEST_EMAIL],
         );
 
@@ -88,9 +94,21 @@ describe('Namespace & User Provisioning API', () => {
 
         const body = res.json();
         expect(Array.isArray(body)).toBe(true);
-        // Should have at least one namespace
         const nsNames = body.map((r: { namespace: string }) => r.namespace);
-        expect(nsNames).toContain('test-ns-m2m');
+        // Should see its own grant
+        expect(nsNames).toContain('test-ns-m2m-granted');
+        // Should NOT see the user-only namespace
+        expect(nsNames).not.toContain('test-ns-user-only');
+      });
+
+      it('returns empty list for M2M token with no grants', async () => {
+        const headers = await getM2MHeaders();
+        const res = await app.inject({ method: 'GET', url: '/api/namespaces', headers });
+        expect(res.statusCode).toBe(200);
+
+        const body = res.json();
+        expect(Array.isArray(body)).toBe(true);
+        expect(body).toHaveLength(0);
       });
     });
 

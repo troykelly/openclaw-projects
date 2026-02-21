@@ -67,8 +67,10 @@ interface PluginState {
   resolvedNamespace: { default: string; recall: string[] };
   /** Whether static recall config was explicitly set (Issue #1537) */
   hasStaticRecall: boolean;
-  /** Timestamp of last namespace refresh (Issue #1537) */
+  /** Timestamp of last successful namespace refresh (Issue #1537) */
   lastNamespaceRefreshMs: number;
+  /** Guard against concurrent refresh calls (Issue #1537) */
+  refreshInFlight: boolean;
 }
 
 /**
@@ -1419,10 +1421,8 @@ const namespaceRevokeSchema: JSONSchema = {
  * Exported for testing.
  */
 export async function refreshNamespacesAsync(state: PluginState): Promise<void> {
-  // Stamp immediately to prevent concurrent refresh attempts.
-  // On failure, reset to allow retry after a short backoff (30s) instead of the full interval.
-  const previousStamp = state.lastNamespaceRefreshMs;
-  state.lastNamespaceRefreshMs = Date.now();
+  if (state.refreshInFlight) return;
+  state.refreshInFlight = true;
 
   try {
     const response = await state.apiClient.get<Array<{ namespace: string; priority?: number; role?: string }>>(
@@ -1432,7 +1432,7 @@ export async function refreshNamespacesAsync(state: PluginState): Promise<void> 
 
     if (!response.success) {
       state.logger.warn('Namespace discovery failed, keeping cached list', { error: response.error.message });
-      // Allow retry sooner: reset to 30s before now instead of full interval
+      // Allow retry after 30s, not the full interval
       state.lastNamespaceRefreshMs = Date.now() - Math.max(0, (state.config.namespaceRefreshIntervalMs ?? 300_000) - 30_000);
       return;
     }
@@ -1440,7 +1440,8 @@ export async function refreshNamespacesAsync(state: PluginState): Promise<void> 
     const items = Array.isArray(response.data) ? response.data : [];
     if (items.length === 0) {
       state.logger.debug('Namespace discovery returned empty list, keeping cached');
-      // Successful call, stamp stands
+      // Successful call — stamp to prevent immediate re-fetch
+      state.lastNamespaceRefreshMs = Date.now();
       return;
     }
 
@@ -1451,15 +1452,17 @@ export async function refreshNamespacesAsync(state: PluginState): Promise<void> 
 
     // Update in-place so existing references see the change
     state.resolvedNamespace.recall = discovered;
-    // Stamp on success
+    // Stamp only after successful fetch
     state.lastNamespaceRefreshMs = Date.now();
     state.logger.info('Namespace list refreshed via dynamic discovery', { namespaces: discovered });
   } catch (error) {
     state.logger.warn('Namespace discovery error, keeping cached list', {
       error: error instanceof Error ? error.message : String(error),
     });
-    // Allow retry sooner on exception
+    // Allow retry after 30s, not the full interval
     state.lastNamespaceRefreshMs = Date.now() - Math.max(0, (state.config.namespaceRefreshIntervalMs ?? 300_000) - 30_000);
+  } finally {
+    state.refreshInFlight = false;
   }
 }
 
@@ -3532,7 +3535,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
   });
 
   // Store plugin state
-  const state: PluginState = { config, logger, apiClient, user_id, resolvedNamespace, hasStaticRecall, lastNamespaceRefreshMs: 0 };
+  const state: PluginState = { config, logger, apiClient, user_id, resolvedNamespace, hasStaticRecall, lastNamespaceRefreshMs: 0, refreshInFlight: false };
 
   // Create tool handlers
   const handlers = createToolHandlers(state);

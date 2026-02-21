@@ -800,25 +800,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         );
         return result.rows;
       } else {
-        // M2M: return namespaces that have grants for this M2M identity.
-        // Falls back to all namespaces only if the M2M has no grants at all
-        // (backward compat for unconfigured agents).
-        const agentGrants = await pool.query(
+        // M2M: return only namespaces with explicit grants for this identity.
+        // Returns empty list if no grants exist — no fallback to all namespaces.
+        const result = await pool.query(
           `SELECT DISTINCT ng.namespace, ng.role, ng.is_default, ng.priority, ng.created_at
            FROM namespace_grant ng
            WHERE ng.email = $1
            ORDER BY ng.priority DESC, ng.namespace`,
           [identity.email],
-        );
-        if (agentGrants.rows.length > 0) {
-          return agentGrants.rows;
-        }
-        // Fallback: no grants for this M2M — return all namespaces with grant counts
-        const result = await pool.query(
-          `SELECT DISTINCT namespace, COUNT(*)::int as grant_count
-           FROM namespace_grant
-           GROUP BY namespace
-           ORDER BY namespace`,
         );
         return result.rows;
       }
