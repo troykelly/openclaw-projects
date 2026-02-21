@@ -158,6 +158,18 @@ jobs:
           git remote set-url origin "https://x-access-token:${REPO_PAT}@github.com/${{ github.repository }}.git"
           git push origin main
 
+      - name: Upload bumped version files
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: version-bumped-files
+          path: |
+            package.json
+            packages/openclaw-plugin/package.json
+            packages/openclaw-plugin/openclaw.plugin.json
+            pnpm-lock.yaml
+          if-no-files-found: error
+          retention-days: 3
+
       - name: Determine release type
         id: release-type
         env:
@@ -299,6 +311,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
+      - name: Download bumped version files
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: version-bumped-files
+
       - name: Setup Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
@@ -366,6 +383,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
+      - name: Download bumped version files
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: version-bumped-files
+
       - name: Setup Node.js for GitHub Packages
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
@@ -384,7 +406,24 @@ jobs:
         run: pnpm run build
         working-directory: packages/openclaw-plugin
 
+      - name: Check if version already published
+        id: check-ghp
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PUBLISH_VERSION: ${{ needs.validate.outputs.version }}
+        run: |
+          set -euo pipefail
+          # Strip build metadata
+          CHECK_VERSION="${PUBLISH_VERSION%%+*}"
+          if npm view "@troykelly/openclaw-projects@${CHECK_VERSION}" version 2>/dev/null; then
+            echo "exists=true" >> "${GITHUB_OUTPUT}"
+            echo "::warning::Version ${CHECK_VERSION} already exists on GitHub Packages, skipping publish"
+          else
+            echo "exists=false" >> "${GITHUB_OUTPUT}"
+          fi
+
       - name: Publish to GitHub Packages
+        if: steps.check-ghp.outputs.exists != 'true'
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_DIST_TAG: ${{ needs.validate.outputs.npm_tag }}
