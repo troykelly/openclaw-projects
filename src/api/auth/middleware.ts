@@ -218,7 +218,10 @@ export async function resolveNamespaces(
     // Without this guard, every test request gets namespace filtering
     // which breaks test isolation (all test data has namespace='default').
     if (!requested) return null;
-    return { storeNamespace: requested, queryNamespaces: [requested], isM2M: false, roles: {} };
+    // Auth-disabled mode bypasses all role enforcement. Set isM2M=true so
+    // that requireMinRole always skips checks — there are no grants to
+    // validate against and no reason to block operations in dev/test.
+    return { storeNamespace: requested, queryNamespaces: [requested], isM2M: true, roles: {} };
   }
 
   const identity = await getAuthIdentity(req);
