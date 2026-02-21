@@ -108,12 +108,19 @@ describe('release.yml workflow', () => {
       expect(checkout?.with?.ref).toBe('main');
     });
 
-    it('should use REPO_PAT for checkout to bypass branch protection on push', () => {
+    it('should not persist checkout credentials (minimize PAT exposure)', () => {
       const checkout = workflow.jobs.validate.steps.find((s) =>
         s.uses?.includes('actions/checkout')
       );
-      const token = String(checkout?.with?.token ?? '');
-      expect(token).toContain('REPO_PAT');
+      expect(checkout?.with?.['persist-credentials']).toBe(false);
+    });
+
+    it('should use REPO_PAT in commit step to bypass branch protection on push', () => {
+      const step = workflow.jobs.validate.steps.find((s) =>
+        s.name?.toLowerCase().includes('commit version bump')
+      );
+      const env = step?.env ?? {};
+      expect(JSON.stringify(env)).toContain('REPO_PAT');
     });
 
     it('should extract version from tag', () => {

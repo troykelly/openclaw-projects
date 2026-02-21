@@ -53,7 +53,7 @@ jobs:
         with:
           fetch-depth: 0
           ref: main
-          token: ${{ secrets.REPO_PAT }}
+          persist-credentials: false
 
       - name: Setup Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -72,20 +72,21 @@ jobs:
           TAG="${GIT_TAG_REF#refs/tags/v}"
           echo "Extracted version: ${TAG}"
 
-          # Use Node.js semver package for canonical SemVer 2.0.0 validation.
-          # TAG is passed via env var (not shell interpolation) to prevent injection.
+          # Validate semver using Node.js built-in URL-safe check + regex.
+          # Avoids runtime npm install of semver package in a privileged job
+          # (supply-chain risk: REPO_PAT is in scope during this step).
+          # Regex implements SemVer 2.0.0 spec: no leading zeroes on numeric
+          # segments, valid prerelease/build identifiers.
           export SEMVER_CHECK_TAG="${TAG}"
-          npm install --no-save semver@latest > /dev/null 2>&1
           node -e '
-            const semver = require("semver");
             const tag = process.env.SEMVER_CHECK_TAG;
-            const v = semver.valid(tag);
-            if (!v) {
+            const re = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$/;
+            if (!re.test(tag)) {
               console.error("::error::Tag must be valid semver: v" + tag);
               console.error("::error::See https://semver.org/ for valid format");
               process.exit(1);
             }
-            console.log("Valid semver: " + v);
+            console.log("Valid semver: " + tag);
           '
 
           echo "version=${TAG}" >> "${GITHUB_OUTPUT}"
@@ -93,11 +94,12 @@ jobs:
 
       - name: Bump version in all package files
         env:
-          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+          FILE_VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
           # Strip build metadata for file versions (files use clean semver)
-          FILE_VERSION="${RELEASE_VERSION%%+*}"
+          FILE_VERSION="${FILE_VERSION%%+*}"
+          export FILE_VERSION
 
           echo "Setting version to ${FILE_VERSION} in all package files..."
 
@@ -106,15 +108,17 @@ jobs:
             packages/openclaw-plugin/package.json \
             packages/openclaw-plugin/openclaw.plugin.json; do
 
-            CURRENT=$(node -e "console.log(require('./${file}').version)")
+            export TARGET_FILE="${file}"
+            CURRENT=$(node -e "console.log(require('./' + process.env.TARGET_FILE).version)")
             if [ "${CURRENT}" = "${FILE_VERSION}" ]; then
               echo "SKIP: ${file} already at ${FILE_VERSION}"
             else
               node -e "
                 const fs = require('fs');
-                const pkg = JSON.parse(fs.readFileSync('${file}', 'utf8'));
+                const f = process.env.TARGET_FILE;
+                const pkg = JSON.parse(fs.readFileSync(f, 'utf8'));
                 pkg.version = process.env.FILE_VERSION;
-                fs.writeFileSync('${file}', JSON.stringify(pkg, null, 2) + '\n');
+                fs.writeFileSync(f, JSON.stringify(pkg, null, 2) + '\n');
               "
               echo "UPDATED: ${file} ${CURRENT} → ${FILE_VERSION}"
             fi
@@ -126,6 +130,7 @@ jobs:
       - name: Commit version bump to main
         env:
           RELEASE_VERSION: ${{ steps.version.outputs.version }}
+          REPO_PAT: ${{ secrets.REPO_PAT }}
         run: |
           set -euo pipefail
           FILE_VERSION="${RELEASE_VERSION%%+*}"
@@ -146,6 +151,11 @@ jobs:
             pnpm-lock.yaml
 
           git commit -m "chore(release): v${FILE_VERSION} [skip ci]"
+
+          # Push using REPO_PAT to bypass branch protection.
+          # Credentials are NOT persisted (persist-credentials: false on checkout)
+          # so we configure the remote URL with the token only for the push.
+          git remote set-url origin "https://x-access-token:${REPO_PAT}@github.com/${{ github.repository }}.git"
           git push origin main
 
       - name: Determine release type
