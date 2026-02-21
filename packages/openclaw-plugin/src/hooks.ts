@@ -38,7 +38,7 @@ export interface AutoRecallResult {
 export interface AutoCaptureEvent {
   messages: Array<{
     role: string;
-    content: string;
+    content: string | unknown;
   }>;
 }
 
@@ -79,6 +79,26 @@ function createTimeoutPromise<T>(ms: number, timeoutResult: T): Promise<T> {
   return new Promise((resolve) => {
     setTimeout(() => resolve(timeoutResult), ms);
   });
+}
+
+/**
+ * Extract plain text from message content.
+ * OpenClaw message content can be a plain string or an array of content blocks
+ * (e.g., [{type: "text", text: "..."}, {type: "image", ...}]).
+ * This normalizes both forms to a plain string (#1563).
+ */
+export function extractTextContent(content: unknown): string {
+  if (typeof content === 'string') return content;
+  if (Array.isArray(content)) {
+    return content
+      .filter(
+        (block): block is { type: string; text: string } =>
+          typeof block === 'object' && block !== null && block.type === 'text' && typeof block.text === 'string',
+      )
+      .map((block) => block.text)
+      .join('\n');
+  }
+  return '';
 }
 
 /**
@@ -263,8 +283,10 @@ export function createAutoCaptureHook(options: AutoCaptureHookOptions): (event: 
  */
 async function captureContext(client: ApiClient, user_id: string, messages: AutoCaptureEvent['messages'], logger: Logger): Promise<void> {
   // Filter out messages with sensitive content
+  // Use extractTextContent to handle structured content blocks (#1563)
   const filteredMessages = messages.filter((msg) => {
-    if (containsSensitiveContent(msg.content)) {
+    const text = extractTextContent(msg.content);
+    if (containsSensitiveContent(text)) {
       logger.debug('auto-capture filtered sensitive message', { user_id });
       return false;
     }
@@ -277,7 +299,7 @@ async function captureContext(client: ApiClient, user_id: string, messages: Auto
   }
 
   // Prepare conversation summary for capture
-  const conversationSummary = filteredMessages.map((msg) => filterSensitiveContent(msg.content)).join('\n');
+  const conversationSummary = filteredMessages.map((msg) => filterSensitiveContent(extractTextContent(msg.content))).join('\n');
 
   const response = await client.post<{ captured: number }>(
     '/api/context/capture',
