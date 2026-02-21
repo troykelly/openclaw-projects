@@ -51,27 +51,73 @@ describe('OpenAPI Route Coverage', () => {
     expect(Object.keys(body.paths).length).toBeGreaterThanOrEqual(200);
   });
 
-  it('documents at least 95% of registered API routes', async () => {
-    // Get all registered Fastify routes
-    const registeredRoutes = new Set<string>();
-    // Fastify v5 printRoutes({ commonPrefix: false }) outputs lines like:
-    //   ├── /api/health (GET, HEAD)
-    //   └── /api/work-items/:id (GET, PUT, DELETE, HEAD)
-    app.printRoutes({ commonPrefix: false }).split('\n').forEach((line: string) => {
-      // Match: tree chars + /path + (METHOD1, METHOD2, ...)
-      const match = line.match(/([/][^\s(]+)\s+\(([^)]+)\)/);
-      if (match) {
-        const path = normaliseRoute(match[1]);
-        const methods = match[2].split(',').map((m: string) => m.trim().toLowerCase());
-        for (const method of methods) {
-          if (['get', 'post', 'put', 'patch', 'delete'].includes(method)) {
-            if (path.startsWith('/api/')) {
-              registeredRoutes.add(`${method}:${path}`);
-            }
-          }
+  /**
+   * Parse Fastify v5 printRoutes({ commonPrefix: false }) tree output.
+   *
+   * The output is a tree drawn with box-drawing characters. Each leaf node
+   * shows its path segment relative to its nearest parent leaf. When the
+   * root `/` is itself a route (e.g. a redirect), all descendants appear
+   * at nesting level >= 1 with paths like `api/health` (no leading `/`).
+   *
+   * We reconstruct full paths by tracking a stack of path segments keyed
+   * by nesting level. Level = position of the branch char (├ or └) / 4.
+   */
+  function parseRoutesFromTree(output: string): Set<string> {
+    const routes = new Set<string>();
+    const pathStack: string[] = [];
+
+    for (const line of output.split('\n')) {
+      if (!line.trim()) continue;
+
+      // Find the branch character (├ or └) to determine nesting level
+      let branchPos = -1;
+      for (let i = 0; i < line.length; i++) {
+        if (line[i] === '├' || line[i] === '└') {
+          branchPos = i;
+          break;
         }
       }
-    });
+      if (branchPos < 0) continue;
+      const level = branchPos / 4;
+
+      // Skip past "├── " or "└── " (branch char + ── + space = 4 chars)
+      const rest = line.substring(branchPos + 4);
+
+      // Extract the path segment and methods: segment (METHOD1, METHOD2, ...)
+      const match = rest.match(/^([^\s(]+)\s*\(([^)]+)\)/);
+      if (!match) continue;
+
+      const pathSegment = match[1];
+      const methods = match[2].split(',').map((m: string) => m.trim().toLowerCase());
+
+      // Update path stack at this level (truncate deeper entries)
+      pathStack.length = level + 1;
+      pathStack[level] = pathSegment;
+
+      // Reconstruct full path by joining all segments from level 0..N
+      const fullPath = normaliseRoute(pathStack.slice(0, level + 1).join(''));
+
+      for (const method of methods) {
+        if (['get', 'post', 'put', 'patch', 'delete'].includes(method)) {
+          routes.add(`${method}:${fullPath}`);
+        }
+      }
+    }
+    return routes;
+  }
+
+  it('documents at least 95% of registered API routes', async () => {
+    const registeredRoutes = parseRoutesFromTree(
+      app.printRoutes({ commonPrefix: false }),
+    );
+    // Keep only /api/ routes for coverage check
+    const apiRoutes = new Set<string>();
+    for (const route of registeredRoutes) {
+      const path = route.split(':').slice(1).join(':');
+      if (path.startsWith('/api/')) {
+        apiRoutes.add(route);
+      }
+    }
 
     // Get spec paths
     const spec = assembleSpec() as {
@@ -88,18 +134,18 @@ describe('OpenAPI Route Coverage', () => {
 
     // Find undocumented routes
     const undocumented: string[] = [];
-    for (const route of registeredRoutes) {
-      const [, path] = route.split(':');
+    for (const route of apiRoutes) {
+      const path = route.split(':').slice(1).join(':');
       const isExcluded = excludedPatterns.some((pat) => pat.test(path));
       if (!isExcluded && !specRoutes.has(route)) {
         undocumented.push(route);
       }
     }
 
-    // Guard: printRoutes must have found routes, otherwise regex is broken
-    expect(registeredRoutes.size).toBeGreaterThan(0);
+    // Guard: parseRoutesFromTree must have found routes, otherwise parser is broken
+    expect(apiRoutes.size).toBeGreaterThan(0);
 
-    const total = registeredRoutes.size;
+    const total = apiRoutes.size;
     const documented = total - undocumented.length;
     const coverage = (documented / total) * 100;
 
