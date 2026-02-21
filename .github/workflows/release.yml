@@ -1,0 +1,610 @@
+# Unified Release Workflow
+# Consolidates npm-publish.yml and containers.yml tag-triggered builds
+# into a single coordinated release pipeline.
+#
+# Trigger: push tag matching v*.*.*
+# Flow: validate → test → publish-npm + publish-containers → release
+#
+# Part of Issue #1538
+#
+# Rollback procedure:
+#   1. npm unpublish @troykelly/openclaw-projects@<version> (within 72h)
+#   2. Delete image tags: gh api -X DELETE repos/troykelly/openclaw-projects/packages/...
+#   3. Delete GitHub Release: gh release delete v<version> --yes
+#   4. Delete git tag: git tag -d v<version> && git push origin :refs/tags/v<version>
+
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+# Serialize ALL release runs to prevent races on shared mutable targets
+# (npm dist-tag latest, Docker :latest tag, GitHub Release).
+# Two different tags pushed in quick succession must not run in parallel.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+# Top-level: no permissions. Each job declares its own.
+permissions: {}
+
+jobs:
+  # ──────────────────────────────────────────────────────────────
+  # 1. Validate: extract version from tag, bump version in all files
+  # ──────────────────────────────────────────────────────────────
+  validate:
+    name: Validate release tag
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      prerelease: ${{ steps.release-type.outputs.prerelease }}
+      npm_tag: ${{ steps.release-type.outputs.npm_tag }}
+      docker_latest: ${{ steps.release-type.outputs.docker_latest }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+          ref: main
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4
+
+      - name: Extract and validate version from tag
+        id: version
+        env:
+          GIT_TAG_REF: ${{ github.ref }}
+        run: |
+          set -euo pipefail
+          TAG="${GIT_TAG_REF#refs/tags/v}"
+          echo "Extracted version: ${TAG}"
+
+          # Validate semver using Node.js built-in URL-safe check + regex.
+          # Avoids runtime npm install of semver package in a privileged job
+          # (supply-chain risk: REPO_PAT is in scope during this step).
+          # Regex implements SemVer 2.0.0 spec: no leading zeroes on numeric
+          # segments, valid prerelease/build identifiers.
+          export SEMVER_CHECK_TAG="${TAG}"
+          node -e '
+            const tag = process.env.SEMVER_CHECK_TAG;
+            const re = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$/;
+            if (!re.test(tag)) {
+              console.error("::error::Tag must be valid semver: v" + tag);
+              console.error("::error::See https://semver.org/ for valid format");
+              process.exit(1);
+            }
+            console.log("Valid semver: " + tag);
+          '
+
+          echo "version=${TAG}" >> "${GITHUB_OUTPUT}"
+          echo "tag=v${TAG}" >> "${GITHUB_OUTPUT}"
+
+      - name: Bump version in all package files
+        env:
+          FILE_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          # Strip build metadata for file versions (files use clean semver)
+          FILE_VERSION="${FILE_VERSION%%+*}"
+          export FILE_VERSION
+
+          echo "Setting version to ${FILE_VERSION} in all package files..."
+
+          for file in \
+            package.json \
+            packages/openclaw-plugin/package.json \
+            packages/openclaw-plugin/openclaw.plugin.json; do
+
+            export TARGET_FILE="${file}"
+            CURRENT=$(node -e "console.log(require('./' + process.env.TARGET_FILE).version)")
+            if [ "${CURRENT}" = "${FILE_VERSION}" ]; then
+              echo "SKIP: ${file} already at ${FILE_VERSION}"
+            else
+              node -e "
+                const fs = require('fs');
+                const f = process.env.TARGET_FILE;
+                const pkg = JSON.parse(fs.readFileSync(f, 'utf8'));
+                pkg.version = process.env.FILE_VERSION;
+                fs.writeFileSync(f, JSON.stringify(pkg, null, 2) + '\n');
+              "
+              echo "UPDATED: ${file} ${CURRENT} → ${FILE_VERSION}"
+            fi
+          done
+
+          # Update lockfile to reflect new versions
+          pnpm install --lockfile-only
+
+      - name: Commit version bump to main
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+          REPO_PAT: ${{ secrets.REPO_PAT }}
+        run: |
+          set -euo pipefail
+          FILE_VERSION="${RELEASE_VERSION%%+*}"
+
+          # Check if anything changed
+          if git diff --quiet && git diff --cached --quiet; then
+            echo "No version changes needed — files already at ${FILE_VERSION}"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add \
+            package.json \
+            packages/openclaw-plugin/package.json \
+            packages/openclaw-plugin/openclaw.plugin.json \
+            pnpm-lock.yaml
+
+          git commit -m "chore(release): v${FILE_VERSION} [skip ci]"
+
+          # Push using REPO_PAT to bypass branch protection.
+          # Credentials are NOT persisted (persist-credentials: false on checkout)
+          # so we configure the remote URL with the token only for the push.
+          git remote set-url origin "https://x-access-token:${REPO_PAT}@github.com/${{ github.repository }}.git"
+          git push origin main
+
+      - name: Determine release type
+        id: release-type
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          if [[ "${RELEASE_VERSION}" == *-* ]]; then
+            echo "prerelease=true" >> "${GITHUB_OUTPUT}"
+            echo "docker_latest=false" >> "${GITHUB_OUTPUT}"
+
+            # Channel-aware npm dist-tag: v1.0.0-beta.1 → beta, v1.0.0-rc.1 → rc
+            # Strip build metadata first (v1.2.3-alpha.1+build → alpha.1)
+            VERSION_NO_BUILD="${RELEASE_VERSION%%+*}"
+            PRERELEASE_ID="${VERSION_NO_BUILD#*-}"
+            CHANNEL="${PRERELEASE_ID%%.*}"
+            case "${CHANNEL}" in
+              alpha|beta|rc|canary)
+                echo "npm_tag=${CHANNEL}" >> "${GITHUB_OUTPUT}"
+                ;;
+              *)
+                echo "npm_tag=next" >> "${GITHUB_OUTPUT}"
+                ;;
+            esac
+          else
+            echo "prerelease=false" >> "${GITHUB_OUTPUT}"
+            echo "npm_tag=latest" >> "${GITHUB_OUTPUT}"
+            echo "docker_latest=true" >> "${GITHUB_OUTPUT}"
+          fi
+
+  # ──────────────────────────────────────────────────────────────
+  # 2. Test: full test suite must pass before any publishing
+  # ──────────────────────────────────────────────────────────────
+  test:
+    name: Test suite
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Build + start devcontainer services
+        run: |
+          docker compose -f .devcontainer/docker-compose.devcontainer.yml up -d --build
+
+      - name: Fix workspace permissions (CI)
+        run: |
+          docker compose -f .devcontainer/docker-compose.devcontainer.yml exec -T -u root workspace \
+            bash -lc "chown -R vscode:vscode /workspaces/openclaw-projects"
+
+      - name: Install dependencies
+        run: |
+          docker compose -f .devcontainer/docker-compose.devcontainer.yml exec -T workspace \
+            bash -lc "cd /workspaces/openclaw-projects && pnpm install --frozen-lockfile"
+
+      - name: Lint
+        run: |
+          docker compose -f .devcontainer/docker-compose.devcontainer.yml exec -T workspace \
+            bash -lc "cd /workspaces/openclaw-projects && pnpm run lint"
+
+      - name: Typecheck
+        run: |
+          docker compose -f .devcontainer/docker-compose.devcontainer.yml exec -T workspace \
+            bash -lc "cd /workspaces/openclaw-projects && pnpm build"
+
+      - name: Build frontend
+        run: |
+          docker compose -f .devcontainer/docker-compose.devcontainer.yml exec -T workspace \
+            bash -lc "cd /workspaces/openclaw-projects && pnpm app:build && pnpm css:build"
+
+      - name: Build plugin package
+        run: |
+          docker compose -f .devcontainer/docker-compose.devcontainer.yml exec -T workspace \
+            bash -lc "cd /workspaces/openclaw-projects && pnpm --filter @troykelly/openclaw-projects run build"
+
+      - name: Run unit tests
+        run: |
+          docker compose -f .devcontainer/docker-compose.devcontainer.yml exec -T \
+            workspace bash -lc "cd /workspaces/openclaw-projects && pnpm -s test:unit"
+
+      - name: Run integration tests
+        env:
+          VOYAGERAI_API_KEY: ${{ secrets.VOYAGERAI_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          docker compose -f .devcontainer/docker-compose.devcontainer.yml exec -T \
+            -e VOYAGERAI_API_KEY \
+            -e OPENAI_API_KEY \
+            -e GEMINI_API_KEY \
+            workspace bash -lc "cd /workspaces/openclaw-projects && pnpm -s test:integration"
+
+      - name: Start E2E services
+        run: |
+          docker compose -f docker-compose.test.yml up -d --build
+
+      - name: Wait for E2E services
+        run: |
+          bash scripts/wait-for-services.sh
+
+      - name: Connect workspace to E2E network
+        run: |
+          docker network connect openclaw-test-network \
+            "$(docker compose -f .devcontainer/docker-compose.devcontainer.yml ps -q workspace)"
+
+      - name: Run E2E tests
+        run: |
+          docker compose -f .devcontainer/docker-compose.devcontainer.yml exec -T \
+            -e RUN_E2E=true \
+            -e E2E_API_URL=http://openclaw-backend-test:3001 \
+            workspace bash -lc "cd /workspaces/openclaw-projects && pnpm run test:e2e"
+
+      - name: Teardown E2E services
+        if: always()
+        run: |
+          docker compose -f docker-compose.test.yml down -v
+
+      - name: Shutdown devcontainer
+        if: always()
+        run: |
+          docker compose -f .devcontainer/docker-compose.devcontainer.yml down -v
+
+  # ──────────────────────────────────────────────────────────────
+  # 3a. Publish npm package to npmjs.org
+  # ──────────────────────────────────────────────────────────────
+  publish-npm:
+    name: Publish to npm
+    needs: [validate, test]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write  # npm provenance
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        working-directory: packages/openclaw-plugin
+
+      - name: Build
+        run: pnpm run build
+        working-directory: packages/openclaw-plugin
+
+      - name: Run plugin tests
+        run: pnpm run test
+        working-directory: packages/openclaw-plugin
+
+      - name: Typecheck
+        run: pnpm run typecheck
+        working-directory: packages/openclaw-plugin
+
+      - name: Check if version already published
+        id: check-npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          PUBLISH_VERSION: ${{ needs.validate.outputs.version }}
+        run: |
+          set -euo pipefail
+          # Strip build metadata
+          CHECK_VERSION="${PUBLISH_VERSION%%+*}"
+          if npm view "@troykelly/openclaw-projects@${CHECK_VERSION}" version 2>/dev/null; then
+            echo "exists=true" >> "${GITHUB_OUTPUT}"
+            echo "::warning::Version ${CHECK_VERSION} already exists on npm, skipping publish"
+          else
+            echo "exists=false" >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: Publish to npm
+        if: steps.check-npm.outputs.exists != 'true'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_DIST_TAG: ${{ needs.validate.outputs.npm_tag }}
+        run: |
+          set -euo pipefail
+          pnpm publish --access public --no-git-checks --tag "${NPM_DIST_TAG}"
+        working-directory: packages/openclaw-plugin
+
+  # ──────────────────────────────────────────────────────────────
+  # 3b. Publish npm package to GitHub Packages
+  # ──────────────────────────────────────────────────────────────
+  publish-github-packages:
+    name: Publish to GitHub Packages
+    needs: [validate, test]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Setup Node.js for GitHub Packages
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@troykelly'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        working-directory: packages/openclaw-plugin
+
+      - name: Build
+        run: pnpm run build
+        working-directory: packages/openclaw-plugin
+
+      - name: Publish to GitHub Packages
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_DIST_TAG: ${{ needs.validate.outputs.npm_tag }}
+        run: |
+          set -euo pipefail
+          pnpm publish --access public --no-git-checks --tag "${NPM_DIST_TAG}"
+        working-directory: packages/openclaw-plugin
+
+  # ──────────────────────────────────────────────────────────────
+  # 3c. Build, scan, and publish container images
+  # ──────────────────────────────────────────────────────────────
+  publish-containers:
+    name: Build ${{ matrix.image.name }}
+    needs: [validate, test]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      security-events: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - name: db
+            context: .
+            dockerfile: docker/postgres/Dockerfile
+          - name: api
+            context: .
+            dockerfile: docker/api/Dockerfile
+          - name: app
+            context: .
+            dockerfile: docker/app/Dockerfile
+          - name: migrate
+            context: .
+            dockerfile: docker/migrate/Dockerfile
+          - name: worker
+            context: .
+            dockerfile: docker/worker/Dockerfile
+          - name: prompt-guard
+            context: docker/prompt-guard
+            dockerfile: docker/prompt-guard/Dockerfile
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
+        with:
+          images: ghcr.io/troykelly/openclaw-projects-${{ matrix.image.name }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest,enable=${{ needs.validate.outputs.docker_latest }}
+            type=sha,prefix=
+          labels: |
+            org.opencontainers.image.title=openclaw-projects-${{ matrix.image.name }}
+            org.opencontainers.image.description=OpenClaw Projects ${{ matrix.image.name }} container
+            org.opencontainers.image.vendor=Troy Kelly
+            org.opencontainers.image.licenses=MIT
+
+      - name: Build and push Docker image
+        id: build
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: ${{ matrix.image.context }}
+          file: ${{ matrix.image.dockerfile }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          sbom: true
+          provenance: true
+          build-args: |
+            BUILD_DATE=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.created'] }}
+            VCS_REF=${{ github.sha }}
+            VERSION=${{ needs.validate.outputs.version }}
+            OCI_CREATED=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.created'] }}
+            OCI_REVISION=${{ github.sha }}
+            OCI_VERSION=${{ needs.validate.outputs.version }}
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@e368e328979b113139d6f9068e03accaed98a518 # master
+        with:
+          image-ref: ghcr.io/troykelly/openclaw-projects-${{ matrix.image.name }}:${{ needs.validate.outputs.version }}
+          format: 'sarif'
+          output: 'trivy-results-${{ matrix.image.name }}.sarif'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '0'
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@45580472a5bb82c4681c4ac726cfdb60060c2ee1 # v3
+        with:
+          sarif_file: 'trivy-results-${{ matrix.image.name }}.sarif'
+        if: always()
+
+  # ──────────────────────────────────────────────────────────────
+  # 4. Create GitHub Release with versioned compose files
+  # ──────────────────────────────────────────────────────────────
+  release:
+    name: Create GitHub Release
+    needs: [validate, publish-npm, publish-github-packages, publish-containers]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Generate versioned compose files
+        env:
+          RELEASE_VERSION: ${{ needs.validate.outputs.version }}
+        run: |
+          set -euo pipefail
+          mkdir -p release
+
+          for f in docker-compose.yml docker-compose.traefik.yml docker-compose.quickstart.yml docker-compose.full.yml; do
+            # Only replace project images (ghcr.io/troykelly/openclaw-projects-*), not third-party
+            sed "s|ghcr.io/troykelly/openclaw-projects-\([^:]*\):latest|ghcr.io/troykelly/openclaw-projects-\1:${RELEASE_VERSION}|g" \
+              "${f}" > "release/${f}"
+            echo "Generated release/${f}"
+          done
+
+      - name: Validate generated compose files
+        env:
+          # Stub values for required env vars so docker compose config can parse.
+          # These are validation-only — they don't affect the generated files.
+          POSTGRES_PASSWORD: stub-for-validation
+          COOKIE_SECRET: stub-for-validation-min-length-44chars-padding
+          S3_SECRET_KEY: stub-for-validation
+          DOMAIN: example.com
+          ACME_EMAIL: acme@example.com
+          OPENCLAW_GATEWAY_TOKEN: stub-for-validation
+        run: |
+          set -euo pipefail
+          for f in release/docker-compose.yml release/docker-compose.traefik.yml release/docker-compose.quickstart.yml release/docker-compose.full.yml; do
+            echo "Validating ${f}..."
+            docker compose -f "${f}" config --quiet 2>&1 || {
+              echo "::error::Generated ${f} is invalid YAML"
+              docker compose -f "${f}" config 2>&1 || true
+              exit 1
+            }
+          done
+          echo "All compose files validated successfully"
+
+      - name: Create codebase tarball
+        env:
+          RELEASE_VERSION: ${{ needs.validate.outputs.version }}
+        run: |
+          set -euo pipefail
+          tar czf "release/openclaw-projects-${RELEASE_VERSION}.tar.gz" \
+            --exclude=node_modules \
+            --exclude=.git \
+            --exclude=.pnpm-store \
+            --exclude=dist \
+            --exclude=coverage \
+            --exclude='.env' \
+            --exclude='.env.*' \
+            --exclude='*.sarif' \
+            --transform "s,^\\./,openclaw-projects-${RELEASE_VERSION}/," \
+            .
+
+      - name: Generate release body
+        env:
+          RELEASE_VERSION: ${{ needs.validate.outputs.version }}
+        run: |
+          set -euo pipefail
+          cat > release/RELEASE_BODY.md << BODYEOF
+          ## Installation
+
+          ### npm
+          \`\`\`bash
+          npm install @troykelly/openclaw-projects@${RELEASE_VERSION}
+          \`\`\`
+
+          ### Docker Compose
+          Download the versioned compose files from the release assets below.
+          All project images are pinned to \`${RELEASE_VERSION}\`.
+
+          ### Container images
+
+          | Image | Pull command |
+          |-------|-------------|
+          | db | \`docker pull ghcr.io/troykelly/openclaw-projects-db:${RELEASE_VERSION}\` |
+          | api | \`docker pull ghcr.io/troykelly/openclaw-projects-api:${RELEASE_VERSION}\` |
+          | app | \`docker pull ghcr.io/troykelly/openclaw-projects-app:${RELEASE_VERSION}\` |
+          | migrate | \`docker pull ghcr.io/troykelly/openclaw-projects-migrate:${RELEASE_VERSION}\` |
+          | worker | \`docker pull ghcr.io/troykelly/openclaw-projects-worker:${RELEASE_VERSION}\` |
+          | prompt-guard | \`docker pull ghcr.io/troykelly/openclaw-projects-prompt-guard:${RELEASE_VERSION}\` |
+          BODYEOF
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2
+        with:
+          tag_name: ${{ needs.validate.outputs.tag }}
+          name: v${{ needs.validate.outputs.version }}
+          draft: false
+          prerelease: ${{ needs.validate.outputs.prerelease == 'true' }}
+          generate_release_notes: true
+          body_path: release/RELEASE_BODY.md
+          files: |
+            release/docker-compose.yml
+            release/docker-compose.traefik.yml
+            release/docker-compose.quickstart.yml
+            release/docker-compose.full.yml
+            release/openclaw-projects-${{ needs.validate.outputs.version }}.tar.gz
