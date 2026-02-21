@@ -4,6 +4,13 @@
 -- Epic #1440 — HA observation pipeline
 -- Issue #1447 — Split from 094 because CREATE MATERIALIZED VIEW
 --   WITH (timescaledb.continuous) cannot run inside a transaction.
+--
+-- NOTE: This file MUST contain exactly one SQL statement.
+-- golang-migrate sends the whole file as a single Exec() call, so PostgreSQL
+-- auto-commits a single statement (no implicit transaction).
+-- The TypeScript test helper also needs the -- no-transaction
+-- marker above so it skips the explicit BEGIN/COMMIT wrapper.
+-- The continuous aggregate policy is added in migration 101.
 -- ============================================================
 
 CREATE MATERIALIZED VIEW ha_observations_hourly
@@ -18,10 +25,4 @@ SELECT
   MAX(score) AS max_score,
   jsonb_agg(DISTINCT scene_label) FILTER (WHERE scene_label IS NOT NULL) AS scenes
 FROM ha_observations
-GROUP BY namespace, bucket, domain, entity_id;
-
-SELECT add_continuous_aggregate_policy('ha_observations_hourly',
-  start_offset => INTERVAL '3 hours',
-  end_offset => INTERVAL '30 minutes',
-  schedule_interval => INTERVAL '1 hour',
-  if_not_exists => TRUE);
+GROUP BY namespace, bucket, domain, entity_id

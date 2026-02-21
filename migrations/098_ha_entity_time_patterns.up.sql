@@ -4,6 +4,13 @@
 -- Epic #1440 — HA observation pipeline
 -- Issue #1456 — Routine detection time-pattern aggregates.
 --   Cannot run inside a transaction (timescaledb.continuous).
+--
+-- NOTE: This file MUST contain exactly one SQL statement.
+-- golang-migrate sends the whole file as a single Exec() call, so PostgreSQL
+-- auto-commits a single statement (no implicit transaction).
+-- The TypeScript test helper also needs the -- no-transaction
+-- marker above so it skips the explicit BEGIN/COMMIT wrapper.
+-- The continuous aggregate policy is added in migration 102.
 -- ============================================================
 
 CREATE MATERIALIZED VIEW ha_entity_time_patterns
@@ -19,10 +26,4 @@ SELECT
   AVG(score) AS avg_score
 FROM ha_observations
 GROUP BY namespace, entity_id, domain, day_of_week, hour_of_day, day_bucket
-WITH NO DATA;
-
-SELECT add_continuous_aggregate_policy('ha_entity_time_patterns',
-  start_offset => INTERVAL '3 days',
-  end_offset => INTERVAL '1 hour',
-  schedule_interval => INTERVAL '1 day',
-  if_not_exists => TRUE);
+WITH NO DATA
