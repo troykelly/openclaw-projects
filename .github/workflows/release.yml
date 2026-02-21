@@ -92,6 +92,21 @@ jobs:
           echo "version=${TAG}" >> "${GITHUB_OUTPUT}"
           echo "tag=v${TAG}" >> "${GITHUB_OUTPUT}"
 
+      - name: Verify tag points to a commit on main
+        env:
+          TAG_COMMIT: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          # Refuse to release from commits not on the protected main branch.
+          # This prevents supply-chain attacks where a tag is pushed pointing
+          # to an unreviewed commit (e.g., a feature branch or detached HEAD).
+          if ! git merge-base --is-ancestor "${TAG_COMMIT}" HEAD; then
+            echo "::error::Tag commit ${TAG_COMMIT} is not an ancestor of main. Refusing to release."
+            echo "::error::Tags must point to commits that are on the main branch."
+            exit 1
+          fi
+          echo "Verified: tag commit ${TAG_COMMIT} is on main"
+
       - name: Bump version in all package files
         env:
           FILE_VERSION: ${{ steps.version.outputs.version }}
@@ -310,8 +325,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-        with:
-          ref: main
 
       - name: Download bumped version files
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
@@ -384,8 +397,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-        with:
-          ref: main
 
       - name: Download bumped version files
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
