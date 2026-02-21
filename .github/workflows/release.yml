@@ -32,13 +32,13 @@ permissions: {}
 
 jobs:
   # ──────────────────────────────────────────────────────────────
-  # 1. Validate: extract version from tag, verify it matches files
+  # 1. Validate: extract version from tag, bump version in all files
   # ──────────────────────────────────────────────────────────────
   validate:
     name: Validate release tag
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
 
     outputs:
       version: ${{ steps.version.outputs.version }}
@@ -50,11 +50,17 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+          ref: main
 
-      - name: Setup Node.js (for semver validation)
+      - name: Setup Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4
 
       - name: Extract and validate version from tag
         id: version
@@ -66,10 +72,6 @@ jobs:
           echo "Extracted version: ${TAG}"
 
           # Use Node.js semver package for canonical SemVer 2.0.0 validation.
-          # This correctly rejects: leading zeroes (01.2.3), empty prerelease
-          # segments (1.2.3-alpha..1), and numeric identifiers with leading
-          # zeroes (1.2.3-alpha.01). It accepts hyphens in prerelease/build
-          # identifiers (1.2.3-alpha-1+build-1).
           # TAG is passed via env var (not shell interpolation) to prevent injection.
           export SEMVER_CHECK_TAG="${TAG}"
           npm install --no-save semver@latest > /dev/null 2>&1
@@ -88,33 +90,62 @@ jobs:
           echo "version=${TAG}" >> "${GITHUB_OUTPUT}"
           echo "tag=v${TAG}" >> "${GITHUB_OUTPUT}"
 
-      - name: Verify tag version matches package files
+      - name: Bump version in all package files
         env:
-          EXPECTED_VERSION: ${{ steps.version.outputs.version }}
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
-          # Strip build metadata for file comparison (files don't include +build)
-          FILE_VERSION="${EXPECTED_VERSION%%+*}"
+          # Strip build metadata for file versions (files use clean semver)
+          FILE_VERSION="${RELEASE_VERSION%%+*}"
 
-          MISMATCHES=0
+          echo "Setting version to ${FILE_VERSION} in all package files..."
+
           for file in \
             package.json \
             packages/openclaw-plugin/package.json \
             packages/openclaw-plugin/openclaw.plugin.json; do
 
-            FILE_VER=$(node -e "console.log(require('./${file}').version)")
-            if [ "${FILE_VER}" != "${FILE_VERSION}" ]; then
-              echo "::error::Version mismatch in ${file}: expected ${FILE_VERSION}, got ${FILE_VER}"
-              MISMATCHES=$((MISMATCHES + 1))
+            CURRENT=$(node -e "console.log(require('./${file}').version)")
+            if [ "${CURRENT}" = "${FILE_VERSION}" ]; then
+              echo "SKIP: ${file} already at ${FILE_VERSION}"
             else
-              echo "OK: ${file} = ${FILE_VER}"
+              node -e "
+                const fs = require('fs');
+                const pkg = JSON.parse(fs.readFileSync('${file}', 'utf8'));
+                pkg.version = process.env.FILE_VERSION;
+                fs.writeFileSync('${file}', JSON.stringify(pkg, null, 2) + '\n');
+              "
+              echo "UPDATED: ${file} ${CURRENT} → ${FILE_VERSION}"
             fi
           done
 
-          if [ "${MISMATCHES}" -gt 0 ]; then
-            echo "::error::${MISMATCHES} file(s) have version mismatches. Bump versions before tagging."
-            exit 1
+          # Update lockfile to reflect new versions
+          pnpm install --lockfile-only
+
+      - name: Commit version bump to main
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          FILE_VERSION="${RELEASE_VERSION%%+*}"
+
+          # Check if anything changed
+          if git diff --quiet && git diff --cached --quiet; then
+            echo "No version changes needed — files already at ${FILE_VERSION}"
+            exit 0
           fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add \
+            package.json \
+            packages/openclaw-plugin/package.json \
+            packages/openclaw-plugin/openclaw.plugin.json \
+            pnpm-lock.yaml
+
+          git commit -m "chore(release): v${FILE_VERSION} [skip ci]"
+          git push origin main
 
       - name: Determine release type
         id: release-type
