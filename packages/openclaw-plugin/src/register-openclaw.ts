@@ -1333,6 +1333,82 @@ const channelDefaultSetSchema: JSONSchema = {
   required: ['channel_type', 'agent_id'],
 };
 
+// ── Namespace management tool schemas (Issue #1536) ─────────────
+
+const namespaceListSchema: JSONSchema = {
+  type: 'object',
+  properties: {},
+};
+
+const namespaceCreateSchema: JSONSchema = {
+  type: 'object',
+  properties: {
+    name: {
+      type: 'string',
+      description: 'Name of the namespace to create. Must be lowercase alphanumeric with dots, hyphens, or underscores.',
+      pattern: '^[a-z0-9][a-z0-9._-]*$',
+      maxLength: 63,
+    },
+  },
+  required: ['name'],
+};
+
+const namespaceGrantSchema: JSONSchema = {
+  type: 'object',
+  properties: {
+    namespace: {
+      type: 'string',
+      description: 'Namespace to grant access to.',
+      pattern: '^[a-z0-9][a-z0-9._-]*$',
+      maxLength: 63,
+    },
+    email: {
+      type: 'string',
+      description: 'Email of the user to grant access to.',
+    },
+    role: {
+      type: 'string',
+      description: 'Role to assign: owner, admin, member, or observer.',
+      enum: ['owner', 'admin', 'member', 'observer'],
+    },
+    is_default: {
+      type: 'boolean',
+      description: 'Whether this becomes the user\'s default namespace.',
+    },
+  },
+  required: ['namespace', 'email'],
+};
+
+const namespaceMembersSchema: JSONSchema = {
+  type: 'object',
+  properties: {
+    namespace: {
+      type: 'string',
+      description: 'Namespace to list members for.',
+      pattern: '^[a-z0-9][a-z0-9._-]*$',
+      maxLength: 63,
+    },
+  },
+  required: ['namespace'],
+};
+
+const namespaceRevokeSchema: JSONSchema = {
+  type: 'object',
+  properties: {
+    namespace: {
+      type: 'string',
+      description: 'Namespace to revoke access from.',
+      pattern: '^[a-z0-9][a-z0-9._-]*$',
+      maxLength: 63,
+    },
+    grant_id: {
+      type: 'string',
+      description: 'ID of the grant to revoke.',
+    },
+  },
+  required: ['namespace', 'grant_id'],
+};
+
 /**
  * Create tool execution handlers
  */
@@ -3217,6 +3293,117 @@ function createToolHandlers(state: PluginState) {
         return { success: false, error: 'Failed to set channel default' };
       }
     },
+
+    // ── Namespace management handlers (Issue #1536) ──────────────
+
+    async namespace_list(): Promise<ToolResult> {
+      try {
+        const response = await apiClient.get<Array<{ namespace: string; role?: string; is_default?: boolean; priority?: number; grant_count?: number }>>(
+          '/api/namespaces',
+          { user_id },
+        );
+        if (!response.success) {
+          return { success: false, error: response.error.message || 'Failed to list namespaces' };
+        }
+        const items = Array.isArray(response.data) ? response.data : [];
+        if (items.length === 0) {
+          return { success: true, data: { content: 'No namespaces found.', details: { items: [] } } };
+        }
+        const content = items.map((ns) => {
+          const parts = [`- **${ns.namespace}**`];
+          if (ns.role) parts.push(`role=${ns.role}`);
+          if (ns.is_default) parts.push('(default)');
+          if (ns.priority !== undefined) parts.push(`priority=${ns.priority}`);
+          if (ns.grant_count !== undefined) parts.push(`members=${ns.grant_count}`);
+          return parts.join(' ');
+        }).join('\n');
+        return { success: true, data: { content, details: { items } } };
+      } catch (error) {
+        logger.error('namespace_list failed', { error });
+        return { success: false, error: 'Failed to list namespaces' };
+      }
+    },
+
+    async namespace_create(params: Record<string, unknown>): Promise<ToolResult> {
+      const { name } = params as { name: string };
+      try {
+        const response = await apiClient.post<{ namespace: string; created: boolean }>(
+          '/api/namespaces',
+          { name },
+          { user_id },
+        );
+        if (!response.success) {
+          return { success: false, error: response.error.message || 'Failed to create namespace' };
+        }
+        return { success: true, data: { content: `Created namespace **${response.data.namespace}**.`, details: response.data } };
+      } catch (error) {
+        logger.error('namespace_create failed', { error });
+        return { success: false, error: 'Failed to create namespace' };
+      }
+    },
+
+    async namespace_grant(params: Record<string, unknown>): Promise<ToolResult> {
+      const { namespace, email, role, is_default } = params as {
+        namespace: string;
+        email: string;
+        role?: string;
+        is_default?: boolean;
+      };
+      try {
+        const response = await apiClient.post<{ id: string; email: string; namespace: string; role: string; is_default: boolean }>(
+          `/api/namespaces/${encodeURIComponent(namespace)}/grants`,
+          { email, role: role || 'member', is_default: is_default ?? false },
+          { user_id },
+        );
+        if (!response.success) {
+          return { success: false, error: response.error.message || 'Failed to grant namespace access' };
+        }
+        const d = response.data;
+        return { success: true, data: { content: `Granted **${d.role}** access to **${d.namespace}** for ${d.email}.`, details: d } };
+      } catch (error) {
+        logger.error('namespace_grant failed', { error });
+        return { success: false, error: 'Failed to grant namespace access' };
+      }
+    },
+
+    async namespace_members(params: Record<string, unknown>): Promise<ToolResult> {
+      const { namespace } = params as { namespace: string };
+      try {
+        const response = await apiClient.get<{ namespace: string; members: Array<{ id: string; email: string; role: string; is_default: boolean }>; member_count: number }>(
+          `/api/namespaces/${encodeURIComponent(namespace)}`,
+          { user_id },
+        );
+        if (!response.success) {
+          return { success: false, error: response.error.message || 'Failed to list namespace members' };
+        }
+        const { members, member_count } = response.data;
+        if (members.length === 0) {
+          return { success: true, data: { content: `Namespace **${namespace}** has no members.`, details: response.data } };
+        }
+        const content = [`**${namespace}** — ${member_count} member(s):`, ...members.map((m) => `- ${m.email} (${m.role}${m.is_default ? ', default' : ''})`)].join('\n');
+        return { success: true, data: { content, details: response.data } };
+      } catch (error) {
+        logger.error('namespace_members failed', { error });
+        return { success: false, error: 'Failed to list namespace members' };
+      }
+    },
+
+    async namespace_revoke(params: Record<string, unknown>): Promise<ToolResult> {
+      const { namespace, grant_id } = params as { namespace: string; grant_id: string };
+      try {
+        const response = await apiClient.delete<{ deleted: boolean }>(
+          `/api/namespaces/${encodeURIComponent(namespace)}/grants/${encodeURIComponent(grant_id)}`,
+          { user_id },
+        );
+        if (!response.success) {
+          return { success: false, error: response.error.message || 'Failed to revoke namespace access' };
+        }
+        return { success: true, data: { content: `Revoked grant ${grant_id} from namespace **${namespace}**.`, details: { grant_id, namespace } } };
+      } catch (error) {
+        logger.error('namespace_revoke failed', { error });
+        return { success: false, error: 'Failed to revoke namespace access' };
+      }
+    },
   };
 }
 
@@ -3703,6 +3890,52 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
         return toAgentToolResult(result);
       },
     },
+    // ── Namespace management tools (Issue #1536) ─────────────────
+    {
+      name: 'namespace_list',
+      description: 'List all namespaces accessible to the current user or agent. Shows role, priority, and default status.',
+      parameters: namespaceListSchema,
+      execute: async (_toolCallId: string, _params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.namespace_list();
+        return toAgentToolResult(result);
+      },
+    },
+    {
+      name: 'namespace_create',
+      description: 'Create a new namespace. The creating user becomes the owner automatically.',
+      parameters: namespaceCreateSchema,
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.namespace_create(params);
+        return toAgentToolResult(result);
+      },
+    },
+    {
+      name: 'namespace_grant',
+      description: 'Grant a user access to a namespace with a specific role. Use to share data between users.',
+      parameters: namespaceGrantSchema,
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.namespace_grant(params);
+        return toAgentToolResult(result);
+      },
+    },
+    {
+      name: 'namespace_members',
+      description: 'List all members of a namespace with their roles and default status.',
+      parameters: namespaceMembersSchema,
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.namespace_members(params);
+        return toAgentToolResult(result);
+      },
+    },
+    {
+      name: 'namespace_revoke',
+      description: 'Revoke a user\'s access to a namespace by grant ID. Requires owner or admin role.',
+      parameters: namespaceRevokeSchema,
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.namespace_revoke(params);
+        return toAgentToolResult(result);
+      },
+    },
   ];
 
   for (const tool of tools) {
@@ -3997,4 +4230,9 @@ export const schemas = {
   skillStoreSearch: skillStoreSearchSchema,
   skillStoreCollections: skillStoreCollectionsSchema,
   skillStoreAggregate: skillStoreAggregateSchema,
+  namespaceList: namespaceListSchema,
+  namespaceCreate: namespaceCreateSchema,
+  namespaceGrant: namespaceGrantSchema,
+  namespaceMembers: namespaceMembersSchema,
+  namespaceRevoke: namespaceRevokeSchema,
 };
