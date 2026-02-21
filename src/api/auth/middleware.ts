@@ -218,7 +218,13 @@ export async function resolveNamespaces(
     // Without this guard, every test request gets namespace filtering
     // which breaks test isolation (all test data has namespace='default').
     if (!requested) return null;
-    return { storeNamespace: requested, queryNamespaces: [requested], isM2M: false, roles: {} };
+    // Even with auth disabled, a valid JWT may be present (e.g. E2E tests
+    // that send M2M tokens to exercise namespace scoping). Respect the
+    // token type so that requireMinRole correctly skips role checks for
+    // M2M tokens instead of rejecting with empty roles.
+    const identity = await getAuthIdentity(req);
+    const isM2M = identity?.type === 'm2m';
+    return { storeNamespace: requested, queryNamespaces: [requested], isM2M, roles: {} };
   }
 
   const identity = await getAuthIdentity(req);

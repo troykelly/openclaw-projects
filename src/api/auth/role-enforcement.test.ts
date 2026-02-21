@@ -230,6 +230,30 @@ describe('Role enforcement (#1485, #1486)', () => {
 
       expect(ctx).not.toBeNull();
       expect(ctx!.roles).toEqual({});
+      expect(ctx!.isM2M).toBe(false);
+    });
+
+    it('should set isM2M=true when auth disabled but M2M JWT is present', async () => {
+      vi.stubEnv('OPENCLAW_PROJECTS_AUTH_DISABLED', 'true');
+      vi.resetModules();
+
+      const { resolveNamespaces } = await loadMiddleware();
+      const { signAccessToken } = await import('./jwt.ts');
+
+      const token = await signAccessToken('gateway-service', { type: 'm2m' });
+      const req = {
+        headers: { authorization: `Bearer ${token}`, 'x-namespace': 'test-ns' },
+        query: {},
+        body: null,
+      } as unknown as FastifyRequest;
+
+      const mockPool = { query: vi.fn() };
+      const ctx = await resolveNamespaces(req, mockPool as never);
+
+      expect(ctx).not.toBeNull();
+      expect(ctx!.storeNamespace).toBe('test-ns');
+      expect(ctx!.isM2M).toBe(true);
+      expect(ctx!.roles).toEqual({});
     });
 
     it('should populate roles when a specific namespace is requested', async () => {
