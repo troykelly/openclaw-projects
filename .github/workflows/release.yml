@@ -20,9 +20,11 @@ on:
     tags:
       - 'v*.*.*'
 
-# Prevent parallel release runs (e.g., rapid re-tagging)
+# Serialize ALL release runs to prevent races on shared mutable targets
+# (npm dist-tag latest, Docker :latest tag, GitHub Release).
+# Two different tags pushed in quick succession must not run in parallel.
 concurrency:
-  group: release-${{ github.ref }}
+  group: release
   cancel-in-progress: false
 
 # Top-level: no permissions. Each job declares its own.
@@ -49,6 +51,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
+      - name: Setup Node.js (for semver validation)
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+
       - name: Extract and validate version from tag
         id: version
         env:
@@ -58,11 +65,25 @@ jobs:
           TAG="${GIT_TAG_REF#refs/tags/v}"
           echo "Extracted version: ${TAG}"
 
-          # Validate semver format (major.minor.patch with optional prerelease and build metadata)
-          if [[ ! "${TAG}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?(\+[a-zA-Z0-9.]+)?$ ]]; then
-            echo "::error::Tag must be valid semver: v${TAG}"
-            exit 1
-          fi
+          # Use Node.js semver package for canonical SemVer 2.0.0 validation.
+          # This correctly rejects: leading zeroes (01.2.3), empty prerelease
+          # segments (1.2.3-alpha..1), and numeric identifiers with leading
+          # zeroes (1.2.3-alpha.01). It accepts hyphens in prerelease/build
+          # identifiers (1.2.3-alpha-1+build-1).
+          # TAG is passed via env var (not shell interpolation) to prevent injection.
+          export SEMVER_CHECK_TAG="${TAG}"
+          npm install --no-save semver@latest > /dev/null 2>&1
+          node -e '
+            const semver = require("semver");
+            const tag = process.env.SEMVER_CHECK_TAG;
+            const v = semver.valid(tag);
+            if (!v) {
+              console.error("::error::Tag must be valid semver: v" + tag);
+              console.error("::error::See https://semver.org/ for valid format");
+              process.exit(1);
+            }
+            console.log("Valid semver: " + v);
+          '
 
           echo "version=${TAG}" >> "${GITHUB_OUTPUT}"
           echo "tag=v${TAG}" >> "${GITHUB_OUTPUT}"
@@ -463,6 +484,15 @@ jobs:
           done
 
       - name: Validate generated compose files
+        env:
+          # Stub values for required env vars so docker compose config can parse.
+          # These are validation-only — they don't affect the generated files.
+          POSTGRES_PASSWORD: stub-for-validation
+          COOKIE_SECRET: stub-for-validation-min-length-44chars-padding
+          S3_SECRET_KEY: stub-for-validation
+          DOMAIN: example.com
+          ACME_EMAIL: acme@example.com
+          OPENCLAW_GATEWAY_TOKEN: stub-for-validation
         run: |
           set -euo pipefail
           for f in release/docker-compose.yml release/docker-compose.traefik.yml release/docker-compose.quickstart.yml release/docker-compose.full.yml; do
