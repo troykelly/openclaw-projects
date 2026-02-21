@@ -178,5 +178,42 @@ describe('API Documentation Endpoints', () => {
       expect(body).toHaveProperty('servers');
       expect(Array.isArray(body.servers)).toBe(true);
     });
+
+    it('documents at least 200 API paths', async () => {
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/openapi.json',
+      });
+
+      const body = res.json();
+      const pathCount = Object.keys(body.paths).length;
+
+      expect(pathCount).toBeGreaterThanOrEqual(200);
+    });
+
+    it('has unique operationIds on every operation', async () => {
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/openapi.json',
+      });
+
+      const body = res.json();
+      const ids = new Map<string, string>();
+      const duplicates: string[] = [];
+
+      for (const [path, methods] of Object.entries(body.paths)) {
+        for (const [method, op] of Object.entries(methods as Record<string, { operationId?: string }>)) {
+          if (!['get', 'post', 'put', 'patch', 'delete'].includes(method)) continue;
+          if (op.operationId) {
+            if (ids.has(op.operationId)) {
+              duplicates.push(op.operationId);
+            }
+            ids.set(op.operationId, `${method.toUpperCase()} ${path}`);
+          }
+        }
+      }
+      expect(duplicates).toEqual([]);
+      expect(ids.size).toBeGreaterThanOrEqual(200);
+    });
   });
 });
