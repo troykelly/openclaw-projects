@@ -1,0 +1,3 @@
+# Require review for workflow changes (supply chain protection)
+/.github/workflows/ @troykelly
+/.github/CODEOWNERS @troykelly
