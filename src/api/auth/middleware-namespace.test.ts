@@ -97,6 +97,69 @@ describe('extractRequestedNamespaces (Issue #1534)', () => {
   });
 });
 
+describe('extractRequestedNamespaces validation (Issue #1533 review)', () => {
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('should reject namespace names with uppercase letters', async () => {
+    const { extractRequestedNamespaces } = await import('./middleware.ts');
+    const req = mockReq({ query: { namespaces: 'UPPER,valid' } });
+    expect(extractRequestedNamespaces(req)).toEqual(['valid']);
+  });
+
+  it('should reject namespace names with spaces', async () => {
+    const { extractRequestedNamespaces } = await import('./middleware.ts');
+    const req = mockReq({ query: { namespaces: 'has space,valid' } });
+    expect(extractRequestedNamespaces(req)).toEqual(['valid']);
+  });
+
+  it('should reject namespace names starting with a hyphen', async () => {
+    const { extractRequestedNamespaces } = await import('./middleware.ts');
+    const req = mockReq({ query: { namespaces: '-invalid,valid' } });
+    expect(extractRequestedNamespaces(req)).toEqual(['valid']);
+  });
+
+  it('should reject namespace names longer than 63 characters', async () => {
+    const { extractRequestedNamespaces } = await import('./middleware.ts');
+    const longName = 'a'.repeat(64);
+    const req = mockReq({ query: { namespaces: `${longName},valid` } });
+    expect(extractRequestedNamespaces(req)).toEqual(['valid']);
+  });
+
+  it('should limit to 20 namespaces per request', async () => {
+    const { extractRequestedNamespaces } = await import('./middleware.ts');
+    const names = Array.from({ length: 25 }, (_, i) => `ns${i}`).join(',');
+    const req = mockReq({ query: { namespaces: names } });
+    const result = extractRequestedNamespaces(req);
+    expect(result).toHaveLength(20);
+    expect(result[0]).toBe('ns0');
+    expect(result[19]).toBe('ns19');
+  });
+
+  it('should accept valid namespace names with dots, hyphens, underscores', async () => {
+    const { extractRequestedNamespaces } = await import('./middleware.ts');
+    const req = mockReq({ query: { namespaces: 'my-ns,my.ns,my_ns,ns123' } });
+    expect(extractRequestedNamespaces(req)).toEqual(['my-ns', 'my.ns', 'my_ns', 'ns123']);
+  });
+
+  it('should reject namespace names with special characters', async () => {
+    const { extractRequestedNamespaces } = await import('./middleware.ts');
+    const req = mockReq({ query: { namespaces: 'valid,ns@bad,ns!bad,ns/bad' } });
+    expect(extractRequestedNamespaces(req)).toEqual(['valid']);
+  });
+
+  it('should handle body.namespaces with invalid entries', async () => {
+    const { extractRequestedNamespaces } = await import('./middleware.ts');
+    const req = mockReq({ body: { namespaces: ['valid', 'INVALID', '', 'also-valid'] } });
+    expect(extractRequestedNamespaces(req)).toEqual(['valid', 'also-valid']);
+  });
+});
+
 describe('resolveNamespaces M2M multi-namespace (Issue #1534)', () => {
   beforeEach(() => {
     vi.resetModules();

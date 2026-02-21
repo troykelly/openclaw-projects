@@ -207,47 +207,71 @@ function extractRequestedNamespace(req: FastifyRequest): string | undefined {
  *
  * @returns Array of namespace strings (empty if none specified).
  */
+/** Max namespaces per multi-namespace request */
+const MAX_NAMESPACES_PER_REQUEST = 20;
+/** Max length per namespace name */
+const MAX_NAMESPACE_NAME_LENGTH = 63;
+/** Valid namespace name pattern: lowercase alphanumeric, dots, hyphens, underscores; starts with letter or digit */
+const NAMESPACE_NAME_PATTERN = /^[a-z0-9][a-z0-9._-]*$/;
+
+/**
+ * Validate and filter a raw namespace list: apply pattern, length, and count limits.
+ */
+function validateNamespaceList(raw: string[]): string[] {
+  return raw
+    .filter((ns) => ns.length > 0 && ns.length <= MAX_NAMESPACE_NAME_LENGTH && NAMESPACE_NAME_PATTERN.test(ns))
+    .slice(0, MAX_NAMESPACES_PER_REQUEST);
+}
+
 export function extractRequestedNamespaces(req: FastifyRequest): string[] {
+  let raw: string[] = [];
+
   // 1. X-Namespaces header (comma-separated)
   const multiHeader = req.headers['x-namespaces'];
   if (typeof multiHeader === 'string' && multiHeader.length > 0) {
-    return multiHeader.split(',').map((s) => s.trim()).filter(Boolean);
+    raw = multiHeader.split(',').map((s) => s.trim()).filter(Boolean);
   }
 
   // 2. X-Namespace header (single)
-  const singleHeader = req.headers['x-namespace'];
-  if (typeof singleHeader === 'string' && singleHeader.length > 0) {
-    return [singleHeader];
-  }
-
-  const q = req.query as Record<string, unknown> | undefined;
-
-  // 3. ?namespaces= query param (comma-separated)
-  if (q && typeof q.namespaces === 'string' && q.namespaces.length > 0) {
-    return q.namespaces.split(',').map((s) => s.trim()).filter(Boolean);
-  }
-
-  // 4. ?namespace= query param (single)
-  if (q && typeof q.namespace === 'string' && q.namespace.length > 0) {
-    return [q.namespace];
-  }
-
-  const b = req.body as Record<string, unknown> | undefined | null;
-  if (b && typeof b === 'object') {
-    // 5. body.namespaces array
-    if (Array.isArray(b.namespaces) && b.namespaces.length > 0) {
-      return (b.namespaces as unknown[]).filter(
-        (v): v is string => typeof v === 'string' && v.length > 0,
-      );
-    }
-
-    // 6. body.namespace string (single)
-    if (typeof b.namespace === 'string' && b.namespace.length > 0) {
-      return [b.namespace];
+  if (raw.length === 0) {
+    const singleHeader = req.headers['x-namespace'];
+    if (typeof singleHeader === 'string' && singleHeader.length > 0) {
+      raw = [singleHeader.trim()];
     }
   }
 
-  return [];
+  if (raw.length === 0) {
+    const q = req.query as Record<string, unknown> | undefined;
+
+    // 3. ?namespaces= query param (comma-separated)
+    if (q && typeof q.namespaces === 'string' && q.namespaces.length > 0) {
+      raw = q.namespaces.split(',').map((s) => s.trim()).filter(Boolean);
+    }
+
+    // 4. ?namespace= query param (single)
+    if (raw.length === 0 && q && typeof q.namespace === 'string' && q.namespace.length > 0) {
+      raw = [q.namespace.trim()];
+    }
+  }
+
+  if (raw.length === 0) {
+    const b = req.body as Record<string, unknown> | undefined | null;
+    if (b && typeof b === 'object') {
+      // 5. body.namespaces array
+      if (Array.isArray(b.namespaces) && b.namespaces.length > 0) {
+        raw = (b.namespaces as unknown[]).filter(
+          (v): v is string => typeof v === 'string' && v.length > 0,
+        );
+      }
+
+      // 6. body.namespace string (single)
+      if (raw.length === 0 && typeof b.namespace === 'string' && b.namespace.length > 0) {
+        raw = [b.namespace.trim()];
+      }
+    }
+  }
+
+  return validateNamespaceList(raw);
 }
 
 /**
