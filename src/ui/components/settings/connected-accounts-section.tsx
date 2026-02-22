@@ -200,20 +200,24 @@ function ConnectionEditForm({ connection, onSave, onCancel, isSaving }: Connecti
 interface ConnectionCardProps {
   connection: OAuthConnectionSummary;
   onUpdate: (id: string, updates: Partial<OAuthConnectionSummary>) => Promise<boolean>;
+  /** State-only replacement — called by the manage panel after it has already PATCHed the API. */
+  onReplaceConnection: (conn: OAuthConnectionSummary) => void;
   onDelete: (id: string) => Promise<boolean>;
   isUpdating: boolean;
 }
 
-function ConnectionCard({ connection, onUpdate, onDelete, isUpdating }: ConnectionCardProps) {
+function ConnectionCard({ connection, onUpdate, onReplaceConnection, onDelete, isUpdating }: ConnectionCardProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [isManaging, setIsManaging] = useState(false);
   const enabledFeatures = Array.isArray(connection.enabled_features) ? connection.enabled_features : [];
 
+  // Called by ConnectionManagePanel after it has already PATCHed the API.
+  // Use state-only replacement to avoid a second PATCH for the same change.
   const handleConnectionUpdated = useCallback(
     (updated: OAuthConnectionSummary) => {
-      onUpdate(updated.id, updated);
+      onReplaceConnection(updated);
     },
-    [onUpdate],
+    [onReplaceConnection],
   );
 
   const handleSave = useCallback(
@@ -414,7 +418,7 @@ function AddAccountButton({ providers }: AddAccountButtonProps) {
 // ---------------------------------------------------------------------------
 
 export function ConnectedAccountsSection() {
-  const { state, isUpdating, updateConnection, deleteConnection } = useConnectedAccounts();
+  const { state, isUpdating, updateConnection, replaceConnection, deleteConnection } = useConnectedAccounts();
 
   if (state.kind === 'loading') {
     return (
@@ -491,6 +495,7 @@ export function ConnectedAccountsSection() {
                 key={conn.id}
                 connection={conn}
                 onUpdate={updateConnection}
+                onReplaceConnection={replaceConnection}
                 onDelete={deleteConnection}
                 isUpdating={isUpdating}
               />
