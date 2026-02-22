@@ -116,7 +116,7 @@ function ConnectionEditForm({ connection, onSave, onCancel, isSaving }: Connecti
   const [form, setForm] = useState<EditFormState>({
     label: connection.label,
     permission_level: connection.permission_level,
-    enabled_features: [...connection.enabled_features],
+    enabled_features: [...(connection.enabled_features ?? [])],
   });
 
   const toggleFeature = useCallback((feature: OAuthFeature) => {
@@ -260,8 +260,8 @@ function ConnectionCard({ connection, onUpdate, onDelete, isUpdating }: Connecti
             <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
               <span>{formatPermission(connection.permission_level)}</span>
               <span className="text-border">|</span>
-              {connection.enabled_features.length > 0 ? (
-                connection.enabled_features.map((f) => (
+              {(connection.enabled_features ?? []).length > 0 ? (
+                (connection.enabled_features ?? []).map((f) => (
                   <Badge key={f} variant="outline" className="text-xs">
                     {formatFeature(f)}
                   </Badge>
@@ -457,7 +457,8 @@ export function ConnectedAccountsSection() {
     );
   }
 
-  const { connections, providers } = state;
+  const connections = state.connections ?? [];
+  const providers = state.providers ?? [];
 
   return (
     <Card data-testid="connected-accounts-card">

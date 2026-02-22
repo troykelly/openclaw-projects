@@ -22,8 +22,11 @@ export function useConnectedAccounts() {
     ]);
 
     return {
-      connections: connectionsRes.connections,
-      providers: [...providersRes.providers, ...providersRes.unconfigured],
+      connections: Array.isArray(connectionsRes?.connections) ? connectionsRes.connections : [],
+      providers: [
+        ...(Array.isArray(providersRes?.providers) ? providersRes.providers : []),
+        ...(Array.isArray(providersRes?.unconfigured) ? providersRes.unconfigured : []),
+      ],
     };
   }, []);
 
