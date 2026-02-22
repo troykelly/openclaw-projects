@@ -24,6 +24,8 @@ export type ApiResponse<T> = { success: true; data: T } | { success: false; erro
 export interface RequestOptions {
   /** User ID for scoping */
   user_id?: string;
+  /** User email for identity resolution (e.g. namespace grant creation) (#1567) */
+  user_email?: string;
   /** Custom timeout (overrides config) */
   timeout?: number;
   /** Mark request as coming from an agent (adds X-OpenClaw-Agent header) */
@@ -200,6 +202,10 @@ export class ApiClient {
 
       if (options?.user_id) {
         headers['X-Agent-Id'] = options.user_id;
+      }
+
+      if (options?.user_email) {
+        headers['X-User-Email'] = options.user_email;
       }
 
       // Mark request as coming from an agent for privacy filtering

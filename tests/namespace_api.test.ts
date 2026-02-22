@@ -182,6 +182,49 @@ describe('Namespace & User Provisioning API', () => {
         expect(res.json()).toMatchObject({ namespace: 'test-ns-created', created: true });
       });
 
+      it('creates owner grant using X-User-Email header for M2M tokens (#1567)', async () => {
+        // Setup: user_setting row for the real email
+        await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, [TEST_EMAIL]);
+
+        const headers = await getM2MHeaders();
+        const res = await app.inject({
+          method: 'POST', url: '/api/namespaces',
+          headers: {
+            ...headers,
+            'content-type': 'application/json',
+            // X-Agent-Id is "test-service" (from getM2MHeaders), but X-User-Email is the real email
+            'x-user-email': TEST_EMAIL,
+          },
+          payload: { name: 'test-ns-email-grant' },
+        });
+        expect(res.statusCode).toBe(201);
+
+        // Verify grant was created for the email, not the agent ID
+        const grant = await pool.query(
+          `SELECT email, role FROM namespace_grant WHERE namespace = 'test-ns-email-grant'`,
+        );
+        expect(grant.rows).toHaveLength(1);
+        expect(grant.rows[0].email).toBe(TEST_EMAIL);
+        expect(grant.rows[0].role).toBe('owner');
+      });
+
+      it('skips grant when X-Agent-Id is not an email and X-User-Email is absent (#1567)', async () => {
+        // No user_setting row for "test-service" (it's an agent ID, not an email)
+        const headers = await getM2MHeaders();
+        const res = await app.inject({
+          method: 'POST', url: '/api/namespaces',
+          headers: { ...headers, 'content-type': 'application/json' },
+          payload: { name: 'test-ns-no-grant' },
+        });
+        expect(res.statusCode).toBe(201);
+
+        // No grant should be created (agent ID doesn't match user_setting)
+        const grant = await pool.query(
+          `SELECT email FROM namespace_grant WHERE namespace = 'test-ns-no-grant'`,
+        );
+        expect(grant.rows).toHaveLength(0);
+      });
+
       it('creates namespace with user token and grants owner role', async () => {
         await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, [TEST_EMAIL]);
 
