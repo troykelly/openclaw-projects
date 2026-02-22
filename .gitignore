@@ -40,5 +40,8 @@ playwright-report/
 blob-report/
 playwright/.cache/
 
+# Vitest transform cache (populated automatically, never committed)
+.vitest-cache/
+
 # Local development
 *.local

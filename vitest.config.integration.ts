@@ -1,9 +1,5 @@
 import { defineProject } from 'vitest/config';
-import fs from 'node:fs';
 import path from 'node:path';
-
-const gatewayRoot = path.resolve(__dirname, '.local/openclaw-gateway');
-const hasGateway = fs.existsSync(gatewayRoot);
 
 /**
  * Integration test project — tests that require Postgres or a running server.
@@ -13,6 +9,10 @@ const hasGateway = fs.existsSync(gatewayRoot);
  *
  * Pure unit tests (no DB, no HTTP) live in vitest.config.unit.ts and run
  * in parallel for speed. See that file for the classification heuristic.
+ *
+ * IMPORTANT: Explicit include globs are required to prevent anything from
+ * .local/ (e.g. openclaw-gateway clone) from leaking into this serial
+ * project. The blanket '.local/**' exclude is the safety net.
  */
 export default defineProject({
   test: {
@@ -24,7 +24,18 @@ export default defineProject({
     // Parallelism is disabled to avoid migration race conditions.
     fileParallelism: false,
 
+    // Explicit includes prevent future accidental inclusion from new directories.
+    // Only cover this project's own test files — never .local/ subtrees.
+    include: [
+      'tests/**/*.test.{ts,tsx}',
+      'src/**/*.test.ts',
+      'packages/**/*.test.ts',
+    ],
+
     exclude: [
+      // ── .local/ subtrees — never part of this project's test suite ─
+      '.local/**',
+
       // ── Unit tests (run by the unit project) ───────────────────────
       'tests/ui/**',
       'tests/devcontainer/**',
@@ -69,46 +80,23 @@ export default defineProject({
       // ── E2E / Playwright / external ────────────────────────────────
       'tests/e2e-playwright/**',
       'packages/openclaw-plugin/tests/e2e/**',
-      ...(hasGateway ? [] : ['packages/openclaw-plugin/tests/gateway/**']),
+      // Gateway plugin tests require the openclaw-gateway checkout — skip.
+      'packages/openclaw-plugin/tests/gateway/**',
       'node_modules/**',
       '**/node_modules/**',
-      '.local/openclaw-gateway/**/*.e2e.test.ts',
-      '.local/openclaw-gateway/**/*.browser.test.ts',
-      '.local/openclaw-gateway/ui/**',
-      '.local/openclaw-gateway/**/vendor/**',
-      '.local/openclaw-gateway/dist/**',
-      // CWD-dependent: resolve files relative to gateway root via process.cwd()
-      '.local/openclaw-gateway/src/docs/slash-commands-doc.test.ts',
-      '.local/openclaw-gateway/src/cron/cron-protocol-conformance.test.ts',
-      '.local/openclaw-gateway/src/canvas-host/server.test.ts',
-      '.local/openclaw-gateway/src/cli/gateway.sigterm.test.ts',
-      '.local/openclaw-gateway/src/infra/run-node.test.ts',
-      '.local/openclaw-gateway/src/process/child-process-bridge.test.ts',
-      '.local/openclaw-gateway/src/web/qr-image.test.ts',
-      '.local/openclaw-gateway/src/agents/skills.summarize-skill-description.test.ts',
-      '.local/openclaw-gateway/src/cli/browser-cli-extension.test.ts',
-      // Stale import: deliverWebReply moved to auto-reply/deliver-reply.ts
-      '.local/openclaw-gateway/test/auto-reply.retry.test.ts',
     ],
 
-    // setup-api.ts disables bearer token auth for tests
-    // Gateway setup registers channel plugins needed by gateway unit tests
+    // setup-api.ts disables bearer token auth for tests.
+    // setup-embeddings-mock.ts intercepts fetch calls to embedding endpoints
+    //   so tests never make real API calls (each costs 500-750ms + credits).
     setupFiles: [
       './tests/setup-api.ts',
-      ...(hasGateway ? ['./tests/setup-gateway.ts'] : []),
+      './tests/setup-embeddings-mock.ts',
     ],
   },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
-      ...(hasGateway
-        ? {
-            'openclaw/plugin-sdk': path.join(gatewayRoot, 'src', 'plugin-sdk', 'index.ts'),
-            'openclaw-gateway/plugins/loader': path.join(gatewayRoot, 'src', 'plugins', 'loader.ts'),
-            'openclaw-gateway/plugins/hooks': path.join(gatewayRoot, 'src', 'plugins', 'hooks.ts'),
-            'openclaw-gateway/plugins/registry': path.join(gatewayRoot, 'src', 'plugins', 'registry.ts'),
-          }
-        : {}),
     },
   },
 });
