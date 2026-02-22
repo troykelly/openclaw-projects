@@ -56,7 +56,7 @@ export function SyncStatusDisplay({
   sync_status,
   onSyncNow,
 }: SyncStatusDisplayProps) {
-  if (enabled_features.length === 0) {
+  if (!enabled_features || enabled_features.length === 0) {
     return null;
   }
 
