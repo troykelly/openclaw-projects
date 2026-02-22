@@ -573,28 +573,166 @@ const contactGetSchema: JSONSchema = {
 const contactCreateSchema: JSONSchema = {
   type: 'object',
   properties: {
-    name: {
+    display_name: {
       type: 'string',
-      description: 'Contact name',
-      minLength: 1,
+      description: 'Full display name (required for organizations/groups, optional for persons if given_name or family_name provided)',
       maxLength: 200,
+    },
+    given_name: {
+      type: 'string',
+      description: 'Given (first) name',
+      maxLength: 100,
+    },
+    family_name: {
+      type: 'string',
+      description: 'Family (last) name',
+      maxLength: 100,
+    },
+    nickname: {
+      type: 'string',
+      description: 'Nickname or short name',
+      maxLength: 100,
+    },
+    contact_kind: {
+      type: 'string',
+      description: 'Contact type',
+      enum: ['person', 'organisation', 'group', 'agent'],
+      default: 'person',
     },
     email: {
       type: 'string',
-      description: 'Contact email address',
+      description: 'Primary email address (creates an email endpoint)',
       format: 'email',
     },
     phone: {
       type: 'string',
-      description: 'Contact phone number',
+      description: 'Primary phone number (creates a phone endpoint)',
     },
     notes: {
       type: 'string',
       description: 'Notes about the contact',
       maxLength: 5000,
     },
+    tags: {
+      type: 'array',
+      description: 'Tags to assign to the contact (max 20)',
+      items: { type: 'string', maxLength: 100 },
+    },
   },
-  required: ['name'],
+  required: [],
+};
+
+/**
+ * Contact update tool JSON Schema (#1600)
+ */
+const contactUpdateSchema: JSONSchema = {
+  type: 'object',
+  properties: {
+    contact_id: {
+      type: 'string',
+      description: 'ID of the contact to update',
+      format: 'uuid',
+    },
+    display_name: {
+      type: 'string',
+      description: 'Updated display name',
+      maxLength: 200,
+    },
+    given_name: { type: 'string', maxLength: 100 },
+    family_name: { type: 'string', maxLength: 100 },
+    nickname: { type: 'string', maxLength: 100 },
+    notes: { type: 'string', maxLength: 5000 },
+    tags: {
+      type: 'array',
+      description: 'Replace all tags (empty array removes all)',
+      items: { type: 'string', maxLength: 100 },
+    },
+  },
+  required: ['contact_id'],
+};
+
+/**
+ * Contact merge tool JSON Schema (#1600)
+ */
+const contactMergeSchema: JSONSchema = {
+  type: 'object',
+  properties: {
+    survivor_id: {
+      type: 'string',
+      description: 'ID of the contact to keep (survivor)',
+      format: 'uuid',
+    },
+    loser_id: {
+      type: 'string',
+      description: 'ID of the contact to merge into the survivor (will be soft-deleted)',
+      format: 'uuid',
+    },
+  },
+  required: ['survivor_id', 'loser_id'],
+};
+
+/**
+ * Contact tag add tool JSON Schema (#1600)
+ */
+const contactTagAddSchema: JSONSchema = {
+  type: 'object',
+  properties: {
+    contact_id: {
+      type: 'string',
+      description: 'Contact ID',
+      format: 'uuid',
+    },
+    tags: {
+      type: 'array',
+      description: 'Tags to add (1–20 tags)',
+      items: { type: 'string', maxLength: 100 },
+    },
+  },
+  required: ['contact_id', 'tags'],
+};
+
+/**
+ * Contact tag remove tool JSON Schema (#1600)
+ */
+const contactTagRemoveSchema: JSONSchema = {
+  type: 'object',
+  properties: {
+    contact_id: {
+      type: 'string',
+      description: 'Contact ID',
+      format: 'uuid',
+    },
+    tag: {
+      type: 'string',
+      description: 'Tag to remove',
+      maxLength: 100,
+    },
+  },
+  required: ['contact_id', 'tag'],
+};
+
+/**
+ * Contact resolve tool JSON Schema (#1601)
+ * Resolves a sender identity (phone, email, name) to a contact match.
+ */
+const contactResolveSchema: JSONSchema = {
+  type: 'object',
+  properties: {
+    phone: {
+      type: 'string',
+      description: 'Sender phone number to resolve',
+    },
+    email: {
+      type: 'string',
+      description: 'Sender email address to resolve',
+      format: 'email',
+    },
+    name: {
+      type: 'string',
+      description: 'Sender name for fuzzy matching',
+      maxLength: 200,
+    },
+  },
 };
 
 /**
@@ -2139,14 +2277,44 @@ function createToolHandlers(state: PluginState) {
     },
 
     async contact_create(params: Record<string, unknown>): Promise<ToolResult> {
-      const { name, notes } = params as {
-        name: string;
+      const { display_name, given_name, family_name, nickname, contact_kind, email, phone, notes, tags } = params as {
+        display_name?: string;
+        given_name?: string;
+        family_name?: string;
+        nickname?: string;
+        contact_kind?: string;
+        email?: string;
+        phone?: string;
         notes?: string;
+        tags?: string[];
       };
 
+      // Must have display_name or at least given_name/family_name
+      const name = display_name || [given_name, family_name].filter(Boolean).join(' ');
+      if (!name) {
+        return { success: false, error: 'Either display_name or given_name/family_name is required' };
+      }
+
       try {
-        // API requires display_name, not name. Email/phone are stored as separate contact_endpoint records.
-        const response = await apiClient.post<{ id: string }>('/api/contacts', { display_name: name, notes, user_email: user_id, namespace: getStoreNamespace(params) }, reqOpts());
+        const body: Record<string, unknown> = {
+          user_email: user_id,
+          namespace: getStoreNamespace(params),
+          notes,
+          contact_kind: contact_kind ?? 'person',
+          tags,
+        };
+        if (display_name) body.display_name = display_name;
+        if (given_name) body.given_name = given_name;
+        if (family_name) body.family_name = family_name;
+        if (nickname) body.nickname = nickname;
+
+        // Build endpoints array from convenience fields
+        const endpoints: Array<{ type: string; value: string }> = [];
+        if (email) endpoints.push({ type: 'email', value: email });
+        if (phone) endpoints.push({ type: 'phone', value: phone });
+        if (endpoints.length > 0) body.endpoints = endpoints;
+
+        const response = await apiClient.post<{ id: string; display_name?: string }>('/api/contacts', body, reqOpts());
 
         if (!response.success) {
           return { success: false, error: response.error.message };
@@ -2156,12 +2324,184 @@ function createToolHandlers(state: PluginState) {
           success: true,
           data: {
             content: `Contact "${name}" created successfully (ID: ${response.data.id})`,
-            details: { id: response.data.id },
+            details: { id: response.data.id, display_name: response.data.display_name ?? name },
           },
         };
       } catch (error) {
         logger.error('contact_create failed', { error });
         return { success: false, error: 'Failed to create contact' };
+      }
+    },
+
+    async contact_update(params: Record<string, unknown>): Promise<ToolResult> {
+      const { contact_id, ...updates } = params as {
+        contact_id: string;
+        display_name?: string;
+        given_name?: string;
+        family_name?: string;
+        nickname?: string;
+        notes?: string;
+        tags?: string[];
+      };
+
+      if (!contact_id) return { success: false, error: 'contact_id is required' };
+
+      try {
+        const body: Record<string, unknown> = { namespace: getStoreNamespace(params) };
+        for (const [k, v] of Object.entries(updates)) {
+          if (k !== 'namespace' && v !== undefined) body[k] = v;
+        }
+
+        const response = await apiClient.patch<{ id: string; display_name?: string }>(`/api/contacts/${contact_id}`, body, reqOpts());
+
+        if (!response.success) {
+          return { success: false, error: response.error.message };
+        }
+
+        return {
+          success: true,
+          data: {
+            content: `Contact ${contact_id} updated successfully`,
+            details: { id: contact_id, display_name: response.data.display_name },
+          },
+        };
+      } catch (error) {
+        logger.error('contact_update failed', { error });
+        return { success: false, error: 'Failed to update contact' };
+      }
+    },
+
+    async contact_merge(params: Record<string, unknown>): Promise<ToolResult> {
+      const { survivor_id, loser_id } = params as { survivor_id: string; loser_id: string };
+
+      if (!survivor_id || !loser_id) return { success: false, error: 'survivor_id and loser_id are required' };
+
+      try {
+        const response = await apiClient.post<{ survivor_id: string; merged_endpoint_count?: number }>(
+          '/api/contacts/merge',
+          { survivor_id, loser_id, namespace: getStoreNamespace(params) },
+          reqOpts(),
+        );
+
+        if (!response.success) {
+          return { success: false, error: response.error.message };
+        }
+
+        return {
+          success: true,
+          data: {
+            content: `Contacts merged successfully. Survivor: ${survivor_id}`,
+            details: response.data,
+          },
+        };
+      } catch (error) {
+        logger.error('contact_merge failed', { error });
+        return { success: false, error: 'Failed to merge contacts' };
+      }
+    },
+
+    async contact_tag_add(params: Record<string, unknown>): Promise<ToolResult> {
+      const { contact_id, tags } = params as { contact_id: string; tags: string[] };
+
+      if (!contact_id || !tags?.length) return { success: false, error: 'contact_id and tags are required' };
+
+      try {
+        const response = await apiClient.post(`/api/contacts/${contact_id}/tags`, { tags }, reqOpts());
+
+        if (!response.success) {
+          return { success: false, error: response.error.message };
+        }
+
+        return {
+          success: true,
+          data: {
+            content: `Added ${tags.length} tag(s) to contact ${contact_id}: ${tags.join(', ')}`,
+            details: { contact_id, tags },
+          },
+        };
+      } catch (error) {
+        logger.error('contact_tag_add failed', { error });
+        return { success: false, error: 'Failed to add tags' };
+      }
+    },
+
+    async contact_tag_remove(params: Record<string, unknown>): Promise<ToolResult> {
+      const { contact_id, tag } = params as { contact_id: string; tag: string };
+
+      if (!contact_id || !tag) return { success: false, error: 'contact_id and tag are required' };
+
+      try {
+        const response = await apiClient.delete(`/api/contacts/${contact_id}/tags/${encodeURIComponent(tag)}`, reqOpts());
+
+        if (!response.success) {
+          return { success: false, error: response.error.message };
+        }
+
+        return {
+          success: true,
+          data: {
+            content: `Removed tag "${tag}" from contact ${contact_id}`,
+            details: { contact_id, tag },
+          },
+        };
+      } catch (error) {
+        logger.error('contact_tag_remove failed', { error });
+        return { success: false, error: 'Failed to remove tag' };
+      }
+    },
+
+    async contact_resolve(params: Record<string, unknown>): Promise<ToolResult> {
+      const { phone, email, name } = params as { phone?: string; email?: string; name?: string };
+
+      if (!phone && !email && !name) {
+        return { success: false, error: 'At least one of phone, email, or name is required' };
+      }
+
+      try {
+        const queryParams = new URLSearchParams();
+        if (phone) queryParams.set('phone', phone);
+        if (email) queryParams.set('email', email);
+        if (name) queryParams.set('name', name);
+
+        const response = await apiClient.get<{ matches: Array<{ contact_id: string; display_name: string; confidence: number; endpoints?: Array<{ type: string; value: string }> }> }>(
+          `/api/contacts/suggest-match?${queryParams}`,
+          reqOpts(),
+        );
+
+        if (!response.success) {
+          return { success: false, error: response.error.message };
+        }
+
+        const matches = response.data.matches ?? [];
+        if (matches.length === 0) {
+          return {
+            success: true,
+            data: {
+              content: 'No matching contacts found for the provided sender information.',
+              details: { matches: [], resolved: false },
+            },
+          };
+        }
+
+        const best = matches[0];
+        const content = matches
+          .map((m) => `- ${m.display_name} (${Math.round(m.confidence * 100)}% match, ID: ${m.contact_id})`)
+          .join('\n');
+
+        return {
+          success: true,
+          data: {
+            content: `Found ${matches.length} matching contact(s):\n${content}`,
+            details: {
+              matches,
+              resolved: best.confidence >= 0.8,
+              best_match: best,
+            },
+          },
+        };
+      } catch (error) {
+        logger.error('contact_resolve failed', { error });
+        return { success: false, error: 'Failed to resolve sender identity' };
       }
     },
 
@@ -3685,10 +4025,55 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     },
     {
       name: 'contact_create',
-      description: 'Create a new contact. Use when the user mentions someone new to track.',
+      description: 'Create a new contact. Supports structured names (given_name, family_name) or display_name. Optionally include email, phone, tags.',
       parameters: withNamespace(contactCreateSchema),
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.contact_create(params);
+        return toAgentToolResult(result);
+      },
+    },
+    {
+      name: 'contact_update',
+      description: 'Update an existing contact. Can change name, notes, tags, and other fields.',
+      parameters: withNamespace(contactUpdateSchema),
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.contact_update(params);
+        return toAgentToolResult(result);
+      },
+    },
+    {
+      name: 'contact_merge',
+      description: 'Merge two contacts into one. The survivor keeps all data; the loser is soft-deleted. Use when duplicate contacts are detected.',
+      parameters: withNamespace(contactMergeSchema),
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.contact_merge(params);
+        return toAgentToolResult(result);
+      },
+    },
+    {
+      name: 'contact_tag_add',
+      description: 'Add tags to a contact for categorization.',
+      parameters: withNamespace(contactTagAddSchema),
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.contact_tag_add(params);
+        return toAgentToolResult(result);
+      },
+    },
+    {
+      name: 'contact_tag_remove',
+      description: 'Remove a tag from a contact.',
+      parameters: withNamespace(contactTagRemoveSchema),
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.contact_tag_remove(params);
+        return toAgentToolResult(result);
+      },
+    },
+    {
+      name: 'contact_resolve',
+      description: 'Resolve a sender identity (phone, email, or name) to an existing contact. Use when an inbound message arrives and you need to identify who sent it.',
+      parameters: withNamespaces(contactResolveSchema),
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.contact_resolve(params);
         return toAgentToolResult(result);
       },
     },
@@ -4311,6 +4696,11 @@ export const schemas = {
   contactSearch: withNamespaces(contactSearchSchema),
   contactGet: withNamespaces(contactGetSchema),
   contactCreate: withNamespace(contactCreateSchema),
+  contactUpdate: withNamespace(contactUpdateSchema),
+  contactMerge: withNamespace(contactMergeSchema),
+  contactTagAdd: withNamespace(contactTagAddSchema),
+  contactTagRemove: withNamespace(contactTagRemoveSchema),
+  contactResolve: withNamespaces(contactResolveSchema),
   smsSend: smsSendSchema,
   emailSend: emailSendSchema,
   messageSearch: withNamespaces(messageSearchSchema),

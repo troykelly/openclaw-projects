@@ -339,7 +339,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     if (email && bs) {
       try {
         const grants = await nsPool.query(
-          `SELECT namespace, role, is_default FROM namespace_grant WHERE email = $1 ORDER BY is_default DESC, namespace`,
+          `SELECT namespace, access, is_home FROM namespace_grant WHERE email = $1 ORDER BY is_home DESC, namespace`,
           [email],
         );
         bs.namespace_grants = grants.rows;
@@ -439,10 +439,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         }
       }
 
-      // 4. Enforce role: moving is a write operation — require at least 'member' on both namespaces
+      // 4. Enforce access: moving is a write operation — require readwrite on both namespaces
       if (!authOff && !isM2M) {
-        requireMinRole(req, oldNamespace, 'member');
-        requireMinRole(req, targetNamespace, 'member');
+        requireMinRole(req, oldNamespace, 'readwrite');
+        requireMinRole(req, targetNamespace, 'readwrite');
       }
 
       // 5. Move entity
@@ -792,7 +792,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         // User: return namespaces they have grants for
         // Issue #1535: include priority in response
         const result = await pool.query(
-          `SELECT DISTINCT ng.namespace, ng.role, ng.is_default, ng.priority, ng.created_at
+          `SELECT DISTINCT ng.namespace, ng.access, ng.is_home, ng.priority, ng.created_at
            FROM namespace_grant ng
            WHERE ng.email = $1
            ORDER BY ng.priority DESC, ng.namespace`,
@@ -809,7 +809,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           // DISTINCT ON prevents duplicate rows when multiple users hold
           // grants on the same namespace (#1561, review fix).
           const result = await pool.query(
-            `SELECT DISTINCT ON (ng.namespace) ng.namespace, ng.role, ng.is_default, ng.priority, ng.created_at
+            `SELECT DISTINCT ON (ng.namespace) ng.namespace, ng.access, ng.is_home, ng.priority, ng.created_at
              FROM namespace_grant ng
              ORDER BY ng.namespace, ng.priority DESC`,
           );
@@ -817,7 +817,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         }
         // M2M without api:full: return only explicitly granted namespaces
         const result = await pool.query(
-          `SELECT DISTINCT ng.namespace, ng.role, ng.is_default, ng.priority, ng.created_at
+          `SELECT DISTINCT ng.namespace, ng.access, ng.is_home, ng.priority, ng.created_at
            FROM namespace_grant ng
            WHERE ng.email = $1
            ORDER BY ng.priority DESC, ng.namespace`,
@@ -859,15 +859,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         return reply.code(409).send({ error: `namespace '${name}' already exists` });
       }
 
-      // Create owner grant for the namespace creator
+      // Create readwrite grant for the namespace creator
       if (identity.type === 'user') {
         await pool.query(
-          `INSERT INTO namespace_grant (email, namespace, role, is_default)
-           VALUES ($1, $2, 'owner', false)`,
+          `INSERT INTO namespace_grant (email, namespace, access, is_home)
+           VALUES ($1, $2, 'readwrite', false)`,
           [identity.email, name],
         );
       } else {
-        // M2M: create owner grant for the user behind the agent (#1562, #1567).
+        // M2M: create readwrite grant for the user behind the agent (#1562, #1567).
         // Prefer X-User-Email (the user's actual email) over X-Agent-Id (which
         // may be a short agent name like "troy" that doesn't match user_setting.email).
         // Security note: both headers are caller-controlled. M2M tokens are trusted
@@ -883,8 +883,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         );
         if (userExists.rows.length > 0) {
           await pool.query(
-            `INSERT INTO namespace_grant (email, namespace, role, is_default)
-             VALUES ($1, $2, 'owner', false)`,
+            `INSERT INTO namespace_grant (email, namespace, access, is_home)
+             VALUES ($1, $2, 'readwrite', false)`,
             [grantEmail, name],
           );
         } else {
@@ -920,7 +920,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }
 
       const grants = await pool.query(
-        `SELECT id::text, email, namespace, role, is_default, created_at, updated_at
+        `SELECT id::text, email, namespace, access, is_home, created_at, updated_at
          FROM namespace_grant
          WHERE namespace = $1
          ORDER BY email`,
@@ -958,7 +958,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }
 
       const result = await pool.query(
-        `SELECT id::text, email, namespace, role, is_default, created_at, updated_at
+        `SELECT id::text, email, namespace, access, is_home, created_at, updated_at
          FROM namespace_grant
          WHERE namespace = $1
          ORDER BY email`,
@@ -971,7 +971,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   /**
-   * Verify the caller has owner or admin role in the given namespace.
+   * Verify the caller has readwrite access in the given namespace.
    * Applies to both user tokens and M2M tokens (Issue #1533 review fix).
    * For M2M tokens without any grant, the check is skipped only for
    * read operations — admin mutations always require a grant.
@@ -983,16 +983,16 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     pool: ReturnType<typeof createPool>,
   ): Promise<string | null> {
     const email = identity.email;
-    const access = await pool.query(
-      `SELECT role FROM namespace_grant WHERE email = $1 AND namespace = $2`,
+    const accessResult = await pool.query(
+      `SELECT access FROM namespace_grant WHERE email = $1 AND namespace = $2`,
       [email, namespace],
     );
-    if (access.rows.length === 0) {
+    if (accessResult.rows.length === 0) {
       return 'No access to namespace';
     }
-    const callerRole = access.rows[0].role as string;
-    if (callerRole !== 'owner' && callerRole !== 'admin') {
-      return 'Only owner or admin can manage grants';
+    const callerAccess = accessResult.rows[0].access as string;
+    if (callerAccess !== 'readwrite') {
+      return 'Requires readwrite access to manage grants';
     }
     return null;
   }
@@ -1005,18 +1005,18 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     const params = req.params as { ns: string };
-    const body = req.body as { email?: string; role?: string; is_default?: boolean } | null;
+    const body = req.body as { email?: string; access?: string; is_home?: boolean } | null;
 
     if (!body?.email) {
       return reply.code(400).send({ error: 'email is required' });
     }
 
     const email = body.email.trim().toLowerCase();
-    const role = body.role || 'member';
-    const isDefault = body.is_default ?? false;
+    const access = body.access || 'readwrite';
+    const isHome = body.is_home ?? false;
 
-    if (!['owner', 'admin', 'member', 'observer'].includes(role)) {
-      return reply.code(400).send({ error: 'role must be one of: owner, admin, member, observer' });
+    if (!['read', 'readwrite'].includes(access)) {
+      return reply.code(400).send({ error: 'access must be one of: read, readwrite' });
     }
 
     const pool = createPool();
@@ -1030,26 +1030,26 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         return reply.code(404).send({ error: `user '${email}' not found` });
       }
 
-      // Verify caller has admin/owner role (applies to both user and M2M tokens)
+      // Verify caller has readwrite access (applies to both user and M2M tokens)
       const roleError = await requireNamespaceAdmin(identity, params.ns, pool);
       if (roleError) {
         return reply.code(403).send({ error: roleError });
       }
 
-      // If setting as default, unset any existing default for this user first
-      if (isDefault) {
+      // If setting as home, unset any existing home for this user first
+      if (isHome) {
         await pool.query(
-          `UPDATE namespace_grant SET is_default = false WHERE email = $1 AND is_default = true`,
+          `UPDATE namespace_grant SET is_home = false WHERE email = $1 AND is_home = true`,
           [email],
         );
       }
 
       const result = await pool.query(
-        `INSERT INTO namespace_grant (email, namespace, role, is_default)
+        `INSERT INTO namespace_grant (email, namespace, access, is_home)
          VALUES ($1, $2, $3, $4)
-         ON CONFLICT (email, namespace) DO UPDATE SET role = $3, is_default = $4, updated_at = now()
-         RETURNING id::text, email, namespace, role, is_default, created_at, updated_at`,
-        [email, params.ns, role, isDefault],
+         ON CONFLICT (email, namespace) DO UPDATE SET access = $3, is_home = $4, updated_at = now()
+         RETURNING id::text, email, namespace, access, is_home, created_at, updated_at`,
+        [email, params.ns, access, isHome],
       );
 
       return reply.code(201).send(result.rows[0]);
@@ -1058,7 +1058,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
-  // PATCH /api/namespaces/:ns/grants/:id — update role or default flag
+  // PATCH /api/namespaces/:ns/grants/:id — update access or home flag
   app.patch('/api/namespaces/:ns/grants/:id', async (req, reply) => {
     const identity = await getAuthIdentity(req);
     if (!identity) {
@@ -1066,14 +1066,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     const params = req.params as { ns: string; id: string };
-    const body = req.body as { role?: string; is_default?: boolean; priority?: number } | null;
+    const body = req.body as { access?: string; is_home?: boolean; priority?: number } | null;
 
-    if (!body || (body.role === undefined && body.is_default === undefined && body.priority === undefined)) {
-      return reply.code(400).send({ error: 'role, is_default, or priority is required' });
+    if (!body || (body.access === undefined && body.is_home === undefined && body.priority === undefined)) {
+      return reply.code(400).send({ error: 'access, is_home, or priority is required' });
     }
 
-    if (body.role && !['owner', 'admin', 'member', 'observer'].includes(body.role)) {
-      return reply.code(400).send({ error: 'role must be one of: owner, admin, member, observer' });
+    if (body.access && !['read', 'readwrite'].includes(body.access)) {
+      return reply.code(400).send({ error: 'access must be one of: read, readwrite' });
     }
 
     // Issue #1535: validate priority range
@@ -1085,7 +1085,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
     try {
-      // Verify caller has admin/owner role (applies to both user and M2M tokens)
+      // Verify caller has readwrite access (applies to both user and M2M tokens)
       const roleError = await requireNamespaceAdmin(identity, params.ns, pool);
       if (roleError) {
         return reply.code(403).send({ error: roleError });
@@ -1096,26 +1096,26 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const values: unknown[] = [];
       let paramIdx = 1;
 
-      if (body.role !== undefined) {
-        sets.push(`role = $${paramIdx++}`);
-        values.push(body.role);
+      if (body.access !== undefined) {
+        sets.push(`access = $${paramIdx++}`);
+        values.push(body.access);
       }
-      if (body.is_default !== undefined) {
-        // If setting as default, unset any existing default for this user first
-        if (body.is_default) {
+      if (body.is_home !== undefined) {
+        // If setting as home, unset any existing home for this user first
+        if (body.is_home) {
           const grant = await pool.query(
             `SELECT email FROM namespace_grant WHERE id = $1 AND namespace = $2`,
             [params.id, params.ns],
           );
           if (grant.rows.length > 0) {
             await pool.query(
-              `UPDATE namespace_grant SET is_default = false WHERE email = $1 AND is_default = true AND id != $2`,
+              `UPDATE namespace_grant SET is_home = false WHERE email = $1 AND is_home = true AND id != $2`,
               [grant.rows[0].email, params.id],
             );
           }
         }
-        sets.push(`is_default = $${paramIdx++}`);
-        values.push(body.is_default);
+        sets.push(`is_home = $${paramIdx++}`);
+        values.push(body.is_home);
       }
       // Issue #1535: priority update support
       if (body.priority !== undefined) {
@@ -1129,7 +1129,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const result = await pool.query(
         `UPDATE namespace_grant SET ${sets.join(', ')}
          WHERE id = $${paramIdx++} AND namespace = $${paramIdx}
-         RETURNING id::text, email, namespace, role, is_default, priority, created_at, updated_at`,
+         RETURNING id::text, email, namespace, access, is_home, priority, created_at, updated_at`,
         values,
       );
 
@@ -1216,31 +1216,31 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         [email],
       );
 
-      // Create personal namespace grant (owner, default)
-      // First unset any existing default
+      // Create personal namespace grant (readwrite, home)
+      // First unset any existing home
       await pool.query(
-        `UPDATE namespace_grant SET is_default = false WHERE email = $1 AND is_default = true`,
+        `UPDATE namespace_grant SET is_home = false WHERE email = $1 AND is_home = true`,
         [email],
       );
 
       await pool.query(
-        `INSERT INTO namespace_grant (email, namespace, role, is_default)
-         VALUES ($1, $2, 'owner', true)
-         ON CONFLICT (email, namespace) DO UPDATE SET role = 'owner', is_default = true, updated_at = now()`,
+        `INSERT INTO namespace_grant (email, namespace, access, is_home)
+         VALUES ($1, $2, 'readwrite', true)
+         ON CONFLICT (email, namespace) DO UPDATE SET access = 'readwrite', is_home = true, updated_at = now()`,
         [email, nsName],
       );
 
       // Also grant access to 'default' namespace
       await pool.query(
-        `INSERT INTO namespace_grant (email, namespace, role, is_default)
-         VALUES ($1, 'default', 'member', false)
+        `INSERT INTO namespace_grant (email, namespace, access, is_home)
+         VALUES ($1, 'default', 'readwrite', false)
          ON CONFLICT (email, namespace) DO NOTHING`,
         [email],
       );
 
       // Load grants
       const grants = await pool.query(
-        `SELECT id::text, email, namespace, role, is_default, created_at, updated_at
+        `SELECT id::text, email, namespace, access, is_home, created_at, updated_at
          FROM namespace_grant WHERE email = $1 ORDER BY namespace`,
         [email],
       );
@@ -1271,7 +1271,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const result = await pool.query(
         `SELECT us.email, us.theme, us.timezone, us.created_at, us.updated_at,
                 (SELECT json_agg(json_build_object(
-                  'namespace', ng.namespace, 'role', ng.role, 'is_default', ng.is_default
+                  'namespace', ng.namespace, 'access', ng.access, 'is_home', ng.is_home
                 ) ORDER BY ng.namespace)
                 FROM namespace_grant ng WHERE ng.email = us.email) as grants
          FROM user_setting us
@@ -1310,7 +1310,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }
 
       const grants = await pool.query(
-        `SELECT id::text, namespace, role, is_default, created_at, updated_at
+        `SELECT id::text, namespace, access, is_home, created_at, updated_at
          FROM namespace_grant WHERE email = $1 ORDER BY namespace`,
         [targetEmail],
       );
@@ -1438,12 +1438,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   /**
    * Gets the store namespace for write operations.
-   * Throws RoleError if the user has observer role (read-only).
+   * Throws RoleError if the user has read-only access.
    */
   function getStoreNamespace(req: FastifyRequest): string {
     const ns = req.namespaceContext?.storeNamespace ?? 'default';
-    // Enforce: observers cannot write (#1485)
-    requireMinRole(req, ns, 'member');
+    // Enforce: read-only users cannot write (#1485, #1571)
+    requireMinRole(req, ns, 'readwrite');
     return ns;
   }
 
@@ -6374,18 +6374,56 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const body = req.body as {
       display_name?: string; notes?: string | null;
       contact_kind?: string;
+      // Structured name fields (#1582)
+      given_name?: string | null; family_name?: string | null; middle_name?: string | null;
+      name_prefix?: string | null; name_suffix?: string | null; nickname?: string | null;
+      phonetic_given_name?: string | null; phonetic_family_name?: string | null;
+      file_as?: string | null;
+      // Multi-value fields (#1582)
+      custom_fields?: Array<{ key: string; value: string }>;
+      tags?: string[];
       preferred_channel?: string | null; quiet_hours_start?: string | null; quiet_hours_end?: string | null;
       quiet_hours_timezone?: string | null; urgency_override_channel?: string | null; notification_notes?: string | null;
     };
+
+    // display_name is required unless structured name fields are provided (#1582)
+    const hasStructuredName = body?.given_name || body?.family_name;
     const display_name = body?.display_name;
-    if (!display_name || display_name.trim().length === 0) {
-      return reply.code(400).send({ error: 'display_name is required' });
+    if (!hasStructuredName && (!display_name || display_name.trim().length === 0)) {
+      return reply.code(400).send({ error: 'display_name or given_name/family_name is required' });
     }
 
     // Validate contact_kind if provided (issue #489)
     const contact_kind = body.contact_kind ?? 'person';
     if (!VALID_CONTACT_KINDS.includes(contact_kind as ContactKind)) {
       return reply.code(400).send({ error: `Invalid contact_kind. Must be one of: ${VALID_CONTACT_KINDS.join(', ')}` });
+    }
+
+    // Validate custom_fields (#1582)
+    if (body.custom_fields !== undefined) {
+      if (!Array.isArray(body.custom_fields)) {
+        return reply.code(400).send({ error: 'custom_fields must be an array' });
+      }
+      if (body.custom_fields.length > 50) {
+        return reply.code(400).send({ error: 'custom_fields limited to 50 entries' });
+      }
+      for (const cf of body.custom_fields) {
+        if (!cf || typeof cf.key !== 'string' || typeof cf.value !== 'string') {
+          return reply.code(400).send({ error: 'Each custom_field must have string key and value' });
+        }
+      }
+    }
+
+    // Validate tags (#1582)
+    if (body.tags !== undefined) {
+      if (!Array.isArray(body.tags)) {
+        return reply.code(400).send({ error: 'tags must be an array of strings' });
+      }
+      for (const tag of body.tags) {
+        if (typeof tag !== 'string' || tag.trim().length === 0 || tag.length > 100) {
+          return reply.code(400).send({ error: 'Each tag must be a non-empty string (max 100 chars)' });
+        }
+      }
     }
 
     // Validate communication channel preferences (issue #1269)
@@ -6409,25 +6447,66 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
     const namespace = getStoreNamespace(req);
-    const result = await pool.query(
-      `INSERT INTO contact (display_name, notes, contact_kind,
-        preferred_channel, quiet_hours_start, quiet_hours_end, quiet_hours_timezone,
-        urgency_override_channel, notification_notes, namespace)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-       RETURNING id::text as id, display_name, notes, contact_kind::text as contact_kind,
-        preferred_channel::text, quiet_hours_start::text, quiet_hours_end::text, quiet_hours_timezone,
-        urgency_override_channel::text, notification_notes, namespace,
-        created_at, updated_at`,
-      [
-        display_name.trim(), body.notes ?? null, contact_kind,
-        body.preferred_channel ?? null, body.quiet_hours_start ?? null, body.quiet_hours_end ?? null,
-        body.quiet_hours_timezone ?? null, body.urgency_override_channel ?? null, body.notification_notes ?? null,
-        namespace,
-      ],
-    );
-    await pool.end();
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
 
-    return reply.code(201).send(result.rows[0]);
+      const result = await client.query(
+        `INSERT INTO contact (display_name, notes, contact_kind,
+          given_name, family_name, middle_name, name_prefix, name_suffix, nickname,
+          phonetic_given_name, phonetic_family_name, file_as,
+          custom_fields,
+          preferred_channel, quiet_hours_start, quiet_hours_end, quiet_hours_timezone,
+          urgency_override_channel, notification_notes, namespace)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
+                 $14, $15, $16, $17, $18, $19, $20)
+         RETURNING id::text as id, display_name, notes, contact_kind::text as contact_kind,
+          given_name, family_name, middle_name, name_prefix, name_suffix, nickname,
+          phonetic_given_name, phonetic_family_name, file_as, custom_fields,
+          preferred_channel::text, quiet_hours_start::text, quiet_hours_end::text, quiet_hours_timezone,
+          urgency_override_channel::text, notification_notes, namespace,
+          created_at, updated_at`,
+        [
+          display_name?.trim() ?? null, body.notes ?? null, contact_kind,
+          body.given_name ?? null, body.family_name ?? null, body.middle_name ?? null,
+          body.name_prefix ?? null, body.name_suffix ?? null, body.nickname ?? null,
+          body.phonetic_given_name ?? null, body.phonetic_family_name ?? null, body.file_as ?? null,
+          body.custom_fields ? JSON.stringify(body.custom_fields) : '[]',
+          body.preferred_channel ?? null, body.quiet_hours_start ?? null, body.quiet_hours_end ?? null,
+          body.quiet_hours_timezone ?? null, body.urgency_override_channel ?? null, body.notification_notes ?? null,
+          namespace,
+        ],
+      );
+
+      const contactId = result.rows[0].id;
+
+      // Create tags (#1582)
+      if (body.tags && body.tags.length > 0) {
+        const uniqueTags = [...new Set(body.tags.map((t) => t.trim()).filter(Boolean))];
+        if (uniqueTags.length > 0) {
+          const tagValues = uniqueTags.map((_, i) => `($1, $${i + 2})`).join(', ');
+          await client.query(
+            `INSERT INTO contact_tag (contact_id, tag) VALUES ${tagValues} ON CONFLICT DO NOTHING`,
+            [contactId, ...uniqueTags],
+          );
+        }
+      }
+
+      await client.query('COMMIT');
+      client.release();
+
+      // Include tags in response
+      const contact = result.rows[0];
+      contact.tags = body.tags ? [...new Set(body.tags.map((t) => t.trim()).filter(Boolean))] : [];
+
+      await pool.end();
+      return reply.code(201).send(contact);
+    } catch (err) {
+      await client.query('ROLLBACK');
+      client.release();
+      await pool.end();
+      throw err;
+    }
   });
 
   // POST /api/contacts/bulk - Bulk create contacts (Issue #218)
@@ -6854,10 +6933,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
-  // GET /api/contacts/:id - Get single contact with endpoints (excludes soft-deleted, Issue #225)
+  // GET /api/contacts/:id - Get single contact with optional eager loading (#1582)
   app.get('/api/contacts/:id', async (req, reply) => {
     const params = req.params as { id: string };
-    const query = req.query as { include_deleted?: string };
+    const query = req.query as { include_deleted?: string; include?: string };
     const pool = createPool();
 
     // Epic #1418: verify entity belongs to caller's namespaces
@@ -6868,32 +6947,112 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const deletedFilter = query.include_deleted === 'true' ? '' : 'AND c.deleted_at IS NULL';
 
+    // Base contact query with expanded fields (#1582)
     const result = await pool.query(
       `SELECT c.id::text as id, c.display_name, c.notes, c.contact_kind::text as contact_kind,
+              c.given_name, c.family_name, c.middle_name, c.name_prefix, c.name_suffix,
+              c.nickname, c.phonetic_given_name, c.phonetic_family_name, c.file_as,
+              c.custom_fields,
               c.preferred_channel::text, c.quiet_hours_start::text, c.quiet_hours_end::text,
               c.quiet_hours_timezone, c.urgency_override_channel::text, c.notification_notes,
-              c.created_at, c.updated_at,
-              c.deleted_at,
-              COALESCE(
-                json_agg(
-                  json_build_object('type', ce.endpoint_type::text, 'value', ce.endpoint_value)
-                ) FILTER (WHERE ce.id IS NOT NULL),
-                '[]'::json
-              ) as endpoints
+              c.namespace, c.created_at, c.updated_at, c.deleted_at
        FROM contact c
-       LEFT JOIN contact_endpoint ce ON ce.contact_id = c.id
-       WHERE c.id = $1 ${deletedFilter}
-       GROUP BY c.id`,
+       WHERE c.id = $1 ${deletedFilter}`,
       [params.id],
     );
 
-    await pool.end();
-
     if (result.rows.length === 0) {
+      await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
 
-    return reply.send(result.rows[0]);
+    const contact = result.rows[0];
+
+    // Eager loading with ?include= (#1582)
+    const includes = new Set(
+      (query.include ?? '').split(',').map((s) => s.trim()).filter(Boolean),
+    );
+
+    // Always include endpoints for backward compatibility (unless explicitly using include= without endpoints)
+    const includeEndpoints = includes.size === 0 || includes.has('endpoints');
+    const includeAddresses = includes.has('addresses');
+    const includeDates = includes.has('dates');
+    const includeTags = includes.has('tags');
+    const includeRelationships = includes.has('relationships');
+
+    const queries: Promise<void>[] = [];
+
+    if (includeEndpoints) {
+      queries.push(
+        pool.query(
+          `SELECT id::text, endpoint_type::text as type, endpoint_value as value,
+                  normalized_value, label, is_primary, is_login_eligible, metadata,
+                  created_at, updated_at
+           FROM contact_endpoint WHERE contact_id = $1
+           ORDER BY is_primary DESC NULLS LAST, endpoint_type, endpoint_value`,
+          [params.id],
+        ).then((r) => { contact.endpoints = r.rows; }),
+      );
+    }
+
+    if (includeAddresses) {
+      queries.push(
+        pool.query(
+          `SELECT id::text, address_type::text, label, street_address, extended_address,
+                  city, region, postal_code, country, country_code,
+                  formatted_address, latitude, longitude, is_primary,
+                  created_at, updated_at
+           FROM contact_address WHERE contact_id = $1
+           ORDER BY is_primary DESC NULLS LAST, label NULLS LAST, created_at`,
+          [params.id],
+        ).then((r) => { contact.addresses = r.rows; }),
+      );
+    }
+
+    if (includeDates) {
+      queries.push(
+        pool.query(
+          `SELECT id::text, date_type::text, label, date_value, created_at, updated_at
+           FROM contact_date WHERE contact_id = $1
+           ORDER BY date_type, label NULLS LAST, date_value`,
+          [params.id],
+        ).then((r) => { contact.dates = r.rows; }),
+      );
+    }
+
+    if (includeTags) {
+      queries.push(
+        pool.query(
+          `SELECT tag, created_at FROM contact_tag WHERE contact_id = $1 ORDER BY tag`,
+          [params.id],
+        ).then((r) => { contact.tags = r.rows.map((row: { tag: string }) => row.tag); }),
+      );
+    }
+
+    if (includeRelationships) {
+      queries.push(
+        pool.query(
+          `SELECT cr.id::text, cr.relationship_type::text,
+                  cr.from_contact_id::text, cr.to_contact_id::text,
+                  cr.metadata, cr.created_at,
+                  c2.display_name as related_display_name
+           FROM contact_relationship cr
+           JOIN contact c2 ON c2.id = CASE
+             WHEN cr.from_contact_id = $1 THEN cr.to_contact_id
+             ELSE cr.from_contact_id END
+           WHERE cr.from_contact_id = $1 OR cr.to_contact_id = $1
+           ORDER BY cr.relationship_type, cr.created_at`,
+          [params.id],
+        ).then((r) => { contact.relationships = r.rows; }),
+      );
+    }
+
+    if (queries.length > 0) {
+      await Promise.all(queries);
+    }
+
+    await pool.end();
+    return reply.send(contact);
   });
 
   // PATCH /api/contacts/:id - Update contact
@@ -6901,6 +7060,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const body = req.body as {
       display_name?: string; notes?: string | null; contact_kind?: string;
+      // Structured name fields (#1582)
+      given_name?: string | null; family_name?: string | null; middle_name?: string | null;
+      name_prefix?: string | null; name_suffix?: string | null; nickname?: string | null;
+      phonetic_given_name?: string | null; phonetic_family_name?: string | null;
+      file_as?: string | null;
+      // Multi-value fields (#1582)
+      custom_fields?: Array<{ key: string; value: string }>;
+      tags?: string[];
       preferred_channel?: string | null; quiet_hours_start?: string | null; quiet_hours_end?: string | null;
       quiet_hours_timezone?: string | null; urgency_override_channel?: string | null; notification_notes?: string | null;
     };
@@ -6917,6 +7084,38 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     if (body.contact_kind !== undefined && !VALID_CONTACT_KINDS.includes(body.contact_kind as ContactKind)) {
       await pool.end();
       return reply.code(400).send({ error: `Invalid contact_kind. Must be one of: ${VALID_CONTACT_KINDS.join(', ')}` });
+    }
+
+    // Validate custom_fields (#1582)
+    if (body.custom_fields !== undefined) {
+      if (!Array.isArray(body.custom_fields)) {
+        await pool.end();
+        return reply.code(400).send({ error: 'custom_fields must be an array' });
+      }
+      if (body.custom_fields.length > 50) {
+        await pool.end();
+        return reply.code(400).send({ error: 'custom_fields limited to 50 entries' });
+      }
+      for (const cf of body.custom_fields) {
+        if (!cf || typeof cf.key !== 'string' || typeof cf.value !== 'string') {
+          await pool.end();
+          return reply.code(400).send({ error: 'Each custom_field must have string key and value' });
+        }
+      }
+    }
+
+    // Validate tags (#1582)
+    if (body.tags !== undefined) {
+      if (!Array.isArray(body.tags)) {
+        await pool.end();
+        return reply.code(400).send({ error: 'tags must be an array of strings' });
+      }
+      for (const tag of body.tags) {
+        if (typeof tag !== 'string' || tag.trim().length === 0 || tag.length > 100) {
+          await pool.end();
+          return reply.code(400).send({ error: 'Each tag must be a non-empty string (max 100 chars)' });
+        }
+      }
     }
 
     // Validate communication channel preferences (issue #1269)
@@ -6963,6 +7162,26 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       paramIndex++;
     }
 
+    // Structured name fields (#1582)
+    const nameFields = [
+      'given_name', 'family_name', 'middle_name', 'name_prefix', 'name_suffix',
+      'nickname', 'phonetic_given_name', 'phonetic_family_name', 'file_as',
+    ] as const;
+    for (const field of nameFields) {
+      if (Object.prototype.hasOwnProperty.call(body, field)) {
+        updates.push(`${field} = $${paramIndex}`);
+        values.push((body[field] as string | null) ?? null);
+        paramIndex++;
+      }
+    }
+
+    // custom_fields (#1582)
+    if (body.custom_fields !== undefined) {
+      updates.push(`custom_fields = $${paramIndex}`);
+      values.push(JSON.stringify(body.custom_fields));
+      paramIndex++;
+    }
+
     // Communication preference fields (issue #1269)
     if (Object.prototype.hasOwnProperty.call(body, 'preferred_channel')) {
       updates.push(`preferred_channel = $${paramIndex}`);
@@ -6995,27 +7214,73 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       paramIndex++;
     }
 
-    if (updates.length === 0) {
+    // Tags require separate handling — check if only tags changed
+    const hasTags = body.tags !== undefined;
+    if (updates.length === 0 && !hasTags) {
       await pool.end();
       return reply.code(400).send({ error: 'no fields to update' });
     }
 
-    updates.push('updated_at = now()');
-    values.push(params.id);
-    const idParamIndex = paramIndex;
-    paramIndex++;
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
 
-    const result = await pool.query(
-      `UPDATE contact SET ${updates.join(', ')} WHERE id = $${idParamIndex}
-       RETURNING id::text as id, display_name, notes, contact_kind::text as contact_kind,
-        preferred_channel::text, quiet_hours_start::text, quiet_hours_end::text, quiet_hours_timezone,
-        urgency_override_channel::text, notification_notes,
-        created_at, updated_at`,
-      values,
-    );
+      let resultRow;
+      if (updates.length > 0) {
+        updates.push('updated_at = now()');
+        values.push(params.id);
+        const idParamIndex = paramIndex;
 
-    await pool.end();
-    return reply.send(result.rows[0]);
+        const result = await client.query(
+          `UPDATE contact SET ${updates.join(', ')} WHERE id = $${idParamIndex}
+           RETURNING id::text as id, display_name, notes, contact_kind::text as contact_kind,
+            given_name, family_name, middle_name, name_prefix, name_suffix, nickname,
+            phonetic_given_name, phonetic_family_name, file_as, custom_fields,
+            preferred_channel::text, quiet_hours_start::text, quiet_hours_end::text, quiet_hours_timezone,
+            urgency_override_channel::text, notification_notes, namespace,
+            created_at, updated_at`,
+          values,
+        );
+        resultRow = result.rows[0];
+      } else {
+        // Only tags changed — touch updated_at and fetch current row
+        const result = await client.query(
+          `UPDATE contact SET updated_at = now() WHERE id = $1
+           RETURNING id::text as id, display_name, notes, contact_kind::text as contact_kind,
+            given_name, family_name, middle_name, name_prefix, name_suffix, nickname,
+            phonetic_given_name, phonetic_family_name, file_as, custom_fields,
+            preferred_channel::text, quiet_hours_start::text, quiet_hours_end::text, quiet_hours_timezone,
+            urgency_override_channel::text, notification_notes, namespace,
+            created_at, updated_at`,
+          [params.id],
+        );
+        resultRow = result.rows[0];
+      }
+
+      // Sync tags (#1582): delete-and-replace strategy
+      if (hasTags) {
+        await client.query(`DELETE FROM contact_tag WHERE contact_id = $1`, [params.id]);
+        const uniqueTags = [...new Set(body.tags!.map((t) => t.trim()).filter(Boolean))];
+        if (uniqueTags.length > 0) {
+          const tagValues = uniqueTags.map((_, i) => `($1, $${i + 2})`).join(', ');
+          await client.query(
+            `INSERT INTO contact_tag (contact_id, tag) VALUES ${tagValues} ON CONFLICT DO NOTHING`,
+            [params.id, ...uniqueTags],
+          );
+        }
+        resultRow.tags = uniqueTags;
+      }
+
+      await client.query('COMMIT');
+      client.release();
+      await pool.end();
+      return reply.send(resultRow);
+    } catch (err) {
+      await client.query('ROLLBACK');
+      client.release();
+      await pool.end();
+      throw err;
+    }
   });
 
   // DELETE /api/contacts/:id - Soft delete by default (Issue #225)
@@ -7268,6 +7533,951 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     await pool.end();
     return reply.code(201).send(inserted.rows[0]);
+  });
+
+  // ============================================================
+  // Address CRUD (#1583)
+  // ============================================================
+
+  // GET /api/contacts/:id/addresses - List addresses
+  app.get('/api/contacts/:id/addresses', async (req, reply) => {
+    const params = req.params as { id: string };
+    const pool = createPool();
+    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+    const result = await pool.query(
+      `SELECT id::text, address_type::text, label, street_address, extended_address,
+              city, region, postal_code, country, country_code,
+              formatted_address, latitude, longitude, is_primary,
+              created_at, updated_at
+       FROM contact_address WHERE contact_id = $1
+       ORDER BY is_primary DESC NULLS LAST, label NULLS LAST, created_at`,
+      [params.id],
+    );
+    await pool.end();
+    return reply.send(result.rows);
+  });
+
+  // POST /api/contacts/:id/addresses - Add address
+  app.post('/api/contacts/:id/addresses', async (req, reply) => {
+    const params = req.params as { id: string };
+    const body = req.body as {
+      address_type?: string; label?: string;
+      street_address?: string; extended_address?: string;
+      city?: string; region?: string; postal_code?: string;
+      country?: string; country_code?: string;
+      formatted_address?: string;
+      latitude?: number; longitude?: number;
+      is_primary?: boolean;
+    };
+    const pool = createPool();
+    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+    if (body.country_code && body.country_code.length !== 2) {
+      await pool.end();
+      return reply.code(400).send({ error: 'country_code must be exactly 2 characters (ISO 3166-1 alpha-2)' });
+    }
+    const result = await pool.query(
+      `INSERT INTO contact_address (contact_id, address_type, label, street_address, extended_address,
+        city, region, postal_code, country, country_code, formatted_address, latitude, longitude, is_primary)
+       VALUES ($1, COALESCE($2::contact_address_type, 'home'), $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, COALESCE($14, false))
+       RETURNING id::text, address_type::text, label, street_address, extended_address,
+        city, region, postal_code, country, country_code,
+        formatted_address, latitude, longitude, is_primary,
+        created_at, updated_at`,
+      [params.id, body.address_type ?? null, body.label ?? null, body.street_address ?? null,
+       body.extended_address ?? null, body.city ?? null, body.region ?? null,
+       body.postal_code ?? null, body.country ?? null, body.country_code ?? null,
+       body.formatted_address ?? null, body.latitude ?? null, body.longitude ?? null,
+       body.is_primary ?? null],
+    );
+    await pool.end();
+    return reply.code(201).send(result.rows[0]);
+  });
+
+  // PATCH /api/contacts/:id/addresses/:addr_id - Update address
+  app.patch('/api/contacts/:id/addresses/:addr_id', async (req, reply) => {
+    const params = req.params as { id: string; addr_id: string };
+    const body = req.body as Record<string, unknown>;
+    const pool = createPool();
+    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+    if (body.country_code !== undefined && body.country_code !== null &&
+        (typeof body.country_code !== 'string' || body.country_code.length !== 2)) {
+      await pool.end();
+      return reply.code(400).send({ error: 'country_code must be exactly 2 characters (ISO 3166-1 alpha-2)' });
+    }
+    const allowedFields = [
+      'address_type', 'label', 'street_address', 'extended_address',
+      'city', 'region', 'postal_code', 'country', 'country_code',
+      'formatted_address', 'latitude', 'longitude', 'is_primary',
+    ];
+    const updates: string[] = [];
+    const values: unknown[] = [];
+    let paramIndex = 1;
+    for (const field of allowedFields) {
+      if (Object.prototype.hasOwnProperty.call(body, field)) {
+        const cast = field === 'address_type' ? '::contact_address_type' : '';
+        updates.push(`${field} = $${paramIndex}${cast}`);
+        values.push(body[field] ?? null);
+        paramIndex++;
+      }
+    }
+    if (updates.length === 0) {
+      await pool.end();
+      return reply.code(400).send({ error: 'no fields to update' });
+    }
+    values.push(params.addr_id, params.id);
+    const result = await pool.query(
+      `UPDATE contact_address SET ${updates.join(', ')}
+       WHERE id = $${paramIndex} AND contact_id = $${paramIndex + 1}
+       RETURNING id::text, address_type::text, label, street_address, extended_address,
+        city, region, postal_code, country, country_code,
+        formatted_address, latitude, longitude, is_primary,
+        created_at, updated_at`,
+      values,
+    );
+    await pool.end();
+    if (result.rows.length === 0) return reply.code(404).send({ error: 'not found' });
+    return reply.send(result.rows[0]);
+  });
+
+  // DELETE /api/contacts/:id/addresses/:addr_id - Remove address
+  app.delete('/api/contacts/:id/addresses/:addr_id', async (req, reply) => {
+    const params = req.params as { id: string; addr_id: string };
+    const pool = createPool();
+    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+    const result = await pool.query(
+      `DELETE FROM contact_address WHERE id = $1 AND contact_id = $2 RETURNING id::text`,
+      [params.addr_id, params.id],
+    );
+    await pool.end();
+    if (result.rows.length === 0) return reply.code(404).send({ error: 'not found' });
+    return reply.code(204).send();
+  });
+
+  // ============================================================
+  // Date CRUD (#1584)
+  // ============================================================
+
+  // GET /api/contacts/:id/dates - List dates
+  app.get('/api/contacts/:id/dates', async (req, reply) => {
+    const params = req.params as { id: string };
+    const pool = createPool();
+    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+    const result = await pool.query(
+      `SELECT id::text, date_type::text, label, date_value, created_at, updated_at
+       FROM contact_date WHERE contact_id = $1
+       ORDER BY date_type, label NULLS LAST, date_value`,
+      [params.id],
+    );
+    await pool.end();
+    return reply.send(result.rows);
+  });
+
+  // POST /api/contacts/:id/dates - Add date
+  app.post('/api/contacts/:id/dates', async (req, reply) => {
+    const params = req.params as { id: string };
+    const body = req.body as {
+      date_type?: string; label?: string; date_value?: string;
+    };
+    if (!body?.date_value) {
+      return reply.code(400).send({ error: 'date_value is required' });
+    }
+    const pool = createPool();
+    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+    const result = await pool.query(
+      `INSERT INTO contact_date (contact_id, date_type, label, date_value)
+       VALUES ($1, COALESCE($2::contact_date_type, 'other'), $3, $4)
+       RETURNING id::text, date_type::text, label, date_value, created_at, updated_at`,
+      [params.id, body.date_type ?? null, body.label ?? null, body.date_value],
+    );
+    await pool.end();
+    return reply.code(201).send(result.rows[0]);
+  });
+
+  // PATCH /api/contacts/:id/dates/:date_id - Update date
+  app.patch('/api/contacts/:id/dates/:date_id', async (req, reply) => {
+    const params = req.params as { id: string; date_id: string };
+    const body = req.body as Record<string, unknown>;
+    const pool = createPool();
+    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+    const allowedFields = ['date_type', 'label', 'date_value'];
+    const updates: string[] = [];
+    const values: unknown[] = [];
+    let paramIndex = 1;
+    for (const field of allowedFields) {
+      if (Object.prototype.hasOwnProperty.call(body, field)) {
+        const cast = field === 'date_type' ? '::contact_date_type' : '';
+        updates.push(`${field} = $${paramIndex}${cast}`);
+        values.push(body[field] ?? null);
+        paramIndex++;
+      }
+    }
+    if (updates.length === 0) {
+      await pool.end();
+      return reply.code(400).send({ error: 'no fields to update' });
+    }
+    values.push(params.date_id, params.id);
+    const result = await pool.query(
+      `UPDATE contact_date SET ${updates.join(', ')}
+       WHERE id = $${paramIndex} AND contact_id = $${paramIndex + 1}
+       RETURNING id::text, date_type::text, label, date_value, created_at, updated_at`,
+      values,
+    );
+    await pool.end();
+    if (result.rows.length === 0) return reply.code(404).send({ error: 'not found' });
+    return reply.send(result.rows[0]);
+  });
+
+  // DELETE /api/contacts/:id/dates/:date_id - Remove date
+  app.delete('/api/contacts/:id/dates/:date_id', async (req, reply) => {
+    const params = req.params as { id: string; date_id: string };
+    const pool = createPool();
+    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+    const result = await pool.query(
+      `DELETE FROM contact_date WHERE id = $1 AND contact_id = $2 RETURNING id::text`,
+      [params.date_id, params.id],
+    );
+    await pool.end();
+    if (result.rows.length === 0) return reply.code(404).send({ error: 'not found' });
+    return reply.code(204).send();
+  });
+
+  // ============================================================
+  // Endpoint Management — GET, PATCH, DELETE (#1585)
+  // ============================================================
+
+  // GET /api/contacts/:id/endpoints - List endpoints
+  app.get('/api/contacts/:id/endpoints', async (req, reply) => {
+    const params = req.params as { id: string };
+    const pool = createPool();
+    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+    const result = await pool.query(
+      `SELECT id::text, endpoint_type::text as type, endpoint_value as value,
+              normalized_value, label, is_primary, is_login_eligible, metadata,
+              created_at, updated_at
+       FROM contact_endpoint WHERE contact_id = $1
+       ORDER BY is_primary DESC NULLS LAST, endpoint_type, endpoint_value`,
+      [params.id],
+    );
+    await pool.end();
+    return reply.send(result.rows);
+  });
+
+  // PATCH /api/contacts/:id/endpoints/:ep_id - Update endpoint
+  app.patch('/api/contacts/:id/endpoints/:ep_id', async (req, reply) => {
+    const params = req.params as { id: string; ep_id: string };
+    const body = req.body as Record<string, unknown>;
+    const pool = createPool();
+    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+    const allowedFields = ['label', 'is_primary', 'metadata'];
+    const updates: string[] = [];
+    const values: unknown[] = [];
+    let paramIndex = 1;
+    for (const field of allowedFields) {
+      if (Object.prototype.hasOwnProperty.call(body, field)) {
+        if (field === 'metadata') {
+          updates.push(`metadata = $${paramIndex}::jsonb`);
+          values.push(body[field] != null ? JSON.stringify(body[field]) : null);
+        } else {
+          updates.push(`${field} = $${paramIndex}`);
+          values.push(body[field] ?? null);
+        }
+        paramIndex++;
+      }
+    }
+    if (updates.length === 0) {
+      await pool.end();
+      return reply.code(400).send({ error: 'no fields to update' });
+    }
+    updates.push(`updated_at = now()`);
+    values.push(params.ep_id, params.id);
+    const result = await pool.query(
+      `UPDATE contact_endpoint SET ${updates.join(', ')}
+       WHERE id = $${paramIndex} AND contact_id = $${paramIndex + 1}
+       RETURNING id::text, endpoint_type::text as type, endpoint_value as value,
+        normalized_value, label, is_primary, is_login_eligible, metadata,
+        created_at, updated_at`,
+      values,
+    );
+    await pool.end();
+    if (result.rows.length === 0) return reply.code(404).send({ error: 'not found' });
+    return reply.send(result.rows[0]);
+  });
+
+  // DELETE /api/contacts/:id/endpoints/:ep_id - Remove endpoint
+  app.delete('/api/contacts/:id/endpoints/:ep_id', async (req, reply) => {
+    const params = req.params as { id: string; ep_id: string };
+    const pool = createPool();
+    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+    const result = await pool.query(
+      `DELETE FROM contact_endpoint WHERE id = $1 AND contact_id = $2 RETURNING id::text`,
+      [params.ep_id, params.id],
+    );
+    await pool.end();
+    if (result.rows.length === 0) return reply.code(404).send({ error: 'not found' });
+    return reply.code(204).send();
+  });
+
+  // ============================================================
+  // Tag Management (#1586)
+  // ============================================================
+
+  // GET /api/contacts/:id/tags - List tags for a contact
+  app.get('/api/contacts/:id/tags', async (req, reply) => {
+    const params = req.params as { id: string };
+    const pool = createPool();
+    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+    const result = await pool.query(
+      `SELECT tag, created_at FROM contact_tag WHERE contact_id = $1 ORDER BY tag`,
+      [params.id],
+    );
+    await pool.end();
+    return reply.send(result.rows);
+  });
+
+  // POST /api/contacts/:id/tags - Add tag(s) to a contact
+  app.post('/api/contacts/:id/tags', async (req, reply) => {
+    const params = req.params as { id: string };
+    const body = req.body as { tags?: string[]; tag?: string };
+    const pool = createPool();
+    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+    const tags = body.tags ?? (body.tag ? [body.tag] : []);
+    if (tags.length === 0) {
+      await pool.end();
+      return reply.code(400).send({ error: 'tags array or tag string is required' });
+    }
+    for (const tag of tags) {
+      if (typeof tag !== 'string' || tag.trim().length === 0 || tag.length > 100) {
+        await pool.end();
+        return reply.code(400).send({ error: 'Each tag must be a non-empty string (max 100 chars)' });
+      }
+    }
+    const uniqueTags = [...new Set(tags.map((t) => t.trim()).filter(Boolean))];
+    const tagValues = uniqueTags.map((_, i) => `($1, $${i + 2})`).join(', ');
+    await pool.query(
+      `INSERT INTO contact_tag (contact_id, tag) VALUES ${tagValues} ON CONFLICT DO NOTHING`,
+      [params.id, ...uniqueTags],
+    );
+    // Return updated tag list
+    const result = await pool.query(
+      `SELECT tag, created_at FROM contact_tag WHERE contact_id = $1 ORDER BY tag`,
+      [params.id],
+    );
+    await pool.end();
+    return reply.code(201).send(result.rows);
+  });
+
+  // DELETE /api/contacts/:id/tags/:tag - Remove a tag from a contact
+  app.delete('/api/contacts/:id/tags/:tag', async (req, reply) => {
+    const params = req.params as { id: string; tag: string };
+    const pool = createPool();
+    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+    const result = await pool.query(
+      `DELETE FROM contact_tag WHERE contact_id = $1 AND tag = $2 RETURNING tag`,
+      [params.id, decodeURIComponent(params.tag)],
+    );
+    await pool.end();
+    if (result.rows.length === 0) return reply.code(404).send({ error: 'not found' });
+    return reply.code(204).send();
+  });
+
+  // GET /api/tags - List all tags with contact counts (for tag picker)
+  app.get('/api/tags', async (req, reply) => {
+    const pool = createPool();
+    const conditions: string[] = [];
+    const values: unknown[] = [];
+    let paramIndex = 1;
+
+    // Namespace scoping: only show tags for contacts the user can see
+    if (req.namespaceContext) {
+      conditions.push(`c.namespace = ANY($${paramIndex}::text[])`);
+      values.push(req.namespaceContext.queryNamespaces);
+      paramIndex++;
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    const result = await pool.query(
+      `SELECT ct.tag, COUNT(DISTINCT ct.contact_id)::int as contact_count
+       FROM contact_tag ct
+       JOIN contact c ON c.id = ct.contact_id AND c.deleted_at IS NULL
+       ${whereClause}
+       GROUP BY ct.tag
+       ORDER BY ct.tag`,
+      values,
+    );
+    await pool.end();
+    return reply.send(result.rows);
+  });
+
+  // ============================================================
+  // Photo Upload (#1587)
+  // ============================================================
+
+  // POST /api/contacts/:id/photo - Upload contact photo
+  app.post('/api/contacts/:id/photo', async (req, reply) => {
+    const params = req.params as { id: string };
+    const storage = getFileStorage();
+    if (!storage) {
+      return reply.code(503).send({ error: 'File storage not configured' });
+    }
+    const pool = createPool();
+    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+    try {
+      let buffer: Buffer | null = null;
+      let filename: string | undefined;
+      let mimetype: string | undefined;
+      for await (const part of req.parts()) {
+        if (part.type === 'file') {
+          if (!buffer) {
+            buffer = await part.toBuffer();
+            filename = part.filename;
+            mimetype = part.mimetype;
+          } else {
+            await part.toBuffer();
+          }
+        }
+      }
+      if (!buffer || !filename) {
+        await pool.end();
+        return reply.code(400).send({ error: 'No file uploaded' });
+      }
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+      if (mimetype && !allowedTypes.includes(mimetype)) {
+        await pool.end();
+        return reply.code(400).send({ error: `Invalid image type. Allowed: ${allowedTypes.join(', ')}` });
+      }
+      const email = await getSessionEmail(req);
+      const uploaded = await uploadFile(
+        pool, storage,
+        { filename, content_type: mimetype || 'image/jpeg', data: buffer, uploaded_by: email || undefined, namespace: getStoreNamespace(req) },
+        maxFileSize,
+      );
+      // Set photo_url on contact (use the file ID for internal reference)
+      await pool.query(
+        `UPDATE contact SET photo_url = $1, updated_at = now() WHERE id = $2`,
+        [`/api/files/${uploaded.id}`, params.id],
+      );
+      await pool.end();
+      return reply.code(201).send({ photo_url: `/api/files/${uploaded.id}`, file_id: uploaded.id });
+    } catch (err) {
+      await pool.end();
+      if (err instanceof FileTooLargeError) {
+        return reply.code(413).send({ error: 'File too large', message: (err as Error).message });
+      }
+      throw err;
+    }
+  });
+
+  // DELETE /api/contacts/:id/photo - Remove contact photo
+  app.delete('/api/contacts/:id/photo', async (req, reply) => {
+    const params = req.params as { id: string };
+    const pool = createPool();
+    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+    const result = await pool.query(
+      `UPDATE contact SET photo_url = NULL, updated_at = now() WHERE id = $1 RETURNING id::text`,
+      [params.id],
+    );
+    await pool.end();
+    if (result.rows.length === 0) return reply.code(404).send({ error: 'not found' });
+    return reply.code(204).send();
+  });
+
+  // ============================================================
+  // Contact Merge (#1588)
+  // ============================================================
+
+  // POST /api/contacts/merge - Merge two contacts
+  app.post('/api/contacts/merge', async (req, reply) => {
+    const body = req.body as { survivor_id?: string; loser_id?: string };
+    if (!body?.survivor_id || !body?.loser_id) {
+      return reply.code(400).send({ error: 'survivor_id and loser_id are required' });
+    }
+    if (body.survivor_id === body.loser_id) {
+      return reply.code(400).send({ error: 'survivor_id and loser_id must be different' });
+    }
+
+    const pool = createPool();
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Lock both contacts to prevent concurrent merges
+      const locked = await client.query(
+        `SELECT id::text, display_name, namespace, notes, contact_kind::text,
+                given_name, family_name, middle_name, name_prefix, name_suffix,
+                nickname, phonetic_given_name, phonetic_family_name, file_as,
+                custom_fields, photo_url, deleted_at
+         FROM contact WHERE id = ANY($1::uuid[])
+         ORDER BY id FOR UPDATE`,
+        [[body.survivor_id, body.loser_id]],
+      );
+
+      if (locked.rows.length !== 2) {
+        await client.query('ROLLBACK');
+        client.release();
+        await pool.end();
+        return reply.code(404).send({ error: 'One or both contacts not found' });
+      }
+
+      let survivor = locked.rows.find((r: { id: string }) => r.id === body.survivor_id)!;
+      let loser = locked.rows.find((r: { id: string }) => r.id === body.loser_id)!;
+
+      if (survivor.deleted_at || loser.deleted_at) {
+        await client.query('ROLLBACK');
+        client.release();
+        await pool.end();
+        return reply.code(400).send({ error: 'Cannot merge soft-deleted contacts' });
+      }
+
+      // Same namespace check
+      if (survivor.namespace !== loser.namespace) {
+        await client.query('ROLLBACK');
+        client.release();
+        await pool.end();
+        return reply.code(400).send({ error: 'Cannot merge contacts from different namespaces' });
+      }
+
+      // Namespace scope check
+      if (!(await verifyNamespaceScope(pool, 'contact', survivor.id, req))) {
+        await client.query('ROLLBACK');
+        client.release();
+        await pool.end();
+        return reply.code(403).send({ error: 'No access to these contacts' });
+      }
+
+      // Auth-linked check: if both linked to user_setting, reject
+      const authLinks = await client.query(
+        `SELECT contact_id::text FROM user_setting WHERE contact_id = ANY($1::uuid[])`,
+        [[survivor.id, loser.id]],
+      );
+      const linkedIds = new Set(authLinks.rows.map((r: { contact_id: string }) => r.contact_id));
+      if (linkedIds.has(survivor.id) && linkedIds.has(loser.id)) {
+        await client.query('ROLLBACK');
+        client.release();
+        await pool.end();
+        return reply.code(400).send({ error: 'Cannot merge two auth-linked contacts' });
+      }
+      // If loser is auth-linked but survivor isn't, swap them
+      if (linkedIds.has(loser.id) && !linkedIds.has(survivor.id)) {
+        [survivor, loser] = [loser, survivor];
+      }
+
+      // Save pre-merge snapshots
+      const survivorSnapshot = JSON.stringify(survivor);
+      const loserSnapshot = JSON.stringify(loser);
+
+      // 1. Move endpoints (skip duplicates by normalized_value)
+      await client.query(
+        `UPDATE contact_endpoint SET contact_id = $1
+         WHERE contact_id = $2
+           AND normalized_value NOT IN (
+             SELECT normalized_value FROM contact_endpoint WHERE contact_id = $1
+           )`,
+        [survivor.id, loser.id],
+      );
+      await client.query(`DELETE FROM contact_endpoint WHERE contact_id = $1`, [loser.id]);
+
+      // 2. Move addresses
+      await client.query(
+        `UPDATE contact_address SET contact_id = $1 WHERE contact_id = $2`,
+        [survivor.id, loser.id],
+      );
+
+      // 3. Move dates (skip duplicate date_type+date_value)
+      await client.query(
+        `UPDATE contact_date SET contact_id = $1
+         WHERE contact_id = $2
+           AND (date_type, date_value) NOT IN (
+             SELECT date_type, date_value FROM contact_date WHERE contact_id = $1
+           )`,
+        [survivor.id, loser.id],
+      );
+      await client.query(`DELETE FROM contact_date WHERE contact_id = $1`, [loser.id]);
+
+      // 4. Move relationships (update references, skip duplicates)
+      await client.query(
+        `UPDATE contact_relationship SET from_contact_id = $1
+         WHERE from_contact_id = $2
+           AND (relationship_type, to_contact_id) NOT IN (
+             SELECT relationship_type, to_contact_id FROM contact_relationship WHERE from_contact_id = $1
+           )`,
+        [survivor.id, loser.id],
+      );
+      await client.query(
+        `UPDATE contact_relationship SET to_contact_id = $1
+         WHERE to_contact_id = $2
+           AND (relationship_type, from_contact_id) NOT IN (
+             SELECT relationship_type, from_contact_id FROM contact_relationship WHERE to_contact_id = $1
+           )`,
+        [survivor.id, loser.id],
+      );
+      await client.query(
+        `DELETE FROM contact_relationship WHERE from_contact_id = $1 OR to_contact_id = $1`,
+        [loser.id],
+      );
+
+      // 5. Move tags (skip duplicates)
+      await client.query(
+        `INSERT INTO contact_tag (contact_id, tag)
+         SELECT $1, tag FROM contact_tag WHERE contact_id = $2
+         ON CONFLICT DO NOTHING`,
+        [survivor.id, loser.id],
+      );
+      await client.query(`DELETE FROM contact_tag WHERE contact_id = $1`, [loser.id]);
+
+      // 6. Move work_item_contact links
+      await client.query(
+        `UPDATE work_item_contact SET contact_id = $1
+         WHERE contact_id = $2
+           AND work_item_id NOT IN (
+             SELECT work_item_id FROM work_item_contact WHERE contact_id = $1
+           )`,
+        [survivor.id, loser.id],
+      );
+      await client.query(`DELETE FROM work_item_contact WHERE contact_id = $1`, [loser.id]);
+
+      // 7. Repoint user_setting if loser was auth-linked
+      await client.query(
+        `UPDATE user_setting SET contact_id = $1 WHERE contact_id = $2`,
+        [survivor.id, loser.id],
+      );
+
+      // 8. Merge custom_fields (union, dedup by key — survivor wins)
+      const survivorFields: Array<{ key: string; value: string }> = survivor.custom_fields || [];
+      const loserFields: Array<{ key: string; value: string }> = loser.custom_fields || [];
+      const existingKeys = new Set(survivorFields.map((f: { key: string }) => f.key));
+      const mergedFields = [...survivorFields, ...loserFields.filter((f: { key: string }) => !existingKeys.has(f.key))];
+
+      // 9. Backfill null fields from loser
+      const backfillFields = [
+        'given_name', 'family_name', 'middle_name', 'name_prefix', 'name_suffix',
+        'nickname', 'phonetic_given_name', 'phonetic_family_name', 'file_as', 'photo_url', 'notes',
+      ];
+      const backfillUpdates: string[] = [];
+      const backfillValues: unknown[] = [];
+      let bpi = 1;
+      for (const field of backfillFields) {
+        if (survivor[field] == null && loser[field] != null) {
+          backfillUpdates.push(`${field} = $${bpi}`);
+          backfillValues.push(loser[field]);
+          bpi++;
+        }
+      }
+      // Always update custom_fields
+      backfillUpdates.push(`custom_fields = $${bpi}`);
+      backfillValues.push(JSON.stringify(mergedFields));
+      bpi++;
+      backfillUpdates.push(`updated_at = now()`);
+      backfillValues.push(survivor.id);
+      await client.query(
+        `UPDATE contact SET ${backfillUpdates.join(', ')} WHERE id = $${bpi}`,
+        backfillValues,
+      );
+
+      // 10. Record merge in log
+      const email = await getSessionEmail(req);
+      await client.query(
+        `INSERT INTO contact_merge_log (survivor_id, loser_id, merged_by, survivor_snapshot, loser_snapshot)
+         VALUES ($1, $2, $3, $4::jsonb, $5::jsonb)`,
+        [survivor.id, loser.id, email, survivorSnapshot, loserSnapshot],
+      );
+
+      // 11. Soft-delete the loser
+      await client.query(
+        `UPDATE contact SET deleted_at = now(), updated_at = now() WHERE id = $1`,
+        [loser.id],
+      );
+
+      await client.query('COMMIT');
+      client.release();
+
+      // Return merged survivor
+      const merged = await pool.query(
+        `SELECT id::text, display_name, notes, contact_kind::text,
+                given_name, family_name, middle_name, name_prefix, name_suffix,
+                nickname, phonetic_given_name, phonetic_family_name, file_as,
+                custom_fields, photo_url, namespace,
+                created_at, updated_at
+         FROM contact WHERE id = $1`,
+        [survivor.id],
+      );
+      await pool.end();
+      return reply.send({ merged: merged.rows[0], loser_id: loser.id });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      client.release();
+      await pool.end();
+      throw err;
+    }
+  });
+
+  // ============================================================
+  // Import/Export (#1589)
+  // ============================================================
+
+  // GET /api/contacts/export - Export contacts as CSV or JSON
+  app.get('/api/contacts/export', async (req, reply) => {
+    const query = req.query as { format?: string; ids?: string };
+    const format = query.format || 'json';
+    if (!['csv', 'json'].includes(format)) {
+      return reply.code(400).send({ error: 'format must be csv or json' });
+    }
+
+    const pool = createPool();
+
+    // Build namespace filter
+    const conditions: string[] = ['c.deleted_at IS NULL'];
+    const values: unknown[] = [];
+    let paramIndex = 1;
+    if (req.namespaceContext) {
+      conditions.push(`c.namespace = ANY($${paramIndex}::text[])`);
+      values.push(req.namespaceContext.queryNamespaces);
+      paramIndex++;
+    }
+    // Optional ID filter for selected export
+    if (query.ids) {
+      const ids = query.ids.split(',').map((s) => s.trim()).filter(Boolean);
+      if (ids.length > 0) {
+        conditions.push(`c.id = ANY($${paramIndex}::uuid[])`);
+        values.push(ids);
+        paramIndex++;
+      }
+    }
+
+    const result = await pool.query(
+      `SELECT c.id::text, c.display_name, c.given_name, c.family_name, c.middle_name,
+              c.name_prefix, c.name_suffix, c.nickname, c.notes,
+              c.contact_kind::text, c.custom_fields, c.namespace,
+              COALESCE(
+                json_agg(
+                  json_build_object(
+                    'type', ce.endpoint_type::text,
+                    'value', ce.endpoint_value,
+                    'label', ce.label,
+                    'is_primary', ce.is_primary
+                  )
+                ) FILTER (WHERE ce.id IS NOT NULL),
+                '[]'::json
+              ) as endpoints
+       FROM contact c
+       LEFT JOIN contact_endpoint ce ON ce.contact_id = c.id
+       WHERE ${conditions.join(' AND ')}
+       GROUP BY c.id
+       ORDER BY c.display_name NULLS LAST, c.family_name NULLS LAST`,
+      values,
+    );
+    await pool.end();
+
+    if (format === 'csv') {
+      const csvHeader = 'id,display_name,given_name,family_name,middle_name,nickname,email,phone,notes,contact_kind';
+      const csvRows = result.rows.map((row: Record<string, unknown>) => {
+        const endpoints = row.endpoints as Array<{ type: string; value: string }>;
+        const email = endpoints.find((e) => e.type === 'email')?.value || '';
+        const phone = endpoints.find((e) => e.type === 'phone')?.value || '';
+        const escapeCsv = (v: unknown) => {
+          const s = String(v ?? '');
+          return s.includes(',') || s.includes('"') || s.includes('\n')
+            ? `"${s.replace(/"/g, '""')}"` : s;
+        };
+        return [row.id, row.display_name, row.given_name, row.family_name,
+                row.middle_name, row.nickname, email, phone, row.notes, row.contact_kind]
+          .map(escapeCsv).join(',');
+      });
+      reply.header('Content-Type', 'text/csv');
+      reply.header('Content-Disposition', 'attachment; filename="contacts.csv"');
+      return reply.send([csvHeader, ...csvRows].join('\n'));
+    }
+
+    reply.header('Content-Type', 'application/json');
+    reply.header('Content-Disposition', 'attachment; filename="contacts.json"');
+    return reply.send(result.rows);
+  });
+
+  // POST /api/contacts/import - Import contacts from CSV
+  app.post('/api/contacts/import', async (req, reply) => {
+    const body = req.body as {
+      contacts?: Array<{
+        display_name?: string; given_name?: string; family_name?: string;
+        middle_name?: string; nickname?: string; notes?: string;
+        contact_kind?: string;
+        endpoints?: Array<{ type: string; value: string }>;
+        tags?: string[];
+      }>;
+      duplicate_handling?: string; // 'skip' | 'update' | 'create'
+    };
+
+    if (!body?.contacts || !Array.isArray(body.contacts)) {
+      return reply.code(400).send({ error: 'contacts array is required' });
+    }
+    if (body.contacts.length > 10000) {
+      return reply.code(400).send({ error: 'Maximum 10,000 contacts per import' });
+    }
+
+    const duplicateHandling = body.duplicate_handling || 'skip';
+    const pool = createPool();
+    const namespace = getStoreNamespace(req);
+    const email = await getSessionEmail(req);
+    const client = await pool.connect();
+
+    const results = { created: 0, updated: 0, skipped: 0, failed: 0, errors: [] as Array<{ index: number; error: string }> };
+
+    try {
+      await client.query('BEGIN');
+
+      for (let i = 0; i < body.contacts.length; i++) {
+        const contact = body.contacts[i];
+        try {
+          const displayName = contact.display_name?.trim();
+          const hasName = displayName || contact.given_name || contact.family_name;
+          if (!hasName) {
+            results.errors.push({ index: i, error: 'display_name or given_name/family_name required' });
+            results.failed++;
+            continue;
+          }
+
+          // Check for duplicates by email endpoint
+          let existingId: string | null = null;
+          const emailEndpoint = contact.endpoints?.find((e) => e.type === 'email' && e.value);
+          if (emailEndpoint && duplicateHandling !== 'create') {
+            const dup = await client.query(
+              `SELECT c.id::text FROM contact c
+               JOIN contact_endpoint ce ON ce.contact_id = c.id
+               WHERE ce.endpoint_type = 'email'
+                 AND ce.normalized_value = lower(trim($1))
+                 AND c.namespace = $2 AND c.deleted_at IS NULL
+               LIMIT 1`,
+              [emailEndpoint.value, namespace],
+            );
+            existingId = dup.rows[0]?.id ?? null;
+          }
+
+          if (existingId && duplicateHandling === 'skip') {
+            results.skipped++;
+            continue;
+          }
+
+          if (existingId && duplicateHandling === 'update') {
+            // Update existing contact
+            await client.query(
+              `UPDATE contact SET
+                display_name = COALESCE($1, display_name),
+                given_name = COALESCE($2, given_name),
+                family_name = COALESCE($3, family_name),
+                middle_name = COALESCE($4, middle_name),
+                nickname = COALESCE($5, nickname),
+                notes = COALESCE($6, notes),
+                updated_at = now()
+               WHERE id = $7`,
+              [displayName ?? null, contact.given_name ?? null, contact.family_name ?? null,
+               contact.middle_name ?? null, contact.nickname ?? null, contact.notes ?? null,
+               existingId],
+            );
+            results.updated++;
+            continue;
+          }
+
+          // Create new contact
+          const inserted = await client.query(
+            `INSERT INTO contact (display_name, given_name, family_name, middle_name,
+              nickname, notes, contact_kind, namespace)
+             VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7::contact_kind, 'person'), $8)
+             RETURNING id::text`,
+            [displayName ?? null, contact.given_name ?? null, contact.family_name ?? null,
+             contact.middle_name ?? null, contact.nickname ?? null, contact.notes ?? null,
+             contact.contact_kind ?? null, namespace],
+          );
+          const newId = inserted.rows[0].id;
+
+          // Add endpoints
+          if (contact.endpoints && contact.endpoints.length > 0) {
+            for (const ep of contact.endpoints) {
+              if (ep.type && ep.value) {
+                await client.query(
+                  `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value, namespace)
+                   VALUES ($1, $2::contact_endpoint_type, $3, $4)
+                   ON CONFLICT DO NOTHING`,
+                  [newId, ep.type, ep.value, namespace],
+                );
+              }
+            }
+          }
+
+          // Add tags
+          if (contact.tags && contact.tags.length > 0) {
+            const uniqueTags = [...new Set(contact.tags.map((t) => t.trim()).filter(Boolean))];
+            if (uniqueTags.length > 0) {
+              const tagVals = uniqueTags.map((_, j) => `($1, $${j + 2})`).join(', ');
+              await client.query(
+                `INSERT INTO contact_tag (contact_id, tag) VALUES ${tagVals} ON CONFLICT DO NOTHING`,
+                [newId, ...uniqueTags],
+              );
+            }
+          }
+
+          results.created++;
+        } catch (err) {
+          results.errors.push({ index: i, error: (err as Error).message });
+          results.failed++;
+        }
+      }
+
+      await client.query('COMMIT');
+      client.release();
+      await pool.end();
+      return reply.code(201).send(results);
+    } catch (err) {
+      await client.query('ROLLBACK');
+      client.release();
+      await pool.end();
+      throw err;
+    }
   });
 
   // Global Memory API (issue #120)

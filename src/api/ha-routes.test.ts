@@ -67,7 +67,7 @@ async function buildApp(queryFn: ReturnType<typeof vi.fn>): Promise<FastifyInsta
       storeNamespace: 'default',
       queryNamespaces: ['default'],
       isM2M: false,
-      roles: { default: 'member' },
+      roles: { default: 'readwrite' },
     };
   });
 
@@ -95,7 +95,7 @@ async function buildAppObserver(queryFn: ReturnType<typeof vi.fn>): Promise<Fast
       storeNamespace: 'default',
       queryNamespaces: ['default'],
       isM2M: false,
-      roles: { default: 'observer' },
+      roles: { default: 'read' },
     };
   });
   await app.register(haRoutesPlugin, { pool: mockPool(queryFn) });

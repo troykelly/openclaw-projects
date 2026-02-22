@@ -33,8 +33,8 @@ describe('Namespace Scoping Migration (#1429)', () => {
       expect(cols).toContain('id');
       expect(cols).toContain('email');
       expect(cols).toContain('namespace');
-      expect(cols).toContain('role');
-      expect(cols).toContain('is_default');
+      expect(cols).toContain('access');
+      expect(cols).toContain('is_home');
       expect(cols).toContain('created_at');
       expect(cols).toContain('updated_at');
     });
@@ -73,14 +73,14 @@ describe('Namespace Scoping Migration (#1429)', () => {
 
       // Valid namespace should work
       await pool.query(
-        `INSERT INTO namespace_grant (email, namespace, role) VALUES ($1, 'valid-ns-1', 'member')`,
+        `INSERT INTO namespace_grant (email, namespace, access) VALUES ($1, 'valid-ns-1', 'read')`,
         [testEmail],
       );
 
       // Invalid namespace (starts with hyphen) should fail
       await expect(
         pool.query(
-          `INSERT INTO namespace_grant (email, namespace, role) VALUES ($1, '-invalid', 'member')`,
+          `INSERT INTO namespace_grant (email, namespace, access) VALUES ($1, '-invalid', 'read')`,
           [testEmail],
         ),
       ).rejects.toThrow();
@@ -88,7 +88,7 @@ describe('Namespace Scoping Migration (#1429)', () => {
       // Invalid namespace (uppercase) should fail
       await expect(
         pool.query(
-          `INSERT INTO namespace_grant (email, namespace, role) VALUES ($1, 'UPPER', 'member')`,
+          `INSERT INTO namespace_grant (email, namespace, access) VALUES ($1, 'UPPER', 'read')`,
           [testEmail],
         ),
       ).rejects.toThrow();
@@ -98,26 +98,26 @@ describe('Namespace Scoping Migration (#1429)', () => {
       await pool.query(`DELETE FROM user_setting WHERE email = $1`, [testEmail]);
     });
 
-    it('enforces role CHECK constraint', async () => {
-      const testEmail = `ns-role-test-${Date.now()}@test.com`;
+    it('enforces access CHECK constraint', async () => {
+      const testEmail = `ns-access-test-${Date.now()}@test.com`;
       await pool.query(
         `INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`,
         [testEmail],
       );
 
-      // Valid roles should work
-      for (const role of ['owner', 'admin', 'member', 'observer']) {
-        const ns = `role-test-${role}`;
+      // Valid access levels should work
+      for (const access of ['read', 'readwrite']) {
+        const ns = `access-test-${access}`;
         await pool.query(
-          `INSERT INTO namespace_grant (email, namespace, role) VALUES ($1, $2, $3)`,
-          [testEmail, ns, role],
+          `INSERT INTO namespace_grant (email, namespace, access) VALUES ($1, $2, $3)`,
+          [testEmail, ns, access],
         );
       }
 
-      // Invalid role should fail
+      // Invalid access should fail
       await expect(
         pool.query(
-          `INSERT INTO namespace_grant (email, namespace, role) VALUES ($1, 'role-invalid', 'superuser')`,
+          `INSERT INTO namespace_grant (email, namespace, access) VALUES ($1, 'access-invalid', 'superuser')`,
           [testEmail],
         ),
       ).rejects.toThrow();
@@ -127,30 +127,30 @@ describe('Namespace Scoping Migration (#1429)', () => {
       await pool.query(`DELETE FROM user_setting WHERE email = $1`, [testEmail]);
     });
 
-    it('enforces at most one is_default=true per user', async () => {
-      const testEmail = `ns-default-test-${Date.now()}@test.com`;
+    it('enforces at most one is_home=true per user', async () => {
+      const testEmail = `ns-home-test-${Date.now()}@test.com`;
       await pool.query(
         `INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`,
         [testEmail],
       );
 
-      // First default should work
+      // First home should work
       await pool.query(
-        `INSERT INTO namespace_grant (email, namespace, role, is_default) VALUES ($1, 'default-test-1', 'owner', true)`,
+        `INSERT INTO namespace_grant (email, namespace, access, is_home) VALUES ($1, 'home-test-1', 'readwrite', true)`,
         [testEmail],
       );
 
-      // Second default should fail (unique partial index)
+      // Second home should fail (unique partial index)
       await expect(
         pool.query(
-          `INSERT INTO namespace_grant (email, namespace, role, is_default) VALUES ($1, 'default-test-2', 'member', true)`,
+          `INSERT INTO namespace_grant (email, namespace, access, is_home) VALUES ($1, 'home-test-2', 'read', true)`,
           [testEmail],
         ),
       ).rejects.toThrow();
 
-      // Non-default should work fine
+      // Non-home should work fine
       await pool.query(
-        `INSERT INTO namespace_grant (email, namespace, role, is_default) VALUES ($1, 'default-test-3', 'member', false)`,
+        `INSERT INTO namespace_grant (email, namespace, access, is_home) VALUES ($1, 'home-test-3', 'read', false)`,
         [testEmail],
       );
 

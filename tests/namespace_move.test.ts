@@ -46,8 +46,8 @@ describe('Namespace Move API (Issue #1483)', () => {
     await truncateAllTables(pool);
     await ensureTestNamespace(pool, TEST_EMAIL, SOURCE_NS);
     await pool.query(
-      `INSERT INTO namespace_grant (email, namespace, role, is_default)
-       VALUES ($1, $2, 'member', false)
+      `INSERT INTO namespace_grant (email, namespace, access, is_home)
+       VALUES ($1, $2, 'read', false)
        ON CONFLICT (email, namespace) DO NOTHING`,
       [TEST_EMAIL, TARGET_NS],
     );

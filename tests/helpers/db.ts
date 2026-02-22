@@ -156,8 +156,8 @@ export async function ensureTestNamespace(
     [email],
   );
   await pool.query(
-    `INSERT INTO namespace_grant (email, namespace, role, is_default)
-     VALUES ($1, $2, 'owner', true)
+    `INSERT INTO namespace_grant (email, namespace, access, is_home)
+     VALUES ($1, $2, 'readwrite', true)
      ON CONFLICT (email, namespace) DO NOTHING`,
     [email, namespace],
   );

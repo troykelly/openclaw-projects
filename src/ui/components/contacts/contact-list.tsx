@@ -6,6 +6,7 @@ import { Button } from '@/ui/components/ui/button';
 import { Input } from '@/ui/components/ui/input';
 import { ScrollArea } from '@/ui/components/ui/scroll-area';
 import { ContactCard } from './contact-card';
+import { formatContactName } from '@/ui/lib/format-contact-name.ts';
 import type { Contact } from './types';
 
 export interface ContactListProps {
@@ -22,13 +23,12 @@ export function ContactList({ contacts, onContactClick, onAddContact, className 
     if (!search.trim()) return contacts;
 
     const query = search.toLowerCase();
-    return contacts.filter(
-      (c) =>
-        c.name.toLowerCase().includes(query) ||
-        c.email.toLowerCase().includes(query) ||
-        c.company?.toLowerCase().includes(query) ||
-        c.role?.toLowerCase().includes(query),
-    );
+    return contacts.filter((c) => {
+      const name = formatContactName(c).toLowerCase();
+      const email = c.endpoints?.find((e) => e.type === 'email')?.value?.toLowerCase() ?? '';
+      const tags = c.tags?.join(' ').toLowerCase() ?? '';
+      return name.includes(query) || email.includes(query) || tags.includes(query);
+    });
   }, [contacts, search]);
 
   return (

@@ -3,7 +3,7 @@ import type { FastifyRequest } from 'fastify';
 
 const TEST_SECRET = 'a]Uf9$Lx2!Qm7Kp@Wz4Rn8Yb6Hd3Jt0Vs'; // 36 chars, > 32 bytes
 
-describe('Role enforcement (#1485, #1486)', () => {
+describe('Access enforcement (#1485, #1486, #1571)', () => {
   beforeEach(() => {
     vi.unstubAllEnvs();
     vi.resetModules();
@@ -27,91 +27,55 @@ describe('Role enforcement (#1485, #1486)', () => {
   }
 
   describe('requireMinRole', () => {
-    it('should allow owner when owner is required', async () => {
+    it('should allow readwrite when readwrite is required', async () => {
       const { requireMinRole } = await loadMiddleware();
       const req = fakeRequestWithContext({
         storeNamespace: 'test-ns',
         queryNamespaces: ['test-ns'],
         isM2M: false,
-        roles: { 'test-ns': 'owner' },
+        roles: { 'test-ns': 'readwrite' },
       });
 
-      expect(() => requireMinRole(req, 'test-ns', 'owner')).not.toThrow();
+      expect(() => requireMinRole(req, 'test-ns', 'readwrite')).not.toThrow();
     });
 
-    it('should allow admin when member is required', async () => {
+    it('should allow readwrite when read is required', async () => {
       const { requireMinRole } = await loadMiddleware();
       const req = fakeRequestWithContext({
         storeNamespace: 'test-ns',
         queryNamespaces: ['test-ns'],
         isM2M: false,
-        roles: { 'test-ns': 'admin' },
+        roles: { 'test-ns': 'readwrite' },
       });
 
-      expect(() => requireMinRole(req, 'test-ns', 'member')).not.toThrow();
+      expect(() => requireMinRole(req, 'test-ns', 'read')).not.toThrow();
     });
 
-    it('should allow member when member is required', async () => {
+    it('should allow read when read is required', async () => {
       const { requireMinRole } = await loadMiddleware();
       const req = fakeRequestWithContext({
         storeNamespace: 'test-ns',
         queryNamespaces: ['test-ns'],
         isM2M: false,
-        roles: { 'test-ns': 'member' },
+        roles: { 'test-ns': 'read' },
       });
 
-      expect(() => requireMinRole(req, 'test-ns', 'member')).not.toThrow();
+      expect(() => requireMinRole(req, 'test-ns', 'read')).not.toThrow();
     });
 
-    it('should reject observer when member is required', async () => {
+    it('should reject read when readwrite is required', async () => {
       const { requireMinRole, RoleError } = await loadMiddleware();
       const req = fakeRequestWithContext({
         storeNamespace: 'test-ns',
         queryNamespaces: ['test-ns'],
         isM2M: false,
-        roles: { 'test-ns': 'observer' },
+        roles: { 'test-ns': 'read' },
       });
 
-      expect(() => requireMinRole(req, 'test-ns', 'member')).toThrow(RoleError);
+      expect(() => requireMinRole(req, 'test-ns', 'readwrite')).toThrow(RoleError);
     });
 
-    it('should reject member when admin is required', async () => {
-      const { requireMinRole, RoleError } = await loadMiddleware();
-      const req = fakeRequestWithContext({
-        storeNamespace: 'test-ns',
-        queryNamespaces: ['test-ns'],
-        isM2M: false,
-        roles: { 'test-ns': 'member' },
-      });
-
-      expect(() => requireMinRole(req, 'test-ns', 'admin')).toThrow(RoleError);
-    });
-
-    it('should reject observer when admin is required', async () => {
-      const { requireMinRole, RoleError } = await loadMiddleware();
-      const req = fakeRequestWithContext({
-        storeNamespace: 'test-ns',
-        queryNamespaces: ['test-ns'],
-        isM2M: false,
-        roles: { 'test-ns': 'observer' },
-      });
-
-      expect(() => requireMinRole(req, 'test-ns', 'admin')).toThrow(RoleError);
-    });
-
-    it('should allow observer when observer is required (read-only)', async () => {
-      const { requireMinRole } = await loadMiddleware();
-      const req = fakeRequestWithContext({
-        storeNamespace: 'test-ns',
-        queryNamespaces: ['test-ns'],
-        isM2M: false,
-        roles: { 'test-ns': 'observer' },
-      });
-
-      expect(() => requireMinRole(req, 'test-ns', 'observer')).not.toThrow();
-    });
-
-    it('should always allow M2M tokens regardless of role', async () => {
+    it('should always allow M2M tokens regardless of access level', async () => {
       const { requireMinRole } = await loadMiddleware();
       const req = fakeRequestWithContext({
         storeNamespace: 'test-ns',
@@ -120,49 +84,49 @@ describe('Role enforcement (#1485, #1486)', () => {
         roles: {},
       });
 
-      expect(() => requireMinRole(req, 'test-ns', 'owner')).not.toThrow();
+      expect(() => requireMinRole(req, 'test-ns', 'readwrite')).not.toThrow();
     });
 
     it('should skip check when namespace context is null (auth disabled)', async () => {
       const { requireMinRole } = await loadMiddleware();
       const req = fakeRequestWithContext(null);
 
-      expect(() => requireMinRole(req, 'test-ns', 'owner')).not.toThrow();
+      expect(() => requireMinRole(req, 'test-ns', 'readwrite')).not.toThrow();
     });
 
-    it('should reject when user has no role for the namespace', async () => {
+    it('should reject when user has no access for the namespace', async () => {
       const { requireMinRole, RoleError } = await loadMiddleware();
       const req = fakeRequestWithContext({
         storeNamespace: 'test-ns',
         queryNamespaces: ['test-ns'],
         isM2M: false,
-        roles: { 'other-ns': 'owner' },
+        roles: { 'other-ns': 'readwrite' },
       });
 
-      expect(() => requireMinRole(req, 'test-ns', 'observer')).toThrow(RoleError);
+      expect(() => requireMinRole(req, 'test-ns', 'read')).toThrow(RoleError);
     });
 
-    it('should include role info in error message', async () => {
+    it('should include access info in error message', async () => {
       const { requireMinRole, RoleError } = await loadMiddleware();
       const req = fakeRequestWithContext({
         storeNamespace: 'test-ns',
         queryNamespaces: ['test-ns'],
         isM2M: false,
-        roles: { 'test-ns': 'observer' },
+        roles: { 'test-ns': 'read' },
       });
 
       try {
-        requireMinRole(req, 'test-ns', 'member');
+        requireMinRole(req, 'test-ns', 'readwrite');
         expect.fail('Should have thrown');
       } catch (err) {
         expect(err).toBeInstanceOf(RoleError);
-        expect((err as Error).message).toContain('member');
-        expect((err as Error).message).toContain('observer');
+        expect((err as Error).message).toContain('readwrite');
+        expect((err as Error).message).toContain('read');
       }
     });
   });
 
-  describe('resolveNamespaces with roles', () => {
+  describe('resolveNamespaces with access levels', () => {
     it('should populate roles map for user tokens', async () => {
       const { resolveNamespaces } = await loadMiddleware();
       const { signAccessToken } = await import('./jwt.ts');
@@ -177,8 +141,8 @@ describe('Role enforcement (#1485, #1486)', () => {
       const mockPool = {
         query: vi.fn().mockResolvedValue({
           rows: [
-            { namespace: 'ns-a', role: 'admin', is_default: true },
-            { namespace: 'ns-b', role: 'observer', is_default: false },
+            { namespace: 'ns-a', access: 'readwrite', is_home: true },
+            { namespace: 'ns-b', access: 'read', is_home: false },
           ],
         }),
       };
@@ -187,8 +151,8 @@ describe('Role enforcement (#1485, #1486)', () => {
 
       expect(ctx).not.toBeNull();
       expect(ctx!.roles).toEqual({
-        'ns-a': 'admin',
-        'ns-b': 'observer',
+        'ns-a': 'readwrite',
+        'ns-b': 'read',
       });
       expect(ctx!.storeNamespace).toBe('ns-a');
       expect(ctx!.queryNamespaces).toEqual(['ns-a', 'ns-b']);
@@ -230,7 +194,7 @@ describe('Role enforcement (#1485, #1486)', () => {
 
       expect(ctx).not.toBeNull();
       expect(ctx!.roles).toEqual({});
-      // Auth-disabled mode bypasses role enforcement, so isM2M is always
+      // Auth-disabled mode bypasses access enforcement, so isM2M is always
       // true to ensure requireMinRole skips checks.
       expect(ctx!.isM2M).toBe(true);
     });
@@ -272,8 +236,8 @@ describe('Role enforcement (#1485, #1486)', () => {
       const mockPool = {
         query: vi.fn().mockResolvedValue({
           rows: [
-            { namespace: 'ns-a', role: 'owner', is_default: true },
-            { namespace: 'ns-b', role: 'observer', is_default: false },
+            { namespace: 'ns-a', access: 'readwrite', is_home: true },
+            { namespace: 'ns-b', access: 'read', is_home: false },
           ],
         }),
       };
@@ -283,39 +247,39 @@ describe('Role enforcement (#1485, #1486)', () => {
       expect(ctx).not.toBeNull();
       expect(ctx!.storeNamespace).toBe('ns-b');
       expect(ctx!.queryNamespaces).toEqual(['ns-b']);
-      expect(ctx!.roles).toEqual({ 'ns-a': 'owner', 'ns-b': 'observer' });
+      expect(ctx!.roles).toEqual({ 'ns-a': 'readwrite', 'ns-b': 'read' });
     });
   });
 
-  describe('Role hierarchy completeness', () => {
-    it('should enforce observer < member < admin < owner', async () => {
+  describe('Access level completeness', () => {
+    it('should enforce read < readwrite', async () => {
       const { requireMinRole, RoleError } = await loadMiddleware();
 
-      const roles = ['observer', 'member', 'admin', 'owner'] as const;
+      const levels = ['read', 'readwrite'] as const;
 
-      for (let i = 0; i < roles.length; i++) {
-        for (let j = 0; j < roles.length; j++) {
-          const userRole = roles[i];
-          const requiredRole = roles[j];
-
+      for (const userAccess of levels) {
+        for (const requiredAccess of levels) {
           const req = fakeRequestWithContext({
             storeNamespace: 'ns',
             queryNamespaces: ['ns'],
             isM2M: false,
-            roles: { ns: userRole },
+            roles: { ns: userAccess },
           });
 
-          if (i >= j) {
-            // User has sufficient privilege
+          const userIdx = levels.indexOf(userAccess);
+          const reqIdx = levels.indexOf(requiredAccess);
+
+          if (userIdx >= reqIdx) {
+            // User has sufficient access
             expect(
-              () => requireMinRole(req, 'ns', requiredRole),
-              `${userRole} should satisfy ${requiredRole}`,
+              () => requireMinRole(req, 'ns', requiredAccess),
+              `${userAccess} should satisfy ${requiredAccess}`,
             ).not.toThrow();
           } else {
-            // User has insufficient privilege
+            // User has insufficient access
             expect(
-              () => requireMinRole(req, 'ns', requiredRole),
-              `${userRole} should NOT satisfy ${requiredRole}`,
+              () => requireMinRole(req, 'ns', requiredAccess),
+              `${userAccess} should NOT satisfy ${requiredAccess}`,
             ).toThrow(RoleError);
           }
         }

@@ -178,7 +178,7 @@ export async function voiceRoutesPlugin(
     if (!namespace) return;
 
     try {
-      requireMinRole(req, namespace, 'admin');
+      requireMinRole(req, namespace, 'readwrite');
     } catch (e) {
       if (e instanceof RoleError) return reply.code(403).send({ error: e.message });
       throw e;
@@ -297,7 +297,7 @@ export async function voiceRoutesPlugin(
     if (!namespace) return;
 
     try {
-      requireMinRole(req, namespace, 'member');
+      requireMinRole(req, namespace, 'readwrite');
     } catch (e) {
       if (e instanceof RoleError) return reply.code(403).send({ error: e.message });
       throw e;

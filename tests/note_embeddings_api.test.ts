@@ -48,7 +48,7 @@ describe('Note Embeddings API', () => {
       await pool.query('INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT (email) DO UPDATE SET email = EXCLUDED.email', [email]);
       await pool.query('DELETE FROM namespace_grant WHERE email = $1', [email]);
     }
-    await pool.query(`INSERT INTO namespace_grant (email, namespace, role, is_default) VALUES ($1, 'default', 'owner', true)`, [testUserEmail]);
+    await pool.query(`INSERT INTO namespace_grant (email, namespace, access, is_home) VALUES ($1, 'default', 'readwrite', true)`, [testUserEmail]);
   });
 
   afterAll(async () => {

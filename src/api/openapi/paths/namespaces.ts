@@ -42,7 +42,7 @@ export function namespacesPaths(): OpenApiDomainModule {
     schemas: {
       NamespaceGrant: {
         type: 'object',
-        required: ['id', 'email', 'namespace', 'role', 'is_default'],
+        required: ['id', 'email', 'namespace', 'access', 'is_home'],
         properties: {
           id: {
             type: 'string',
@@ -61,15 +61,15 @@ export function namespacesPaths(): OpenApiDomainModule {
             description: 'Namespace name the grant applies to',
             example: 'my-workspace',
           },
-          role: {
+          access: {
             type: 'string',
-            enum: ['owner', 'admin', 'member', 'observer'],
-            description: 'Role within the namespace determining permission level',
-            example: 'owner',
+            enum: ['read', 'readwrite'],
+            description: 'Access level: read (view only) or readwrite (full CRUD)',
+            example: 'readwrite',
           },
-          is_default: {
+          is_home: {
             type: 'boolean',
-            description: 'Whether this is the user default namespace used when no X-Namespace header is provided',
+            description: 'Whether this is the user home namespace used when no X-Namespace header is provided',
             example: true,
           },
           created_at: {
@@ -151,17 +151,17 @@ export function namespacesPaths(): OpenApiDomainModule {
             description: 'Email of the user to grant access to',
             example: 'bob@example.com',
           },
-          role: {
+          access: {
             type: 'string',
-            enum: ['owner', 'admin', 'member', 'observer'],
-            default: 'member',
-            description: 'Role to assign within the namespace',
-            example: 'member',
+            enum: ['read', 'readwrite'],
+            default: 'readwrite',
+            description: 'Access level to assign within the namespace',
+            example: 'readwrite',
           },
-          is_default: {
+          is_home: {
             type: 'boolean',
             default: false,
-            description: 'Whether to set this as the user default namespace',
+            description: 'Whether to set this as the user home namespace',
             example: false,
           },
         },
@@ -169,37 +169,37 @@ export function namespacesPaths(): OpenApiDomainModule {
       UpdateGrantRequest: {
         type: 'object',
         properties: {
-          role: {
+          access: {
             type: 'string',
-            enum: ['owner', 'admin', 'member', 'observer'],
-            description: 'New role to assign within the namespace',
-            example: 'admin',
+            enum: ['read', 'readwrite'],
+            description: 'New access level to assign within the namespace',
+            example: 'readwrite',
           },
-          is_default: {
+          is_home: {
             type: 'boolean',
-            description: 'Whether to set this as the user default namespace',
+            description: 'Whether to set this as the user home namespace',
             example: true,
           },
         },
       },
       NamespaceListItemUser: {
         type: 'object',
-        description: 'Namespace list item for user tokens, showing the user\'s role and default status',
+        description: 'Namespace list item for user tokens, showing the user\'s access level and home status',
         properties: {
           namespace: {
             type: 'string',
             description: 'The namespace name',
             example: 'my-workspace',
           },
-          role: {
+          access: {
             type: 'string',
-            enum: ['owner', 'admin', 'member', 'observer'],
-            description: 'The authenticated user\'s role in this namespace',
-            example: 'owner',
+            enum: ['read', 'readwrite'],
+            description: 'The authenticated user\'s access level in this namespace',
+            example: 'readwrite',
           },
-          is_default: {
+          is_home: {
             type: 'boolean',
-            description: 'Whether this is the user\'s default namespace',
+            description: 'Whether this is the user\'s home namespace',
             example: true,
           },
           created_at: {
@@ -250,7 +250,7 @@ export function namespacesPaths(): OpenApiDomainModule {
         post: {
           operationId: 'createNamespace',
           summary: 'Create a namespace',
-          description: 'Creates a new namespace. For user tokens, the calling user is automatically granted the owner role.',
+          description: 'Creates a new namespace. For user tokens, the calling user is automatically granted readwrite access.',
           tags: ['Namespaces'],
           requestBody: jsonBody(ref('CreateNamespaceRequest')),
           responses: {
@@ -290,7 +290,7 @@ export function namespacesPaths(): OpenApiDomainModule {
         post: {
           operationId: 'createNamespaceGrant',
           summary: 'Grant namespace access',
-          description: 'Grants a user access to a namespace. User tokens require owner or admin role. Upserts if grant already exists.',
+          description: 'Grants a user access to a namespace. User tokens require readwrite access. Upserts if grant already exists.',
           tags: ['Namespaces'],
           parameters: [nsParam()],
           requestBody: jsonBody(ref('CreateGrantRequest')),
@@ -304,7 +304,7 @@ export function namespacesPaths(): OpenApiDomainModule {
         patch: {
           operationId: 'updateNamespaceGrant',
           summary: 'Update a grant',
-          description: 'Updates the role or default flag of an existing namespace grant. User tokens require owner or admin role.',
+          description: 'Updates the access level or home flag of an existing namespace grant. User tokens require readwrite access.',
           tags: ['Namespaces'],
           parameters: [nsParam(), grantIdParam()],
           requestBody: jsonBody(ref('UpdateGrantRequest')),
@@ -316,7 +316,7 @@ export function namespacesPaths(): OpenApiDomainModule {
         delete: {
           operationId: 'deleteNamespaceGrant',
           summary: 'Revoke namespace access',
-          description: 'Revokes a user grant from a namespace. User tokens require owner or admin role.',
+          description: 'Revokes a user grant from a namespace. User tokens require readwrite access.',
           tags: ['Namespaces'],
           parameters: [nsParam(), grantIdParam()],
           responses: {
