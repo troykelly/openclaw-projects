@@ -3,8 +3,22 @@ import { apiClient } from '@/ui/lib/api-client';
 import type {
   OAuthConnectionSummary,
   OAuthConnectionUpdate,
+  OAuthFeature,
   OAuthProviderInfo,
 } from './types';
+
+/** Allowlist of valid feature values. Used to filter API responses at the trust boundary. */
+const VALID_FEATURES = new Set<OAuthFeature>(['contacts', 'email', 'files', 'calendar']);
+
+/**
+ * Normalize a raw `enabled_features` value from the API into a clean `OAuthFeature[]`.
+ * - Non-arrays → empty array
+ * - Arrays with unknown strings → those elements are removed
+ */
+function normalizeFeatures(raw: unknown): OAuthFeature[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((f): f is OAuthFeature => typeof f === 'string' && VALID_FEATURES.has(f as OAuthFeature));
+}
 
 export type ConnectionsState =
   | { kind: 'loading' }
@@ -24,11 +38,10 @@ export function useConnectedAccounts() {
     const rawConnections = Array.isArray(connectionsRes?.connections) ? connectionsRes.connections : [];
 
     return {
-      // Normalize enabled_features per connection: the API may return non-array values
-      // (null, string, object) which would crash components that iterate over the field.
+      // Normalize enabled_features per connection: filter to known values only.
       connections: rawConnections.map((c) => ({
         ...c,
-        enabled_features: Array.isArray(c.enabled_features) ? c.enabled_features : [],
+        enabled_features: normalizeFeatures(c.enabled_features),
       })),
       providers: [
         ...(Array.isArray(providersRes?.providers) ? providersRes.providers : []),
@@ -73,7 +86,7 @@ export function useConnectedAccounts() {
 
         const normalized = {
           ...res.connection,
-          enabled_features: Array.isArray(res.connection.enabled_features) ? res.connection.enabled_features : [],
+          enabled_features: normalizeFeatures(res.connection.enabled_features),
         };
 
         setState((prev) => {
@@ -108,7 +121,7 @@ export function useConnectedAccounts() {
       if (prev.kind !== 'loaded') return prev;
       const normalized = {
         ...updated,
-        enabled_features: Array.isArray(updated.enabled_features) ? updated.enabled_features : [],
+        enabled_features: normalizeFeatures(updated.enabled_features),
       };
       return {
         ...prev,

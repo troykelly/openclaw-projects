@@ -202,6 +202,93 @@ describe('useConnectedAccounts', () => {
     }
   });
 
+  // ---------------------------------------------------------------------------
+  // enabled_features allowlist filtering (issue #1621)
+  // ---------------------------------------------------------------------------
+
+  it('filters unknown feature strings from enabled_features after fetch', async () => {
+    const conn = {
+      ...mockConnection,
+      enabled_features: ['contacts', 'evil_string', 'email', 'unknown'] as unknown as OAuthConnectionSummary['enabled_features'],
+    };
+    globalThis.fetch = mockFetchSuccess([conn]) as typeof globalThis.fetch;
+
+    const { result } = renderHook(() => useConnectedAccounts());
+
+    await waitFor(() => expect(result.current.state.kind).toBe('loaded'));
+
+    if (result.current.state.kind === 'loaded') {
+      expect(result.current.state.connections[0].enabled_features).toEqual(['contacts', 'email']);
+    }
+  });
+
+  it('keeps all valid feature values after fetch', async () => {
+    const conn = {
+      ...mockConnection,
+      enabled_features: ['contacts', 'email', 'files', 'calendar'] as OAuthConnectionSummary['enabled_features'],
+    };
+    globalThis.fetch = mockFetchSuccess([conn]) as typeof globalThis.fetch;
+
+    const { result } = renderHook(() => useConnectedAccounts());
+
+    await waitFor(() => expect(result.current.state.kind).toBe('loaded'));
+
+    if (result.current.state.kind === 'loaded') {
+      expect(result.current.state.connections[0].enabled_features).toEqual(['contacts', 'email', 'files', 'calendar']);
+    }
+  });
+
+  it('filters unknown feature strings from updateConnection response', async () => {
+    const updatedConn = {
+      ...mockConnection,
+      label: 'Updated',
+      enabled_features: ['contacts', 'inject_feature', 'email'] as unknown as OAuthConnectionSummary['enabled_features'],
+    };
+    const fetchMock = mockFetchSuccess() as typeof globalThis.fetch;
+    globalThis.fetch = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
+      if (opts?.method === 'PATCH') {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ connection: updatedConn }),
+        });
+      }
+      return (fetchMock as ReturnType<typeof vi.fn>)(url, opts);
+    }) as typeof globalThis.fetch;
+
+    const { result } = renderHook(() => useConnectedAccounts());
+
+    await waitFor(() => expect(result.current.state.kind).toBe('loaded'));
+
+    await act(async () => {
+      await result.current.updateConnection('conn-1', { label: 'Updated' });
+    });
+
+    if (result.current.state.kind === 'loaded') {
+      expect(result.current.state.connections[0].enabled_features).toEqual(['contacts', 'email']);
+    }
+  });
+
+  it('filters unknown feature strings from replaceConnection', async () => {
+    globalThis.fetch = mockFetchSuccess() as typeof globalThis.fetch;
+
+    const { result } = renderHook(() => useConnectedAccounts());
+
+    await waitFor(() => expect(result.current.state.kind).toBe('loaded'));
+
+    const updatedConn = {
+      ...mockConnection,
+      enabled_features: ['files', 'malicious_feature', 'calendar'] as unknown as OAuthConnectionSummary['enabled_features'],
+    };
+    act(() => {
+      result.current.replaceConnection(updatedConn);
+    });
+
+    if (result.current.state.kind === 'loaded') {
+      expect(result.current.state.connections[0].enabled_features).toEqual(['files', 'calendar']);
+    }
+  });
+
   it('starts in loading state then loads data', async () => {
     globalThis.fetch = mockFetchSuccess() as typeof globalThis.fetch;
 
