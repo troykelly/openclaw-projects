@@ -8,13 +8,12 @@ export { ContactDetailSheet } from './contact-detail-sheet';
 export type { ContactDetailSheetProps } from './contact-detail-sheet';
 
 export { ContactForm } from './contact-form';
-export type { ContactFormProps, ContactFormData } from './contact-form';
+export type { ContactFormProps } from './contact-form';
 
 export { ContactSuggestPopover } from './contact-suggest-popover';
 
 export type {
   Contact,
-  ContactDetail,
   ContactFilter,
   LinkedWorkItem,
   LinkedCommunication,

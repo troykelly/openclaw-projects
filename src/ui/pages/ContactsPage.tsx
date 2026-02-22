@@ -36,7 +36,7 @@ type ViewMode = 'grid' | 'list';
 
 /** Get primary endpoint value by type. */
 function getEndpointValue(contact: Contact, type: string): string | null {
-  const ep = contact.endpoints.find((e) => e.type === type);
+  const ep = contact.endpoints?.find((e) => e.type === type);
   return ep?.value ?? null;
 }
 
@@ -49,7 +49,7 @@ function sortContacts(contacts: Contact[], field: SortField): Contact[] {
     case 'recent':
       return sorted.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     case 'endpoints':
-      return sorted.sort((a, b) => b.endpoints.length - a.endpoints.length);
+      return sorted.sort((a, b) => (b.endpoints?.length ?? 0) - (a.endpoints?.length ?? 0));
     default:
       return sorted;
   }
@@ -306,12 +306,12 @@ export function ContactsPage(): React.JSX.Element {
                           )}
                         </div>
                       </div>
-                      {contact.endpoints.length > 0 && (
+                      {(contact.endpoints?.length ?? 0) > 0 && (
                         <div className="mt-3 flex items-center gap-2">
                           <Badge variant="secondary" className="text-xs gap-1">
                             <Link2 className="size-3" />
-                            {contact.endpoints.length} endpoint
-                            {contact.endpoints.length !== 1 ? 's' : ''}
+                            {contact.endpoints!.length} endpoint
+                            {contact.endpoints!.length !== 1 ? 's' : ''}
                           </Badge>
                         </div>
                       )}
@@ -356,8 +356,8 @@ export function ContactsPage(): React.JSX.Element {
                           </div>
                         </div>
                         <Badge variant="secondary" className="shrink-0">
-                          {contact.endpoints.length} endpoint
-                          {contact.endpoints.length !== 1 ? 's' : ''}
+                          {contact.endpoints?.length ?? 0} endpoint
+                          {(contact.endpoints?.length ?? 0) !== 1 ? 's' : ''}
                         </Badge>
                       </button>
                     );
@@ -424,12 +424,12 @@ export function ContactsPage(): React.JSX.Element {
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-sm font-medium">Endpoints</h3>
                     <Badge variant="secondary" className="text-xs">
-                      {selectedContact.endpoints.length}
+                      {selectedContact.endpoints?.length ?? 0}
                     </Badge>
                   </div>
-                  {selectedContact.endpoints.length > 0 ? (
+                  {(selectedContact.endpoints?.length ?? 0) > 0 ? (
                     <div className="space-y-2">
-                      {selectedContact.endpoints.map((ep, idx) => (
+                      {selectedContact.endpoints!.map((ep, idx) => (
                         <div key={idx} className="flex items-center gap-2 text-sm p-2 rounded-md bg-muted/30">
                           {ep.type === 'email' && <Mail className="size-4 text-muted-foreground" />}
                           {ep.type === 'phone' && <Phone className="size-4 text-muted-foreground" />}

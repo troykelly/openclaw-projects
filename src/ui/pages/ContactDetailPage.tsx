@@ -112,8 +112,8 @@ export function ContactDetailPage(): React.JSX.Element {
     );
   }
 
-  const email = contact.endpoints.find((ep) => ep.type === 'email')?.value;
-  const phone = contact.endpoints.find((ep) => ep.type === 'phone')?.value;
+  const email = contact.endpoints?.find((ep) => ep.type === 'email')?.value;
+  const phone = contact.endpoints?.find((ep) => ep.type === 'phone')?.value;
   const hasPrefs = contact.preferred_channel || contact.quiet_hours_start || contact.urgency_override_channel || contact.notification_notes;
 
   return (
@@ -197,9 +197,9 @@ export function ContactDetailPage(): React.JSX.Element {
 
         {/* Endpoints Tab */}
         <TabsContent value="endpoints" className="mt-4">
-          {contact.endpoints.length > 0 ? (
+          {(contact.endpoints?.length ?? 0) > 0 ? (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {contact.endpoints.map((ep, idx) => (
+              {contact.endpoints!.map((ep, idx) => (
                 <Card key={idx} data-testid="endpoint-card">
                   <CardContent className="p-4 flex items-center gap-3">
                     <div className="flex size-10 items-center justify-center rounded-full bg-muted">

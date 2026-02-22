@@ -1,16 +1,24 @@
-export interface Contact {
-  id: string;
-  name: string;
-  email: string;
-  company?: string;
-  role?: string;
-  avatar?: string;
-  phone?: string;
-  notes?: string;
-  linkedItemCount: number;
-  created_at: Date;
-  updated_at: Date;
-}
+/**
+ * Component-level contact types (#1593).
+ *
+ * Re-exports from api-types for backward compatibility.
+ * Components should import from here or directly from api-types.
+ */
+export type {
+  Contact,
+  ContactEndpoint,
+  ContactAddress,
+  ContactDate,
+  ContactRelationship,
+  ContactKind,
+  CustomField,
+  CommChannel,
+  CreateContactBody,
+  UpdateContactBody,
+  TagCount,
+  ImportResult,
+  MergeResult,
+} from '@/ui/lib/api-types.ts';
 
 export interface LinkedWorkItem {
   id: string;
@@ -28,13 +36,9 @@ export interface LinkedCommunication {
   direction?: 'sent' | 'received';
 }
 
-export interface ContactDetail extends Contact {
-  linkedWorkItems: LinkedWorkItem[];
-  linkedCommunications: LinkedCommunication[];
-}
-
 export interface ContactFilter {
   search?: string;
-  company?: string;
-  role?: string;
+  tags?: string[];
+  contact_kind?: string[];
+  namespace?: string;
 }

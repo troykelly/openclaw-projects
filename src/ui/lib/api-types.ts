@@ -116,29 +116,113 @@ export interface ActivityResponse {
 // Contacts
 // ---------------------------------------------------------------------------
 
-/** Contact endpoint (email, phone, etc.) */
+/** Contact endpoint types expanded (#1575). */
+export type EndpointType =
+  | 'email' | 'phone' | 'telegram' | 'whatsapp' | 'signal'
+  | 'discord' | 'linkedin' | 'twitter' | 'mastodon'
+  | 'instagram' | 'facebook' | 'website' | 'sip' | 'imessage';
+
+/** Contact endpoint from GET /api/contacts/:id?include=endpoints */
 export interface ContactEndpoint {
+  id?: string;
   type: string;
+  value: string;
+  normalized_value?: string;
+  label?: string | null;
+  is_primary?: boolean;
+  is_login_eligible?: boolean;
+  metadata?: Record<string, unknown>;
+  created_at?: string;
+  updated_at?: string;
+}
+
+/** Contact address (#1573). */
+export interface ContactAddress {
+  id: string;
+  address_type: 'home' | 'work' | 'other';
+  label?: string | null;
+  street_address?: string | null;
+  extended_address?: string | null;
+  city?: string | null;
+  region?: string | null;
+  postal_code?: string | null;
+  country?: string | null;
+  country_code?: string | null;
+  formatted_address?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  is_primary: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Contact date (#1574). */
+export interface ContactDate {
+  id: string;
+  date_type: 'birthday' | 'anniversary' | 'other';
+  label?: string | null;
+  date_value: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Custom key-value field (#1577). */
+export interface CustomField {
+  key: string;
   value: string;
 }
 
-/** Valid communication channel types (issue #1269). */
-export type CommChannel = 'telegram' | 'email' | 'sms' | 'voice';
+/** Contact kind enumeration (#1569). */
+export type ContactKind = 'person' | 'organisation' | 'group' | 'agent';
 
-/** Single contact from GET /api/contacts */
+/** Valid communication channel types (issue #1269). */
+export type CommChannel = 'telegram' | 'email' | 'sms' | 'voice' | 'whatsapp' | 'signal' | 'discord';
+
+/** Single contact from GET /api/contacts (#1582 expanded). */
 export interface Contact {
   id: string;
-  display_name: string;
+  display_name: string | null;
+  // Structured name fields (#1572)
+  given_name?: string | null;
+  family_name?: string | null;
+  middle_name?: string | null;
+  name_prefix?: string | null;
+  name_suffix?: string | null;
+  nickname?: string | null;
+  phonetic_given_name?: string | null;
+  phonetic_family_name?: string | null;
+  file_as?: string | null;
   notes: string | null;
+  contact_kind?: ContactKind;
+  custom_fields?: CustomField[];
+  photo_url?: string | null;
   preferred_channel: CommChannel | null;
   quiet_hours_start: string | null;
   quiet_hours_end: string | null;
   quiet_hours_timezone: string | null;
   urgency_override_channel: CommChannel | null;
   notification_notes: string | null;
+  namespace?: string;
   created_at: string;
   updated_at?: string;
-  endpoints: ContactEndpoint[];
+  deleted_at?: string | null;
+  // Eager-loaded child collections (via ?include=)
+  endpoints?: ContactEndpoint[];
+  addresses?: ContactAddress[];
+  dates?: ContactDate[];
+  tags?: string[];
+  relationships?: ContactRelationship[];
+}
+
+/** Contact relationship from ?include=relationships. */
+export interface ContactRelationship {
+  id: string;
+  relationship_type: string;
+  from_contact_id: string;
+  to_contact_id: string;
+  metadata?: Record<string, unknown>;
+  created_at: string;
+  related_display_name?: string;
 }
 
 /** Response from GET /api/contacts */
@@ -147,16 +231,58 @@ export interface ContactsResponse {
   total: number;
 }
 
-/** Body for POST /api/contacts and PATCH /api/contacts/:id */
-export interface ContactBody {
-  display_name: string;
-  notes?: string;
+/** Body for POST /api/contacts (#1582 expanded). */
+export interface CreateContactBody {
+  display_name?: string;
+  given_name?: string | null;
+  family_name?: string | null;
+  middle_name?: string | null;
+  name_prefix?: string | null;
+  name_suffix?: string | null;
+  nickname?: string | null;
+  phonetic_given_name?: string | null;
+  phonetic_family_name?: string | null;
+  file_as?: string | null;
+  notes?: string | null;
+  contact_kind?: ContactKind;
+  custom_fields?: CustomField[];
+  tags?: string[];
   preferred_channel?: CommChannel | null;
   quiet_hours_start?: string | null;
   quiet_hours_end?: string | null;
   quiet_hours_timezone?: string | null;
-  urgency_override_channel?: CommChannel | null;
+  urgency_override_channel?: string | null;
   notification_notes?: string | null;
+}
+
+/** Body for PATCH /api/contacts/:id (#1582 expanded). */
+export interface UpdateContactBody extends Partial<CreateContactBody> {}
+
+/**
+ * @deprecated Use CreateContactBody or UpdateContactBody instead.
+ * Kept for backward compatibility during migration.
+ */
+export type ContactBody = CreateContactBody;
+
+/** Tag with contact count from GET /api/tags. */
+export interface TagCount {
+  tag: string;
+  contact_count: number;
+}
+
+/** Import result from POST /api/contacts/import. */
+export interface ImportResult {
+  created: number;
+  updated: number;
+  skipped: number;
+  failed: number;
+  errors: Array<{ index: number; error: string }>;
+}
+
+/** Merge result from POST /api/contacts/merge. */
+export interface MergeResult {
+  merged: Contact;
+  loser_id: string;
 }
 
 // ---------------------------------------------------------------------------
