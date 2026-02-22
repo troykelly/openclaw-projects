@@ -712,5 +712,9 @@ describe('ConnectedAccountsSection', () => {
 
     // Exactly one PATCH should have been issued — not two
     expect(patchCount).toBe(1);
+
+    // Card state must reflect the updated connection (replaceConnection ran)
+    const card = screen.getByTestId('connection-card-conn-1');
+    expect(within(card).getByText('Files')).toBeInTheDocument();
   });
 });
