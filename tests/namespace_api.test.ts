@@ -19,6 +19,11 @@ async function getM2MHeaders(): Promise<Record<string, string>> {
   return { authorization: `Bearer ${token}` };
 }
 
+async function getM2MHeadersLimited(): Promise<Record<string, string>> {
+  const token = await signM2MToken('test-service-limited', ['api:read']);
+  return { authorization: `Bearer ${token}` };
+}
+
 describe('Namespace & User Provisioning API', () => {
   const app = buildServer();
   let pool: Pool;
@@ -74,9 +79,8 @@ describe('Namespace & User Provisioning API', () => {
         expect(body[1].namespace).toBe('test-ns-two');
       });
 
-      it('returns only granted namespaces for M2M token', async () => {
-        // Setup: create a grant for the M2M identity (test-service)
-        // and a separate grant for a user — M2M should NOT see the user's namespace
+      it('returns ALL namespaces for M2M token with api:full scope (#1561)', async () => {
+        // Setup: create grants for M2M identity and a user
         await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, ['test-service']);
         await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, [TEST_EMAIL]);
         await pool.query(
@@ -95,14 +99,38 @@ describe('Namespace & User Provisioning API', () => {
         const body = res.json();
         expect(Array.isArray(body)).toBe(true);
         const nsNames = body.map((r: { namespace: string }) => r.namespace);
-        // Should see its own grant
+        // M2M with api:full should see ALL namespaces (#1561)
         expect(nsNames).toContain('test-ns-m2m-granted');
-        // Should NOT see the user-only namespace
-        expect(nsNames).not.toContain('test-ns-user-only');
+        expect(nsNames).toContain('test-ns-user-only');
       });
 
-      it('returns empty list for M2M token with no grants', async () => {
-        const headers = await getM2MHeaders();
+      it('returns only granted namespaces for M2M token without api:full scope', async () => {
+        // Setup: create grants for the limited M2M identity and a user
+        await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, ['test-service-limited']);
+        await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, [TEST_EMAIL]);
+        await pool.query(
+          `INSERT INTO namespace_grant (email, namespace, role) VALUES ($1, 'test-ns-limited-granted', 'owner')`,
+          ['test-service-limited'],
+        );
+        await pool.query(
+          `INSERT INTO namespace_grant (email, namespace, role) VALUES ($1, 'test-ns-user-only2', 'owner')`,
+          [TEST_EMAIL],
+        );
+
+        const headers = await getM2MHeadersLimited();
+        const res = await app.inject({ method: 'GET', url: '/api/namespaces', headers });
+        expect(res.statusCode).toBe(200);
+
+        const body = res.json();
+        expect(Array.isArray(body)).toBe(true);
+        const nsNames = body.map((r: { namespace: string }) => r.namespace);
+        expect(nsNames).toContain('test-ns-limited-granted');
+        // Should NOT see the user-only namespace (no api:full scope)
+        expect(nsNames).not.toContain('test-ns-user-only2');
+      });
+
+      it('returns empty list for M2M token with no grants and no api:full', async () => {
+        const headers = await getM2MHeadersLimited();
         const res = await app.inject({ method: 'GET', url: '/api/namespaces', headers });
         expect(res.statusCode).toBe(200);
 
