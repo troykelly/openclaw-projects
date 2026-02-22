@@ -96,6 +96,27 @@ export function useConnectedAccounts() {
     [state.kind],
   );
 
+  /**
+   * Update a connection in local state only — no network call.
+   *
+   * Use this when the server response has already been applied by another
+   * caller (e.g. ConnectionManagePanel.saveUpdate) and you only need to
+   * reflect the new data in the hook's state.
+   */
+  const replaceConnection = useCallback((updated: OAuthConnectionSummary): void => {
+    setState((prev) => {
+      if (prev.kind !== 'loaded') return prev;
+      const normalized = {
+        ...updated,
+        enabled_features: Array.isArray(updated.enabled_features) ? updated.enabled_features : [],
+      };
+      return {
+        ...prev,
+        connections: prev.connections.map((c) => (c.id === normalized.id ? normalized : c)),
+      };
+    });
+  }, []);
+
   const deleteConnection = useCallback(
     async (id: string): Promise<boolean> => {
       if (state.kind !== 'loaded') return false;
@@ -138,6 +159,7 @@ export function useConnectedAccounts() {
     state,
     isUpdating,
     updateConnection,
+    replaceConnection,
     deleteConnection,
     refresh,
   };

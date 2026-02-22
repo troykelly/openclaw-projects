@@ -293,6 +293,64 @@ describe('useConnectedAccounts', () => {
       expect(result.current.state.connections[0].id).toBe('conn-2');
     }
   });
+
+  // ---------------------------------------------------------------------------
+  // replaceConnection: state-only update without network call (issue #1620)
+  // ---------------------------------------------------------------------------
+
+  it('replaceConnection updates state without issuing a PATCH', async () => {
+    const fetchMock = mockFetchSuccess() as typeof globalThis.fetch;
+    const fetchSpy = vi.fn().mockImplementation(fetchMock);
+    globalThis.fetch = fetchSpy as typeof globalThis.fetch;
+
+    const { result } = renderHook(() => useConnectedAccounts());
+
+    await waitFor(() => {
+      expect(result.current.state.kind).toBe('loaded');
+    });
+
+    const patchCallsBefore = fetchSpy.mock.calls.filter(
+      ([, opts]: [string, RequestInit?]) => opts?.method === 'PATCH',
+    ).length;
+
+    const updatedConn = { ...mockConnection, label: 'Replaced Label' };
+    act(() => {
+      result.current.replaceConnection(updatedConn);
+    });
+
+    if (result.current.state.kind === 'loaded') {
+      expect(result.current.state.connections[0].label).toBe('Replaced Label');
+    }
+
+    const patchCallsAfter = fetchSpy.mock.calls.filter(
+      ([, opts]: [string, RequestInit?]) => opts?.method === 'PATCH',
+    ).length;
+
+    expect(patchCallsAfter).toBe(patchCallsBefore); // no new PATCH
+  });
+
+  it('replaceConnection normalizes enabled_features', async () => {
+    globalThis.fetch = mockFetchSuccess() as typeof globalThis.fetch;
+
+    const { result } = renderHook(() => useConnectedAccounts());
+
+    await waitFor(() => {
+      expect(result.current.state.kind).toBe('loaded');
+    });
+
+    const updatedConn = {
+      ...mockConnection,
+      enabled_features: 'contacts' as unknown as OAuthConnectionSummary['enabled_features'],
+    };
+    act(() => {
+      result.current.replaceConnection(updatedConn);
+    });
+
+    if (result.current.state.kind === 'loaded') {
+      expect(Array.isArray(result.current.state.connections[0].enabled_features)).toBe(true);
+      expect(result.current.state.connections[0].enabled_features).toEqual([]);
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -594,5 +652,69 @@ describe('ConnectedAccountsSection', () => {
 
     // Should not crash; checkboxes should be unchecked since non-array treated as empty
     expect(screen.getByTestId('feature-checkbox-contacts')).not.toBeChecked();
+  });
+
+  // ---------------------------------------------------------------------------
+  // No duplicate PATCH: onConnectionUpdated must not re-issue network call (#1620)
+  // ---------------------------------------------------------------------------
+
+  it('manage panel onConnectionUpdated does not issue a second PATCH', async () => {
+    const updatedConn = { ...mockConnection, enabled_features: ['contacts', 'email', 'files'] as OAuthConnectionSummary['enabled_features'] };
+    let patchCount = 0;
+
+    globalThis.fetch = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
+      if (opts?.method === 'PATCH') {
+        patchCount++;
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ connection: updatedConn }),
+        });
+      }
+      if (url === '/api/oauth/connections') {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ connections: [mockConnection] }),
+        });
+      }
+      if (url === '/api/oauth/providers') {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ providers: mockProviders, unconfigured: [] }),
+        });
+      }
+      return Promise.resolve({ ok: false, status: 404, statusText: 'Not Found', json: () => Promise.resolve({}) });
+    }) as typeof globalThis.fetch;
+
+    render(<ConnectedAccountsSection />);
+
+    await waitFor(() => expect(screen.getByTestId('connections-list')).toBeInTheDocument());
+
+    // Open the manage panel
+    fireEvent.click(screen.getByTestId('manage-connection-conn-1'));
+
+    // Wait for the manage panel feature toggle to appear
+    await waitFor(() => expect(screen.getByTestId('feature-toggle-files')).toBeInTheDocument());
+
+    // Toggle 'files' — this triggers a PATCH inside ConnectionManagePanel
+    const filesToggle = screen.getByTestId('feature-toggle-files');
+    fireEvent.click(within(filesToggle).getByRole('switch'));
+
+    // Wait for the PATCH to complete
+    await waitFor(() => expect(patchCount).toBeGreaterThan(0));
+
+    // Allow any queued microtasks to settle
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+
+    // Exactly one PATCH should have been issued — not two
+    expect(patchCount).toBe(1);
+
+    // Card state must reflect the updated connection (replaceConnection ran)
+    const card = screen.getByTestId('connection-card-conn-1');
+    expect(within(card).getByText('Files')).toBeInTheDocument();
   });
 });
