@@ -6374,18 +6374,56 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const body = req.body as {
       display_name?: string; notes?: string | null;
       contact_kind?: string;
+      // Structured name fields (#1582)
+      given_name?: string | null; family_name?: string | null; middle_name?: string | null;
+      name_prefix?: string | null; name_suffix?: string | null; nickname?: string | null;
+      phonetic_given_name?: string | null; phonetic_family_name?: string | null;
+      file_as?: string | null;
+      // Multi-value fields (#1582)
+      custom_fields?: Array<{ key: string; value: string }>;
+      tags?: string[];
       preferred_channel?: string | null; quiet_hours_start?: string | null; quiet_hours_end?: string | null;
       quiet_hours_timezone?: string | null; urgency_override_channel?: string | null; notification_notes?: string | null;
     };
+
+    // display_name is required unless structured name fields are provided (#1582)
+    const hasStructuredName = body?.given_name || body?.family_name;
     const display_name = body?.display_name;
-    if (!display_name || display_name.trim().length === 0) {
-      return reply.code(400).send({ error: 'display_name is required' });
+    if (!hasStructuredName && (!display_name || display_name.trim().length === 0)) {
+      return reply.code(400).send({ error: 'display_name or given_name/family_name is required' });
     }
 
     // Validate contact_kind if provided (issue #489)
     const contact_kind = body.contact_kind ?? 'person';
     if (!VALID_CONTACT_KINDS.includes(contact_kind as ContactKind)) {
       return reply.code(400).send({ error: `Invalid contact_kind. Must be one of: ${VALID_CONTACT_KINDS.join(', ')}` });
+    }
+
+    // Validate custom_fields (#1582)
+    if (body.custom_fields !== undefined) {
+      if (!Array.isArray(body.custom_fields)) {
+        return reply.code(400).send({ error: 'custom_fields must be an array' });
+      }
+      if (body.custom_fields.length > 50) {
+        return reply.code(400).send({ error: 'custom_fields limited to 50 entries' });
+      }
+      for (const cf of body.custom_fields) {
+        if (!cf || typeof cf.key !== 'string' || typeof cf.value !== 'string') {
+          return reply.code(400).send({ error: 'Each custom_field must have string key and value' });
+        }
+      }
+    }
+
+    // Validate tags (#1582)
+    if (body.tags !== undefined) {
+      if (!Array.isArray(body.tags)) {
+        return reply.code(400).send({ error: 'tags must be an array of strings' });
+      }
+      for (const tag of body.tags) {
+        if (typeof tag !== 'string' || tag.trim().length === 0 || tag.length > 100) {
+          return reply.code(400).send({ error: 'Each tag must be a non-empty string (max 100 chars)' });
+        }
+      }
     }
 
     // Validate communication channel preferences (issue #1269)
@@ -6409,25 +6447,65 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
     const namespace = getStoreNamespace(req);
-    const result = await pool.query(
-      `INSERT INTO contact (display_name, notes, contact_kind,
-        preferred_channel, quiet_hours_start, quiet_hours_end, quiet_hours_timezone,
-        urgency_override_channel, notification_notes, namespace)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-       RETURNING id::text as id, display_name, notes, contact_kind::text as contact_kind,
-        preferred_channel::text, quiet_hours_start::text, quiet_hours_end::text, quiet_hours_timezone,
-        urgency_override_channel::text, notification_notes, namespace,
-        created_at, updated_at`,
-      [
-        display_name.trim(), body.notes ?? null, contact_kind,
-        body.preferred_channel ?? null, body.quiet_hours_start ?? null, body.quiet_hours_end ?? null,
-        body.quiet_hours_timezone ?? null, body.urgency_override_channel ?? null, body.notification_notes ?? null,
-        namespace,
-      ],
-    );
-    await pool.end();
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
 
-    return reply.code(201).send(result.rows[0]);
+      const result = await client.query(
+        `INSERT INTO contact (display_name, notes, contact_kind,
+          given_name, family_name, middle_name, name_prefix, name_suffix, nickname,
+          phonetic_given_name, phonetic_family_name, file_as,
+          custom_fields,
+          preferred_channel, quiet_hours_start, quiet_hours_end, quiet_hours_timezone,
+          urgency_override_channel, notification_notes, namespace)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
+                 $14, $15, $16, $17, $18, $19, $20)
+         RETURNING id::text as id, display_name, notes, contact_kind::text as contact_kind,
+          given_name, family_name, middle_name, name_prefix, name_suffix, nickname,
+          phonetic_given_name, phonetic_family_name, file_as, custom_fields,
+          preferred_channel::text, quiet_hours_start::text, quiet_hours_end::text, quiet_hours_timezone,
+          urgency_override_channel::text, notification_notes, namespace,
+          created_at, updated_at`,
+        [
+          display_name?.trim() ?? null, body.notes ?? null, contact_kind,
+          body.given_name ?? null, body.family_name ?? null, body.middle_name ?? null,
+          body.name_prefix ?? null, body.name_suffix ?? null, body.nickname ?? null,
+          body.phonetic_given_name ?? null, body.phonetic_family_name ?? null, body.file_as ?? null,
+          body.custom_fields ? JSON.stringify(body.custom_fields) : '[]',
+          body.preferred_channel ?? null, body.quiet_hours_start ?? null, body.quiet_hours_end ?? null,
+          body.quiet_hours_timezone ?? null, body.urgency_override_channel ?? null, body.notification_notes ?? null,
+          namespace,
+        ],
+      );
+
+      const contactId = result.rows[0].id;
+
+      // Create tags (#1582)
+      if (body.tags && body.tags.length > 0) {
+        const uniqueTags = [...new Set(body.tags.map((t) => t.trim()).filter(Boolean))];
+        if (uniqueTags.length > 0) {
+          const tagValues = uniqueTags.map((_, i) => `($1, $${i + 2})`).join(', ');
+          await client.query(
+            `INSERT INTO contact_tag (contact_id, tag) VALUES ${tagValues} ON CONFLICT DO NOTHING`,
+            [contactId, ...uniqueTags],
+          );
+        }
+      }
+
+      await client.query('COMMIT');
+
+      // Include tags in response
+      const contact = result.rows[0];
+      contact.tags = body.tags ? [...new Set(body.tags.map((t) => t.trim()).filter(Boolean))] : [];
+
+      await pool.end();
+      return reply.code(201).send(contact);
+    } catch (err) {
+      await client.query('ROLLBACK');
+      client.release();
+      await pool.end();
+      throw err;
+    }
   });
 
   // POST /api/contacts/bulk - Bulk create contacts (Issue #218)
@@ -6854,10 +6932,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
-  // GET /api/contacts/:id - Get single contact with endpoints (excludes soft-deleted, Issue #225)
+  // GET /api/contacts/:id - Get single contact with optional eager loading (#1582)
   app.get('/api/contacts/:id', async (req, reply) => {
     const params = req.params as { id: string };
-    const query = req.query as { include_deleted?: string };
+    const query = req.query as { include_deleted?: string; include?: string };
     const pool = createPool();
 
     // Epic #1418: verify entity belongs to caller's namespaces
@@ -6868,32 +6946,110 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const deletedFilter = query.include_deleted === 'true' ? '' : 'AND c.deleted_at IS NULL';
 
+    // Base contact query with expanded fields (#1582)
     const result = await pool.query(
       `SELECT c.id::text as id, c.display_name, c.notes, c.contact_kind::text as contact_kind,
+              c.given_name, c.family_name, c.middle_name, c.name_prefix, c.name_suffix,
+              c.nickname, c.phonetic_given_name, c.phonetic_family_name, c.file_as,
+              c.custom_fields,
               c.preferred_channel::text, c.quiet_hours_start::text, c.quiet_hours_end::text,
               c.quiet_hours_timezone, c.urgency_override_channel::text, c.notification_notes,
-              c.created_at, c.updated_at,
-              c.deleted_at,
-              COALESCE(
-                json_agg(
-                  json_build_object('type', ce.endpoint_type::text, 'value', ce.endpoint_value)
-                ) FILTER (WHERE ce.id IS NOT NULL),
-                '[]'::json
-              ) as endpoints
+              c.namespace, c.created_at, c.updated_at, c.deleted_at
        FROM contact c
-       LEFT JOIN contact_endpoint ce ON ce.contact_id = c.id
-       WHERE c.id = $1 ${deletedFilter}
-       GROUP BY c.id`,
+       WHERE c.id = $1 ${deletedFilter}`,
       [params.id],
     );
 
-    await pool.end();
-
     if (result.rows.length === 0) {
+      await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
 
-    return reply.send(result.rows[0]);
+    const contact = result.rows[0];
+
+    // Eager loading with ?include= (#1582)
+    const includes = new Set(
+      (query.include ?? '').split(',').map((s) => s.trim()).filter(Boolean),
+    );
+
+    // Always include endpoints for backward compatibility (unless explicitly using include= without endpoints)
+    const includeEndpoints = includes.size === 0 || includes.has('endpoints');
+    const includeAddresses = includes.has('addresses');
+    const includeDates = includes.has('dates');
+    const includeTags = includes.has('tags');
+    const includeRelationships = includes.has('relationships');
+
+    const queries: Promise<void>[] = [];
+
+    if (includeEndpoints) {
+      queries.push(
+        pool.query(
+          `SELECT id::text, endpoint_type::text as type, endpoint_value as value,
+                  normalized_value, label, is_primary, is_login_eligible, metadata,
+                  created_at, updated_at
+           FROM contact_endpoint WHERE contact_id = $1
+           ORDER BY is_primary DESC NULLS LAST, endpoint_type, endpoint_value`,
+          [params.id],
+        ).then((r) => { contact.endpoints = r.rows; }),
+      );
+    }
+
+    if (includeAddresses) {
+      queries.push(
+        pool.query(
+          `SELECT id::text, label, street, city, state, postal_code, country, country_code,
+                  formatted, latitude, longitude, created_at, updated_at
+           FROM contact_address WHERE contact_id = $1
+           ORDER BY label NULLS LAST, created_at`,
+          [params.id],
+        ).then((r) => { contact.addresses = r.rows; }),
+      );
+    }
+
+    if (includeDates) {
+      queries.push(
+        pool.query(
+          `SELECT id::text, label, date_value, is_recurring, created_at, updated_at
+           FROM contact_date WHERE contact_id = $1
+           ORDER BY label NULLS LAST, date_value`,
+          [params.id],
+        ).then((r) => { contact.dates = r.rows; }),
+      );
+    }
+
+    if (includeTags) {
+      queries.push(
+        pool.query(
+          `SELECT tag, created_at FROM contact_tag WHERE contact_id = $1 ORDER BY tag`,
+          [params.id],
+        ).then((r) => { contact.tags = r.rows.map((row: { tag: string }) => row.tag); }),
+      );
+    }
+
+    if (includeRelationships) {
+      queries.push(
+        pool.query(
+          `SELECT cr.id::text, cr.relationship_type::text,
+                  cr.from_contact_id::text, cr.to_contact_id::text,
+                  cr.metadata, cr.created_at,
+                  c2.display_name as related_display_name
+           FROM contact_relationship cr
+           JOIN contact c2 ON c2.id = CASE
+             WHEN cr.from_contact_id = $1 THEN cr.to_contact_id
+             ELSE cr.from_contact_id END
+           WHERE cr.from_contact_id = $1 OR cr.to_contact_id = $1
+           ORDER BY cr.relationship_type, cr.created_at`,
+          [params.id],
+        ).then((r) => { contact.relationships = r.rows; }),
+      );
+    }
+
+    if (queries.length > 0) {
+      await Promise.all(queries);
+    }
+
+    await pool.end();
+    return reply.send(contact);
   });
 
   // PATCH /api/contacts/:id - Update contact
@@ -6901,6 +7057,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const body = req.body as {
       display_name?: string; notes?: string | null; contact_kind?: string;
+      // Structured name fields (#1582)
+      given_name?: string | null; family_name?: string | null; middle_name?: string | null;
+      name_prefix?: string | null; name_suffix?: string | null; nickname?: string | null;
+      phonetic_given_name?: string | null; phonetic_family_name?: string | null;
+      file_as?: string | null;
+      // Multi-value fields (#1582)
+      custom_fields?: Array<{ key: string; value: string }>;
+      tags?: string[];
       preferred_channel?: string | null; quiet_hours_start?: string | null; quiet_hours_end?: string | null;
       quiet_hours_timezone?: string | null; urgency_override_channel?: string | null; notification_notes?: string | null;
     };
@@ -6917,6 +7081,38 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     if (body.contact_kind !== undefined && !VALID_CONTACT_KINDS.includes(body.contact_kind as ContactKind)) {
       await pool.end();
       return reply.code(400).send({ error: `Invalid contact_kind. Must be one of: ${VALID_CONTACT_KINDS.join(', ')}` });
+    }
+
+    // Validate custom_fields (#1582)
+    if (body.custom_fields !== undefined) {
+      if (!Array.isArray(body.custom_fields)) {
+        await pool.end();
+        return reply.code(400).send({ error: 'custom_fields must be an array' });
+      }
+      if (body.custom_fields.length > 50) {
+        await pool.end();
+        return reply.code(400).send({ error: 'custom_fields limited to 50 entries' });
+      }
+      for (const cf of body.custom_fields) {
+        if (!cf || typeof cf.key !== 'string' || typeof cf.value !== 'string') {
+          await pool.end();
+          return reply.code(400).send({ error: 'Each custom_field must have string key and value' });
+        }
+      }
+    }
+
+    // Validate tags (#1582)
+    if (body.tags !== undefined) {
+      if (!Array.isArray(body.tags)) {
+        await pool.end();
+        return reply.code(400).send({ error: 'tags must be an array of strings' });
+      }
+      for (const tag of body.tags) {
+        if (typeof tag !== 'string' || tag.trim().length === 0 || tag.length > 100) {
+          await pool.end();
+          return reply.code(400).send({ error: 'Each tag must be a non-empty string (max 100 chars)' });
+        }
+      }
     }
 
     // Validate communication channel preferences (issue #1269)
@@ -6963,6 +7159,26 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       paramIndex++;
     }
 
+    // Structured name fields (#1582)
+    const nameFields = [
+      'given_name', 'family_name', 'middle_name', 'name_prefix', 'name_suffix',
+      'nickname', 'phonetic_given_name', 'phonetic_family_name', 'file_as',
+    ] as const;
+    for (const field of nameFields) {
+      if (Object.prototype.hasOwnProperty.call(body, field)) {
+        updates.push(`${field} = $${paramIndex}`);
+        values.push((body[field] as string | null) ?? null);
+        paramIndex++;
+      }
+    }
+
+    // custom_fields (#1582)
+    if (body.custom_fields !== undefined) {
+      updates.push(`custom_fields = $${paramIndex}`);
+      values.push(JSON.stringify(body.custom_fields));
+      paramIndex++;
+    }
+
     // Communication preference fields (issue #1269)
     if (Object.prototype.hasOwnProperty.call(body, 'preferred_channel')) {
       updates.push(`preferred_channel = $${paramIndex}`);
@@ -6995,27 +7211,73 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       paramIndex++;
     }
 
-    if (updates.length === 0) {
+    // Tags require separate handling — check if only tags changed
+    const hasTags = body.tags !== undefined;
+    if (updates.length === 0 && !hasTags) {
       await pool.end();
       return reply.code(400).send({ error: 'no fields to update' });
     }
 
-    updates.push('updated_at = now()');
-    values.push(params.id);
-    const idParamIndex = paramIndex;
-    paramIndex++;
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
 
-    const result = await pool.query(
-      `UPDATE contact SET ${updates.join(', ')} WHERE id = $${idParamIndex}
-       RETURNING id::text as id, display_name, notes, contact_kind::text as contact_kind,
-        preferred_channel::text, quiet_hours_start::text, quiet_hours_end::text, quiet_hours_timezone,
-        urgency_override_channel::text, notification_notes,
-        created_at, updated_at`,
-      values,
-    );
+      let resultRow;
+      if (updates.length > 0) {
+        updates.push('updated_at = now()');
+        values.push(params.id);
+        const idParamIndex = paramIndex;
 
-    await pool.end();
-    return reply.send(result.rows[0]);
+        const result = await client.query(
+          `UPDATE contact SET ${updates.join(', ')} WHERE id = $${idParamIndex}
+           RETURNING id::text as id, display_name, notes, contact_kind::text as contact_kind,
+            given_name, family_name, middle_name, name_prefix, name_suffix, nickname,
+            phonetic_given_name, phonetic_family_name, file_as, custom_fields,
+            preferred_channel::text, quiet_hours_start::text, quiet_hours_end::text, quiet_hours_timezone,
+            urgency_override_channel::text, notification_notes, namespace,
+            created_at, updated_at`,
+          values,
+        );
+        resultRow = result.rows[0];
+      } else {
+        // Only tags changed — touch updated_at and fetch current row
+        const result = await client.query(
+          `UPDATE contact SET updated_at = now() WHERE id = $1
+           RETURNING id::text as id, display_name, notes, contact_kind::text as contact_kind,
+            given_name, family_name, middle_name, name_prefix, name_suffix, nickname,
+            phonetic_given_name, phonetic_family_name, file_as, custom_fields,
+            preferred_channel::text, quiet_hours_start::text, quiet_hours_end::text, quiet_hours_timezone,
+            urgency_override_channel::text, notification_notes, namespace,
+            created_at, updated_at`,
+          [params.id],
+        );
+        resultRow = result.rows[0];
+      }
+
+      // Sync tags (#1582): delete-and-replace strategy
+      if (hasTags) {
+        await client.query(`DELETE FROM contact_tag WHERE contact_id = $1`, [params.id]);
+        const uniqueTags = [...new Set(body.tags!.map((t) => t.trim()).filter(Boolean))];
+        if (uniqueTags.length > 0) {
+          const tagValues = uniqueTags.map((_, i) => `($1, $${i + 2})`).join(', ');
+          await client.query(
+            `INSERT INTO contact_tag (contact_id, tag) VALUES ${tagValues} ON CONFLICT DO NOTHING`,
+            [params.id, ...uniqueTags],
+          );
+        }
+        resultRow.tags = uniqueTags;
+      }
+
+      await client.query('COMMIT');
+      client.release();
+      await pool.end();
+      return reply.send(resultRow);
+    } catch (err) {
+      await client.query('ROLLBACK');
+      client.release();
+      await pool.end();
+      throw err;
+    }
   });
 
   // DELETE /api/contacts/:id - Soft delete by default (Issue #225)
