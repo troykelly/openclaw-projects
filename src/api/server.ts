@@ -339,7 +339,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     if (email && bs) {
       try {
         const grants = await nsPool.query(
-          `SELECT namespace, role, is_default FROM namespace_grant WHERE email = $1 ORDER BY is_default DESC, namespace`,
+          `SELECT namespace, access, is_home FROM namespace_grant WHERE email = $1 ORDER BY is_home DESC, namespace`,
           [email],
         );
         bs.namespace_grants = grants.rows;
@@ -439,10 +439,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         }
       }
 
-      // 4. Enforce role: moving is a write operation — require at least 'member' on both namespaces
+      // 4. Enforce access: moving is a write operation — require readwrite on both namespaces
       if (!authOff && !isM2M) {
-        requireMinRole(req, oldNamespace, 'member');
-        requireMinRole(req, targetNamespace, 'member');
+        requireMinRole(req, oldNamespace, 'readwrite');
+        requireMinRole(req, targetNamespace, 'readwrite');
       }
 
       // 5. Move entity
@@ -792,7 +792,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         // User: return namespaces they have grants for
         // Issue #1535: include priority in response
         const result = await pool.query(
-          `SELECT DISTINCT ng.namespace, ng.role, ng.is_default, ng.priority, ng.created_at
+          `SELECT DISTINCT ng.namespace, ng.access, ng.is_home, ng.priority, ng.created_at
            FROM namespace_grant ng
            WHERE ng.email = $1
            ORDER BY ng.priority DESC, ng.namespace`,
@@ -809,7 +809,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           // DISTINCT ON prevents duplicate rows when multiple users hold
           // grants on the same namespace (#1561, review fix).
           const result = await pool.query(
-            `SELECT DISTINCT ON (ng.namespace) ng.namespace, ng.role, ng.is_default, ng.priority, ng.created_at
+            `SELECT DISTINCT ON (ng.namespace) ng.namespace, ng.access, ng.is_home, ng.priority, ng.created_at
              FROM namespace_grant ng
              ORDER BY ng.namespace, ng.priority DESC`,
           );
@@ -817,7 +817,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         }
         // M2M without api:full: return only explicitly granted namespaces
         const result = await pool.query(
-          `SELECT DISTINCT ng.namespace, ng.role, ng.is_default, ng.priority, ng.created_at
+          `SELECT DISTINCT ng.namespace, ng.access, ng.is_home, ng.priority, ng.created_at
            FROM namespace_grant ng
            WHERE ng.email = $1
            ORDER BY ng.priority DESC, ng.namespace`,
@@ -859,15 +859,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         return reply.code(409).send({ error: `namespace '${name}' already exists` });
       }
 
-      // Create owner grant for the namespace creator
+      // Create readwrite grant for the namespace creator
       if (identity.type === 'user') {
         await pool.query(
-          `INSERT INTO namespace_grant (email, namespace, role, is_default)
-           VALUES ($1, $2, 'owner', false)`,
+          `INSERT INTO namespace_grant (email, namespace, access, is_home)
+           VALUES ($1, $2, 'readwrite', false)`,
           [identity.email, name],
         );
       } else {
-        // M2M: create owner grant for the user behind the agent (#1562, #1567).
+        // M2M: create readwrite grant for the user behind the agent (#1562, #1567).
         // Prefer X-User-Email (the user's actual email) over X-Agent-Id (which
         // may be a short agent name like "troy" that doesn't match user_setting.email).
         // Security note: both headers are caller-controlled. M2M tokens are trusted
@@ -883,8 +883,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         );
         if (userExists.rows.length > 0) {
           await pool.query(
-            `INSERT INTO namespace_grant (email, namespace, role, is_default)
-             VALUES ($1, $2, 'owner', false)`,
+            `INSERT INTO namespace_grant (email, namespace, access, is_home)
+             VALUES ($1, $2, 'readwrite', false)`,
             [grantEmail, name],
           );
         } else {
@@ -920,7 +920,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }
 
       const grants = await pool.query(
-        `SELECT id::text, email, namespace, role, is_default, created_at, updated_at
+        `SELECT id::text, email, namespace, access, is_home, created_at, updated_at
          FROM namespace_grant
          WHERE namespace = $1
          ORDER BY email`,
@@ -958,7 +958,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }
 
       const result = await pool.query(
-        `SELECT id::text, email, namespace, role, is_default, created_at, updated_at
+        `SELECT id::text, email, namespace, access, is_home, created_at, updated_at
          FROM namespace_grant
          WHERE namespace = $1
          ORDER BY email`,
@@ -971,7 +971,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   /**
-   * Verify the caller has owner or admin role in the given namespace.
+   * Verify the caller has readwrite access in the given namespace.
    * Applies to both user tokens and M2M tokens (Issue #1533 review fix).
    * For M2M tokens without any grant, the check is skipped only for
    * read operations — admin mutations always require a grant.
@@ -983,16 +983,16 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     pool: ReturnType<typeof createPool>,
   ): Promise<string | null> {
     const email = identity.email;
-    const access = await pool.query(
-      `SELECT role FROM namespace_grant WHERE email = $1 AND namespace = $2`,
+    const accessResult = await pool.query(
+      `SELECT access FROM namespace_grant WHERE email = $1 AND namespace = $2`,
       [email, namespace],
     );
-    if (access.rows.length === 0) {
+    if (accessResult.rows.length === 0) {
       return 'No access to namespace';
     }
-    const callerRole = access.rows[0].role as string;
-    if (callerRole !== 'owner' && callerRole !== 'admin') {
-      return 'Only owner or admin can manage grants';
+    const callerAccess = accessResult.rows[0].access as string;
+    if (callerAccess !== 'readwrite') {
+      return 'Requires readwrite access to manage grants';
     }
     return null;
   }
@@ -1005,18 +1005,18 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     const params = req.params as { ns: string };
-    const body = req.body as { email?: string; role?: string; is_default?: boolean } | null;
+    const body = req.body as { email?: string; access?: string; is_home?: boolean } | null;
 
     if (!body?.email) {
       return reply.code(400).send({ error: 'email is required' });
     }
 
     const email = body.email.trim().toLowerCase();
-    const role = body.role || 'member';
-    const isDefault = body.is_default ?? false;
+    const access = body.access || 'readwrite';
+    const isHome = body.is_home ?? false;
 
-    if (!['owner', 'admin', 'member', 'observer'].includes(role)) {
-      return reply.code(400).send({ error: 'role must be one of: owner, admin, member, observer' });
+    if (!['read', 'readwrite'].includes(access)) {
+      return reply.code(400).send({ error: 'access must be one of: read, readwrite' });
     }
 
     const pool = createPool();
@@ -1030,26 +1030,26 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         return reply.code(404).send({ error: `user '${email}' not found` });
       }
 
-      // Verify caller has admin/owner role (applies to both user and M2M tokens)
+      // Verify caller has readwrite access (applies to both user and M2M tokens)
       const roleError = await requireNamespaceAdmin(identity, params.ns, pool);
       if (roleError) {
         return reply.code(403).send({ error: roleError });
       }
 
-      // If setting as default, unset any existing default for this user first
-      if (isDefault) {
+      // If setting as home, unset any existing home for this user first
+      if (isHome) {
         await pool.query(
-          `UPDATE namespace_grant SET is_default = false WHERE email = $1 AND is_default = true`,
+          `UPDATE namespace_grant SET is_home = false WHERE email = $1 AND is_home = true`,
           [email],
         );
       }
 
       const result = await pool.query(
-        `INSERT INTO namespace_grant (email, namespace, role, is_default)
+        `INSERT INTO namespace_grant (email, namespace, access, is_home)
          VALUES ($1, $2, $3, $4)
-         ON CONFLICT (email, namespace) DO UPDATE SET role = $3, is_default = $4, updated_at = now()
-         RETURNING id::text, email, namespace, role, is_default, created_at, updated_at`,
-        [email, params.ns, role, isDefault],
+         ON CONFLICT (email, namespace) DO UPDATE SET access = $3, is_home = $4, updated_at = now()
+         RETURNING id::text, email, namespace, access, is_home, created_at, updated_at`,
+        [email, params.ns, access, isHome],
       );
 
       return reply.code(201).send(result.rows[0]);
@@ -1058,7 +1058,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
-  // PATCH /api/namespaces/:ns/grants/:id — update role or default flag
+  // PATCH /api/namespaces/:ns/grants/:id — update access or home flag
   app.patch('/api/namespaces/:ns/grants/:id', async (req, reply) => {
     const identity = await getAuthIdentity(req);
     if (!identity) {
@@ -1066,14 +1066,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     const params = req.params as { ns: string; id: string };
-    const body = req.body as { role?: string; is_default?: boolean; priority?: number } | null;
+    const body = req.body as { access?: string; is_home?: boolean; priority?: number } | null;
 
-    if (!body || (body.role === undefined && body.is_default === undefined && body.priority === undefined)) {
-      return reply.code(400).send({ error: 'role, is_default, or priority is required' });
+    if (!body || (body.access === undefined && body.is_home === undefined && body.priority === undefined)) {
+      return reply.code(400).send({ error: 'access, is_home, or priority is required' });
     }
 
-    if (body.role && !['owner', 'admin', 'member', 'observer'].includes(body.role)) {
-      return reply.code(400).send({ error: 'role must be one of: owner, admin, member, observer' });
+    if (body.access && !['read', 'readwrite'].includes(body.access)) {
+      return reply.code(400).send({ error: 'access must be one of: read, readwrite' });
     }
 
     // Issue #1535: validate priority range
@@ -1085,7 +1085,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
     try {
-      // Verify caller has admin/owner role (applies to both user and M2M tokens)
+      // Verify caller has readwrite access (applies to both user and M2M tokens)
       const roleError = await requireNamespaceAdmin(identity, params.ns, pool);
       if (roleError) {
         return reply.code(403).send({ error: roleError });
@@ -1096,26 +1096,26 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const values: unknown[] = [];
       let paramIdx = 1;
 
-      if (body.role !== undefined) {
-        sets.push(`role = $${paramIdx++}`);
-        values.push(body.role);
+      if (body.access !== undefined) {
+        sets.push(`access = $${paramIdx++}`);
+        values.push(body.access);
       }
-      if (body.is_default !== undefined) {
-        // If setting as default, unset any existing default for this user first
-        if (body.is_default) {
+      if (body.is_home !== undefined) {
+        // If setting as home, unset any existing home for this user first
+        if (body.is_home) {
           const grant = await pool.query(
             `SELECT email FROM namespace_grant WHERE id = $1 AND namespace = $2`,
             [params.id, params.ns],
           );
           if (grant.rows.length > 0) {
             await pool.query(
-              `UPDATE namespace_grant SET is_default = false WHERE email = $1 AND is_default = true AND id != $2`,
+              `UPDATE namespace_grant SET is_home = false WHERE email = $1 AND is_home = true AND id != $2`,
               [grant.rows[0].email, params.id],
             );
           }
         }
-        sets.push(`is_default = $${paramIdx++}`);
-        values.push(body.is_default);
+        sets.push(`is_home = $${paramIdx++}`);
+        values.push(body.is_home);
       }
       // Issue #1535: priority update support
       if (body.priority !== undefined) {
@@ -1129,7 +1129,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const result = await pool.query(
         `UPDATE namespace_grant SET ${sets.join(', ')}
          WHERE id = $${paramIdx++} AND namespace = $${paramIdx}
-         RETURNING id::text, email, namespace, role, is_default, priority, created_at, updated_at`,
+         RETURNING id::text, email, namespace, access, is_home, priority, created_at, updated_at`,
         values,
       );
 
@@ -1216,31 +1216,31 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         [email],
       );
 
-      // Create personal namespace grant (owner, default)
-      // First unset any existing default
+      // Create personal namespace grant (readwrite, home)
+      // First unset any existing home
       await pool.query(
-        `UPDATE namespace_grant SET is_default = false WHERE email = $1 AND is_default = true`,
+        `UPDATE namespace_grant SET is_home = false WHERE email = $1 AND is_home = true`,
         [email],
       );
 
       await pool.query(
-        `INSERT INTO namespace_grant (email, namespace, role, is_default)
-         VALUES ($1, $2, 'owner', true)
-         ON CONFLICT (email, namespace) DO UPDATE SET role = 'owner', is_default = true, updated_at = now()`,
+        `INSERT INTO namespace_grant (email, namespace, access, is_home)
+         VALUES ($1, $2, 'readwrite', true)
+         ON CONFLICT (email, namespace) DO UPDATE SET access = 'readwrite', is_home = true, updated_at = now()`,
         [email, nsName],
       );
 
       // Also grant access to 'default' namespace
       await pool.query(
-        `INSERT INTO namespace_grant (email, namespace, role, is_default)
-         VALUES ($1, 'default', 'member', false)
+        `INSERT INTO namespace_grant (email, namespace, access, is_home)
+         VALUES ($1, 'default', 'readwrite', false)
          ON CONFLICT (email, namespace) DO NOTHING`,
         [email],
       );
 
       // Load grants
       const grants = await pool.query(
-        `SELECT id::text, email, namespace, role, is_default, created_at, updated_at
+        `SELECT id::text, email, namespace, access, is_home, created_at, updated_at
          FROM namespace_grant WHERE email = $1 ORDER BY namespace`,
         [email],
       );
@@ -1271,7 +1271,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const result = await pool.query(
         `SELECT us.email, us.theme, us.timezone, us.created_at, us.updated_at,
                 (SELECT json_agg(json_build_object(
-                  'namespace', ng.namespace, 'role', ng.role, 'is_default', ng.is_default
+                  'namespace', ng.namespace, 'access', ng.access, 'is_home', ng.is_home
                 ) ORDER BY ng.namespace)
                 FROM namespace_grant ng WHERE ng.email = us.email) as grants
          FROM user_setting us
@@ -1310,7 +1310,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }
 
       const grants = await pool.query(
-        `SELECT id::text, namespace, role, is_default, created_at, updated_at
+        `SELECT id::text, namespace, access, is_home, created_at, updated_at
          FROM namespace_grant WHERE email = $1 ORDER BY namespace`,
         [targetEmail],
       );
@@ -1438,12 +1438,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   /**
    * Gets the store namespace for write operations.
-   * Throws RoleError if the user has observer role (read-only).
+   * Throws RoleError if the user has read-only access.
    */
   function getStoreNamespace(req: FastifyRequest): string {
     const ns = req.namespaceContext?.storeNamespace ?? 'default';
-    // Enforce: observers cannot write (#1485)
-    requireMinRole(req, ns, 'member');
+    // Enforce: read-only users cannot write (#1485, #1571)
+    requireMinRole(req, ns, 'readwrite');
     return ns;
   }
 

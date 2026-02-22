@@ -42,14 +42,22 @@ describe('Contact Schema Enhancement (Issue #208)', () => {
       expect(result.rows[0].timezone).toBe('Australia/Sydney');
     });
 
-    it('supports birthday field', async () => {
+    it('supports birthday via contact_date table', async () => {
+      const contactResult = await pool.query(
+        `INSERT INTO contact (display_name)
+         VALUES ('Birthday Person')
+         RETURNING id::text as id`,
+      );
+      const contact_id = contactResult.rows[0].id;
+
       const result = await pool.query(
-        `INSERT INTO contact (display_name, birthday)
-         VALUES ('Birthday Person', '1990-05-15')
-         RETURNING birthday`,
+        `INSERT INTO contact_date (contact_id, date_type, date_value, label)
+         VALUES ($1, 'birthday', '1990-05-15', 'Birthday')
+         RETURNING date_value`,
+        [contact_id],
       );
 
-      const birthday = new Date(result.rows[0].birthday);
+      const birthday = new Date(result.rows[0].date_value);
       expect(birthday.getMonth()).toBe(4); // May (0-indexed)
       expect(birthday.getDate()).toBe(15);
     });

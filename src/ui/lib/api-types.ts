@@ -1256,11 +1256,11 @@ export interface ProposeIdentityChangeBody {
 // Bootstrap (server-injected data)
 // ---------------------------------------------------------------------------
 
-/** A namespace grant from the namespace_grant table (Epic #1418). */
+/** A namespace grant from the namespace_grant table (Epic #1418, #1571). */
 export interface NamespaceGrant {
   namespace: string;
-  role: string;
-  is_default: boolean;
+  access: string;
+  is_home: boolean;
 }
 
 /** Bootstrap data injected by the server into the HTML page. */

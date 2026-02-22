@@ -61,11 +61,11 @@ describe('Namespace & User Provisioning API', () => {
         // Setup: create user and grants
         await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, [TEST_EMAIL]);
         await pool.query(
-          `INSERT INTO namespace_grant (email, namespace, role, is_default) VALUES ($1, 'test-ns-one', 'owner', true)`,
+          `INSERT INTO namespace_grant (email, namespace, access, is_home) VALUES ($1, 'test-ns-one', 'readwrite', true)`,
           [TEST_EMAIL],
         );
         await pool.query(
-          `INSERT INTO namespace_grant (email, namespace, role, is_default) VALUES ($1, 'test-ns-two', 'member', false)`,
+          `INSERT INTO namespace_grant (email, namespace, access, is_home) VALUES ($1, 'test-ns-two', 'readwrite', false)`,
           [TEST_EMAIL],
         );
 
@@ -84,11 +84,11 @@ describe('Namespace & User Provisioning API', () => {
         await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, ['test-service']);
         await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, [TEST_EMAIL]);
         await pool.query(
-          `INSERT INTO namespace_grant (email, namespace, role) VALUES ($1, 'test-ns-m2m-granted', 'owner')`,
+          `INSERT INTO namespace_grant (email, namespace, access) VALUES ($1, 'test-ns-m2m-granted', 'readwrite')`,
           ['test-service'],
         );
         await pool.query(
-          `INSERT INTO namespace_grant (email, namespace, role) VALUES ($1, 'test-ns-user-only', 'owner')`,
+          `INSERT INTO namespace_grant (email, namespace, access) VALUES ($1, 'test-ns-user-only', 'readwrite')`,
           [TEST_EMAIL],
         );
 
@@ -109,11 +109,11 @@ describe('Namespace & User Provisioning API', () => {
         await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, ['test-service-limited']);
         await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, [TEST_EMAIL]);
         await pool.query(
-          `INSERT INTO namespace_grant (email, namespace, role) VALUES ($1, 'test-ns-limited-granted', 'owner')`,
+          `INSERT INTO namespace_grant (email, namespace, access) VALUES ($1, 'test-ns-limited-granted', 'readwrite')`,
           ['test-service-limited'],
         );
         await pool.query(
-          `INSERT INTO namespace_grant (email, namespace, role) VALUES ($1, 'test-ns-user-only2', 'owner')`,
+          `INSERT INTO namespace_grant (email, namespace, access) VALUES ($1, 'test-ns-user-only2', 'readwrite')`,
           [TEST_EMAIL],
         );
 
@@ -182,7 +182,7 @@ describe('Namespace & User Provisioning API', () => {
         expect(res.json()).toMatchObject({ namespace: 'test-ns-created', created: true });
       });
 
-      it('creates owner grant using X-User-Email header for M2M tokens (#1567)', async () => {
+      it('creates readwrite grant using X-User-Email header for M2M tokens (#1567)', async () => {
         // Setup: user_setting row for the real email
         await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, [TEST_EMAIL]);
 
@@ -201,11 +201,11 @@ describe('Namespace & User Provisioning API', () => {
 
         // Verify grant was created for the email, not the agent ID
         const grant = await pool.query(
-          `SELECT email, role FROM namespace_grant WHERE namespace = 'test-ns-email-grant'`,
+          `SELECT email, access FROM namespace_grant WHERE namespace = 'test-ns-email-grant'`,
         );
         expect(grant.rows).toHaveLength(1);
         expect(grant.rows[0].email).toBe(TEST_EMAIL);
-        expect(grant.rows[0].role).toBe('owner');
+        expect(grant.rows[0].access).toBe('readwrite');
       });
 
       it('skips grant when identity has no matching user_setting row (#1567)', async () => {
@@ -226,7 +226,7 @@ describe('Namespace & User Provisioning API', () => {
         expect(grant.rows).toHaveLength(0);
       });
 
-      it('creates namespace with user token and grants owner role', async () => {
+      it('creates namespace with user token and grants readwrite access', async () => {
         await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, [TEST_EMAIL]);
 
         const headers = await getAuthHeaders(TEST_EMAIL);
@@ -239,16 +239,16 @@ describe('Namespace & User Provisioning API', () => {
 
         // Verify grant was created
         const grant = await pool.query(
-          `SELECT role FROM namespace_grant WHERE email = $1 AND namespace = 'test-ns-user-created'`,
+          `SELECT access FROM namespace_grant WHERE email = $1 AND namespace = 'test-ns-user-created'`,
           [TEST_EMAIL],
         );
-        expect(grant.rows[0].role).toBe('owner');
+        expect(grant.rows[0].access).toBe('readwrite');
       });
 
       it('returns 409 for duplicate namespace', async () => {
         await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, [TEST_EMAIL]);
         await pool.query(
-          `INSERT INTO namespace_grant (email, namespace, role) VALUES ($1, 'test-ns-dup', 'owner')`,
+          `INSERT INTO namespace_grant (email, namespace, access) VALUES ($1, 'test-ns-dup', 'readwrite')`,
           [TEST_EMAIL],
         );
 
@@ -266,7 +266,7 @@ describe('Namespace & User Provisioning API', () => {
       it('returns namespace details with member list', async () => {
         await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, [TEST_EMAIL]);
         await pool.query(
-          `INSERT INTO namespace_grant (email, namespace, role, is_default) VALUES ($1, 'test-ns-detail', 'owner', true)`,
+          `INSERT INTO namespace_grant (email, namespace, access, is_home) VALUES ($1, 'test-ns-detail', 'readwrite', true)`,
           [TEST_EMAIL],
         );
 
@@ -285,7 +285,7 @@ describe('Namespace & User Provisioning API', () => {
         await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, [TEST_EMAIL]);
         await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, [TEST_EMAIL_2]);
         await pool.query(
-          `INSERT INTO namespace_grant (email, namespace, role) VALUES ($1, 'test-ns-forbidden', 'owner')`,
+          `INSERT INTO namespace_grant (email, namespace, access) VALUES ($1, 'test-ns-forbidden', 'readwrite')`,
           [TEST_EMAIL],
         );
 
@@ -297,7 +297,7 @@ describe('Namespace & User Provisioning API', () => {
       it('M2M can view any namespace', async () => {
         await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, [TEST_EMAIL]);
         await pool.query(
-          `INSERT INTO namespace_grant (email, namespace, role) VALUES ($1, 'test-ns-m2m-view', 'owner')`,
+          `INSERT INTO namespace_grant (email, namespace, access) VALUES ($1, 'test-ns-m2m-view', 'readwrite')`,
           [TEST_EMAIL],
         );
 
@@ -312,7 +312,7 @@ describe('Namespace & User Provisioning API', () => {
       it('lists grants for namespace', async () => {
         await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, [TEST_EMAIL]);
         await pool.query(
-          `INSERT INTO namespace_grant (email, namespace, role) VALUES ($1, 'test-ns-grants', 'owner')`,
+          `INSERT INTO namespace_grant (email, namespace, access) VALUES ($1, 'test-ns-grants', 'readwrite')`,
           [TEST_EMAIL],
         );
 
@@ -323,7 +323,7 @@ describe('Namespace & User Provisioning API', () => {
         const body = res.json();
         expect(body).toHaveLength(1);
         expect(body[0].email).toBe(TEST_EMAIL);
-        expect(body[0].role).toBe('owner');
+        expect(body[0].access).toBe('readwrite');
       });
     });
 
@@ -332,7 +332,7 @@ describe('Namespace & User Provisioning API', () => {
         await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, [TEST_EMAIL]);
         await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, [TEST_EMAIL_2]);
         await pool.query(
-          `INSERT INTO namespace_grant (email, namespace, role) VALUES ($1, 'test-ns-grant-add', 'owner')`,
+          `INSERT INTO namespace_grant (email, namespace, access) VALUES ($1, 'test-ns-grant-add', 'readwrite')`,
           [TEST_EMAIL],
         );
 
@@ -340,18 +340,18 @@ describe('Namespace & User Provisioning API', () => {
         const res = await app.inject({
           method: 'POST', url: '/api/namespaces/test-ns-grant-add/grants',
           headers: { ...headers, 'content-type': 'application/json' },
-          payload: { email: TEST_EMAIL_2, role: 'member' },
+          payload: { email: TEST_EMAIL_2, access: 'readwrite' },
         });
         expect(res.statusCode).toBe(201);
         expect(res.json().email).toBe(TEST_EMAIL_2);
-        expect(res.json().role).toBe('member');
+        expect(res.json().access).toBe('readwrite');
       });
 
-      it('returns 400 for invalid role', async () => {
+      it('returns 400 for invalid access level', async () => {
         await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, [TEST_EMAIL]);
         await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, [TEST_EMAIL_2]);
         await pool.query(
-          `INSERT INTO namespace_grant (email, namespace, role) VALUES ($1, 'test-ns-grant-bad', 'owner')`,
+          `INSERT INTO namespace_grant (email, namespace, access) VALUES ($1, 'test-ns-grant-bad', 'readwrite')`,
           [TEST_EMAIL],
         );
 
@@ -359,7 +359,7 @@ describe('Namespace & User Provisioning API', () => {
         const res = await app.inject({
           method: 'POST', url: '/api/namespaces/test-ns-grant-bad/grants',
           headers: { ...headers, 'content-type': 'application/json' },
-          payload: { email: TEST_EMAIL_2, role: 'superuser' },
+          payload: { email: TEST_EMAIL_2, access: 'superuser' },
         });
         expect(res.statusCode).toBe(400);
       });
@@ -367,7 +367,7 @@ describe('Namespace & User Provisioning API', () => {
       it('returns 404 for nonexistent user', async () => {
         await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, [TEST_EMAIL]);
         await pool.query(
-          `INSERT INTO namespace_grant (email, namespace, role) VALUES ($1, 'test-ns-grant-nouser', 'owner')`,
+          `INSERT INTO namespace_grant (email, namespace, access) VALUES ($1, 'test-ns-grant-nouser', 'readwrite')`,
           [TEST_EMAIL],
         );
 
@@ -375,7 +375,7 @@ describe('Namespace & User Provisioning API', () => {
         const res = await app.inject({
           method: 'POST', url: '/api/namespaces/test-ns-grant-nouser/grants',
           headers: { ...headers, 'content-type': 'application/json' },
-          payload: { email: 'nonexistent@example.com', role: 'member' },
+          payload: { email: 'nonexistent@example.com', access: 'readwrite' },
         });
         expect(res.statusCode).toBe(404);
       });
@@ -384,12 +384,12 @@ describe('Namespace & User Provisioning API', () => {
         await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, [TEST_EMAIL]);
         await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, ['test-service']);
         await pool.query(
-          `INSERT INTO namespace_grant (email, namespace, role) VALUES ($1, 'test-ns-upsert', 'member')`,
+          `INSERT INTO namespace_grant (email, namespace, access) VALUES ($1, 'test-ns-upsert', 'readwrite')`,
           [TEST_EMAIL],
         );
-        // M2M needs owner/admin grant to mutate
+        // M2M needs readwrite grant to mutate
         await pool.query(
-          `INSERT INTO namespace_grant (email, namespace, role) VALUES ($1, 'test-ns-upsert', 'owner')`,
+          `INSERT INTO namespace_grant (email, namespace, access) VALUES ($1, 'test-ns-upsert', 'readwrite')`,
           ['test-service'],
         );
 
@@ -397,10 +397,10 @@ describe('Namespace & User Provisioning API', () => {
         const res = await app.inject({
           method: 'POST', url: '/api/namespaces/test-ns-upsert/grants',
           headers: { ...headers, 'content-type': 'application/json' },
-          payload: { email: TEST_EMAIL, role: 'admin' },
+          payload: { email: TEST_EMAIL, access: 'readwrite' },
         });
         expect(res.statusCode).toBe(201);
-        expect(res.json().role).toBe('admin');
+        expect(res.json().access).toBe('readwrite');
 
         // Verify only one grant exists
         const count = await pool.query(
@@ -412,17 +412,17 @@ describe('Namespace & User Provisioning API', () => {
     });
 
     describe('PATCH /api/namespaces/:ns/grants/:id', () => {
-      it('updates grant role', async () => {
+      it('updates grant access level', async () => {
         await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, [TEST_EMAIL]);
         await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, ['test-service']);
         const grant = await pool.query(
-          `INSERT INTO namespace_grant (email, namespace, role) VALUES ($1, 'test-ns-patch', 'member') RETURNING id::text`,
+          `INSERT INTO namespace_grant (email, namespace, access) VALUES ($1, 'test-ns-patch', 'readwrite') RETURNING id::text`,
           [TEST_EMAIL],
         );
         const grantId = grant.rows[0].id;
-        // M2M needs owner/admin grant to mutate
+        // M2M needs readwrite grant to mutate
         await pool.query(
-          `INSERT INTO namespace_grant (email, namespace, role) VALUES ($1, 'test-ns-patch', 'owner')`,
+          `INSERT INTO namespace_grant (email, namespace, access) VALUES ($1, 'test-ns-patch', 'readwrite')`,
           ['test-service'],
         );
 
@@ -430,17 +430,17 @@ describe('Namespace & User Provisioning API', () => {
         const res = await app.inject({
           method: 'PATCH', url: `/api/namespaces/test-ns-patch/grants/${grantId}`,
           headers: { ...headers, 'content-type': 'application/json' },
-          payload: { role: 'admin' },
+          payload: { access: 'readwrite' },
         });
         expect(res.statusCode).toBe(200);
-        expect(res.json().role).toBe('admin');
+        expect(res.json().access).toBe('readwrite');
       });
 
       it('returns 404 for nonexistent grant', async () => {
         await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, ['test-service']);
-        // M2M needs owner/admin grant to reach the 404 path (not 403)
+        // M2M needs readwrite grant to reach the 404 path (not 403)
         await pool.query(
-          `INSERT INTO namespace_grant (email, namespace, role) VALUES ($1, 'test-ns-patch', 'owner')`,
+          `INSERT INTO namespace_grant (email, namespace, access) VALUES ($1, 'test-ns-patch', 'readwrite')`,
           ['test-service'],
         );
 
@@ -448,7 +448,7 @@ describe('Namespace & User Provisioning API', () => {
         const res = await app.inject({
           method: 'PATCH', url: '/api/namespaces/test-ns-patch/grants/00000000-0000-0000-0000-000000000000',
           headers: { ...headers, 'content-type': 'application/json' },
-          payload: { role: 'admin' },
+          payload: { access: 'readwrite' },
         });
         expect(res.statusCode).toBe(404);
       });
@@ -459,13 +459,13 @@ describe('Namespace & User Provisioning API', () => {
         await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, [TEST_EMAIL]);
         await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, ['test-service']);
         const grant = await pool.query(
-          `INSERT INTO namespace_grant (email, namespace, role) VALUES ($1, 'test-ns-del', 'member') RETURNING id::text`,
+          `INSERT INTO namespace_grant (email, namespace, access) VALUES ($1, 'test-ns-del', 'readwrite') RETURNING id::text`,
           [TEST_EMAIL],
         );
         const grantId = grant.rows[0].id;
-        // M2M needs owner/admin grant to mutate
+        // M2M needs readwrite grant to mutate
         await pool.query(
-          `INSERT INTO namespace_grant (email, namespace, role) VALUES ($1, 'test-ns-del', 'owner')`,
+          `INSERT INTO namespace_grant (email, namespace, access) VALUES ($1, 'test-ns-del', 'readwrite')`,
           ['test-service'],
         );
 
@@ -487,9 +487,9 @@ describe('Namespace & User Provisioning API', () => {
 
       it('returns 404 for nonexistent grant', async () => {
         await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, ['test-service']);
-        // M2M needs owner/admin grant to reach the 404 path (not 403)
+        // M2M needs readwrite grant to reach the 404 path (not 403)
         await pool.query(
-          `INSERT INTO namespace_grant (email, namespace, role) VALUES ($1, 'test-ns-del', 'owner')`,
+          `INSERT INTO namespace_grant (email, namespace, access) VALUES ($1, 'test-ns-del', 'readwrite')`,
           ['test-service'],
         );
 
@@ -545,10 +545,10 @@ describe('Namespace & User Provisioning API', () => {
 
         // Should have owner grant on personal namespace
         const ownerGrant = body.grants.find(
-          (g: { namespace: string; role: string }) => g.namespace === 'ns-api-test' && g.role === 'owner',
+          (g: { namespace: string; access: string }) => g.namespace === 'ns-api-test' && g.access === 'readwrite',
         );
         expect(ownerGrant).toBeDefined();
-        expect(ownerGrant.is_default).toBe(true);
+        expect(ownerGrant.is_home).toBe(true);
 
         // Should have member grant on 'default' namespace
         const defaultGrant = body.grants.find(
@@ -607,7 +607,7 @@ describe('Namespace & User Provisioning API', () => {
       it('lists users for M2M token', async () => {
         await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, [TEST_EMAIL]);
         await pool.query(
-          `INSERT INTO namespace_grant (email, namespace, role) VALUES ($1, 'test-ns-list', 'owner')`,
+          `INSERT INTO namespace_grant (email, namespace, access) VALUES ($1, 'test-ns-list', 'readwrite')`,
           [TEST_EMAIL],
         );
 
@@ -627,7 +627,7 @@ describe('Namespace & User Provisioning API', () => {
       it('returns user details with grants', async () => {
         await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, [TEST_EMAIL]);
         await pool.query(
-          `INSERT INTO namespace_grant (email, namespace, role, is_default) VALUES ($1, 'test-ns-detail-user', 'owner', true)`,
+          `INSERT INTO namespace_grant (email, namespace, access, is_home) VALUES ($1, 'test-ns-detail-user', 'readwrite', true)`,
           [TEST_EMAIL],
         );
 
@@ -734,7 +734,7 @@ describe('Namespace & User Provisioning API', () => {
       it('deletes user and cascades grants', async () => {
         await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, [TEST_EMAIL]);
         await pool.query(
-          `INSERT INTO namespace_grant (email, namespace, role) VALUES ($1, 'test-ns-del-user', 'owner')`,
+          `INSERT INTO namespace_grant (email, namespace, access) VALUES ($1, 'test-ns-del-user', 'readwrite')`,
           [TEST_EMAIL],
         );
 

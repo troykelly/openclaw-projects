@@ -110,14 +110,16 @@ export async function resolveUserEmail(
 }
 
 // ============================================================
-// Namespace resolution (Issue #1475) + Role enforcement (#1485)
+// Namespace resolution (Issue #1475) + Access enforcement (#1485, #1571)
 // ============================================================
 
-/** Valid namespace roles, ordered from least to most privileged. */
-export type NamespaceRole = 'observer' | 'member' | 'admin' | 'owner';
+/** Valid namespace access levels: read (view only) or readwrite (full CRUD). */
+export type NamespaceAccess = 'read' | 'readwrite';
 
-/** Role hierarchy: lower index = less privilege. */
-const ROLE_HIERARCHY: readonly NamespaceRole[] = ['observer', 'member', 'admin', 'owner'] as const;
+/**
+ * @deprecated Use NamespaceAccess instead. Kept for backward compatibility during migration.
+ */
+export type NamespaceRole = NamespaceAccess;
 
 /** Namespace context resolved for a request. */
 export interface NamespaceContext {
@@ -127,38 +129,37 @@ export interface NamespaceContext {
   queryNamespaces: string[];
   /** Whether the token is M2M (agents can operate across namespaces). */
   isM2M: boolean;
-  /** Map of namespace → role for the authenticated user. Empty for M2M/auth-disabled. */
-  roles: Record<string, NamespaceRole>;
+  /** Map of namespace → access level for the authenticated user. Empty for M2M/auth-disabled. */
+  roles: Record<string, NamespaceAccess>;
 }
 
 /**
- * Checks that the user has at least `minRole` for the given namespace.
+ * Checks that the user has at least the required access level for the given namespace.
  *
- * - **M2M tokens**: always allowed (no role restriction).
+ * - **M2M tokens**: always allowed (no access restriction).
  * - **Auth disabled**: always allowed.
- * - **User tokens**: compared against the role hierarchy.
+ * - **User tokens**: 'readwrite' satisfies any requirement; 'read' only satisfies 'read'.
  *
- * @throws {RoleError} if the user's role is insufficient.
+ * @throws {RoleError} if the user's access is insufficient.
  */
 export function requireMinRole(
   req: FastifyRequest,
   namespace: string,
-  minRole: NamespaceRole,
+  minRole: NamespaceAccess,
 ): void {
   const ctx = req.namespaceContext;
   if (!ctx) return; // No namespace context = auth disabled or no grants (handled elsewhere)
-  if (ctx.isM2M) return; // M2M tokens bypass role checks
+  if (ctx.isM2M) return; // M2M tokens bypass access checks
 
-  const userRole = ctx.roles[namespace];
-  if (!userRole) {
+  const userAccess = ctx.roles[namespace];
+  if (!userAccess) {
     throw new RoleError('No access to namespace');
   }
 
-  const userLevel = ROLE_HIERARCHY.indexOf(userRole);
-  const requiredLevel = ROLE_HIERARCHY.indexOf(minRole);
-  if (userLevel < requiredLevel) {
+  // 'readwrite' satisfies any requirement; 'read' only satisfies 'read'
+  if (minRole === 'readwrite' && userAccess === 'read') {
     throw new RoleError(
-      `Requires ${minRole} role or higher (current: ${userRole})`,
+      `Requires readwrite access (current: ${userAccess})`,
     );
   }
 }
@@ -330,10 +331,10 @@ export async function resolveNamespaces(
   // User token: load grants
   const grants = await pool.query<{
     namespace: string;
-    role: string;
-    is_default: boolean;
+    access: string;
+    is_home: boolean;
   }>(
-    `SELECT namespace, role, is_default
+    `SELECT namespace, access, is_home
      FROM namespace_grant
      WHERE email = $1
      ORDER BY namespace`,
@@ -345,12 +346,12 @@ export async function resolveNamespaces(
   }
 
   const allNamespaces = grants.rows.map((r) => r.namespace);
-  const defaultGrant = grants.rows.find((r) => r.is_default);
+  const defaultGrant = grants.rows.find((r) => r.is_home);
 
-  // Build namespace → role map
-  const roles: Record<string, NamespaceRole> = {};
+  // Build namespace → access map
+  const roles: Record<string, NamespaceAccess> = {};
   for (const row of grants.rows) {
-    roles[row.namespace] = row.role as NamespaceRole;
+    roles[row.namespace] = row.access as NamespaceAccess;
   }
 
   // If a specific namespace was requested, verify user has access

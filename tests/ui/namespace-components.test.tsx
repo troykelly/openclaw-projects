@@ -41,9 +41,9 @@ function clearBootstrapData(): void {
 function MultiNamespaceWrapper({ children }: { children: React.ReactNode }) {
   setBootstrapData({
     namespace_grants: [
-      { namespace: 'personal', role: 'owner', is_default: true },
-      { namespace: 'team-alpha', role: 'member', is_default: false },
-      { namespace: 'shared', role: 'admin', is_default: false },
+      { namespace: 'personal', access: 'readwrite', is_home: true },
+      { namespace: 'team-alpha', access: 'readwrite', is_home: false },
+      { namespace: 'shared', access: 'readwrite', is_home: false },
     ],
   });
   return <NamespaceProvider>{children}</NamespaceProvider>;
@@ -52,7 +52,7 @@ function MultiNamespaceWrapper({ children }: { children: React.ReactNode }) {
 /** Wrapper that provides single-namespace context. */
 function SingleNamespaceWrapper({ children }: { children: React.ReactNode }) {
   setBootstrapData({
-    namespace_grants: [{ namespace: 'default', role: 'owner', is_default: true }],
+    namespace_grants: [{ namespace: 'default', access: 'readwrite', is_home: true }],
   });
   return <NamespaceProvider>{children}</NamespaceProvider>;
 }

@@ -41,8 +41,8 @@ function getInitialNamespace(grants: NamespaceGrant[]): string {
     }
   }
 
-  // Use the default grant if available
-  const defaultGrant = grants.find((g) => g.is_default);
+  // Use the home grant if available
+  const defaultGrant = grants.find((g) => g.is_home);
   if (defaultGrant) return defaultGrant.namespace;
 
   // Fall back to first grant or 'default'
