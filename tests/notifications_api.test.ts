@@ -632,8 +632,8 @@ describe('Notifications API', () => {
           [user1, user2],
         );
         await pool.query(
-          `INSERT INTO namespace_grant (email, namespace, role, is_default)
-           VALUES ($1, 'team-ns', 'owner', true), ($2, 'team-ns', 'member', false)
+          `INSERT INTO namespace_grant (email, namespace, access, is_home)
+           VALUES ($1, 'team-ns', 'readwrite', true), ($2, 'team-ns', 'read', false)
            ON CONFLICT (email, namespace) DO NOTHING`,
           [user1, user2],
         );

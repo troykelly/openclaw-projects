@@ -46,11 +46,11 @@ describe('Namespace Resolution Middleware (#1475)', () => {
     it('resolves default namespace for user with grants', async () => {
       await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, [TEST_EMAIL]);
       await pool.query(
-        `INSERT INTO namespace_grant (email, namespace, role, is_default) VALUES ($1, 'personal', 'owner', true)`,
+        `INSERT INTO namespace_grant (email, namespace, access, is_home) VALUES ($1, 'personal', 'readwrite', true)`,
         [TEST_EMAIL],
       );
       await pool.query(
-        `INSERT INTO namespace_grant (email, namespace, role, is_default) VALUES ($1, 'shared', 'member', false)`,
+        `INSERT INTO namespace_grant (email, namespace, access, is_home) VALUES ($1, 'shared', 'read', false)`,
         [TEST_EMAIL],
       );
 
@@ -71,11 +71,11 @@ describe('Namespace Resolution Middleware (#1475)', () => {
     it('user can request a specific namespace via X-Namespace header', async () => {
       await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, [TEST_EMAIL]);
       await pool.query(
-        `INSERT INTO namespace_grant (email, namespace, role, is_default) VALUES ($1, 'ns-a', 'owner', true)`,
+        `INSERT INTO namespace_grant (email, namespace, access, is_home) VALUES ($1, 'ns-a', 'readwrite', true)`,
         [TEST_EMAIL],
       );
       await pool.query(
-        `INSERT INTO namespace_grant (email, namespace, role, is_default) VALUES ($1, 'ns-b', 'member', false)`,
+        `INSERT INTO namespace_grant (email, namespace, access, is_home) VALUES ($1, 'ns-b', 'read', false)`,
         [TEST_EMAIL],
       );
 
@@ -93,7 +93,7 @@ describe('Namespace Resolution Middleware (#1475)', () => {
     it('user can request namespace via query parameter', async () => {
       await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, [TEST_EMAIL]);
       await pool.query(
-        `INSERT INTO namespace_grant (email, namespace, role, is_default) VALUES ($1, 'ns-q', 'owner', true)`,
+        `INSERT INTO namespace_grant (email, namespace, access, is_home) VALUES ($1, 'ns-q', 'readwrite', true)`,
         [TEST_EMAIL],
       );
 
@@ -111,7 +111,7 @@ describe('Namespace Resolution Middleware (#1475)', () => {
     it('M2M defaults to requested namespace or default', async () => {
       await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, [TEST_EMAIL]);
       await pool.query(
-        `INSERT INTO namespace_grant (email, namespace, role) VALUES ($1, 'test-m2m-ns', 'owner')`,
+        `INSERT INTO namespace_grant (email, namespace, access) VALUES ($1, 'test-m2m-ns', 'readwrite')`,
         [TEST_EMAIL],
       );
 
@@ -129,7 +129,7 @@ describe('Namespace Resolution Middleware (#1475)', () => {
     it('old principal binding still forces user_email override', async () => {
       await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, [TEST_EMAIL]);
       await pool.query(
-        `INSERT INTO namespace_grant (email, namespace, role, is_default) VALUES ($1, 'default', 'member', true)`,
+        `INSERT INTO namespace_grant (email, namespace, access, is_home) VALUES ($1, 'default', 'read', true)`,
         [TEST_EMAIL],
       );
 
