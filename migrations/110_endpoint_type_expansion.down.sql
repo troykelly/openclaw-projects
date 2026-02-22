@@ -10,7 +10,7 @@ RETURNS text
 LANGUAGE sql
 IMMUTABLE
 AS $$
-  SELECT CASE p_type
+  SELECT CASE p_type::text
     WHEN 'email' THEN lower(trim(p_value))
     WHEN 'telegram' THEN lower(regexp_replace(trim(p_value), '^@', ''))
     WHEN 'phone' THEN regexp_replace(trim(p_value), '[^0-9+]', '', 'g')

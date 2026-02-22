@@ -28,12 +28,14 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_contact_endpoint_primary
   ON contact_endpoint(contact_id, endpoint_type) WHERE is_primary = true;
 
 -- STEP 3: Update normalization function to handle new types
+-- Cast to text to avoid "unsafe use of new enum value" error when ADD VALUE
+-- and function definition happen in the same transaction (e.g., test setup).
 CREATE OR REPLACE FUNCTION normalize_contact_endpoint_value(p_type contact_endpoint_type, p_value text)
 RETURNS text
 LANGUAGE sql
 IMMUTABLE
 AS $$
-  SELECT CASE p_type
+  SELECT CASE p_type::text
     WHEN 'email' THEN lower(trim(p_value))
     WHEN 'telegram' THEN lower(regexp_replace(trim(p_value), '^@', ''))
     WHEN 'phone' THEN regexp_replace(trim(p_value), '[^0-9+]', '', 'g')
