@@ -6997,10 +6997,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     if (includeAddresses) {
       queries.push(
         pool.query(
-          `SELECT id::text, label, street, city, state, postal_code, country, country_code,
-                  formatted, latitude, longitude, created_at, updated_at
+          `SELECT id::text, address_type::text, label, street_address, extended_address,
+                  city, region, postal_code, country, country_code,
+                  formatted_address, latitude, longitude, is_primary,
+                  created_at, updated_at
            FROM contact_address WHERE contact_id = $1
-           ORDER BY label NULLS LAST, created_at`,
+           ORDER BY is_primary DESC NULLS LAST, label NULLS LAST, created_at`,
           [params.id],
         ).then((r) => { contact.addresses = r.rows; }),
       );
@@ -7009,9 +7011,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     if (includeDates) {
       queries.push(
         pool.query(
-          `SELECT id::text, label, date_value, is_recurring, created_at, updated_at
+          `SELECT id::text, date_type::text, label, date_value, created_at, updated_at
            FROM contact_date WHERE contact_id = $1
-           ORDER BY label NULLS LAST, date_value`,
+           ORDER BY date_type, label NULLS LAST, date_value`,
           [params.id],
         ).then((r) => { contact.dates = r.rows; }),
       );
@@ -7530,6 +7532,421 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     await pool.end();
     return reply.code(201).send(inserted.rows[0]);
+  });
+
+  // ============================================================
+  // Address CRUD (#1583)
+  // ============================================================
+
+  // GET /api/contacts/:id/addresses - List addresses
+  app.get('/api/contacts/:id/addresses', async (req, reply) => {
+    const params = req.params as { id: string };
+    const pool = createPool();
+    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+    const result = await pool.query(
+      `SELECT id::text, address_type::text, label, street_address, extended_address,
+              city, region, postal_code, country, country_code,
+              formatted_address, latitude, longitude, is_primary,
+              created_at, updated_at
+       FROM contact_address WHERE contact_id = $1
+       ORDER BY is_primary DESC NULLS LAST, label NULLS LAST, created_at`,
+      [params.id],
+    );
+    await pool.end();
+    return reply.send(result.rows);
+  });
+
+  // POST /api/contacts/:id/addresses - Add address
+  app.post('/api/contacts/:id/addresses', async (req, reply) => {
+    const params = req.params as { id: string };
+    const body = req.body as {
+      address_type?: string; label?: string;
+      street_address?: string; extended_address?: string;
+      city?: string; region?: string; postal_code?: string;
+      country?: string; country_code?: string;
+      formatted_address?: string;
+      latitude?: number; longitude?: number;
+      is_primary?: boolean;
+    };
+    const pool = createPool();
+    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+    if (body.country_code && body.country_code.length !== 2) {
+      await pool.end();
+      return reply.code(400).send({ error: 'country_code must be exactly 2 characters (ISO 3166-1 alpha-2)' });
+    }
+    const result = await pool.query(
+      `INSERT INTO contact_address (contact_id, address_type, label, street_address, extended_address,
+        city, region, postal_code, country, country_code, formatted_address, latitude, longitude, is_primary)
+       VALUES ($1, COALESCE($2::contact_address_type, 'home'), $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, COALESCE($14, false))
+       RETURNING id::text, address_type::text, label, street_address, extended_address,
+        city, region, postal_code, country, country_code,
+        formatted_address, latitude, longitude, is_primary,
+        created_at, updated_at`,
+      [params.id, body.address_type ?? null, body.label ?? null, body.street_address ?? null,
+       body.extended_address ?? null, body.city ?? null, body.region ?? null,
+       body.postal_code ?? null, body.country ?? null, body.country_code ?? null,
+       body.formatted_address ?? null, body.latitude ?? null, body.longitude ?? null,
+       body.is_primary ?? null],
+    );
+    await pool.end();
+    return reply.code(201).send(result.rows[0]);
+  });
+
+  // PATCH /api/contacts/:id/addresses/:addr_id - Update address
+  app.patch('/api/contacts/:id/addresses/:addr_id', async (req, reply) => {
+    const params = req.params as { id: string; addr_id: string };
+    const body = req.body as Record<string, unknown>;
+    const pool = createPool();
+    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+    if (body.country_code !== undefined && body.country_code !== null &&
+        (typeof body.country_code !== 'string' || body.country_code.length !== 2)) {
+      await pool.end();
+      return reply.code(400).send({ error: 'country_code must be exactly 2 characters (ISO 3166-1 alpha-2)' });
+    }
+    const allowedFields = [
+      'address_type', 'label', 'street_address', 'extended_address',
+      'city', 'region', 'postal_code', 'country', 'country_code',
+      'formatted_address', 'latitude', 'longitude', 'is_primary',
+    ];
+    const updates: string[] = [];
+    const values: unknown[] = [];
+    let paramIndex = 1;
+    for (const field of allowedFields) {
+      if (Object.prototype.hasOwnProperty.call(body, field)) {
+        const cast = field === 'address_type' ? '::contact_address_type' : '';
+        updates.push(`${field} = $${paramIndex}${cast}`);
+        values.push(body[field] ?? null);
+        paramIndex++;
+      }
+    }
+    if (updates.length === 0) {
+      await pool.end();
+      return reply.code(400).send({ error: 'no fields to update' });
+    }
+    values.push(params.addr_id, params.id);
+    const result = await pool.query(
+      `UPDATE contact_address SET ${updates.join(', ')}
+       WHERE id = $${paramIndex} AND contact_id = $${paramIndex + 1}
+       RETURNING id::text, address_type::text, label, street_address, extended_address,
+        city, region, postal_code, country, country_code,
+        formatted_address, latitude, longitude, is_primary,
+        created_at, updated_at`,
+      values,
+    );
+    await pool.end();
+    if (result.rows.length === 0) return reply.code(404).send({ error: 'not found' });
+    return reply.send(result.rows[0]);
+  });
+
+  // DELETE /api/contacts/:id/addresses/:addr_id - Remove address
+  app.delete('/api/contacts/:id/addresses/:addr_id', async (req, reply) => {
+    const params = req.params as { id: string; addr_id: string };
+    const pool = createPool();
+    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+    const result = await pool.query(
+      `DELETE FROM contact_address WHERE id = $1 AND contact_id = $2 RETURNING id::text`,
+      [params.addr_id, params.id],
+    );
+    await pool.end();
+    if (result.rows.length === 0) return reply.code(404).send({ error: 'not found' });
+    return reply.code(204).send();
+  });
+
+  // ============================================================
+  // Date CRUD (#1584)
+  // ============================================================
+
+  // GET /api/contacts/:id/dates - List dates
+  app.get('/api/contacts/:id/dates', async (req, reply) => {
+    const params = req.params as { id: string };
+    const pool = createPool();
+    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+    const result = await pool.query(
+      `SELECT id::text, date_type::text, label, date_value, created_at, updated_at
+       FROM contact_date WHERE contact_id = $1
+       ORDER BY date_type, label NULLS LAST, date_value`,
+      [params.id],
+    );
+    await pool.end();
+    return reply.send(result.rows);
+  });
+
+  // POST /api/contacts/:id/dates - Add date
+  app.post('/api/contacts/:id/dates', async (req, reply) => {
+    const params = req.params as { id: string };
+    const body = req.body as {
+      date_type?: string; label?: string; date_value?: string;
+    };
+    if (!body?.date_value) {
+      return reply.code(400).send({ error: 'date_value is required' });
+    }
+    const pool = createPool();
+    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+    const result = await pool.query(
+      `INSERT INTO contact_date (contact_id, date_type, label, date_value)
+       VALUES ($1, COALESCE($2::contact_date_type, 'other'), $3, $4)
+       RETURNING id::text, date_type::text, label, date_value, created_at, updated_at`,
+      [params.id, body.date_type ?? null, body.label ?? null, body.date_value],
+    );
+    await pool.end();
+    return reply.code(201).send(result.rows[0]);
+  });
+
+  // PATCH /api/contacts/:id/dates/:date_id - Update date
+  app.patch('/api/contacts/:id/dates/:date_id', async (req, reply) => {
+    const params = req.params as { id: string; date_id: string };
+    const body = req.body as Record<string, unknown>;
+    const pool = createPool();
+    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+    const allowedFields = ['date_type', 'label', 'date_value'];
+    const updates: string[] = [];
+    const values: unknown[] = [];
+    let paramIndex = 1;
+    for (const field of allowedFields) {
+      if (Object.prototype.hasOwnProperty.call(body, field)) {
+        const cast = field === 'date_type' ? '::contact_date_type' : '';
+        updates.push(`${field} = $${paramIndex}${cast}`);
+        values.push(body[field] ?? null);
+        paramIndex++;
+      }
+    }
+    if (updates.length === 0) {
+      await pool.end();
+      return reply.code(400).send({ error: 'no fields to update' });
+    }
+    values.push(params.date_id, params.id);
+    const result = await pool.query(
+      `UPDATE contact_date SET ${updates.join(', ')}
+       WHERE id = $${paramIndex} AND contact_id = $${paramIndex + 1}
+       RETURNING id::text, date_type::text, label, date_value, created_at, updated_at`,
+      values,
+    );
+    await pool.end();
+    if (result.rows.length === 0) return reply.code(404).send({ error: 'not found' });
+    return reply.send(result.rows[0]);
+  });
+
+  // DELETE /api/contacts/:id/dates/:date_id - Remove date
+  app.delete('/api/contacts/:id/dates/:date_id', async (req, reply) => {
+    const params = req.params as { id: string; date_id: string };
+    const pool = createPool();
+    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+    const result = await pool.query(
+      `DELETE FROM contact_date WHERE id = $1 AND contact_id = $2 RETURNING id::text`,
+      [params.date_id, params.id],
+    );
+    await pool.end();
+    if (result.rows.length === 0) return reply.code(404).send({ error: 'not found' });
+    return reply.code(204).send();
+  });
+
+  // ============================================================
+  // Endpoint Management — GET, PATCH, DELETE (#1585)
+  // ============================================================
+
+  // GET /api/contacts/:id/endpoints - List endpoints
+  app.get('/api/contacts/:id/endpoints', async (req, reply) => {
+    const params = req.params as { id: string };
+    const pool = createPool();
+    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+    const result = await pool.query(
+      `SELECT id::text, endpoint_type::text as type, endpoint_value as value,
+              normalized_value, label, is_primary, is_login_eligible, metadata,
+              created_at, updated_at
+       FROM contact_endpoint WHERE contact_id = $1
+       ORDER BY is_primary DESC NULLS LAST, endpoint_type, endpoint_value`,
+      [params.id],
+    );
+    await pool.end();
+    return reply.send(result.rows);
+  });
+
+  // PATCH /api/contacts/:id/endpoints/:ep_id - Update endpoint
+  app.patch('/api/contacts/:id/endpoints/:ep_id', async (req, reply) => {
+    const params = req.params as { id: string; ep_id: string };
+    const body = req.body as Record<string, unknown>;
+    const pool = createPool();
+    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+    const allowedFields = ['label', 'is_primary', 'metadata'];
+    const updates: string[] = [];
+    const values: unknown[] = [];
+    let paramIndex = 1;
+    for (const field of allowedFields) {
+      if (Object.prototype.hasOwnProperty.call(body, field)) {
+        if (field === 'metadata') {
+          updates.push(`metadata = $${paramIndex}::jsonb`);
+          values.push(body[field] != null ? JSON.stringify(body[field]) : null);
+        } else {
+          updates.push(`${field} = $${paramIndex}`);
+          values.push(body[field] ?? null);
+        }
+        paramIndex++;
+      }
+    }
+    if (updates.length === 0) {
+      await pool.end();
+      return reply.code(400).send({ error: 'no fields to update' });
+    }
+    updates.push(`updated_at = now()`);
+    values.push(params.ep_id, params.id);
+    const result = await pool.query(
+      `UPDATE contact_endpoint SET ${updates.join(', ')}
+       WHERE id = $${paramIndex} AND contact_id = $${paramIndex + 1}
+       RETURNING id::text, endpoint_type::text as type, endpoint_value as value,
+        normalized_value, label, is_primary, is_login_eligible, metadata,
+        created_at, updated_at`,
+      values,
+    );
+    await pool.end();
+    if (result.rows.length === 0) return reply.code(404).send({ error: 'not found' });
+    return reply.send(result.rows[0]);
+  });
+
+  // DELETE /api/contacts/:id/endpoints/:ep_id - Remove endpoint
+  app.delete('/api/contacts/:id/endpoints/:ep_id', async (req, reply) => {
+    const params = req.params as { id: string; ep_id: string };
+    const pool = createPool();
+    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+    const result = await pool.query(
+      `DELETE FROM contact_endpoint WHERE id = $1 AND contact_id = $2 RETURNING id::text`,
+      [params.ep_id, params.id],
+    );
+    await pool.end();
+    if (result.rows.length === 0) return reply.code(404).send({ error: 'not found' });
+    return reply.code(204).send();
+  });
+
+  // ============================================================
+  // Tag Management (#1586)
+  // ============================================================
+
+  // GET /api/contacts/:id/tags - List tags for a contact
+  app.get('/api/contacts/:id/tags', async (req, reply) => {
+    const params = req.params as { id: string };
+    const pool = createPool();
+    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+    const result = await pool.query(
+      `SELECT tag, created_at FROM contact_tag WHERE contact_id = $1 ORDER BY tag`,
+      [params.id],
+    );
+    await pool.end();
+    return reply.send(result.rows);
+  });
+
+  // POST /api/contacts/:id/tags - Add tag(s) to a contact
+  app.post('/api/contacts/:id/tags', async (req, reply) => {
+    const params = req.params as { id: string };
+    const body = req.body as { tags?: string[]; tag?: string };
+    const pool = createPool();
+    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+    const tags = body.tags ?? (body.tag ? [body.tag] : []);
+    if (tags.length === 0) {
+      await pool.end();
+      return reply.code(400).send({ error: 'tags array or tag string is required' });
+    }
+    for (const tag of tags) {
+      if (typeof tag !== 'string' || tag.trim().length === 0 || tag.length > 100) {
+        await pool.end();
+        return reply.code(400).send({ error: 'Each tag must be a non-empty string (max 100 chars)' });
+      }
+    }
+    const uniqueTags = [...new Set(tags.map((t) => t.trim()).filter(Boolean))];
+    const tagValues = uniqueTags.map((_, i) => `($1, $${i + 2})`).join(', ');
+    await pool.query(
+      `INSERT INTO contact_tag (contact_id, tag) VALUES ${tagValues} ON CONFLICT DO NOTHING`,
+      [params.id, ...uniqueTags],
+    );
+    // Return updated tag list
+    const result = await pool.query(
+      `SELECT tag, created_at FROM contact_tag WHERE contact_id = $1 ORDER BY tag`,
+      [params.id],
+    );
+    await pool.end();
+    return reply.code(201).send(result.rows);
+  });
+
+  // DELETE /api/contacts/:id/tags/:tag - Remove a tag from a contact
+  app.delete('/api/contacts/:id/tags/:tag', async (req, reply) => {
+    const params = req.params as { id: string; tag: string };
+    const pool = createPool();
+    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+    const result = await pool.query(
+      `DELETE FROM contact_tag WHERE contact_id = $1 AND tag = $2 RETURNING tag`,
+      [params.id, decodeURIComponent(params.tag)],
+    );
+    await pool.end();
+    if (result.rows.length === 0) return reply.code(404).send({ error: 'not found' });
+    return reply.code(204).send();
+  });
+
+  // GET /api/tags - List all tags with contact counts (for tag picker)
+  app.get('/api/tags', async (req, reply) => {
+    const pool = createPool();
+    const conditions: string[] = [];
+    const values: unknown[] = [];
+    let paramIndex = 1;
+
+    // Namespace scoping: only show tags for contacts the user can see
+    if (req.namespaceContext) {
+      conditions.push(`c.namespace = ANY($${paramIndex}::text[])`);
+      values.push(req.namespaceContext.queryNamespaces);
+      paramIndex++;
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    const result = await pool.query(
+      `SELECT ct.tag, COUNT(DISTINCT ct.contact_id)::int as contact_count
+       FROM contact_tag ct
+       JOIN contact c ON c.id = ct.contact_id AND c.deleted_at IS NULL
+       ${whereClause}
+       GROUP BY ct.tag
+       ORDER BY ct.tag`,
+      values,
+    );
+    await pool.end();
+    return reply.send(result.rows);
   });
 
   // Global Memory API (issue #120)
