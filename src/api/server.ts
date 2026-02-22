@@ -805,10 +805,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         // visibility into all namespaces for agent orchestration (#1561).
         const hasFullScope = identity.scopes?.includes('api:full') ?? false;
         if (hasFullScope) {
+          // Return one row per namespace (highest-priority grant wins).
+          // DISTINCT ON prevents duplicate rows when multiple users hold
+          // grants on the same namespace (#1561, review fix).
           const result = await pool.query(
-            `SELECT DISTINCT ng.namespace, ng.role, ng.is_default, ng.priority, ng.created_at
+            `SELECT DISTINCT ON (ng.namespace) ng.namespace, ng.role, ng.is_default, ng.priority, ng.created_at
              FROM namespace_grant ng
-             ORDER BY ng.priority DESC, ng.namespace`,
+             ORDER BY ng.namespace, ng.priority DESC`,
           );
           return result.rows;
         }
@@ -864,16 +867,23 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           [identity.email, name],
         );
       } else {
-        // M2M: create owner grant for the agent identity from X-Agent-Id header (#1562)
+        // M2M: create owner grant for the agent identity from X-Agent-Id header (#1562).
+        // Validate that the target email exists in user_setting to prevent
+        // a spoofed header from assigning ownership to arbitrary users (review fix).
         const agentId = req.headers['x-agent-id'] as string | undefined;
-        if (agentId) {
+        const grantEmail = agentId ?? identity.email;
+        const userExists = await pool.query(
+          `SELECT 1 FROM user_setting WHERE email = $1 LIMIT 1`,
+          [grantEmail],
+        );
+        if (userExists.rows.length > 0) {
           await pool.query(
             `INSERT INTO namespace_grant (email, namespace, role, is_default)
              VALUES ($1, $2, 'owner', false)`,
-            [agentId, name],
+            [grantEmail, name],
           );
         } else {
-          req.log.warn('M2M namespace_create without X-Agent-Id header — no owner grant created');
+          req.log.warn({ grantEmail }, 'M2M namespace_create: target user not found in user_setting — no owner grant created');
         }
       }
 
