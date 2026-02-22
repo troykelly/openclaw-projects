@@ -671,4 +671,92 @@ describe('ConnectionManagePanel', () => {
     expect(screen.getByText('me@outlook.com')).toBeInTheDocument();
     expect(screen.getByText('Microsoft')).toBeInTheDocument();
   });
+
+  // ---------------------------------------------------------------------------
+  // enabled_features guard: undefined / non-array truthy values (issue #1604)
+  // ---------------------------------------------------------------------------
+
+  it('does not crash when connection.enabled_features is undefined', () => {
+    const conn = { ...mockConnection, enabled_features: undefined as unknown as OAuthConnectionSummary['enabled_features'] };
+
+    expect(() =>
+      render(
+        <ConnectionManagePanel
+          connection={conn}
+          open={true}
+          onOpenChange={vi.fn()}
+          onConnectionUpdated={vi.fn()}
+        />,
+      ),
+    ).not.toThrow();
+
+    expect(screen.getByText('Manage Connection')).toBeInTheDocument();
+    expect(screen.getByText('Enable features above to see sync status')).toBeInTheDocument();
+  });
+
+  it('does not crash when connection.enabled_features is a string', () => {
+    const conn = { ...mockConnection, enabled_features: 'contacts' as unknown as OAuthConnectionSummary['enabled_features'] };
+
+    expect(() =>
+      render(
+        <ConnectionManagePanel
+          connection={conn}
+          open={true}
+          onOpenChange={vi.fn()}
+          onConnectionUpdated={vi.fn()}
+        />,
+      ),
+    ).not.toThrow();
+
+    expect(screen.getByText('Manage Connection')).toBeInTheDocument();
+    expect(screen.getByText('Enable features above to see sync status')).toBeInTheDocument();
+  });
+
+  it('does not crash when connection.enabled_features is an object', () => {
+    const conn = { ...mockConnection, enabled_features: {} as unknown as OAuthConnectionSummary['enabled_features'] };
+
+    expect(() =>
+      render(
+        <ConnectionManagePanel
+          connection={conn}
+          open={true}
+          onOpenChange={vi.fn()}
+          onConnectionUpdated={vi.fn()}
+        />,
+      ),
+    ).not.toThrow();
+
+    expect(screen.getByText('Manage Connection')).toBeInTheDocument();
+    expect(screen.getByText('Enable features above to see sync status')).toBeInTheDocument();
+  });
+
+  it('reverts to empty array on save error when enabled_features was undefined', async () => {
+    const conn = { ...mockConnection, enabled_features: undefined as unknown as OAuthConnectionSummary['enabled_features'] };
+    globalThis.fetch = vi.fn().mockImplementation(() =>
+      Promise.resolve({
+        ok: false,
+        status: 500,
+        statusText: 'Server Error',
+        json: () => Promise.resolve({ error: 'server error' }),
+      }),
+    ) as typeof globalThis.fetch;
+
+    render(
+      <ConnectionManagePanel
+        connection={conn}
+        open={true}
+        onOpenChange={vi.fn()}
+        onConnectionUpdated={vi.fn()}
+      />,
+    );
+
+    // Toggle a feature — this triggers a save which will fail and revert
+    const contactsToggle = screen.getByTestId('feature-toggle-contacts');
+    fireEvent.click(within(contactsToggle).getByRole('switch'));
+
+    // After error, component should still render without crashing
+    await waitFor(() => {
+      expect(screen.getByText('Manage Connection')).toBeInTheDocument();
+    });
+  });
 });

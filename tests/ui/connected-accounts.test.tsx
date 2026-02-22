@@ -120,6 +120,88 @@ describe('useConnectedAccounts', () => {
     globalThis.fetch = originalFetch;
   });
 
+  // ---------------------------------------------------------------------------
+  // enabled_features normalization (issue #1604)
+  // ---------------------------------------------------------------------------
+
+  it('normalizes string enabled_features to empty array after fetch', async () => {
+    const connWithStringFeatures = { ...mockConnection, enabled_features: 'contacts' as unknown as OAuthConnectionSummary['enabled_features'] };
+    globalThis.fetch = mockFetchSuccess([connWithStringFeatures]) as typeof globalThis.fetch;
+
+    const { result } = renderHook(() => useConnectedAccounts());
+
+    await waitFor(() => {
+      expect(result.current.state.kind).toBe('loaded');
+    });
+
+    if (result.current.state.kind === 'loaded') {
+      expect(Array.isArray(result.current.state.connections[0].enabled_features)).toBe(true);
+      expect(result.current.state.connections[0].enabled_features).toEqual([]);
+    }
+  });
+
+  it('normalizes object enabled_features to empty array after fetch', async () => {
+    const connWithObjectFeatures = { ...mockConnection, enabled_features: {} as unknown as OAuthConnectionSummary['enabled_features'] };
+    globalThis.fetch = mockFetchSuccess([connWithObjectFeatures]) as typeof globalThis.fetch;
+
+    const { result } = renderHook(() => useConnectedAccounts());
+
+    await waitFor(() => {
+      expect(result.current.state.kind).toBe('loaded');
+    });
+
+    if (result.current.state.kind === 'loaded') {
+      expect(Array.isArray(result.current.state.connections[0].enabled_features)).toBe(true);
+      expect(result.current.state.connections[0].enabled_features).toEqual([]);
+    }
+  });
+
+  it('normalizes null enabled_features to empty array after fetch', async () => {
+    const connWithNullFeatures = { ...mockConnection, enabled_features: null as unknown as OAuthConnectionSummary['enabled_features'] };
+    globalThis.fetch = mockFetchSuccess([connWithNullFeatures]) as typeof globalThis.fetch;
+
+    const { result } = renderHook(() => useConnectedAccounts());
+
+    await waitFor(() => {
+      expect(result.current.state.kind).toBe('loaded');
+    });
+
+    if (result.current.state.kind === 'loaded') {
+      expect(Array.isArray(result.current.state.connections[0].enabled_features)).toBe(true);
+      expect(result.current.state.connections[0].enabled_features).toEqual([]);
+    }
+  });
+
+  it('normalizes enabled_features in connection returned by updateConnection', async () => {
+    const updatedConn = { ...mockConnection, label: 'Updated', enabled_features: 'contacts' as unknown as OAuthConnectionSummary['enabled_features'] };
+    const fetchMock = mockFetchSuccess() as typeof globalThis.fetch;
+    globalThis.fetch = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
+      if (opts?.method === 'PATCH') {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ connection: updatedConn }),
+        });
+      }
+      return (fetchMock as ReturnType<typeof vi.fn>)(url, opts);
+    }) as typeof globalThis.fetch;
+
+    const { result } = renderHook(() => useConnectedAccounts());
+
+    await waitFor(() => {
+      expect(result.current.state.kind).toBe('loaded');
+    });
+
+    await act(async () => {
+      await result.current.updateConnection('conn-1', { label: 'Updated' });
+    });
+
+    if (result.current.state.kind === 'loaded') {
+      expect(Array.isArray(result.current.state.connections[0].enabled_features)).toBe(true);
+      expect(result.current.state.connections[0].enabled_features).toEqual([]);
+    }
+  });
+
   it('starts in loading state then loads data', async () => {
     globalThis.fetch = mockFetchSuccess() as typeof globalThis.fetch;
 
@@ -435,5 +517,82 @@ describe('ConnectedAccountsSection', () => {
     });
 
     expect(screen.getByText(/permanently remove the Google connection/)).toBeInTheDocument();
+  });
+
+  // ---------------------------------------------------------------------------
+  // ConnectionCard: undefined / non-array enabled_features (issue #1604)
+  // ---------------------------------------------------------------------------
+
+  it('ConnectionCard shows "No features enabled" when enabled_features is undefined', async () => {
+    const conn = { ...mockConnection, enabled_features: undefined as unknown as OAuthConnectionSummary['enabled_features'] };
+    globalThis.fetch = mockFetchSuccess([conn]) as typeof globalThis.fetch;
+
+    render(<ConnectedAccountsSection />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('connections-list')).toBeInTheDocument();
+    });
+
+    const card = screen.getByTestId('connection-card-conn-1');
+    expect(within(card).getByText('No features enabled')).toBeInTheDocument();
+  });
+
+  it('ConnectionCard shows "No features enabled" when enabled_features is an object', async () => {
+    const conn = { ...mockConnection, enabled_features: {} as unknown as OAuthConnectionSummary['enabled_features'] };
+    globalThis.fetch = mockFetchSuccess([conn]) as typeof globalThis.fetch;
+
+    render(<ConnectedAccountsSection />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('connections-list')).toBeInTheDocument();
+    });
+
+    const card = screen.getByTestId('connection-card-conn-1');
+    expect(within(card).getByText('No features enabled')).toBeInTheDocument();
+  });
+
+  // ---------------------------------------------------------------------------
+  // ConnectionEditForm: undefined / non-array enabled_features (issue #1604)
+  // ---------------------------------------------------------------------------
+
+  it('ConnectionEditForm does not crash when enabled_features is undefined', async () => {
+    const conn = { ...mockConnection, enabled_features: undefined as unknown as OAuthConnectionSummary['enabled_features'] };
+    globalThis.fetch = mockFetchSuccess([conn]) as typeof globalThis.fetch;
+
+    render(<ConnectedAccountsSection />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('connections-list')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId('edit-connection-conn-1'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('connection-edit-form')).toBeInTheDocument();
+    });
+
+    // All feature checkboxes should be unchecked
+    expect(screen.getByTestId('feature-checkbox-contacts')).not.toBeChecked();
+    expect(screen.getByTestId('feature-checkbox-email')).not.toBeChecked();
+  });
+
+  it('ConnectionEditForm does not crash when enabled_features is a non-array truthy value', async () => {
+    const conn = { ...mockConnection, enabled_features: 'contacts' as unknown as OAuthConnectionSummary['enabled_features'] };
+    globalThis.fetch = mockFetchSuccess([conn]) as typeof globalThis.fetch;
+
+    render(<ConnectedAccountsSection />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('connections-list')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId('edit-connection-conn-1'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('connection-edit-form')).toBeInTheDocument();
+    });
+
+    // Should not crash; checkboxes should be unchecked since non-array treated as empty
+    expect(screen.getByTestId('feature-checkbox-contacts')).not.toBeChecked();
   });
 });
