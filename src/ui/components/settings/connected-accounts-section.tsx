@@ -458,8 +458,8 @@ export function ConnectedAccountsSection() {
     );
   }
 
-  const connections = state.connections ?? [];
-  const providers = state.providers ?? [];
+  const connections = Array.isArray(state.connections) ? state.connections : [];
+  const providers = Array.isArray(state.providers) ? state.providers : [];
 
   return (
     <Card data-testid="connected-accounts-card">
