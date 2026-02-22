@@ -867,11 +867,16 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           [identity.email, name],
         );
       } else {
-        // M2M: create owner grant for the agent identity from X-Agent-Id header (#1562).
-        // Validate that the target email exists in user_setting to prevent
-        // a spoofed header from assigning ownership to arbitrary users (review fix).
+        // M2M: create owner grant for the user behind the agent (#1562, #1567).
+        // Prefer X-User-Email (the user's actual email) over X-Agent-Id (which
+        // may be a short agent name like "troy" that doesn't match user_setting.email).
+        // Security note: both headers are caller-controlled. M2M tokens are trusted
+        // infrastructure (require server-side JWT secret). The user_setting FK check
+        // below prevents grants for non-existent users. If the M2M token is compromised,
+        // all API operations are exposed — not just namespace grants.
+        const userEmail = req.headers['x-user-email'] as string | undefined;
         const agentId = req.headers['x-agent-id'] as string | undefined;
-        const grantEmail = agentId ?? identity.email;
+        const grantEmail = userEmail ?? agentId ?? identity.email;
         const userExists = await pool.query(
           `SELECT 1 FROM user_setting WHERE email = $1 LIMIT 1`,
           [grantEmail],
@@ -883,7 +888,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
             [grantEmail, name],
           );
         } else {
-          req.log.warn({ grantEmail }, 'M2M namespace_create: target user not found in user_setting — no owner grant created');
+          req.log.warn({ grantEmail, userEmail, agentId }, 'M2M namespace_create: target user not found in user_setting — no owner grant created');
         }
       }
 
