@@ -63,6 +63,8 @@ interface PluginState {
   logger: Logger;
   apiClient: ApiClient;
   user_id: string;
+  /** User email from runtime context for identity resolution (#1567) */
+  user_email?: string;
   /** Resolved namespace config (Issue #1428). Mutable: recall may be updated by dynamic discovery (#1537). */
   resolvedNamespace: { default: string; recall: string[] };
   /** Whether static recall config was explicitly set (Issue #1537) */
@@ -1427,7 +1429,7 @@ export async function refreshNamespacesAsync(state: PluginState): Promise<void> 
   try {
     const response = await state.apiClient.get<Array<{ namespace: string; priority?: number; role?: string }>>(
       '/api/namespaces',
-      { user_id: state.user_id },
+      { user_id: state.user_id, user_email: state.user_email },
     );
 
     if (!response.success) {
@@ -1471,7 +1473,10 @@ export async function refreshNamespacesAsync(state: PluginState): Promise<void> 
  * Create tool execution handlers
  */
 function createToolHandlers(state: PluginState) {
-  const { config, logger, apiClient, user_id, resolvedNamespace } = state;
+  const { config, logger, apiClient, user_id, user_email, resolvedNamespace } = state;
+
+  /** Build RequestOptions with user_id and user_email for identity resolution (#1567) */
+  const reqOpts = (): { user_id: string; user_email?: string } => ({ user_id, user_email });
 
   /**
    * Get the effective namespace for a store/create operation.
@@ -1546,7 +1551,7 @@ function createToolHandlers(state: PluginState) {
             address?: string | null;
             place_label?: string | null;
           }>;
-        }>(`/api/memories/search?${queryParams}`, { user_id });
+        }>(`/api/memories/search?${queryParams}`, reqOpts());
 
         if (!response.success) {
           return { success: false, error: response.error.message };
@@ -1655,7 +1660,7 @@ function createToolHandlers(state: PluginState) {
           if (location.place_label) payload.place_label = location.place_label;
         }
 
-        const response = await apiClient.post<{ id: string }>('/api/memories/unified', payload, { user_id });
+        const response = await apiClient.post<{ id: string }>('/api/memories/unified', payload, reqOpts());
 
         if (!response.success) {
           return { success: false, error: response.error.message };
@@ -1679,7 +1684,7 @@ function createToolHandlers(state: PluginState) {
 
       try {
         if (memory_id) {
-          const response = await apiClient.delete(`/api/memories/${memory_id}`, { user_id });
+          const response = await apiClient.delete(`/api/memories/${memory_id}`, reqOpts());
           if (!response.success) {
             return { success: false, error: response.error.message };
           }
@@ -1697,7 +1702,7 @@ function createToolHandlers(state: PluginState) {
           if (forgetNs.length > 0) forgetQp.set('namespaces', forgetNs.join(','));
           const searchResponse = await apiClient.get<{ results: Array<{ id: string; content: string; similarity?: number }> }>(
             `/api/memories/search?${forgetQp}`,
-            { user_id },
+            reqOpts(),
           );
           if (!searchResponse.success) {
             return { success: false, error: searchResponse.error.message };
@@ -1712,7 +1717,7 @@ function createToolHandlers(state: PluginState) {
 
           // Single high-confidence match → auto-delete
           if (matches.length === 1 && (matches[0].similarity ?? 0) > 0.9) {
-            const delResponse = await apiClient.delete(`/api/memories/${matches[0].id}`, { user_id });
+            const delResponse = await apiClient.delete(`/api/memories/${matches[0].id}`, reqOpts());
             if (!delResponse.success) {
               return { success: false, error: delResponse.error.message };
             }
@@ -1754,7 +1759,7 @@ function createToolHandlers(state: PluginState) {
         const projListNs = getRecallNamespaces(params);
         if (projListNs.length > 0) queryParams.set('namespaces', projListNs.join(','));
 
-        const response = await apiClient.get<{ items: Array<{ id: string; title: string; status: string }> }>(`/api/work-items?${queryParams}`, { user_id });
+        const response = await apiClient.get<{ items: Array<{ id: string; title: string; status: string }> }>(`/api/work-items?${queryParams}`, reqOpts());
 
         if (!response.success) {
           return { success: false, error: response.error.message };
@@ -1779,7 +1784,7 @@ function createToolHandlers(state: PluginState) {
       try {
         const response = await apiClient.get<{ id: string; title: string; description?: string; status: string }>(
           `/api/work-items/${project_id}?user_email=${encodeURIComponent(user_id)}`,
-          { user_id },
+          reqOpts(),
         );
 
         if (!response.success) {
@@ -1815,7 +1820,7 @@ function createToolHandlers(state: PluginState) {
         const response = await apiClient.post<{ id: string }>(
           '/api/work-items',
           { title: name, description, item_type: 'project', status, user_email: user_id, namespace: getStoreNamespace(params) },
-          { user_id },
+          reqOpts(),
         );
 
         if (!response.success) {
@@ -1866,7 +1871,7 @@ function createToolHandlers(state: PluginState) {
         const response = await apiClient.get<{
           items?: Array<{ id: string; title: string; status: string; completed?: boolean; dueDate?: string }>;
           total?: number;
-        }>(`/api/work-items?${queryParams}`, { user_id });
+        }>(`/api/work-items?${queryParams}`, reqOpts());
 
         if (!response.success) {
           return { success: false, error: response.error.message };
@@ -1920,7 +1925,7 @@ function createToolHandlers(state: PluginState) {
         if (project_id) body.parent_work_item_id = project_id;
         if (dueDate) body.not_after = dueDate;
 
-        const response = await apiClient.post<{ id: string }>('/api/work-items', body, { user_id });
+        const response = await apiClient.post<{ id: string }>('/api/work-items', body, reqOpts());
 
         if (!response.success) {
           return { success: false, error: response.error.message };
@@ -1946,7 +1951,7 @@ function createToolHandlers(state: PluginState) {
         const response = await apiClient.patch<{ id: string }>(
           `/api/work-items/${todoId}/status?user_email=${encodeURIComponent(user_id)}`,
           { status: 'completed' },
-          { user_id },
+          reqOpts(),
         );
 
         if (!response.success) {
@@ -2006,7 +2011,7 @@ function createToolHandlers(state: PluginState) {
           }>;
           search_type: string;
           total: number;
-        }>(`/api/search?${queryParams}`, { user_id });
+        }>(`/api/search?${queryParams}`, reqOpts());
 
         if (!response.success) {
           return { success: false, error: response.error.message };
@@ -2110,7 +2115,7 @@ function createToolHandlers(state: PluginState) {
       try {
         const response = await apiClient.get<{ id: string; name: string; email?: string; phone?: string; notes?: string }>(
           `/api/contacts/${contact_id}?user_email=${encodeURIComponent(user_id)}`,
-          { user_id },
+          reqOpts(),
         );
 
         if (!response.success) {
@@ -2141,7 +2146,7 @@ function createToolHandlers(state: PluginState) {
 
       try {
         // API requires display_name, not name. Email/phone are stored as separate contact_endpoint records.
-        const response = await apiClient.post<{ id: string }>('/api/contacts', { display_name: name, notes, user_email: user_id, namespace: getStoreNamespace(params) }, { user_id });
+        const response = await apiClient.post<{ id: string }>('/api/contacts', { display_name: name, notes, user_email: user_id, namespace: getStoreNamespace(params) }, reqOpts());
 
         if (!response.success) {
           return { success: false, error: response.error.message };
@@ -2209,7 +2214,7 @@ function createToolHandlers(state: PluginState) {
           message_id: string;
           thread_id?: string;
           status: string;
-        }>('/api/twilio/sms/send', { to, body, idempotency_key }, { user_id });
+        }>('/api/twilio/sms/send', { to, body, idempotency_key }, reqOpts());
 
         if (!response.success) {
           logger.error('sms_send API error', {
@@ -2312,7 +2317,7 @@ function createToolHandlers(state: PluginState) {
           message_id: string;
           thread_id?: string;
           status: string;
-        }>('/api/postmark/email/send', { to, subject, body, html_body, thread_id, idempotency_key }, { user_id });
+        }>('/api/postmark/email/send', { to, subject, body, html_body, thread_id, idempotency_key }, reqOpts());
 
         if (!response.success) {
           logger.error('email_send API error', {
@@ -2425,7 +2430,7 @@ function createToolHandlers(state: PluginState) {
             };
           }>;
           total: number;
-        }>(`/api/search?${queryParams}`, { user_id });
+        }>(`/api/search?${queryParams}`, reqOpts());
 
         if (!response.success) {
           logger.error('message_search API error', {
@@ -2578,7 +2583,7 @@ function createToolHandlers(state: PluginState) {
             snippet?: string;
           }>;
           total: number;
-        }>(`/api/search?${queryParams}`, { user_id });
+        }>(`/api/search?${queryParams}`, reqOpts());
 
         if (!response.success) {
           logger.error('thread_list API error', {
@@ -2684,7 +2689,7 @@ function createToolHandlers(state: PluginState) {
             deliveryStatus?: string;
             created_at: string;
           }>;
-        }>(`/api/threads/${thread_id}/history?${queryParams}`, { user_id });
+        }>(`/api/threads/${thread_id}/history?${queryParams}`, reqOpts());
 
         if (!response.success) {
           logger.error('thread_get API error', {
@@ -2820,7 +2825,7 @@ function createToolHandlers(state: PluginState) {
           contact_b: { id: string; display_name: string };
           relationship_type: { id: string; name: string; label: string };
           created: boolean;
-        }>('/api/relationships/set', body, { user_id });
+        }>('/api/relationships/set', body, reqOpts());
 
         if (!response.success) {
           return { success: false, error: response.error.message };
@@ -2882,7 +2887,7 @@ function createToolHandlers(state: PluginState) {
           const searchParams = new URLSearchParams({ search: contact, limit: '1', user_email: user_id });
           const searchResponse = await apiClient.get<{
             contacts: Array<{ id: string; display_name: string }>;
-          }>(`/api/contacts?${searchParams}`, { user_id });
+          }>(`/api/contacts?${searchParams}`, reqOpts());
 
           if (!searchResponse.success) {
             return { success: false, error: searchResponse.error.message };
@@ -2909,7 +2914,7 @@ function createToolHandlers(state: PluginState) {
             is_directional: boolean;
             notes: string | null;
           }>;
-        }>(`/api/contacts/${contact_id}/relationships?user_email=${encodeURIComponent(user_id)}`, { user_id });
+        }>(`/api/contacts/${contact_id}/relationships?user_email=${encodeURIComponent(user_id)}`, reqOpts());
 
         if (!response.success) {
           if (response.error.code === 'NOT_FOUND') {
@@ -3006,7 +3011,7 @@ function createToolHandlers(state: PluginState) {
           filename: string;
           content_type: string;
           size_bytes: number;
-        }>(`/api/files/${fileId}/share`, body, { user_id });
+        }>(`/api/files/${fileId}/share`, body, reqOpts());
 
         if (!response.success) {
           logger.error('file_share API error', {
@@ -3130,7 +3135,7 @@ function createToolHandlers(state: PluginState) {
 
         const response = await apiClient.get<{ items?: Array<{ id: string; label: string; channel_type: string; is_default: boolean }>; total?: number }>(
           `/api/prompt-templates?${queryParams.toString()}`,
-          { user_id },
+          reqOpts(),
         );
         if (!response.success) {
           return { success: false, error: response.error.message || 'Failed to list prompt templates' };
@@ -3151,7 +3156,7 @@ function createToolHandlers(state: PluginState) {
       try {
         const response = await apiClient.get<{ id: string; label: string; content: string; channel_type: string; is_default: boolean }>(
           `/api/prompt-templates/${id}`,
-          { user_id },
+          reqOpts(),
         );
         if (!response.success) {
           return { success: false, error: response.error.message || 'Prompt template not found' };
@@ -3175,7 +3180,7 @@ function createToolHandlers(state: PluginState) {
         const response = await apiClient.post<{ id: string; label: string }>(
           '/api/prompt-templates',
           { label, content, channel_type, is_default },
-          { user_id },
+          reqOpts(),
         );
         if (!response.success) {
           return { success: false, error: response.error.message || 'Failed to create prompt template' };
@@ -3193,7 +3198,7 @@ function createToolHandlers(state: PluginState) {
         const response = await apiClient.put<{ id: string; label: string }>(
           `/api/prompt-templates/${id}`,
           updates,
-          { user_id },
+          reqOpts(),
         );
         if (!response.success) {
           return { success: false, error: response.error.message || 'Failed to update prompt template' };
@@ -3208,7 +3213,7 @@ function createToolHandlers(state: PluginState) {
     async prompt_template_delete(params: Record<string, unknown>): Promise<ToolResult> {
       const { id } = params as { id: string };
       try {
-        const response = await apiClient.delete(`/api/prompt-templates/${id}`, { user_id });
+        const response = await apiClient.delete(`/api/prompt-templates/${id}`, reqOpts());
         if (!response.success) {
           return { success: false, error: response.error.message || 'Failed to delete prompt template' };
         }
@@ -3237,7 +3242,7 @@ function createToolHandlers(state: PluginState) {
 
         const response = await apiClient.get<{ items: Array<{ id: string; address: string; channel_type: string; display_name?: string; agent_id?: string }>; total: number }>(
           `/api/inbound-destinations?${queryParams.toString()}`,
-          { user_id },
+          reqOpts(),
         );
         if (!response.success) {
           return { success: false, error: response.error.message || 'Failed to list inbound destinations' };
@@ -3258,7 +3263,7 @@ function createToolHandlers(state: PluginState) {
       try {
         const response = await apiClient.get<{ id: string; address: string; channel_type: string; display_name?: string; agent_id?: string; prompt_template_id?: string; context_id?: string }>(
           `/api/inbound-destinations/${id}`,
-          { user_id },
+          reqOpts(),
         );
         if (!response.success) {
           return { success: false, error: response.error.message || 'Inbound destination not found' };
@@ -3282,7 +3287,7 @@ function createToolHandlers(state: PluginState) {
         const response = await apiClient.put<{ id: string; address: string; display_name?: string }>(
           `/api/inbound-destinations/${id}`,
           updates,
-          { user_id },
+          reqOpts(),
         );
         if (!response.success) {
           return { success: false, error: response.error.message || 'Failed to update inbound destination' };
@@ -3300,7 +3305,7 @@ function createToolHandlers(state: PluginState) {
       try {
         const response = await apiClient.get<Array<{ channel_type: string; agent_id: string; prompt_template_id?: string }>>(
           '/api/channel-defaults',
-          { user_id },
+          reqOpts(),
         );
         if (!response.success) {
           return { success: false, error: response.error.message || 'Failed to list channel defaults' };
@@ -3321,7 +3326,7 @@ function createToolHandlers(state: PluginState) {
       try {
         const response = await apiClient.get<{ channel_type: string; agent_id: string; prompt_template_id?: string; context_id?: string }>(
           `/api/channel-defaults/${channel_type}`,
-          { user_id },
+          reqOpts(),
         );
         if (!response.success) {
           return { success: false, error: response.error.message || 'Channel default not found' };
@@ -3348,7 +3353,7 @@ function createToolHandlers(state: PluginState) {
         const response = await apiClient.put<{ channel_type: string; agent_id: string }>(
           `/api/channel-defaults/${channel_type}`,
           { agent_id, prompt_template_id, context_id },
-          { user_id },
+          reqOpts(),
         );
         if (!response.success) {
           return { success: false, error: response.error.message || 'Failed to set channel default' };
@@ -3366,7 +3371,7 @@ function createToolHandlers(state: PluginState) {
       try {
         const response = await apiClient.get<Array<{ namespace: string; role?: string; is_default?: boolean; priority?: number; grant_count?: number }>>(
           '/api/namespaces',
-          { user_id },
+          reqOpts(),
         );
         if (!response.success) {
           return { success: false, error: response.error.message || 'Failed to list namespaces' };
@@ -3396,7 +3401,7 @@ function createToolHandlers(state: PluginState) {
         const response = await apiClient.post<{ namespace: string; created: boolean }>(
           '/api/namespaces',
           { name },
-          { user_id },
+          reqOpts(),
         );
         if (!response.success) {
           return { success: false, error: response.error.message || 'Failed to create namespace' };
@@ -3419,7 +3424,7 @@ function createToolHandlers(state: PluginState) {
         const response = await apiClient.post<{ id: string; email: string; namespace: string; role: string; is_default: boolean }>(
           `/api/namespaces/${encodeURIComponent(namespace)}/grants`,
           { email, role: role || 'member', is_default: is_default ?? false },
-          { user_id },
+          reqOpts(),
         );
         if (!response.success) {
           return { success: false, error: response.error.message || 'Failed to grant namespace access' };
@@ -3437,7 +3442,7 @@ function createToolHandlers(state: PluginState) {
       try {
         const response = await apiClient.get<{ namespace: string; members: Array<{ id: string; email: string; role: string; is_default: boolean }>; member_count: number }>(
           `/api/namespaces/${encodeURIComponent(namespace)}`,
-          { user_id },
+          reqOpts(),
         );
         if (!response.success) {
           return { success: false, error: response.error.message || 'Failed to list namespace members' };
@@ -3459,7 +3464,7 @@ function createToolHandlers(state: PluginState) {
       try {
         const response = await apiClient.delete<{ deleted: boolean }>(
           `/api/namespaces/${encodeURIComponent(namespace)}/grants/${encodeURIComponent(grant_id)}`,
-          { user_id },
+          reqOpts(),
         );
         if (!response.success) {
           return { success: false, error: response.error.message || 'Failed to revoke namespace access' };
@@ -3535,8 +3540,13 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     hasStaticRecall,
   });
 
+  // Extract user email from runtime context for identity resolution (#1567).
+  // The agent ID (user_id) may be a short name like "troy" which doesn't match
+  // user_setting.email. The email is needed for FK-constrained operations.
+  const user_email = context.user?.email;
+
   // Store plugin state
-  const state: PluginState = { config, logger, apiClient, user_id, resolvedNamespace, hasStaticRecall, lastNamespaceRefreshMs: 0, refreshInFlight: false };
+  const state: PluginState = { config, logger, apiClient, user_id, user_email, resolvedNamespace, hasStaticRecall, lastNamespaceRefreshMs: 0, refreshInFlight: false };
 
   // Create tool handlers
   const handlers = createToolHandlers(state);
@@ -4226,7 +4236,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
       .description('Show plugin status and statistics')
       .action(async () => {
         try {
-          const response = await apiClient.get('/api/health', { user_id });
+          const response = await apiClient.get('/api/health', { user_id, user_email });
           if (response.success) {
             console.log('Plugin Status: Connected');
           } else {

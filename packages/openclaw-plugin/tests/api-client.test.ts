@@ -105,6 +105,42 @@ describe('ApiClient', () => {
       );
     });
 
+    it('should include X-User-Email header when user_email provided (#1567)', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({}),
+      });
+
+      const client = createApiClient({ config: defaultConfig, logger: mockLogger });
+      await client.get('/test', { user_id: 'troy', user_email: 'troy@troykelly.com' });
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            'X-Agent-Id': 'troy',
+            'X-User-Email': 'troy@troykelly.com',
+          }),
+        }),
+      );
+    });
+
+    it('should not include X-User-Email header when user_email is absent (#1567)', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({}),
+      });
+
+      const client = createApiClient({ config: defaultConfig, logger: mockLogger });
+      await client.get('/test', { user_id: 'troy' });
+
+      const callHeaders = mockFetch.mock.calls[0][1].headers as Record<string, string>;
+      expect(callHeaders['X-Agent-Id']).toBe('troy');
+      expect(callHeaders['X-User-Email']).toBeUndefined();
+    });
+
     it('should include Content-Type header', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
