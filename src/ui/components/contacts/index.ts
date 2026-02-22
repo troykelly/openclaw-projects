@@ -12,6 +12,12 @@ export type { ContactFormProps } from './contact-form';
 
 export { ContactSuggestPopover } from './contact-suggest-popover';
 
+export { ContactMergeDialog } from './contact-merge-dialog';
+export type { ContactMergeDialogProps } from './contact-merge-dialog';
+
+export { ContactExportDialog, ContactImportDialog } from './contact-import-export';
+export type { ContactExportDialogProps, ContactImportDialogProps } from './contact-import-export';
+
 export type {
   Contact,
   ContactFilter,
