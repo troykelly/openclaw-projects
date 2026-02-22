@@ -784,6 +784,33 @@ describe('ConnectionManagePanel', () => {
     expect(screen.getByTestId('reauth-url-error')).toBeInTheDocument();
   });
 
+  it('shows reauth-url-error when reAuthRequired=true but reAuthUrl is absent', async () => {
+    const patchResponse = {
+      connection: { ...mockConnection, enabled_features: ['contacts', 'email', 'files'] },
+      reAuthRequired: true,
+      // reAuthUrl intentionally omitted — backend contract violation
+    };
+    globalThis.fetch = createFetchMock({ patchResponse }) as typeof globalThis.fetch;
+
+    render(
+      <ConnectionManagePanel
+        connection={mockConnection}
+        open={true}
+        onOpenChange={vi.fn()}
+        onConnectionUpdated={vi.fn()}
+      />,
+    );
+
+    const filesToggle = screen.getByTestId('feature-toggle-files');
+    fireEvent.click(within(filesToggle).getByRole('switch'));
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('reauth-button')).not.toBeInTheDocument();
+    });
+
+    expect(screen.getByTestId('reauth-url-error')).toBeInTheDocument();
+  });
+
   it('does not render when open is false', () => {
     render(
       <ConnectionManagePanel

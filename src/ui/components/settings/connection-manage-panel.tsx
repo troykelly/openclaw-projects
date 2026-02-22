@@ -97,8 +97,8 @@ export function ConnectionManagePanel({
           updates,
         );
         onConnectionUpdated(res.connection);
-        if (res.reAuthRequired && res.reAuthUrl) {
-          const validated = validateReAuthUrl(res.reAuthUrl);
+        if (res.reAuthRequired) {
+          const validated = res.reAuthUrl ? validateReAuthUrl(res.reAuthUrl) : null;
           if (validated) {
             setReAuthUrl(validated);
           } else {

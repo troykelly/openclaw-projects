@@ -186,7 +186,7 @@ export function validateReAuthUrl(url: string): string | null {
     const parsed = new URL(url);
     if (parsed.protocol !== 'https:') return null;
     if (!ALLOWED_REAUTH_HOSTNAMES.has(parsed.hostname)) return null;
-    return url;
+    return parsed.href;
   } catch {
     return null;
   }
