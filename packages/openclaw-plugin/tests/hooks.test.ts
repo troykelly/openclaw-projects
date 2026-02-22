@@ -4,10 +4,44 @@
  */
 
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { createAutoRecallHook, createAutoCaptureHook, createHealthCheck } from '../src/hooks.js';
+import { createAutoRecallHook, createAutoCaptureHook, createHealthCheck, extractTextContent } from '../src/hooks.js';
 import type { ApiClient } from '../src/api-client.js';
 import type { Logger } from '../src/logger.js';
 import type { PluginConfig } from '../src/config.js';
+
+describe('extractTextContent', () => {
+  it('should pass through plain string content', () => {
+    expect(extractTextContent('hello world')).toBe('hello world');
+  });
+
+  it('should extract text from array of content blocks', () => {
+    const content = [
+      { type: 'text', text: 'Hello' },
+      { type: 'image', source: { data: '...' } },
+      { type: 'text', text: 'World' },
+    ];
+    expect(extractTextContent(content)).toBe('Hello\nWorld');
+  });
+
+  it('should return empty string for non-string non-array content', () => {
+    expect(extractTextContent(42)).toBe('');
+    expect(extractTextContent(null)).toBe('');
+    expect(extractTextContent(undefined)).toBe('');
+  });
+
+  it('should handle empty array', () => {
+    expect(extractTextContent([])).toBe('');
+  });
+
+  it('should skip blocks without text property', () => {
+    const content = [
+      { type: 'text', text: 'Keep' },
+      { type: 'tool_use', name: 'search', input: {} },
+      { type: 'text' }, // missing text property
+    ];
+    expect(extractTextContent(content)).toBe('Keep');
+  });
+});
 
 describe('lifecycle hooks', () => {
   const mockLogger: Logger = {
@@ -413,6 +447,76 @@ describe('lifecycle hooks', () => {
             const body = mockPost.mock.calls[0][1];
             expect(JSON.stringify(body)).not.toContain('sk-abcdef1234567890');
           }
+        }
+      });
+    });
+
+    describe('structured content handling (#1563)', () => {
+      it('should extract text from structured content blocks and post to API', async () => {
+        const mockPost = vi.fn().mockResolvedValue({
+          success: true,
+          data: { captured: 1 },
+        });
+        const client = { ...mockApiClient, post: mockPost };
+
+        const hook = createAutoCaptureHook({
+          client: client as unknown as ApiClient,
+          logger: mockLogger,
+          config: mockConfig,
+          user_id: 'agent-1',
+        });
+
+        await hook({
+          messages: [
+            {
+              role: 'user',
+              content: [
+                { type: 'text', text: 'Remember I like dark mode' },
+                { type: 'image', source: { data: 'base64...' } },
+              ] as unknown as string,
+            },
+          ],
+        });
+
+        expect(mockPost).toHaveBeenCalledWith(
+          expect.stringContaining('/api/context/capture'),
+          expect.objectContaining({
+            conversation: 'Remember I like dark mode',
+          }),
+          expect.any(Object),
+        );
+      });
+
+      it('should not produce [object Object] in conversation summary', async () => {
+        const mockPost = vi.fn().mockResolvedValue({
+          success: true,
+          data: { captured: 1 },
+        });
+        const client = { ...mockApiClient, post: mockPost };
+
+        const hook = createAutoCaptureHook({
+          client: client as unknown as ApiClient,
+          logger: mockLogger,
+          config: mockConfig,
+          user_id: 'agent-1',
+        });
+
+        await hook({
+          messages: [
+            {
+              role: 'assistant',
+              content: [
+                { type: 'text', text: 'Here is the result' },
+                { type: 'tool_use', name: 'search', input: { query: 'test' } },
+              ] as unknown as string,
+            },
+          ],
+        });
+
+        if (mockPost.mock.calls.length > 0) {
+          const body = mockPost.mock.calls[0][1];
+          expect(body.conversation).not.toContain('[object Object]');
+          expect(body.conversation).toContain('Here is the result');
         }
       });
     });
