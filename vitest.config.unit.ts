@@ -73,7 +73,12 @@ export default defineProject({
       'src/worker/**/*.test.ts',
     ],
 
-    exclude: ['node_modules/**', '**/node_modules/**'],
+    exclude: [
+      // .local/ subtrees (e.g. openclaw-gateway clone) are never this project's tests.
+      '.local/**',
+      'node_modules/**',
+      '**/node_modules/**',
+    ],
 
     // jsdom for React component tests
     environmentMatchGlobs: [['tests/ui/**', 'jsdom']],
