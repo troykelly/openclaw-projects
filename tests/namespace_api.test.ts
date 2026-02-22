@@ -208,9 +208,10 @@ describe('Namespace & User Provisioning API', () => {
         expect(grant.rows[0].role).toBe('owner');
       });
 
-      it('skips grant when X-Agent-Id is not an email and X-User-Email is absent (#1567)', async () => {
-        // No user_setting row for "test-service" (it's an agent ID, not an email)
-        const headers = await getM2MHeaders();
+      it('skips grant when identity has no matching user_setting row (#1567)', async () => {
+        // Use an M2M identity that is NOT in user_setting
+        const token = await signM2MToken('agent-no-user-setting-row', ['api:full']);
+        const headers = { authorization: `Bearer ${token}` };
         const res = await app.inject({
           method: 'POST', url: '/api/namespaces',
           headers: { ...headers, 'content-type': 'application/json' },
@@ -218,7 +219,7 @@ describe('Namespace & User Provisioning API', () => {
         });
         expect(res.statusCode).toBe(201);
 
-        // No grant should be created (agent ID doesn't match user_setting)
+        // No grant should be created (identity doesn't match user_setting)
         const grant = await pool.query(
           `SELECT email FROM namespace_grant WHERE namespace = 'test-ns-no-grant'`,
         );
