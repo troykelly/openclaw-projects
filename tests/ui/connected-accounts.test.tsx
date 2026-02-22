@@ -269,6 +269,22 @@ describe('useConnectedAccounts', () => {
     }
   });
 
+  it('deduplicates repeated valid features after fetch', async () => {
+    const conn = {
+      ...mockConnection,
+      enabled_features: ['contacts', 'email', 'contacts', 'email'] as unknown as OAuthConnectionSummary['enabled_features'],
+    };
+    globalThis.fetch = mockFetchSuccess([conn]) as typeof globalThis.fetch;
+
+    const { result } = renderHook(() => useConnectedAccounts());
+
+    await waitFor(() => expect(result.current.state.kind).toBe('loaded'));
+
+    if (result.current.state.kind === 'loaded') {
+      expect(result.current.state.connections[0].enabled_features).toEqual(['contacts', 'email']);
+    }
+  });
+
   it('filters unknown feature strings from replaceConnection', async () => {
     globalThis.fetch = mockFetchSuccess() as typeof globalThis.fetch;
 

@@ -7,17 +7,26 @@ import type {
   OAuthProviderInfo,
 } from './types';
 
-/** Allowlist of valid feature values. Used to filter API responses at the trust boundary. */
-const VALID_FEATURES = new Set<OAuthFeature>(['contacts', 'email', 'files', 'calendar']);
+/**
+ * Allowlist of valid feature values. Typed as Set<string> so the predicate
+ * in normalizeFeatures can call .has(f) without a type cast.
+ */
+const VALID_FEATURES = new Set<string>(['contacts', 'email', 'files', 'calendar']);
 
 /**
  * Normalize a raw `enabled_features` value from the API into a clean `OAuthFeature[]`.
  * - Non-arrays → empty array
- * - Arrays with unknown strings → those elements are removed
+ * - Arrays with unknown strings or non-string elements → those elements are removed
+ * - Duplicates are removed (preserves first occurrence)
  */
 function normalizeFeatures(raw: unknown): OAuthFeature[] {
   if (!Array.isArray(raw)) return [];
-  return raw.filter((f): f is OAuthFeature => typeof f === 'string' && VALID_FEATURES.has(f as OAuthFeature));
+  const seen = new Set<string>();
+  return raw.filter((f): f is OAuthFeature => {
+    if (typeof f !== 'string' || !VALID_FEATURES.has(f) || seen.has(f)) return false;
+    seen.add(f);
+    return true;
+  });
 }
 
 export type ConnectionsState =
