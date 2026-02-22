@@ -72,7 +72,9 @@ export function ConnectionManagePanel({
   const [label, setLabel] = useState(connection.label);
   const [is_active, setIsActive] = useState(connection.is_active);
   const [permission_level, setPermissionLevel] = useState<OAuthPermissionLevel>(connection.permission_level);
-  const [enabled_features, setEnabledFeatures] = useState<OAuthFeature[]>([...(connection.enabled_features ?? [])]);
+  const [enabled_features, setEnabledFeatures] = useState<OAuthFeature[]>(
+    Array.isArray(connection.enabled_features) ? [...connection.enabled_features] : [],
+  );
   const [sync_status, setSyncStatus] = useState<Record<string, FeatureSyncInfo | undefined>>(
     connection.sync_status as Record<string, FeatureSyncInfo | undefined>,
   );
@@ -101,7 +103,7 @@ export function ConnectionManagePanel({
         setLabel(connection.label);
         setIsActive(connection.is_active);
         setPermissionLevel(connection.permission_level);
-        setEnabledFeatures([...(connection.enabled_features ?? [])]);
+        setEnabledFeatures(Array.isArray(connection.enabled_features) ? [...connection.enabled_features] : []);
         return null;
       } finally {
         setIsSaving(false);

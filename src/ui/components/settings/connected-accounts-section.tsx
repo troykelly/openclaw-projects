@@ -116,7 +116,7 @@ function ConnectionEditForm({ connection, onSave, onCancel, isSaving }: Connecti
   const [form, setForm] = useState<EditFormState>({
     label: connection.label,
     permission_level: connection.permission_level,
-    enabled_features: [...(connection.enabled_features ?? [])],
+    enabled_features: Array.isArray(connection.enabled_features) ? [...connection.enabled_features] : [],
   });
 
   const toggleFeature = useCallback((feature: OAuthFeature) => {
@@ -207,6 +207,7 @@ interface ConnectionCardProps {
 function ConnectionCard({ connection, onUpdate, onDelete, isUpdating }: ConnectionCardProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [isManaging, setIsManaging] = useState(false);
+  const enabledFeatures = Array.isArray(connection.enabled_features) ? connection.enabled_features : [];
 
   const handleConnectionUpdated = useCallback(
     (updated: OAuthConnectionSummary) => {
@@ -260,8 +261,8 @@ function ConnectionCard({ connection, onUpdate, onDelete, isUpdating }: Connecti
             <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
               <span>{formatPermission(connection.permission_level)}</span>
               <span className="text-border">|</span>
-              {(connection.enabled_features ?? []).length > 0 ? (
-                (connection.enabled_features ?? []).map((f) => (
+              {enabledFeatures.length > 0 ? (
+                enabledFeatures.map((f) => (
                   <Badge key={f} variant="outline" className="text-xs">
                     {formatFeature(f)}
                   </Badge>

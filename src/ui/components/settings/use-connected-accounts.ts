@@ -21,8 +21,15 @@ export function useConnectedAccounts() {
       apiClient.get<{ providers: OAuthProviderInfo[]; unconfigured: OAuthProviderInfo[] }>('/api/oauth/providers', { signal }),
     ]);
 
+    const rawConnections = Array.isArray(connectionsRes?.connections) ? connectionsRes.connections : [];
+
     return {
-      connections: Array.isArray(connectionsRes?.connections) ? connectionsRes.connections : [],
+      // Normalize enabled_features per connection: the API may return non-array values
+      // (null, string, object) which would crash components that iterate over the field.
+      connections: rawConnections.map((c) => ({
+        ...c,
+        enabled_features: Array.isArray(c.enabled_features) ? c.enabled_features : [],
+      })),
       providers: [
         ...(Array.isArray(providersRes?.providers) ? providersRes.providers : []),
         ...(Array.isArray(providersRes?.unconfigured) ? providersRes.unconfigured : []),
@@ -64,12 +71,17 @@ export function useConnectedAccounts() {
           updates,
         );
 
+        const normalized = {
+          ...res.connection,
+          enabled_features: Array.isArray(res.connection.enabled_features) ? res.connection.enabled_features : [],
+        };
+
         setState((prev) => {
           if (prev.kind !== 'loaded') return prev;
           return {
             ...prev,
             connections: prev.connections.map((c) =>
-              c.id === id ? res.connection : c,
+              c.id === id ? normalized : c,
             ),
           };
         });
