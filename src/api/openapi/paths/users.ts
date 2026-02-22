@@ -119,15 +119,15 @@ export function usersPaths(): OpenApiDomainModule {
                   description: 'Namespace name',
                   example: 'my-workspace',
                 },
-                role: {
+                access: {
                   type: 'string',
-                  enum: ['owner', 'admin', 'member', 'observer'],
-                  description: 'User role in this namespace',
-                  example: 'owner',
+                  enum: ['read', 'readwrite'],
+                  description: 'User access level in this namespace',
+                  example: 'readwrite',
                 },
-                is_default: {
+                is_home: {
                   type: 'boolean',
-                  description: 'Whether this is the user\'s default namespace',
+                  description: 'Whether this is the user\'s home namespace',
                   example: true,
                 },
               },
@@ -192,15 +192,15 @@ export function usersPaths(): OpenApiDomainModule {
                   description: 'Namespace name',
                   example: 'my-workspace',
                 },
-                role: {
+                access: {
                   type: 'string',
-                  enum: ['owner', 'admin', 'member', 'observer'],
-                  description: 'User role in this namespace',
-                  example: 'owner',
+                  enum: ['read', 'readwrite'],
+                  description: 'User access level in this namespace',
+                  example: 'readwrite',
                 },
-                is_default: {
+                is_home: {
                   type: 'boolean',
-                  description: 'Whether this is the user\'s default namespace',
+                  description: 'Whether this is the user\'s home namespace',
                   example: true,
                 },
                 created_at: {

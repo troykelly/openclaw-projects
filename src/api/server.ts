@@ -6493,6 +6493,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }
 
       await client.query('COMMIT');
+      client.release();
 
       // Include tags in response
       const contact = result.rows[0];

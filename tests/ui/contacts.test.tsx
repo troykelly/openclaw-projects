@@ -4,46 +4,51 @@
 import * as React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { ContactCard, ContactList, ContactDetailSheet, ContactForm, type Contact, type ContactDetail } from '@/ui/components/contacts';
+import { ContactCard, ContactList, ContactDetailSheet, ContactForm, type Contact } from '@/ui/components/contacts';
+import type { LinkedWorkItem, LinkedCommunication } from '@/ui/components/contacts';
 
 const mockContact: Contact = {
   id: '1',
-  name: 'John Doe',
-  email: 'john@example.com',
-  company: 'Acme Corp',
-  role: 'Product Manager',
-  linkedItemCount: 5,
-  created_at: new Date(),
-  updated_at: new Date(),
+  display_name: 'John Doe',
+  given_name: 'John',
+  family_name: 'Doe',
+  contact_kind: 'person',
+  endpoints: [
+    { id: 'ep-1', type: 'email', value: 'john@example.com' },
+    { id: 'ep-2', type: 'phone', value: '+1 555-1234' },
+  ],
+  tags: ['vip', 'client'],
+  notes: 'Key stakeholder',
+  created_at: '2026-01-01T00:00:00Z',
+  updated_at: '2026-01-01T00:00:00Z',
 };
 
 const mockContacts: Contact[] = [
   mockContact,
   {
     id: '2',
-    name: 'Jane Smith',
-    email: 'jane@example.com',
-    company: 'Tech Inc',
-    role: 'Engineer',
-    linkedItemCount: 3,
-    created_at: new Date(),
-    updated_at: new Date(),
+    display_name: 'Jane Smith',
+    given_name: 'Jane',
+    family_name: 'Smith',
+    contact_kind: 'person',
+    endpoints: [
+      { id: 'ep-3', type: 'email', value: 'jane@example.com' },
+    ],
+    tags: ['partner'],
+    created_at: '2026-01-02T00:00:00Z',
+    updated_at: '2026-01-02T00:00:00Z',
   },
 ];
 
-const mockDetailContact: ContactDetail = {
-  ...mockContact,
-  phone: '+1 555-1234',
-  notes: 'Key stakeholder',
-  linkedWorkItems: [
-    { id: 'wi-1', title: 'Project Alpha', kind: 'project', status: 'active', relationship: 'owner' },
-    { id: 'wi-2', title: 'Bug Fix', kind: 'issue', status: 'open', relationship: 'assignee' },
-  ],
-  linkedCommunications: [
-    { id: 'c-1', type: 'email', subject: 'Project Update', date: new Date(), direction: 'sent' },
-    { id: 'c-2', type: 'calendar', subject: 'Weekly Sync', date: new Date() },
-  ],
-};
+const mockLinkedWorkItems: LinkedWorkItem[] = [
+  { id: 'wi-1', title: 'Project Alpha', kind: 'project', status: 'active', relationship: 'owner' },
+  { id: 'wi-2', title: 'Bug Fix', kind: 'issue', status: 'open', relationship: 'assignee' },
+];
+
+const mockLinkedCommunications: LinkedCommunication[] = [
+  { id: 'c-1', type: 'email', subject: 'Project Update', date: new Date(), direction: 'sent' },
+  { id: 'c-2', type: 'calendar', subject: 'Weekly Sync', date: new Date() },
+];
 
 describe('ContactCard', () => {
   it('renders contact name and email', () => {
@@ -53,20 +58,14 @@ describe('ContactCard', () => {
     expect(screen.getByText('john@example.com')).toBeInTheDocument();
   });
 
-  it('renders company and role', () => {
+  it('renders tags', () => {
     render(<ContactCard contact={mockContact} />);
 
-    expect(screen.getByText('Acme Corp')).toBeInTheDocument();
-    expect(screen.getByText('Product Manager')).toBeInTheDocument();
+    expect(screen.getByText('vip')).toBeInTheDocument();
+    expect(screen.getByText('client')).toBeInTheDocument();
   });
 
-  it('shows linked item count', () => {
-    render(<ContactCard contact={mockContact} />);
-
-    expect(screen.getByText('5 linked')).toBeInTheDocument();
-  });
-
-  it('shows initials when no avatar', () => {
+  it('shows initials when no photo', () => {
     render(<ContactCard contact={mockContact} />);
 
     expect(screen.getByText('JD')).toBeInTheDocument();
@@ -132,7 +131,7 @@ describe('ContactList', () => {
 
 describe('ContactDetailSheet', () => {
   it('renders contact details', () => {
-    render(<ContactDetailSheet contact={mockDetailContact} open={true} onOpenChange={() => {}} />);
+    render(<ContactDetailSheet contact={mockContact} open={true} onOpenChange={() => {}} />);
 
     expect(screen.getByText('John Doe')).toBeInTheDocument();
     expect(screen.getByText('john@example.com')).toBeInTheDocument();
@@ -140,14 +139,28 @@ describe('ContactDetailSheet', () => {
   });
 
   it('shows linked work items', () => {
-    render(<ContactDetailSheet contact={mockDetailContact} open={true} onOpenChange={() => {}} />);
+    render(
+      <ContactDetailSheet
+        contact={mockContact}
+        open={true}
+        onOpenChange={() => {}}
+        linkedWorkItems={mockLinkedWorkItems}
+      />,
+    );
 
     expect(screen.getByText('Project Alpha')).toBeInTheDocument();
     expect(screen.getByText('Bug Fix')).toBeInTheDocument();
   });
 
   it('shows linked communications', () => {
-    render(<ContactDetailSheet contact={mockDetailContact} open={true} onOpenChange={() => {}} />);
+    render(
+      <ContactDetailSheet
+        contact={mockContact}
+        open={true}
+        onOpenChange={() => {}}
+        linkedCommunications={mockLinkedCommunications}
+      />,
+    );
 
     expect(screen.getByText('Project Update')).toBeInTheDocument();
     expect(screen.getByText('Weekly Sync')).toBeInTheDocument();
@@ -155,52 +168,64 @@ describe('ContactDetailSheet', () => {
 
   it('calls onEdit when edit clicked', () => {
     const onEdit = vi.fn();
-    render(<ContactDetailSheet contact={mockDetailContact} open={true} onOpenChange={() => {}} onEdit={onEdit} />);
+    render(<ContactDetailSheet contact={mockContact} open={true} onOpenChange={() => {}} onEdit={onEdit} />);
 
     fireEvent.click(screen.getByText('Edit'));
-    expect(onEdit).toHaveBeenCalledWith(mockDetailContact);
+    expect(onEdit).toHaveBeenCalledWith(mockContact);
   });
 
   it('calls onWorkItemClick when item clicked', () => {
     const onWorkItemClick = vi.fn();
-    render(<ContactDetailSheet contact={mockDetailContact} open={true} onOpenChange={() => {}} onWorkItemClick={onWorkItemClick} />);
+    render(
+      <ContactDetailSheet
+        contact={mockContact}
+        open={true}
+        onOpenChange={() => {}}
+        linkedWorkItems={mockLinkedWorkItems}
+        onWorkItemClick={onWorkItemClick}
+      />,
+    );
 
     fireEvent.click(screen.getByText('Project Alpha'));
-    expect(onWorkItemClick).toHaveBeenCalledWith(mockDetailContact.linkedWorkItems[0]);
+    expect(onWorkItemClick).toHaveBeenCalledWith(mockLinkedWorkItems[0]);
   });
 });
 
 describe('ContactForm', () => {
-  it('renders form fields', () => {
+  it('renders form fields for person', () => {
     render(<ContactForm open={true} onOpenChange={() => {}} onSubmit={() => {}} />);
 
-    expect(screen.getByLabelText(/Name/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Given Name/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Family Name/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Nickname/)).toBeInTheDocument();
     expect(screen.getByLabelText(/Email/)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Company/)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Role/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Phone/)).toBeInTheDocument();
   });
 
   it('pre-fills form when editing', () => {
     render(<ContactForm contact={mockContact} open={true} onOpenChange={() => {}} onSubmit={() => {}} />);
 
-    expect(screen.getByDisplayValue('John Doe')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('John')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Doe')).toBeInTheDocument();
     expect(screen.getByDisplayValue('john@example.com')).toBeInTheDocument();
   });
 
-  it('submits form data', () => {
+  it('submits form data with structured names', () => {
     const onSubmit = vi.fn();
     render(<ContactForm open={true} onOpenChange={() => {}} onSubmit={onSubmit} />);
 
-    fireEvent.change(screen.getByLabelText(/Name/), { target: { value: 'Test User' } });
+    fireEvent.change(screen.getByLabelText(/Given Name/), { target: { value: 'Test' } });
+    fireEvent.change(screen.getByLabelText(/Family Name/), { target: { value: 'User' } });
     fireEvent.change(screen.getByLabelText(/Email/), { target: { value: 'test@test.com' } });
-    // Find submit button by role instead of text (there may be multiple elements)
+
     const submitButton = screen.getByRole('button', { name: 'Add Contact' });
     fireEvent.click(submitButton);
 
     expect(onSubmit).toHaveBeenCalledWith(
       expect.objectContaining({
-        name: 'Test User',
-        email: 'test@test.com',
+        given_name: 'Test',
+        family_name: 'User',
+        contact_kind: 'person',
       }),
     );
   });
