@@ -8257,6 +8257,228 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
+  // ============================================================
+  // Import/Export (#1589)
+  // ============================================================
+
+  // GET /api/contacts/export - Export contacts as CSV or JSON
+  app.get('/api/contacts/export', async (req, reply) => {
+    const query = req.query as { format?: string; ids?: string };
+    const format = query.format || 'json';
+    if (!['csv', 'json'].includes(format)) {
+      return reply.code(400).send({ error: 'format must be csv or json' });
+    }
+
+    const pool = createPool();
+
+    // Build namespace filter
+    const conditions: string[] = ['c.deleted_at IS NULL'];
+    const values: unknown[] = [];
+    let paramIndex = 1;
+    if (req.namespaceContext) {
+      conditions.push(`c.namespace = ANY($${paramIndex}::text[])`);
+      values.push(req.namespaceContext.queryNamespaces);
+      paramIndex++;
+    }
+    // Optional ID filter for selected export
+    if (query.ids) {
+      const ids = query.ids.split(',').map((s) => s.trim()).filter(Boolean);
+      if (ids.length > 0) {
+        conditions.push(`c.id = ANY($${paramIndex}::uuid[])`);
+        values.push(ids);
+        paramIndex++;
+      }
+    }
+
+    const result = await pool.query(
+      `SELECT c.id::text, c.display_name, c.given_name, c.family_name, c.middle_name,
+              c.name_prefix, c.name_suffix, c.nickname, c.notes,
+              c.contact_kind::text, c.custom_fields, c.namespace,
+              COALESCE(
+                json_agg(
+                  json_build_object(
+                    'type', ce.endpoint_type::text,
+                    'value', ce.endpoint_value,
+                    'label', ce.label,
+                    'is_primary', ce.is_primary
+                  )
+                ) FILTER (WHERE ce.id IS NOT NULL),
+                '[]'::json
+              ) as endpoints
+       FROM contact c
+       LEFT JOIN contact_endpoint ce ON ce.contact_id = c.id
+       WHERE ${conditions.join(' AND ')}
+       GROUP BY c.id
+       ORDER BY c.display_name NULLS LAST, c.family_name NULLS LAST`,
+      values,
+    );
+    await pool.end();
+
+    if (format === 'csv') {
+      const csvHeader = 'id,display_name,given_name,family_name,middle_name,nickname,email,phone,notes,contact_kind';
+      const csvRows = result.rows.map((row: Record<string, unknown>) => {
+        const endpoints = row.endpoints as Array<{ type: string; value: string }>;
+        const email = endpoints.find((e) => e.type === 'email')?.value || '';
+        const phone = endpoints.find((e) => e.type === 'phone')?.value || '';
+        const escapeCsv = (v: unknown) => {
+          const s = String(v ?? '');
+          return s.includes(',') || s.includes('"') || s.includes('\n')
+            ? `"${s.replace(/"/g, '""')}"` : s;
+        };
+        return [row.id, row.display_name, row.given_name, row.family_name,
+                row.middle_name, row.nickname, email, phone, row.notes, row.contact_kind]
+          .map(escapeCsv).join(',');
+      });
+      reply.header('Content-Type', 'text/csv');
+      reply.header('Content-Disposition', 'attachment; filename="contacts.csv"');
+      return reply.send([csvHeader, ...csvRows].join('\n'));
+    }
+
+    reply.header('Content-Type', 'application/json');
+    reply.header('Content-Disposition', 'attachment; filename="contacts.json"');
+    return reply.send(result.rows);
+  });
+
+  // POST /api/contacts/import - Import contacts from CSV
+  app.post('/api/contacts/import', async (req, reply) => {
+    const body = req.body as {
+      contacts?: Array<{
+        display_name?: string; given_name?: string; family_name?: string;
+        middle_name?: string; nickname?: string; notes?: string;
+        contact_kind?: string;
+        endpoints?: Array<{ type: string; value: string }>;
+        tags?: string[];
+      }>;
+      duplicate_handling?: string; // 'skip' | 'update' | 'create'
+    };
+
+    if (!body?.contacts || !Array.isArray(body.contacts)) {
+      return reply.code(400).send({ error: 'contacts array is required' });
+    }
+    if (body.contacts.length > 10000) {
+      return reply.code(400).send({ error: 'Maximum 10,000 contacts per import' });
+    }
+
+    const duplicateHandling = body.duplicate_handling || 'skip';
+    const pool = createPool();
+    const namespace = getStoreNamespace(req);
+    const email = await getSessionEmail(req);
+    const client = await pool.connect();
+
+    const results = { created: 0, updated: 0, skipped: 0, failed: 0, errors: [] as Array<{ index: number; error: string }> };
+
+    try {
+      await client.query('BEGIN');
+
+      for (let i = 0; i < body.contacts.length; i++) {
+        const contact = body.contacts[i];
+        try {
+          const displayName = contact.display_name?.trim();
+          const hasName = displayName || contact.given_name || contact.family_name;
+          if (!hasName) {
+            results.errors.push({ index: i, error: 'display_name or given_name/family_name required' });
+            results.failed++;
+            continue;
+          }
+
+          // Check for duplicates by email endpoint
+          let existingId: string | null = null;
+          const emailEndpoint = contact.endpoints?.find((e) => e.type === 'email' && e.value);
+          if (emailEndpoint && duplicateHandling !== 'create') {
+            const dup = await client.query(
+              `SELECT c.id::text FROM contact c
+               JOIN contact_endpoint ce ON ce.contact_id = c.id
+               WHERE ce.endpoint_type = 'email'
+                 AND ce.normalized_value = lower(trim($1))
+                 AND c.namespace = $2 AND c.deleted_at IS NULL
+               LIMIT 1`,
+              [emailEndpoint.value, namespace],
+            );
+            existingId = dup.rows[0]?.id ?? null;
+          }
+
+          if (existingId && duplicateHandling === 'skip') {
+            results.skipped++;
+            continue;
+          }
+
+          if (existingId && duplicateHandling === 'update') {
+            // Update existing contact
+            await client.query(
+              `UPDATE contact SET
+                display_name = COALESCE($1, display_name),
+                given_name = COALESCE($2, given_name),
+                family_name = COALESCE($3, family_name),
+                middle_name = COALESCE($4, middle_name),
+                nickname = COALESCE($5, nickname),
+                notes = COALESCE($6, notes),
+                updated_at = now()
+               WHERE id = $7`,
+              [displayName ?? null, contact.given_name ?? null, contact.family_name ?? null,
+               contact.middle_name ?? null, contact.nickname ?? null, contact.notes ?? null,
+               existingId],
+            );
+            results.updated++;
+            continue;
+          }
+
+          // Create new contact
+          const inserted = await client.query(
+            `INSERT INTO contact (display_name, given_name, family_name, middle_name,
+              nickname, notes, contact_kind, namespace)
+             VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7::contact_kind, 'person'), $8)
+             RETURNING id::text`,
+            [displayName ?? null, contact.given_name ?? null, contact.family_name ?? null,
+             contact.middle_name ?? null, contact.nickname ?? null, contact.notes ?? null,
+             contact.contact_kind ?? null, namespace],
+          );
+          const newId = inserted.rows[0].id;
+
+          // Add endpoints
+          if (contact.endpoints && contact.endpoints.length > 0) {
+            for (const ep of contact.endpoints) {
+              if (ep.type && ep.value) {
+                await client.query(
+                  `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value, namespace)
+                   VALUES ($1, $2::contact_endpoint_type, $3, $4)
+                   ON CONFLICT DO NOTHING`,
+                  [newId, ep.type, ep.value, namespace],
+                );
+              }
+            }
+          }
+
+          // Add tags
+          if (contact.tags && contact.tags.length > 0) {
+            const uniqueTags = [...new Set(contact.tags.map((t) => t.trim()).filter(Boolean))];
+            if (uniqueTags.length > 0) {
+              const tagVals = uniqueTags.map((_, j) => `($1, $${j + 2})`).join(', ');
+              await client.query(
+                `INSERT INTO contact_tag (contact_id, tag) VALUES ${tagVals} ON CONFLICT DO NOTHING`,
+                [newId, ...uniqueTags],
+              );
+            }
+          }
+
+          results.created++;
+        } catch (err) {
+          results.errors.push({ index: i, error: (err as Error).message });
+          results.failed++;
+        }
+      }
+
+      await client.query('COMMIT');
+      client.release();
+      await pool.end();
+      return reply.code(201).send(results);
+    } catch (err) {
+      await client.query('ROLLBACK');
+      client.release();
+      await pool.end();
+      throw err;
+    }
+  });
+
   // Global Memory API (issue #120)
   // GET /api/memory - List all memory items with pagination and search
   app.get('/api/memory', async (req, reply) => {
