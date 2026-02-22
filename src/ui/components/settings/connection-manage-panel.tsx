@@ -20,6 +20,7 @@ import { Switch } from '@/ui/components/ui/switch';
 import { Separator } from '@/ui/components/ui/separator';
 import { Badge } from '@/ui/components/ui/badge';
 import { apiClient } from '@/ui/lib/api-client';
+import { validateReAuthUrl } from '@/ui/lib/validation';
 import { FeatureToggle } from './feature-toggle';
 import { PermissionLevelSelector } from './permission-level-selector';
 import { SyncStatusDisplay } from './sync-status-display';
@@ -80,6 +81,7 @@ export function ConnectionManagePanel({
   );
   const [isSaving, setIsSaving] = useState(false);
   const [reAuthUrl, setReAuthUrl] = useState<string | null>(null);
+  const [reAuthError, setReAuthError] = useState(false);
 
   const providerName = PROVIDER_NAMES[connection.provider] ?? connection.provider;
 
@@ -88,6 +90,7 @@ export function ConnectionManagePanel({
     async (updates: Record<string, unknown>) => {
       setIsSaving(true);
       setReAuthUrl(null);
+      setReAuthError(false);
       try {
         const res = await apiClient.patch<PatchResponse>(
           `/api/oauth/connections/${connection.id}`,
@@ -95,7 +98,12 @@ export function ConnectionManagePanel({
         );
         onConnectionUpdated(res.connection);
         if (res.reAuthRequired && res.reAuthUrl) {
-          setReAuthUrl(res.reAuthUrl);
+          const validated = validateReAuthUrl(res.reAuthUrl);
+          if (validated) {
+            setReAuthUrl(validated);
+          } else {
+            setReAuthError(true);
+          }
         }
         return res;
       } catch {
@@ -275,6 +283,11 @@ export function ConnectionManagePanel({
               <p className="mt-1 text-xs text-center text-muted-foreground">
                 You will be redirected to {providerName} to grant additional permissions
               </p>
+            </div>
+          )}
+          {reAuthError && (
+            <div data-testid="reauth-url-error" className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+              Re-authorization is required but the redirect URL is invalid. Please contact support.
             </div>
           )}
 

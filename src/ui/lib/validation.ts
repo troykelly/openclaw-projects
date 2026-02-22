@@ -152,3 +152,42 @@ export function getValidationErrorMessage(result: ValidationResult): string {
   if (result.valid) return '';
   return result.errors.join('. ');
 }
+
+// ---------------------------------------------------------------------------
+// OAuth re-authorization URL validation (issue #1619)
+// ---------------------------------------------------------------------------
+
+/**
+ * Allowed hostnames for OAuth re-authorization redirects.
+ *
+ * Only these provider-operated domains may appear as a `reAuthUrl` from the
+ * API. Anything else — including spoofed subdomains, plain HTTP, or dangerous
+ * schemes such as javascript: or data: — is rejected.
+ */
+const ALLOWED_REAUTH_HOSTNAMES = new Set([
+  'accounts.google.com',
+  'login.microsoftonline.com',
+  'login.live.com',
+]);
+
+/**
+ * Validate a re-authorization URL received from the OAuth PATCH response.
+ *
+ * Accepts only `https:` URLs whose hostname is an exact match against the
+ * known OAuth provider allowlist. Returns the original URL string when valid,
+ * or `null` when the URL is unsafe, off-domain, or malformed.
+ *
+ * @param url - The raw reAuthUrl string from the server response
+ * @returns The validated URL string, or null if invalid
+ */
+export function validateReAuthUrl(url: string): string | null {
+  if (!url) return null;
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'https:') return null;
+    if (!ALLOWED_REAUTH_HOSTNAMES.has(parsed.hostname)) return null;
+    return url;
+  } catch {
+    return null;
+  }
+}

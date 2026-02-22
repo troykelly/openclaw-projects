@@ -645,6 +645,145 @@ describe('ConnectionManagePanel', () => {
     expect(screen.getByText(/Save & Authorize/i)).toBeInTheDocument();
   });
 
+  it('shows re-auth button for valid Microsoft reAuthUrl', async () => {
+    const patchResponse = {
+      connection: { ...mockMicrosoftConnection, enabled_features: ['email', 'calendar'] },
+      reAuthRequired: true,
+      reAuthUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize?scope=openid',
+    };
+    globalThis.fetch = createFetchMock({ patchResponse }) as typeof globalThis.fetch;
+
+    render(
+      <ConnectionManagePanel
+        connection={mockMicrosoftConnection}
+        open={true}
+        onOpenChange={vi.fn()}
+        onConnectionUpdated={vi.fn()}
+      />,
+    );
+
+    const calendarToggle = screen.getByTestId('feature-toggle-calendar');
+    fireEvent.click(within(calendarToggle).getByRole('switch'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('reauth-button')).toBeInTheDocument();
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // reAuthUrl validation: blocks dangerous/off-domain URLs (issue #1619)
+  // ---------------------------------------------------------------------------
+
+  it('does not show re-auth button for javascript: reAuthUrl', async () => {
+    const patchResponse = {
+      connection: { ...mockConnection, enabled_features: ['contacts', 'email', 'files'] },
+      reAuthRequired: true,
+      reAuthUrl: 'javascript:alert(document.cookie)',
+    };
+    globalThis.fetch = createFetchMock({ patchResponse }) as typeof globalThis.fetch;
+
+    render(
+      <ConnectionManagePanel
+        connection={mockConnection}
+        open={true}
+        onOpenChange={vi.fn()}
+        onConnectionUpdated={vi.fn()}
+      />,
+    );
+
+    const filesToggle = screen.getByTestId('feature-toggle-files');
+    fireEvent.click(within(filesToggle).getByRole('switch'));
+
+    await waitFor(() => {
+      // Button must NOT appear
+      expect(screen.queryByTestId('reauth-button')).not.toBeInTheDocument();
+    });
+
+    // Error notice must appear instead
+    expect(screen.getByTestId('reauth-url-error')).toBeInTheDocument();
+  });
+
+  it('does not show re-auth button for http: reAuthUrl', async () => {
+    const patchResponse = {
+      connection: { ...mockConnection, enabled_features: ['contacts', 'email', 'files'] },
+      reAuthRequired: true,
+      reAuthUrl: 'http://accounts.google.com/o/oauth2/auth',
+    };
+    globalThis.fetch = createFetchMock({ patchResponse }) as typeof globalThis.fetch;
+
+    render(
+      <ConnectionManagePanel
+        connection={mockConnection}
+        open={true}
+        onOpenChange={vi.fn()}
+        onConnectionUpdated={vi.fn()}
+      />,
+    );
+
+    const filesToggle = screen.getByTestId('feature-toggle-files');
+    fireEvent.click(within(filesToggle).getByRole('switch'));
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('reauth-button')).not.toBeInTheDocument();
+    });
+
+    expect(screen.getByTestId('reauth-url-error')).toBeInTheDocument();
+  });
+
+  it('does not show re-auth button for off-domain reAuthUrl', async () => {
+    const patchResponse = {
+      connection: { ...mockConnection, enabled_features: ['contacts', 'email', 'files'] },
+      reAuthRequired: true,
+      reAuthUrl: 'https://evil.example.com/steal?token=abc',
+    };
+    globalThis.fetch = createFetchMock({ patchResponse }) as typeof globalThis.fetch;
+
+    render(
+      <ConnectionManagePanel
+        connection={mockConnection}
+        open={true}
+        onOpenChange={vi.fn()}
+        onConnectionUpdated={vi.fn()}
+      />,
+    );
+
+    const filesToggle = screen.getByTestId('feature-toggle-files');
+    fireEvent.click(within(filesToggle).getByRole('switch'));
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('reauth-button')).not.toBeInTheDocument();
+    });
+
+    expect(screen.getByTestId('reauth-url-error')).toBeInTheDocument();
+  });
+
+  it('does not show re-auth button for data: reAuthUrl', async () => {
+    const patchResponse = {
+      connection: { ...mockConnection, enabled_features: ['contacts', 'email', 'files'] },
+      reAuthRequired: true,
+      reAuthUrl: 'data:text/html,<script>alert(1)</script>',
+    };
+    globalThis.fetch = createFetchMock({ patchResponse }) as typeof globalThis.fetch;
+
+    render(
+      <ConnectionManagePanel
+        connection={mockConnection}
+        open={true}
+        onOpenChange={vi.fn()}
+        onConnectionUpdated={vi.fn()}
+      />,
+    );
+
+    const filesToggle = screen.getByTestId('feature-toggle-files');
+    fireEvent.click(within(filesToggle).getByRole('switch'));
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('reauth-button')).not.toBeInTheDocument();
+    });
+
+    expect(screen.getByTestId('reauth-url-error')).toBeInTheDocument();
+  });
+
   it('does not render when open is false', () => {
     render(
       <ConnectionManagePanel
