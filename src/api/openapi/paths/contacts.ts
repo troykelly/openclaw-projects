@@ -24,39 +24,73 @@ export function contactsPaths(): OpenApiDomainModule {
     schemas: {
       Contact: {
         type: 'object',
-        required: ['id', 'display_name', 'contact_kind', 'created_at', 'updated_at'],
+        required: ['id', 'contact_kind', 'created_at', 'updated_at'],
         properties: {
           id: { type: 'string', format: 'uuid', description: 'Unique identifier for the contact', example: 'd290f1ee-6c54-4b01-90e6-d701748f0851' },
-          display_name: { type: 'string', description: 'Display name of the contact', example: 'Alice Johnson' },
+          display_name: { type: 'string', nullable: true, description: 'Display name (auto-computed from structured name fields if not set)', example: 'Alice Johnson' },
+          given_name: { type: 'string', nullable: true, description: 'Given/first name', example: 'Alice' },
+          family_name: { type: 'string', nullable: true, description: 'Family/last name', example: 'Johnson' },
+          middle_name: { type: 'string', nullable: true, description: 'Middle name', example: 'Marie' },
+          name_prefix: { type: 'string', nullable: true, description: 'Name prefix (e.g. Dr., Prof.)', example: 'Dr.' },
+          name_suffix: { type: 'string', nullable: true, description: 'Name suffix (e.g. Jr., III)', example: 'Jr.' },
+          nickname: { type: 'string', nullable: true, description: 'Nickname or preferred informal name', example: 'Ali' },
+          phonetic_given_name: { type: 'string', nullable: true, description: 'Phonetic given name (for CJK name rendering)', example: 'Arisu' },
+          phonetic_family_name: { type: 'string', nullable: true, description: 'Phonetic family name', example: 'Jonson' },
+          file_as: { type: 'string', nullable: true, description: 'Sort key override (e.g. "Johnson, Alice")', example: 'Johnson, Alice' },
           notes: { type: 'string', nullable: true, description: 'Free-text notes about the contact', example: 'Met at the conference in March' },
-          contact_kind: {
-            type: 'string',
-            enum: ['person', 'organisation', 'group', 'bot', 'other'],
-            description: 'The kind of entity this contact represents',
-            example: 'person',
-          },
-          preferred_channel: { type: 'string', nullable: true, description: 'Preferred communication channel for this contact (e.g. email, sms, whatsapp)', example: 'email' },
+          contact_kind: { type: 'string', enum: ['person', 'organisation', 'group', 'agent'], description: 'The kind of entity this contact represents', example: 'person' },
+          custom_fields: { type: 'array', description: 'Custom key-value fields (max 50)', items: { type: 'object', required: ['key', 'value'], properties: { key: { type: 'string' }, value: { type: 'string' } } } },
+          photo_url: { type: 'string', nullable: true, description: 'URL to the contact photo', example: '/api/files/abc-123' },
+          preferred_channel: { type: 'string', nullable: true, description: 'Preferred communication channel', example: 'email' },
           quiet_hours_start: { type: 'string', nullable: true, description: 'Start time for quiet hours in HH:MM format', example: '22:00' },
           quiet_hours_end: { type: 'string', nullable: true, description: 'End time for quiet hours in HH:MM format', example: '08:00' },
           quiet_hours_timezone: { type: 'string', nullable: true, description: 'IANA timezone for quiet hours', example: 'Australia/Sydney' },
           urgency_override_channel: { type: 'string', nullable: true, description: 'Channel to use for urgent messages during quiet hours', example: 'sms' },
-          notification_notes: { type: 'string', nullable: true, description: 'Notes about notification preferences for this contact', example: 'Prefers brief messages, no calls' },
+          notification_notes: { type: 'string', nullable: true, description: 'Notes about notification preferences', example: 'Prefers brief messages, no calls' },
           namespace: { type: 'string', nullable: true, description: 'Namespace scope for multi-tenant isolation', example: 'default' },
-          created_at: { type: 'string', format: 'date-time', description: 'Timestamp when the contact was created', example: '2026-02-21T14:30:00Z' },
-          updated_at: { type: 'string', format: 'date-time', description: 'Timestamp when the contact was last updated', example: '2026-02-21T14:30:00Z' },
-          deleted_at: { type: 'string', format: 'date-time', nullable: true, description: 'Timestamp when the contact was soft-deleted, null if active', example: null },
-          endpoints: {
-            type: 'array',
-            description: 'Communication endpoints associated with this contact',
-            items: {
-              type: 'object',
-              required: ['type', 'value'],
-              properties: {
-                type: { type: 'string', description: 'Type of the endpoint (e.g. email, phone, telegram, whatsapp)', example: 'email' },
-                value: { type: 'string', description: 'Value of the endpoint', example: 'alice@example.com' },
-              },
-            },
-          },
+          created_at: { type: 'string', format: 'date-time' },
+          updated_at: { type: 'string', format: 'date-time' },
+          deleted_at: { type: 'string', format: 'date-time', nullable: true },
+          endpoints: { type: 'array', description: 'Included when ?include=endpoints', items: ref('ContactEndpoint') },
+          addresses: { type: 'array', description: 'Included when ?include=addresses', items: ref('ContactAddress') },
+          dates: { type: 'array', description: 'Included when ?include=dates', items: ref('ContactDate') },
+          tags: { type: 'array', description: 'Included when ?include=tags', items: { type: 'string' } },
+        },
+      },
+
+      ContactAddress: {
+        type: 'object',
+        required: ['id', 'address_type'],
+        properties: {
+          id: { type: 'string', format: 'uuid' },
+          address_type: { type: 'string', enum: ['home', 'work', 'other'] },
+          label: { type: 'string', nullable: true },
+          street_address: { type: 'string', nullable: true },
+          extended_address: { type: 'string', nullable: true },
+          city: { type: 'string', nullable: true },
+          region: { type: 'string', nullable: true },
+          postal_code: { type: 'string', nullable: true },
+          country: { type: 'string', nullable: true },
+          country_code: { type: 'string', nullable: true, description: 'ISO 3166-1 alpha-2' },
+          formatted_address: { type: 'string', nullable: true },
+          latitude: { type: 'number', nullable: true },
+          longitude: { type: 'number', nullable: true },
+          is_primary: { type: 'boolean' },
+          created_at: { type: 'string', format: 'date-time' },
+          updated_at: { type: 'string', format: 'date-time' },
+        },
+      },
+
+      ContactDate: {
+        type: 'object',
+        required: ['id', 'date_type', 'date_value'],
+        properties: {
+          id: { type: 'string', format: 'uuid' },
+          date_type: { type: 'string', enum: ['birthday', 'anniversary', 'other'] },
+          label: { type: 'string', nullable: true },
+          date_value: { type: 'string', format: 'date' },
+          created_at: { type: 'string', format: 'date-time' },
+          updated_at: { type: 'string', format: 'date-time' },
         },
       },
 
@@ -83,43 +117,54 @@ export function contactsPaths(): OpenApiDomainModule {
 
       ContactCreateInput: {
         type: 'object',
-        required: ['display_name'],
+        description: 'Either display_name or given_name/family_name is required',
         properties: {
-          display_name: { type: 'string', description: 'Display name of the contact', example: 'Alice Johnson' },
-          notes: { type: 'string', nullable: true, description: 'Free-text notes about the contact', example: 'Key stakeholder for project Alpha' },
-          contact_kind: {
-            type: 'string',
-            enum: ['person', 'organisation', 'group', 'bot', 'other'],
-            default: 'person',
-            description: 'The kind of entity this contact represents',
-            example: 'person',
-          },
-          preferred_channel: { type: 'string', nullable: true, description: 'Preferred communication channel', example: 'email' },
-          quiet_hours_start: { type: 'string', nullable: true, description: 'Start time for quiet hours in HH:MM format', example: '22:00' },
-          quiet_hours_end: { type: 'string', nullable: true, description: 'End time for quiet hours in HH:MM format', example: '08:00' },
-          quiet_hours_timezone: { type: 'string', nullable: true, description: 'IANA timezone for quiet hours', example: 'Australia/Sydney' },
-          urgency_override_channel: { type: 'string', nullable: true, description: 'Channel to use for urgent messages during quiet hours', example: 'sms' },
-          notification_notes: { type: 'string', nullable: true, description: 'Notes about notification preferences', example: 'Prefers brief messages' },
+          display_name: { type: 'string', description: 'Display name (optional if structured name fields provided)', example: 'Alice Johnson' },
+          given_name: { type: 'string', nullable: true, example: 'Alice' },
+          family_name: { type: 'string', nullable: true, example: 'Johnson' },
+          middle_name: { type: 'string', nullable: true },
+          name_prefix: { type: 'string', nullable: true },
+          name_suffix: { type: 'string', nullable: true },
+          nickname: { type: 'string', nullable: true },
+          phonetic_given_name: { type: 'string', nullable: true },
+          phonetic_family_name: { type: 'string', nullable: true },
+          file_as: { type: 'string', nullable: true },
+          notes: { type: 'string', nullable: true },
+          contact_kind: { type: 'string', enum: ['person', 'organisation', 'group', 'agent'], default: 'person' },
+          custom_fields: { type: 'array', description: 'Max 50 entries', items: { type: 'object', required: ['key', 'value'], properties: { key: { type: 'string' }, value: { type: 'string' } } } },
+          tags: { type: 'array', items: { type: 'string' }, description: 'Tags to assign (max 100 chars each)' },
+          preferred_channel: { type: 'string', nullable: true },
+          quiet_hours_start: { type: 'string', nullable: true },
+          quiet_hours_end: { type: 'string', nullable: true },
+          quiet_hours_timezone: { type: 'string', nullable: true },
+          urgency_override_channel: { type: 'string', nullable: true },
+          notification_notes: { type: 'string', nullable: true },
         },
       },
 
       ContactUpdateInput: {
         type: 'object',
         properties: {
-          display_name: { type: 'string', description: 'Updated display name', example: 'Alice M. Johnson' },
-          notes: { type: 'string', nullable: true, description: 'Updated notes about the contact', example: 'Now lead on project Beta' },
-          contact_kind: {
-            type: 'string',
-            enum: ['person', 'organisation', 'group', 'bot', 'other'],
-            description: 'Updated contact kind',
-            example: 'person',
-          },
-          preferred_channel: { type: 'string', nullable: true, description: 'Updated preferred communication channel', example: 'whatsapp' },
-          quiet_hours_start: { type: 'string', nullable: true, description: 'Updated start time for quiet hours', example: '21:00' },
-          quiet_hours_end: { type: 'string', nullable: true, description: 'Updated end time for quiet hours', example: '07:00' },
-          quiet_hours_timezone: { type: 'string', nullable: true, description: 'Updated IANA timezone for quiet hours', example: 'America/New_York' },
-          urgency_override_channel: { type: 'string', nullable: true, description: 'Updated urgency override channel', example: 'phone' },
-          notification_notes: { type: 'string', nullable: true, description: 'Updated notification preference notes', example: 'OK with calls after 9am' },
+          display_name: { type: 'string' },
+          given_name: { type: 'string', nullable: true },
+          family_name: { type: 'string', nullable: true },
+          middle_name: { type: 'string', nullable: true },
+          name_prefix: { type: 'string', nullable: true },
+          name_suffix: { type: 'string', nullable: true },
+          nickname: { type: 'string', nullable: true },
+          phonetic_given_name: { type: 'string', nullable: true },
+          phonetic_family_name: { type: 'string', nullable: true },
+          file_as: { type: 'string', nullable: true },
+          notes: { type: 'string', nullable: true },
+          contact_kind: { type: 'string', enum: ['person', 'organisation', 'group', 'agent'] },
+          custom_fields: { type: 'array', items: { type: 'object', required: ['key', 'value'], properties: { key: { type: 'string' }, value: { type: 'string' } } } },
+          tags: { type: 'array', items: { type: 'string' }, description: 'Replace all tags (delete+replace)' },
+          preferred_channel: { type: 'string', nullable: true },
+          quiet_hours_start: { type: 'string', nullable: true },
+          quiet_hours_end: { type: 'string', nullable: true },
+          quiet_hours_timezone: { type: 'string', nullable: true },
+          urgency_override_channel: { type: 'string', nullable: true },
+          notification_notes: { type: 'string', nullable: true },
         },
       },
 
@@ -372,7 +417,8 @@ export function contactsPaths(): OpenApiDomainModule {
         parameters: [uuidParam('id', 'Contact UUID')],
         get: {
           operationId: 'getContact',
-          summary: 'Get a single contact with endpoints',
+          summary: 'Get a single contact with optional eager loading',
+          description: 'Without ?include, returns the contact with endpoints (backward compatible). With ?include, returns the contact plus requested child collections.',
           tags: ['Contacts'],
           parameters: [
             {
@@ -380,11 +426,17 @@ export function contactsPaths(): OpenApiDomainModule {
               in: 'query',
               description: 'Include the contact even if soft-deleted',
               schema: { type: 'string', enum: ['true', 'false'], default: 'false' },
-              example: 'false',
+            },
+            {
+              name: 'include',
+              in: 'query',
+              description: 'Comma-separated child collections to include: endpoints, addresses, dates, tags, relationships',
+              schema: { type: 'string' },
+              example: 'endpoints,addresses,dates,tags',
             },
           ],
           responses: {
-            '200': jsonResponse('Contact details with endpoints', ref('Contact')),
+            '200': jsonResponse('Contact details with optional child collections', ref('Contact')),
             ...errorResponses(401, 404, 500),
           },
         },
@@ -702,6 +754,197 @@ export function contactsPaths(): OpenApiDomainModule {
             }),
             ...errorResponses(401, 404, 500),
           },
+        },
+      },
+
+      // ============================================================
+      // Address CRUD (#1583)
+      // ============================================================
+      '/api/contacts/{id}/addresses': {
+        parameters: [uuidParam('id', 'Contact UUID')],
+        get: {
+          operationId: 'listContactAddresses',
+          summary: 'List addresses for a contact',
+          tags: ['Contacts'],
+          responses: { '200': jsonResponse('Address list', { type: 'array', items: ref('ContactAddress') }), ...errorResponses(401, 404, 500) },
+        },
+        post: {
+          operationId: 'addContactAddress',
+          summary: 'Add an address to a contact',
+          tags: ['Contacts'],
+          requestBody: jsonBody(ref('ContactAddress')),
+          responses: { '201': jsonResponse('Created address', ref('ContactAddress')), ...errorResponses(400, 401, 404, 500) },
+        },
+      },
+      '/api/contacts/{id}/addresses/{addr_id}': {
+        parameters: [uuidParam('id', 'Contact UUID'), uuidParam('addr_id', 'Address UUID')],
+        patch: {
+          operationId: 'updateContactAddress',
+          summary: 'Update a contact address',
+          tags: ['Contacts'],
+          requestBody: jsonBody(ref('ContactAddress')),
+          responses: { '200': jsonResponse('Updated address', ref('ContactAddress')), ...errorResponses(400, 401, 404, 500) },
+        },
+        delete: {
+          operationId: 'deleteContactAddress',
+          summary: 'Delete a contact address',
+          tags: ['Contacts'],
+          responses: { '204': { description: 'Address deleted' }, ...errorResponses(401, 404, 500) },
+        },
+      },
+
+      // ============================================================
+      // Date CRUD (#1584)
+      // ============================================================
+      '/api/contacts/{id}/dates': {
+        parameters: [uuidParam('id', 'Contact UUID')],
+        get: {
+          operationId: 'listContactDates',
+          summary: 'List dates for a contact',
+          tags: ['Contacts'],
+          responses: { '200': jsonResponse('Date list', { type: 'array', items: ref('ContactDate') }), ...errorResponses(401, 404, 500) },
+        },
+        post: {
+          operationId: 'addContactDate',
+          summary: 'Add a date to a contact',
+          tags: ['Contacts'],
+          requestBody: jsonBody({ type: 'object', required: ['date_value'], properties: { date_type: { type: 'string', enum: ['birthday', 'anniversary', 'other'] }, label: { type: 'string', nullable: true }, date_value: { type: 'string', format: 'date' } } }),
+          responses: { '201': jsonResponse('Created date', ref('ContactDate')), ...errorResponses(400, 401, 404, 500) },
+        },
+      },
+      '/api/contacts/{id}/dates/{date_id}': {
+        parameters: [uuidParam('id', 'Contact UUID'), uuidParam('date_id', 'Date UUID')],
+        patch: {
+          operationId: 'updateContactDate',
+          summary: 'Update a contact date',
+          tags: ['Contacts'],
+          requestBody: jsonBody({ type: 'object', properties: { date_type: { type: 'string', enum: ['birthday', 'anniversary', 'other'] }, label: { type: 'string', nullable: true }, date_value: { type: 'string', format: 'date' } } }),
+          responses: { '200': jsonResponse('Updated date', ref('ContactDate')), ...errorResponses(400, 401, 404, 500) },
+        },
+        delete: {
+          operationId: 'deleteContactDate',
+          summary: 'Delete a contact date',
+          tags: ['Contacts'],
+          responses: { '204': { description: 'Date deleted' }, ...errorResponses(401, 404, 500) },
+        },
+      },
+
+      // ============================================================
+      // Endpoint Management (#1585)
+      // ============================================================
+      '/api/contacts/{id}/endpoints/{ep_id}': {
+        parameters: [uuidParam('id', 'Contact UUID'), uuidParam('ep_id', 'Endpoint UUID')],
+        patch: {
+          operationId: 'updateContactEndpoint',
+          summary: 'Update an endpoint (label, is_primary, metadata)',
+          tags: ['Contacts'],
+          requestBody: jsonBody({ type: 'object', properties: { label: { type: 'string', nullable: true }, is_primary: { type: 'boolean' }, metadata: { type: 'object' } } }),
+          responses: { '200': jsonResponse('Updated endpoint', ref('ContactEndpoint')), ...errorResponses(400, 401, 404, 500) },
+        },
+        delete: {
+          operationId: 'deleteContactEndpoint',
+          summary: 'Delete a contact endpoint',
+          tags: ['Contacts'],
+          responses: { '204': { description: 'Endpoint deleted' }, ...errorResponses(401, 404, 500) },
+        },
+      },
+
+      // ============================================================
+      // Tag Management (#1586)
+      // ============================================================
+      '/api/contacts/{id}/tags': {
+        parameters: [uuidParam('id', 'Contact UUID')],
+        get: {
+          operationId: 'listContactTags',
+          summary: 'List tags for a contact',
+          tags: ['Contacts'],
+          responses: { '200': jsonResponse('Tag list', { type: 'array', items: { type: 'object', properties: { tag: { type: 'string' }, created_at: { type: 'string', format: 'date-time' } } } }), ...errorResponses(401, 404, 500) },
+        },
+        post: {
+          operationId: 'addContactTags',
+          summary: 'Add tag(s) to a contact',
+          tags: ['Contacts'],
+          requestBody: jsonBody({ type: 'object', properties: { tags: { type: 'array', items: { type: 'string' } }, tag: { type: 'string' } } }),
+          responses: { '201': jsonResponse('Updated tag list', { type: 'array', items: { type: 'object', properties: { tag: { type: 'string' }, created_at: { type: 'string', format: 'date-time' } } } }), ...errorResponses(400, 401, 404, 500) },
+        },
+      },
+      '/api/contacts/{id}/tags/{tag}': {
+        parameters: [uuidParam('id', 'Contact UUID'), { name: 'tag', in: 'path', required: true, schema: { type: 'string' }, description: 'Tag name (URL-encoded)' }],
+        delete: {
+          operationId: 'deleteContactTag',
+          summary: 'Remove a tag from a contact',
+          tags: ['Contacts'],
+          responses: { '204': { description: 'Tag removed' }, ...errorResponses(401, 404, 500) },
+        },
+      },
+      '/api/tags': {
+        get: {
+          operationId: 'listAllTags',
+          summary: 'List all tags with contact counts',
+          description: 'Returns all tags across contacts in the user\'s namespaces, with a count of how many contacts have each tag.',
+          tags: ['Contacts'],
+          responses: { '200': jsonResponse('Tag list with counts', { type: 'array', items: { type: 'object', required: ['tag', 'contact_count'], properties: { tag: { type: 'string' }, contact_count: { type: 'integer' } } } }), ...errorResponses(401, 500) },
+        },
+      },
+
+      // ============================================================
+      // Photo Upload (#1587)
+      // ============================================================
+      '/api/contacts/{id}/photo': {
+        parameters: [uuidParam('id', 'Contact UUID')],
+        post: {
+          operationId: 'uploadContactPhoto',
+          summary: 'Upload a contact photo',
+          tags: ['Contacts'],
+          requestBody: { required: true, content: { 'multipart/form-data': { schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } } } } } },
+          responses: { '201': jsonResponse('Photo uploaded', { type: 'object', properties: { photo_url: { type: 'string' }, file_id: { type: 'string', format: 'uuid' } } }), ...errorResponses(400, 401, 404, 413, 500) },
+        },
+        delete: {
+          operationId: 'deleteContactPhoto',
+          summary: 'Remove contact photo',
+          tags: ['Contacts'],
+          responses: { '204': { description: 'Photo removed' }, ...errorResponses(401, 404, 500) },
+        },
+      },
+
+      // ============================================================
+      // Contact Merge (#1588)
+      // ============================================================
+      '/api/contacts/merge': {
+        post: {
+          operationId: 'mergeContacts',
+          summary: 'Merge two contacts',
+          description: 'Merges loser into survivor. Moves endpoints, addresses, dates, tags, relationships, and work item links. Records audit trail.',
+          tags: ['Contacts'],
+          requestBody: jsonBody({ type: 'object', required: ['survivor_id', 'loser_id'], properties: { survivor_id: { type: 'string', format: 'uuid' }, loser_id: { type: 'string', format: 'uuid' } } }),
+          responses: { '200': jsonResponse('Merge result', { type: 'object', properties: { merged: ref('Contact'), loser_id: { type: 'string', format: 'uuid' } } }), ...errorResponses(400, 401, 403, 404, 500) },
+        },
+      },
+
+      // ============================================================
+      // Import/Export (#1589)
+      // ============================================================
+      '/api/contacts/export': {
+        get: {
+          operationId: 'exportContacts',
+          summary: 'Export contacts',
+          tags: ['Contacts'],
+          parameters: [
+            { name: 'format', in: 'query', schema: { type: 'string', enum: ['csv', 'json'], default: 'json' }, description: 'Export format' },
+            { name: 'ids', in: 'query', schema: { type: 'string' }, description: 'Comma-separated contact IDs for selective export' },
+            namespaceParam(),
+          ],
+          responses: { '200': { description: 'Exported contacts (CSV or JSON)', content: { 'text/csv': { schema: { type: 'string' } }, 'application/json': { schema: { type: 'array', items: ref('Contact') } } } }, ...errorResponses(400, 401, 500) },
+        },
+      },
+      '/api/contacts/import': {
+        post: {
+          operationId: 'importContacts',
+          summary: 'Import contacts',
+          description: 'Import up to 10,000 contacts. Duplicate detection by normalized email endpoint.',
+          tags: ['Contacts'],
+          requestBody: jsonBody({ type: 'object', required: ['contacts'], properties: { contacts: { type: 'array', items: { type: 'object', properties: { display_name: { type: 'string' }, given_name: { type: 'string' }, family_name: { type: 'string' }, endpoints: { type: 'array', items: { type: 'object', properties: { type: { type: 'string' }, value: { type: 'string' } } } }, tags: { type: 'array', items: { type: 'string' } } } } }, duplicate_handling: { type: 'string', enum: ['skip', 'update', 'create'], default: 'skip' } } }),
+          responses: { '201': jsonResponse('Import results', { type: 'object', required: ['created', 'updated', 'skipped', 'failed'], properties: { created: { type: 'integer' }, updated: { type: 'integer' }, skipped: { type: 'integer' }, failed: { type: 'integer' }, errors: { type: 'array', items: { type: 'object', properties: { index: { type: 'integer' }, error: { type: 'string' } } } } } }), ...errorResponses(400, 401, 500) },
         },
       },
     },
