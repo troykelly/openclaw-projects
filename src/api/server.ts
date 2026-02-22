@@ -7949,6 +7949,314 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     return reply.send(result.rows);
   });
 
+  // ============================================================
+  // Photo Upload (#1587)
+  // ============================================================
+
+  // POST /api/contacts/:id/photo - Upload contact photo
+  app.post('/api/contacts/:id/photo', async (req, reply) => {
+    const params = req.params as { id: string };
+    const storage = getFileStorage();
+    if (!storage) {
+      return reply.code(503).send({ error: 'File storage not configured' });
+    }
+    const pool = createPool();
+    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+    try {
+      let buffer: Buffer | null = null;
+      let filename: string | undefined;
+      let mimetype: string | undefined;
+      for await (const part of req.parts()) {
+        if (part.type === 'file') {
+          if (!buffer) {
+            buffer = await part.toBuffer();
+            filename = part.filename;
+            mimetype = part.mimetype;
+          } else {
+            await part.toBuffer();
+          }
+        }
+      }
+      if (!buffer || !filename) {
+        await pool.end();
+        return reply.code(400).send({ error: 'No file uploaded' });
+      }
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+      if (mimetype && !allowedTypes.includes(mimetype)) {
+        await pool.end();
+        return reply.code(400).send({ error: `Invalid image type. Allowed: ${allowedTypes.join(', ')}` });
+      }
+      const email = await getSessionEmail(req);
+      const uploaded = await uploadFile(
+        pool, storage,
+        { filename, content_type: mimetype || 'image/jpeg', data: buffer, uploaded_by: email || undefined, namespace: getStoreNamespace(req) },
+        maxFileSize,
+      );
+      // Set photo_url on contact (use the file ID for internal reference)
+      await pool.query(
+        `UPDATE contact SET photo_url = $1, updated_at = now() WHERE id = $2`,
+        [`/api/files/${uploaded.id}`, params.id],
+      );
+      await pool.end();
+      return reply.code(201).send({ photo_url: `/api/files/${uploaded.id}`, file_id: uploaded.id });
+    } catch (err) {
+      await pool.end();
+      if (err instanceof FileTooLargeError) {
+        return reply.code(413).send({ error: 'File too large', message: (err as Error).message });
+      }
+      throw err;
+    }
+  });
+
+  // DELETE /api/contacts/:id/photo - Remove contact photo
+  app.delete('/api/contacts/:id/photo', async (req, reply) => {
+    const params = req.params as { id: string };
+    const pool = createPool();
+    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+    const result = await pool.query(
+      `UPDATE contact SET photo_url = NULL, updated_at = now() WHERE id = $1 RETURNING id::text`,
+      [params.id],
+    );
+    await pool.end();
+    if (result.rows.length === 0) return reply.code(404).send({ error: 'not found' });
+    return reply.code(204).send();
+  });
+
+  // ============================================================
+  // Contact Merge (#1588)
+  // ============================================================
+
+  // POST /api/contacts/merge - Merge two contacts
+  app.post('/api/contacts/merge', async (req, reply) => {
+    const body = req.body as { survivor_id?: string; loser_id?: string };
+    if (!body?.survivor_id || !body?.loser_id) {
+      return reply.code(400).send({ error: 'survivor_id and loser_id are required' });
+    }
+    if (body.survivor_id === body.loser_id) {
+      return reply.code(400).send({ error: 'survivor_id and loser_id must be different' });
+    }
+
+    const pool = createPool();
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Lock both contacts to prevent concurrent merges
+      const locked = await client.query(
+        `SELECT id::text, display_name, namespace, notes, contact_kind::text,
+                given_name, family_name, middle_name, name_prefix, name_suffix,
+                nickname, phonetic_given_name, phonetic_family_name, file_as,
+                custom_fields, photo_url, deleted_at
+         FROM contact WHERE id = ANY($1::uuid[])
+         ORDER BY id FOR UPDATE`,
+        [[body.survivor_id, body.loser_id]],
+      );
+
+      if (locked.rows.length !== 2) {
+        await client.query('ROLLBACK');
+        client.release();
+        await pool.end();
+        return reply.code(404).send({ error: 'One or both contacts not found' });
+      }
+
+      let survivor = locked.rows.find((r: { id: string }) => r.id === body.survivor_id)!;
+      let loser = locked.rows.find((r: { id: string }) => r.id === body.loser_id)!;
+
+      if (survivor.deleted_at || loser.deleted_at) {
+        await client.query('ROLLBACK');
+        client.release();
+        await pool.end();
+        return reply.code(400).send({ error: 'Cannot merge soft-deleted contacts' });
+      }
+
+      // Same namespace check
+      if (survivor.namespace !== loser.namespace) {
+        await client.query('ROLLBACK');
+        client.release();
+        await pool.end();
+        return reply.code(400).send({ error: 'Cannot merge contacts from different namespaces' });
+      }
+
+      // Namespace scope check
+      if (!(await verifyNamespaceScope(pool, 'contact', survivor.id, req))) {
+        await client.query('ROLLBACK');
+        client.release();
+        await pool.end();
+        return reply.code(403).send({ error: 'No access to these contacts' });
+      }
+
+      // Auth-linked check: if both linked to user_setting, reject
+      const authLinks = await client.query(
+        `SELECT contact_id::text FROM user_setting WHERE contact_id = ANY($1::uuid[])`,
+        [[survivor.id, loser.id]],
+      );
+      const linkedIds = new Set(authLinks.rows.map((r: { contact_id: string }) => r.contact_id));
+      if (linkedIds.has(survivor.id) && linkedIds.has(loser.id)) {
+        await client.query('ROLLBACK');
+        client.release();
+        await pool.end();
+        return reply.code(400).send({ error: 'Cannot merge two auth-linked contacts' });
+      }
+      // If loser is auth-linked but survivor isn't, swap them
+      if (linkedIds.has(loser.id) && !linkedIds.has(survivor.id)) {
+        [survivor, loser] = [loser, survivor];
+      }
+
+      // Save pre-merge snapshots
+      const survivorSnapshot = JSON.stringify(survivor);
+      const loserSnapshot = JSON.stringify(loser);
+
+      // 1. Move endpoints (skip duplicates by normalized_value)
+      await client.query(
+        `UPDATE contact_endpoint SET contact_id = $1
+         WHERE contact_id = $2
+           AND normalized_value NOT IN (
+             SELECT normalized_value FROM contact_endpoint WHERE contact_id = $1
+           )`,
+        [survivor.id, loser.id],
+      );
+      await client.query(`DELETE FROM contact_endpoint WHERE contact_id = $1`, [loser.id]);
+
+      // 2. Move addresses
+      await client.query(
+        `UPDATE contact_address SET contact_id = $1 WHERE contact_id = $2`,
+        [survivor.id, loser.id],
+      );
+
+      // 3. Move dates (skip duplicate date_type+date_value)
+      await client.query(
+        `UPDATE contact_date SET contact_id = $1
+         WHERE contact_id = $2
+           AND (date_type, date_value) NOT IN (
+             SELECT date_type, date_value FROM contact_date WHERE contact_id = $1
+           )`,
+        [survivor.id, loser.id],
+      );
+      await client.query(`DELETE FROM contact_date WHERE contact_id = $1`, [loser.id]);
+
+      // 4. Move relationships (update references, skip duplicates)
+      await client.query(
+        `UPDATE contact_relationship SET from_contact_id = $1
+         WHERE from_contact_id = $2
+           AND (relationship_type, to_contact_id) NOT IN (
+             SELECT relationship_type, to_contact_id FROM contact_relationship WHERE from_contact_id = $1
+           )`,
+        [survivor.id, loser.id],
+      );
+      await client.query(
+        `UPDATE contact_relationship SET to_contact_id = $1
+         WHERE to_contact_id = $2
+           AND (relationship_type, from_contact_id) NOT IN (
+             SELECT relationship_type, from_contact_id FROM contact_relationship WHERE to_contact_id = $1
+           )`,
+        [survivor.id, loser.id],
+      );
+      await client.query(
+        `DELETE FROM contact_relationship WHERE from_contact_id = $1 OR to_contact_id = $1`,
+        [loser.id],
+      );
+
+      // 5. Move tags (skip duplicates)
+      await client.query(
+        `INSERT INTO contact_tag (contact_id, tag)
+         SELECT $1, tag FROM contact_tag WHERE contact_id = $2
+         ON CONFLICT DO NOTHING`,
+        [survivor.id, loser.id],
+      );
+      await client.query(`DELETE FROM contact_tag WHERE contact_id = $1`, [loser.id]);
+
+      // 6. Move work_item_contact links
+      await client.query(
+        `UPDATE work_item_contact SET contact_id = $1
+         WHERE contact_id = $2
+           AND work_item_id NOT IN (
+             SELECT work_item_id FROM work_item_contact WHERE contact_id = $1
+           )`,
+        [survivor.id, loser.id],
+      );
+      await client.query(`DELETE FROM work_item_contact WHERE contact_id = $1`, [loser.id]);
+
+      // 7. Repoint user_setting if loser was auth-linked
+      await client.query(
+        `UPDATE user_setting SET contact_id = $1 WHERE contact_id = $2`,
+        [survivor.id, loser.id],
+      );
+
+      // 8. Merge custom_fields (union, dedup by key — survivor wins)
+      const survivorFields: Array<{ key: string; value: string }> = survivor.custom_fields || [];
+      const loserFields: Array<{ key: string; value: string }> = loser.custom_fields || [];
+      const existingKeys = new Set(survivorFields.map((f: { key: string }) => f.key));
+      const mergedFields = [...survivorFields, ...loserFields.filter((f: { key: string }) => !existingKeys.has(f.key))];
+
+      // 9. Backfill null fields from loser
+      const backfillFields = [
+        'given_name', 'family_name', 'middle_name', 'name_prefix', 'name_suffix',
+        'nickname', 'phonetic_given_name', 'phonetic_family_name', 'file_as', 'photo_url', 'notes',
+      ];
+      const backfillUpdates: string[] = [];
+      const backfillValues: unknown[] = [];
+      let bpi = 1;
+      for (const field of backfillFields) {
+        if (survivor[field] == null && loser[field] != null) {
+          backfillUpdates.push(`${field} = $${bpi}`);
+          backfillValues.push(loser[field]);
+          bpi++;
+        }
+      }
+      // Always update custom_fields
+      backfillUpdates.push(`custom_fields = $${bpi}`);
+      backfillValues.push(JSON.stringify(mergedFields));
+      bpi++;
+      backfillUpdates.push(`updated_at = now()`);
+      backfillValues.push(survivor.id);
+      await client.query(
+        `UPDATE contact SET ${backfillUpdates.join(', ')} WHERE id = $${bpi}`,
+        backfillValues,
+      );
+
+      // 10. Record merge in log
+      const email = await getSessionEmail(req);
+      await client.query(
+        `INSERT INTO contact_merge_log (survivor_id, loser_id, merged_by, survivor_snapshot, loser_snapshot)
+         VALUES ($1, $2, $3, $4::jsonb, $5::jsonb)`,
+        [survivor.id, loser.id, email, survivorSnapshot, loserSnapshot],
+      );
+
+      // 11. Soft-delete the loser
+      await client.query(
+        `UPDATE contact SET deleted_at = now(), updated_at = now() WHERE id = $1`,
+        [loser.id],
+      );
+
+      await client.query('COMMIT');
+      client.release();
+
+      // Return merged survivor
+      const merged = await pool.query(
+        `SELECT id::text, display_name, notes, contact_kind::text,
+                given_name, family_name, middle_name, name_prefix, name_suffix,
+                nickname, phonetic_given_name, phonetic_family_name, file_as,
+                custom_fields, photo_url, namespace,
+                created_at, updated_at
+         FROM contact WHERE id = $1`,
+        [survivor.id],
+      );
+      await pool.end();
+      return reply.send({ merged: merged.rows[0], loser_id: loser.id });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      client.release();
+      await pool.end();
+      throw err;
+    }
+  });
+
   // Global Memory API (issue #120)
   // GET /api/memory - List all memory items with pagination and search
   app.get('/api/memory', async (req, reply) => {
