@@ -161,7 +161,7 @@ describe('OpenClaw 2026 API Registration', () => {
       expect(mockApi.logger.info).toHaveBeenCalledWith(
         'OpenClaw Projects plugin registered',
         expect.objectContaining({
-          toolCount: 49,
+          toolCount: 54,
         }),
       );
     });
@@ -433,7 +433,8 @@ describe('OpenClaw 2026 API Registration', () => {
       expect(projectGet?.parameters.required).toContain('project_id');
 
       const contactCreate = registeredTools.find((t) => t.name === 'contact_create');
-      expect(contactCreate?.parameters.required).toContain('display_name');
+      // contact_create has no strict required fields (accepts display_name OR given_name/family_name)
+      expect(contactCreate?.parameters.properties).toHaveProperty('display_name');
 
       const relationshipSet = registeredTools.find((t) => t.name === 'relationship_set');
       expect(relationshipSet?.parameters.required).toContain('contact_a');

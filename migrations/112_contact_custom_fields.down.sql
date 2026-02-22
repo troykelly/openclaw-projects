@@ -4,4 +4,6 @@
 
 DROP INDEX IF EXISTS idx_contact_custom_fields;
 ALTER TABLE contact DROP CONSTRAINT IF EXISTS contact_custom_fields_max_50;
-ALTER TABLE contact DROP COLUMN IF EXISTS custom_fields;
+-- CASCADE needed because contact_active / contact_trash views (created by
+-- migration 114 using SELECT *) may depend on this column during rollback.
+ALTER TABLE contact DROP COLUMN IF EXISTS custom_fields CASCADE;
