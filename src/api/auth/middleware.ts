@@ -2,6 +2,7 @@ import type { FastifyRequest } from 'fastify';
 import type { Pool } from 'pg';
 
 import { isAuthDisabled, verifyAccessToken, type JwtPayload } from './jwt.ts';
+import { IdentityCache } from './identity-cache.ts';
 
 // Augment Fastify request to include namespace context (set by preHandler hook)
 declare module 'fastify' {
@@ -18,6 +19,94 @@ export interface AuthIdentity {
   type: 'user' | 'm2m';
   /** Space-delimited scopes parsed into an array (optional, mainly for M2M tokens). */
   scopes?: string[];
+  /** Contact ID linked to this user via user_setting.contact_id (#1580). */
+  contactId?: string;
+}
+
+/** Resolved human identity from email → contact_endpoint → contact → user_setting chain (#1580). */
+export interface ResolvedHuman {
+  /** user_setting email (the auth identity). */
+  email: string;
+  /** Contact ID linked via user_setting.contact_id (null if not linked). */
+  contactId: string | null;
+}
+
+/**
+ * Identity resolution cache (#1580).
+ * Maps login email → ResolvedHuman with 60s TTL.
+ */
+const identityCache = new IdentityCache<ResolvedHuman>(60_000);
+
+// Prune expired entries every 5 minutes
+setInterval(() => identityCache.prune(), 300_000).unref();
+
+/**
+ * Invalidate cached identity for a given email.
+ * Call when user_setting, contact_endpoint, or namespace_grant changes.
+ */
+export function invalidateIdentityCache(email: string): void {
+  identityCache.invalidate(email);
+}
+
+/** Clear the entire identity cache (for testing). */
+export function clearIdentityCache(): void {
+  identityCache.clear();
+}
+
+/**
+ * Resolve a human identity from a login email (#1580).
+ *
+ * Tries two paths in parallel for timing safety:
+ * 1. Primary: email → contact_endpoint (default ns, login_eligible) → contact → user_setting
+ * 2. Bootstrap: email → user_setting.email directly
+ *
+ * Returns the first successful match (primary preferred).
+ */
+export async function resolveHumanByEmail(
+  email: string,
+  pool: Pool,
+): Promise<ResolvedHuman | null> {
+  // Check cache first
+  const cached = identityCache.get(email);
+  if (cached) return cached;
+
+  const normalizedEmail = email.toLowerCase();
+
+  // Run both paths in parallel for timing safety (prevents email enumeration)
+  const [primaryResult, bootstrapResult] = await Promise.all([
+    // Primary: contact_endpoint → contact → user_setting
+    pool.query<{ email: string; contact_id: string | null }>(
+      `SELECT us.email, us.contact_id::text as contact_id
+       FROM contact_endpoint ce
+       JOIN contact c ON c.id = ce.contact_id AND c.namespace = 'default'
+       JOIN user_setting us ON us.contact_id = c.id
+       WHERE ce.endpoint_type = 'email'
+         AND ce.normalized_value = $1
+         AND ce.is_login_eligible = true
+       LIMIT 1`,
+      [normalizedEmail],
+    ),
+    // Bootstrap: direct user_setting.email match
+    pool.query<{ email: string; contact_id: string | null }>(
+      `SELECT email, contact_id::text as contact_id
+       FROM user_setting
+       WHERE email = $1
+       LIMIT 1`,
+      [normalizedEmail],
+    ),
+  ]);
+
+  // Prefer primary path (contact-endpoint-based)
+  const row = primaryResult.rows[0] ?? bootstrapResult.rows[0];
+  if (!row) return null;
+
+  const resolved: ResolvedHuman = {
+    email: row.email,
+    contactId: row.contact_id,
+  };
+
+  identityCache.set(normalizedEmail, resolved);
+  return resolved;
 }
 
 /**
