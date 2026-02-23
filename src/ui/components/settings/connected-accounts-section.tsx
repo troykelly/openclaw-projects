@@ -34,18 +34,18 @@ import { Checkbox } from '@/ui/components/ui/checkbox';
 import { cn } from '@/ui/lib/utils';
 import { useConnectedAccounts } from './use-connected-accounts';
 import { ConnectionManagePanel } from './connection-manage-panel';
-import type {
-  OAuthConnectionSummary,
-  OAuthFeature,
-  OAuthPermissionLevel,
-  OAuthProviderInfo,
+import {
+  OAUTH_FEATURES,
+  type OAuthConnectionSummary,
+  type OAuthConnectionUpdate,
+  type OAuthFeature,
+  type OAuthPermissionLevel,
+  type OAuthProviderInfo,
 } from './types';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-const ALL_FEATURES: OAuthFeature[] = ['contacts', 'email', 'files', 'calendar'];
 
 function formatProviderName(provider: string): string {
   const names: Record<string, string> = {
@@ -161,7 +161,7 @@ function ConnectionEditForm({ connection, onSave, onCancel, isSaving }: Connecti
       <div className="space-y-2">
         <label className="text-sm font-medium">Enabled Features</label>
         <div className="flex flex-wrap gap-3">
-          {ALL_FEATURES.map((feature) => (
+          {OAUTH_FEATURES.map((feature) => (
             <label key={feature} className="flex items-center gap-2 text-sm">
               <Checkbox
                 checked={form.enabled_features.includes(feature)}
@@ -199,7 +199,7 @@ function ConnectionEditForm({ connection, onSave, onCancel, isSaving }: Connecti
 
 interface ConnectionCardProps {
   connection: OAuthConnectionSummary;
-  onUpdate: (id: string, updates: Partial<OAuthConnectionSummary>) => Promise<boolean>;
+  onUpdate: (id: string, updates: OAuthConnectionUpdate) => Promise<boolean>;
   /** State-only replacement — called by the manage panel after it has already PATCHed the API. */
   onReplaceConnection: (conn: OAuthConnectionSummary) => void;
   onDelete: (id: string) => Promise<boolean>;
