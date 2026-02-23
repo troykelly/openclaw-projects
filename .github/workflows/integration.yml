@@ -81,6 +81,7 @@ jobs:
               docker build -f docker/api/Dockerfile -t ghcr.io/troykelly/openclaw-projects-api:latest .
               docker build -f docker/app/Dockerfile -t ghcr.io/troykelly/openclaw-projects-app:latest .
               docker build -f docker/worker/Dockerfile -t ghcr.io/troykelly/openclaw-projects-worker:latest .
+              docker build -f docker/ha-connector/Dockerfile -t ghcr.io/troykelly/openclaw-projects-ha-connector:latest .
             else
               echo "::error::Pull failed for unexpected reason"
               cat /tmp/pull.log

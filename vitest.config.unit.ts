@@ -60,6 +60,7 @@ export default defineProject({
       'tests/webhooks/payloads.test.ts',
       'tests/webhooks/verification.test.ts',
       'tests/worker/**/*.test.ts',
+      'tests/ha-connector/**/*.test.ts',
 
       // ── Pure unit tests co-located in src/ ─────────────────────────
       'src/api/auth/**/*.test.ts',

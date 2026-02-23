@@ -508,6 +508,51 @@ services:
           memory: 128M
 
   # =============================================================================
+  # HA Connector (Home Assistant WebSocket connector for geolocation)
+  # =============================================================================
+  ha-connector:
+    image: ghcr.io/troykelly/openclaw-projects-ha-connector:latest
+    container_name: openclaw-ha-connector
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      NODE_ENV: production
+      PGHOST: db
+      PGPORT: 5432
+      PGUSER: ${POSTGRES_USER:-openclaw}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      PGDATABASE: ${POSTGRES_DB:-openclaw}
+      HA_CONNECTOR_HEALTH_PORT: 9001
+      HA_CONNECTOR_POOL_MAX: 5
+      GEO_ENCRYPTION_KEY: ${GEO_ENCRYPTION_KEY:-}
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9001/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    # Container hardening
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777,size=64M
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+        reservations:
+          cpus: "0.1"
+          memory: 64M
+
+  # =============================================================================
   # Frontend App (unchanged from Traefik compose)
   # =============================================================================
   app:
