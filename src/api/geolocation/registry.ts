@@ -15,6 +15,11 @@ export function registerProvider(plugin: GeoProviderPlugin): void {
   providers.set(plugin.type, plugin);
 }
 
+/** Check whether a provider for the given type is already registered. */
+export function isRegistered(type: GeoProviderType): boolean {
+  return providers.has(type);
+}
+
 /** Get a registered provider plugin by type, or undefined if not registered. */
 export function getProvider(type: GeoProviderType): GeoProviderPlugin | undefined {
   return providers.get(type);

@@ -8,13 +8,27 @@
  * available_actions metadata.
  *
  * Gateway methods registered:
- *   oauth.accounts.list  — List connected accounts with metadata
- *   oauth.contacts.list  — Contacts from a specific connection
- *   oauth.email.list     — Emails from a specific connection
- *   oauth.email.get      — Single email message by ID
- *   oauth.files.list     — Files/folders from a specific connection
- *   oauth.files.search   — Search files across a connection
- *   oauth.files.get      — Single file metadata with download URL
+ *   oauth.accounts.list    — List connected accounts with metadata
+ *   oauth.contacts.list    — Contacts from a specific connection
+ *   oauth.email.list       — Emails from a specific connection
+ *   oauth.email.get        — Single email message by ID
+ *   oauth.files.list       — Files/folders from a specific connection
+ *   oauth.files.search     — Search files across a connection
+ *   oauth.files.get        — Single file metadata with download URL
+ *   oauth.calendar.list    — Calendar events from a connection (Issue #1362)
+ *   oauth.calendar.sync    — Sync calendar events from provider (Issue #1362)
+ *   oauth.calendar.create  — Create a calendar event (Issue #1362)
+ *
+ * NOTE (Issue #1610): The base methods (accounts, contacts, email, files) are
+ * also implemented in the plugin package at
+ * `packages/openclaw-plugin/src/gateway/oauth-rpc-methods.ts`, which is the
+ * canonical registration path used by `register-openclaw.ts`. The calendar
+ * methods (oauth.calendar.*) exist ONLY in this file and have not yet been
+ * ported to the plugin package. See the follow-up issue created from #1610
+ * for tracking that migration (Issue #1630).
+ *
+ * This file is retained as the reference implementation and for standalone
+ * gateway deployments that import directly from the backend source.
  */
 
 // ---------------------------------------------------------------------------

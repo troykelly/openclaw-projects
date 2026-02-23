@@ -69,6 +69,7 @@ export default defineProject({
       'src/api/webhooks/payloads.test.ts',
       'src/api/geolocation/network-guard.test.ts',
       'src/api/geolocation/registry.test.ts',
+      'src/api/geolocation/bootstrap.test.ts',
       'src/api/geolocation/crypto.test.ts',
       'src/worker/**/*.test.ts',
     ],

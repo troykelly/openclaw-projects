@@ -581,4 +581,174 @@ describe('HomeObserverProcessor', () => {
       expect(ctx.is_weekend).toBe(false);
     });
   });
+
+  // ---- dispatch integration (Issue #1610) ----
+
+  describe('onStateChangeBatch — dispatch integration (#1610)', () => {
+    it('calls dispatchHaObservations after bulk insert', async () => {
+      const dispatchMock = vi.fn().mockResolvedValue({
+        dispatched: true,
+        webhookId: 'wh-1',
+        filteredCount: 1,
+        totalCount: 1,
+      });
+
+      vi.doMock('../../ha-dispatch/service.ts', () => ({
+        dispatchHaObservations: dispatchMock,
+      }));
+
+      // Re-import processor to pick up mocked dispatch
+      const { HomeObserverProcessor: FreshProcessor } = await import(
+        './home-observer-processor.ts'
+      );
+
+      const freshProcessor = new FreshProcessor({
+        pool,
+        tierResolver,
+        logger: silentLogger,
+      });
+
+      const changes = [makeStateChange('lock.front_door', 'unlocked', 'locked')];
+      await freshProcessor.onStateChangeBatch(changes, 'test-ns');
+
+      // Bulk insert should have happened
+      const querySpy = pool.query as ReturnType<typeof vi.fn>;
+      expect(querySpy).toHaveBeenCalled();
+      const sql = querySpy.mock.calls[0][0] as string;
+      expect(sql).toContain('INSERT INTO ha_observations');
+
+      // Dispatch should have been called
+      expect(dispatchMock).toHaveBeenCalledOnce();
+      const dispatchArgs = dispatchMock.mock.calls[0];
+      expect(dispatchArgs[0]).toBe(pool); // pool passed through
+      const input = dispatchArgs[1];
+      expect(input.namespace).toBe('test-ns');
+      expect(input.observations).toHaveLength(1);
+      expect(input.observations[0].entity_id).toBe('lock.front_door');
+      expect(input.observations[0].state).toBe('unlocked');
+      expect(input.observations[0].old_state).toBe('locked');
+      expect(input.observations[0].score).toBeGreaterThan(0);
+
+      vi.doUnmock('../../ha-dispatch/service.ts');
+    });
+
+    it('does not fail batch insert when dispatch throws', async () => {
+      const dispatchMock = vi.fn().mockRejectedValue(new Error('webhook down'));
+
+      vi.doMock('../../ha-dispatch/service.ts', () => ({
+        dispatchHaObservations: dispatchMock,
+      }));
+
+      const { HomeObserverProcessor: FreshProcessor } = await import(
+        './home-observer-processor.ts'
+      );
+
+      const freshProcessor = new FreshProcessor({
+        pool,
+        tierResolver,
+        logger: silentLogger,
+      });
+
+      const changes = [makeStateChange('light.kitchen', 'on', 'off')];
+
+      // Should not throw despite dispatch failure
+      await expect(
+        freshProcessor.onStateChangeBatch(changes, 'test-ns'),
+      ).resolves.toBeUndefined();
+
+      // Bulk insert should still have happened
+      const querySpy = pool.query as ReturnType<typeof vi.fn>;
+      expect(querySpy).toHaveBeenCalled();
+
+      // Dispatch was attempted
+      expect(dispatchMock).toHaveBeenCalledOnce();
+
+      // Warn should have been logged
+      expect(silentLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('Dispatch failed'),
+        expect.objectContaining({ error: 'webhook down' }),
+      );
+
+      vi.doUnmock('../../ha-dispatch/service.ts');
+    });
+
+    it('maps scored observations correctly to dispatch format', async () => {
+      const dispatchMock = vi.fn().mockResolvedValue({
+        dispatched: false,
+        filteredCount: 0,
+        totalCount: 2,
+      });
+
+      vi.doMock('../../ha-dispatch/service.ts', () => ({
+        dispatchHaObservations: dispatchMock,
+      }));
+
+      const { HomeObserverProcessor: FreshProcessor } = await import(
+        './home-observer-processor.ts'
+      );
+
+      const freshProcessor = new FreshProcessor({
+        pool,
+        tierResolver,
+        logger: silentLogger,
+      });
+
+      const changes: HaStateChange[] = [
+        makeStateChange('light.kitchen', 'on', 'off', { brightness: 255 }),
+        makeStateChange('switch.living_room', 'on', null),
+      ];
+
+      await freshProcessor.onStateChangeBatch(changes, 'my-ns');
+
+      expect(dispatchMock).toHaveBeenCalledOnce();
+      const input = dispatchMock.mock.calls[0][1];
+
+      // Check first observation
+      expect(input.observations[0]).toMatchObject({
+        entity_id: 'light.kitchen',
+        state: 'on',
+        old_state: 'off',
+        attributes: { brightness: 255 },
+      });
+      expect(typeof input.observations[0].score).toBe('number');
+
+      // Check second observation — null old_state becomes undefined
+      expect(input.observations[1]).toMatchObject({
+        entity_id: 'switch.living_room',
+        state: 'on',
+      });
+      expect(input.observations[1].old_state).toBeUndefined();
+
+      expect(input.namespace).toBe('my-ns');
+
+      vi.doUnmock('../../ha-dispatch/service.ts');
+    });
+
+    it('does not call dispatch when batch is fully filtered', async () => {
+      const dispatchMock = vi.fn();
+
+      vi.doMock('../../ha-dispatch/service.ts', () => ({
+        dispatchHaObservations: dispatchMock,
+      }));
+
+      const { HomeObserverProcessor: FreshProcessor } = await import(
+        './home-observer-processor.ts'
+      );
+
+      const freshProcessor = new FreshProcessor({
+        pool,
+        tierResolver,
+        logger: silentLogger,
+      });
+
+      // Attribute-only changes — all filtered
+      const changes = [makeStateChange('light.kitchen', 'on', 'on')];
+      await freshProcessor.onStateChangeBatch(changes, 'test-ns');
+
+      // Dispatch should NOT be called since no meaningful changes
+      expect(dispatchMock).not.toHaveBeenCalled();
+
+      vi.doUnmock('../../ha-dispatch/service.ts');
+    });
+  });
 });
