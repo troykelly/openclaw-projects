@@ -154,28 +154,65 @@ export function getValidationErrorMessage(result: ValidationResult): string {
 }
 
 // ---------------------------------------------------------------------------
-// OAuth re-authorization URL validation (issue #1619)
+// OAuth re-authorization URL validation (issue #1619, #1623, #1624)
 // ---------------------------------------------------------------------------
 
 /**
- * Allowed hostnames for OAuth re-authorization redirects.
+ * Provider-scoped hostname allowlists for OAuth re-authorization redirects.
  *
- * Only these provider-operated domains may appear as a `reAuthUrl` from the
- * API. Anything else — including spoofed subdomains, plain HTTP, or dangerous
- * schemes such as javascript: or data: — is rejected.
+ * Each provider key maps to the set of hostnames that are legitimate for that
+ * provider's OAuth flow. A Google connection must only redirect to Google
+ * domains, never Microsoft, and vice versa.
  */
-const ALLOWED_REAUTH_HOSTNAMES = new Set([
-  'accounts.google.com',
-  'login.microsoftonline.com',
-  'login.live.com',
-]);
+const PROVIDER_REAUTH_HOSTNAMES: Record<string, Set<string>> = {
+  google: new Set(['accounts.google.com']),
+  microsoft: new Set(['login.microsoftonline.com', 'login.live.com']),
+};
+
+/**
+ * Global allowlist (union of all providers) — used by the backwards-compatible
+ * {@link validateReAuthUrl} wrapper when no provider context is available.
+ */
+const ALLOWED_REAUTH_HOSTNAMES = new Set(
+  [...Object.values(PROVIDER_REAUTH_HOSTNAMES)].flatMap((s) => [...s]),
+);
+
+/**
+ * Validate a re-authorization URL for a specific OAuth provider.
+ *
+ * Accepts only `https:` URLs on the default port whose hostname is an exact
+ * match against the provider-specific allowlist. Rejects URLs with userinfo,
+ * non-default ports, or trailing-dot hostnames. Leading/trailing whitespace
+ * in the input is trimmed before parsing.
+ *
+ * @param url      - The raw reAuthUrl string from the server response
+ * @param provider - The OAuth provider key (e.g. "google", "microsoft")
+ * @returns The validated URL string, or null if invalid
+ */
+export function validateReAuthUrlForProvider(url: string, provider: string): string | null {
+  if (!url) return null;
+  try {
+    const parsed = new URL(url.trim());
+    if (parsed.protocol !== 'https:') return null;
+    if (parsed.port !== '') return null;
+    if (parsed.username || parsed.password) return null;
+    const hostname = parsed.hostname.endsWith('.')
+      ? parsed.hostname.slice(0, -1)
+      : parsed.hostname;
+    const allowed = PROVIDER_REAUTH_HOSTNAMES[provider];
+    if (!allowed || !allowed.has(hostname)) return null;
+    return parsed.href;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Validate a re-authorization URL received from the OAuth PATCH response.
  *
- * Accepts only `https:` URLs whose hostname is an exact match against the
- * known OAuth provider allowlist. Returns the original URL string when valid,
- * or `null` when the URL is unsafe, off-domain, or malformed.
+ * Backwards-compatible wrapper that checks the URL against the global
+ * (union) allowlist. Prefer {@link validateReAuthUrlForProvider} when the
+ * connection provider is known.
  *
  * @param url - The raw reAuthUrl string from the server response
  * @returns The validated URL string, or null if invalid
@@ -183,9 +220,14 @@ const ALLOWED_REAUTH_HOSTNAMES = new Set([
 export function validateReAuthUrl(url: string): string | null {
   if (!url) return null;
   try {
-    const parsed = new URL(url);
+    const parsed = new URL(url.trim());
     if (parsed.protocol !== 'https:') return null;
-    if (!ALLOWED_REAUTH_HOSTNAMES.has(parsed.hostname)) return null;
+    if (parsed.port !== '') return null;
+    if (parsed.username || parsed.password) return null;
+    const hostname = parsed.hostname.endsWith('.')
+      ? parsed.hostname.slice(0, -1)
+      : parsed.hostname;
+    if (!ALLOWED_REAUTH_HOSTNAMES.has(hostname)) return null;
     return parsed.href;
   } catch {
     return null;

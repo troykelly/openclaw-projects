@@ -20,7 +20,7 @@ import { Switch } from '@/ui/components/ui/switch';
 import { Separator } from '@/ui/components/ui/separator';
 import { Badge } from '@/ui/components/ui/badge';
 import { apiClient } from '@/ui/lib/api-client';
-import { validateReAuthUrl } from '@/ui/lib/validation';
+import { validateReAuthUrlForProvider } from '@/ui/lib/validation';
 import { FeatureToggle } from './feature-toggle';
 import { PermissionLevelSelector } from './permission-level-selector';
 import { SyncStatusDisplay } from './sync-status-display';
@@ -98,7 +98,7 @@ export function ConnectionManagePanel({
         );
         onConnectionUpdated(res.connection);
         if (res.reAuthRequired) {
-          const validated = res.reAuthUrl ? validateReAuthUrl(res.reAuthUrl) : null;
+          const validated = res.reAuthUrl ? validateReAuthUrlForProvider(res.reAuthUrl, connection.provider) : null;
           if (validated) {
             setReAuthUrl(validated);
           } else {
