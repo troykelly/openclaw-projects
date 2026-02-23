@@ -122,6 +122,7 @@ import { postmarkIPWhitelistMiddleware, twilioIPWhitelistMiddleware } from './we
 import { validateSsrf as ssrfValidateSsrf } from './webhooks/ssrf.ts';
 import { computeNextRunAt } from './skill-store/schedule-next-run.ts';
 import { assembleSpec } from './openapi/index.ts';
+import { bootstrapGeoProviders } from './geolocation/bootstrap.ts';
 
 /**
  * Derive the API server URL from PUBLIC_BASE_URL.
@@ -167,6 +168,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         `Details: ${oauthValidation.errors.join('; ')}`,
     );
   }
+
+  // Register geolocation provider plugins (Issue #1607)
+  bootstrapGeoProviders();
 
   // CORS must be registered early, before routes (Issue #1327)
   registerCors(app);
