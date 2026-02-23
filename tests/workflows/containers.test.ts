@@ -109,10 +109,10 @@ describe('containers.yml workflow', () => {
     });
 
     describe('matrix strategy', () => {
-      it('should define matrix strategy for all 6 images', () => {
+      it('should define matrix strategy for all 7 images', () => {
         const matrix = workflow.jobs.build.strategy?.matrix;
         expect(matrix).toBeDefined();
-        expect(matrix?.image).toHaveLength(6);
+        expect(matrix?.image).toHaveLength(7);
       });
 
       it('should include db image with correct dockerfile path', () => {
@@ -148,6 +148,13 @@ describe('containers.yml workflow', () => {
         const worker = matrix?.image.find((i) => i.name === 'worker');
         expect(worker).toBeDefined();
         expect(worker?.dockerfile).toBe('docker/worker/Dockerfile');
+      });
+
+      it('should include ha-connector image with correct dockerfile path', () => {
+        const matrix = workflow.jobs.build.strategy?.matrix;
+        const haConnector = matrix?.image.find((i) => i.name === 'ha-connector');
+        expect(haConnector).toBeDefined();
+        expect(haConnector?.dockerfile).toBe('docker/ha-connector/Dockerfile');
       });
 
       it('should include prompt-guard image with correct dockerfile path', () => {

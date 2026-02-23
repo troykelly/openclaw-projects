@@ -293,16 +293,17 @@ describe('release.yml workflow', () => {
       expect(workflow.jobs['publish-npm'].permissions?.['id-token']).toBe('write');
     });
 
-    it('should publish containers with matrix for all 6 images', () => {
+    it('should publish containers with matrix for all 7 images', () => {
       const matrix = workflow.jobs['publish-containers'].strategy?.matrix;
       const images = matrix?.image as Array<{ name: string }>;
-      expect(images).toHaveLength(6);
+      expect(images).toHaveLength(7);
       const names = images.map((i) => i.name);
       expect(names).toContain('db');
       expect(names).toContain('api');
       expect(names).toContain('app');
       expect(names).toContain('migrate');
       expect(names).toContain('worker');
+      expect(names).toContain('ha-connector');
       expect(names).toContain('prompt-guard');
     });
   });

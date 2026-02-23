@@ -53,6 +53,9 @@ jobs:
           - name: worker
             context: .
             dockerfile: docker/worker/Dockerfile
+          - name: ha-connector
+            context: .
+            dockerfile: docker/ha-connector/Dockerfile
           - name: prompt-guard
             context: docker/prompt-guard
             dockerfile: docker/prompt-guard/Dockerfile
