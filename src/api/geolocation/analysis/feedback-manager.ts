@@ -1,3 +1,5 @@
+// NOTE: Intentionally unwired — pending #1603 (HA Connector Container)
+
 /**
  * Feedback manager for Home Assistant routine feedback loop.
  *
