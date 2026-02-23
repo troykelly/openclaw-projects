@@ -57,7 +57,10 @@ function buildAccountActions(conn: BackendConnection): string[] {
     actions.push('list_files', 'search_files', 'get_file');
   }
   if (conn.enabled_features.includes('calendar')) {
-    actions.push('list_events');
+    actions.push('list_events', 'sync_calendar');
+    if (conn.permission_level === 'read_write') {
+      actions.push('create_event', 'delete_event');
+    }
   }
   return actions;
 }
@@ -74,6 +77,15 @@ function buildEmailActions(permission_level: string): string[] {
 /** Build file-specific available actions. */
 function buildFileActions(): string[] {
   return ['list_files', 'search_files', 'get_file'];
+}
+
+/** Build calendar-specific available actions based on permission level. */
+function buildCalendarActions(permission_level: string): string[] {
+  const actions = ['list_events', 'sync_calendar'];
+  if (permission_level === 'read_write') {
+    actions.push('create_event', 'delete_event');
+  }
+  return actions;
 }
 
 /**
@@ -205,6 +217,48 @@ export interface OAuthFilesGetResult {
   available_actions: string[];
 }
 
+export interface OAuthCalendarListParams {
+  connection_id: string;
+  time_min?: string;
+  time_max?: string;
+  max_results?: number;
+  page_token?: string;
+}
+
+export interface OAuthCalendarListResult {
+  connection_label: string;
+  events: Array<Record<string, unknown>>;
+  next_page_token?: string;
+  available_actions: string[];
+}
+
+export interface OAuthCalendarSyncParams {
+  connection_id: string;
+  time_min?: string;
+  time_max?: string;
+}
+
+export interface OAuthCalendarSyncResult {
+  connection_label: string;
+  [key: string]: unknown;
+}
+
+export interface OAuthCalendarCreateParams {
+  connection_id: string;
+  title: string;
+  description?: string;
+  location?: string;
+  all_day?: boolean;
+  start_time?: string;
+  end_time?: string;
+}
+
+export interface OAuthCalendarCreateResult {
+  connection_label: string;
+  event: Record<string, unknown>;
+  available_actions: string[];
+}
+
 /** All OAuth gateway methods. */
 export interface OAuthGatewayMethods {
   accountsList: (params: OAuthAccountListParams) => Promise<OAuthAccountListResult>;
@@ -214,6 +268,9 @@ export interface OAuthGatewayMethods {
   filesList: (params: OAuthFilesListParams) => Promise<OAuthFilesListResult>;
   filesSearch: (params: OAuthFilesSearchParams) => Promise<OAuthFilesSearchResult>;
   filesGet: (params: OAuthFilesGetParams) => Promise<OAuthFilesGetResult>;
+  calendarList: (params: OAuthCalendarListParams) => Promise<OAuthCalendarListResult>;
+  calendarSync: (params: OAuthCalendarSyncParams) => Promise<OAuthCalendarSyncResult>;
+  calendarCreate: (params: OAuthCalendarCreateParams) => Promise<OAuthCalendarCreateResult>;
 }
 
 /**
@@ -445,6 +502,119 @@ export function createOAuthGatewayMethods(options: OAuthGatewayMethodsOptions): 
         available_actions: buildFileActions(),
       };
     },
+
+    async calendarList(params: OAuthCalendarListParams): Promise<OAuthCalendarListResult> {
+      if (!params.connection_id) throw new Error('connection_id is required');
+
+      logger.debug('oauth.calendar.list', { user_id, connection_id: params.connection_id });
+
+      const conn = await resolveConnection(apiClient, user_id, logger, params.connection_id);
+      if (!conn) throw new Error('Connection not found or inactive');
+
+      if (!conn.enabled_features.includes('calendar')) {
+        throw new Error('Calendar feature is not enabled on this connection');
+      }
+
+      const qs = new URLSearchParams({ connection_id: params.connection_id });
+      if (params.time_min) qs.set('time_min', params.time_min);
+      if (params.time_max) qs.set('time_max', params.time_max);
+      if (params.max_results) qs.set('max_results', String(params.max_results));
+      if (params.page_token) qs.set('page_token', params.page_token);
+
+      const response = await apiClient.get<{ events: Array<Record<string, unknown>>; next_page_token?: string }>(
+        `/api/calendar/events/live?${qs}`,
+        { user_id },
+      );
+
+      if (!response.success) {
+        throw new Error(response.error.message || 'Failed to list calendar events');
+      }
+
+      return {
+        connection_label: conn.label ?? conn.provider,
+        events: response.data.events ?? [],
+        next_page_token: response.data.next_page_token,
+        available_actions: buildCalendarActions(conn.permission_level),
+      };
+    },
+
+    async calendarSync(params: OAuthCalendarSyncParams): Promise<OAuthCalendarSyncResult> {
+      if (!params.connection_id) throw new Error('connection_id is required');
+
+      logger.debug('oauth.calendar.sync', { user_id, connection_id: params.connection_id });
+
+      const conn = await resolveConnection(apiClient, user_id, logger, params.connection_id);
+      if (!conn) throw new Error('Connection not found or inactive');
+
+      if (!conn.enabled_features.includes('calendar')) {
+        throw new Error('Calendar feature is not enabled on this connection');
+      }
+
+      const body: Record<string, unknown> = { connection_id: params.connection_id };
+      if (params.time_min) body.time_min = params.time_min;
+      if (params.time_max) body.time_max = params.time_max;
+
+      const response = await apiClient.post<Record<string, unknown>>(
+        '/api/sync/calendar',
+        body,
+        { user_id },
+      );
+
+      if (!response.success) {
+        throw new Error(response.error.message || 'Failed to sync calendar');
+      }
+
+      return {
+        connection_label: conn.label ?? conn.provider,
+        ...response.data,
+      };
+    },
+
+    async calendarCreate(params: OAuthCalendarCreateParams): Promise<OAuthCalendarCreateResult> {
+      if (!params.connection_id) throw new Error('connection_id is required');
+      if (!params.title) throw new Error('title is required');
+
+      logger.debug('oauth.calendar.create', { user_id, connection_id: params.connection_id });
+
+      const conn = await resolveConnection(apiClient, user_id, logger, params.connection_id);
+      if (!conn) throw new Error('Connection not found or inactive');
+
+      if (!conn.enabled_features.includes('calendar')) {
+        throw new Error('Calendar feature is not enabled on this connection');
+      }
+
+      if (conn.permission_level !== 'read_write') {
+        throw new Error('Write permission required to create events');
+      }
+
+      const body: Record<string, unknown> = {
+        connection_id: params.connection_id,
+        user_email: conn.provider_account_email ?? '',
+        provider: conn.provider,
+        title: params.title,
+        start_time: params.start_time,
+        end_time: params.end_time,
+      };
+      if (params.description !== undefined) body.description = params.description;
+      if (params.location !== undefined) body.location = params.location;
+      if (params.all_day !== undefined) body.all_day = params.all_day;
+
+      const response = await apiClient.post<{ event: Record<string, unknown> }>(
+        '/api/calendar/events',
+        body,
+        { user_id },
+      );
+
+      if (!response.success) {
+        throw new Error(response.error.message || 'Failed to create calendar event');
+      }
+
+      return {
+        connection_label: conn.label ?? conn.provider,
+        event: response.data.event,
+        available_actions: buildCalendarActions(conn.permission_level),
+      };
+    },
   };
 }
 
@@ -484,5 +654,17 @@ export function registerOAuthGatewayRpcMethods(
   api.registerGatewayMethod<OAuthFilesGetParams, OAuthFilesGetResult>(
     'oauth.files.get',
     methods.filesGet,
+  );
+  api.registerGatewayMethod<OAuthCalendarListParams, OAuthCalendarListResult>(
+    'oauth.calendar.list',
+    methods.calendarList,
+  );
+  api.registerGatewayMethod<OAuthCalendarSyncParams, OAuthCalendarSyncResult>(
+    'oauth.calendar.sync',
+    methods.calendarSync,
+  );
+  api.registerGatewayMethod<OAuthCalendarCreateParams, OAuthCalendarCreateResult>(
+    'oauth.calendar.create',
+    methods.calendarCreate,
   );
 }

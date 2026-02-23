@@ -60,6 +60,17 @@ const TEST_CONNECTION = {
   updated_at: '2026-01-01T00:00:00Z',
 };
 
+const CALENDAR_CONNECTION = {
+  ...TEST_CONNECTION,
+  enabled_features: ['calendar'],
+};
+
+const CALENDAR_RW_CONNECTION = {
+  ...TEST_CONNECTION,
+  permission_level: 'read_write',
+  enabled_features: ['calendar'],
+};
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -86,11 +97,11 @@ describe('OAuth Gateway RPC Methods', () => {
   // -----------------------------------------------------------------------
 
   describe('registerOAuthGatewayRpcMethods', () => {
-    it('registers all 7 gateway methods', () => {
+    it('registers all 10 gateway methods', () => {
       const registerGatewayMethod = vi.fn();
       registerOAuthGatewayRpcMethods({ registerGatewayMethod }, methods);
 
-      expect(registerGatewayMethod).toHaveBeenCalledTimes(7);
+      expect(registerGatewayMethod).toHaveBeenCalledTimes(10);
       const registeredNames = registerGatewayMethod.mock.calls.map(
         (call: unknown[]) => call[0],
       );
@@ -102,6 +113,9 @@ describe('OAuth Gateway RPC Methods', () => {
         'oauth.files.list',
         'oauth.files.search',
         'oauth.files.get',
+        'oauth.calendar.list',
+        'oauth.calendar.sync',
+        'oauth.calendar.create',
       ]);
     });
   });
@@ -314,6 +328,299 @@ describe('OAuth Gateway RPC Methods', () => {
       await expect(
         methods.filesGet({ connection_id: 'conn-1', file_id: '' }),
       ).rejects.toThrow('file_id is required');
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // calendarList
+  // -----------------------------------------------------------------------
+
+  describe('calendarList', () => {
+    it('returns events for a valid connection', async () => {
+      mockConnectionsResponse(client, [CALENDAR_CONNECTION]);
+      (client.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        success: true,
+        data: {
+          events: [{ id: 'ev-1', title: 'Standup' }],
+          next_page_token: 'page2',
+        },
+      });
+
+      const result = await methods.calendarList({ connection_id: 'conn-1' });
+
+      expect(result.connection_label).toBe('Work M365');
+      expect(result.events).toHaveLength(1);
+      expect(result.events[0]).toMatchObject({ id: 'ev-1', title: 'Standup' });
+      expect(result.next_page_token).toBe('page2');
+      expect(result.available_actions).toContain('list_events');
+      expect(result.available_actions).toContain('sync_calendar');
+    });
+
+    it('includes write actions for read_write connections', async () => {
+      mockConnectionsResponse(client, [CALENDAR_RW_CONNECTION]);
+      (client.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        success: true,
+        data: { events: [] },
+      });
+
+      const result = await methods.calendarList({ connection_id: 'conn-1' });
+
+      expect(result.available_actions).toContain('create_event');
+      expect(result.available_actions).toContain('delete_event');
+    });
+
+    it('omits write actions for read-only connections', async () => {
+      mockConnectionsResponse(client, [CALENDAR_CONNECTION]);
+      (client.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        success: true,
+        data: { events: [] },
+      });
+
+      const result = await methods.calendarList({ connection_id: 'conn-1' });
+
+      expect(result.available_actions).not.toContain('create_event');
+      expect(result.available_actions).not.toContain('delete_event');
+    });
+
+    it('passes optional query parameters', async () => {
+      mockConnectionsResponse(client, [CALENDAR_CONNECTION]);
+      (client.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        success: true,
+        data: { events: [] },
+      });
+
+      await methods.calendarList({
+        connection_id: 'conn-1',
+        time_min: '2026-01-01',
+        time_max: '2026-01-31',
+        max_results: 10,
+        page_token: 'abc',
+      });
+
+      const callUrl = (client.get as ReturnType<typeof vi.fn>).mock.calls[1][0] as string;
+      expect(callUrl).toContain('time_min=2026-01-01');
+      expect(callUrl).toContain('time_max=2026-01-31');
+      expect(callUrl).toContain('max_results=10');
+      expect(callUrl).toContain('page_token=abc');
+    });
+
+    it('throws when connection_id is missing', async () => {
+      await expect(
+        methods.calendarList({ connection_id: '' }),
+      ).rejects.toThrow('connection_id is required');
+    });
+
+    it('throws when calendar feature is not enabled', async () => {
+      mockConnectionsResponse(client, [TEST_CONNECTION]); // no calendar feature
+      await expect(
+        methods.calendarList({ connection_id: 'conn-1' }),
+      ).rejects.toThrow('Calendar feature is not enabled');
+    });
+
+    it('throws when connection not found', async () => {
+      mockConnectionsResponse(client, []);
+      await expect(
+        methods.calendarList({ connection_id: 'nonexistent' }),
+      ).rejects.toThrow('Connection not found');
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // calendarSync
+  // -----------------------------------------------------------------------
+
+  describe('calendarSync', () => {
+    it('syncs calendar and returns result', async () => {
+      mockConnectionsResponse(client, [CALENDAR_CONNECTION]);
+      (client.post as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        success: true,
+        data: { synced_count: 42, next_sync_token: 'tok-1' },
+      });
+
+      const result = await methods.calendarSync({ connection_id: 'conn-1' });
+
+      expect(result.connection_label).toBe('Work M365');
+      expect(result.synced_count).toBe(42);
+      expect(result.next_sync_token).toBe('tok-1');
+    });
+
+    it('passes time_min and time_max in POST body', async () => {
+      mockConnectionsResponse(client, [CALENDAR_CONNECTION]);
+      (client.post as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        success: true,
+        data: { synced_count: 0 },
+      });
+
+      await methods.calendarSync({
+        connection_id: 'conn-1',
+        time_min: '2026-01-01',
+        time_max: '2026-01-31',
+      });
+
+      const postCall = (client.post as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(postCall[0]).toBe('/api/sync/calendar');
+      expect(postCall[1]).toMatchObject({
+        connection_id: 'conn-1',
+        time_min: '2026-01-01',
+        time_max: '2026-01-31',
+      });
+    });
+
+    it('throws when connection_id is missing', async () => {
+      await expect(
+        methods.calendarSync({ connection_id: '' }),
+      ).rejects.toThrow('connection_id is required');
+    });
+
+    it('throws when calendar feature is not enabled', async () => {
+      mockConnectionsResponse(client, [TEST_CONNECTION]);
+      await expect(
+        methods.calendarSync({ connection_id: 'conn-1' }),
+      ).rejects.toThrow('Calendar feature is not enabled');
+    });
+
+    it('throws on API failure', async () => {
+      mockConnectionsResponse(client, [CALENDAR_CONNECTION]);
+      (client.post as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        success: false,
+        error: { status: 500, message: 'Sync failed', code: 'SYNC_ERROR' },
+      });
+
+      await expect(
+        methods.calendarSync({ connection_id: 'conn-1' }),
+      ).rejects.toThrow('Sync failed');
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // calendarCreate
+  // -----------------------------------------------------------------------
+
+  describe('calendarCreate', () => {
+    it('creates an event and returns it', async () => {
+      mockConnectionsResponse(client, [CALENDAR_RW_CONNECTION]);
+      (client.post as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        success: true,
+        data: { event: { id: 'ev-new', title: 'Lunch' } },
+      });
+
+      const result = await methods.calendarCreate({
+        connection_id: 'conn-1',
+        title: 'Lunch',
+        start_time: '2026-02-01T12:00:00Z',
+        end_time: '2026-02-01T13:00:00Z',
+      });
+
+      expect(result.connection_label).toBe('Work M365');
+      expect(result.event).toMatchObject({ id: 'ev-new', title: 'Lunch' });
+      expect(result.available_actions).toContain('create_event');
+    });
+
+    it('passes optional fields in POST body', async () => {
+      mockConnectionsResponse(client, [CALENDAR_RW_CONNECTION]);
+      (client.post as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        success: true,
+        data: { event: { id: 'ev-2' } },
+      });
+
+      await methods.calendarCreate({
+        connection_id: 'conn-1',
+        title: 'Meeting',
+        description: 'Quarterly review',
+        location: 'Room 5',
+        all_day: false,
+        start_time: '2026-02-01T10:00:00Z',
+        end_time: '2026-02-01T11:00:00Z',
+      });
+
+      const postBody = (client.post as ReturnType<typeof vi.fn>).mock.calls[0][1];
+      expect(postBody).toMatchObject({
+        connection_id: 'conn-1',
+        title: 'Meeting',
+        description: 'Quarterly review',
+        location: 'Room 5',
+        all_day: false,
+      });
+    });
+
+    it('throws when connection_id is missing', async () => {
+      await expect(
+        methods.calendarCreate({ connection_id: '', title: 'Test' }),
+      ).rejects.toThrow('connection_id is required');
+    });
+
+    it('throws when title is missing', async () => {
+      await expect(
+        methods.calendarCreate({ connection_id: 'conn-1', title: '' }),
+      ).rejects.toThrow('title is required');
+    });
+
+    it('throws when calendar feature is not enabled', async () => {
+      mockConnectionsResponse(client, [{ ...TEST_CONNECTION, permission_level: 'read_write' }]);
+      await expect(
+        methods.calendarCreate({ connection_id: 'conn-1', title: 'Test' }),
+      ).rejects.toThrow('Calendar feature is not enabled');
+    });
+
+    it('throws when permission level is read-only', async () => {
+      mockConnectionsResponse(client, [CALENDAR_CONNECTION]); // read only
+      await expect(
+        methods.calendarCreate({ connection_id: 'conn-1', title: 'Test' }),
+      ).rejects.toThrow('Write permission required');
+    });
+
+    it('throws on API failure', async () => {
+      mockConnectionsResponse(client, [CALENDAR_RW_CONNECTION]);
+      (client.post as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        success: false,
+        error: { status: 500, message: 'Create failed', code: 'CREATE_ERROR' },
+      });
+
+      await expect(
+        methods.calendarCreate({ connection_id: 'conn-1', title: 'Test' }),
+      ).rejects.toThrow('Create failed');
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // buildAccountActions — calendar actions
+  // -----------------------------------------------------------------------
+
+  describe('accountsList calendar actions', () => {
+    it('includes sync_calendar and list_events when calendar enabled', async () => {
+      (client.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        success: true,
+        data: { connections: [CALENDAR_CONNECTION] },
+      });
+
+      const result = await methods.accountsList({});
+
+      expect(result.accounts[0].available_actions).toContain('list_events');
+      expect(result.accounts[0].available_actions).toContain('sync_calendar');
+    });
+
+    it('includes create_event and delete_event for read_write calendar', async () => {
+      (client.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        success: true,
+        data: { connections: [CALENDAR_RW_CONNECTION] },
+      });
+
+      const result = await methods.accountsList({});
+
+      expect(result.accounts[0].available_actions).toContain('create_event');
+      expect(result.accounts[0].available_actions).toContain('delete_event');
+    });
+
+    it('omits calendar write actions for read-only calendar', async () => {
+      (client.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        success: true,
+        data: { connections: [CALENDAR_CONNECTION] },
+      });
+
+      const result = await methods.accountsList({});
+
+      expect(result.accounts[0].available_actions).not.toContain('create_event');
+      expect(result.accounts[0].available_actions).not.toContain('delete_event');
     });
   });
 });
