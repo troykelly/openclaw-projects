@@ -5,7 +5,7 @@
  * Allows editing: label, active status, permission level, enabled features.
  * Detects when scope upgrades are needed and shows re-authorization flow.
  */
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { Settings, ExternalLink } from 'lucide-react';
 import {
   Sheet,
@@ -20,22 +20,21 @@ import { Switch } from '@/ui/components/ui/switch';
 import { Separator } from '@/ui/components/ui/separator';
 import { Badge } from '@/ui/components/ui/badge';
 import { apiClient } from '@/ui/lib/api-client';
-import { validateReAuthUrl } from '@/ui/lib/validation';
+import { validateReAuthUrlForProvider } from '@/ui/lib/validation';
 import { FeatureToggle } from './feature-toggle';
 import { PermissionLevelSelector } from './permission-level-selector';
 import { SyncStatusDisplay } from './sync-status-display';
 import type { FeatureSyncInfo } from './sync-status-display';
-import type {
-  OAuthConnectionSummary,
-  OAuthFeature,
-  OAuthPermissionLevel,
+import {
+  OAUTH_FEATURES,
+  type OAuthConnectionSummary,
+  type OAuthFeature,
+  type OAuthPermissionLevel,
 } from './types';
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
-
-const ALL_FEATURES: OAuthFeature[] = ['contacts', 'email', 'files', 'calendar'];
 
 const PROVIDER_NAMES: Record<string, string> = {
   google: 'Google',
@@ -83,11 +82,15 @@ export function ConnectionManagePanel({
   const [reAuthUrl, setReAuthUrl] = useState<string | null>(null);
   const [reAuthError, setReAuthError] = useState(false);
 
+  /** Sequence counter — prevents stale PATCH responses from overwriting newer state. */
+  const saveSeqRef = useRef(0);
+
   const providerName = PROVIDER_NAMES[connection.provider] ?? connection.provider;
 
   /** Optimistic save helper. */
   const saveUpdate = useCallback(
     async (updates: Record<string, unknown>) => {
+      const seq = ++saveSeqRef.current;
       setIsSaving(true);
       setReAuthUrl(null);
       setReAuthError(false);
@@ -96,9 +99,13 @@ export function ConnectionManagePanel({
           `/api/oauth/connections/${connection.id}`,
           updates,
         );
+
+        // A newer request was fired while this one was in flight — discard stale response.
+        if (seq !== saveSeqRef.current) return null;
+
         onConnectionUpdated(res.connection);
         if (res.reAuthRequired) {
-          const validated = res.reAuthUrl ? validateReAuthUrl(res.reAuthUrl) : null;
+          const validated = res.reAuthUrl ? validateReAuthUrlForProvider(res.reAuthUrl, connection.provider) : null;
           if (validated) {
             setReAuthUrl(validated);
           } else {
@@ -107,6 +114,9 @@ export function ConnectionManagePanel({
         }
         return res;
       } catch {
+        // A newer request superseded this one — ignore stale error.
+        if (seq !== saveSeqRef.current) return null;
+
         // Revert optimistic state on error
         setLabel(connection.label);
         setIsActive(connection.is_active);
@@ -114,7 +124,9 @@ export function ConnectionManagePanel({
         setEnabledFeatures(Array.isArray(connection.enabled_features) ? [...connection.enabled_features] : []);
         return null;
       } finally {
-        setIsSaving(false);
+        if (seq === saveSeqRef.current) {
+          setIsSaving(false);
+        }
       }
     },
     [connection, onConnectionUpdated],
@@ -257,7 +269,7 @@ export function ConnectionManagePanel({
           {/* Feature toggles */}
           <div className="space-y-3">
             <label className="text-sm font-medium">Features</label>
-            {ALL_FEATURES.map((feature) => (
+            {OAUTH_FEATURES.map((feature) => (
               <FeatureToggle
                 key={feature}
                 feature={feature}

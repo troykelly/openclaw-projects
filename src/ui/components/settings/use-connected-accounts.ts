@@ -1,17 +1,18 @@
 import { useState, useEffect, useCallback } from 'react';
 import { apiClient } from '@/ui/lib/api-client';
-import type {
-  OAuthConnectionSummary,
-  OAuthConnectionUpdate,
-  OAuthFeature,
-  OAuthProviderInfo,
+import {
+  OAUTH_FEATURES,
+  type OAuthConnectionSummary,
+  type OAuthConnectionUpdate,
+  type OAuthFeature,
+  type OAuthProviderInfo,
 } from './types';
 
 /**
  * Allowlist of valid feature values. Typed as Set<string> so the predicate
  * in normalizeFeatures can call .has(f) without a type cast.
  */
-const VALID_FEATURES = new Set<string>(['contacts', 'email', 'files', 'calendar']);
+const VALID_FEATURES = new Set<string>(OAUTH_FEATURES);
 
 /**
  * Normalize a raw `enabled_features` value from the API into a clean `OAuthFeature[]`.
