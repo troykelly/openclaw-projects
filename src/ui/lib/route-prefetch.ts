@@ -25,6 +25,9 @@ const routeImportMap: Record<string, () => Promise<unknown>> = {
   '/projects': () => import('@/ui/pages/ProjectDetailPage.js'),
   '/communications': () => import('@/ui/pages/CommunicationsPage.js'),
   '/dashboard': () => import('@/ui/pages/DashboardPage.js'),
+  '/recipes': () => import('@/ui/pages/RecipesPage.js'),
+  '/meal-log': () => import('@/ui/pages/MealLogPage.js'),
+  '/dev-sessions': () => import('@/ui/pages/DevSessionsPage.js'),
 };
 
 /** Set of paths already prefetched (or currently being prefetched). */

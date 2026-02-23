@@ -36,6 +36,9 @@ function pathToSection(pathname: string): string {
   if (pathname.startsWith('/communications')) return 'communications';
   if (pathname.startsWith('/notes')) return 'notes';
   if (pathname.startsWith('/notebooks')) return 'notes';
+  if (pathname.startsWith('/recipes')) return 'recipes';
+  if (pathname.startsWith('/meal-log')) return 'meal-log';
+  if (pathname.startsWith('/dev-sessions')) return 'dev-sessions';
   if (pathname.startsWith('/settings')) return 'settings';
   if (pathname.startsWith('/search')) return 'search';
   if (pathname.startsWith('/work-items') || pathname.startsWith('/kanban')) return 'projects';
@@ -51,6 +54,9 @@ const sectionRoutes: Record<string, string> = {
   people: '/contacts',
   communications: '/communications',
   notes: '/notes',
+  recipes: '/recipes',
+  'meal-log': '/meal-log',
+  'dev-sessions': '/dev-sessions',
   settings: '/settings',
 };
 
@@ -81,6 +87,15 @@ function deriveBreadcrumbs(pathname: string, bootstrap: AppBootstrap | null, not
   }
   if (pathname.startsWith('/communications')) {
     return [{ id: 'communications', label: 'Communications' }];
+  }
+  if (pathname.startsWith('/recipes')) {
+    return [{ id: 'recipes', label: 'Recipes' }];
+  }
+  if (pathname.startsWith('/meal-log')) {
+    return [{ id: 'meal-log', label: 'Meal Log' }];
+  }
+  if (pathname.startsWith('/dev-sessions')) {
+    return [{ id: 'dev-sessions', label: 'Dev Sessions' }];
   }
   if (pathname.startsWith('/settings')) {
     return [{ id: 'settings', label: 'Settings' }];
