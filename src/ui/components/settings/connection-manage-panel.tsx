@@ -25,17 +25,16 @@ import { FeatureToggle } from './feature-toggle';
 import { PermissionLevelSelector } from './permission-level-selector';
 import { SyncStatusDisplay } from './sync-status-display';
 import type { FeatureSyncInfo } from './sync-status-display';
-import type {
-  OAuthConnectionSummary,
-  OAuthFeature,
-  OAuthPermissionLevel,
+import {
+  OAUTH_FEATURES,
+  type OAuthConnectionSummary,
+  type OAuthFeature,
+  type OAuthPermissionLevel,
 } from './types';
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
-
-const ALL_FEATURES: OAuthFeature[] = ['contacts', 'email', 'files', 'calendar'];
 
 const PROVIDER_NAMES: Record<string, string> = {
   google: 'Google',
@@ -257,7 +256,7 @@ export function ConnectionManagePanel({
           {/* Feature toggles */}
           <div className="space-y-3">
             <label className="text-sm font-medium">Features</label>
-            {ALL_FEATURES.map((feature) => (
+            {OAUTH_FEATURES.map((feature) => (
               <FeatureToggle
                 key={feature}
                 feature={feature}

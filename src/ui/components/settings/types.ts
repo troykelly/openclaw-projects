@@ -104,7 +104,11 @@ export interface EmbeddingTestResult {
 
 export type OAuthProvider = 'google' | 'microsoft';
 export type OAuthPermissionLevel = 'read' | 'read_write';
-export type OAuthFeature = 'contacts' | 'email' | 'files' | 'calendar';
+/** Authoritative list of OAuth features. All other references derive from this. */
+export const OAUTH_FEATURES = ['contacts', 'email', 'files', 'calendar'] as const;
+
+/** OAuth feature identifier. */
+export type OAuthFeature = (typeof OAUTH_FEATURES)[number];
 
 export interface OAuthConnectionSummary {
   id: string;
