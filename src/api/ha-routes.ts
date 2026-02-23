@@ -4,8 +4,6 @@
  * Exports a Fastify plugin that registers all /api/ha/* endpoints.
  * Namespace scoping via req.namespaceContext (from auth middleware).
  *
- * TODO: Register this plugin in server.ts when wiring HA integration routes.
- *
  * Issue #1460, Epic #1440.
  */
 

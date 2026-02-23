@@ -118,6 +118,7 @@ import {
   WebhookHealthChecker,
 } from './webhooks/index.ts';
 import { voiceRoutesPlugin } from './voice/routes.ts';
+import { haRoutesPlugin } from './ha-routes.ts';
 import { postmarkIPWhitelistMiddleware, twilioIPWhitelistMiddleware } from './webhooks/ip-whitelist.ts';
 import { validateSsrf as ssrfValidateSsrf } from './webhooks/ssrf.ts';
 import { computeNextRunAt } from './skill-store/schedule-next-run.ts';
@@ -22278,6 +22279,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // REST routes (/api/voice/*) use the normal auth middleware.
   const voicePool = createPool();
   app.register(voiceRoutesPlugin, { pool: voicePool });
+
+  // ── Home Automation Routes (Issue #1606, Epic #1440) ────────────────
+  const haPool = createPool();
+  app.register(haRoutesPlugin, { pool: haPool });
 
   // ── SPA fallback for client-side routing (Issue #481) ──────────────
   // Serve index.html for /static/app/* paths that don't match a real file.
