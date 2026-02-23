@@ -25,6 +25,8 @@ beforeAll(async () => {
     import('@/ui/pages/KanbanPage.js'),
     import('@/ui/pages/GlobalTimelinePage.js'),
     import('@/ui/pages/ContactsPage.js'),
+    import('@/ui/pages/ContactDetailPage.js'),
+    import('@/ui/pages/CommunicationsPage.js'),
     import('@/ui/pages/SettingsPage.js'),
     import('@/ui/pages/SearchPage.js'),
     import('@/ui/pages/NotFoundPage.js'),
@@ -145,6 +147,20 @@ describe('Route configuration', () => {
     renderWithRouter('/contacts');
     await waitFor(() => {
       expect(screen.getByTestId('page-contacts')).toBeInTheDocument();
+    }, WAIT_OPTS);
+  });
+
+  it('renders ContactDetailPage at /contacts/:contact_id', async () => {
+    renderWithRouter('/contacts/contact-42');
+    await waitFor(() => {
+      expect(screen.getByTestId('page-contact-detail')).toBeInTheDocument();
+    }, WAIT_OPTS);
+  });
+
+  it('renders CommunicationsPage at /communications', async () => {
+    renderWithRouter('/communications');
+    await waitFor(() => {
+      expect(screen.getByTestId('page-communications')).toBeInTheDocument();
     }, WAIT_OPTS);
   });
 

@@ -31,6 +31,11 @@ const SearchPage = React.lazy(() => import('@/ui/pages/SearchPage.js').then((m) 
 const NotFoundPage = React.lazy(() => import('@/ui/pages/NotFoundPage.js').then((m) => ({ default: m.NotFoundPage })));
 const NotesPage = React.lazy(() => import('@/ui/pages/NotesPage.js').then((m) => ({ default: m.NotesPage })));
 const SkillStorePage = React.lazy(() => import('@/ui/pages/SkillStorePage.js').then((m) => ({ default: m.SkillStorePage })));
+const CommunicationsPage = React.lazy(() => import('@/ui/pages/CommunicationsPage.js').then((m) => ({ default: m.CommunicationsPage })));
+const ContactDetailPage = React.lazy(() => import('@/ui/pages/ContactDetailPage.js').then((m) => ({ default: m.ContactDetailPage })));
+const RecipesPage = React.lazy(() => import('@/ui/pages/RecipesPage.js').then((m) => ({ default: m.RecipesPage })));
+const MealLogPage = React.lazy(() => import('@/ui/pages/MealLogPage.js').then((m) => ({ default: m.MealLogPage })));
+const DevSessionsPage = React.lazy(() => import('@/ui/pages/DevSessionsPage.js').then((m) => ({ default: m.DevSessionsPage })));
 const OAuthCallbackPage = React.lazy(() => import('@/ui/pages/OAuthCallbackPage.js').then((m) => ({ default: m.OAuthCallbackPage })));
 const AuthConsumePage = React.lazy(() => import('@/ui/pages/AuthConsumePage.js').then((m) => ({ default: m.AuthConsumePage })));
 
@@ -67,7 +72,12 @@ function lazy(Component: React.LazyExoticComponent<React.ComponentType>): React.
  *   /kanban -> KanbanPage
  *   /timeline -> GlobalTimelinePage
  *   /contacts -> ContactsPage
+ *   /contacts/:contact_id -> ContactDetailPage
+ *   /communications -> CommunicationsPage
  *   /memory -> MemoryPage
+ *   /recipes -> RecipesPage
+ *   /meal-log -> MealLogPage
+ *   /dev-sessions -> DevSessionsPage
  *   /settings -> SettingsPage
  *   /auth/consume -> AuthConsumePage (outside AppLayout, pre-auth)
  *   /settings/oauth/callback -> OAuthCallbackPage
@@ -132,6 +142,14 @@ export const routes: RouteObject[] = [
         element: lazy(ContactsPage),
       },
       {
+        path: 'contacts/:contact_id',
+        element: lazy(ContactDetailPage),
+      },
+      {
+        path: 'communications',
+        element: lazy(CommunicationsPage),
+      },
+      {
         path: 'memory',
         element: lazy(MemoryPage),
       },
@@ -150,6 +168,18 @@ export const routes: RouteObject[] = [
           { index: true, element: lazy(NotesPage) },
           { path: 'notes/:noteId', element: lazy(NotesPage) },
         ],
+      },
+      {
+        path: 'recipes',
+        element: lazy(RecipesPage),
+      },
+      {
+        path: 'meal-log',
+        element: lazy(MealLogPage),
+      },
+      {
+        path: 'dev-sessions',
+        element: lazy(DevSessionsPage),
       },
       {
         path: 'skill-store',
