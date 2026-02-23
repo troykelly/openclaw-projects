@@ -1,3 +1,5 @@
+// NOTE: Intentionally unwired — pending #1603 (HA Connector Container)
+
 /**
  * Daily state snapshot writer for Home Assistant.
  *

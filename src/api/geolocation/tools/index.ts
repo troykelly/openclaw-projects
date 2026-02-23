@@ -1,3 +1,5 @@
+// NOTE: Intentionally unwired — pending #1603 (HA Connector Container)
+
 /**
  * Barrel export for Home Assistant OpenClaw agent tools.
  *

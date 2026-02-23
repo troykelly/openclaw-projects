@@ -1,3 +1,5 @@
+// NOTE: Intentionally unwired — pending #1603 (HA Connector Container)
+
 /**
  * OpenClaw agent tool for querying Home Assistant observations.
  *

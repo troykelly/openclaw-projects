@@ -1,3 +1,5 @@
+// NOTE: Intentionally unwired — pending #1603 (HA Connector Container)
+
 /**
  * LLM-based observation scorer for Home Assistant state changes.
  *
