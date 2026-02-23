@@ -31,6 +31,8 @@ const SearchPage = React.lazy(() => import('@/ui/pages/SearchPage.js').then((m) 
 const NotFoundPage = React.lazy(() => import('@/ui/pages/NotFoundPage.js').then((m) => ({ default: m.NotFoundPage })));
 const NotesPage = React.lazy(() => import('@/ui/pages/NotesPage.js').then((m) => ({ default: m.NotesPage })));
 const SkillStorePage = React.lazy(() => import('@/ui/pages/SkillStorePage.js').then((m) => ({ default: m.SkillStorePage })));
+const CommunicationsPage = React.lazy(() => import('@/ui/pages/CommunicationsPage.js').then((m) => ({ default: m.CommunicationsPage })));
+const ContactDetailPage = React.lazy(() => import('@/ui/pages/ContactDetailPage.js').then((m) => ({ default: m.ContactDetailPage })));
 const OAuthCallbackPage = React.lazy(() => import('@/ui/pages/OAuthCallbackPage.js').then((m) => ({ default: m.OAuthCallbackPage })));
 const AuthConsumePage = React.lazy(() => import('@/ui/pages/AuthConsumePage.js').then((m) => ({ default: m.AuthConsumePage })));
 
@@ -67,6 +69,8 @@ function lazy(Component: React.LazyExoticComponent<React.ComponentType>): React.
  *   /kanban -> KanbanPage
  *   /timeline -> GlobalTimelinePage
  *   /contacts -> ContactsPage
+ *   /contacts/:contact_id -> ContactDetailPage
+ *   /communications -> CommunicationsPage
  *   /memory -> MemoryPage
  *   /settings -> SettingsPage
  *   /auth/consume -> AuthConsumePage (outside AppLayout, pre-auth)
@@ -130,6 +134,14 @@ export const routes: RouteObject[] = [
       {
         path: 'contacts',
         element: lazy(ContactsPage),
+      },
+      {
+        path: 'contacts/:contact_id',
+        element: lazy(ContactDetailPage),
+      },
+      {
+        path: 'communications',
+        element: lazy(CommunicationsPage),
       },
       {
         path: 'memory',
