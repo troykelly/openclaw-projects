@@ -17,6 +17,7 @@ import { CommandPalette, type SearchResult } from '@/ui/components/command-palet
 import { KeyboardShortcutsHandler } from '@/ui/components/keyboard-shortcuts-handler';
 import { AppShell } from '@/ui/components/layout/app-shell';
 import type { BreadcrumbItem } from '@/ui/components/layout/breadcrumb';
+import { NotificationBell } from '@/ui/components/notifications';
 import { type CreatedWorkItem, QuickAddDialog, WorkItemCreateDialog } from '@/ui/components/work-item-create';
 import { useUser } from '@/ui/contexts/user-context';
 import { useNotebooks } from '@/ui/hooks/queries/use-notebooks';
@@ -178,6 +179,7 @@ export function AppLayout(): React.JSX.Element {
 function AuthenticatedLayout(): React.JSX.Element {
   const location = useLocation();
   const navigate = useNavigate();
+  const { email } = useUser();
   const bootstrap = readBootstrap<AppBootstrap>();
 
   // Work item creation state
@@ -324,6 +326,7 @@ function AuthenticatedLayout(): React.JSX.Element {
         onCreateClick={handleOpenCreateDialog}
         breadcrumbs={breadcrumbs}
         onHomeClick={() => navigate('/dashboard')}
+        header={email ? <NotificationBell user_email={email} /> : undefined}
       >
         <Outlet />
       </AppShell>
