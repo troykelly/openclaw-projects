@@ -12,7 +12,7 @@
  */
 
 import type { Pool } from 'pg';
-import type { Connection, LocationUpdate } from '../api/geolocation/types.ts';
+import type { Connection, GeoProviderType, LocationUpdate } from '../api/geolocation/types.ts';
 import { getProvider } from '../api/geolocation/registry.ts';
 import { decryptCredentials, isGeoEncryptionEnabled } from '../api/geolocation/crypto.ts';
 import type { HaEventRouter } from '../api/geolocation/ha-event-router.ts';
@@ -197,7 +197,7 @@ export class ProviderLifecycleManager {
 
   /** Connect to a provider using the registry plugin. Override in tests. */
   protected async connectProvider(row: ProviderRow): Promise<Connection> {
-    const plugin = getProvider(row.provider_type);
+    const plugin = getProvider(row.provider_type as GeoProviderType);
     if (!plugin) {
       throw new Error(`No plugin registered for type: ${row.provider_type}`);
     }

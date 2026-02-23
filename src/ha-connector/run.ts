@@ -18,7 +18,7 @@ import { bootstrapGeoProviders } from '../api/geolocation/bootstrap.ts';
 import { HaEventRouter } from '../api/geolocation/ha-event-router.ts';
 import { GeoIngestorProcessor } from '../api/geolocation/processors/geo-ingestor-processor.ts';
 import { HomeObserverProcessor } from '../api/geolocation/processors/home-observer-processor.ts';
-import { resolveEntityTier } from '../api/geolocation/ha-entity-tiers.ts';
+import { EntityTierResolver } from '../api/geolocation/ha-entity-tiers.ts';
 import { NotifyListener } from '../worker/listener.ts';
 import { ProviderLifecycleManager } from './lifecycle.ts';
 import { startConnectorHealthServer } from './health.ts';
@@ -71,7 +71,7 @@ async function main(): Promise<void> {
 
   const observerProcessor = new HomeObserverProcessor({
     pool,
-    tierResolver: resolveEntityTier,
+    tierResolver: new EntityTierResolver(),
   });
   router.register(observerProcessor);
 
