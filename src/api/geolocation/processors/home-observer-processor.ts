@@ -162,6 +162,26 @@ export class HomeObserverProcessor implements HaEventProcessor {
     // Step 6: bulk insert
     await this.bulkInsert(batchResult, batchId, primaryScene, namespace, context);
 
+    // Step 7: dispatch high-scoring observations via webhook (Issue #1610)
+    // Fire-and-forget — dispatch failure must not prevent batch recording.
+    try {
+      const { dispatchHaObservations } = await import('../../ha-dispatch/service.ts');
+      await dispatchHaObservations(this.pool, {
+        observations: batchResult.scored.map((obs) => ({
+          entity_id: obs.change.entity_id,
+          state: obs.change.new_state,
+          old_state: obs.change.old_state ?? undefined,
+          score: obs.score,
+          reason: obs.scene_label ?? undefined,
+          attributes: obs.change.new_attributes,
+        })),
+        batchScene: primaryScene ?? undefined,
+        namespace,
+      });
+    } catch (err) {
+      this.log.warn('Dispatch failed', { error: err instanceof Error ? err.message : String(err) });
+    }
+
     this.log.info('Batch processed', {
       namespace,
       batchId,
