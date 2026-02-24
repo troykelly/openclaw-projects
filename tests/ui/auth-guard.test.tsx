@@ -55,7 +55,7 @@ const mockUserState = {
 };
 
 vi.mock('@/ui/contexts/user-context', () => ({
-  useUser: () => mockUserState,
+  useUser: () => ({ ...mockUserState, signalAuthenticated: vi.fn(), logout: vi.fn() }),
   useUserEmail: () => mockUserState.email,
   UserProvider: ({ children }: { children: React.ReactNode }) => children,
 }));

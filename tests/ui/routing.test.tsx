@@ -50,7 +50,7 @@ vi.mock('@/ui/lib/api-client', async (importOriginal) => {
 // Mock user context to simulate an authenticated user (issue #1166).
 // Without this, the auth guard in AppLayout blocks all route rendering.
 vi.mock('@/ui/contexts/user-context', () => ({
-  useUser: () => ({ email: 'test@example.com', isLoading: false, isAuthenticated: true }),
+  useUser: () => ({ email: 'test@example.com', isLoading: false, isAuthenticated: true, signalAuthenticated: vi.fn(), logout: vi.fn() }),
   useUserEmail: () => 'test@example.com',
   UserProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
