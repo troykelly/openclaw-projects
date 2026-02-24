@@ -92,6 +92,12 @@ export function relationshipsPaths(): OpenApiDomainModule {
           relationship_type: { type: 'string', description: 'Relationship type UUID or machine-readable name', example: 'parent_of' },
           notes: { type: 'string', description: 'Optional notes about this relationship', example: 'Family relationship confirmed by user' },
           created_by_agent: { type: 'string', description: 'Identifier of the agent creating the relationship', example: 'agent:openclaw-assistant' },
+          queryNamespaces: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'Optional namespace filter for contact resolution. Name-based and UUID lookups are scoped to these namespaces when provided.',
+            example: ['default'],
+          },
         },
       },
 
