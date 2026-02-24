@@ -34,7 +34,7 @@ interface BackendConnection {
 export interface OAuthGatewayMethodsOptions {
   logger: Logger;
   apiClient: ApiClient;
-  user_id: string;
+  getUserId: () => string;
 }
 
 // ---------------------------------------------------------------------------
@@ -277,10 +277,11 @@ export interface OAuthGatewayMethods {
  * Create OAuth gateway RPC method handlers.
  */
 export function createOAuthGatewayMethods(options: OAuthGatewayMethodsOptions): OAuthGatewayMethods {
-  const { logger, apiClient, user_id } = options;
+  const { logger, apiClient, getUserId } = options;
 
   return {
     async accountsList(params: OAuthAccountListParams): Promise<OAuthAccountListResult> {
+      const user_id = getUserId();
       logger.debug('oauth.accounts.list', { user_id });
 
       const qs = new URLSearchParams();
@@ -312,6 +313,7 @@ export function createOAuthGatewayMethods(options: OAuthGatewayMethodsOptions): 
 
     async contactsList(params: OAuthContactsListParams): Promise<OAuthContactsListResult> {
       if (!params.connection_id) throw new Error('connection_id is required');
+      const user_id = getUserId();
 
       logger.debug('oauth.contacts.list', { user_id, connection_id: params.connection_id });
 
@@ -344,6 +346,7 @@ export function createOAuthGatewayMethods(options: OAuthGatewayMethodsOptions): 
 
     async emailList(params: OAuthEmailListParams): Promise<OAuthEmailListResult> {
       if (!params.connection_id) throw new Error('connection_id is required');
+      const user_id = getUserId();
 
       logger.debug('oauth.email.list', { user_id, connection_id: params.connection_id });
 
@@ -380,6 +383,7 @@ export function createOAuthGatewayMethods(options: OAuthGatewayMethodsOptions): 
     async emailGet(params: OAuthEmailGetParams): Promise<OAuthEmailGetResult> {
       if (!params.connection_id) throw new Error('connection_id is required');
       if (!params.message_id) throw new Error('message_id is required');
+      const user_id = getUserId();
 
       logger.debug('oauth.email.get', { user_id, connection_id: params.connection_id, message_id: params.message_id });
 
@@ -409,6 +413,7 @@ export function createOAuthGatewayMethods(options: OAuthGatewayMethodsOptions): 
 
     async filesList(params: OAuthFilesListParams): Promise<OAuthFilesListResult> {
       if (!params.connection_id) throw new Error('connection_id is required');
+      const user_id = getUserId();
 
       logger.debug('oauth.files.list', { user_id, connection_id: params.connection_id });
 
@@ -443,6 +448,7 @@ export function createOAuthGatewayMethods(options: OAuthGatewayMethodsOptions): 
     async filesSearch(params: OAuthFilesSearchParams): Promise<OAuthFilesSearchResult> {
       if (!params.connection_id) throw new Error('connection_id is required');
       if (!params.query) throw new Error('query is required');
+      const user_id = getUserId();
 
       logger.debug('oauth.files.search', { user_id, connection_id: params.connection_id });
 
@@ -476,6 +482,7 @@ export function createOAuthGatewayMethods(options: OAuthGatewayMethodsOptions): 
     async filesGet(params: OAuthFilesGetParams): Promise<OAuthFilesGetResult> {
       if (!params.connection_id) throw new Error('connection_id is required');
       if (!params.file_id) throw new Error('file_id is required');
+      const user_id = getUserId();
 
       logger.debug('oauth.files.get', { user_id, connection_id: params.connection_id, file_id: params.file_id });
 
@@ -505,6 +512,7 @@ export function createOAuthGatewayMethods(options: OAuthGatewayMethodsOptions): 
 
     async calendarList(params: OAuthCalendarListParams): Promise<OAuthCalendarListResult> {
       if (!params.connection_id) throw new Error('connection_id is required');
+      const user_id = getUserId();
 
       logger.debug('oauth.calendar.list', { user_id, connection_id: params.connection_id });
 
@@ -540,6 +548,7 @@ export function createOAuthGatewayMethods(options: OAuthGatewayMethodsOptions): 
 
     async calendarSync(params: OAuthCalendarSyncParams): Promise<OAuthCalendarSyncResult> {
       if (!params.connection_id) throw new Error('connection_id is required');
+      const user_id = getUserId();
 
       logger.debug('oauth.calendar.sync', { user_id, connection_id: params.connection_id });
 
@@ -573,6 +582,7 @@ export function createOAuthGatewayMethods(options: OAuthGatewayMethodsOptions): 
     async calendarCreate(params: OAuthCalendarCreateParams): Promise<OAuthCalendarCreateResult> {
       if (!params.connection_id) throw new Error('connection_id is required');
       if (!params.title) throw new Error('title is required');
+      const user_id = getUserId();
 
       logger.debug('oauth.calendar.create', { user_id, connection_id: params.connection_id });
 

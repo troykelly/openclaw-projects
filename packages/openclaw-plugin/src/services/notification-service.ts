@@ -38,8 +38,8 @@ export interface NotificationServiceOptions {
   logger: Logger;
   /** API client for backend communication */
   apiClient: ApiClient;
-  /** User ID for scoping */
-  user_id: string;
+  /** Getter for current user ID (reads from mutable state, Issue #1644) */
+  getUserId: () => string;
   /** Event emitter for notifications */
   events: NotificationServiceEvents;
   /** Service configuration */
@@ -80,7 +80,7 @@ const EVENT_MAP: Record<NotificationEvent, string> = {
  * @returns Service definition for registration
  */
 export function createNotificationService(options: NotificationServiceOptions): NotificationService {
-  const { logger, apiClient, user_id, events, config: userConfig } = options;
+  const { logger, apiClient, getUserId, events, config: userConfig } = options;
   const config = { ...DEFAULT_CONFIG, ...userConfig };
 
   // Service state
@@ -93,6 +93,7 @@ export function createNotificationService(options: NotificationServiceOptions): 
    * Handle a notification from the backend.
    */
   function handleNotification(notification: Notification): void {
+    const user_id = getUserId();
     const eventName = EVENT_MAP[notification.event];
     if (!eventName) {
       logger.warn('Unknown notification event type', {
@@ -115,6 +116,7 @@ export function createNotificationService(options: NotificationServiceOptions): 
    * Poll the backend for new notifications.
    */
   async function poll(): Promise<void> {
+    const user_id = getUserId();
     try {
       const queryParams = new URLSearchParams();
       queryParams.set('limit', '20');
@@ -166,6 +168,7 @@ export function createNotificationService(options: NotificationServiceOptions): 
      * Start the notification service.
      */
     async start(): Promise<void> {
+      const user_id = getUserId();
       if (!config.enabled) {
         logger.debug('Notification service disabled', { user_id });
         return;
@@ -201,7 +204,7 @@ export function createNotificationService(options: NotificationServiceOptions): 
 
       running = false;
 
-      logger.info('Notification service stopped', { user_id });
+      logger.info('Notification service stopped', { user_id: getUserId() });
     },
 
     /**

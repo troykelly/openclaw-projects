@@ -57,8 +57,8 @@ export interface AutoLinkOptions {
   client: ApiClient;
   /** Logger instance */
   logger: Logger;
-  /** User ID for scoping API calls */
-  user_id: string;
+  /** Getter for current user ID (reads from mutable state, Issue #1644) */
+  getUserId: () => string;
   /** Inbound message data */
   message: AutoLinkMessage;
   /** Similarity threshold for content matching (default: 0.75) */
@@ -474,10 +474,11 @@ export async function autoLinkInboundMessage(options: AutoLinkOptions): Promise<
   const {
     client,
     logger,
-    user_id,
+    getUserId,
     message,
     similarityThreshold = DEFAULT_SIMILARITY_THRESHOLD,
   } = options;
+  const user_id = getUserId();
 
   const emptyResult: AutoLinkResult = {
     linksCreated: 0,
