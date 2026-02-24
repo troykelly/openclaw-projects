@@ -89,7 +89,7 @@ describe('Injection Protection Integration', () => {
         client: mockClient,
         logger: mockLogger,
         config: mockConfig,
-        user_id,
+        getUserId: () => user_id,
       });
 
       const result = await tool.execute({ thread_id: 'thread-1' });
@@ -135,7 +135,7 @@ describe('Injection Protection Integration', () => {
         client: mockClient,
         logger: mockLogger,
         config: mockConfig,
-        user_id,
+        getUserId: () => user_id,
       });
 
       const result = await tool.execute({ thread_id: 'thread-1' });
@@ -180,7 +180,7 @@ describe('Injection Protection Integration', () => {
         client: mockClient,
         logger: mockLogger,
         config: mockConfig,
-        user_id,
+        getUserId: () => user_id,
       });
 
       await tool.execute({ thread_id: 'thread-1' });
@@ -221,7 +221,7 @@ describe('Injection Protection Integration', () => {
         client: mockClient,
         logger: mockLogger,
         config: mockConfig,
-        user_id,
+        getUserId: () => user_id,
       });
 
       const result = await tool.execute({});
@@ -263,7 +263,7 @@ describe('Injection Protection Integration', () => {
         client: mockClient,
         logger: mockLogger,
         config: mockConfig,
-        user_id,
+        getUserId: () => user_id,
       });
 
       const result = await tool.execute({ query: 'test' });
@@ -301,7 +301,7 @@ describe('Injection Protection Integration', () => {
         client: mockClient,
         logger: mockLogger,
         config: mockConfig,
-        user_id,
+        getUserId: () => user_id,
       });
 
       await tool.execute({ query: 'test' });
@@ -350,7 +350,7 @@ describe('Injection Protection Integration', () => {
         client: mockClient,
         logger: mockLogger,
         config: mockConfig,
-        user_id,
+        getUserId: () => user_id,
       });
 
       const result = await tool.execute({ query: 'cooking' });
@@ -400,7 +400,7 @@ describe('Injection Protection Integration', () => {
         client: mockClient,
         logger: mockLogger,
         config: mockConfig,
-        user_id,
+        getUserId: () => user_id,
       });
 
       const result = await tool.execute({ query: 'test' });
@@ -436,7 +436,7 @@ describe('Injection Protection Integration', () => {
         client: mockClient,
         logger: mockLogger,
         config: mockConfig,
-        user_id,
+        getUserId: () => user_id,
       });
 
       const result = await hook({ prompt: 'What do I know?' });
@@ -470,7 +470,7 @@ describe('Injection Protection Integration', () => {
         client: mockClient,
         logger: mockLogger,
         config: mockConfig,
-        user_id,
+        getUserId: () => user_id,
       });
 
       const result = await hook({ prompt: 'theme preferences' });
