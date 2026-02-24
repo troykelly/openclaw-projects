@@ -25,7 +25,7 @@ function renderSidebarWithRouter(initialPath = '/activity') {
       children: [
         { path: 'activity', element: <div data-testid="page-activity">Activity</div> },
         { path: 'projects', element: <div data-testid="page-projects">Projects</div> },
-        { path: 'people', element: <div data-testid="page-people">People</div> },
+        { path: 'contacts', element: <div data-testid="page-contacts">Contacts</div> },
         { path: 'memory', element: <div data-testid="page-memory">Memory</div> },
         { path: 'communications', element: <div data-testid="page-communications">Communications</div> },
         { path: 'skill-store', element: <div data-testid="page-skill-store">Skill Store</div> },
@@ -86,8 +86,8 @@ describe('RouterSidebar NavLink active state', () => {
     expect(projectsLink.className).toContain('bg-primary/10');
   });
 
-  it('marks People link as active when on /people', () => {
-    renderSidebarWithRouter('/people');
+  it('marks People link as active when on /contacts', () => {
+    renderSidebarWithRouter('/contacts');
     const peopleLink = screen.getByRole('link', { name: /people/i });
     expect(peopleLink.className).toContain('bg-primary/10');
   });
@@ -122,14 +122,14 @@ describe('RouterSidebar navigation', () => {
     });
   });
 
-  it('navigates to People when clicking the People link', async () => {
+  it('navigates to Contacts when clicking the People link', async () => {
     renderSidebarWithRouter('/activity');
 
     const peopleLink = screen.getByRole('link', { name: /people/i });
     fireEvent.click(peopleLink);
 
     await waitFor(() => {
-      expect(screen.getByTestId('page-people')).toBeInTheDocument();
+      expect(screen.getByTestId('page-contacts')).toBeInTheDocument();
     });
   });
 

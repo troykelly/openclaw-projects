@@ -20,7 +20,7 @@ export interface RouterNavItem {
 const defaultNavItems: RouterNavItem[] = [
   { id: 'activity', label: 'Activity', icon: Bell, to: '/activity' },
   { id: 'projects', label: 'Projects', icon: Folder, to: '/projects' },
-  { id: 'people', label: 'People', icon: Users, to: '/people' },
+  { id: 'people', label: 'People', icon: Users, to: '/contacts' },
   { id: 'memory', label: 'Memory', icon: Brain, to: '/memory' },
   { id: 'communications', label: 'Communications', icon: MessageSquare, to: '/communications' },
   { id: 'recipes', label: 'Recipes', icon: ChefHat, to: '/recipes' },
