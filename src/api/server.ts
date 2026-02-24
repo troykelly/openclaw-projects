@@ -361,13 +361,61 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   }
 
   /**
-   * Verify that an entity belongs to a namespace the caller can access.
-   * Returns true if no namespace context is available (unscoped) or if the entity matches.
-   * Replaces the old verifyUserEmailScope (Epic #1418, Phase 4).
+   * Resolve the effective namespace list for the current request.
+   * Falls back to ['default'] only when auth is disabled (dev mode).
+   * Authenticated users with no grants get an empty array (no access).
    */
-  async function verifyNamespaceScope(pool: ReturnType<typeof createPool>, table: string, id: string, req: FastifyRequest): Promise<boolean> {
-    const queryNamespaces = req.namespaceContext?.queryNamespaces ?? ['default'];
-    const result = await pool.query(`SELECT 1 FROM "${table}" WHERE id = $1 AND namespace = ANY($2::text[])`, [id, queryNamespaces]);
+  function getEffectiveNamespaces(req: FastifyRequest): string[] {
+    const ns = req.namespaceContext?.queryNamespaces;
+    if (ns && ns.length > 0) return ns;
+    if (isAuthDisabled()) return ['default'];
+    return [];
+  }
+
+  /**
+   * Verify that an entity exists AND is in a namespace the caller can access.
+   * For READ endpoints. Restores namespace authorization removed in Issue #1645.
+   * Issue #1652: namespace filter was missing on 33 read endpoints.
+   * Issue #1654: soft-deleted rows excluded by default.
+   */
+  async function verifyReadScope(
+    pool: ReturnType<typeof createPool>,
+    table: string,
+    id: string,
+    req: FastifyRequest,
+    options?: { includeDeleted?: boolean },
+  ): Promise<boolean> {
+    const queryNamespaces = getEffectiveNamespaces(req);
+    if (queryNamespaces.length === 0) return false;
+    const deletedClause = options?.includeDeleted ? '' : ' AND deleted_at IS NULL';
+    const result = await pool.query(
+      `SELECT 1 FROM "${table}" WHERE id = $1 AND namespace = ANY($2::text[])${deletedClause}`,
+      [id, queryNamespaces],
+    );
+    return result.rows.length > 0;
+  }
+
+  /**
+   * Verify that an entity exists AND is in a namespace the caller can access.
+   * For WRITE endpoints (PATCH/PUT/DELETE). Preserves security boundary.
+   * Renamed from verifyNamespaceScope for clarity (Issue #1645).
+   * Issue #1654: soft-deleted rows excluded by default.
+   * Issue #1656: uses getEffectiveNamespaces for consistent fallback.
+   */
+  async function verifyWriteScope(
+    pool: ReturnType<typeof createPool>,
+    table: string,
+    id: string,
+    req: FastifyRequest,
+    options?: { includeDeleted?: boolean },
+  ): Promise<boolean> {
+    const queryNamespaces = getEffectiveNamespaces(req);
+    if (queryNamespaces.length === 0) return false;
+    const deletedClause = options?.includeDeleted ? '' : ' AND deleted_at IS NULL';
+    const result = await pool.query(
+      `SELECT 1 FROM "${table}" WHERE id = $1 AND namespace = ANY($2::text[])${deletedClause}`,
+      [id, queryNamespaces],
+    );
     return result.rows.length > 0;
   }
 
@@ -1745,7 +1793,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Epic #1418: namespace scoping on parent thread
-    if (!(await verifyNamespaceScope(pool, 'external_thread', params.id, req))) {
+    if (!(await verifyReadScope(pool, 'external_thread', params.id, req, { includeDeleted: true }))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -3125,7 +3173,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Epic #1418: namespace scoping on parent work_item
-    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
+    if (!(await verifyReadScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -3407,7 +3455,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Epic #1418: namespace scoping
-    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
+    if (!(await verifyWriteScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -4058,7 +4106,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const parent_id = body.parent_id ?? null;
     const pool = createPool();
 
-    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
+    if (!(await verifyWriteScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -4128,13 +4176,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Epic #1418: verify entity belongs to caller's namespaces
-    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
+    const includeDeleted = query.include_deleted === 'true';
+    if (!(await verifyReadScope(pool, 'work_item', params.id, req, { includeDeleted }))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
 
     // By default, exclude soft-deleted items
-    const deletedFilter = query.include_deleted === 'true' ? '' : 'AND wi.deleted_at IS NULL';
+    const deletedFilter = includeDeleted ? '' : 'AND wi.deleted_at IS NULL';
 
     // Get main work item
     const result = await pool.query(
@@ -4295,7 +4344,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Epic #1418: namespace scoping
-    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
+    if (!(await verifyWriteScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -4441,7 +4490,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Epic #1418: namespace scoping
-    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
+    if (!(await verifyWriteScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -4471,8 +4520,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const pool = createPool();
 
-    // Epic #1418: namespace scoping
-    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
+    // Epic #1418: namespace scoping (includeDeleted: restore needs to find deleted rows)
+    if (!(await verifyWriteScope(pool, 'work_item', params.id, req, { includeDeleted: true }))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -4993,7 +5042,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
 
-    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
+    if (!(await verifyWriteScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -5039,7 +5088,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const pool = createPool();
 
-    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
+    if (!(await verifyReadScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -5079,7 +5128,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { work_item_id: string; file_id: string };
     const pool = createPool();
 
-    if (!(await verifyNamespaceScope(pool, 'work_item', params.work_item_id, req))) {
+    if (!(await verifyWriteScope(pool, 'work_item', params.work_item_id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -5104,7 +5153,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const pool = createPool();
 
-    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
+    if (!(await verifyReadScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -5143,7 +5192,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     };
     const pool = createPool();
 
-    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
+    if (!(await verifyWriteScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -5218,7 +5267,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const pool = createPool();
 
-    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
+    if (!(await verifyWriteScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -5250,7 +5299,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     };
     const pool = createPool();
 
-    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
+    if (!(await verifyReadScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -5476,7 +5525,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const pool = createPool();
 
-    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
+    if (!(await verifyReadScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -5790,7 +5839,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const pool = createPool();
 
-    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
+    if (!(await verifyReadScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -5864,7 +5913,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const pool = createPool();
 
-    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
+    if (!(await verifyReadScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -6031,7 +6080,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const pool = createPool();
 
-    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
+    if (!(await verifyReadScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -6056,7 +6105,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string; dependency_id: string };
     const pool = createPool();
 
-    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
+    if (!(await verifyWriteScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -6076,7 +6125,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const pool = createPool();
 
-    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
+    if (!(await verifyReadScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -6103,7 +6152,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
 
-    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
+    if (!(await verifyWriteScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -6123,7 +6172,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string; participant_id: string };
     const pool = createPool();
 
-    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
+    if (!(await verifyWriteScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -6143,7 +6192,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const pool = createPool();
 
-    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
+    if (!(await verifyReadScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -6205,7 +6254,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
 
-    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
+    if (!(await verifyWriteScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -6246,7 +6295,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string; link_id: string };
     const pool = createPool();
 
-    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
+    if (!(await verifyWriteScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -6285,7 +6334,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
 
-    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
+    if (!(await verifyWriteScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -6945,12 +6994,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Epic #1418: verify entity belongs to caller's namespaces
-    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+    const includeDeleted = query.include_deleted === 'true';
+    if (!(await verifyReadScope(pool, 'contact', params.id, req, { includeDeleted }))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
 
-    const deletedFilter = query.include_deleted === 'true' ? '' : 'AND c.deleted_at IS NULL';
+    const deletedFilter = includeDeleted ? '' : 'AND c.deleted_at IS NULL';
 
     // Base contact query with expanded fields (#1582)
     const result = await pool.query(
@@ -7080,7 +7130,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Epic #1418: verify entity belongs to caller's namespaces
-    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+    if (!(await verifyWriteScope(pool, 'contact', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -7295,7 +7345,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Epic #1418: verify entity belongs to caller's namespaces
-    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+    if (!(await verifyWriteScope(pool, 'contact', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -7356,7 +7406,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const pool = createPool();
 
-    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+    if (!(await verifyReadScope(pool, 'contact', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -7391,7 +7441,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const pool = createPool();
 
-    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
+    if (!(await verifyReadScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -7439,7 +7489,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
 
-    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
+    if (!(await verifyWriteScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -7488,7 +7538,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string; contact_id: string };
     const pool = createPool();
 
-    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
+    if (!(await verifyWriteScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -7523,7 +7573,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
 
-    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+    if (!(await verifyWriteScope(pool, 'contact', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -7548,7 +7598,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.get('/api/contacts/:id/addresses', async (req, reply) => {
     const params = req.params as { id: string };
     const pool = createPool();
-    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+    if (!(await verifyReadScope(pool, 'contact', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -7578,7 +7628,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       is_primary?: boolean;
     };
     const pool = createPool();
-    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+    if (!(await verifyWriteScope(pool, 'contact', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -7609,7 +7659,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string; addr_id: string };
     const body = req.body as Record<string, unknown>;
     const pool = createPool();
-    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+    if (!(await verifyWriteScope(pool, 'contact', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -7657,7 +7707,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.delete('/api/contacts/:id/addresses/:addr_id', async (req, reply) => {
     const params = req.params as { id: string; addr_id: string };
     const pool = createPool();
-    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+    if (!(await verifyWriteScope(pool, 'contact', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -7678,7 +7728,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.get('/api/contacts/:id/dates', async (req, reply) => {
     const params = req.params as { id: string };
     const pool = createPool();
-    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+    if (!(await verifyReadScope(pool, 'contact', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -7702,7 +7752,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(400).send({ error: 'date_value is required' });
     }
     const pool = createPool();
-    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+    if (!(await verifyWriteScope(pool, 'contact', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -7721,7 +7771,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string; date_id: string };
     const body = req.body as Record<string, unknown>;
     const pool = createPool();
-    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+    if (!(await verifyWriteScope(pool, 'contact', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -7757,7 +7807,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.delete('/api/contacts/:id/dates/:date_id', async (req, reply) => {
     const params = req.params as { id: string; date_id: string };
     const pool = createPool();
-    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+    if (!(await verifyWriteScope(pool, 'contact', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -7778,7 +7828,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.get('/api/contacts/:id/endpoints', async (req, reply) => {
     const params = req.params as { id: string };
     const pool = createPool();
-    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+    if (!(await verifyReadScope(pool, 'contact', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -7799,7 +7849,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string; ep_id: string };
     const body = req.body as Record<string, unknown>;
     const pool = createPool();
-    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+    if (!(await verifyWriteScope(pool, 'contact', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -7842,7 +7892,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.delete('/api/contacts/:id/endpoints/:ep_id', async (req, reply) => {
     const params = req.params as { id: string; ep_id: string };
     const pool = createPool();
-    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+    if (!(await verifyWriteScope(pool, 'contact', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -7863,7 +7913,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.get('/api/contacts/:id/tags', async (req, reply) => {
     const params = req.params as { id: string };
     const pool = createPool();
-    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+    if (!(await verifyReadScope(pool, 'contact', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -7880,7 +7930,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const body = req.body as { tags?: string[]; tag?: string };
     const pool = createPool();
-    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+    if (!(await verifyWriteScope(pool, 'contact', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -7914,7 +7964,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.delete('/api/contacts/:id/tags/:tag', async (req, reply) => {
     const params = req.params as { id: string; tag: string };
     const pool = createPool();
-    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+    if (!(await verifyWriteScope(pool, 'contact', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -7967,7 +8017,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(503).send({ error: 'File storage not configured' });
     }
     const pool = createPool();
-    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+    if (!(await verifyWriteScope(pool, 'contact', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -8021,7 +8071,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.delete('/api/contacts/:id/photo', async (req, reply) => {
     const params = req.params as { id: string };
     const pool = createPool();
-    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+    if (!(await verifyWriteScope(pool, 'contact', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -8090,7 +8140,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }
 
       // Namespace scope check
-      if (!(await verifyNamespaceScope(pool, 'contact', survivor.id, req))) {
+      if (!(await verifyWriteScope(pool, 'contact', survivor.id, req))) {
         await client.query('ROLLBACK');
         client.release();
         await pool.end();
@@ -9820,7 +9870,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const pool = createPool();
 
-    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
+    if (!(await verifyReadScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -9870,7 +9920,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
 
-    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
+    if (!(await verifyWriteScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -10113,7 +10163,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
 
-    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+    if (!(await verifyReadScope(pool, 'contact', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -10392,7 +10442,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
 
-    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+    if (!(await verifyReadScope(pool, 'contact', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -10515,7 +10565,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
 
-    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
+    if (!(await verifyReadScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -10627,7 +10677,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const pool = createPool();
 
-    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
+    if (!(await verifyReadScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -10718,7 +10768,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const pool = createPool();
 
-    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
+    if (!(await verifyReadScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -10775,7 +10825,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const pool = createPool();
 
-    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
+    if (!(await verifyReadScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -10841,7 +10891,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
 
-    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
+    if (!(await verifyWriteScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -10883,7 +10933,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string; email_id: string };
     const pool = createPool();
 
-    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
+    if (!(await verifyWriteScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -10924,7 +10974,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
 
-    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
+    if (!(await verifyWriteScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -11005,7 +11055,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
 
-    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
+    if (!(await verifyWriteScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -11049,7 +11099,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string; comm_id: string };
     const pool = createPool();
 
-    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
+    if (!(await verifyWriteScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -12111,7 +12161,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
 
-    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
+    if (!(await verifyWriteScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -12300,7 +12350,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
 
-    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
+    if (!(await verifyWriteScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -12538,7 +12588,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
 
-    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
+    if (!(await verifyWriteScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -12616,7 +12666,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const pool = createPool();
 
-    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
+    if (!(await verifyReadScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -12655,7 +12705,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
 
-    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
+    if (!(await verifyWriteScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -12696,7 +12746,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
 
-    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
+    if (!(await verifyWriteScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -12760,7 +12810,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string; todo_id: string };
     const pool = createPool();
 
-    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
+    if (!(await verifyWriteScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -13062,7 +13112,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping on parent work_item
-    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
+    if (!(await verifyReadScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -13136,7 +13186,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping on parent work_item
-    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
+    if (!(await verifyWriteScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -13188,7 +13238,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping on parent work_item
-    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
+    if (!(await verifyWriteScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -13244,7 +13294,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping on parent work_item
-    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
+    if (!(await verifyWriteScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -13281,7 +13331,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping on parent work_item
-    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
+    if (!(await verifyWriteScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -13329,7 +13379,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping on parent work_item
-    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
+    if (!(await verifyReadScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -13361,7 +13411,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping on parent work_item
-    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
+    if (!(await verifyWriteScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -13392,7 +13442,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping on parent work_item
-    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
+    if (!(await verifyWriteScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -17472,6 +17522,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         return reply.code(400).send({ error: 'Field "relationship_type" is required' });
       }
 
+      const queryNamespaces = req.namespaceContext?.queryNamespaces ?? ['default'];
       const result = await relationshipSet(pool, {
         contact_a: contact_a.trim(),
         contact_b: contact_b.trim(),
@@ -17479,6 +17530,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         notes: (body.notes as string) ?? undefined,
         created_by_agent: (body.created_by_agent as string) ?? undefined,
         namespace: getStoreNamespace(req),
+        queryNamespaces,
       });
 
       return reply.send(result);
@@ -17501,7 +17553,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const params = req.params as { id: string };
 
       // Epic #1418: namespace scoping
-      if (!(await verifyNamespaceScope(pool, 'relationship', params.id, req))) {
+      if (!(await verifyReadScope(pool, 'relationship', params.id, req, { includeDeleted: true }))) {
         return reply.code(404).send({ error: 'not found' });
       }
 
@@ -17579,7 +17631,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const body = req.body as Record<string, unknown> | null;
 
       // Epic #1418: namespace scoping
-      if (!(await verifyNamespaceScope(pool, 'relationship', params.id, req))) {
+      if (!(await verifyWriteScope(pool, 'relationship', params.id, req, { includeDeleted: true }))) {
         return reply.code(404).send({ error: 'not found' });
       }
 
@@ -17611,7 +17663,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const params = req.params as { id: string };
 
       // Epic #1418: namespace scoping
-      if (!(await verifyNamespaceScope(pool, 'relationship', params.id, req))) {
+      if (!(await verifyWriteScope(pool, 'relationship', params.id, req, { includeDeleted: true }))) {
         return reply.code(404).send({ error: 'not found' });
       }
 
@@ -17635,7 +17687,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const params = req.params as { id: string };
 
       // Epic #1418: namespace scoping on parent contact
-      if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+      if (!(await verifyReadScope(pool, 'contact', params.id, req))) {
         return reply.code(404).send({ error: 'not found' });
       }
 
@@ -17654,7 +17706,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const params = req.params as { id: string };
 
       // Epic #1418: namespace scoping on parent contact
-      if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+      if (!(await verifyReadScope(pool, 'contact', params.id, req))) {
         return reply.code(404).send({ error: 'not found' });
       }
 
@@ -17673,7 +17725,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const params = req.params as { id: string };
 
       // Epic #1418: namespace scoping on parent contact
-      if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+      if (!(await verifyReadScope(pool, 'contact', params.id, req))) {
         return reply.code(404).send({ error: 'not found' });
       }
 

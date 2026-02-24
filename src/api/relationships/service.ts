@@ -433,33 +433,58 @@ export async function getContactGroups(pool: Pool, contact_id: string): Promise<
 /**
  * Resolves a contact identifier (UUID or display name) to a contact ID and name.
  * Returns null if the contact cannot be found.
+ *
+ * UUID lookups: namespace-scoped when namespaces provided (Issue #1653)
+ * Name lookups: namespace-scoped when namespaces provided (Issue #1646)
  */
-async function resolveContact(pool: Pool, identifier: string): Promise<{ id: string; display_name: string } | null> {
-  const baseParams = [identifier];
-
-  // Try as UUID first
+async function resolveContact(
+  pool: Pool,
+  identifier: string,
+  queryNamespaces?: string[],
+): Promise<{ id: string; display_name: string } | null> {
+  // Try as UUID first — namespace-scoped when namespaces provided (Issue #1653)
   const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
   if (uuidPattern.test(identifier)) {
-    const result = await pool.query(`SELECT id::text as id, display_name FROM contact WHERE id = $1`, baseParams);
+    const query = queryNamespaces?.length
+      ? `SELECT id::text as id, display_name FROM contact WHERE id = $1 AND namespace = ANY($2::text[])`
+      : `SELECT id::text as id, display_name FROM contact WHERE id = $1`;
+    const params = queryNamespaces?.length
+      ? [identifier, queryNamespaces]
+      : [identifier];
+    const result = await pool.query(query, params);
     if (result.rows.length > 0) {
       const row = result.rows[0] as { id: string; display_name: string };
       return { id: row.id, display_name: row.display_name };
     }
   }
 
-  // Try as display name (exact match, case-insensitive)
-  const nameResult = await pool.query(
-    `SELECT id::text as id, display_name FROM contact
-     WHERE lower(display_name) = lower($1)
-     ORDER BY created_at ASC
-     LIMIT 1`,
-    baseParams,
-  );
-
-  if (nameResult.rows.length > 0) {
-    const row = nameResult.rows[0] as { id: string; display_name: string };
-    return { id: row.id, display_name: row.display_name };
+  // Name lookup: namespace-scoped when namespaces provided (names aren't globally unique)
+  if (queryNamespaces && queryNamespaces.length > 0) {
+    const nameResult = await pool.query(
+      `SELECT id::text as id, display_name FROM contact
+       WHERE lower(display_name) = lower($1) AND namespace = ANY($2::text[])
+       ORDER BY created_at ASC
+       LIMIT 1`,
+      [identifier, queryNamespaces],
+    );
+    if (nameResult.rows.length > 0) {
+      const row = nameResult.rows[0] as { id: string; display_name: string };
+      return { id: row.id, display_name: row.display_name };
+    }
+  } else {
+    // No namespace filter (backward compat for callers without namespace context)
+    const nameResult = await pool.query(
+      `SELECT id::text as id, display_name FROM contact
+       WHERE lower(display_name) = lower($1)
+       ORDER BY created_at ASC
+       LIMIT 1`,
+      [identifier],
+    );
+    if (nameResult.rows.length > 0) {
+      const row = nameResult.rows[0] as { id: string; display_name: string };
+      return { id: row.id, display_name: row.display_name };
+    }
   }
 
   return null;
@@ -506,13 +531,13 @@ async function resolveRelationshipType(pool: Pool, typeIdentifier: string): Prom
  * @throws Error if relationship type cannot be resolved
  */
 export async function relationshipSet(pool: Pool, input: RelationshipSetInput): Promise<RelationshipSetResult> {
-  // Step 1 & 2: Resolve contacts
-  const contact_a = await resolveContact(pool, input.contact_a);
+  // Step 1 & 2: Resolve contacts (with namespace scoping for name lookups, Issue #1646)
+  const contact_a = await resolveContact(pool, input.contact_a, input.queryNamespaces);
   if (!contact_a) {
     throw new Error(`Contact "${input.contact_a}" cannot be resolved. No matching contact found.`);
   }
 
-  const contact_b = await resolveContact(pool, input.contact_b);
+  const contact_b = await resolveContact(pool, input.contact_b, input.queryNamespaces);
   if (!contact_b) {
     throw new Error(`Contact "${input.contact_b}" cannot be resolved. No matching contact found.`);
   }
@@ -523,17 +548,29 @@ export async function relationshipSet(pool: Pool, input: RelationshipSetInput): 
     throw new Error(`Relationship type "${input.relationship_type}" cannot be resolved. No matching type found.`);
   }
 
-  // Step 4: Check for existing relationship
-  const existingResult = await pool.query(
-    `SELECT id::text as id, contact_a_id::text as contact_a_id,
-            contact_b_id::text as contact_b_id,
-            relationship_type_id::text as relationship_type_id,
-            notes, created_by_agent, embedding_status,
-            created_at, updated_at
-     FROM relationship
-     WHERE contact_a_id = $1 AND contact_b_id = $2 AND relationship_type_id = $3`,
-    [contact_a.id, contact_b.id, relType.id],
-  );
+  // Step 4: Check for existing relationship (with namespace scoping, Issue #1646)
+  const existingQuery = input.queryNamespaces?.length
+    ? `SELECT id::text as id, contact_a_id::text as contact_a_id,
+              contact_b_id::text as contact_b_id,
+              relationship_type_id::text as relationship_type_id,
+              notes, created_by_agent, embedding_status,
+              created_at, updated_at
+       FROM relationship
+       WHERE contact_a_id = $1 AND contact_b_id = $2 AND relationship_type_id = $3
+         AND namespace = ANY($4::text[])`
+    : `SELECT id::text as id, contact_a_id::text as contact_a_id,
+              contact_b_id::text as contact_b_id,
+              relationship_type_id::text as relationship_type_id,
+              notes, created_by_agent, embedding_status,
+              created_at, updated_at
+       FROM relationship
+       WHERE contact_a_id = $1 AND contact_b_id = $2 AND relationship_type_id = $3`;
+
+  const existingParams = input.queryNamespaces?.length
+    ? [contact_a.id, contact_b.id, relType.id, input.queryNamespaces]
+    : [contact_a.id, contact_b.id, relType.id];
+
+  const existingResult = await pool.query(existingQuery, existingParams);
 
   if (existingResult.rows.length > 0) {
     return {

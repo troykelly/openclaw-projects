@@ -128,6 +128,9 @@ export function extractContext(runtimeContext: unknown): PluginContext {
   };
 }
 
+/** Maximum length for agent IDs (matches PostgreSQL identifier limits) */
+export const MAX_AGENT_ID_LENGTH = 63;
+
 /** Allowed characters in session keys: alphanumeric, colon, hyphen, underscore */
 const SESSION_KEY_REGEX = /^[a-zA-Z0-9:_-]+$/;
 
@@ -175,7 +178,46 @@ export function parseAgentIdFromSessionKey(sessionKey: string | null | undefined
     return 'unknown';
   }
 
+  if (agentId.length > MAX_AGENT_ID_LENGTH) {
+    return 'unknown';
+  }
+
   return agentId;
+}
+
+/**
+ * Resolve the effective agent ID from all available sources.
+ *
+ * Priority:
+ * 1. Explicit config agentId (always wins)
+ * 2. Hook context agentId (per-session, from gateway)
+ * 3. Parsed from session key (fallback parsing)
+ * 4. Existing state value (may be resolved from a previous hook call)
+ * 5. "unknown" (last resort)
+ *
+ * Issue #1644: Agent ID must be resolved per-session from hook context,
+ * not at plugin registration time from api.runtime.
+ */
+export function resolveAgentId(
+  hookCtx: { agentId?: string; sessionKey?: string },
+  configAgentId: string | undefined,
+  currentStateValue: string,
+): string {
+  // 1. Explicit config (always wins)
+  if (configAgentId) return configAgentId;
+
+  // 2. Hook context agentId (skip if "unknown")
+  if (hookCtx.agentId && hookCtx.agentId !== 'unknown') return hookCtx.agentId;
+
+  // 3. Parse from session key
+  const fromSession = parseAgentIdFromSessionKey(hookCtx.sessionKey);
+  if (fromSession !== 'unknown') return fromSession;
+
+  // 4. Existing state (may already be resolved from a previous hook call)
+  if (currentStateValue !== 'unknown') return currentStateValue;
+
+  // 5. Last resort
+  return 'unknown';
 }
 
 /** Context for user scoping */

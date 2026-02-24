@@ -11,7 +11,7 @@
 import { ZodError } from 'zod';
 import { type ApiClient, createApiClient } from './api-client.js';
 import { type PluginConfig, type RawPluginConfig, redactConfig, resolveConfigSecretsSync, resolveNamespaceConfig, validateRawConfig } from './config.js';
-import { extractContext, getUserScopeKey } from './context.js';
+import { extractContext, getUserScopeKey, resolveAgentId } from './context.js';
 import { createOAuthGatewayMethods, registerOAuthGatewayRpcMethods } from './gateway/oauth-rpc-methods.js';
 import { createGatewayMethods, registerGatewayRpcMethods } from './gateway/rpc-methods.js';
 import { createAutoCaptureHook, createGraphAwareRecallHook } from './hooks.js';
@@ -62,9 +62,10 @@ interface PluginState {
   config: PluginConfig;
   logger: Logger;
   apiClient: ApiClient;
-  user_id: string;
-  /** User email from runtime context for identity resolution (#1567) */
-  user_email?: string;
+  /** Resolved agent identifier (Issue #1657: renamed from user_id) */
+  agentId: string;
+  /** Agent email from runtime context for identity resolution (#1567, #1657: renamed from user_email) */
+  agentEmail?: string;
   /** Resolved namespace config (Issue #1428). Mutable: recall may be updated by dynamic discovery (#1537). */
   resolvedNamespace: { default: string; recall: string[] };
   /** Whether static recall config was explicitly set (Issue #1537) */
@@ -73,6 +74,8 @@ interface PluginState {
   lastNamespaceRefreshMs: number;
   /** Guard against concurrent refresh calls (Issue #1537) */
   refreshInFlight: boolean;
+  /** Session key of the currently active session (Issue #1655) */
+  activeSessionKey?: string;
 }
 
 /**
@@ -1567,7 +1570,7 @@ export async function refreshNamespacesAsync(state: PluginState): Promise<void> 
   try {
     const response = await state.apiClient.get<Array<{ namespace: string; priority?: number; role?: string }>>(
       '/api/namespaces',
-      { user_id: state.user_id, user_email: state.user_email },
+      { user_id: state.agentId, user_email: state.agentEmail },
     );
 
     if (!response.success) {
@@ -1611,19 +1614,22 @@ export async function refreshNamespacesAsync(state: PluginState): Promise<void> 
  * Create tool execution handlers
  */
 function createToolHandlers(state: PluginState) {
-  const { config, logger, apiClient, user_id, user_email, resolvedNamespace } = state;
+  const { config, logger, apiClient } = state;
 
-  /** Build RequestOptions with user_id and user_email for identity resolution (#1567) */
-  const reqOpts = (): { user_id: string; user_email?: string } => ({ user_id, user_email });
+  // Issue #1644: Read user_id from mutable state on every call.
+  const getAgentId = (): string => state.agentId;
 
-  /**
-   * Get the effective namespace for a store/create operation.
-   * Uses explicit tool param if provided, otherwise falls back to config default.
-   */
+  /** Read user_id from mutable state on every call (Issue #1644) */
+  const reqOpts = (): { user_id: string; user_email?: string } => ({
+    user_id: state.agentId,
+    user_email: state.agentEmail,
+  });
+
+  /** Read namespace from mutable state on every call (Issue #1644) */
   function getStoreNamespace(params: Record<string, unknown>): string {
     const ns = params.namespace;
     if (typeof ns === 'string' && ns.length > 0) return ns;
-    return resolvedNamespace.default;
+    return state.resolvedNamespace.default;
   }
 
   /**
@@ -1641,7 +1647,7 @@ function createToolHandlers(state: PluginState) {
       refreshNamespacesAsync(state);
     }
 
-    return resolvedNamespace.recall;
+    return state.resolvedNamespace.recall;
   }
 
   return {
@@ -1734,7 +1740,7 @@ function createToolHandlers(state: PluginState) {
           success: true,
           data: {
             content,
-            details: { count: memories.length, memories, user_id },
+            details: { count: memories.length, memories, user_id: state.agentId },
           },
         };
       } catch (error) {
@@ -1892,7 +1898,7 @@ function createToolHandlers(state: PluginState) {
       try {
         const queryParams = new URLSearchParams({ item_type: 'project', limit: String(limit) });
         if (status !== 'all') queryParams.set('status', status);
-        queryParams.set('user_email', user_id); // Issue #1172: scope by user
+        queryParams.set('user_email', state.agentId); // Issue #1172: scope by user
         // Namespace scoping (Issue #1428)
         const projListNs = getRecallNamespaces(params);
         if (projListNs.length > 0) queryParams.set('namespaces', projListNs.join(','));
@@ -1921,7 +1927,7 @@ function createToolHandlers(state: PluginState) {
 
       try {
         const response = await apiClient.get<{ id: string; title: string; description?: string; status: string }>(
-          `/api/work-items/${project_id}?user_email=${encodeURIComponent(user_id)}`,
+          `/api/work-items/${project_id}?user_email=${encodeURIComponent(state.agentId)}`,
           reqOpts(),
         );
 
@@ -1957,7 +1963,7 @@ function createToolHandlers(state: PluginState) {
       try {
         const response = await apiClient.post<{ id: string }>(
           '/api/work-items',
-          { title: name, description, item_type: 'project', status, user_email: user_id, namespace: getStoreNamespace(params) },
+          { title: name, description, item_type: 'project', status, user_email: state.agentId, namespace: getStoreNamespace(params) },
           reqOpts(),
         );
 
@@ -1996,7 +2002,7 @@ function createToolHandlers(state: PluginState) {
           item_type: 'task',
           limit: String(limit),
           offset: String(offset),
-          user_email: user_id, // Issue #1172: scope by user
+          user_email: state.agentId, // Issue #1172: scope by user
         });
         if (project_id) queryParams.set('parent_work_item_id', project_id);
         if (completed !== undefined) {
@@ -2059,7 +2065,7 @@ function createToolHandlers(state: PluginState) {
       };
 
       try {
-        const body: Record<string, unknown> = { title, description, item_type: 'task', priority, user_email: user_id, namespace: getStoreNamespace(params) };
+        const body: Record<string, unknown> = { title, description, item_type: 'task', priority, user_email: state.agentId, namespace: getStoreNamespace(params) };
         if (project_id) body.parent_work_item_id = project_id;
         if (dueDate) body.not_after = dueDate;
 
@@ -2087,7 +2093,7 @@ function createToolHandlers(state: PluginState) {
 
       try {
         const response = await apiClient.patch<{ id: string }>(
-          `/api/work-items/${todoId}/status?user_email=${encodeURIComponent(user_id)}`,
+          `/api/work-items/${todoId}/status?user_email=${encodeURIComponent(state.agentId)}`,
           { status: 'completed' },
           reqOpts(),
         );
@@ -2132,7 +2138,7 @@ function createToolHandlers(state: PluginState) {
           types: 'work_item',
           limit: String(fetchLimit),
           semantic: 'true',
-          user_email: user_id, // Issue #1216: scope results to current user
+          user_email: state.agentId, // Issue #1216: scope results to current user
         });
         // Namespace scoping (Issue #1428)
         const todoSearchNs = getRecallNamespaces(params);
@@ -2210,12 +2216,12 @@ function createToolHandlers(state: PluginState) {
     },
 
     async project_search(params: Record<string, unknown>): Promise<ToolResult> {
-      const tool = createProjectSearchTool({ client: apiClient, logger, config, user_id });
+      const tool = createProjectSearchTool({ client: apiClient, logger, config, user_id: getAgentId() });
       return tool.execute(params as Parameters<typeof tool.execute>[0]);
     },
 
     async context_search(params: Record<string, unknown>): Promise<ToolResult> {
-      const tool = createContextSearchTool({ client: apiClient, logger, config, user_id });
+      const tool = createContextSearchTool({ client: apiClient, logger, config, user_id: getAgentId() });
       return tool.execute(params as Parameters<typeof tool.execute>[0]);
     },
 
@@ -2223,11 +2229,11 @@ function createToolHandlers(state: PluginState) {
       const { query, limit = 10 } = params as { query: string; limit?: number };
 
       try {
-        const queryParams = new URLSearchParams({ search: query, limit: String(limit), user_email: user_id });
+        const queryParams = new URLSearchParams({ search: query, limit: String(limit), user_email: state.agentId });
         const contactSearchNs = getRecallNamespaces(params);
         if (contactSearchNs.length > 0) queryParams.set('namespaces', contactSearchNs.join(','));
         const response = await apiClient.get<{ contacts: Array<{ id: string; display_name: string; email?: string }> }>(`/api/contacts?${queryParams}`, {
-          user_id,
+          user_id: state.agentId,
         });
 
         if (!response.success) {
@@ -2252,7 +2258,7 @@ function createToolHandlers(state: PluginState) {
 
       try {
         const response = await apiClient.get<{ id: string; name: string; email?: string; phone?: string; notes?: string }>(
-          `/api/contacts/${contact_id}?user_email=${encodeURIComponent(user_id)}`,
+          `/api/contacts/${contact_id}?user_email=${encodeURIComponent(state.agentId)}`,
           reqOpts(),
         );
 
@@ -2297,7 +2303,7 @@ function createToolHandlers(state: PluginState) {
 
       try {
         const body: Record<string, unknown> = {
-          user_email: user_id,
+          user_email: state.agentId,
           namespace: getStoreNamespace(params),
           notes,
           contact_kind: contact_kind ?? 'person',
@@ -2544,7 +2550,7 @@ function createToolHandlers(state: PluginState) {
       }
 
       logger.info('sms_send invoked', {
-        user_id,
+        user_id: state.agentId,
         bodyLength: body.length,
         hasIdempotencyKey: !!idempotency_key,
       });
@@ -2558,7 +2564,7 @@ function createToolHandlers(state: PluginState) {
 
         if (!response.success) {
           logger.error('sms_send API error', {
-            user_id,
+            user_id: state.agentId,
             status: response.error.status,
             code: response.error.code,
           });
@@ -2571,7 +2577,7 @@ function createToolHandlers(state: PluginState) {
         const { message_id, thread_id, status } = response.data;
 
         logger.debug('sms_send completed', {
-          user_id,
+          user_id: state.agentId,
           message_id,
           status,
         });
@@ -2580,12 +2586,12 @@ function createToolHandlers(state: PluginState) {
           success: true,
           data: {
             content: `SMS sent successfully (ID: ${message_id}, Status: ${status})`,
-            details: { message_id, thread_id, status, user_id },
+            details: { message_id, thread_id, status, user_id: state.agentId },
           },
         };
       } catch (error) {
         logger.error('sms_send failed', {
-          user_id,
+          user_id: state.agentId,
           error: error instanceof Error ? error.message : String(error),
         });
 
@@ -2644,7 +2650,7 @@ function createToolHandlers(state: PluginState) {
       }
 
       logger.info('email_send invoked', {
-        user_id,
+        user_id: state.agentId,
         subjectLength: subject.length,
         bodyLength: body.length,
         hasHtmlBody: !!html_body,
@@ -2661,7 +2667,7 @@ function createToolHandlers(state: PluginState) {
 
         if (!response.success) {
           logger.error('email_send API error', {
-            user_id,
+            user_id: state.agentId,
             status: response.error.status,
             code: response.error.code,
           });
@@ -2674,7 +2680,7 @@ function createToolHandlers(state: PluginState) {
         const { message_id, thread_id: responseThreadId, status } = response.data;
 
         logger.debug('email_send completed', {
-          user_id,
+          user_id: state.agentId,
           message_id,
           status,
         });
@@ -2683,12 +2689,12 @@ function createToolHandlers(state: PluginState) {
           success: true,
           data: {
             content: `Email sent successfully (ID: ${message_id}, Status: ${status})`,
-            details: { message_id, thread_id: responseThreadId, status, user_id },
+            details: { message_id, thread_id: responseThreadId, status, user_id: state.agentId },
           },
         };
       } catch (error) {
         logger.error('email_send failed', {
-          user_id,
+          user_id: state.agentId,
           error: error instanceof Error ? error.message : String(error),
         });
 
@@ -2729,7 +2735,7 @@ function createToolHandlers(state: PluginState) {
       }
 
       logger.info('message_search invoked', {
-        user_id,
+        user_id: state.agentId,
         queryLength: query.length,
         channel,
         hasContactId: !!contact_id,
@@ -2774,7 +2780,7 @@ function createToolHandlers(state: PluginState) {
 
         if (!response.success) {
           logger.error('message_search API error', {
-            user_id,
+            user_id: state.agentId,
             status: response.error.status,
             code: response.error.code,
           });
@@ -2798,7 +2804,7 @@ function createToolHandlers(state: PluginState) {
         }));
 
         logger.debug('message_search completed', {
-          user_id,
+          user_id: state.agentId,
           resultCount: messages.length,
           total,
         });
@@ -2814,12 +2820,12 @@ function createToolHandlers(state: PluginState) {
               promptGuardUrl: config.promptGuardUrl,
             });
             if (detection.detected) {
-              const logDecision = injectionLogLimiter.shouldLog(user_id);
+              const logDecision = injectionLogLimiter.shouldLog(state.agentId);
               if (logDecision.log) {
                 logger.warn(
                   logDecision.summary ? 'injection detection log summary for previous window' : 'potential prompt injection detected in message_search result',
                   {
-                    user_id,
+                    user_id: state.agentId,
                     message_id: m.id,
                     patterns: detection.patterns,
                     source: detection.source,
@@ -2860,12 +2866,12 @@ function createToolHandlers(state: PluginState) {
           success: true,
           data: {
             content,
-            details: { messages, total, user_id },
+            details: { messages, total, user_id: state.agentId },
           },
         };
       } catch (error) {
         logger.error('message_search failed', {
-          user_id,
+          user_id: state.agentId,
           error: error instanceof Error ? error.message : String(error),
         });
 
@@ -2888,7 +2894,7 @@ function createToolHandlers(state: PluginState) {
       };
 
       logger.info('thread_list invoked', {
-        user_id,
+        user_id: state.agentId,
         channel,
         hasContactId: !!contact_id,
         limit,
@@ -2927,7 +2933,7 @@ function createToolHandlers(state: PluginState) {
 
         if (!response.success) {
           logger.error('thread_list API error', {
-            user_id,
+            user_id: state.agentId,
             status: response.error.status,
             code: response.error.code,
           });
@@ -2942,7 +2948,7 @@ function createToolHandlers(state: PluginState) {
         const total = response.data.total ?? results.length;
 
         logger.debug('thread_list completed', {
-          user_id,
+          user_id: state.agentId,
           threadCount: results.length,
           total,
         });
@@ -2974,12 +2980,12 @@ function createToolHandlers(state: PluginState) {
           success: true,
           data: {
             content,
-            details: { threads: results, total, user_id },
+            details: { threads: results, total, user_id: state.agentId },
           },
         };
       } catch (error) {
         logger.error('thread_list failed', {
-          user_id,
+          user_id: state.agentId,
           error: error instanceof Error ? error.message : String(error),
         });
 
@@ -3005,7 +3011,7 @@ function createToolHandlers(state: PluginState) {
       }
 
       logger.info('thread_get invoked', {
-        user_id,
+        user_id: state.agentId,
         thread_id,
         message_limit,
       });
@@ -3033,7 +3039,7 @@ function createToolHandlers(state: PluginState) {
 
         if (!response.success) {
           logger.error('thread_get API error', {
-            user_id,
+            user_id: state.agentId,
             thread_id,
             status: response.error.status,
             code: response.error.code,
@@ -3047,7 +3053,7 @@ function createToolHandlers(state: PluginState) {
         const { thread, messages } = response.data;
 
         logger.debug('thread_get completed', {
-          user_id,
+          user_id: state.agentId,
           thread_id,
           message_count: messages.length,
         });
@@ -3066,12 +3072,12 @@ function createToolHandlers(state: PluginState) {
               promptGuardUrl: config.promptGuardUrl,
             });
             if (detection.detected) {
-              const logDecision = injectionLogLimiter.shouldLog(user_id);
+              const logDecision = injectionLogLimiter.shouldLog(state.agentId);
               if (logDecision.log) {
                 logger.warn(
                   logDecision.summary ? 'injection detection log summary for previous window' : 'potential prompt injection detected in thread_get result',
                   {
-                    user_id,
+                    user_id: state.agentId,
                     thread_id,
                     message_id: m.id,
                     patterns: detection.patterns,
@@ -3107,12 +3113,12 @@ function createToolHandlers(state: PluginState) {
           success: true,
           data: {
             content,
-            details: { thread, messages, user_id },
+            details: { thread, messages, user_id: state.agentId },
           },
         };
       } catch (error) {
         logger.error('thread_get failed', {
-          user_id,
+          user_id: state.agentId,
           thread_id,
           error: error instanceof Error ? error.message : String(error),
         });
@@ -3140,7 +3146,7 @@ function createToolHandlers(state: PluginState) {
       }
 
       logger.info('relationship_set invoked', {
-        user_id,
+        user_id: state.agentId,
         contactALength: contact_a.length,
         contactBLength: contact_b.length,
         relationshipLength: relationship.length,
@@ -3152,7 +3158,7 @@ function createToolHandlers(state: PluginState) {
           contact_a,
           contact_b,
           relationship_type: relationship,
-          user_email: user_id, // Issue #1172: scope by user
+          user_email: state.agentId, // Issue #1172: scope by user
           namespace: getStoreNamespace(params), // Issue #1428
         };
         if (notes) {
@@ -3186,7 +3192,7 @@ function createToolHandlers(state: PluginState) {
               contact_a: respA,
               contact_b: respB,
               relationship_type,
-              user_id,
+              user_id: state.agentId,
             },
           },
         };
@@ -3210,7 +3216,7 @@ function createToolHandlers(state: PluginState) {
       }
 
       logger.info('relationship_query invoked', {
-        user_id,
+        user_id: state.agentId,
         contactLength: contact.length,
         hasTypeFilter: !!type_filter,
       });
@@ -3224,7 +3230,7 @@ function createToolHandlers(state: PluginState) {
           contact_id = contact;
         } else {
           // Search for contact by name (Issue #1172: scope by user_email)
-          const searchParams = new URLSearchParams({ search: contact, limit: '1', user_email: user_id });
+          const searchParams = new URLSearchParams({ search: contact, limit: '1', user_email: state.agentId });
           const searchResponse = await apiClient.get<{
             contacts: Array<{ id: string; display_name: string }>;
           }>(`/api/contacts?${searchParams}`, reqOpts());
@@ -3254,7 +3260,7 @@ function createToolHandlers(state: PluginState) {
             is_directional: boolean;
             notes: string | null;
           }>;
-        }>(`/api/contacts/${contact_id}/relationships?user_email=${encodeURIComponent(user_id)}`, reqOpts());
+        }>(`/api/contacts/${contact_id}/relationships?user_email=${encodeURIComponent(state.agentId)}`, reqOpts());
 
         if (!response.success) {
           if (response.error.code === 'NOT_FOUND') {
@@ -3279,7 +3285,7 @@ function createToolHandlers(state: PluginState) {
             success: true,
             data: {
               content: `No relationships found for ${contact_name}.`,
-              details: { contact_id, contact_name, related_contacts: [], user_id },
+              details: { contact_id, contact_name, related_contacts: [], user_id: state.agentId },
             },
           };
         }
@@ -3295,7 +3301,7 @@ function createToolHandlers(state: PluginState) {
           success: true,
           data: {
             content: lines.join('\n'),
-            details: { contact_id, contact_name, related_contacts, user_id },
+            details: { contact_id, contact_name, related_contacts, user_id: state.agentId },
           },
         };
       } catch (error) {
@@ -3331,7 +3337,7 @@ function createToolHandlers(state: PluginState) {
       }
 
       logger.info('file_share invoked', {
-        user_id,
+        user_id: state.agentId,
         file_id: fileId,
         expires_in: expiresIn,
         max_downloads: maxDownloads,
@@ -3355,7 +3361,7 @@ function createToolHandlers(state: PluginState) {
 
         if (!response.success) {
           logger.error('file_share API error', {
-            user_id,
+            user_id: state.agentId,
             file_id: fileId,
             status: response.error.status,
             code: response.error.code,
@@ -3369,7 +3375,7 @@ function createToolHandlers(state: PluginState) {
         const { url, share_token, expires_at, filename, content_type, size_bytes } = response.data;
 
         logger.debug('file_share completed', {
-          user_id,
+          user_id: state.agentId,
           file_id: fileId,
           share_token,
           expires_at,
@@ -3407,13 +3413,13 @@ function createToolHandlers(state: PluginState) {
               filename,
               content_type,
               size_bytes,
-              user_id,
+              user_id: state.agentId,
             },
           },
         };
       } catch (error) {
         logger.error('file_share failed', {
-          user_id,
+          user_id: state.agentId,
           file_id: fileId,
           error: error instanceof Error ? error.message : String(error),
         });
@@ -3427,8 +3433,12 @@ function createToolHandlers(state: PluginState) {
 
     // Skill store tools: delegate to tool modules for Zod validation,
     // credential detection, text sanitization, and error sanitization (Issue #824)
+    // NOTE: These tools capture user_id at creation time. When state.agentId is updated
+    // by hook context (Issue #1644), skill store tools will use the registration-time value.
+    // This is acceptable because skill store operations are scoped by API key, not user_id.
+    // A follow-up issue should refactor tool modules to accept getter functions.
     ...(() => {
-      const toolOptions = { client: apiClient, logger, config, user_id };
+      const toolOptions = { client: apiClient, logger, config, user_id: getAgentId() };
       const putTool = createSkillStorePutTool(toolOptions);
       const getTool = createSkillStoreGetTool(toolOptions);
       const listTool = createSkillStoreListTool(toolOptions);
@@ -3450,7 +3460,8 @@ function createToolHandlers(state: PluginState) {
 
     // Entity link tools: delegate to tool modules (Issue #1220)
     ...(() => {
-      const toolOptions = { client: apiClient, logger, config, user_id };
+      const toolOptions = { client: apiClient, logger, config, user_id: getAgentId() };
+      // NOTE: Same caveat as skill store tools above (Issue #1644).
       const setTool = createLinksSetTool(toolOptions);
       const queryTool = createLinksQueryTool(toolOptions);
       const removeTool = createLinksRemoveTool(toolOptions);
@@ -3886,7 +3897,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
   const user_email = context.user?.email;
 
   // Store plugin state
-  const state: PluginState = { config, logger, apiClient, user_id, user_email, resolvedNamespace, hasStaticRecall, lastNamespaceRefreshMs: 0, refreshInFlight: false };
+  const state: PluginState = { config, logger, apiClient, agentId: user_id, agentEmail: user_email, resolvedNamespace, hasStaticRecall, lastNamespaceRefreshMs: 0, refreshInFlight: false };
 
   // Create tool handlers
   const handlers = createToolHandlers(state);
@@ -4421,7 +4432,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
       client: apiClient,
       logger,
       config,
-      user_id,
+      getAgentId: () => state.agentId,
       timeoutMs: HOOK_TIMEOUT_MS,
     });
 
@@ -4432,8 +4443,32 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
      */
     const beforeAgentStartHandler = async (
       event: PluginHookBeforeAgentStartEvent,
-      _ctx: PluginHookAgentContext,
+      ctx: PluginHookAgentContext,
     ): Promise<PluginHookBeforeAgentStartResult | undefined> => {
+      // Issue #1655: Detect concurrent session conflict
+      if (state.activeSessionKey && ctx.sessionKey && state.activeSessionKey !== ctx.sessionKey) {
+        logger.warn('Concurrent session detected — agent identity may be stale', {
+          previousSession: state.activeSessionKey,
+          newSession: ctx.sessionKey,
+          previousAgentId: state.agentId,
+        });
+      }
+      state.activeSessionKey = ctx.sessionKey;
+
+      // Issue #1644: resolve agent ID from hook context and update state
+      const resolvedId = resolveAgentId(ctx, config.agentId, state.agentId);
+      if (resolvedId !== state.agentId) {
+        const previousId = state.agentId;
+        state.agentId = resolvedId;
+        state.resolvedNamespace = resolveNamespaceConfig(config.namespace, resolvedId);
+        logger.info('Agent ID resolved from hook context', {
+          previousId,
+          resolvedId,
+          defaultNamespace: state.resolvedNamespace.default,
+          recallNamespaces: state.resolvedNamespace.recall,
+        });
+      }
+
       logger.debug('Auto-recall hook triggered', {
         promptLength: event.prompt?.length ?? 0,
       });
@@ -4472,7 +4507,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
       client: apiClient,
       logger,
       config,
-      user_id,
+      getAgentId: () => state.agentId,
       timeoutMs: HOOK_TIMEOUT_MS * 2, // Allow more time for capture (10s)
     });
 
@@ -4480,7 +4515,18 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
      * agent_end handler: Extracts messages from the completed conversation,
      * filters sensitive content, and posts to the capture API for memory storage.
      */
-    const agentEndHandler = async (event: PluginHookAgentEndEvent, _ctx: PluginHookAgentContext): Promise<void> => {
+    const agentEndHandler = async (event: PluginHookAgentEndEvent, ctx: PluginHookAgentContext): Promise<void> => {
+      // Issue #1644: ensure agent ID is resolved even if before_agent_start didn't fire
+      const resolvedId = resolveAgentId(ctx, config.agentId, state.agentId);
+      if (resolvedId !== state.agentId) {
+        state.agentId = resolvedId;
+        state.resolvedNamespace = resolveNamespaceConfig(config.namespace, resolvedId);
+        logger.info('Agent ID resolved from agent_end context', {
+          resolvedId,
+          defaultNamespace: state.resolvedNamespace.default,
+        });
+      }
+
       logger.debug('Auto-capture hook triggered', {
         message_count: event.messages?.length ?? 0,
         success: event.success,
@@ -4506,6 +4552,9 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
           error: error instanceof Error ? error.message : String(error),
         });
       }
+
+      // Issue #1655: Clear session key after agent ends
+      state.activeSessionKey = undefined;
     };
 
     if (typeof api.on === 'function') {
@@ -4546,7 +4595,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
         await autoLinkInboundMessage({
           client: apiClient,
           logger,
-          user_id,
+          getAgentId: () => state.agentId,
           message: {
             thread_id: event.thread_id,
             senderEmail: event.senderEmail ?? (event.sender?.includes('@') ? event.sender : undefined),
@@ -4573,7 +4622,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
   const gatewayMethods = createGatewayMethods({
     logger,
     apiClient,
-    user_id,
+    getAgentId: () => state.agentId,
   });
   registerGatewayRpcMethods(api, gatewayMethods);
 
@@ -4581,7 +4630,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
   const oauthGatewayMethods = createOAuthGatewayMethods({
     logger,
     apiClient,
-    user_id,
+    getAgentId: () => state.agentId,
   });
   registerOAuthGatewayRpcMethods(api, oauthGatewayMethods);
 
@@ -4604,7 +4653,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
   const notificationService = createNotificationService({
     logger,
     apiClient,
-    user_id,
+    getAgentId: () => state.agentId,
     events: eventEmitter,
     config: {
       enabled: config.autoRecall, // Only enable if auto-recall is enabled
@@ -4621,7 +4670,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
       .description('Show plugin status and statistics')
       .action(async () => {
         try {
-          const response = await apiClient.get('/api/health', { user_id, user_email });
+          const response = await apiClient.get('/api/health', { user_id: state.agentId, user_email: state.agentEmail });
           if (response.success) {
             console.log('Plugin Status: Connected');
           } else {
@@ -4651,10 +4700,18 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
       });
   });
 
+  // Issue #1644: warn if agent ID is "unknown" at registration (will be resolved from hook context later)
+  if (context.agent.agentId === 'unknown' && !config.agentId) {
+    logger.warn(
+      'Agent ID not available at registration time — will resolve from hook context. ' +
+      'Set config.agentId for explicit override. (Issue #1644)',
+    );
+  }
+
   logger.info('OpenClaw Projects plugin registered', {
     agentId: context.agent.agentId,
     sessionId: context.session.sessionId,
-    user_id,
+    user_id: state.agentId,
     toolCount: tools.length,
     config: redactConfig(config),
   });

@@ -7,6 +7,8 @@ import {
   parseAgentIdFromSessionKey,
   getUserScopeKey,
   validateSessionKey,
+  resolveAgentId,
+  MAX_AGENT_ID_LENGTH,
   type UserContext,
 } from '../src/context.js';
 
@@ -206,6 +208,18 @@ describe('Context Extraction', () => {
     it('should sanitize invalid characters and return unknown', () => {
       expect(parseAgentIdFromSessionKey('agent:<script>:channel')).toBe('unknown');
     });
+
+    it('should return unknown for agent ID exceeding MAX_AGENT_ID_LENGTH', () => {
+      const longId = 'a'.repeat(64);
+      const key = `agent:${longId}:channel`;
+      expect(parseAgentIdFromSessionKey(key)).toBe('unknown');
+    });
+
+    it('should accept agent ID at exactly MAX_AGENT_ID_LENGTH', () => {
+      const exactId = 'a'.repeat(MAX_AGENT_ID_LENGTH);
+      const key = `agent:${exactId}:channel`;
+      expect(parseAgentIdFromSessionKey(key)).toBe(exactId);
+    });
   });
 
   describe('getUserScopeKey', () => {
@@ -271,6 +285,58 @@ describe('Context Extraction', () => {
       expect(getUserScopeKey(minimalContext, 'agent')).toBe('agent-1');
       expect(getUserScopeKey(minimalContext, 'identity')).toBe('agent-1');
       expect(getUserScopeKey(minimalContext, 'session')).toBe('agent-1');
+    });
+  });
+
+  describe('resolveAgentId', () => {
+    it('should prefer explicit config agentId over everything', () => {
+      const result = resolveAgentId(
+        { agentId: 'from-hook', sessionKey: 'agent:from-session:telegram:123' },
+        'from-config',
+        'existing-state',
+      );
+      expect(result).toBe('from-config');
+    });
+
+    it('should use hook context agentId when no config', () => {
+      const result = resolveAgentId(
+        { agentId: 'from-hook' },
+        undefined,
+        'unknown',
+      );
+      expect(result).toBe('from-hook');
+    });
+
+    it('should parse from session key when agentId missing', () => {
+      const result = resolveAgentId(
+        { sessionKey: 'agent:my-agent:telegram:123' },
+        undefined,
+        'unknown',
+      );
+      expect(result).toBe('my-agent');
+    });
+
+    it('should keep existing state when hook provides nothing useful', () => {
+      const result = resolveAgentId(
+        {},
+        undefined,
+        'previously-resolved',
+      );
+      expect(result).toBe('previously-resolved');
+    });
+
+    it('should return "unknown" as last resort', () => {
+      const result = resolveAgentId({}, undefined, 'unknown');
+      expect(result).toBe('unknown');
+    });
+
+    it('should skip hook agentId if it is "unknown"', () => {
+      const result = resolveAgentId(
+        { agentId: 'unknown', sessionKey: 'agent:real-agent:web:1' },
+        undefined,
+        'unknown',
+      );
+      expect(result).toBe('real-agent');
     });
   });
 });

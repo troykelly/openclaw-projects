@@ -61,7 +61,7 @@ describe('Notification Service', () => {
       const service = createNotificationService({
         logger: mockLogger,
         apiClient: mockApiClient,
-        user_id: 'user@example.com',
+        getAgentId: () => 'user@example.com',
         events: mockEmitter,
       });
 
@@ -81,7 +81,7 @@ describe('Notification Service', () => {
       const service = createNotificationService({
         logger: mockLogger,
         apiClient: mockApiClient,
-        user_id: 'user@example.com',
+        getAgentId: () => 'user@example.com',
         events: mockEmitter,
         config,
       });
@@ -100,7 +100,7 @@ describe('Notification Service', () => {
       const service = createNotificationService({
         logger: mockLogger,
         apiClient: mockApiClient,
-        user_id: 'user@example.com',
+        getAgentId: () => 'user@example.com',
         events: mockEmitter,
         config: { enabled: true, pollIntervalMs: 5000 },
       });
@@ -119,7 +119,7 @@ describe('Notification Service', () => {
       const service = createNotificationService({
         logger: mockLogger,
         apiClient: mockApiClient,
-        user_id: 'user@example.com',
+        getAgentId: () => 'user@example.com',
         events: mockEmitter,
         config: { enabled: true, pollIntervalMs: 60000 },
       });
@@ -137,7 +137,7 @@ describe('Notification Service', () => {
       const service = createNotificationService({
         logger: mockLogger,
         apiClient: mockApiClient,
-        user_id: 'user@example.com',
+        getAgentId: () => 'user@example.com',
         events: mockEmitter,
         config: { enabled: true },
       });
@@ -152,7 +152,7 @@ describe('Notification Service', () => {
       const service = createNotificationService({
         logger: mockLogger,
         apiClient: mockApiClient,
-        user_id: 'user@example.com',
+        getAgentId: () => 'user@example.com',
         events: mockEmitter,
         config: { enabled: false },
       });
@@ -173,7 +173,7 @@ describe('Notification Service', () => {
       const service = createNotificationService({
         logger: mockLogger,
         apiClient: mockApiClient,
-        user_id: 'user@example.com',
+        getAgentId: () => 'user@example.com',
         events: mockEmitter,
         config: { enabled: true, pollIntervalMs: 5000 },
       });
@@ -204,7 +204,7 @@ describe('Notification Service', () => {
       const service = createNotificationService({
         logger: mockLogger,
         apiClient: mockApiClient,
-        user_id: 'user@example.com',
+        getAgentId: () => 'user@example.com',
         events: mockEmitter,
         config: { enabled: true, pollIntervalMs: 5000 },
       });
@@ -223,7 +223,7 @@ describe('Notification Service', () => {
       const service = createNotificationService({
         logger: mockLogger,
         apiClient: mockApiClient,
-        user_id: 'user@example.com',
+        getAgentId: () => 'user@example.com',
         events: mockEmitter,
         config: { enabled: true, pollIntervalMs: 5000 },
       });
@@ -265,7 +265,7 @@ describe('Notification Service', () => {
         const service = createNotificationService({
           logger: mockLogger,
           apiClient: mockApiClient,
-          user_id: 'user@example.com',
+          getAgentId: () => 'user@example.com',
           events: mockEmitter,
           config: { enabled: true, pollIntervalMs: 5000 },
         });
@@ -283,7 +283,7 @@ describe('Notification Service', () => {
       const service = createNotificationService({
         logger: mockLogger,
         apiClient: mockApiClient,
-        user_id: 'user@example.com',
+        getAgentId: () => 'user@example.com',
         events: mockEmitter,
         config: { enabled: true },
       });
@@ -301,7 +301,7 @@ describe('Notification Service', () => {
       const service = createNotificationService({
         logger: mockLogger,
         apiClient: mockApiClient,
-        user_id: 'user@example.com',
+        getAgentId: () => 'user@example.com',
         events: mockEmitter,
         config: { enabled: true },
       });
@@ -321,7 +321,7 @@ describe('Notification Service', () => {
       const service = createNotificationService({
         logger: mockLogger,
         apiClient: mockApiClient,
-        user_id: 'user@example.com',
+        getAgentId: () => 'user@example.com',
         events: mockEmitter,
         config: { enabled: true, pollIntervalMs: 5000 },
       });

@@ -64,7 +64,7 @@ describe('Graph-Aware Integration', () => {
         client: mockApiClient,
         logger: mockLogger,
         config: mockConfig,
-        user_id: 'agent-1',
+        getAgentId: () => 'agent-1',
       });
       expect(typeof hook).toBe('function');
     });
@@ -74,7 +74,7 @@ describe('Graph-Aware Integration', () => {
         client: mockApiClient,
         logger: mockLogger,
         config: { ...mockConfig, autoRecall: false },
-        user_id: 'agent-1',
+        getAgentId: () => 'agent-1',
       });
 
       const result = await hook({ prompt: 'What food does Alex like?' });
@@ -115,7 +115,7 @@ describe('Graph-Aware Integration', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        user_id: 'agent-1',
+        getAgentId: () => 'agent-1',
       });
 
       const result = await hook({ prompt: 'What food does Alex like?' });
@@ -151,7 +151,7 @@ describe('Graph-Aware Integration', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        user_id: 'agent-1',
+        getAgentId: () => 'agent-1',
       });
 
       const result = await hook({ prompt: 'Tell me about my preferences' });
@@ -173,7 +173,7 @@ describe('Graph-Aware Integration', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        user_id: 'agent-1',
+        getAgentId: () => 'agent-1',
         timeoutMs: 100,
       });
 
@@ -190,7 +190,7 @@ describe('Graph-Aware Integration', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        user_id: 'agent-1',
+        getAgentId: () => 'agent-1',
       });
 
       const result = await hook({ prompt: 'Hello' });

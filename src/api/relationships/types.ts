@@ -154,6 +154,8 @@ export interface RelationshipSetInput {
   created_by_agent?: string;
   /** Namespace for data partitioning (Epic #1418) */
   namespace?: string;
+  /** Namespaces to search when resolving contact names (Epic #1418) */
+  queryNamespaces?: string[];
 }
 
 /**

@@ -221,13 +221,13 @@ function createPluginInstance(config: PluginConfig, logger: Logger, runtime: unk
       client: apiClient,
       logger,
       config,
-      user_id,
+      getAgentId: () => user_id,
     }),
     agentEnd: createAutoCaptureHook({
       client: apiClient,
       logger,
       config,
-      user_id,
+      getAgentId: () => user_id,
     }),
   };
 
