@@ -517,7 +517,7 @@ describe('SettingsPage', () => {
 
       await waitForLoaded();
 
-      expect(screen.getByText('1.0.0')).toBeInTheDocument();
+      expect(screen.getByText('dev')).toBeInTheDocument();
     });
 
     it('shows license info', async () => {

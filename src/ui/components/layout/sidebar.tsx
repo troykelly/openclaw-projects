@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { Bell, Folder, Calendar, Users, Search, Settings, ChevronLeft, ChevronRight, Plus, StickyNote, Globe } from 'lucide-react';
 import { cn } from '@/ui/lib/utils';
+import { APP_VERSION } from '@/ui/lib/version';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/ui/components/ui/tooltip';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/components/ui/select';
 import { ScrollArea } from '@/ui/components/ui/scroll-area';
@@ -264,6 +265,11 @@ export function Sidebar({
               <ChevronRight className="size-4" />
             </button>
           )}
+
+          {/* Version */}
+          <p data-testid="app-version" className={cn('text-center text-[10px] text-muted-foreground/50 select-none pt-1', collapsed && 'px-0')}>
+            {collapsed ? 'v' : `v${APP_VERSION}`}
+          </p>
         </div>
       </aside>
     </TooltipProvider>
