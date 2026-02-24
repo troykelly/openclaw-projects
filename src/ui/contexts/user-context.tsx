@@ -11,7 +11,7 @@
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type React from 'react';
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { apiClient } from '@/ui/lib/api-client.ts';
 import { clearAccessToken, getAccessToken, refreshAccessToken } from '@/ui/lib/auth-manager.ts';
 
@@ -49,6 +49,9 @@ export function UserProvider({ children }: { children: React.ReactNode }): React
   const queryClient = useQueryClient();
   const [authReady, setAuthReady] = useState(false);
   const [authFailed, setAuthFailed] = useState(false);
+  // Ref tracks whether auth was signaled externally (e.g. AuthConsumePage).
+  // Prevents the bootstrap catch handler from overwriting signalAuthenticated().
+  const authSignaledRef = useRef(false);
 
   // Bootstrap: try to refresh the access token on mount
   useEffect(() => {
@@ -59,7 +62,7 @@ export function UserProvider({ children }: { children: React.ReactNode }): React
         if (!cancelled) setAuthReady(true);
       })
       .catch(() => {
-        if (!cancelled) {
+        if (!cancelled && !authSignaledRef.current) {
           setAuthReady(true);
           setAuthFailed(true);
         }
@@ -88,6 +91,7 @@ export function UserProvider({ children }: { children: React.ReactNode }): React
   const isLoading = !authReady || (authReady && !authFailed && isMeLoading);
 
   const signalAuthenticated = useCallback(() => {
+    authSignaledRef.current = true;
     setAuthFailed(false);
     setAuthReady(true);
     // Invalidate the 'me' query so it re-fetches with the new token
