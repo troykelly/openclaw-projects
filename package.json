@@ -80,6 +80,8 @@
     "@fastify/rate-limit": "^10.3.0",
     "@fastify/static": "^9.0.0",
     "@fastify/websocket": "^11.2.0",
+    "@grpc/grpc-js": "^1.14.3",
+    "@grpc/proto-loader": "^0.8.0",
     "@lexical/code": "^0.40.0",
     "@lexical/history": "^0.40.0",
     "@lexical/html": "^0.40.0",
