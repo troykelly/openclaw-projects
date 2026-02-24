@@ -73,6 +73,8 @@ interface PluginState {
   lastNamespaceRefreshMs: number;
   /** Guard against concurrent refresh calls (Issue #1537) */
   refreshInFlight: boolean;
+  /** Session key of the currently active session (Issue #1655) */
+  activeSessionKey?: string;
 }
 
 /**
@@ -4442,6 +4444,16 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
       event: PluginHookBeforeAgentStartEvent,
       ctx: PluginHookAgentContext,
     ): Promise<PluginHookBeforeAgentStartResult | undefined> => {
+      // Issue #1655: Detect concurrent session conflict
+      if (state.activeSessionKey && ctx.sessionKey && state.activeSessionKey !== ctx.sessionKey) {
+        logger.warn('Concurrent session detected — agent identity may be stale', {
+          previousSession: state.activeSessionKey,
+          newSession: ctx.sessionKey,
+          previousAgentId: state.user_id,
+        });
+      }
+      state.activeSessionKey = ctx.sessionKey;
+
       // Issue #1644: resolve agent ID from hook context and update state
       const resolvedId = resolveAgentId(ctx, config.agentId, state.user_id);
       if (resolvedId !== state.user_id) {
@@ -4539,6 +4551,9 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
           error: error instanceof Error ? error.message : String(error),
         });
       }
+
+      // Issue #1655: Clear session key after agent ends
+      state.activeSessionKey = undefined;
     };
 
     if (typeof api.on === 'function') {
