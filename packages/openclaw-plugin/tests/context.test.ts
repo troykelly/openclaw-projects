@@ -8,6 +8,7 @@ import {
   getUserScopeKey,
   validateSessionKey,
   resolveAgentId,
+  MAX_AGENT_ID_LENGTH,
   type UserContext,
 } from '../src/context.js';
 
@@ -206,6 +207,18 @@ describe('Context Extraction', () => {
 
     it('should sanitize invalid characters and return unknown', () => {
       expect(parseAgentIdFromSessionKey('agent:<script>:channel')).toBe('unknown');
+    });
+
+    it('should return unknown for agent ID exceeding MAX_AGENT_ID_LENGTH', () => {
+      const longId = 'a'.repeat(64);
+      const key = `agent:${longId}:channel`;
+      expect(parseAgentIdFromSessionKey(key)).toBe('unknown');
+    });
+
+    it('should accept agent ID at exactly MAX_AGENT_ID_LENGTH', () => {
+      const exactId = 'a'.repeat(MAX_AGENT_ID_LENGTH);
+      const key = `agent:${exactId}:channel`;
+      expect(parseAgentIdFromSessionKey(key)).toBe(exactId);
     });
   });
 

@@ -128,6 +128,9 @@ export function extractContext(runtimeContext: unknown): PluginContext {
   };
 }
 
+/** Maximum length for agent IDs (matches PostgreSQL identifier limits) */
+export const MAX_AGENT_ID_LENGTH = 63;
+
 /** Allowed characters in session keys: alphanumeric, colon, hyphen, underscore */
 const SESSION_KEY_REGEX = /^[a-zA-Z0-9:_-]+$/;
 
@@ -172,6 +175,10 @@ export function parseAgentIdFromSessionKey(sessionKey: string | null | undefined
 
   const agentId = parts[1];
   if (!agentId || agentId.length === 0) {
+    return 'unknown';
+  }
+
+  if (agentId.length > MAX_AGENT_ID_LENGTH) {
     return 'unknown';
   }
 
