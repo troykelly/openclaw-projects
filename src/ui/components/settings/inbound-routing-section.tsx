@@ -95,9 +95,10 @@ function ChannelDefaultsSection() {
   const fetchDefaults = useCallback(async () => {
     try {
       const data = await apiClient.get<ChannelDefault[]>('/api/channel-defaults');
-      setDefaults(data);
+      const items = Array.isArray(data) ? data : [];
+      setDefaults(items);
       const values: Record<string, { agent_id: string }> = {};
-      for (const d of data) {
+      for (const d of items) {
         values[d.channel_type] = { agent_id: d.agent_id };
       }
       setEditValues(values);
@@ -214,7 +215,7 @@ function InboundDestinationsSection() {
       const data = await apiClient.get<{ items: InboundDestination[]; total: number }>(
         '/api/inbound-destinations?limit=100&include_inactive=true',
       );
-      setDestinations(data.items);
+      setDestinations(Array.isArray(data.items) ? data.items : []);
     } catch {
       // Handle error
     } finally {
@@ -360,7 +361,7 @@ function PromptTemplatesSection() {
       const data = await apiClient.get<{ items: PromptTemplate[]; total: number }>(
         '/api/prompt-templates?limit=100&include_inactive=true',
       );
-      setTemplates(data.items);
+      setTemplates(Array.isArray(data.items) ? data.items : []);
     } catch {
       // Handle error
     } finally {
