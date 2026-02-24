@@ -183,6 +183,11 @@ export const RawPluginConfigSchema = z
     /** PromptGuard-2 classifier URL (e.g., http://prompt-guard:8190) */
     promptGuardUrl: z.string().url().optional().describe('PromptGuard classifier URL'),
 
+    /** Explicit agent ID override. Used as namespace fallback when hook context is unavailable. (Issue #1644) */
+    agentId: z.string().min(1).max(63).regex(NAMESPACE_PATTERN, {
+      message: 'agentId must be lowercase alphanumeric with dots, hyphens, underscores',
+    }).optional().describe('Explicit agent ID override'),
+
     /** Namespace configuration for data scoping (Issue #1428) */
     namespace: z.union([
       NamespaceConfigSchema,
@@ -265,6 +270,9 @@ export const PluginConfigSchema = z.object({
 
   /** PromptGuard-2 classifier URL */
   promptGuardUrl: z.string().url().optional(),
+
+  /** Explicit agent ID override (Issue #1644) */
+  agentId: z.string().min(1).max(63).optional(),
 
   /** Namespace configuration for data scoping (Issue #1428) */
   namespace: NamespaceConfigSchema.optional(),
@@ -423,6 +431,7 @@ export async function resolveConfigSecrets(rawConfig: RawPluginConfig): Promise<
     baseUrl: rawConfig.baseUrl,
     nominatimUrl: rawConfig.nominatimUrl,
     promptGuardUrl: rawConfig.promptGuardUrl,
+    agentId: rawConfig.agentId,
     namespace: rawConfig.namespace,
     namespaceRefreshIntervalMs: rawConfig.namespaceRefreshIntervalMs,
   };
@@ -475,6 +484,7 @@ export function resolveConfigSecretsSync(rawConfig: RawPluginConfig): PluginConf
     debug: rawConfig.debug,
     baseUrl: rawConfig.baseUrl,
     nominatimUrl: rawConfig.nominatimUrl,
+    agentId: rawConfig.agentId,
     namespace: rawConfig.namespace,
     namespaceRefreshIntervalMs: rawConfig.namespaceRefreshIntervalMs,
   };
