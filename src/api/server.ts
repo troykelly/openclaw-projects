@@ -361,17 +361,36 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   }
 
   /**
-   * Verify that an entity exists (any namespace). For READ-only endpoints.
-   * Issue #1645: UUID lookups should not be namespace-scoped.
+   * Resolve the effective namespace list for the current request.
+   * Falls back to ['default'] only when auth is disabled (dev mode).
+   * Authenticated users with no grants get an empty array (no access).
    */
-  async function verifyEntityExists(
+  function getEffectiveNamespaces(req: FastifyRequest): string[] {
+    const ns = req.namespaceContext?.queryNamespaces;
+    if (ns && ns.length > 0) return ns;
+    if (isAuthDisabled()) return ['default'];
+    return [];
+  }
+
+  /**
+   * Verify that an entity exists AND is in a namespace the caller can access.
+   * For READ endpoints. Restores namespace authorization removed in Issue #1645.
+   * Issue #1652: namespace filter was missing on 33 read endpoints.
+   * Issue #1654: soft-deleted rows excluded by default.
+   */
+  async function verifyReadScope(
     pool: ReturnType<typeof createPool>,
     table: string,
     id: string,
+    req: FastifyRequest,
+    options?: { includeDeleted?: boolean },
   ): Promise<boolean> {
+    const queryNamespaces = getEffectiveNamespaces(req);
+    if (queryNamespaces.length === 0) return false;
+    const deletedClause = options?.includeDeleted ? '' : ' AND deleted_at IS NULL';
     const result = await pool.query(
-      `SELECT 1 FROM "${table}" WHERE id = $1`,
-      [id],
+      `SELECT 1 FROM "${table}" WHERE id = $1 AND namespace = ANY($2::text[])${deletedClause}`,
+      [id, queryNamespaces],
     );
     return result.rows.length > 0;
   }
@@ -380,16 +399,21 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
    * Verify that an entity exists AND is in a namespace the caller can access.
    * For WRITE endpoints (PATCH/PUT/DELETE). Preserves security boundary.
    * Renamed from verifyNamespaceScope for clarity (Issue #1645).
+   * Issue #1654: soft-deleted rows excluded by default.
+   * Issue #1656: uses getEffectiveNamespaces for consistent fallback.
    */
   async function verifyWriteScope(
     pool: ReturnType<typeof createPool>,
     table: string,
     id: string,
     req: FastifyRequest,
+    options?: { includeDeleted?: boolean },
   ): Promise<boolean> {
-    const queryNamespaces = req.namespaceContext?.queryNamespaces ?? ['default'];
+    const queryNamespaces = getEffectiveNamespaces(req);
+    if (queryNamespaces.length === 0) return false;
+    const deletedClause = options?.includeDeleted ? '' : ' AND deleted_at IS NULL';
     const result = await pool.query(
-      `SELECT 1 FROM "${table}" WHERE id = $1 AND namespace = ANY($2::text[])`,
+      `SELECT 1 FROM "${table}" WHERE id = $1 AND namespace = ANY($2::text[])${deletedClause}`,
       [id, queryNamespaces],
     );
     return result.rows.length > 0;
@@ -1769,7 +1793,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Epic #1418: namespace scoping on parent thread
-    if (!(await verifyEntityExists(pool, 'external_thread', params.id))) {
+    if (!(await verifyReadScope(pool, 'external_thread', params.id, req, { includeDeleted: true }))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -3149,7 +3173,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Epic #1418: namespace scoping on parent work_item
-    if (!(await verifyEntityExists(pool, 'work_item', params.id))) {
+    if (!(await verifyReadScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -4152,13 +4176,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Epic #1418: verify entity belongs to caller's namespaces
-    if (!(await verifyEntityExists(pool, 'work_item', params.id))) {
+    const includeDeleted = query.include_deleted === 'true';
+    if (!(await verifyReadScope(pool, 'work_item', params.id, req, { includeDeleted }))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
 
     // By default, exclude soft-deleted items
-    const deletedFilter = query.include_deleted === 'true' ? '' : 'AND wi.deleted_at IS NULL';
+    const deletedFilter = includeDeleted ? '' : 'AND wi.deleted_at IS NULL';
 
     // Get main work item
     const result = await pool.query(
@@ -5063,7 +5088,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const pool = createPool();
 
-    if (!(await verifyEntityExists(pool, 'work_item', params.id))) {
+    if (!(await verifyReadScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -5128,7 +5153,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const pool = createPool();
 
-    if (!(await verifyEntityExists(pool, 'work_item', params.id))) {
+    if (!(await verifyReadScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -5274,7 +5299,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     };
     const pool = createPool();
 
-    if (!(await verifyEntityExists(pool, 'work_item', params.id))) {
+    if (!(await verifyReadScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -5500,7 +5525,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const pool = createPool();
 
-    if (!(await verifyEntityExists(pool, 'work_item', params.id))) {
+    if (!(await verifyReadScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -5814,7 +5839,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const pool = createPool();
 
-    if (!(await verifyEntityExists(pool, 'work_item', params.id))) {
+    if (!(await verifyReadScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -5888,7 +5913,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const pool = createPool();
 
-    if (!(await verifyEntityExists(pool, 'work_item', params.id))) {
+    if (!(await verifyReadScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -6055,7 +6080,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const pool = createPool();
 
-    if (!(await verifyEntityExists(pool, 'work_item', params.id))) {
+    if (!(await verifyReadScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -6100,7 +6125,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const pool = createPool();
 
-    if (!(await verifyEntityExists(pool, 'work_item', params.id))) {
+    if (!(await verifyReadScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -6167,7 +6192,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const pool = createPool();
 
-    if (!(await verifyEntityExists(pool, 'work_item', params.id))) {
+    if (!(await verifyReadScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -6969,12 +6994,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Epic #1418: verify entity belongs to caller's namespaces
-    if (!(await verifyEntityExists(pool, 'contact', params.id))) {
+    const includeDeleted = query.include_deleted === 'true';
+    if (!(await verifyReadScope(pool, 'contact', params.id, req, { includeDeleted }))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
 
-    const deletedFilter = query.include_deleted === 'true' ? '' : 'AND c.deleted_at IS NULL';
+    const deletedFilter = includeDeleted ? '' : 'AND c.deleted_at IS NULL';
 
     // Base contact query with expanded fields (#1582)
     const result = await pool.query(
@@ -7380,7 +7406,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const pool = createPool();
 
-    if (!(await verifyEntityExists(pool, 'contact', params.id))) {
+    if (!(await verifyReadScope(pool, 'contact', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -7415,7 +7441,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const pool = createPool();
 
-    if (!(await verifyEntityExists(pool, 'work_item', params.id))) {
+    if (!(await verifyReadScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -7572,7 +7598,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.get('/api/contacts/:id/addresses', async (req, reply) => {
     const params = req.params as { id: string };
     const pool = createPool();
-    if (!(await verifyEntityExists(pool, 'contact', params.id))) {
+    if (!(await verifyReadScope(pool, 'contact', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -7702,7 +7728,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.get('/api/contacts/:id/dates', async (req, reply) => {
     const params = req.params as { id: string };
     const pool = createPool();
-    if (!(await verifyEntityExists(pool, 'contact', params.id))) {
+    if (!(await verifyReadScope(pool, 'contact', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -7802,7 +7828,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.get('/api/contacts/:id/endpoints', async (req, reply) => {
     const params = req.params as { id: string };
     const pool = createPool();
-    if (!(await verifyEntityExists(pool, 'contact', params.id))) {
+    if (!(await verifyReadScope(pool, 'contact', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -7887,7 +7913,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.get('/api/contacts/:id/tags', async (req, reply) => {
     const params = req.params as { id: string };
     const pool = createPool();
-    if (!(await verifyEntityExists(pool, 'contact', params.id))) {
+    if (!(await verifyReadScope(pool, 'contact', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -9844,7 +9870,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const pool = createPool();
 
-    if (!(await verifyEntityExists(pool, 'work_item', params.id))) {
+    if (!(await verifyReadScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -10137,7 +10163,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
 
-    if (!(await verifyEntityExists(pool, 'contact', params.id))) {
+    if (!(await verifyReadScope(pool, 'contact', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -10416,7 +10442,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
 
-    if (!(await verifyEntityExists(pool, 'contact', params.id))) {
+    if (!(await verifyReadScope(pool, 'contact', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -10539,7 +10565,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
 
-    if (!(await verifyEntityExists(pool, 'work_item', params.id))) {
+    if (!(await verifyReadScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -10651,7 +10677,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const pool = createPool();
 
-    if (!(await verifyEntityExists(pool, 'work_item', params.id))) {
+    if (!(await verifyReadScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -10742,7 +10768,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const pool = createPool();
 
-    if (!(await verifyEntityExists(pool, 'work_item', params.id))) {
+    if (!(await verifyReadScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -10799,7 +10825,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const pool = createPool();
 
-    if (!(await verifyEntityExists(pool, 'work_item', params.id))) {
+    if (!(await verifyReadScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -12640,7 +12666,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const pool = createPool();
 
-    if (!(await verifyEntityExists(pool, 'work_item', params.id))) {
+    if (!(await verifyReadScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -13086,7 +13112,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping on parent work_item
-    if (!(await verifyEntityExists(pool, 'work_item', params.id))) {
+    if (!(await verifyReadScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -13353,7 +13379,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping on parent work_item
-    if (!(await verifyEntityExists(pool, 'work_item', params.id))) {
+    if (!(await verifyReadScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -17527,7 +17553,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const params = req.params as { id: string };
 
       // Epic #1418: namespace scoping
-      if (!(await verifyEntityExists(pool, 'relationship', params.id))) {
+      if (!(await verifyReadScope(pool, 'relationship', params.id, req, { includeDeleted: true }))) {
         return reply.code(404).send({ error: 'not found' });
       }
 
@@ -17605,7 +17631,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const body = req.body as Record<string, unknown> | null;
 
       // Epic #1418: namespace scoping
-      if (!(await verifyWriteScope(pool, 'relationship', params.id, req))) {
+      if (!(await verifyWriteScope(pool, 'relationship', params.id, req, { includeDeleted: true }))) {
         return reply.code(404).send({ error: 'not found' });
       }
 
@@ -17637,7 +17663,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const params = req.params as { id: string };
 
       // Epic #1418: namespace scoping
-      if (!(await verifyWriteScope(pool, 'relationship', params.id, req))) {
+      if (!(await verifyWriteScope(pool, 'relationship', params.id, req, { includeDeleted: true }))) {
         return reply.code(404).send({ error: 'not found' });
       }
 
@@ -17661,7 +17687,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const params = req.params as { id: string };
 
       // Epic #1418: namespace scoping on parent contact
-      if (!(await verifyEntityExists(pool, 'contact', params.id))) {
+      if (!(await verifyReadScope(pool, 'contact', params.id, req))) {
         return reply.code(404).send({ error: 'not found' });
       }
 
@@ -17680,7 +17706,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const params = req.params as { id: string };
 
       // Epic #1418: namespace scoping on parent contact
-      if (!(await verifyEntityExists(pool, 'contact', params.id))) {
+      if (!(await verifyReadScope(pool, 'contact', params.id, req))) {
         return reply.code(404).send({ error: 'not found' });
       }
 
@@ -17699,7 +17725,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const params = req.params as { id: string };
 
       // Epic #1418: namespace scoping on parent contact
-      if (!(await verifyEntityExists(pool, 'contact', params.id))) {
+      if (!(await verifyReadScope(pool, 'contact', params.id, req))) {
         return reply.code(404).send({ error: 'not found' });
       }
 
