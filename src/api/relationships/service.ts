@@ -434,7 +434,7 @@ export async function getContactGroups(pool: Pool, contact_id: string): Promise<
  * Resolves a contact identifier (UUID or display name) to a contact ID and name.
  * Returns null if the contact cannot be found.
  *
- * UUID lookups: no namespace filter (UUIDs are globally unique, Issue #1645)
+ * UUID lookups: namespace-scoped when namespaces provided (Issue #1653)
  * Name lookups: namespace-scoped when namespaces provided (Issue #1646)
  */
 async function resolveContact(
@@ -442,14 +442,17 @@ async function resolveContact(
   identifier: string,
   queryNamespaces?: string[],
 ): Promise<{ id: string; display_name: string } | null> {
-  // Try as UUID first — no namespace filter (UUIDs are globally unique)
+  // Try as UUID first — namespace-scoped when namespaces provided (Issue #1653)
   const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
   if (uuidPattern.test(identifier)) {
-    const result = await pool.query(
-      `SELECT id::text as id, display_name FROM contact WHERE id = $1`,
-      [identifier],
-    );
+    const query = queryNamespaces?.length
+      ? `SELECT id::text as id, display_name FROM contact WHERE id = $1 AND namespace = ANY($2::text[])`
+      : `SELECT id::text as id, display_name FROM contact WHERE id = $1`;
+    const params = queryNamespaces?.length
+      ? [identifier, queryNamespaces]
+      : [identifier];
+    const result = await pool.query(query, params);
     if (result.rows.length > 0) {
       const row = result.rows[0] as { id: string; display_name: string };
       return { id: row.id, display_name: row.display_name };
