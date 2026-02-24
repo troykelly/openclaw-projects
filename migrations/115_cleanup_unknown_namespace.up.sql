@@ -1,6 +1,9 @@
--- Issue #1644: Migrate entities created with namespace='unknown'
--- (caused by plugin bug where agent ID defaulted to 'unknown')
--- Moves all 'unknown' namespace rows to 'default'.
+-- Migration: cleanup_unknown_namespace
+-- Move entities with namespace='unknown' (created by buggy plugin) to 'default'
+-- Safety: lock_timeout prevents blocking on locked tables, statement_timeout caps total time
+
+SET lock_timeout = '5s';
+SET statement_timeout = '60s';
 
 DO $$
 DECLARE
@@ -26,3 +29,7 @@ BEGIN
     END IF;
   END LOOP;
 END $$;
+
+-- Reset timeouts to defaults
+RESET lock_timeout;
+RESET statement_timeout;
