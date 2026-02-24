@@ -8,7 +8,7 @@
  * - Notes (contact notes with inline editing)
  * - Activity (recent activity for this contact)
  *
- * Navigated to via /people/:contact_id.
+ * Navigated to via /contacts/:contact_id.
  */
 
 import { ArrowLeft, Bell, Calendar, Clock, Globe, Link2, Mail, MessageSquare, Pencil, Phone, Trash2 } from 'lucide-react';

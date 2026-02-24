@@ -23,6 +23,18 @@ vi.mock('@/ui/lib/api-config', () => ({
   getApiBaseUrl: () => '',
 }));
 
+// Mock user context — AuthConsumePage calls signalAuthenticated() after token exchange
+const mockSignalAuthenticated = vi.fn();
+vi.mock('@/ui/contexts/user-context', () => ({
+  useUser: () => ({
+    email: null,
+    isLoading: false,
+    isAuthenticated: false,
+    logout: vi.fn(),
+    signalAuthenticated: mockSignalAuthenticated,
+  }),
+}));
+
 // Capture navigation
 let navigatedTo: string | null = null;
 
@@ -45,6 +57,10 @@ async function renderConsumePage(search = '') {
     {
       path: '/auth/consume',
       element: <AuthConsumePage />,
+    },
+    {
+      path: '/dashboard',
+      element: <div data-testid="dashboard-page">Dashboard</div>,
     },
     {
       path: '/work-items',
@@ -76,6 +92,7 @@ describe('AuthConsumePage (issues #1333, #1335)', () => {
   beforeEach(() => {
     fetchSpy = vi.spyOn(globalThis, 'fetch');
     mockSetAccessToken.mockClear();
+    mockSignalAuthenticated.mockClear();
     navigatedTo = null;
     // Clear sessionStorage mock
     for (const key of Object.keys(sessionStorageMock)) {
@@ -139,7 +156,7 @@ describe('AuthConsumePage (issues #1333, #1335)', () => {
     }, WAIT_OPTS);
   });
 
-  it('stores access token and redirects to /work-items on success', async () => {
+  it('stores access token, signals auth, and redirects to /dashboard on success', async () => {
     fetchSpy.mockResolvedValue(
       new Response(JSON.stringify({ access_token: 'jwt.access.token' }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
     );
@@ -151,7 +168,11 @@ describe('AuthConsumePage (issues #1333, #1335)', () => {
     }, WAIT_OPTS);
 
     await waitFor(() => {
-      expect(navigatedTo).toBe('/work-items');
+      expect(mockSignalAuthenticated).toHaveBeenCalledTimes(1);
+    }, WAIT_OPTS);
+
+    await waitFor(() => {
+      expect(navigatedTo).toBe('/dashboard');
     }, WAIT_OPTS);
   });
 
@@ -226,7 +247,7 @@ describe('AuthConsumePage (issues #1333, #1335)', () => {
     }, WAIT_OPTS);
   });
 
-  it('stores access token and redirects on OAuth code exchange success', async () => {
+  it('stores access token, signals auth, and redirects on OAuth code exchange success', async () => {
     fetchSpy.mockResolvedValue(
       new Response(JSON.stringify({ access_token: 'jwt.oauth.access' }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
     );
@@ -238,7 +259,11 @@ describe('AuthConsumePage (issues #1333, #1335)', () => {
     }, WAIT_OPTS);
 
     await waitFor(() => {
-      expect(navigatedTo).toBe('/work-items');
+      expect(mockSignalAuthenticated).toHaveBeenCalledTimes(1);
+    }, WAIT_OPTS);
+
+    await waitFor(() => {
+      expect(navigatedTo).toBe('/dashboard');
     }, WAIT_OPTS);
   });
 
@@ -321,7 +346,7 @@ describe('AuthConsumePage (issues #1333, #1335)', () => {
     await renderConsumePage('?token=valid-token');
 
     await waitFor(() => {
-      expect(navigatedTo).toBe('/work-items');
+      expect(navigatedTo).toBe('/dashboard');
     }, WAIT_OPTS);
   });
 });

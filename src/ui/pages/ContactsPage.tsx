@@ -90,7 +90,7 @@ export function ContactsPage(): React.JSX.Element {
 
   const handleNavigateToDetail = useCallback(
     (contact: Contact) => {
-      navigate(`/people/${contact.id}`);
+      navigate(`/contacts/${contact.id}`);
     },
     [navigate],
   );
