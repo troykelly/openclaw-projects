@@ -324,7 +324,7 @@ function ProviderCard({ provider, onDelete, onVerify, isSubmitting }: ProviderCa
             )}
             <span>{verifyResult.message}</span>
           </div>
-          {verifyResult.success && verifyResult.entities.length > 0 && (
+          {verifyResult.success && verifyResult.entities && verifyResult.entities.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1">
               {verifyResult.entities.map((entity) => (
                 <Badge key={entity.id} variant="outline" className="text-xs">

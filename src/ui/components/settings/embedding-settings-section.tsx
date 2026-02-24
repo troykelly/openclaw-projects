@@ -327,7 +327,8 @@ export function EmbeddingSettingsSection() {
     );
   }
 
-  const { provider, available_providers, budget, usage } = state.data;
+  const { provider, budget, usage } = state.data;
+  const available_providers = Array.isArray(state.data.available_providers) ? state.data.available_providers : [];
 
   return (
     <>
