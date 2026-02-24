@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/ui/components/ui/separator';
 import { Switch } from '@/ui/components/ui/switch';
 import { cn } from '@/ui/lib/utils';
+import { APP_VERSION } from '@/ui/lib/version';
 import { ConnectedAccountsSection } from './connected-accounts-section';
 import { EmbeddingSettingsSection } from './embedding-settings-section';
 import { InboundRoutingSection } from './inbound-routing-section';
@@ -459,7 +460,7 @@ function AboutSection() {
             <Separator />
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">Version</span>
-              <Badge variant="outline">1.0.0</Badge>
+              <Badge variant="outline">{APP_VERSION}</Badge>
             </div>
             <Separator />
             <div className="flex items-center justify-between">
