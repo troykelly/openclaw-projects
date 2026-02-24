@@ -250,7 +250,7 @@ exports[`Schema Snapshots > Manifest configSchema > full manifest structure (exc
   "skills": [
     "skills",
   ],
-  "version": "0.0.25",
+  "version": "0.0.26",
 }
 `;
 
