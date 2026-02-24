@@ -24,12 +24,13 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { getApiBaseUrl } from '@/ui/lib/api-config';
 import { setAccessToken } from '@/ui/lib/auth-manager';
+import { useUser } from '@/ui/contexts/user-context';
 
 /** Key used in sessionStorage to preserve the pre-auth deep link. */
 const RETURN_TO_KEY = 'auth_return_to';
 
 /** Default redirect target after successful login. */
-const DEFAULT_REDIRECT = '/work-items';
+const DEFAULT_REDIRECT = '/dashboard';
 
 type ConsumeStatus = 'loading' | 'success' | 'error';
 
@@ -106,6 +107,7 @@ async function exchangeCredential(token: string | null, code: string | null, sig
 export function AuthConsumePage(): React.JSX.Element {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { signalAuthenticated } = useUser();
 
   // Extract credentials from URL query parameters.
   // Token (magic link) takes priority over code (OAuth) if both are present.
@@ -142,6 +144,9 @@ export function AuthConsumePage(): React.JSX.Element {
         const { access_token } = await exchangeCredential(token, code, controller.signal);
 
         setAccessToken(access_token);
+        // Signal the UserProvider that a token was acquired externally,
+        // resetting any bootstrap failure state and triggering /api/me fetch.
+        signalAuthenticated();
         setState({ status: 'success', errorMessage: null });
 
         const returnPath = getReturnPath();
@@ -159,7 +164,7 @@ export function AuthConsumePage(): React.JSX.Element {
     })();
 
     return () => controller.abort();
-  }, [token, code, navigate]);
+  }, [token, code, navigate, signalAuthenticated]);
 
   return (
     <div data-testid="page-auth-consume" className="flex min-h-[60vh] items-center justify-center p-8">

@@ -28,6 +28,12 @@ interface UserContextValue {
   isAuthenticated: boolean;
   /** Log out: revoke refresh token, clear access token, redirect to login */
   logout: () => Promise<void>;
+  /**
+   * Signal that an access token was acquired externally (e.g. by the
+   * AuthConsumePage). Resets the bootstrap failure state and triggers
+   * a /api/me fetch so the auth guard lets the user through.
+   */
+  signalAuthenticated: () => void;
 }
 
 const UserContext = createContext<UserContextValue | null>(null);
@@ -81,6 +87,13 @@ export function UserProvider({ children }: { children: React.ReactNode }): React
 
   const isLoading = !authReady || (authReady && !authFailed && isMeLoading);
 
+  const signalAuthenticated = useCallback(() => {
+    setAuthFailed(false);
+    setAuthReady(true);
+    // Invalidate the 'me' query so it re-fetches with the new token
+    queryClient.invalidateQueries({ queryKey: ['me'] });
+  }, [queryClient]);
+
   const logout = useCallback(async () => {
     try {
       await apiClient.post('/api/auth/revoke', {});
@@ -98,8 +111,9 @@ export function UserProvider({ children }: { children: React.ReactNode }): React
       isLoading,
       isAuthenticated: !authFailed && !!data?.email,
       logout,
+      signalAuthenticated,
     }),
-    [data?.email, isLoading, authFailed, logout],
+    [data?.email, isLoading, authFailed, logout, signalAuthenticated],
   );
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;

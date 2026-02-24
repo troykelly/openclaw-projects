@@ -46,7 +46,7 @@ const MockUserContext = React.createContext<{ email: string | null; isLoading: b
 // We need to mock the useUserEmail hook to return our test email
 vi.mock('../../src/ui/contexts/user-context', () => ({
   useUserEmail: () => TEST_USER_EMAIL,
-  useUser: () => ({ email: TEST_USER_EMAIL, isLoading: false, isAuthenticated: true }),
+  useUser: () => ({ email: TEST_USER_EMAIL, isLoading: false, isAuthenticated: true, signalAuthenticated: vi.fn(), logout: vi.fn() }),
   UserProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
 
