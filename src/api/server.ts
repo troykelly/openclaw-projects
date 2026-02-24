@@ -4520,8 +4520,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const pool = createPool();
 
-    // Epic #1418: namespace scoping
-    if (!(await verifyWriteScope(pool, 'work_item', params.id, req))) {
+    // Epic #1418: namespace scoping (includeDeleted: restore needs to find deleted rows)
+    if (!(await verifyWriteScope(pool, 'work_item', params.id, req, { includeDeleted: true }))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
