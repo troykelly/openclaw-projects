@@ -17472,6 +17472,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         return reply.code(400).send({ error: 'Field "relationship_type" is required' });
       }
 
+      const queryNamespaces = req.namespaceContext?.queryNamespaces ?? ['default'];
       const result = await relationshipSet(pool, {
         contact_a: contact_a.trim(),
         contact_b: contact_b.trim(),
@@ -17479,6 +17480,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         notes: (body.notes as string) ?? undefined,
         created_by_agent: (body.created_by_agent as string) ?? undefined,
         namespace: getStoreNamespace(req),
+        queryNamespaces,
       });
 
       return reply.send(result);
