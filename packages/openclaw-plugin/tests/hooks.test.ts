@@ -85,7 +85,7 @@ describe('lifecycle hooks', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          getUserId: () => 'agent-1',
+          getAgentId: () => 'agent-1',
         });
         expect(typeof hook).toBe('function');
       });
@@ -95,7 +95,7 @@ describe('lifecycle hooks', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: { ...mockConfig, autoRecall: false },
-          getUserId: () => 'agent-1',
+          getAgentId: () => 'agent-1',
         });
 
         const result = await hook({ prompt: 'Hello' });
@@ -117,7 +117,7 @@ describe('lifecycle hooks', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          getUserId: () => 'agent-1',
+          getAgentId: () => 'agent-1',
         });
 
         await hook({ prompt: 'Tell me about my preferences' });
@@ -141,7 +141,7 @@ describe('lifecycle hooks', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          getUserId: () => 'agent-1',
+          getAgentId: () => 'agent-1',
         });
 
         const result = await hook({ prompt: 'Tell me about my preferences' });
@@ -161,7 +161,7 @@ describe('lifecycle hooks', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          getUserId: () => 'agent-1',
+          getAgentId: () => 'agent-1',
         });
 
         const result = await hook({ prompt: 'Hello' });
@@ -178,7 +178,7 @@ describe('lifecycle hooks', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          getUserId: () => 'agent-1',
+          getAgentId: () => 'agent-1',
         });
 
         const result = await hook({ prompt: 'Hello' });
@@ -198,7 +198,7 @@ describe('lifecycle hooks', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          getUserId: () => 'agent-1',
+          getAgentId: () => 'agent-1',
         });
 
         const result = await hook({ prompt: 'Hello' });
@@ -216,7 +216,7 @@ describe('lifecycle hooks', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          getUserId: () => 'agent-1',
+          getAgentId: () => 'agent-1',
           timeoutMs: 100, // Very short timeout for test
         });
 
@@ -239,7 +239,7 @@ describe('lifecycle hooks', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          getUserId: () => 'agent-1',
+          getAgentId: () => 'agent-1',
         });
 
         await hook({ prompt: 'My secret password is hunter2' });
@@ -260,7 +260,7 @@ describe('lifecycle hooks', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          getUserId: () => 'agent-1',
+          getAgentId: () => 'agent-1',
         });
         expect(typeof hook).toBe('function');
       });
@@ -273,7 +273,7 @@ describe('lifecycle hooks', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: { ...mockConfig, autoCapture: false },
-          getUserId: () => 'agent-1',
+          getAgentId: () => 'agent-1',
         });
 
         await hook({ messages: [{ role: 'user', content: 'Hello' }] });
@@ -293,7 +293,7 @@ describe('lifecycle hooks', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          getUserId: () => 'agent-1',
+          getAgentId: () => 'agent-1',
         });
 
         await hook({
@@ -317,7 +317,7 @@ describe('lifecycle hooks', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          getUserId: () => 'agent-1',
+          getAgentId: () => 'agent-1',
         });
 
         // Should not throw
@@ -338,7 +338,7 @@ describe('lifecycle hooks', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          getUserId: () => 'agent-1',
+          getAgentId: () => 'agent-1',
         });
 
         // Should not throw
@@ -359,7 +359,7 @@ describe('lifecycle hooks', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          getUserId: () => 'agent-1',
+          getAgentId: () => 'agent-1',
         });
 
         await hook({ messages: [] });
@@ -379,7 +379,7 @@ describe('lifecycle hooks', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          getUserId: () => 'agent-1',
+          getAgentId: () => 'agent-1',
         });
 
         await hook({
@@ -404,7 +404,7 @@ describe('lifecycle hooks', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          getUserId: () => 'agent-1',
+          getAgentId: () => 'agent-1',
         });
 
         const sensitiveMessage = { role: 'user', content: 'password=hunter2' };
@@ -435,7 +435,7 @@ describe('lifecycle hooks', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          getUserId: () => 'agent-1',
+          getAgentId: () => 'agent-1',
         });
 
         const sensitiveMessage = { role: 'user', content: 'Here is sk-abcdef1234567890 my key' };
@@ -463,7 +463,7 @@ describe('lifecycle hooks', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          getUserId: () => 'agent-1',
+          getAgentId: () => 'agent-1',
         });
 
         await hook({
@@ -498,7 +498,7 @@ describe('lifecycle hooks', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          getUserId: () => 'agent-1',
+          getAgentId: () => 'agent-1',
         });
 
         await hook({
@@ -530,7 +530,7 @@ describe('lifecycle hooks', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          getUserId: () => 'agent-1',
+          getAgentId: () => 'agent-1',
           timeoutMs: 100, // Very short timeout for test
         });
 

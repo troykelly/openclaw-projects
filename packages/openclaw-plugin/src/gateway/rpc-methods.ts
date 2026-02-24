@@ -73,7 +73,7 @@ export interface GatewayMethodsOptions {
   /** API client for backend calls */
   apiClient: ApiClient;
   /** Getter for current user ID (reads from mutable state, Issue #1644) */
-  getUserId: () => string;
+  getAgentId: () => string;
 }
 
 /** Gateway methods interface */
@@ -105,7 +105,7 @@ function filterValidEvents(events: string[]): NotificationEvent[] {
  * @returns Gateway method handlers
  */
 export function createGatewayMethods(options: GatewayMethodsOptions): GatewayMethods {
-  const { logger, apiClient, getUserId } = options;
+  const { logger, apiClient, getAgentId } = options;
 
   // Local subscription state
   let subscribedEvents: NotificationEvent[] = [];
@@ -118,7 +118,7 @@ export function createGatewayMethods(options: GatewayMethodsOptions): GatewayMet
      * Invalid event types are filtered out.
      */
     async subscribe(params: SubscribeParams): Promise<SubscribeResult> {
-      const user_id = getUserId();
+      const user_id = getAgentId();
       const validEvents = filterValidEvents(params.events);
 
       // Update local subscription state
@@ -139,7 +139,7 @@ export function createGatewayMethods(options: GatewayMethodsOptions): GatewayMet
      * Unsubscribe from all event notifications.
      */
     async unsubscribe(_params: UnsubscribeParams): Promise<UnsubscribeResult> {
-      const user_id = getUserId();
+      const user_id = getAgentId();
       const previousEvents = subscribedEvents;
 
       // Clear local subscription state
@@ -161,7 +161,7 @@ export function createGatewayMethods(options: GatewayMethodsOptions): GatewayMet
      * Fetches notifications from the backend, optionally filtered by timestamp.
      */
     async getNotifications(params: GetNotificationsParams): Promise<GetNotificationsResult> {
-      const user_id = getUserId();
+      const user_id = getAgentId();
       const { since, limit = 20 } = params;
 
       logger.debug('Gateway getNotifications', {

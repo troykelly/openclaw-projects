@@ -84,7 +84,7 @@ describe('OAuth Gateway RPC Methods', () => {
     methods = createOAuthGatewayMethods({
       logger: noopLogger,
       apiClient: client,
-      getUserId: () => 'test-user',
+      getAgentId: () => 'test-user',
     });
   });
 

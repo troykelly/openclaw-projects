@@ -102,7 +102,7 @@ describe('auto-linker', () => {
       const result = await autoLinkInboundMessage({
         client,
         logger: mockLogger,
-        getUserId: () => 'user@test.com',
+        getAgentId: () => 'user@test.com',
         message: {
           thread_id,
           senderEmail: 'alice@example.com',
@@ -141,7 +141,7 @@ describe('auto-linker', () => {
       const result = await autoLinkInboundMessage({
         client,
         logger: mockLogger,
-        getUserId: () => 'user@test.com',
+        getAgentId: () => 'user@test.com',
         message: {
           thread_id,
           senderPhone: '+61400000000',
@@ -180,7 +180,7 @@ describe('auto-linker', () => {
       const result = await autoLinkInboundMessage({
         client,
         logger: mockLogger,
-        getUserId: () => 'user@test.com',
+        getAgentId: () => 'user@test.com',
         message: {
           thread_id,
           senderEmail: 'alice@example.com',
@@ -205,7 +205,7 @@ describe('auto-linker', () => {
       const result = await autoLinkInboundMessage({
         client,
         logger: mockLogger,
-        getUserId: () => 'user@test.com',
+        getAgentId: () => 'user@test.com',
         message: {
           thread_id: '22222222-2222-2222-2222-222222222222',
           content: 'Anonymous message',
@@ -233,7 +233,7 @@ describe('auto-linker', () => {
       const result = await autoLinkInboundMessage({
         client,
         logger: mockLogger,
-        getUserId: () => 'user@test.com',
+        getAgentId: () => 'user@test.com',
         message: {
           thread_id: '22222222-2222-2222-2222-222222222222',
           senderEmail: 'unknown@example.com',
@@ -258,7 +258,7 @@ describe('auto-linker', () => {
       const result = await autoLinkInboundMessage({
         client,
         logger: mockLogger,
-        getUserId: () => 'user@test.com',
+        getAgentId: () => 'user@test.com',
         message: {
           thread_id: '22222222-2222-2222-2222-222222222222',
           senderEmail: 'alice@example.com',
@@ -284,7 +284,7 @@ describe('auto-linker', () => {
       await autoLinkInboundMessage({
         client,
         logger: mockLogger,
-        getUserId: () => 'user@test.com',
+        getAgentId: () => 'user@test.com',
         message: {
           thread_id: '22222222-2222-2222-2222-222222222222',
           senderEmail: 'alice@example.com',
@@ -327,7 +327,7 @@ describe('auto-linker', () => {
       await autoLinkInboundMessage({
         client,
         logger: mockLogger,
-        getUserId: () => 'user@test.com',
+        getAgentId: () => 'user@test.com',
         message: {
           thread_id,
           senderEmail: 'alice@example.com',
@@ -361,7 +361,7 @@ describe('auto-linker', () => {
       const result = await autoLinkInboundMessage({
         client,
         logger: mockLogger,
-        getUserId: () => 'user@test.com',
+        getAgentId: () => 'user@test.com',
         message: {
           thread_id: '22222222-2222-2222-2222-222222222222',
           senderEmail: 'stranger@example.com',
@@ -387,7 +387,7 @@ describe('auto-linker', () => {
       await autoLinkInboundMessage({
         client,
         logger: mockLogger,
-        getUserId: () => 'user@test.com',
+        getAgentId: () => 'user@test.com',
         message: {
           thread_id: '22222222-2222-2222-2222-222222222222',
           content: 'Anonymous message about projects',
@@ -444,7 +444,7 @@ describe('auto-linker', () => {
       const result = await autoLinkInboundMessage({
         client,
         logger: mockLogger,
-        getUserId: () => 'user@test.com',
+        getAgentId: () => 'user@test.com',
         message: {
           thread_id,
           senderEmail: 'alice@example.com',
@@ -503,7 +503,7 @@ describe('auto-linker', () => {
       const result = await autoLinkInboundMessage({
         client,
         logger: mockLogger,
-        getUserId: () => 'user@test.com',
+        getAgentId: () => 'user@test.com',
         message: {
           thread_id,
           senderEmail: 'alice@example.com',
@@ -559,7 +559,7 @@ describe('auto-linker', () => {
       const result = await autoLinkInboundMessage({
         client,
         logger: mockLogger,
-        getUserId: () => 'user@test.com',
+        getAgentId: () => 'user@test.com',
         message: {
           thread_id,
           senderEmail: 'alice@example.com',
@@ -616,7 +616,7 @@ describe('auto-linker', () => {
       const result = await autoLinkInboundMessage({
         client,
         logger: mockLogger,
-        getUserId: () => 'user@test.com',
+        getAgentId: () => 'user@test.com',
         message: {
           thread_id,
           senderEmail: 'alice@example.com',
@@ -675,7 +675,7 @@ describe('auto-linker', () => {
       const result = await autoLinkInboundMessage({
         client,
         logger: mockLogger,
-        getUserId: () => 'user@test.com',
+        getAgentId: () => 'user@test.com',
         message: {
           thread_id,
           senderEmail: 'alice@example.com',
@@ -734,7 +734,7 @@ describe('auto-linker', () => {
       const result = await autoLinkInboundMessage({
         client,
         logger: mockLogger,
-        getUserId: () => 'user@test.com',
+        getAgentId: () => 'user@test.com',
         message: {
           thread_id,
           senderEmail: 'alice@example.com',
@@ -778,7 +778,7 @@ describe('auto-linker', () => {
       await autoLinkInboundMessage({
         client,
         logger: mockLogger,
-        getUserId: () => 'user@test.com',
+        getAgentId: () => 'user@test.com',
         message: {
           thread_id: '22222222-2222-2222-2222-222222222222',
           senderEmail: 'alice@example.com',
@@ -812,7 +812,7 @@ describe('auto-linker', () => {
       const result = await autoLinkInboundMessage({
         client,
         logger: mockLogger,
-        getUserId: () => 'user@test.com',
+        getAgentId: () => 'user@test.com',
         message: {
           thread_id,
           senderEmail: 'alice@example.com',
@@ -854,7 +854,7 @@ describe('auto-linker', () => {
       const result = await autoLinkInboundMessage({
         client,
         logger: mockLogger,
-        getUserId: () => 'user@test.com',
+        getAgentId: () => 'user@test.com',
         message: {
           thread_id,
           senderEmail: 'alice@example.com',
@@ -875,7 +875,7 @@ describe('auto-linker', () => {
       const result = await autoLinkInboundMessage({
         client,
         logger: mockLogger,
-        getUserId: () => 'user@test.com',
+        getAgentId: () => 'user@test.com',
         message: {
           thread_id: '22222222-2222-2222-2222-222222222222',
           senderEmail: 'alice@example.com',
@@ -936,7 +936,7 @@ describe('auto-linker', () => {
       await autoLinkInboundMessage({
         client,
         logger: mockLogger,
-        getUserId: () => 'user@test.com',
+        getAgentId: () => 'user@test.com',
         message: {
           thread_id,
           senderEmail: 'alice@example.com',
@@ -982,7 +982,7 @@ describe('auto-linker', () => {
       const opts: AutoLinkOptions = {
         client,
         logger: mockLogger,
-        getUserId: () => 'user@test.com',
+        getAgentId: () => 'user@test.com',
         message: {
           thread_id,
           senderEmail: 'alice@example.com',
@@ -1029,7 +1029,7 @@ describe('auto-linker', () => {
       await autoLinkInboundMessage({
         client,
         logger: mockLogger,
-        getUserId: () => 'user@test.com',
+        getAgentId: () => 'user@test.com',
         message: {
           thread_id: '22222222-2222-2222-2222-222222222222',
           senderEmail: 'alice@example.com',
@@ -1068,7 +1068,7 @@ describe('auto-linker', () => {
       await autoLinkInboundMessage({
         client,
         logger: mockLogger,
-        getUserId: () => 'user@test.com',
+        getAgentId: () => 'user@test.com',
         message: {
           thread_id: '22222222-2222-2222-2222-222222222222',
           senderEmail: 'alice@example.com',
@@ -1089,7 +1089,7 @@ describe('auto-linker', () => {
       const result = await autoLinkInboundMessage({
         client,
         logger: mockLogger,
-        getUserId: () => 'user@test.com',
+        getAgentId: () => 'user@test.com',
         message: {
           thread_id: '22222222-2222-2222-2222-222222222222',
           content: 'Hello',

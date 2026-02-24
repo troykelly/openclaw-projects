@@ -47,7 +47,7 @@ export interface AutoRecallHookOptions {
   client: ApiClient;
   logger: Logger;
   config: PluginConfig;
-  getUserId: () => string;
+  getAgentId: () => string;
   timeoutMs?: number;
 }
 
@@ -56,7 +56,7 @@ export interface AutoCaptureHookOptions {
   client: ApiClient;
   logger: Logger;
   config: PluginConfig;
-  getUserId: () => string;
+  getAgentId: () => string;
   timeoutMs?: number;
 }
 
@@ -127,10 +127,10 @@ function filterSensitiveContent(content: string): string {
  * and returns it to be prepended to the conversation.
  */
 export function createAutoRecallHook(options: AutoRecallHookOptions): (event: AutoRecallEvent) => Promise<AutoRecallResult | null> {
-  const { client, logger, config, getUserId, timeoutMs = DEFAULT_RECALL_TIMEOUT_MS } = options;
+  const { client, logger, config, getAgentId, timeoutMs = DEFAULT_RECALL_TIMEOUT_MS } = options;
 
   return async (event: AutoRecallEvent): Promise<AutoRecallResult | null> => {
-    const user_id = getUserId();
+    const user_id = getAgentId();
 
     // Skip if auto-recall is disabled
     if (!config.autoRecall) {
@@ -239,10 +239,10 @@ async function fetchContext(client: ApiClient, user_id: string, prompt: string, 
  * information as memories.
  */
 export function createAutoCaptureHook(options: AutoCaptureHookOptions): (event: AutoCaptureEvent) => Promise<void> {
-  const { client, logger, config, getUserId, timeoutMs = DEFAULT_CAPTURE_TIMEOUT_MS } = options;
+  const { client, logger, config, getAgentId, timeoutMs = DEFAULT_CAPTURE_TIMEOUT_MS } = options;
 
   return async (event: AutoCaptureEvent): Promise<void> => {
-    const user_id = getUserId();
+    const user_id = getAgentId();
 
     // Skip if auto-capture is disabled
     if (!config.autoCapture) {
@@ -328,7 +328,7 @@ export interface GraphAwareRecallHookOptions {
   client: ApiClient;
   logger: Logger;
   config: PluginConfig;
-  getUserId: () => string;
+  getAgentId: () => string;
   timeoutMs?: number;
 }
 
@@ -370,10 +370,10 @@ interface GraphAwareContextApiResponse {
  * Part of Epic #486, Issue #497.
  */
 export function createGraphAwareRecallHook(options: GraphAwareRecallHookOptions): (event: AutoRecallEvent) => Promise<AutoRecallResult | null> {
-  const { client, logger, config, getUserId, timeoutMs = DEFAULT_RECALL_TIMEOUT_MS } = options;
+  const { client, logger, config, getAgentId, timeoutMs = DEFAULT_RECALL_TIMEOUT_MS } = options;
 
   return async (event: AutoRecallEvent): Promise<AutoRecallResult | null> => {
-    const user_id = getUserId();
+    const user_id = getAgentId();
 
     // Skip if auto-recall is disabled
     if (!config.autoRecall) {
