@@ -10,6 +10,7 @@ import type { ApiClient, ApiResponse, RequestOptions } from '../api-client.js';
 
 /** API source from the backend */
 export interface ApiSourceResponse {
+  [key: string]: unknown;
   id: string;
   namespace: string;
   name: string;
@@ -31,6 +32,7 @@ export interface ApiSourceResponse {
 
 /** Credential from the backend */
 export interface ApiCredentialResponse {
+  [key: string]: unknown;
   id: string;
   api_source_id: string;
   purpose: string;

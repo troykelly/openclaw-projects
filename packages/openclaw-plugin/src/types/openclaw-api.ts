@@ -44,6 +44,7 @@ export interface JSONSchemaProperty {
   properties?: Record<string, JSONSchemaProperty>;
   required?: string[];
   format?: string;
+  additionalProperties?: JSONSchemaProperty | boolean;
 }
 
 /** Tool execution context */
