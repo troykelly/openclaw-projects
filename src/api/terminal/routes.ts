@@ -7,11 +7,14 @@
  * - Session lifecycle with gRPC bridge (Issue #1674)
  * - WebSocket terminal I/O streaming (Issue #1675)
  * - Command execution (Issue #1676)
+ * - Enrollment tokens (Issue #1683)
+ * - Audit trail (Issue #1686)
+ * - Entry retention policies (Issue #1687)
  *
  * Epic #1667 — TMux Session Management.
  */
 
-import { generateKeyPairSync, randomUUID } from 'node:crypto';
+import { generateKeyPairSync, randomBytes, randomUUID, createHash } from 'node:crypto';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { Pool } from 'pg';
 import type { WebSocket } from 'ws';
@@ -24,6 +27,7 @@ import {
 } from '../../tmux-worker/credentials/index.ts';
 import { parseSSHConfig } from './ssh-config-parser.ts';
 import * as grpcClient from './grpc-client.ts';
+import { recordActivity } from './activity.ts';
 
 // ── Constants ────────────────────────────────────────────────
 
@@ -112,6 +116,15 @@ async function verifyWriteScope(
 /** Tables that have a deleted_at column. */
 function hasDeletedAt(table: string): boolean {
   return ['terminal_connection', 'terminal_credential'].includes(table);
+}
+
+/** Extract the actor identifier from the request for audit logging. */
+async function getActor(req: FastifyRequest): Promise<string> {
+  const identity = await getAuthIdentity(req);
+  if (identity) {
+    return identity.email ?? 'unknown';
+  }
+  return isAuthDisabled() ? 'system' : 'unknown';
 }
 
 /** Get the encryption key from environment. */
@@ -1253,5 +1266,393 @@ export async function terminalRoutesPlugin(
       const message = err instanceof Error ? err.message : 'Unknown gRPC error';
       return reply.code(502).send({ error: 'Failed to capture pane', details: message });
     }
+  });
+
+  // ================================================================
+  // Issue #1683 — Enrollment Token System
+  // ================================================================
+
+  // GET /api/terminal/enrollment-tokens — List tokens (metadata only)
+  app.get('/api/terminal/enrollment-tokens', async (req, reply) => {
+    const query = req.query as { limit?: string; offset?: string };
+    const { limit, offset } = parsePagination(query);
+    const namespaces = getEffectiveNamespaces(req);
+    if (namespaces.length === 0) {
+      return reply.code(403).send({ error: 'No namespace access' });
+    }
+
+    const countResult = await pool.query(
+      `SELECT count(*)::int AS total FROM terminal_enrollment_token WHERE namespace = ANY($1::text[])`,
+      [namespaces],
+    );
+    const total = countResult.rows[0]?.total ?? 0;
+
+    const result = await pool.query(
+      `SELECT id, namespace, label, max_uses, uses, expires_at, connection_defaults, allowed_tags, created_at
+       FROM terminal_enrollment_token
+       WHERE namespace = ANY($1::text[])
+       ORDER BY created_at DESC
+       LIMIT $2 OFFSET $3`,
+      [namespaces, limit, offset],
+    );
+
+    return reply.send({ tokens: result.rows, total, limit, offset });
+  });
+
+  // POST /api/terminal/enrollment-tokens — Create token
+  app.post('/api/terminal/enrollment-tokens', async (req, reply) => {
+    const namespace = getStoreNamespace(req);
+    const body = req.body as {
+      label?: string;
+      max_uses?: number;
+      expires_at?: string;
+      connection_defaults?: Record<string, unknown>;
+      allowed_tags?: string[];
+    } | null;
+
+    if (!body?.label || !body.label.trim()) {
+      return reply.code(400).send({ error: 'label is required' });
+    }
+
+    // Generate a cryptographically random token (32 bytes, base64url)
+    const plaintextToken = randomBytes(32).toString('base64url');
+
+    // Hash the token with SHA-256 for storage
+    // Using SHA-256 because enrollment tokens are high-entropy random values,
+    // not user-chosen passwords — preimage resistance is sufficient.
+    const tokenHash = createHash('sha256').update(plaintextToken).digest('hex');
+
+    const maxUses = body.max_uses != null ? Math.max(1, Math.floor(body.max_uses)) : null;
+    const expiresAt = body.expires_at ?? null;
+    const connectionDefaults = body.connection_defaults ?? null;
+    const allowedTags = body.allowed_tags ?? null;
+
+    const result = await pool.query(
+      `INSERT INTO terminal_enrollment_token
+         (namespace, token_hash, label, max_uses, expires_at, connection_defaults, allowed_tags)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING id, namespace, label, max_uses, uses, expires_at, connection_defaults, allowed_tags, created_at`,
+      [
+        namespace,
+        tokenHash,
+        body.label.trim(),
+        maxUses,
+        expiresAt,
+        connectionDefaults ? JSON.stringify(connectionDefaults) : null,
+        allowedTags,
+      ],
+    );
+
+    const token = result.rows[0];
+    const actor = await getActor(req);
+
+    recordActivity(pool, {
+      namespace,
+      actor,
+      action: 'enrollment_token.create',
+      detail: { label: body.label.trim(), token_id: token.id },
+    });
+
+    // Return plaintext token ONCE — it will never be retrievable again
+    return reply.code(201).send({
+      ...token,
+      token: plaintextToken,
+      enrollment_script: `curl -sSL "$API_BASE_URL/api/terminal/enroll" -H "Content-Type: application/json" -d '{"token":"${plaintextToken}","hostname":"$(hostname)"}'`,
+    });
+  });
+
+  // DELETE /api/terminal/enrollment-tokens/:id — Revoke token
+  app.delete('/api/terminal/enrollment-tokens/:id', async (req, reply) => {
+    const params = req.params as { id: string };
+    if (!UUID_REGEX.test(params.id)) {
+      return reply.code(400).send({ error: 'Invalid token ID format' });
+    }
+
+    const namespaces = getEffectiveNamespaces(req);
+    if (namespaces.length === 0) {
+      return reply.code(403).send({ error: 'No namespace access' });
+    }
+
+    const result = await pool.query(
+      `DELETE FROM terminal_enrollment_token WHERE id = $1 AND namespace = ANY($2::text[]) RETURNING id`,
+      [params.id, namespaces],
+    );
+
+    if (result.rowCount === 0) {
+      return reply.code(404).send({ error: 'Enrollment token not found' });
+    }
+
+    const actor = await getActor(req);
+    recordActivity(pool, {
+      namespace: getStoreNamespace(req),
+      actor,
+      action: 'enrollment_token.revoke',
+      detail: { token_id: params.id },
+    });
+
+    return reply.code(204).send();
+  });
+
+  // POST /api/terminal/enroll — Remote self-registration
+  app.post('/api/terminal/enroll', async (req, reply) => {
+    const body = req.body as {
+      token?: string;
+      hostname?: string;
+      ssh_port?: number;
+      public_key?: string;
+      tags?: string[];
+      notes?: string;
+    } | null;
+
+    if (!body?.token) {
+      return reply.code(400).send({ error: 'token is required' });
+    }
+    if (!body.hostname?.trim()) {
+      return reply.code(400).send({ error: 'hostname is required' });
+    }
+
+    // Hash the provided token and look it up
+    const tokenHash = createHash('sha256').update(body.token).digest('hex');
+
+    const tokenResult = await pool.query(
+      `SELECT id, namespace, label, max_uses, uses, expires_at, connection_defaults, allowed_tags
+       FROM terminal_enrollment_token
+       WHERE token_hash = $1`,
+      [tokenHash],
+    );
+
+    if (tokenResult.rows.length === 0) {
+      return reply.code(401).send({ error: 'Invalid enrollment token' });
+    }
+
+    const enrollmentToken = tokenResult.rows[0] as {
+      id: string;
+      namespace: string;
+      label: string;
+      max_uses: number | null;
+      uses: number;
+      expires_at: string | null;
+      connection_defaults: Record<string, unknown> | null;
+      allowed_tags: string[] | null;
+    };
+
+    // Check expiry
+    if (enrollmentToken.expires_at && new Date(enrollmentToken.expires_at) < new Date()) {
+      return reply.code(401).send({ error: 'Enrollment token has expired' });
+    }
+
+    // Check max_uses
+    if (enrollmentToken.max_uses !== null && enrollmentToken.uses >= enrollmentToken.max_uses) {
+      return reply.code(401).send({ error: 'Enrollment token has reached maximum uses' });
+    }
+
+    // Increment uses
+    await pool.query(
+      `UPDATE terminal_enrollment_token SET uses = uses + 1 WHERE id = $1`,
+      [enrollmentToken.id],
+    );
+
+    // Merge connection defaults
+    const defaults = enrollmentToken.connection_defaults ?? {};
+    const tags = [
+      ...(enrollmentToken.allowed_tags ?? []),
+      ...(body.tags ?? []),
+    ];
+
+    // Create terminal_connection
+    const connResult = await pool.query(
+      `INSERT INTO terminal_connection
+         (namespace, name, host, port, username, tags, notes, env)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       RETURNING *`,
+      [
+        enrollmentToken.namespace,
+        body.hostname.trim(),
+        body.hostname.trim(),
+        body.ssh_port ?? 22,
+        (defaults.username as string) ?? null,
+        tags.length > 0 ? tags : null,
+        body.notes ?? (defaults.notes as string) ?? null,
+        defaults.env ? JSON.stringify(defaults.env) : null,
+      ],
+    );
+
+    const connection = connResult.rows[0];
+
+    // If public_key provided, create credential
+    let credential = null;
+    if (body.public_key) {
+      const credResult = await pool.query(
+        `INSERT INTO terminal_credential (namespace, name, kind, public_key)
+         VALUES ($1, $2, 'ssh_key', $3)
+         RETURNING id, namespace, name, kind, public_key, created_at`,
+        [enrollmentToken.namespace, `${body.hostname}-key`, body.public_key],
+      );
+      credential = credResult.rows[0];
+
+      // Link credential to connection
+      await pool.query(
+        `UPDATE terminal_connection SET credential_id = $1, auth_method = 'key' WHERE id = $2`,
+        [credential.id, connection.id],
+      );
+    }
+
+    recordActivity(pool, {
+      namespace: enrollmentToken.namespace,
+      connection_id: connection.id,
+      actor: 'system',
+      action: 'enrollment.register',
+      detail: { token_label: enrollmentToken.label, remote_host: body.hostname },
+    });
+
+    return reply.code(201).send({
+      connection,
+      credential,
+      enrollment_token_label: enrollmentToken.label,
+    });
+  });
+
+  // ================================================================
+  // Issue #1686 — Audit Trail (Activity)
+  // ================================================================
+
+  // GET /api/terminal/activity — Query audit trail
+  app.get('/api/terminal/activity', async (req, reply) => {
+    const query = req.query as {
+      limit?: string;
+      offset?: string;
+      session_id?: string;
+      connection_id?: string;
+      actor?: string;
+      action?: string;
+      from?: string;
+      to?: string;
+    };
+    const { limit, offset } = parsePagination(query);
+    const namespaces = getEffectiveNamespaces(req);
+    if (namespaces.length === 0) {
+      return reply.code(403).send({ error: 'No namespace access' });
+    }
+
+    // Build dynamic WHERE clauses
+    const conditions: string[] = ['namespace = ANY($1::text[])'];
+    const params: unknown[] = [namespaces];
+    let paramIndex = 2;
+
+    if (query.session_id) {
+      if (!UUID_REGEX.test(query.session_id)) {
+        return reply.code(400).send({ error: 'Invalid session_id format' });
+      }
+      conditions.push(`session_id = $${paramIndex}`);
+      params.push(query.session_id);
+      paramIndex++;
+    }
+
+    if (query.connection_id) {
+      if (!UUID_REGEX.test(query.connection_id)) {
+        return reply.code(400).send({ error: 'Invalid connection_id format' });
+      }
+      conditions.push(`connection_id = $${paramIndex}`);
+      params.push(query.connection_id);
+      paramIndex++;
+    }
+
+    if (query.actor) {
+      conditions.push(`actor = $${paramIndex}`);
+      params.push(query.actor);
+      paramIndex++;
+    }
+
+    if (query.action) {
+      conditions.push(`action = $${paramIndex}`);
+      params.push(query.action);
+      paramIndex++;
+    }
+
+    if (query.from) {
+      conditions.push(`created_at >= $${paramIndex}`);
+      params.push(query.from);
+      paramIndex++;
+    }
+
+    if (query.to) {
+      conditions.push(`created_at <= $${paramIndex}`);
+      params.push(query.to);
+      paramIndex++;
+    }
+
+    const whereClause = conditions.join(' AND ');
+
+    const countResult = await pool.query(
+      `SELECT count(*)::int AS total FROM terminal_activity WHERE ${whereClause}`,
+      params,
+    );
+    const total = countResult.rows[0]?.total ?? 0;
+
+    const result = await pool.query(
+      `SELECT id, namespace, session_id, connection_id, actor, action, detail, created_at
+       FROM terminal_activity
+       WHERE ${whereClause}
+       ORDER BY created_at DESC
+       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
+      [...params, limit, offset],
+    );
+
+    return reply.send({ items: result.rows, total, limit, offset });
+  });
+
+  // ================================================================
+  // Issue #1687 — Entry Retention Policies
+  // ================================================================
+
+  // PATCH /api/terminal/settings — Update terminal settings (retention)
+  app.patch('/api/terminal/settings', async (req, reply) => {
+    const namespace = getStoreNamespace(req);
+    const body = req.body as {
+      entry_retention_days?: number;
+    } | null;
+
+    if (!body || body.entry_retention_days === undefined) {
+      return reply.code(400).send({ error: 'entry_retention_days is required' });
+    }
+
+    const days = Math.floor(body.entry_retention_days);
+    if (!Number.isFinite(days) || days < 1 || days > 3650) {
+      return reply.code(400).send({ error: 'entry_retention_days must be between 1 and 3650' });
+    }
+
+    // Upsert the setting
+    await pool.query(
+      `INSERT INTO terminal_setting (namespace, key, value)
+       VALUES ($1, 'terminal_retention', $2::jsonb)
+       ON CONFLICT (namespace, key) DO UPDATE SET value = $2::jsonb, updated_at = now()`,
+      [namespace, JSON.stringify({ terminal_entry_retention_days: days })],
+    );
+
+    const actor = await getActor(req);
+    recordActivity(pool, {
+      namespace,
+      actor,
+      action: 'settings.update',
+      detail: { entry_retention_days: days },
+    });
+
+    return reply.send({ entry_retention_days: days });
+  });
+
+  // GET /api/terminal/settings — Get terminal settings
+  app.get('/api/terminal/settings', async (req, reply) => {
+    const namespaces = getEffectiveNamespaces(req);
+    if (namespaces.length === 0) {
+      return reply.code(403).send({ error: 'No namespace access' });
+    }
+
+    const result = await pool.query(
+      `SELECT value FROM terminal_setting WHERE namespace = ANY($1::text[]) AND key = 'terminal_retention' LIMIT 1`,
+      [namespaces],
+    );
+
+    const value = result.rows[0]?.value as { terminal_entry_retention_days?: number } | undefined;
+    return reply.send({ entry_retention_days: value?.terminal_entry_retention_days ?? 90 });
   });
 }
