@@ -276,8 +276,9 @@ describe('API Memory Search Service', () => {
       const withCreds = results.find((r) => r.credentials && r.credentials.length > 0);
       expect(withCreds).toBeDefined();
       expect(withCreds!.credentials![0].header_name).toBe('Authorization');
-      // Decrypted value should be the original
-      expect(withCreds!.credentials![0].resolve_reference).toBe('test-api-key-12345');
+      // Search results return masked credentials (security: decrypt requires write scope)
+      expect(withCreds!.credentials![0].resolve_reference).not.toBe('test-api-key-12345');
+      expect(withCreds!.credentials![0].resolve_reference).toContain('***');
     });
 
     it('should return empty for no matches', async () => {
