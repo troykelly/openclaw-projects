@@ -12,7 +12,7 @@ import websocket from '@fastify/websocket';
 import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify';
 import { createPool } from '../db.ts';
 import { sendMagicLinkEmail } from '../email/magicLink.ts';
-import { type AuthIdentity, getAuthIdentity, getSessionEmail, resolveNamespaces, requireMinRole, RoleError } from './auth/middleware.ts';
+import { type AuthIdentity, getAuthIdentity, getSessionEmail, resolveUserEmail, resolveNamespaces, requireMinRole, RoleError } from './auth/middleware.ts';
 import { isAuthDisabled, verifyAccessToken, signAccessToken } from './auth/jwt.ts';
 import { createRefreshToken, consumeRefreshToken, revokeTokenFamily } from './auth/refresh-tokens.ts';
 import { logAuthEvent } from './auth/audit.ts';
@@ -12916,10 +12916,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       namespaces?: string;
     };
 
-    // Epic #1418: namespace scoping — user_email is still accepted for backward compat
-    // but notification delivery is per-user (user_email kept per design doc 6.1)
-    if (!query.user_email && !req.namespaceContext) {
-      return reply.code(400).send({ error: 'user_email is required' });
+    // Resolve user email from JWT (or fallback to query param when auth disabled)
+    const email = await resolveUserEmail(req, query.user_email);
+
+    // Notifications are always per-user. Even M2M tokens must specify a
+    // user_email to query — never allow unscoped cross-user queries.
+    if (!email) {
+      return reply.code(401).send({ error: 'unauthorized' });
     }
 
     const limit = Math.min(Number.parseInt(query.limit || '50', 10), 100);
@@ -12948,10 +12951,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }
     }
 
-    if (query.user_email) {
-      params.push(query.user_email);
-      conditions.push(`user_email = $${params.length}`);
-    }
+    // Always scope to the resolved email — never skip the user_email predicate
+    params.push(email);
+    conditions.push(`user_email = $${params.length}`);
     let whereClause = `WHERE ${conditions.join(' AND ')}`;
 
     if (unreadOnly) {
@@ -12997,8 +12999,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.get('/api/notifications/unread-count', async (req, reply) => {
     const query = req.query as { user_email?: string; namespaces?: string };
 
-    if (!query.user_email) {
-      return reply.code(400).send({ error: 'user_email is required' });
+    const email = await resolveUserEmail(req, query.user_email);
+    if (!email) {
+      return reply.code(401).send({ error: 'unauthorized' });
     }
 
     const pool = createPool();
@@ -13006,7 +13009,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const conditions: string[] = ['read_at IS NULL', 'dismissed_at IS NULL'];
     const params: unknown[] = [];
 
-    params.push(query.user_email);
+    params.push(email);
     conditions.push(`user_email = $${params.length}`);
 
     // Issue #1480: optional namespace filter
@@ -13033,8 +13036,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const query = req.query as { user_email?: string };
 
-    if (!query.user_email) {
-      return reply.code(400).send({ error: 'user_email is required' });
+    const email = await resolveUserEmail(req, query.user_email);
+    if (!email) {
+      return reply.code(401).send({ error: 'unauthorized' });
     }
 
     const pool = createPool();
@@ -13043,7 +13047,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
        SET read_at = COALESCE(read_at, now())
        WHERE id = $1 AND user_email = $2
        RETURNING id`,
-      [params.id, query.user_email],
+      [params.id, email],
     );
     await pool.end();
 
@@ -13058,8 +13062,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.post('/api/notifications/read-all', async (req, reply) => {
     const query = req.query as { user_email?: string };
 
-    if (!query.user_email) {
-      return reply.code(400).send({ error: 'user_email is required' });
+    const email = await resolveUserEmail(req, query.user_email);
+    if (!email) {
+      return reply.code(401).send({ error: 'unauthorized' });
     }
 
     const pool = createPool();
@@ -13068,7 +13073,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
        SET read_at = now()
        WHERE user_email = $1 AND read_at IS NULL AND dismissed_at IS NULL
        RETURNING id`,
-      [query.user_email],
+      [email],
     );
     await pool.end();
 
@@ -13080,8 +13085,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const query = req.query as { user_email?: string };
 
-    if (!query.user_email) {
-      return reply.code(400).send({ error: 'user_email is required' });
+    const email = await resolveUserEmail(req, query.user_email);
+    if (!email) {
+      return reply.code(401).send({ error: 'unauthorized' });
     }
 
     const pool = createPool();
@@ -13090,7 +13096,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
        SET dismissed_at = now()
        WHERE id = $1 AND user_email = $2
        RETURNING id`,
-      [params.id, query.user_email],
+      [params.id, email],
     );
     await pool.end();
 
@@ -13105,8 +13111,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.get('/api/notifications/preferences', async (req, reply) => {
     const query = req.query as { user_email?: string };
 
-    if (!query.user_email) {
-      return reply.code(400).send({ error: 'user_email is required' });
+    const email = await resolveUserEmail(req, query.user_email);
+    if (!email) {
+      return reply.code(401).send({ error: 'unauthorized' });
     }
 
     const pool = createPool();
@@ -13114,7 +13121,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       `SELECT notification_type, in_app_enabled, email_enabled
        FROM notification_preference
        WHERE user_email = $1`,
-      [query.user_email],
+      [email],
     );
     await pool.end();
 
@@ -13140,8 +13147,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const query = req.query as { user_email?: string };
     const body = req.body as Record<string, { in_app?: boolean; email?: boolean }>;
 
-    if (!query.user_email) {
-      return reply.code(400).send({ error: 'user_email is required' });
+    const email = await resolveUserEmail(req, query.user_email);
+    if (!email) {
+      return reply.code(401).send({ error: 'unauthorized' });
     }
 
     // Validate notification types
@@ -13161,7 +13169,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
            in_app_enabled = COALESCE($3, notification_preference.in_app_enabled),
            email_enabled = COALESCE($4, notification_preference.email_enabled),
            updated_at = now()`,
-        [query.user_email, type, pref.in_app ?? true, pref.email ?? false],
+        [email, type, pref.in_app ?? true, pref.email ?? false],
       );
     }
 
@@ -13877,6 +13885,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         features,
         permission_level,
       });
+
+      // When called via apiClient (Accept: application/json), return URL as JSON
+      // so the browser can navigate programmatically with the Bearer token intact.
+      const accept = req.headers.accept || '';
+      if (accept.includes('application/json')) {
+        return reply.send({ url: authResult.url });
+      }
 
       return reply.redirect(authResult.url);
     } catch (error) {
@@ -19943,56 +19958,109 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const { id } = req.params as { id: string };
     const body = req.body as { label?: string; user_email?: string };
 
+    const email = await getSessionEmail(req) ?? (isAuthDisabled() ? body?.user_email?.trim() || null : null);
+    if (!email && !isAuthDisabled()) {
+      return reply.code(401).send({ error: 'unauthorized' });
+    }
+
     if (!body?.label || body.label.trim().length === 0) {
       return reply.code(400).send({ error: 'label is required' });
     }
 
     const pool = createPool();
+    try {
+      // Verify project exists
+      const projectCheck = await pool.query(`SELECT id FROM work_item WHERE id = $1`, [id]);
+      if (projectCheck.rows.length === 0) {
+        return reply.code(404).send({ error: 'project not found' });
+      }
 
-    // Verify project exists
-    const projectCheck = await pool.query(`SELECT id FROM work_item WHERE id = $1`, [id]);
-    if (projectCheck.rows.length === 0) {
+      const token = randomBytes(32).toString('base64url');
+      const result = await pool.query(
+        `INSERT INTO project_webhook (project_id, user_email, label, token)
+         VALUES ($1, $2, $3, $4)
+         RETURNING id::text, project_id::text, user_email, label, token, is_active, last_received, created_at, updated_at`,
+        [id, email, body.label.trim(), token],
+      );
+      return reply.code(201).send(result.rows[0]);
+    } catch (err) {
+      req.log.error({ err, project_id: id }, 'Failed to create webhook');
+      return reply.code(500).send({ error: 'Failed to create webhook' });
+    } finally {
       await pool.end();
-      return reply.code(404).send({ error: 'project not found' });
     }
-
-    const token = randomBytes(32).toString('base64url');
-    const result = await pool.query(
-      `INSERT INTO project_webhook (project_id, user_email, label, token)
-       VALUES ($1, $2, $3, $4)
-       RETURNING id::text, project_id::text, user_email, label, token, is_active, last_received, created_at, updated_at`,
-      [id, body.user_email?.trim() || null, body.label.trim(), token],
-    );
-    await pool.end();
-    return reply.code(201).send(result.rows[0]);
   });
 
   // GET /api/projects/:id/webhooks - List webhooks for a project
   app.get('/api/projects/:id/webhooks', async (req, reply) => {
     const { id } = req.params as { id: string };
+
+    const email = await getSessionEmail(req);
+    if (!email && !isAuthDisabled()) {
+      return reply.code(401).send({ error: 'unauthorized' });
+    }
+
     const pool = createPool();
-    const result = await pool.query(
-      `SELECT id::text, project_id::text, user_email, label, token, is_active, last_received, created_at, updated_at
-       FROM project_webhook WHERE project_id = $1 ORDER BY created_at DESC`,
-      [id],
-    );
-    await pool.end();
-    return reply.send(result.rows);
+    try {
+      // Owner-scoped: only return webhooks created by the authenticated user.
+      // When auth is disabled (tests), return all webhooks for the project.
+      const params: unknown[] = [id];
+      let whereClause = 'WHERE project_id = $1';
+      if (email) {
+        params.push(email);
+        whereClause += ` AND user_email = $${params.length}`;
+      }
+
+      const result = await pool.query(
+        `SELECT id::text, project_id::text, user_email, label,
+                CONCAT(LEFT(token, 8), '...') AS token,
+                is_active, last_received, created_at, updated_at
+         FROM project_webhook ${whereClause} ORDER BY created_at DESC`,
+        params,
+      );
+      return reply.send(result.rows);
+    } catch (err) {
+      req.log.error({ err, project_id: id }, 'Failed to list webhooks');
+      return reply.code(500).send({ error: 'Failed to list webhooks' });
+    } finally {
+      await pool.end();
+    }
   });
 
   // DELETE /api/projects/:id/webhooks/:webhook_id - Delete a webhook
   app.delete('/api/projects/:id/webhooks/:webhook_id', async (req, reply) => {
     const { id, webhook_id } = req.params as { id: string; webhook_id: string };
-    const pool = createPool();
-    const result = await pool.query(
-      `DELETE FROM project_webhook WHERE id = $1 AND project_id = $2 RETURNING id`,
-      [webhook_id, id],
-    );
-    await pool.end();
-    if (result.rows.length === 0) {
-      return reply.code(404).send({ error: 'not found' });
+
+    const email = await getSessionEmail(req);
+    if (!email && !isAuthDisabled()) {
+      return reply.code(401).send({ error: 'unauthorized' });
     }
-    return reply.code(204).send();
+
+    const pool = createPool();
+    try {
+      // Owner-scoped: only allow deletion of webhooks owned by the authenticated user.
+      // When auth is disabled (tests), allow deletion without owner check.
+      const params: unknown[] = [webhook_id, id];
+      let whereClause = 'WHERE id = $1 AND project_id = $2';
+      if (email) {
+        params.push(email);
+        whereClause += ` AND user_email = $${params.length}`;
+      }
+
+      const result = await pool.query(
+        `DELETE FROM project_webhook ${whereClause} RETURNING id`,
+        params,
+      );
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'not found' });
+      }
+      return reply.code(204).send();
+    } catch (err) {
+      req.log.error({ err, project_id: id, webhook_id }, 'Failed to delete webhook');
+      return reply.code(500).send({ error: 'Failed to delete webhook' });
+    } finally {
+      await pool.end();
+    }
   });
 
   // POST /api/webhooks/:webhook_id - Public ingestion endpoint (bearer token auth)

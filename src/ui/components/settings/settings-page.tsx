@@ -473,8 +473,8 @@ function AboutSection() {
             <Separator />
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">Documentation</span>
-              <a href="https://docs.openclaw.ai/" target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline">
-                docs.openclaw.ai
+              <a href="https://github.com/troykelly/openclaw-projects" target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline">
+                github.com/troykelly/openclaw-projects
               </a>
             </div>
           </div>

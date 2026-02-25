@@ -32,6 +32,7 @@ import {
 } from '@/ui/components/ui/alert-dialog';
 import { Checkbox } from '@/ui/components/ui/checkbox';
 import { cn } from '@/ui/lib/utils';
+import { apiClient } from '@/ui/lib/api-client';
 import { useConnectedAccounts } from './use-connected-accounts';
 import { ConnectionManagePanel } from './connection-manage-panel';
 import {
@@ -377,7 +378,18 @@ interface AddAccountButtonProps {
 }
 
 function AddAccountButton({ providers }: AddAccountButtonProps) {
+  const [navigating, setNavigating] = useState<string | null>(null);
   const configuredProviders = providers.filter((p) => p.configured);
+
+  const handleOAuthRedirect = useCallback(async (providerName: string) => {
+    setNavigating(providerName);
+    try {
+      const data = await apiClient.get<{ url: string }>(`/api/oauth/authorize/${providerName}`);
+      window.location.href = data.url;
+    } catch {
+      setNavigating(null);
+    }
+  }, []);
 
   if (configuredProviders.length === 0) {
     return (
@@ -390,11 +402,14 @@ function AddAccountButton({ providers }: AddAccountButtonProps) {
 
   if (configuredProviders.length === 1) {
     return (
-      <Button asChild size="sm" data-testid="add-account-btn">
-        <a href={`/api/oauth/authorize/${configuredProviders[0].name}`}>
-          <Plus className="size-4" />
-          Add {formatProviderName(configuredProviders[0].name)} Account
-        </a>
+      <Button
+        size="sm"
+        data-testid="add-account-btn"
+        disabled={navigating !== null}
+        onClick={() => handleOAuthRedirect(configuredProviders[0].name)}
+      >
+        <Plus className="size-4" />
+        {navigating === configuredProviders[0].name ? 'Redirecting...' : `Add ${formatProviderName(configuredProviders[0].name)} Account`}
       </Button>
     );
   }
@@ -402,11 +417,16 @@ function AddAccountButton({ providers }: AddAccountButtonProps) {
   return (
     <div className="flex gap-2">
       {configuredProviders.map((p) => (
-        <Button key={p.name} asChild variant="outline" size="sm" data-testid={`add-account-${p.name}`}>
-          <a href={`/api/oauth/authorize/${p.name}`}>
-            <Plus className="size-4" />
-            {formatProviderName(p.name)}
-          </a>
+        <Button
+          key={p.name}
+          variant="outline"
+          size="sm"
+          data-testid={`add-account-${p.name}`}
+          disabled={navigating !== null}
+          onClick={() => handleOAuthRedirect(p.name)}
+        >
+          <Plus className="size-4" />
+          {navigating === p.name ? 'Redirecting...' : formatProviderName(p.name)}
         </Button>
       ))}
     </div>

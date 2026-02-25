@@ -101,6 +101,7 @@ const REGISTERED_API_FILES = new Set([
   'use-embedding-settings.ts',
   'use-connected-accounts.ts',
   'use-settings.ts',
+  'connected-accounts-section.tsx',
   'connection-manage-panel.tsx',
   'inbound-routing-section.tsx',
   'notification-preferences-section.tsx',

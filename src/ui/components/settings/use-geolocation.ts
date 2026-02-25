@@ -6,7 +6,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { apiClient } from '@/ui/lib/api-client';
+import { apiClient, ApiRequestError } from '@/ui/lib/api-client';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -181,6 +181,13 @@ export function useCurrentLocation() {
         setState({ kind: 'loaded', location });
       } catch (error) {
         if (!alive) return;
+
+        // 404 means no location data exists yet — treat as empty, not error
+        if (error instanceof ApiRequestError && error.status === 404) {
+          setState({ kind: 'loaded', location: null });
+          return;
+        }
+
         // Only set error on initial load; subsequent poll failures are silent
         setState((prev) => {
           if (prev.kind === 'loading') {
@@ -216,6 +223,13 @@ export function useCurrentLocation() {
 // Mutations
 // ---------------------------------------------------------------------------
 
+/** Maps provider type to the corresponding auth_type required by the API. */
+const AUTH_TYPE_MAP: Record<GeoProviderType, string> = {
+  home_assistant: 'access_token',
+  mqtt: 'mqtt_credentials',
+  webhook: 'webhook_token',
+};
+
 /** Payload accepted by POST /api/geolocation/providers. */
 export interface CreateProviderPayload {
   providerType: GeoProviderType;
@@ -237,7 +251,10 @@ export function useGeoMutations() {
       try {
         const res = await apiClient.post<CreateProviderResponse>(
           '/api/geolocation/providers',
-          payload,
+          {
+            ...payload,
+            authType: AUTH_TYPE_MAP[payload.providerType],
+          },
         );
         return res.provider;
       } finally {
