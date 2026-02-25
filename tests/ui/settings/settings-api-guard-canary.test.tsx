@@ -103,6 +103,8 @@ const REGISTERED_API_FILES = new Set([
   'use-settings.ts',
   'connection-manage-panel.tsx',
   'inbound-routing-section.tsx',
+  'notification-preferences-section.tsx',
+  'webhook-management-section.tsx',
 ]);
 
 const SETTINGS_DIR = path.resolve(
