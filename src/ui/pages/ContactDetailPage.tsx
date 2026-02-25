@@ -18,7 +18,7 @@
  */
 
 import {
-  ArrowLeft, Bell, Briefcase, Calendar, Cake, Clock, Globe, Heart,
+  ArrowLeft, Bell, Brain, Briefcase, Calendar, Cake, Clock, Globe, Heart,
   Link2, Mail, MapPin, MessageSquare, Pencil, Phone,
   Plus, Tag, Trash2, Upload, X, Loader2,
 } from 'lucide-react';
@@ -35,6 +35,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/ui/components/ui/tab
 import { Textarea } from '@/ui/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/components/ui/select';
 import { useContactDetail } from '@/ui/hooks/queries/use-contacts';
+import { useContactMemories } from '@/ui/hooks/queries/use-memories';
 import {
   useUpdateContact,
   useAddContactEndpoint, useUpdateContactEndpoint, useDeleteContactEndpoint,
@@ -45,7 +46,7 @@ import {
 } from '@/ui/hooks/mutations/use-update-contact';
 import { useContactWorkItems } from '@/ui/hooks/queries/use-work-item-contacts';
 import { apiClient } from '@/ui/lib/api-client';
-import type { CommChannel, Contact, ContactAddress, ContactDate, ContactEndpoint, CreateContactBody, EndpointType } from '@/ui/lib/api-types';
+import type { CommChannel, Contact, ContactAddress, ContactDate, ContactEndpoint, CreateContactBody, EndpointType, Memory } from '@/ui/lib/api-types';
 import { formatContactName, getContactInitials } from '@/ui/lib/format-contact-name';
 
 const CHANNEL_LABELS: Record<string, string> = {
@@ -91,6 +92,7 @@ export function ContactDetailPage(): React.JSX.Element {
     contact_id ?? '',
     'endpoints,addresses,dates,tags',
   );
+  const { data: memoriesData } = useContactMemories(contact_id ?? '');
   const { data: linkedWorkItemsData } = useContactWorkItems(contact_id ?? '');
 
   const updateMutation = useUpdateContact();
@@ -381,6 +383,10 @@ export function ContactDetailPage(): React.JSX.Element {
           <TabsTrigger value="activity" className="gap-1">
             <Calendar className="size-3" />
             Activity
+          </TabsTrigger>
+          <TabsTrigger value="memories" className="gap-1">
+            <Brain className="size-3" />
+            Memories
           </TabsTrigger>
           <TabsTrigger value="work-items" className="gap-1">
             <Briefcase className="size-3" />
@@ -693,6 +699,31 @@ export function ContactDetailPage(): React.JSX.Element {
         {/* Activity Tab */}
         <TabsContent value="activity" className="mt-4">
           <EmptyState variant="calendar" title="No activity yet" description="Activity related to this contact will appear here." />
+        </TabsContent>
+
+        {/* Memories Tab (#1723) */}
+        <TabsContent value="memories" className="mt-4" data-testid="contact-memories-tab">
+          {Array.isArray(memoriesData?.memories) && memoriesData.memories.length > 0 ? (
+            <div className="space-y-2">
+              {memoriesData.memories.map((mem: Memory) => (
+                <Card key={mem.id} className="cursor-pointer hover:bg-accent/30" onClick={() => navigate(`/memory/${mem.id}`)}>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="text-sm font-medium">{mem.title}</h4>
+                        <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{mem.content}</p>
+                      </div>
+                      <Badge variant="outline" className="text-xs shrink-0 ml-2">
+                        {mem.memory_type ?? mem.type ?? 'memory'}
+                      </Badge>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <EmptyState variant="documents" title="No memories" description="No memories are linked to this contact." />
+          )}
         </TabsContent>
 
         {/* Work Items Tab (#1720) */}

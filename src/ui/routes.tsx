@@ -24,6 +24,7 @@ const KanbanPage = React.lazy(() => import('@/ui/pages/KanbanPage.js').then((m) 
 const GlobalTimelinePage = React.lazy(() => import('@/ui/pages/GlobalTimelinePage.js').then((m) => ({ default: m.GlobalTimelinePage })));
 const ContactsPage = React.lazy(() => import('@/ui/pages/ContactsPage.js').then((m) => ({ default: m.ContactsPage })));
 const MemoryPage = React.lazy(() => import('@/ui/pages/MemoryPage.js').then((m) => ({ default: m.MemoryPage })));
+const MemoryDetailPage = React.lazy(() => import('@/ui/pages/MemoryDetailPage.js').then((m) => ({ default: m.MemoryDetailPage })));
 const SettingsPage = React.lazy(() => import('@/ui/pages/SettingsPage.js').then((m) => ({ default: m.SettingsPage })));
 const ProjectDetailPage = React.lazy(() => import('@/ui/pages/ProjectDetailPage.js').then((m) => ({ default: m.ProjectDetailPage })));
 const DashboardPage = React.lazy(() => import('@/ui/pages/DashboardPage.js').then((m) => ({ default: m.DashboardPage })));
@@ -75,6 +76,7 @@ function lazy(Component: React.LazyExoticComponent<React.ComponentType>): React.
  *   /contacts/:contact_id -> ContactDetailPage
  *   /communications -> CommunicationsPage
  *   /memory -> MemoryPage
+ *   /memory/:id -> MemoryDetailPage
  *   /recipes -> RecipesPage
  *   /meal-log -> MealLogPage
  *   /dev-sessions -> DevSessionsPage
@@ -152,6 +154,10 @@ export const routes: RouteObject[] = [
       {
         path: 'memory',
         element: lazy(MemoryPage),
+      },
+      {
+        path: 'memory/:id',
+        element: lazy(MemoryDetailPage),
       },
       // Notes routes - consolidated using nested routes (#669)
       // All routes render NotesPage which handles the different URL patterns
