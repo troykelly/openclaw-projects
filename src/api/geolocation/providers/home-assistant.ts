@@ -16,7 +16,7 @@ import type {
   EntityInfo,
   LocationUpdateHandler,
 } from '../types.ts';
-import { validateOutboundUrl } from '../network-guard.ts';
+import { resolveAndValidateOutboundUrl } from '../network-guard.ts';
 import { registerProvider } from '../registry.ts';
 import type { HaStateChange } from '../ha-event-processor.ts';
 import { HaEventRouter } from '../ha-event-router.ts';
@@ -477,7 +477,7 @@ function connectWs(
 export const homeAssistantPlugin: GeoProviderPlugin = {
   type: 'home_assistant',
 
-  validateConfig(config: unknown): Result<ProviderConfig, ValidationError[]> {
+  async validateConfig(config: unknown): Promise<Result<ProviderConfig, ValidationError[]>> {
     if (typeof config !== 'object' || config === null) {
       return {
         ok: false,
@@ -512,7 +512,8 @@ export const homeAssistantPlugin: GeoProviderPlugin = {
       };
     }
 
-    const urlResult = validateOutboundUrl(cfg.url);
+    // Issue #1822: DNS-resolving SSRF check prevents DNS rebinding attacks
+    const urlResult = await resolveAndValidateOutboundUrl(cfg.url);
     if (!urlResult.ok) {
       return {
         ok: false,

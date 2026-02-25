@@ -1,9 +1,16 @@
 /**
  * Tests for Home Assistant geolocation provider plugin.
- * Issue #1246.
+ * Issue #1246. Issue #1822: DNS rebinding protection.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+
+// Mock dns.promises before importing modules that use resolveAndValidateOutboundUrl
+const { mockLookup } = vi.hoisted(() => ({ mockLookup: vi.fn() }));
+vi.mock('node:dns', () => ({
+  promises: { lookup: mockLookup },
+}));
+
 import {
   homeAssistantPlugin,
   parseStatePayload,
@@ -24,22 +31,31 @@ function mockFetchJson(body: unknown, status = 200) {
 // ---------- validateConfig ----------
 
 describe('homeAssistantPlugin', () => {
+  beforeEach(() => {
+    // Default: external hostnames resolve to a public IP
+    mockLookup.mockResolvedValue({ address: '93.184.216.34', family: 4 });
+  });
+
+  afterEach(() => {
+    mockLookup.mockReset();
+  });
+
   describe('validateConfig', () => {
-    it('accepts a valid https URL', () => {
-      const result = homeAssistantPlugin.validateConfig({ url: 'https://ha.example.com' });
+    it('accepts a valid https URL', async () => {
+      const result = await homeAssistantPlugin.validateConfig({ url: 'https://ha.example.com' });
       expect(result.ok).toBe(true);
       if (result.ok) {
         expect(result.value).toEqual({ url: 'https://ha.example.com' });
       }
     });
 
-    it('accepts https URL with path', () => {
-      const result = homeAssistantPlugin.validateConfig({ url: 'https://ha.example.com:8123' });
+    it('accepts https URL with path', async () => {
+      const result = await homeAssistantPlugin.validateConfig({ url: 'https://ha.example.com:8123' });
       expect(result.ok).toBe(true);
     });
 
-    it('rejects http URL', () => {
-      const result = homeAssistantPlugin.validateConfig({ url: 'http://ha.example.com' });
+    it('rejects http URL', async () => {
+      const result = await homeAssistantPlugin.validateConfig({ url: 'http://ha.example.com' });
       expect(result.ok).toBe(false);
       if (!result.ok) {
         expect(result.error[0].field).toBe('url');
@@ -47,34 +63,49 @@ describe('homeAssistantPlugin', () => {
       }
     });
 
-    it('rejects ws URL', () => {
-      const result = homeAssistantPlugin.validateConfig({ url: 'ws://ha.example.com' });
+    it('rejects ws URL', async () => {
+      const result = await homeAssistantPlugin.validateConfig({ url: 'ws://ha.example.com' });
       expect(result.ok).toBe(false);
     });
 
-    it('rejects missing URL', () => {
-      const result = homeAssistantPlugin.validateConfig({});
+    it('rejects missing URL', async () => {
+      const result = await homeAssistantPlugin.validateConfig({});
       expect(result.ok).toBe(false);
       if (!result.ok) {
         expect(result.error[0].field).toBe('url');
       }
     });
 
-    it('rejects non-object config', () => {
-      const result = homeAssistantPlugin.validateConfig('not an object');
+    it('rejects non-object config', async () => {
+      const result = await homeAssistantPlugin.validateConfig('not an object');
       expect(result.ok).toBe(false);
     });
 
-    it('rejects private IP host', () => {
-      const result = homeAssistantPlugin.validateConfig({ url: 'https://192.168.1.1:8123' });
+    it('rejects private IP host', async () => {
+      const result = await homeAssistantPlugin.validateConfig({ url: 'https://192.168.1.1:8123' });
       expect(result.ok).toBe(false);
       if (!result.ok) {
         expect(result.error[0].message).toContain('private');
       }
     });
 
-    it('rejects localhost', () => {
-      const result = homeAssistantPlugin.validateConfig({ url: 'https://localhost:8123' });
+    it('rejects localhost', async () => {
+      const result = await homeAssistantPlugin.validateConfig({ url: 'https://localhost:8123' });
+      expect(result.ok).toBe(false);
+    });
+
+    it('rejects hostname that resolves to private IP (DNS rebinding)', async () => {
+      mockLookup.mockResolvedValue({ address: '10.0.0.5', family: 4 });
+      const result = await homeAssistantPlugin.validateConfig({ url: 'https://evil.example.com:8123' });
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error[0].message).toContain('private');
+      }
+    });
+
+    it('rejects hostname that resolves to 127.0.0.1 (DNS rebinding)', async () => {
+      mockLookup.mockResolvedValue({ address: '127.0.0.1', family: 4 });
+      const result = await homeAssistantPlugin.validateConfig({ url: 'https://rebind.example.com:8123' });
       expect(result.ok).toBe(false);
     });
   });

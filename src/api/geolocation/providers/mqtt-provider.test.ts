@@ -1,6 +1,6 @@
 /**
  * Tests for MQTT geolocation provider plugin.
- * Issue #1247.
+ * Issue #1247. Issue #1822: DNS rebinding protection.
  *
  * These tests cover:
  * - validateConfig (various valid/invalid configs)
@@ -14,7 +14,14 @@
  * No mock broker tests -- we test parsers and config validation only.
  */
 
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+// Mock dns.promises before importing modules that use resolveAndValidateOutboundHost
+const { mockLookup } = vi.hoisted(() => ({ mockLookup: vi.fn() }));
+vi.mock('node:dns', () => ({
+  promises: { lookup: mockLookup },
+}));
+
 import { clearProviders, getProvider } from '../registry.ts';
 import type { PayloadMapping } from './mqtt-provider.ts';
 import {
@@ -32,6 +39,15 @@ import {
 // ---------- validateConfig ----------
 
 describe('mqttPlugin', () => {
+  beforeEach(() => {
+    // Default: external hostnames resolve to a public IP
+    mockLookup.mockResolvedValue({ address: '93.184.216.34', family: 4 });
+  });
+
+  afterEach(() => {
+    mockLookup.mockReset();
+  });
+
   describe('validateConfig', () => {
     const validConfig = {
       host: 'mqtt.example.com',
@@ -40,25 +56,25 @@ describe('mqttPlugin', () => {
       topics: ['owntracks/#'],
     };
 
-    it('accepts a valid owntracks config', () => {
-      const result = mqttPlugin.validateConfig(validConfig);
+    it('accepts a valid owntracks config', async () => {
+      const result = await mqttPlugin.validateConfig(validConfig);
       expect(result.ok).toBe(true);
       if (result.ok) {
         expect(result.value).toEqual(validConfig);
       }
     });
 
-    it('accepts config with default port when port is omitted', () => {
+    it('accepts config with default port when port is omitted', async () => {
       const { port: _, ...configWithoutPort } = validConfig;
-      const result = mqttPlugin.validateConfig(configWithoutPort);
+      const result = await mqttPlugin.validateConfig(configWithoutPort);
       expect(result.ok).toBe(true);
       if (result.ok) {
         expect((result.value as Record<string, unknown>).port).toBe(8883);
       }
     });
 
-    it('accepts config with ca_cert', () => {
-      const result = mqttPlugin.validateConfig({
+    it('accepts config with ca_cert', async () => {
+      const result = await mqttPlugin.validateConfig({
         ...validConfig,
         ca_cert: '-----BEGIN CERTIFICATE-----\nMIIB...\n-----END CERTIFICATE-----',
       });
@@ -68,8 +84,8 @@ describe('mqttPlugin', () => {
       }
     });
 
-    it('accepts home_assistant format', () => {
-      const result = mqttPlugin.validateConfig({
+    it('accepts home_assistant format', async () => {
+      const result = await mqttPlugin.validateConfig({
         host: 'mqtt.example.com',
         port: 8883,
         format: 'home_assistant',
@@ -78,8 +94,8 @@ describe('mqttPlugin', () => {
       expect(result.ok).toBe(true);
     });
 
-    it('accepts custom format with valid payload_mapping', () => {
-      const result = mqttPlugin.validateConfig({
+    it('accepts custom format with valid payload_mapping', async () => {
+      const result = await mqttPlugin.validateConfig({
         host: 'mqtt.example.com',
         port: 8883,
         format: 'custom',
@@ -94,53 +110,53 @@ describe('mqttPlugin', () => {
       expect(result.ok).toBe(true);
     });
 
-    it('rejects non-object config', () => {
-      const result = mqttPlugin.validateConfig('not an object');
+    it('rejects non-object config', async () => {
+      const result = await mqttPlugin.validateConfig('not an object');
       expect(result.ok).toBe(false);
     });
 
-    it('rejects null config', () => {
-      const result = mqttPlugin.validateConfig(null);
+    it('rejects null config', async () => {
+      const result = await mqttPlugin.validateConfig(null);
       expect(result.ok).toBe(false);
     });
 
-    it('rejects missing host', () => {
+    it('rejects missing host', async () => {
       const { host: _, ...configWithoutHost } = validConfig;
-      const result = mqttPlugin.validateConfig(configWithoutHost);
+      const result = await mqttPlugin.validateConfig(configWithoutHost);
       expect(result.ok).toBe(false);
       if (!result.ok) {
         expect(result.error.some((e) => e.field === 'host')).toBe(true);
       }
     });
 
-    it('rejects empty host', () => {
-      const result = mqttPlugin.validateConfig({ ...validConfig, host: '' });
+    it('rejects empty host', async () => {
+      const result = await mqttPlugin.validateConfig({ ...validConfig, host: '' });
       expect(result.ok).toBe(false);
       if (!result.ok) {
         expect(result.error.some((e) => e.field === 'host')).toBe(true);
       }
     });
 
-    it('rejects invalid port (string)', () => {
-      const result = mqttPlugin.validateConfig({ ...validConfig, port: 'not-a-number' });
+    it('rejects invalid port (string)', async () => {
+      const result = await mqttPlugin.validateConfig({ ...validConfig, port: 'not-a-number' });
       expect(result.ok).toBe(false);
       if (!result.ok) {
         expect(result.error.some((e) => e.field === 'port')).toBe(true);
       }
     });
 
-    it('rejects port 0', () => {
-      const result = mqttPlugin.validateConfig({ ...validConfig, port: 0 });
+    it('rejects port 0', async () => {
+      const result = await mqttPlugin.validateConfig({ ...validConfig, port: 0 });
       expect(result.ok).toBe(false);
     });
 
-    it('rejects port > 65535', () => {
-      const result = mqttPlugin.validateConfig({ ...validConfig, port: 70000 });
+    it('rejects port > 65535', async () => {
+      const result = await mqttPlugin.validateConfig({ ...validConfig, port: 70000 });
       expect(result.ok).toBe(false);
     });
 
-    it('rejects port 1883 (non-TLS) via network guard', () => {
-      const result = mqttPlugin.validateConfig({ ...validConfig, port: 1883 });
+    it('rejects port 1883 (non-TLS) via network guard', async () => {
+      const result = await mqttPlugin.validateConfig({ ...validConfig, port: 1883 });
       expect(result.ok).toBe(false);
       if (!result.ok) {
         const msg = result.error.map((e) => e.message).join(' ');
@@ -149,70 +165,85 @@ describe('mqttPlugin', () => {
       }
     });
 
-    it('rejects missing format', () => {
+    it('rejects missing format', async () => {
       const { format: _, ...configWithoutFormat } = validConfig;
-      const result = mqttPlugin.validateConfig(configWithoutFormat);
+      const result = await mqttPlugin.validateConfig(configWithoutFormat);
       expect(result.ok).toBe(false);
       if (!result.ok) {
         expect(result.error.some((e) => e.field === 'format')).toBe(true);
       }
     });
 
-    it('rejects invalid format', () => {
-      const result = mqttPlugin.validateConfig({ ...validConfig, format: 'invalid_format' });
+    it('rejects invalid format', async () => {
+      const result = await mqttPlugin.validateConfig({ ...validConfig, format: 'invalid_format' });
       expect(result.ok).toBe(false);
       if (!result.ok) {
         expect(result.error.some((e) => e.field === 'format')).toBe(true);
       }
     });
 
-    it('rejects missing topics', () => {
+    it('rejects missing topics', async () => {
       const { topics: _, ...configWithoutTopics } = validConfig;
-      const result = mqttPlugin.validateConfig(configWithoutTopics);
+      const result = await mqttPlugin.validateConfig(configWithoutTopics);
       expect(result.ok).toBe(false);
       if (!result.ok) {
         expect(result.error.some((e) => e.field === 'topics')).toBe(true);
       }
     });
 
-    it('rejects empty topics array', () => {
-      const result = mqttPlugin.validateConfig({ ...validConfig, topics: [] });
+    it('rejects empty topics array', async () => {
+      const result = await mqttPlugin.validateConfig({ ...validConfig, topics: [] });
       expect(result.ok).toBe(false);
       if (!result.ok) {
         expect(result.error.some((e) => e.field === 'topics')).toBe(true);
       }
     });
 
-    it('rejects topics with non-string entries', () => {
-      const result = mqttPlugin.validateConfig({ ...validConfig, topics: [123] });
+    it('rejects topics with non-string entries', async () => {
+      const result = await mqttPlugin.validateConfig({ ...validConfig, topics: [123] });
       expect(result.ok).toBe(false);
     });
 
-    it('rejects topics with empty string entries', () => {
-      const result = mqttPlugin.validateConfig({ ...validConfig, topics: ['valid', ''] });
+    it('rejects topics with empty string entries', async () => {
+      const result = await mqttPlugin.validateConfig({ ...validConfig, topics: ['valid', ''] });
       expect(result.ok).toBe(false);
     });
 
-    it('rejects private IP host', () => {
-      const result = mqttPlugin.validateConfig({ ...validConfig, host: '192.168.1.1' });
+    it('rejects private IP host', async () => {
+      const result = await mqttPlugin.validateConfig({ ...validConfig, host: '192.168.1.1' });
       expect(result.ok).toBe(false);
       if (!result.ok) {
         expect(result.error[0].message).toContain('private');
       }
     });
 
-    it('rejects localhost host', () => {
-      const result = mqttPlugin.validateConfig({ ...validConfig, host: 'localhost' });
+    it('rejects localhost host', async () => {
+      const result = await mqttPlugin.validateConfig({ ...validConfig, host: 'localhost' });
       expect(result.ok).toBe(false);
     });
 
-    it('rejects .local hostname', () => {
-      const result = mqttPlugin.validateConfig({ ...validConfig, host: 'broker.local' });
+    it('rejects .local hostname', async () => {
+      const result = await mqttPlugin.validateConfig({ ...validConfig, host: 'broker.local' });
       expect(result.ok).toBe(false);
     });
 
-    it('rejects custom format without payload_mapping', () => {
-      const result = mqttPlugin.validateConfig({
+    it('rejects hostname that resolves to private IP (DNS rebinding)', async () => {
+      mockLookup.mockResolvedValue({ address: '172.16.0.1', family: 4 });
+      const result = await mqttPlugin.validateConfig(validConfig);
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error[0].message).toContain('private');
+      }
+    });
+
+    it('rejects hostname that resolves to 127.0.0.1 (DNS rebinding)', async () => {
+      mockLookup.mockResolvedValue({ address: '127.0.0.1', family: 4 });
+      const result = await mqttPlugin.validateConfig(validConfig);
+      expect(result.ok).toBe(false);
+    });
+
+    it('rejects custom format without payload_mapping', async () => {
+      const result = await mqttPlugin.validateConfig({
         host: 'mqtt.example.com',
         port: 8883,
         format: 'custom',
@@ -224,8 +255,8 @@ describe('mqttPlugin', () => {
       }
     });
 
-    it('rejects custom format with invalid payload_mapping paths', () => {
-      const result = mqttPlugin.validateConfig({
+    it('rejects custom format with invalid payload_mapping paths', async () => {
+      const result = await mqttPlugin.validateConfig({
         host: 'mqtt.example.com',
         port: 8883,
         format: 'custom',
@@ -238,16 +269,16 @@ describe('mqttPlugin', () => {
       expect(result.ok).toBe(false);
     });
 
-    it('rejects non-string ca_cert', () => {
-      const result = mqttPlugin.validateConfig({ ...validConfig, ca_cert: 42 });
+    it('rejects non-string ca_cert', async () => {
+      const result = await mqttPlugin.validateConfig({ ...validConfig, ca_cert: 42 });
       expect(result.ok).toBe(false);
       if (!result.ok) {
         expect(result.error.some((e) => e.field === 'ca_cert')).toBe(true);
       }
     });
 
-    it('accepts multiple topics', () => {
-      const result = mqttPlugin.validateConfig({
+    it('accepts multiple topics', async () => {
+      const result = await mqttPlugin.validateConfig({
         ...validConfig,
         topics: ['owntracks/user1/#', 'owntracks/user2/#'],
       });

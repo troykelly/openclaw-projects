@@ -19272,7 +19272,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const { getProvider: getRegistryPlugin } = await import('./geolocation/registry.ts');
     const plugin = getRegistryPlugin(providerType as 'home_assistant' | 'mqtt' | 'webhook');
     if (plugin) {
-      const validation = plugin.validateConfig(config);
+      const validation = await plugin.validateConfig(config);
       if (!validation.ok) {
         return reply.code(400).send({ error: 'Invalid config', details: validation.error });
       }
@@ -19439,7 +19439,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         const { getProvider: getRegistryPlugin } = await import('./geolocation/registry.ts');
         const plugin = getRegistryPlugin(existing.provider_type);
         if (plugin) {
-          const validation = plugin.validateConfig(body.config);
+          const validation = await plugin.validateConfig(body.config);
           if (!validation.ok) {
             return reply.code(400).send({ error: 'Invalid config', details: validation.error });
           }
