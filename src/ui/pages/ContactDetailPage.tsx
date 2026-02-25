@@ -3,16 +3,26 @@
  *
  * Displays a full profile for a single contact, with a header showing
  * avatar, name, and contact information, and tabs for:
- * - Endpoints (all communication endpoints)
+ * - Endpoints (all communication endpoints) with add/edit/delete (#1702)
+ * - Addresses (full CRUD) (#1703)
+ * - Dates (birthdays, anniversaries CRUD) (#1704)
  * - Preferences (communication preferences and quiet hours, issue #1269)
  * - Notes (contact notes with inline editing)
  * - Activity (recent activity for this contact)
  *
+ * Also includes:
+ * - Tags section with add/remove (#1705)
+ * - Photo upload/display (#1706)
+ *
  * Navigated to via /contacts/:contact_id.
  */
 
-import { ArrowLeft, Bell, Calendar, Clock, Globe, Link2, Mail, MessageSquare, Pencil, Phone, Trash2 } from 'lucide-react';
-import React, { useCallback, useState } from 'react';
+import {
+  ArrowLeft, Bell, Calendar, Cake, Clock, Globe, Heart,
+  Link2, Mail, MapPin, MessageSquare, Pencil, Phone,
+  Plus, Tag, Trash2, Upload, X, Loader2,
+} from 'lucide-react';
+import React, { useCallback, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { EmptyState, ErrorState, Skeleton, SkeletonText } from '@/ui/components/feedback';
 import { Badge } from '@/ui/components/ui/badge';
@@ -23,10 +33,18 @@ import { Input } from '@/ui/components/ui/input';
 import { Separator } from '@/ui/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/ui/components/ui/tabs';
 import { Textarea } from '@/ui/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/components/ui/select';
 import { useContactDetail } from '@/ui/hooks/queries/use-contacts';
-import { apiClient } from '@/ui/lib/api-client';
-import type { CommChannel, Contact, ContactBody } from '@/ui/lib/api-types';
-import { getInitials } from '@/ui/lib/work-item-utils';
+import {
+  useUpdateContact,
+  useAddContactEndpoint, useUpdateContactEndpoint, useDeleteContactEndpoint,
+  useAddContactAddress, useUpdateContactAddress, useDeleteContactAddress,
+  useAddContactDate, useUpdateContactDate, useDeleteContactDate,
+  useAddContactTags, useRemoveContactTag,
+  useUploadContactPhoto, useDeleteContactPhoto,
+} from '@/ui/hooks/mutations/use-update-contact';
+import type { CommChannel, Contact, ContactAddress, ContactDate, ContactEndpoint, CreateContactBody, EndpointType } from '@/ui/lib/api-types';
+import { formatContactName, getContactInitials } from '@/ui/lib/format-contact-name';
 
 const CHANNEL_LABELS: Record<string, string> = {
   telegram: 'Telegram',
@@ -35,36 +53,77 @@ const CHANNEL_LABELS: Record<string, string> = {
   voice: 'Voice',
 };
 
+const ENDPOINT_TYPES: EndpointType[] = [
+  'email', 'phone', 'telegram', 'whatsapp', 'signal',
+  'discord', 'linkedin', 'twitter', 'mastodon',
+  'instagram', 'facebook', 'website', 'sip', 'imessage',
+];
+
+const ADDRESS_TYPES = ['home', 'work', 'other'] as const;
+const DATE_TYPES = ['birthday', 'anniversary', 'other'] as const;
+
 export function ContactDetailPage(): React.JSX.Element {
   const { contact_id } = useParams<{ contact_id: string }>();
   const navigate = useNavigate();
   const [editOpen, setEditOpen] = useState(false);
   const [prefsEditOpen, setPrefsEditOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
-  const { data: contact, isLoading, isError, error, refetch } = useContactDetail(contact_id ?? '');
+  // #1702: Endpoint management
+  const [endpointDialogOpen, setEndpointDialogOpen] = useState(false);
+  const [editingEndpoint, setEditingEndpoint] = useState<ContactEndpoint | null>(null);
+
+  // #1703: Address management
+  const [addressDialogOpen, setAddressDialogOpen] = useState(false);
+  const [editingAddress, setEditingAddress] = useState<ContactAddress | null>(null);
+
+  // #1704: Date management
+  const [dateDialogOpen, setDateDialogOpen] = useState(false);
+  const [editingDate, setEditingDate] = useState<ContactDate | null>(null);
+
+  // #1705: Tag management
+  const [tagInput, setTagInput] = useState('');
+
+  // Load with all includes
+  const { data: contact, isLoading, isError, error, refetch } = useContactDetail(
+    contact_id ?? '',
+    'endpoints,addresses,dates,tags',
+  );
+
+  const updateMutation = useUpdateContact();
+  const addEndpoint = useAddContactEndpoint();
+  const updateEndpoint = useUpdateContactEndpoint();
+  const deleteEndpoint = useDeleteContactEndpoint();
+  const addAddress = useAddContactAddress();
+  const updateAddress = useUpdateContactAddress();
+  const deleteAddress = useDeleteContactAddress();
+  const addDate = useAddContactDate();
+  const updateDate = useUpdateContactDate();
+  const deleteDate = useDeleteContactDate();
+  const addTags = useAddContactTags();
+  const removeTag = useRemoveContactTag();
+  const uploadPhoto = useUploadContactPhoto();
+  const deletePhoto = useDeleteContactPhoto();
+
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
   const handleBack = useCallback(() => {
     navigate('/contacts');
   }, [navigate]);
 
   const handleUpdate = useCallback(
-    async (body: ContactBody) => {
+    async (body: CreateContactBody) => {
       if (!contact_id) return;
-      setIsSubmitting(true);
       try {
-        await apiClient.patch(`/api/contacts/${contact_id}`, body);
+        await updateMutation.mutateAsync({ id: contact_id, body });
         setEditOpen(false);
         setPrefsEditOpen(false);
         refetch();
       } catch (err) {
         console.error('Failed to update contact:', err);
-      } finally {
-        setIsSubmitting(false);
       }
     },
-    [contact_id, refetch],
+    [contact_id, updateMutation, refetch],
   );
 
   const handleDelete = useCallback(async () => {
@@ -76,6 +135,50 @@ export function ContactDetailPage(): React.JSX.Element {
       console.error('Failed to delete contact:', err);
     }
   }, [contact_id, navigate]);
+
+  // #1706: Photo upload handler
+  const handlePhotoUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !contact_id) return;
+    try {
+      await uploadPhoto.mutateAsync({ contactId: contact_id, file });
+      refetch();
+    } catch (err) {
+      console.error('Failed to upload photo:', err);
+    }
+  }, [contact_id, uploadPhoto, refetch]);
+
+  const handlePhotoDelete = useCallback(async () => {
+    if (!contact_id) return;
+    try {
+      await deletePhoto.mutateAsync({ contactId: contact_id });
+      refetch();
+    } catch (err) {
+      console.error('Failed to delete photo:', err);
+    }
+  }, [contact_id, deletePhoto, refetch]);
+
+  // #1705: Tag add handler
+  const handleAddTag = useCallback(async () => {
+    if (!contact_id || !tagInput.trim()) return;
+    try {
+      await addTags.mutateAsync({ contactId: contact_id, tags: [tagInput.trim()] });
+      setTagInput('');
+      refetch();
+    } catch (err) {
+      console.error('Failed to add tag:', err);
+    }
+  }, [contact_id, tagInput, addTags, refetch]);
+
+  const handleRemoveTag = useCallback(async (tag: string) => {
+    if (!contact_id) return;
+    try {
+      await removeTag.mutateAsync({ contactId: contact_id, tag });
+      refetch();
+    } catch (err) {
+      console.error('Failed to remove tag:', err);
+    }
+  }, [contact_id, removeTag, refetch]);
 
   // Loading state
   if (isLoading) {
@@ -112,9 +215,14 @@ export function ContactDetailPage(): React.JSX.Element {
     );
   }
 
+  const name = formatContactName(contact) || contact.display_name || '';
+  const initials = getContactInitials(contact) || (contact.display_name ? contact.display_name.split(/\s+/).map(p => p[0]).join('').toUpperCase().slice(0, 2) : '');
   const email = contact.endpoints?.find((ep) => ep.type === 'email')?.value;
   const phone = contact.endpoints?.find((ep) => ep.type === 'phone')?.value;
   const hasPrefs = contact.preferred_channel || contact.quiet_hours_start || contact.urgency_override_channel || contact.notification_notes;
+  const tags = Array.isArray(contact.tags) ? contact.tags : [];
+  const addresses = Array.isArray(contact.addresses) ? contact.addresses : [];
+  const dates = Array.isArray(contact.dates) ? contact.dates : [];
 
   return (
     <div data-testid="page-contact-detail" className="p-6 h-full flex flex-col">
@@ -127,11 +235,44 @@ export function ContactDetailPage(): React.JSX.Element {
       {/* Header */}
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-start gap-4">
-          <div className="flex size-16 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xl font-medium text-primary">
-            {getInitials(contact.display_name)}
+          {/* #1706: Photo/Avatar with upload */}
+          <div className="relative group">
+            {contact.photo_url ? (
+              <img
+                src={contact.photo_url}
+                alt={name}
+                className="size-16 rounded-full object-cover"
+                data-testid="contact-avatar-image"
+              />
+            ) : (
+              <div className="flex size-16 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xl font-medium text-primary">
+                {initials}
+              </div>
+            )}
+            <button
+              onClick={() => photoInputRef.current?.click()}
+              className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+              data-testid="upload-photo-button"
+              title="Upload photo"
+            >
+              <Upload className="size-5" />
+            </button>
+            <input
+              ref={photoInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handlePhotoUpload}
+              data-testid="photo-file-input"
+            />
           </div>
           <div>
-            <h1 className="text-2xl font-semibold text-foreground">{contact.display_name}</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-semibold text-foreground">{name}</h1>
+              {contact.contact_kind && contact.contact_kind !== 'person' && (
+                <Badge variant="outline">{contact.contact_kind}</Badge>
+              )}
+            </div>
             <div className="mt-1 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
               {email && (
                 <span className="flex items-center gap-1">
@@ -172,6 +313,43 @@ export function ContactDetailPage(): React.JSX.Element {
         </div>
       </div>
 
+      {/* #1705: Tags section */}
+      <div className="mb-4" data-testid="contact-tags-section">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Tag className="size-4 text-muted-foreground" />
+          {tags.map((tag) => (
+            <Badge key={tag} variant="secondary" className="text-xs gap-1">
+              {tag}
+              <button
+                onClick={() => handleRemoveTag(tag)}
+                className="ml-1 hover:text-destructive"
+                data-testid={`remove-tag-${tag}`}
+              >
+                <X className="size-3" />
+              </button>
+            </Badge>
+          ))}
+          <div className="flex items-center gap-1">
+            <Input
+              value={tagInput}
+              onChange={(e) => setTagInput(e.target.value)}
+              placeholder="Add tag..."
+              className="h-7 w-24 text-xs"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleAddTag();
+                }
+              }}
+              data-testid="tag-input"
+            />
+            <Button variant="ghost" size="sm" className="h-7 px-2" onClick={handleAddTag} data-testid="add-tag-button">
+              <Plus className="size-3" />
+            </Button>
+          </div>
+        </div>
+      </div>
+
       <Separator className="mb-6" />
 
       {/* Tabbed content */}
@@ -180,6 +358,14 @@ export function ContactDetailPage(): React.JSX.Element {
           <TabsTrigger value="endpoints" className="gap-1">
             <Link2 className="size-3" />
             Endpoints
+          </TabsTrigger>
+          <TabsTrigger value="addresses" className="gap-1">
+            <MapPin className="size-3" />
+            Addresses
+          </TabsTrigger>
+          <TabsTrigger value="dates" className="gap-1">
+            <Calendar className="size-3" />
+            Dates
           </TabsTrigger>
           <TabsTrigger value="preferences" className="gap-1">
             <Bell className="size-3" />
@@ -195,12 +381,23 @@ export function ContactDetailPage(): React.JSX.Element {
           </TabsTrigger>
         </TabsList>
 
-        {/* Endpoints Tab */}
+        {/* #1702: Endpoints Tab with add/edit/delete */}
         <TabsContent value="endpoints" className="mt-4">
+          <div className="flex justify-end mb-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => { setEditingEndpoint(null); setEndpointDialogOpen(true); }}
+              data-testid="add-endpoint-button"
+            >
+              <Plus className="mr-1 size-3" />
+              Add Endpoint
+            </Button>
+          </div>
           {(contact.endpoints?.length ?? 0) > 0 ? (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {contact.endpoints!.map((ep, idx) => (
-                <Card key={idx} data-testid="endpoint-card">
+                <Card key={ep.id ?? idx} data-testid="endpoint-card">
                   <CardContent className="p-4 flex items-center gap-3">
                     <div className="flex size-10 items-center justify-center rounded-full bg-muted">
                       {ep.type === 'email' && <Mail className="size-5 text-muted-foreground" />}
@@ -212,6 +409,31 @@ export function ContactDetailPage(): React.JSX.Element {
                         {ep.type}
                       </Badge>
                       <p className="text-sm text-foreground truncate">{ep.value}</p>
+                      {ep.label && <p className="text-xs text-muted-foreground">{ep.label}</p>}
+                    </div>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2"
+                        onClick={() => { setEditingEndpoint(ep); setEndpointDialogOpen(true); }}
+                        data-testid="endpoint-edit-button"
+                      >
+                        <Pencil className="size-3" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-destructive hover:text-destructive"
+                        onClick={async () => {
+                          if (!contact_id || !ep.id) return;
+                          await deleteEndpoint.mutateAsync({ contactId: contact_id, endpointId: ep.id });
+                          refetch();
+                        }}
+                        data-testid="endpoint-delete-button"
+                      >
+                        <Trash2 className="size-3" />
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -219,6 +441,145 @@ export function ContactDetailPage(): React.JSX.Element {
             </div>
           ) : (
             <EmptyState variant="contacts" title="No endpoints" description="This contact has no communication endpoints configured." />
+          )}
+        </TabsContent>
+
+        {/* #1703: Addresses Tab */}
+        <TabsContent value="addresses" className="mt-4">
+          <div className="flex justify-end mb-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => { setEditingAddress(null); setAddressDialogOpen(true); }}
+              data-testid="add-address-button"
+            >
+              <Plus className="mr-1 size-3" />
+              Add Address
+            </Button>
+          </div>
+          {addresses.length > 0 ? (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {addresses.map((addr) => (
+                <Card key={addr.id} data-testid="address-card">
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between mb-2">
+                      <Badge variant="outline" className="text-xs">{addr.address_type}</Badge>
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2"
+                          onClick={() => { setEditingAddress(addr); setAddressDialogOpen(true); }}
+                          data-testid="address-edit-button"
+                        >
+                          <Pencil className="size-3" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-destructive hover:text-destructive"
+                          onClick={async () => {
+                            if (!contact_id) return;
+                            await deleteAddress.mutateAsync({ contactId: contact_id, addressId: addr.id });
+                            refetch();
+                          }}
+                          data-testid="address-delete-button"
+                        >
+                          <Trash2 className="size-3" />
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="text-sm space-y-0.5">
+                      {addr.street_address && <p>{addr.street_address}</p>}
+                      {addr.extended_address && <p>{addr.extended_address}</p>}
+                      <p>
+                        {[addr.city, addr.region, addr.postal_code].filter(Boolean).join(', ')}
+                      </p>
+                      {addr.country && <p>{addr.country}</p>}
+                    </div>
+                    {addr.is_primary && (
+                      <Badge variant="secondary" className="text-xs mt-2">Primary</Badge>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <EmptyState
+              variant="contacts"
+              title="No addresses"
+              description="This contact has no addresses configured."
+              onAction={() => { setEditingAddress(null); setAddressDialogOpen(true); }}
+              actionLabel="Add Address"
+            />
+          )}
+        </TabsContent>
+
+        {/* #1704: Dates Tab */}
+        <TabsContent value="dates" className="mt-4">
+          <div className="flex justify-end mb-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => { setEditingDate(null); setDateDialogOpen(true); }}
+              data-testid="add-date-button"
+            >
+              <Plus className="mr-1 size-3" />
+              Add Date
+            </Button>
+          </div>
+          {dates.length > 0 ? (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {dates.map((d) => (
+                <Card key={d.id} data-testid="date-card">
+                  <CardContent className="p-4 flex items-center gap-3">
+                    <div className="flex size-10 items-center justify-center rounded-full bg-muted">
+                      {d.date_type === 'birthday' && <Cake className="size-5 text-muted-foreground" />}
+                      {d.date_type === 'anniversary' && <Heart className="size-5 text-muted-foreground" />}
+                      {d.date_type === 'other' && <Calendar className="size-5 text-muted-foreground" />}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <Badge variant="outline" className="text-xs mb-1 capitalize">
+                        {d.date_type === 'birthday' ? 'Birthday' : d.date_type === 'anniversary' ? 'Anniversary' : d.label || 'Other'}
+                      </Badge>
+                      <p className="text-sm text-foreground">{d.date_value}</p>
+                    </div>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2"
+                        onClick={() => { setEditingDate(d); setDateDialogOpen(true); }}
+                        data-testid="date-edit-button"
+                      >
+                        <Pencil className="size-3" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-destructive hover:text-destructive"
+                        onClick={async () => {
+                          if (!contact_id) return;
+                          await deleteDate.mutateAsync({ contactId: contact_id, dateId: d.id });
+                          refetch();
+                        }}
+                        data-testid="date-delete-button"
+                      >
+                        <Trash2 className="size-3" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <EmptyState
+              variant="calendar"
+              title="No dates"
+              description="No important dates have been added for this contact."
+              onAction={() => { setEditingDate(null); setDateDialogOpen(true); }}
+              actionLabel="Add Date"
+            />
           )}
         </TabsContent>
 
@@ -329,17 +690,96 @@ export function ContactDetailPage(): React.JSX.Element {
       </Tabs>
 
       {/* Edit Contact Dialog */}
-      <ContactEditDialog open={editOpen} onOpenChange={setEditOpen} contact={contact} isSubmitting={isSubmitting} onSubmit={handleUpdate} />
+      <ContactEditDialog open={editOpen} onOpenChange={setEditOpen} contact={contact} isSubmitting={updateMutation.isPending} onSubmit={handleUpdate} />
 
       {/* Edit Communication Preferences Dialog (Issue #1269) */}
-      <CommPrefsEditDialog open={prefsEditOpen} onOpenChange={setPrefsEditOpen} contact={contact} isSubmitting={isSubmitting} onSubmit={handleUpdate} />
+      <CommPrefsEditDialog open={prefsEditOpen} onOpenChange={setPrefsEditOpen} contact={contact} isSubmitting={updateMutation.isPending} onSubmit={handleUpdate} />
+
+      {/* #1702: Endpoint Dialog */}
+      <EndpointDialog
+        open={endpointDialogOpen}
+        onOpenChange={setEndpointDialogOpen}
+        contactId={contact_id ?? ''}
+        endpoint={editingEndpoint}
+        onSave={async (data) => {
+          if (editingEndpoint?.id) {
+            await updateEndpoint.mutateAsync({
+              contactId: contact_id ?? '',
+              endpointId: editingEndpoint.id,
+              label: data.label,
+              is_primary: data.is_primary,
+            });
+          } else {
+            await addEndpoint.mutateAsync({
+              contactId: contact_id ?? '',
+              type: data.type,
+              value: data.value,
+              label: data.label,
+              is_primary: data.is_primary,
+            });
+          }
+          setEndpointDialogOpen(false);
+          refetch();
+        }}
+        isPending={addEndpoint.isPending || updateEndpoint.isPending}
+      />
+
+      {/* #1703: Address Dialog */}
+      <AddressDialog
+        open={addressDialogOpen}
+        onOpenChange={setAddressDialogOpen}
+        contactId={contact_id ?? ''}
+        address={editingAddress}
+        onSave={async (data) => {
+          if (editingAddress) {
+            await updateAddress.mutateAsync({
+              contactId: contact_id ?? '',
+              addressId: editingAddress.id,
+              ...data,
+            });
+          } else {
+            await addAddress.mutateAsync({
+              contactId: contact_id ?? '',
+              ...data,
+            });
+          }
+          setAddressDialogOpen(false);
+          refetch();
+        }}
+        isPending={addAddress.isPending || updateAddress.isPending}
+      />
+
+      {/* #1704: Date Dialog */}
+      <DateDialog
+        open={dateDialogOpen}
+        onOpenChange={setDateDialogOpen}
+        contactId={contact_id ?? ''}
+        date={editingDate}
+        onSave={async (data) => {
+          if (editingDate) {
+            await updateDate.mutateAsync({
+              contactId: contact_id ?? '',
+              dateId: editingDate.id,
+              ...data,
+            });
+          } else {
+            await addDate.mutateAsync({
+              contactId: contact_id ?? '',
+              ...data,
+            });
+          }
+          setDateDialogOpen(false);
+          refetch();
+        }}
+        isPending={addDate.isPending || updateDate.isPending}
+      />
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
         <DialogContent className="sm:max-w-sm" data-testid="delete-confirm-dialog">
           <DialogHeader>
             <DialogTitle>Delete Contact</DialogTitle>
-            <DialogDescription>Are you sure you want to delete &quot;{contact.display_name}&quot;? This action cannot be undone.</DialogDescription>
+            <DialogDescription>Are you sure you want to delete &quot;{name}&quot;? This action cannot be undone.</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)}>
@@ -355,6 +795,9 @@ export function ContactDetailPage(): React.JSX.Element {
   );
 }
 
+// Need this import for the delete handler
+import { apiClient } from '@/ui/lib/api-client';
+
 // ---------------------------------------------------------------------------
 // ContactEditDialog - extracted for readability
 // ---------------------------------------------------------------------------
@@ -364,29 +807,36 @@ interface ContactEditDialogProps {
   onOpenChange: (open: boolean) => void;
   contact: Contact;
   isSubmitting: boolean;
-  onSubmit: (body: ContactBody) => void;
+  onSubmit: (body: CreateContactBody) => void;
 }
 
 function ContactEditDialog({ open, onOpenChange, contact, isSubmitting, onSubmit }: ContactEditDialogProps) {
-  const [display_name, setDisplayName] = useState('');
+  const [givenName, setGivenName] = useState('');
+  const [familyName, setFamilyName] = useState('');
+  const [displayNameField, setDisplayNameField] = useState('');
   const [notes, setNotes] = useState('');
 
   React.useEffect(() => {
     if (open) {
-      setDisplayName(contact.display_name);
+      setGivenName(contact.given_name ?? '');
+      setFamilyName(contact.family_name ?? '');
+      setDisplayNameField(contact.display_name ?? '');
       setNotes(contact.notes ?? '');
     }
   }, [open, contact]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit({
-      display_name: display_name.trim(),
+    const body: CreateContactBody = {
+      given_name: givenName.trim() || undefined,
+      family_name: familyName.trim() || undefined,
+      display_name: displayNameField.trim() || [givenName.trim(), familyName.trim()].filter(Boolean).join(' ') || undefined,
       notes: notes.trim() || undefined,
-    });
+    };
+    onSubmit(body);
   };
 
-  const isValid = display_name.trim().length > 0;
+  const isValid = givenName.trim().length > 0 || familyName.trim().length > 0 || displayNameField.trim().length > 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -397,17 +847,24 @@ function ContactEditDialog({ open, onOpenChange, contact, isSubmitting, onSubmit
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <label htmlFor="edit-contact-name" className="text-sm font-medium">
-              Name <span className="text-destructive">*</span>
-            </label>
-            <Input id="edit-contact-name" value={display_name} onChange={(e) => setDisplayName(e.target.value)} required />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <label htmlFor="edit-given-name" className="text-sm font-medium">First Name</label>
+              <Input id="edit-given-name" value={givenName} onChange={(e) => setGivenName(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="edit-family-name" className="text-sm font-medium">Last Name</label>
+              <Input id="edit-family-name" value={familyName} onChange={(e) => setFamilyName(e.target.value)} />
+            </div>
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="edit-contact-notes" className="text-sm font-medium">
-              Notes
-            </label>
+            <label htmlFor="edit-display-name" className="text-sm font-medium">Display Name</label>
+            <Input id="edit-display-name" value={displayNameField} onChange={(e) => setDisplayNameField(e.target.value)} placeholder="Auto-generated from name fields" />
+          </div>
+
+          <div className="space-y-2">
+            <label htmlFor="edit-contact-notes" className="text-sm font-medium">Notes</label>
             <Textarea id="edit-contact-notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} />
           </div>
 
@@ -420,6 +877,261 @@ function ContactEditDialog({ open, onOpenChange, contact, isSubmitting, onSubmit
             </Button>
           </DialogFooter>
         </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// #1702: Endpoint Dialog
+// ---------------------------------------------------------------------------
+
+interface EndpointDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  contactId: string;
+  endpoint: ContactEndpoint | null;
+  onSave: (data: { type: string; value: string; label?: string | null; is_primary?: boolean }) => void;
+  isPending: boolean;
+}
+
+function EndpointDialog({ open, onOpenChange, endpoint, onSave, isPending }: EndpointDialogProps) {
+  const [type, setType] = useState<string>('email');
+  const [value, setValue] = useState('');
+  const [label, setLabel] = useState('');
+  const [isPrimary, setIsPrimary] = useState(false);
+
+  React.useEffect(() => {
+    if (open) {
+      setType(endpoint?.type ?? 'email');
+      setValue(endpoint?.value ?? '');
+      setLabel(endpoint?.label ?? '');
+      setIsPrimary(endpoint?.is_primary ?? false);
+    }
+  }, [open, endpoint]);
+
+  const isEditing = !!endpoint?.id;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md" data-testid="endpoint-dialog">
+        <DialogHeader>
+          <DialogTitle>{isEditing ? 'Edit Endpoint' : 'Add Endpoint'}</DialogTitle>
+          <DialogDescription>{isEditing ? 'Update endpoint details.' : 'Add a new communication endpoint.'}</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          {!isEditing && (
+            <>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Type</label>
+                <Select value={type} onValueChange={setType}>
+                  <SelectTrigger data-testid="endpoint-type-select">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ENDPOINT_TYPES.map((t) => (
+                      <SelectItem key={t} value={t}>{t}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Value</label>
+                <Input value={value} onChange={(e) => setValue(e.target.value)} placeholder="e.g. alice@example.com" data-testid="endpoint-value-input" />
+              </div>
+            </>
+          )}
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Label</label>
+            <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="e.g. Work, Personal" data-testid="endpoint-label-input" />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button
+            onClick={() => onSave({ type, value, label: label.trim() || null, is_primary: isPrimary })}
+            disabled={isPending || (!isEditing && !value.trim())}
+          >
+            {isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+            {isEditing ? 'Save' : 'Add'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// #1703: Address Dialog
+// ---------------------------------------------------------------------------
+
+interface AddressDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  contactId: string;
+  address: ContactAddress | null;
+  onSave: (data: Partial<ContactAddress>) => void;
+  isPending: boolean;
+}
+
+function AddressDialog({ open, onOpenChange, address, onSave, isPending }: AddressDialogProps) {
+  const [addressType, setAddressType] = useState<string>('home');
+  const [street, setStreet] = useState('');
+  const [city, setCity] = useState('');
+  const [region, setRegion] = useState('');
+  const [postalCode, setPostalCode] = useState('');
+  const [country, setCountry] = useState('');
+  const [isPrimary, setIsPrimary] = useState(false);
+
+  React.useEffect(() => {
+    if (open) {
+      setAddressType(address?.address_type ?? 'home');
+      setStreet(address?.street_address ?? '');
+      setCity(address?.city ?? '');
+      setRegion(address?.region ?? '');
+      setPostalCode(address?.postal_code ?? '');
+      setCountry(address?.country ?? '');
+      setIsPrimary(address?.is_primary ?? false);
+    }
+  }, [open, address]);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md" data-testid="address-dialog">
+        <DialogHeader>
+          <DialogTitle>{address ? 'Edit Address' : 'Add Address'}</DialogTitle>
+          <DialogDescription>{address ? 'Update address details.' : 'Add a new address.'}</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Type</label>
+            <Select value={addressType} onValueChange={setAddressType}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {ADDRESS_TYPES.map((t) => (
+                  <SelectItem key={t} value={t} className="capitalize">{t}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Street</label>
+            <Input value={street} onChange={(e) => setStreet(e.target.value)} placeholder="123 Main St" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">City</label>
+              <Input value={city} onChange={(e) => setCity(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Region</label>
+              <Input value={region} onChange={(e) => setRegion(e.target.value)} />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Postal Code</label>
+              <Input value={postalCode} onChange={(e) => setPostalCode(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Country</label>
+              <Input value={country} onChange={(e) => setCountry(e.target.value)} />
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button
+            onClick={() => onSave({
+              address_type: addressType as ContactAddress['address_type'],
+              street_address: street.trim() || null,
+              city: city.trim() || null,
+              region: region.trim() || null,
+              postal_code: postalCode.trim() || null,
+              country: country.trim() || null,
+              is_primary: isPrimary,
+            })}
+            disabled={isPending}
+          >
+            {isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+            {address ? 'Save' : 'Add'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// #1704: Date Dialog
+// ---------------------------------------------------------------------------
+
+interface DateDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  contactId: string;
+  date: ContactDate | null;
+  onSave: (data: { date_type?: string; label?: string; date_value: string }) => void;
+  isPending: boolean;
+}
+
+function DateDialog({ open, onOpenChange, date, onSave, isPending }: DateDialogProps) {
+  const [dateType, setDateType] = useState<string>('birthday');
+  const [dateLabel, setDateLabel] = useState('');
+  const [dateValue, setDateValue] = useState('');
+
+  React.useEffect(() => {
+    if (open) {
+      setDateType(date?.date_type ?? 'birthday');
+      setDateLabel(date?.label ?? '');
+      setDateValue(date?.date_value ?? '');
+    }
+  }, [open, date]);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md" data-testid="date-dialog">
+        <DialogHeader>
+          <DialogTitle>{date ? 'Edit Date' : 'Add Date'}</DialogTitle>
+          <DialogDescription>{date ? 'Update date details.' : 'Add an important date.'}</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Type</label>
+            <Select value={dateType} onValueChange={setDateType}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {DATE_TYPES.map((t) => (
+                  <SelectItem key={t} value={t} className="capitalize">{t}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {dateType === 'other' && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Label</label>
+              <Input value={dateLabel} onChange={(e) => setDateLabel(e.target.value)} placeholder="e.g. Graduation" />
+            </div>
+          )}
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Date</label>
+            <Input type="date" value={dateValue} onChange={(e) => setDateValue(e.target.value)} data-testid="date-value-input" />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button
+            onClick={() => onSave({
+              date_type: dateType,
+              label: dateLabel.trim() || undefined,
+              date_value: dateValue,
+            })}
+            disabled={isPending || !dateValue}
+          >
+            {isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+            {date ? 'Save' : 'Add'}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
@@ -441,7 +1153,7 @@ interface CommPrefsEditDialogProps {
   onOpenChange: (open: boolean) => void;
   contact: Contact;
   isSubmitting: boolean;
-  onSubmit: (body: ContactBody) => void;
+  onSubmit: (body: CreateContactBody) => void;
 }
 
 function CommPrefsEditDialog({ open, onOpenChange, contact, isSubmitting, onSubmit }: CommPrefsEditDialogProps) {
@@ -466,12 +1178,12 @@ function CommPrefsEditDialog({ open, onOpenChange, contact, isSubmitting, onSubm
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSubmit({
-      display_name: contact.display_name,
+      display_name: contact.display_name ?? undefined,
       preferred_channel: (preferredChannel as CommChannel) || null,
       quiet_hours_start: quietStart || null,
       quiet_hours_end: quietEnd || null,
       quiet_hours_timezone: quietTimezone.trim() || null,
-      urgency_override_channel: (urgencyChannel as CommChannel) || null,
+      urgency_override_channel: (urgencyChannel as string) || null,
       notification_notes: notifNotes.trim() || null,
     });
   };
