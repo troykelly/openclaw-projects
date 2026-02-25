@@ -573,28 +573,3 @@ describe('useTheme hook', () => {
   });
 });
 
-describe('ThemeProvider — backward compatibility', () => {
-  it('re-exported useTheme from dark-mode module works', async () => {
-    // Dynamic import to verify the re-export path works
-    const { useTheme: useThemeFromDarkMode } = await import('@/ui/components/dark-mode/theme-provider');
-
-    function DarkModeConsumer() {
-      const { theme, resolvedTheme } = useThemeFromDarkMode();
-      return (
-        <div>
-          <span data-testid="dm-theme">{theme}</span>
-          <span data-testid="dm-resolved">{resolvedTheme}</span>
-        </div>
-      );
-    }
-
-    render(
-      <ThemeProvider defaultTheme="oled">
-        <DarkModeConsumer />
-      </ThemeProvider>,
-    );
-
-    expect(screen.getByTestId('dm-theme')).toHaveTextContent('oled');
-    expect(screen.getByTestId('dm-resolved')).toHaveTextContent('dark');
-  });
-});

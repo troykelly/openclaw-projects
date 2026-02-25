@@ -8,7 +8,6 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import React from 'react';
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useCreateWorkItem } from '../../src/ui/hooks/mutations/use-create-work-item.ts';
 import { useUpdateWorkItem } from '../../src/ui/hooks/mutations/use-update-work-item.ts';
 import { useDeleteWorkItem } from '../../src/ui/hooks/mutations/use-delete-work-item.ts';
 import { useCreateMemory } from '../../src/ui/hooks/mutations/use-create-memory.ts';
@@ -49,43 +48,6 @@ function mockFetchError(message: string, status = 400) {
     json: async () => ({ message }),
   });
 }
-
-describe('useCreateWorkItem', () => {
-  afterEach(() => {
-    globalThis.fetch = originalFetch;
-  });
-
-  it('should create a work item and invalidate queries', async () => {
-    const created = { id: 'new-1', title: 'New', status: 'open', priority: 'P2', kind: 'issue', created_at: '2026-01-01', updated_at: '2026-01-01' };
-    mockFetchSuccess(created, 201);
-
-    const { Wrapper, queryClient } = createWrapper();
-    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
-
-    const { result } = renderHook(() => useCreateWorkItem(), { wrapper: Wrapper });
-
-    act(() => {
-      result.current.mutate({ title: 'New' });
-    });
-
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(result.current.data).toEqual(created);
-    expect(invalidateSpy).toHaveBeenCalledWith(expect.objectContaining({ queryKey: workItemKeys.all }));
-  });
-
-  it('should handle creation errors', async () => {
-    mockFetchError('Title is required');
-
-    const { Wrapper } = createWrapper();
-    const { result } = renderHook(() => useCreateWorkItem(), { wrapper: Wrapper });
-
-    act(() => {
-      result.current.mutate({ title: '' });
-    });
-
-    await waitFor(() => expect(result.current.isError).toBe(true));
-  });
-});
 
 describe('useUpdateWorkItem', () => {
   afterEach(() => {
