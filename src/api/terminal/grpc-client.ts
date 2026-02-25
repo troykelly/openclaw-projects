@@ -1,11 +1,15 @@
 /**
  * gRPC client for connecting to the tmux worker TerminalService.
  *
- * Uses insecure channel for now — mTLS comes in Phase 4 (Issue #1685).
- * The client is created lazily and cached for the server lifetime.
+ * Supports mTLS when TMUX_WORKER_MTLS_CERT, TMUX_WORKER_MTLS_KEY, and
+ * TMUX_WORKER_MTLS_CA are configured. Falls back to insecure channel with
+ * a warning when certs are not found.
+ *
+ * Issue #1685 — mTLS between API server and tmux worker
  */
 
 import * as grpc from '@grpc/grpc-js';
+import fs from 'node:fs';
 import { getTerminalServiceClient } from '../../tmux-worker/proto-loader.ts';
 import type {
   TestConnectionRequest,
@@ -31,6 +35,36 @@ const DEFAULT_DEADLINE_MS = 30_000;
 let _client: grpc.Client | undefined;
 
 /**
+ * Build channel credentials — mTLS if certs are configured, insecure otherwise.
+ */
+export function buildClientCredentials(): grpc.ChannelCredentials {
+  const certPath = process.env.TMUX_WORKER_MTLS_CERT ?? '';
+  const keyPath = process.env.TMUX_WORKER_MTLS_KEY ?? '';
+  const caPath = process.env.TMUX_WORKER_MTLS_CA ?? '';
+
+  if (certPath && keyPath && caPath) {
+    try {
+      const rootCert = fs.readFileSync(caPath);
+      const clientCert = fs.readFileSync(certPath);
+      const clientKey = fs.readFileSync(keyPath);
+
+      console.log('gRPC client using mTLS (mutual TLS)');
+      return grpc.credentials.createSsl(rootCert, clientKey, clientCert);
+    } catch (err) {
+      console.warn(
+        `Failed to load mTLS certificates: ${(err as Error).message}. Falling back to insecure channel.`,
+      );
+      return grpc.credentials.createInsecure();
+    }
+  }
+
+  console.warn(
+    'gRPC mTLS not configured (TMUX_WORKER_MTLS_CERT/KEY/CA). Using insecure channel.',
+  );
+  return grpc.credentials.createInsecure();
+}
+
+/**
  * Get or create the gRPC client for the tmux worker.
  * Reads TMUX_WORKER_GRPC_URL from environment (default: localhost:50051).
  */
@@ -40,7 +74,7 @@ export function getGrpcClient(): grpc.Client {
     const ClientConstructor = getTerminalServiceClient();
     _client = new ClientConstructor(
       url,
-      grpc.credentials.createInsecure(),
+      buildClientCredentials(),
       {
         'grpc.max_send_message_length': 4 * 1024 * 1024,
         'grpc.max_receive_message_length': 4 * 1024 * 1024,

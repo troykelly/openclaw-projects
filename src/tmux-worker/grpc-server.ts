@@ -3,9 +3,13 @@
  *
  * Initial implementation provides GetWorkerStatus (health) only.
  * All other RPCs return UNIMPLEMENTED status until later phases.
+ *
+ * Supports mTLS when GRPC_TLS_CERT, GRPC_TLS_KEY, and GRPC_TLS_CA are configured.
+ * Falls back to insecure channel with a warning when certs are not found.
  */
 
 import * as grpc from '@grpc/grpc-js';
+import fs from 'node:fs';
 import type pg from 'pg';
 import { getTerminalServiceDefinition } from './proto-loader.ts';
 import type { TmuxWorkerConfig } from './config.ts';
@@ -37,16 +41,53 @@ export function createGrpcServer(
 }
 
 /**
+ * Build server credentials — mTLS if certs are configured, insecure otherwise.
+ */
+export function buildServerCredentials(config: TmuxWorkerConfig): grpc.ServerCredentials {
+  const certPath = config.grpcTlsCert;
+  const keyPath = config.grpcTlsKey;
+  const caPath = config.grpcTlsCa;
+
+  if (certPath && keyPath && caPath) {
+    try {
+      const rootCert = fs.readFileSync(caPath);
+      const serverCert = fs.readFileSync(certPath);
+      const serverKey = fs.readFileSync(keyPath);
+
+      const creds = grpc.ServerCredentials.createSsl(
+        rootCert,
+        [{ cert_chain: serverCert, private_key: serverKey }],
+        true, // requireClientCert
+      );
+      console.log('gRPC server using mTLS (mutual TLS)');
+      return creds;
+    } catch (err) {
+      console.warn(
+        `Failed to load mTLS certificates: ${(err as Error).message}. Falling back to insecure channel.`,
+      );
+      return grpc.ServerCredentials.createInsecure();
+    }
+  }
+
+  console.warn(
+    'gRPC TLS certificates not configured (GRPC_TLS_CERT/KEY/CA). Using insecure channel.',
+  );
+  return grpc.ServerCredentials.createInsecure();
+}
+
+/**
  * Start the gRPC server listening on the configured port.
  */
 export function startGrpcServer(
   server: grpc.Server,
   port: number,
+  config: TmuxWorkerConfig,
 ): Promise<void> {
+  const credentials = buildServerCredentials(config);
   return new Promise<void>((resolve, reject) => {
     server.bindAsync(
       `0.0.0.0:${port}`,
-      grpc.ServerCredentials.createInsecure(),
+      credentials,
       (error, actualPort) => {
         if (error) {
           reject(error);

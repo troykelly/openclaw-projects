@@ -30,6 +30,9 @@ const testConfig: TmuxWorkerConfig = {
   healthPort: 0,
   encryptionKeyHex: '',
   databaseUrl: '',
+  grpcTlsCert: '',
+  grpcTlsKey: '',
+  grpcTlsCa: '',
 };
 
 // Create a mock pool that doesn't connect to anything
@@ -64,7 +67,7 @@ describe('tmux-worker/grpc-server', () => {
 
   it('starts gRPC server and GetWorkerStatus responds', async () => {
     server = createGrpcServer(testConfig, mockPool);
-    await startGrpcServer(server, TEST_GRPC_PORT);
+    await startGrpcServer(server, TEST_GRPC_PORT, testConfig);
 
     const ClientConstructor = getTerminalServiceClient();
     client = new ClientConstructor(

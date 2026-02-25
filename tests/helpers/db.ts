@@ -104,6 +104,7 @@ const APPLICATION_TABLES = [
   'terminal_enrollment_token',
   'terminal_connection',
   'terminal_credential',
+  'terminal_setting',
   // Inbound routing (Epic #1497) — FK children before prompt_template
   'channel_default',
   'inbound_destination',

@@ -9,6 +9,11 @@ import { loadConfig } from './config.ts';
 import { getPool, closePool } from './db.ts';
 import { startHealthServer, stopHealthServer, setHealthy } from './health.ts';
 import { createGrpcServer, startGrpcServer, stopGrpcServer } from './grpc-server.ts';
+import {
+  createEnrollmentSSHServer,
+  startEnrollmentSSHServer,
+  stopEnrollmentSSHServer,
+} from './enrollment-ssh-server.ts';
 
 async function main(): Promise<void> {
   console.log('TMux worker starting...');
@@ -31,9 +36,13 @@ async function main(): Promise<void> {
   // Start health check server
   startHealthServer(config.healthPort);
 
-  // Start gRPC server
+  // Start gRPC server (mTLS if certs configured)
   const grpcServer = createGrpcServer(config, pool);
-  await startGrpcServer(grpcServer, config.grpcPort);
+  await startGrpcServer(grpcServer, config.grpcPort, config);
+
+  // Start SSH enrollment server
+  const sshServer = createEnrollmentSSHServer(config, pool);
+  await startEnrollmentSSHServer(sshServer, config.enrollmentSshPort);
 
   setHealthy(true);
   console.log('TMux worker ready');
@@ -43,6 +52,7 @@ async function main(): Promise<void> {
     console.log(`Received ${signal}, shutting down...`);
     setHealthy(false);
 
+    await stopEnrollmentSSHServer(sshServer);
     await stopGrpcServer(grpcServer);
     await stopHealthServer();
     await closePool();
