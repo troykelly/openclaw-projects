@@ -26,6 +26,8 @@ export interface RequestOptions {
   user_id?: string;
   /** User email for identity resolution (e.g. namespace grant creation) (#1567) */
   user_email?: string;
+  /** Target namespace for the request (adds X-Namespace header) (#1760) */
+  namespace?: string;
   /** Custom timeout (overrides config) */
   timeout?: number;
   /** Mark request as coming from an agent (adds X-OpenClaw-Agent header) */
@@ -206,6 +208,11 @@ export class ApiClient {
 
       if (options?.user_email) {
         headers['X-User-Email'] = options.user_email;
+      }
+
+      // Namespace scoping — ensures by-ID operations target the correct namespace (#1760)
+      if (options?.namespace) {
+        headers['X-Namespace'] = options.namespace;
       }
 
       // Mark request as coming from an agent for privacy filtering

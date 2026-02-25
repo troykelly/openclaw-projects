@@ -141,6 +141,61 @@ describe('ApiClient', () => {
       expect(callHeaders['X-User-Email']).toBeUndefined();
     });
 
+    it('should include X-Namespace header when namespace provided (#1760)', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({}),
+      });
+
+      const client = createApiClient({ config: defaultConfig, logger: mockLogger });
+      await client.get('/test', { user_id: 'acme', namespace: 'acme' });
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            'X-Agent-Id': 'acme',
+            'X-Namespace': 'acme',
+          }),
+        }),
+      );
+    });
+
+    it('should not include X-Namespace header when namespace is absent (#1760)', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({}),
+      });
+
+      const client = createApiClient({ config: defaultConfig, logger: mockLogger });
+      await client.get('/test', { user_id: 'troy' });
+
+      const callHeaders = mockFetch.mock.calls[0][1].headers as Record<string, string>;
+      expect(callHeaders['X-Namespace']).toBeUndefined();
+    });
+
+    it('should include X-Namespace header on PATCH requests (#1760)', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({}),
+      });
+
+      const client = createApiClient({ config: defaultConfig, logger: mockLogger });
+      await client.patch('/api/work-items/123/status', { status: 'completed' }, { user_id: 'acme', namespace: 'acme' });
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            'X-Namespace': 'acme',
+          }),
+        }),
+      );
+    });
+
     it('should include Content-Type header', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
