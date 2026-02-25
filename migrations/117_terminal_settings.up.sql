@@ -27,6 +27,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS terminal_setting_updated_at ON terminal_setting;
 CREATE TRIGGER terminal_setting_updated_at
   BEFORE UPDATE ON terminal_setting
   FOR EACH ROW
