@@ -112,9 +112,22 @@ describe('ChannelDefaultsSection error handling (#1737)', () => {
       expect(screen.getByTestId('channel-defaults-section')).toBeInTheDocument();
     });
 
-    // Change the agent ID input
-    const input = screen.getByDisplayValue('agent-1');
-    fireEvent.change(input, { target: { value: 'agent-updated' } });
+    // Open the agent combobox for SMS channel
+    const comboboxTrigger = screen.getByTestId('agent-combobox-trigger-sms');
+    fireEvent.click(comboboxTrigger);
+
+    // Wait for the combobox input to appear, then type a new agent ID
+    await waitFor(() => {
+      expect(screen.getByTestId('agent-combobox-input-sms')).toBeInTheDocument();
+    });
+    const comboboxInput = screen.getByTestId('agent-combobox-input-sms');
+    fireEvent.change(comboboxInput, { target: { value: 'agent-updated' } });
+
+    // Select the custom option ("Use 'agent-updated'")
+    await waitFor(() => {
+      expect(screen.getByText(/Use/)).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText(/Use/));
 
     // Click save
     const saveButton = screen.getAllByText('Save')[0];
