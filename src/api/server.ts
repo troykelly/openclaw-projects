@@ -374,10 +374,43 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   }
 
   /**
+   * Check whether the request carries an explicit namespace selector.
+   * Mirrors the sources checked by extractRequestedNamespaces in middleware:
+   *   X-Namespace / X-Namespaces header, ?namespace= / ?namespaces= query,
+   *   body.namespace / body.namespaces.
+   */
+  function hasExplicitNamespace(req: FastifyRequest): boolean {
+    // Headers (singular + plural)
+    const hdr = req.headers['x-namespace'];
+    if (typeof hdr === 'string' && hdr.length > 0) return true;
+    const hdrMulti = req.headers['x-namespaces'];
+    if (typeof hdrMulti === 'string' && hdrMulti.length > 0) return true;
+    // Query params (singular + plural)
+    const q = req.query as Record<string, unknown> | undefined;
+    if (q) {
+      if (typeof q.namespace === 'string' && q.namespace.length > 0) return true;
+      if (typeof q.namespaces === 'string' && q.namespaces.length > 0) return true;
+    }
+    // Body (singular + plural)
+    const b = req.body as Record<string, unknown> | undefined | null;
+    if (b && typeof b === 'object') {
+      if (typeof (b as Record<string, unknown>).namespace === 'string' && ((b as Record<string, unknown>).namespace as string).length > 0) return true;
+      if (Array.isArray((b as Record<string, unknown>).namespaces) && ((b as Record<string, unknown>).namespaces as unknown[]).length > 0) return true;
+    }
+    return false;
+  }
+
+  /**
    * Verify that an entity exists AND is in a namespace the caller can access.
    * For READ endpoints. Restores namespace authorization removed in Issue #1645.
    * Issue #1652: namespace filter was missing on 33 read endpoints.
    * Issue #1654: soft-deleted rows excluded by default.
+   *
+   * Issue #1796: When no explicit namespace is requested and the caller has
+   * unrestricted access (M2M token or auth-disabled), skip the namespace
+   * filter. UUIDs are globally unique, so by-ID lookups should work across
+   * all namespaces. When an explicit namespace IS provided, the filter is
+   * preserved to respect intentional scoping.
    */
   async function verifyReadScope(
     pool: ReturnType<typeof createPool>,
@@ -386,9 +419,22 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     req: FastifyRequest,
     options?: { includeDeleted?: boolean },
   ): Promise<boolean> {
+    const deletedClause = options?.includeDeleted ? '' : ' AND deleted_at IS NULL';
+
+    // Issue #1796: skip namespace filter for by-ID lookups when no explicit
+    // namespace was requested and the caller has unrestricted access.
+    const explicit = hasExplicitNamespace(req);
+    const isM2M = req.namespaceContext?.isM2M ?? false;
+    if (!explicit && (isM2M || isAuthDisabled())) {
+      const result = await pool.query(
+        `SELECT 1 FROM "${table}" WHERE id = $1${deletedClause}`,
+        [id],
+      );
+      return result.rows.length > 0;
+    }
+
     const queryNamespaces = getEffectiveNamespaces(req);
     if (queryNamespaces.length === 0) return false;
-    const deletedClause = options?.includeDeleted ? '' : ' AND deleted_at IS NULL';
     const result = await pool.query(
       `SELECT 1 FROM "${table}" WHERE id = $1 AND namespace = ANY($2::text[])${deletedClause}`,
       [id, queryNamespaces],
@@ -402,6 +448,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
    * Renamed from verifyNamespaceScope for clarity (Issue #1645).
    * Issue #1654: soft-deleted rows excluded by default.
    * Issue #1656: uses getEffectiveNamespaces for consistent fallback.
+   *
+   * Issue #1796: Same cross-namespace by-ID lookup fix as verifyReadScope.
    */
   async function verifyWriteScope(
     pool: ReturnType<typeof createPool>,
@@ -410,9 +458,22 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     req: FastifyRequest,
     options?: { includeDeleted?: boolean },
   ): Promise<boolean> {
+    const deletedClause = options?.includeDeleted ? '' : ' AND deleted_at IS NULL';
+
+    // Issue #1796: skip namespace filter for by-ID lookups when no explicit
+    // namespace was requested and the caller has unrestricted access.
+    const explicit = hasExplicitNamespace(req);
+    const isM2M = req.namespaceContext?.isM2M ?? false;
+    if (!explicit && (isM2M || isAuthDisabled())) {
+      const result = await pool.query(
+        `SELECT 1 FROM "${table}" WHERE id = $1${deletedClause}`,
+        [id],
+      );
+      return result.rows.length > 0;
+    }
+
     const queryNamespaces = getEffectiveNamespaces(req);
     if (queryNamespaces.length === 0) return false;
-    const deletedClause = options?.includeDeleted ? '' : ' AND deleted_at IS NULL';
     const result = await pool.query(
       `SELECT 1 FROM "${table}" WHERE id = $1 AND namespace = ANY($2::text[])${deletedClause}`,
       [id, queryNamespaces],

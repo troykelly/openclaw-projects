@@ -196,6 +196,7 @@ describe('ApiClient', () => {
       );
     });
 
+
     it('should include Content-Type header', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
