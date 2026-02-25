@@ -247,7 +247,7 @@ describe('Work Items Tree API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/tree?depth=2`,
+        url: '/api/work-items/tree?depth=2',
       });
 
       expect(res.statusCode).toBe(200);

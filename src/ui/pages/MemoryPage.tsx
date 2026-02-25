@@ -19,6 +19,8 @@
  * - Inline expansion for full content viewing
  * - Create/Edit memory via dialog with markdown editor
  * - Delete memory with confirmation
+ * - Bulk operations: select, bulk delete, bulk update type (#1750)
+ * - Contact/relationship scoping in create form (#1751)
  * - Loading, error, and empty states
  * - Dark mode and mobile responsive
  *
@@ -48,14 +50,19 @@ import {
   Sparkles,
   Tag,
   Trash2,
+  User,
   X,
 } from 'lucide-react';
 import React, { useCallback, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { EmptyState, ErrorState, Skeleton, SkeletonList } from '@/ui/components/feedback';
+import { BulkMemoryActionBar } from '@/ui/components/memory/bulk-action-bar';
+import { ContactPicker } from '@/ui/components/memory/contact-picker';
+import type { ContactOption } from '@/ui/components/memory/contact-picker';
 import { Badge } from '@/ui/components/ui/badge';
 import { Button } from '@/ui/components/ui/button';
 import { Card, CardContent } from '@/ui/components/ui/card';
+import { Checkbox } from '@/ui/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/ui/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/ui/components/ui/dropdown-menu';
 import { Input } from '@/ui/components/ui/input';
@@ -64,6 +71,7 @@ import { ScrollArea } from '@/ui/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/components/ui/select';
 import { Switch } from '@/ui/components/ui/switch';
 import { Textarea } from '@/ui/components/ui/textarea';
+import { useContacts } from '@/ui/hooks/queries/use-contacts';
 import { useMemories, useMemorySearch } from '@/ui/hooks/queries/use-memories';
 import { useProjects } from '@/ui/hooks/queries/use-projects';
 import { apiClient } from '@/ui/lib/api-client';
@@ -174,6 +182,7 @@ export function MemoryPage(): React.JSX.Element {
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [projectFilter, setProjectFilter] = useState<string>('all');
+  const [contactFilter, setContactFilter] = useState<string>('all');
   const [dateRange, setDateRange] = useState<string>('all');
   const [showSuperseded, setShowSuperseded] = useState(false);
   const [semanticSearch, setSemanticSearch] = useState(false);
@@ -183,12 +192,37 @@ export function MemoryPage(): React.JSX.Element {
   const [deleteTarget, setDeleteTarget] = useState<Memory | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Bulk selection state (#1750)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleteConfirmOpen, setBulkDeleteConfirmOpen] = useState(false);
+
   const { data, isLoading, isError, error, refetch } = useMemories();
   const { data: projectsData } = useProjects();
+  const { data: contactsData } = useContacts();
   const { data: searchData } = useMemorySearch(
     semanticSearch ? search : '',
     typeFilter !== 'all' ? { memory_type: typeFilter } : undefined,
   );
+
+  /** Contact options for the picker (#1751). */
+  const contactOptions: ContactOption[] = useMemo(() => {
+    if (!contactsData?.contacts) return [];
+    return contactsData.contacts.map((c) => ({
+      id: c.id,
+      display_name: c.display_name ?? '',
+    }));
+  }, [contactsData?.contacts]);
+
+  /** Map of contact IDs to display names for showing on cards (#1751). */
+  const contactNameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    if (contactsData?.contacts) {
+      for (const c of contactsData.contacts) {
+        map.set(c.id, c.display_name ?? '');
+      }
+    }
+    return map;
+  }, [contactsData?.contacts]);
 
   /** Map of project IDs to their titles for display. */
   const projectNameMap = useMemo(() => {
@@ -228,6 +262,11 @@ export function MemoryPage(): React.JSX.Element {
       result = result.filter((m) => m.project_id === projectFilter);
     }
 
+    // Filter by contact scope (#1751)
+    if (contactFilter !== 'all') {
+      result = result.filter((m) => (m as Memory & { contact_id?: string }).contact_id === contactFilter);
+    }
+
     // Filter by date range (#1730)
     if (dateRange !== 'all') {
       const threshold = getDateThreshold(dateRange);
@@ -243,11 +282,66 @@ export function MemoryPage(): React.JSX.Element {
     }
 
     return result;
-  }, [data?.memories, typeFilter, projectFilter, search, dateRange, showSuperseded, semanticSearch, searchData?.results]);
+  }, [data?.memories, typeFilter, projectFilter, contactFilter, search, dateRange, showSuperseded, semanticSearch, searchData?.results]);
 
   const handleToggleExpand = useCallback((id: string) => {
     setExpandedId((prev) => (prev === id ? null : id));
   }, []);
+
+  // Bulk selection handlers (#1750)
+  const toggleSelect = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }, []);
+
+  const clearSelection = useCallback(() => {
+    setSelectedIds(new Set());
+  }, []);
+
+  const handleBulkDelete = useCallback(async () => {
+    if (selectedIds.size === 0) return;
+    setIsSubmitting(true);
+    try {
+      // Delete each selected memory
+      await Promise.all(
+        Array.from(selectedIds).map((id) => apiClient.delete(`/api/memories/${id}`)),
+      );
+      setSelectedIds(new Set());
+      setBulkDeleteConfirmOpen(false);
+      refetch();
+    } catch (err) {
+      console.error('Failed to bulk delete memories:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [selectedIds, refetch]);
+
+  const handleBulkUpdateType = useCallback(
+    async (newType: string) => {
+      if (selectedIds.size === 0) return;
+      setIsSubmitting(true);
+      try {
+        await apiClient.patch('/api/memories/bulk', {
+          ids: Array.from(selectedIds),
+          updates: { type: newType },
+        });
+        setSelectedIds(new Set());
+        refetch();
+      } catch (err) {
+        console.error('Failed to bulk update memories:', err);
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
+    [selectedIds, refetch],
+  );
 
   const handleNavigateToDetail = useCallback(
     (id: string) => {
@@ -368,7 +462,7 @@ export function MemoryPage(): React.JSX.Element {
           <h1 className="text-2xl font-semibold text-foreground">Memory</h1>
           <p className="text-sm text-muted-foreground mt-1">
             {total} memor{total !== 1 ? 'ies' : 'y'}
-            {(hasActiveFilters || search) && ` (${filteredMemories.length} shown)`}
+            {(hasActiveFilters || contactFilter !== 'all' || search) && ` (${filteredMemories.length} shown)`}
           </p>
         </div>
         <Button onClick={handleAddNew} data-testid="add-memory-button">
@@ -434,6 +528,21 @@ export function MemoryPage(): React.JSX.Element {
           </SelectContent>
         </Select>
 
+        {/* Contact filter (#1751) */}
+        <Select value={contactFilter} onValueChange={setContactFilter}>
+          <SelectTrigger className="w-[180px]" data-testid="contact-filter">
+            <SelectValue placeholder="All contacts" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All contacts</SelectItem>
+            {contactOptions.map((c) => (
+              <SelectItem key={c.id} value={c.id}>
+                {c.display_name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
         {/* Date range filter (#1730) */}
         <Select value={dateRange} onValueChange={setDateRange}>
           <SelectTrigger className="w-[160px]" data-testid="date-range-filter">
@@ -476,13 +585,13 @@ export function MemoryPage(): React.JSX.Element {
           <CardContent className="p-8">
             <EmptyState
               variant="documents"
-              title={search || hasActiveFilters ? 'No memories found' : 'No memories yet'}
+              title={search || hasActiveFilters || contactFilter !== 'all' ? 'No memories found' : 'No memories yet'}
               description={
-                search || hasActiveFilters
+                search || hasActiveFilters || contactFilter !== 'all'
                   ? 'Try adjusting your search or filter criteria.'
                   : 'Store knowledge, preferences, decisions, and context for AI agents.'
               }
-              onAction={!search && !hasActiveFilters ? handleAddNew : undefined}
+              onAction={!search && !hasActiveFilters && contactFilter === 'all' ? handleAddNew : undefined}
               actionLabel="Create Memory"
             />
           </CardContent>
@@ -492,7 +601,9 @@ export function MemoryPage(): React.JSX.Element {
           <div className="space-y-3" data-testid="memory-list">
             {filteredMemories.map((memory) => {
               const isExpanded = expandedId === memory.id;
+              const isSelected = selectedIds.has(memory.id);
               const preview = memory.content.length > 200 ? `${memory.content.slice(0, 200)}...` : memory.content;
+              const memoryContactId = (memory as Memory & { contact_id?: string }).contact_id;
               const effectiveType = memory.memory_type ?? memory.type;
               const similarity = 'similarity' in memory ? (memory as Memory & { similarity: number }).similarity : undefined;
 
@@ -500,11 +611,21 @@ export function MemoryPage(): React.JSX.Element {
                 <Card
                   key={memory.id}
                   data-testid="memory-card"
-                  className={`group transition-colors hover:bg-accent/30 ${memory.is_active === false ? 'opacity-60' : ''}`}
+                  className={`group transition-colors hover:bg-accent/30 ${isSelected ? 'ring-2 ring-primary' : ''} ${memory.is_active === false ? 'opacity-60' : ''}`}
                 >
                   <CardContent className="p-4">
                     {/* Card Header */}
                     <div className="flex items-start justify-between gap-2">
+                      {/* Selection checkbox (#1750) */}
+                      <div className="pt-0.5 pr-2">
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={() => toggleSelect(memory.id)}
+                          data-testid="memory-select-checkbox"
+                          aria-label={`Select ${memory.title}`}
+                        />
+                      </div>
+
                       <div className="flex-1 min-w-0 cursor-pointer" onClick={() => handleToggleExpand(memory.id)}>
                         <div className="flex items-center gap-2 mb-1 flex-wrap">
                           {effectiveType && (
@@ -517,6 +638,13 @@ export function MemoryPage(): React.JSX.Element {
                             <Badge variant="outline" className="text-xs gap-1" data-testid="memory-project-badge">
                               <Folder className="size-3" />
                               {projectNameMap.get(memory.project_id)}
+                            </Badge>
+                          )}
+                          {/* Contact scope badge (#1751) */}
+                          {memoryContactId && contactNameMap.has(memoryContactId) && (
+                            <Badge variant="outline" className="text-xs gap-1" data-testid="memory-contact-badge">
+                              <User className="size-3" />
+                              {contactNameMap.get(memoryContactId)}
                             </Badge>
                           )}
                           {/* Superseded indicator (#1725) */}
@@ -587,7 +715,7 @@ export function MemoryPage(): React.JSX.Element {
                     )}
 
                     {/* Content preview / expanded */}
-                    <div className="mt-2 cursor-pointer" onClick={() => handleToggleExpand(memory.id)}>
+                    <div className="mt-2 cursor-pointer ml-8" onClick={() => handleToggleExpand(memory.id)}>
                       {isExpanded ? (
                         <div className="text-sm text-foreground whitespace-pre-wrap" data-testid="memory-full-content">
                           {memory.content}
@@ -646,7 +774,7 @@ export function MemoryPage(): React.JSX.Element {
                     </div>
 
                     {/* Footer */}
-                    <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+                    <div className="mt-3 ml-8 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
                       <div className="flex items-center gap-3">
                         {memory.work_item_id && (
                           <span className="flex items-center gap-1">
@@ -690,6 +818,34 @@ export function MemoryPage(): React.JSX.Element {
         </ScrollArea>
       )}
 
+      {/* Bulk action bar (#1750) */}
+      <BulkMemoryActionBar
+        selectedCount={selectedIds.size}
+        onDelete={() => setBulkDeleteConfirmOpen(true)}
+        onUpdateType={handleBulkUpdateType}
+        onClearSelection={clearSelection}
+      />
+
+      {/* Bulk delete confirmation (#1750) */}
+      <Dialog open={bulkDeleteConfirmOpen} onOpenChange={setBulkDeleteConfirmOpen}>
+        <DialogContent className="sm:max-w-sm" data-testid="bulk-delete-confirm-dialog">
+          <DialogHeader>
+            <DialogTitle>Delete Memories</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete {selectedIds.size} memor{selectedIds.size !== 1 ? 'ies' : 'y'}? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkDeleteConfirmOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleBulkDelete} disabled={isSubmitting} data-testid="confirm-bulk-delete">
+              Delete {selectedIds.size}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Create/Edit Memory Dialog */}
       <MemoryFormDialog
         open={formOpen}
@@ -699,6 +855,7 @@ export function MemoryPage(): React.JSX.Element {
         }}
         memory={editingMemory}
         isSubmitting={isSubmitting}
+        contactOptions={contactOptions}
         onSubmit={(data) => {
           if (editingMemory) {
             handleUpdate(data);
@@ -743,13 +900,15 @@ interface MemoryFormDialogProps {
   onOpenChange: (open: boolean) => void;
   memory: Memory | null;
   isSubmitting: boolean;
+  contactOptions: ContactOption[];
   onSubmit: (data: CreateMemoryBody | UpdateMemoryBody) => void;
 }
 
-function MemoryFormDialog({ open, onOpenChange, memory, isSubmitting, onSubmit }: MemoryFormDialogProps) {
+function MemoryFormDialog({ open, onOpenChange, memory, isSubmitting, contactOptions, onSubmit }: MemoryFormDialogProps) {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [type, setType] = useState<string>('fact');
+  const [contactId, setContactId] = useState<string | null>(null);
   const [importance, setImportance] = useState<number>(5);
   const [confidence, setConfidence] = useState<number>(0.8);
   const [expiresAt, setExpiresAt] = useState<string>('');
@@ -763,6 +922,7 @@ function MemoryFormDialog({ open, onOpenChange, memory, isSubmitting, onSubmit }
       setTitle(memory?.title ?? '');
       setContent(memory?.content ?? '');
       setType(memory?.memory_type ?? memory?.type ?? 'fact');
+      setContactId(null);
       setImportance(memory?.importance ?? 5);
       setConfidence(memory?.confidence ?? 0.8);
       setExpiresAt(memory?.expires_at ? memory.expires_at.slice(0, 10) : '');
@@ -806,7 +966,7 @@ function MemoryFormDialog({ open, onOpenChange, memory, isSubmitting, onSubmit }
       };
       onSubmit(body);
     } else {
-      // Create: send all fields
+      // Create: send all fields including optional contact_id (#1751)
       const body: CreateMemoryBody = {
         title: title.trim(),
         content: content.trim(),
@@ -818,6 +978,9 @@ function MemoryFormDialog({ open, onOpenChange, memory, isSubmitting, onSubmit }
         source_url: sourceUrl.trim() || undefined,
         expires_at: expiresAt ? new Date(expiresAt).toISOString() : undefined,
       };
+      if (contactId) {
+        body.contact_id = contactId;
+      }
       onSubmit(body);
     }
   };
@@ -863,6 +1026,18 @@ function MemoryFormDialog({ open, onOpenChange, memory, isSubmitting, onSubmit }
               </SelectContent>
             </Select>
           </div>
+
+          {/* Contact picker (#1751) - only for create */}
+          {!memory && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Link to Contact</label>
+              <ContactPicker
+                contacts={contactOptions}
+                selectedContactId={contactId}
+                onSelect={setContactId}
+              />
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="memory-content">

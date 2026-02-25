@@ -8,7 +8,11 @@
  * - Dates (birthdays, anniversaries CRUD) (#1704)
  * - Preferences (communication preferences and quiet hours, issue #1269)
  * - Notes (contact notes with inline editing)
- * - Activity (recent activity for this contact)
+ * - Relationships (contact relationships by category, issue #1746)
+ * - Custom Fields (key-value custom data, issue #1748)
+ * - Activity (recent activity for this contact, issue #1749)
+ *
+ * Header shows group badges with manager popover (issue #1747).
  *
  * Also includes:
  * - Tags section with add/remove (#1705)
@@ -18,13 +22,17 @@
  */
 
 import {
-  ArrowLeft, Bell, Brain, Briefcase, Calendar, Cake, Clock, Globe, Heart,
-  Link2, Mail, MapPin, MessageSquare, Pencil, Phone,
-  Plus, Tag, Trash2, Upload, X, Loader2,
+  ArrowLeft, Bell, Brain, Briefcase, Cake, Calendar, Clock, FileText, Globe, Heart,
+  Link2, Loader2, Mail, MapPin, MessageSquare, Pencil, Phone,
+  Plus, Tag, Trash2, Upload, Users, X,
 } from 'lucide-react';
 import React, { useCallback, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
+import { ContactActivitySection } from '@/ui/components/activity/contact-activity-section';
+import { CustomFieldsSection } from '@/ui/components/contacts/custom-fields-section';
 import { EmptyState, ErrorState, Skeleton, SkeletonText } from '@/ui/components/feedback';
+import { ContactGroupManager } from '@/ui/components/organizations/contact-group-manager';
+import { ContactRelationshipSection } from '@/ui/components/relationships/contact-relationship-section';
 import { Badge } from '@/ui/components/ui/badge';
 import { Button } from '@/ui/components/ui/button';
 import { Card, CardContent } from '@/ui/components/ui/card';
@@ -34,7 +42,7 @@ import { Separator } from '@/ui/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/ui/components/ui/tabs';
 import { Textarea } from '@/ui/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/components/ui/select';
-import { useContactDetail } from '@/ui/hooks/queries/use-contacts';
+import { useContactDetail, useContacts } from '@/ui/hooks/queries/use-contacts';
 import { useContactMemories } from '@/ui/hooks/queries/use-memories';
 import {
   useUpdateContact,
@@ -46,8 +54,11 @@ import {
 } from '@/ui/hooks/mutations/use-update-contact';
 import { useContactWorkItems } from '@/ui/hooks/queries/use-work-item-contacts';
 import { apiClient } from '@/ui/lib/api-client';
-import type { CommChannel, Contact, ContactAddress, ContactDate, ContactEndpoint, CreateContactBody, EndpointType, Memory } from '@/ui/lib/api-types';
+import type { CommChannel, Contact, ContactAddress, ContactBody, ContactDate, ContactEndpoint, CreateContactBody, CustomField, EndpointType, Memory } from '@/ui/lib/api-types';
 import { formatContactName, getContactInitials } from '@/ui/lib/format-contact-name';
+import type { ContactRelationship as RelComponentRelationship, Contact as RelComponentContact, NewRelationshipData } from '@/ui/components/relationships/types';
+import type { ContactGroup } from '@/ui/components/organizations/types';
+import type { Activity } from '@/ui/components/activity/types';
 
 const CHANNEL_LABELS: Record<string, string> = {
   telegram: 'Telegram',
@@ -87,13 +98,16 @@ export function ContactDetailPage(): React.JSX.Element {
   // #1705: Tag management
   const [tagInput, setTagInput] = useState('');
 
-  // Load with all includes
+  // Load with all includes (endpoints, addresses, dates, tags, relationships)
   const { data: contact, isLoading, isError, error, refetch } = useContactDetail(
     contact_id ?? '',
-    'endpoints,addresses,dates,tags',
+    'endpoints,addresses,dates,tags,relationships',
   );
   const { data: memoriesData } = useContactMemories(contact_id ?? '');
   const { data: linkedWorkItemsData } = useContactWorkItems(contact_id ?? '');
+
+  // Fetch all contacts for relationship dialog
+  const { data: contactsData } = useContacts();
 
   const updateMutation = useUpdateContact();
   const addEndpoint = useAddContactEndpoint();
@@ -111,6 +125,52 @@ export function ContactDetailPage(): React.JSX.Element {
   const deletePhoto = useDeleteContactPhoto();
 
   const photoInputRef = useRef<HTMLInputElement>(null);
+
+  // Relationships state — fetched from contact.relationships
+  const relationships: RelComponentRelationship[] = React.useMemo(() => {
+    if (!contact?.relationships || !Array.isArray(contact.relationships)) return [];
+    return contact.relationships.map((r) => ({
+      id: r.id,
+      contact_id: r.from_contact_id,
+      relatedContactId: r.to_contact_id === contact_id ? r.from_contact_id : r.to_contact_id,
+      type: r.relationship_type as RelComponentRelationship['type'],
+      direction: 'bidirectional' as const,
+      created_at: r.created_at,
+    }));
+  }, [contact?.relationships, contact_id]);
+
+  // Map related contacts for the relationship section
+  const relatedContacts: RelComponentContact[] = React.useMemo(() => {
+    if (!contactsData?.contacts) return [];
+    const relatedIds = new Set(relationships.map((r) => r.relatedContactId));
+    return contactsData.contacts
+      .filter((c) => relatedIds.has(c.id))
+      .map((c) => ({
+        id: c.id,
+        name: c.display_name ?? '',
+        email: c.endpoints?.find((ep) => ep.type === 'email')?.value,
+        phone: c.endpoints?.find((ep) => ep.type === 'phone')?.value,
+      }));
+  }, [contactsData?.contacts, relationships]);
+
+  // Available contacts for adding relationships
+  const availableContacts: RelComponentContact[] = React.useMemo(() => {
+    if (!contactsData?.contacts) return [];
+    return contactsData.contacts
+      .filter((c) => c.id !== contact_id)
+      .map((c) => ({
+        id: c.id,
+        name: c.display_name ?? '',
+        email: c.endpoints?.find((ep) => ep.type === 'email')?.value,
+      }));
+  }, [contactsData?.contacts, contact_id]);
+
+  // Groups state — placeholder until API provides groups
+  const [assignedGroups] = useState<ContactGroup[]>([]);
+  const [availableGroups] = useState<ContactGroup[]>([]);
+
+  // Activity state — placeholder until API provides activity
+  const [activities] = useState<Activity[]>([]);
 
   const handleBack = useCallback(() => {
     navigate('/contacts');
@@ -140,6 +200,72 @@ export function ContactDetailPage(): React.JSX.Element {
       console.error('Failed to delete contact:', err);
     }
   }, [contact_id, navigate]);
+
+  /** Save custom fields via PATCH /api/contacts/:id */
+  const handleSaveCustomFields = useCallback(
+    (fields: CustomField[]) => {
+      handleUpdate({ display_name: contact?.display_name ?? '', custom_fields: fields });
+    },
+    [handleUpdate, contact?.display_name],
+  );
+
+  /** Add a relationship via POST /api/contacts/:id/relationships */
+  const handleAddRelationship = useCallback(
+    async (data: NewRelationshipData) => {
+      if (!contact_id) return;
+      try {
+        await apiClient.post(`/api/contacts/${contact_id}/relationships`, {
+          to_contact_id: data.relatedContactId,
+          relationship_type: data.type,
+        });
+        refetch();
+      } catch (err) {
+        console.error('Failed to add relationship:', err);
+      }
+    },
+    [contact_id, refetch],
+  );
+
+  /** Remove a relationship via DELETE */
+  const handleRemoveRelationship = useCallback(
+    async (relationshipId: string) => {
+      if (!contact_id) return;
+      try {
+        await apiClient.delete(`/api/contacts/${contact_id}/relationships/${relationshipId}`);
+        refetch();
+      } catch (err) {
+        console.error('Failed to remove relationship:', err);
+      }
+    },
+    [contact_id, refetch],
+  );
+
+  /** Group management callbacks */
+  const handleAddToGroup = useCallback(
+    async (_contactId: string, groupId: string) => {
+      if (!contact_id) return;
+      try {
+        await apiClient.post(`/api/contacts/${contact_id}/groups/${groupId}`, {});
+        refetch();
+      } catch (err) {
+        console.error('Failed to add to group:', err);
+      }
+    },
+    [contact_id, refetch],
+  );
+
+  const handleRemoveFromGroup = useCallback(
+    async (_contactId: string, groupId: string) => {
+      if (!contact_id) return;
+      try {
+        await apiClient.delete(`/api/contacts/${contact_id}/groups/${groupId}`);
+        refetch();
+      } catch (err) {
+        console.error('Failed to remove from group:', err);
+      }
+    },
+    [contact_id, refetch],
+  );
 
   // #1706: Photo upload handler
   const handlePhotoUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -225,6 +351,7 @@ export function ContactDetailPage(): React.JSX.Element {
   const email = contact.endpoints?.find((ep) => ep.type === 'email')?.value;
   const phone = contact.endpoints?.find((ep) => ep.type === 'phone')?.value;
   const hasPrefs = contact.preferred_channel || contact.quiet_hours_start || contact.urgency_override_channel || contact.notification_notes;
+  const customFields = Array.isArray(contact.custom_fields) ? contact.custom_fields : [];
   const tags = Array.isArray(contact.tags) ? contact.tags : [];
   const addresses = Array.isArray(contact.addresses) ? contact.addresses : [];
   const dates = Array.isArray(contact.dates) ? contact.dates : [];
@@ -296,6 +423,18 @@ export function ContactDetailPage(): React.JSX.Element {
                 </span>
               )}
             </div>
+            {/* Group badges (#1747) */}
+            {contact_id && (
+              <div className="mt-2" data-testid="contact-groups">
+                <ContactGroupManager
+                  contact_id={contact_id}
+                  assignedGroups={assignedGroups}
+                  availableGroups={availableGroups}
+                  onAddToGroup={handleAddToGroup}
+                  onRemoveFromGroup={handleRemoveFromGroup}
+                />
+              </div>
+            )}
           </div>
         </div>
 
@@ -372,9 +511,17 @@ export function ContactDetailPage(): React.JSX.Element {
             <Calendar className="size-3" />
             Dates
           </TabsTrigger>
+          <TabsTrigger value="relationships" className="gap-1">
+            <Users className="size-3" />
+            Relationships
+          </TabsTrigger>
           <TabsTrigger value="preferences" className="gap-1">
             <Bell className="size-3" />
             Preferences
+          </TabsTrigger>
+          <TabsTrigger value="custom-fields" className="gap-1">
+            <FileText className="size-3" />
+            Fields
           </TabsTrigger>
           <TabsTrigger value="notes" className="gap-1">
             <MessageSquare className="size-3" />
@@ -596,6 +743,21 @@ export function ContactDetailPage(): React.JSX.Element {
           )}
         </TabsContent>
 
+        {/* Relationships Tab (#1746) */}
+        <TabsContent value="relationships" className="mt-4" data-testid="relationships-tab">
+          {contact_id && (
+            <ContactRelationshipSection
+              contact_id={contact_id}
+              relationships={relationships}
+              related_contacts={relatedContacts}
+              availableContacts={availableContacts}
+              onAddRelationship={handleAddRelationship}
+              onEditRelationship={() => {/* Edit not yet implemented */}}
+              onRemoveRelationship={handleRemoveRelationship}
+            />
+          )}
+        </TabsContent>
+
         {/* Preferences Tab (Issue #1269) */}
         <TabsContent value="preferences" className="mt-4" data-testid="preferences-tab">
           {hasPrefs ? (
@@ -675,6 +837,11 @@ export function ContactDetailPage(): React.JSX.Element {
           )}
         </TabsContent>
 
+        {/* Custom Fields Tab (#1748) */}
+        <TabsContent value="custom-fields" className="mt-4" data-testid="custom-fields-tab">
+          <CustomFieldsSection fields={customFields} onSave={handleSaveCustomFields} isSubmitting={updateMutation.isPending} />
+        </TabsContent>
+
         {/* Notes Tab */}
         <TabsContent value="notes" className="mt-4">
           {contact.notes ? (
@@ -696,9 +863,14 @@ export function ContactDetailPage(): React.JSX.Element {
           )}
         </TabsContent>
 
-        {/* Activity Tab */}
-        <TabsContent value="activity" className="mt-4">
-          <EmptyState variant="calendar" title="No activity yet" description="Activity related to this contact will appear here." />
+        {/* Activity Tab (#1749) */}
+        <TabsContent value="activity" className="mt-4" data-testid="activity-tab">
+          {contact_id && (
+            <ContactActivitySection
+              contact_id={contact_id}
+              activities={activities}
+            />
+          )}
         </TabsContent>
 
         {/* Memories Tab (#1723) */}
@@ -858,6 +1030,7 @@ export function ContactDetailPage(): React.JSX.Element {
     </div>
   );
 }
+
 
 // ---------------------------------------------------------------------------
 // ContactEditDialog - extracted for readability

@@ -206,6 +206,38 @@ describe('Settings hooks survive empty API responses ({})', () => {
     await waitFor(() => expect(document.body.textContent).toContain('loaded'));
   });
 
+  it('NotificationPreferencesSection does not crash', async () => {
+    mockedApiClient.get.mockResolvedValue({});
+    const { NotificationPreferencesSection } = await import(
+      '@/ui/components/settings/notification-preferences-section'
+    );
+
+    function Test() {
+      return <NotificationPreferencesSection />;
+    }
+
+    expect(() => render(<Test />)).not.toThrow();
+    await waitFor(() =>
+      expect(document.body.textContent).toContain('No notification types configured'),
+    );
+  });
+
+  it('WebhookManagementSection does not crash', async () => {
+    mockedApiClient.get.mockResolvedValue({});
+    const { WebhookManagementSection } = await import(
+      '@/ui/components/settings/webhook-management-section'
+    );
+
+    function Test() {
+      return <WebhookManagementSection />;
+    }
+
+    expect(() => render(<Test />)).not.toThrow();
+    await waitFor(() =>
+      expect(document.body.textContent).toContain('No webhooks configured'),
+    );
+  });
+
   it('useSettings does not crash', async () => {
     mockedApiClient.get.mockResolvedValue({});
     const mod = await import('@/ui/components/settings/use-settings');
