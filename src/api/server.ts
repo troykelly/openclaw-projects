@@ -13887,6 +13887,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         permission_level,
       });
 
+      // When called via apiClient (Accept: application/json), return URL as JSON
+      // so the browser can navigate programmatically with the Bearer token intact.
+      const accept = req.headers.accept || '';
+      if (accept.includes('application/json')) {
+        return reply.send({ url: authResult.url });
+      }
+
       return reply.redirect(authResult.url);
     } catch (error) {
       if (error instanceof ProviderNotConfiguredError) {
