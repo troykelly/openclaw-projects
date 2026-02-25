@@ -150,10 +150,12 @@ describe('Auth scoping', () => {
       savedAuthDisabled = process.env.OPENCLAW_PROJECTS_AUTH_DISABLED;
       delete process.env.OPENCLAW_PROJECTS_AUTH_DISABLED;
 
-      // Create test project
+      // Create test project with namespace matching the OWNER's JWT subject
+      // (verifyWriteScope/verifyReadScope from #1811 requires namespace-scoped access)
       const result = await pool.query(
-        `INSERT INTO work_item (title, kind) VALUES ('Webhook Test Project', 'project')
+        `INSERT INTO work_item (title, kind, namespace) VALUES ('Webhook Test Project', 'project', $1)
          RETURNING id::text as id`,
+        [OWNER],
       );
       project_id = (result.rows[0] as { id: string }).id;
 
@@ -207,14 +209,13 @@ describe('Auth scoping', () => {
         payload: { label: 'Owner Only' },
       });
 
-      // Other user sees empty list
+      // Other user has no namespace access to the project (#1811) — gets 404
       const listRes = await app.inject({
         method: 'GET',
         url: `/api/projects/${project_id}/webhooks`,
         headers: otherHeaders,
       });
-      expect(listRes.statusCode).toBe(200);
-      expect(listRes.json()).toHaveLength(0);
+      expect(listRes.statusCode).toBe(404);
     });
 
     it('other user cannot delete webhook they did not create', async () => {
@@ -230,7 +231,7 @@ describe('Auth scoping', () => {
       });
       const webhookId = createRes.json().id;
 
-      // Other user tries to delete — should get 404 (not found for them)
+      // Other user has no namespace access to the project (#1811) — gets 404
       const deleteRes = await app.inject({
         method: 'DELETE',
         url: `/api/projects/${project_id}/webhooks/${webhookId}`,
