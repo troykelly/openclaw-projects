@@ -9,6 +9,11 @@
  */
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/ui/lib/api-client.ts';
+import {
+  memoryListResponseSchema,
+  memorySearchResponseSchema,
+  workItemMemoriesResponseSchema,
+} from '@/ui/lib/api-schemas.ts';
 import type {
   Memory,
   MemoryAttachmentsResponse,
@@ -44,7 +49,7 @@ export const memoryKeys = {
 export function useWorkItemMemories(work_item_id: string) {
   return useQuery({
     queryKey: memoryKeys.forWorkItem(work_item_id),
-    queryFn: ({ signal }) => apiClient.get<WorkItemMemoriesResponse>(`/api/work-items/${work_item_id}/memories`, { signal }),
+    queryFn: ({ signal }) => apiClient.get<WorkItemMemoriesResponse>(`/api/work-items/${work_item_id}/memories`, { signal, schema: workItemMemoriesResponseSchema }),
     enabled: !!work_item_id,
   });
 }
@@ -57,7 +62,7 @@ export function useWorkItemMemories(work_item_id: string) {
 export function useMemories() {
   return useQuery({
     queryKey: memoryKeys.list(),
-    queryFn: ({ signal }) => apiClient.get<MemoryListResponse>('/api/memory', { signal }),
+    queryFn: ({ signal }) => apiClient.get<MemoryListResponse>('/api/memory', { signal, schema: memoryListResponseSchema }),
   });
 }
 
@@ -84,7 +89,7 @@ export function useMemoryDetail(id: string) {
 export function useProjectMemories(project_id: string) {
   return useQuery({
     queryKey: memoryKeys.forProject(project_id),
-    queryFn: ({ signal }) => apiClient.get<MemoryListResponse>(`/api/projects/${project_id}/memories`, { signal }),
+    queryFn: ({ signal }) => apiClient.get<MemoryListResponse>(`/api/projects/${project_id}/memories`, { signal, schema: memoryListResponseSchema }),
     enabled: !!project_id,
   });
 }
@@ -98,7 +103,7 @@ export function useProjectMemories(project_id: string) {
 export function useContactMemories(contact_id: string) {
   return useQuery({
     queryKey: memoryKeys.forContact(contact_id),
-    queryFn: ({ signal }) => apiClient.get<MemoryListResponse>(`/api/contacts/${contact_id}/memories`, { signal }),
+    queryFn: ({ signal }) => apiClient.get<MemoryListResponse>(`/api/contacts/${contact_id}/memories`, { signal, schema: memoryListResponseSchema }),
     enabled: !!contact_id,
   });
 }
@@ -154,7 +159,7 @@ export function useRelatedMemories(memory_id: string) {
 export function useSimilarMemories(memory_id: string) {
   return useQuery({
     queryKey: memoryKeys.similar(memory_id),
-    queryFn: ({ signal }) => apiClient.get<MemorySearchResponse>(`/api/memories/${memory_id}/similar`, { signal }),
+    queryFn: ({ signal }) => apiClient.get<MemorySearchResponse>(`/api/memories/${memory_id}/similar`, { signal, schema: memorySearchResponseSchema }),
     enabled: !!memory_id,
   });
 }
@@ -170,7 +175,7 @@ export function useMemorySearch(query: string, params?: Record<string, string>) 
   const searchParams = new URLSearchParams({ q: query, ...params });
   return useQuery({
     queryKey: memoryKeys.search(query, params),
-    queryFn: ({ signal }) => apiClient.get<MemorySearchResponse>(`/api/memories/search?${searchParams.toString()}`, { signal }),
+    queryFn: ({ signal }) => apiClient.get<MemorySearchResponse>(`/api/memories/search?${searchParams.toString()}`, { signal, schema: memorySearchResponseSchema }),
     enabled: query.length >= 2,
   });
 }

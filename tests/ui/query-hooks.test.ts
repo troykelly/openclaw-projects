@@ -144,7 +144,7 @@ describe('useWorkItems', () => {
   });
 
   it('should fetch work items successfully', async () => {
-    const data = { items: [{ id: '1', title: 'Test' }] };
+    const data = { items: [{ id: '1', title: 'Test', status: 'open', priority: 'medium', task_type: null, created_at: '2025-01-01T00:00:00Z', updated_at: '2025-01-01T00:00:00Z' }] };
     mockFetchResponse(data);
 
     const { Wrapper } = createWrapper();
@@ -211,7 +211,7 @@ describe('useWorkItemTree', () => {
   });
 
   it('should fetch the work item tree', async () => {
-    const data = { items: [{ id: '1', title: 'Project', kind: 'project', children: [] }] };
+    const data = { items: [{ id: '1', title: 'Project', kind: 'project', status: 'open', priority: 'medium', parent_id: null, children_count: 0, children: [] }] };
     mockFetchResponse(data);
 
     const { Wrapper } = createWrapper();
@@ -303,7 +303,7 @@ describe('useWorkItemMemories', () => {
   });
 
   it('should fetch memories for a work item', async () => {
-    const data = { memories: [{ id: 'm1', title: 'Note' }] };
+    const data = { memories: [{ id: 'm1', title: 'Note', content: 'test content', memory_type: 'note', importance: 5, confidence: 0.8, tags: [], created_by_human: false, is_active: true, embedding_status: 'pending', created_at: '2025-01-01T00:00:00Z', updated_at: '2025-01-01T00:00:00Z' }] };
     mockFetchResponse(data);
 
     const { Wrapper } = createWrapper();

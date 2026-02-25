@@ -6,6 +6,7 @@
  */
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/ui/lib/api-client.ts';
+import { contactsResponseSchema, tagCountArraySchema } from '@/ui/lib/api-schemas.ts';
 import type { Contact, ContactsResponse, TagCount } from '@/ui/lib/api-types.ts';
 
 /** Query key factory for contacts. */
@@ -26,7 +27,7 @@ export function useContacts(search?: string) {
 
   return useQuery({
     queryKey: contactKeys.list(search),
-    queryFn: ({ signal }) => apiClient.get<ContactsResponse>(`/api/contacts${queryString}`, { signal }),
+    queryFn: ({ signal }) => apiClient.get<ContactsResponse>(`/api/contacts${queryString}`, { signal, schema: contactsResponseSchema }),
   });
 }
 
@@ -55,6 +56,6 @@ export function useContactDetail(id: string, include?: string) {
 export function useContactTags() {
   return useQuery({
     queryKey: contactKeys.tags(),
-    queryFn: ({ signal }) => apiClient.get<TagCount[]>('/api/tags', { signal }),
+    queryFn: ({ signal }) => apiClient.get<TagCount[]>('/api/tags', { signal, schema: tagCountArraySchema }),
   });
 }

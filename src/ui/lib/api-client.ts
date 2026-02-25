@@ -7,6 +7,8 @@
  * same-origin for localhost, cross-origin (`api.{domain}`) for production.
  */
 
+import type { ZodSchema } from 'zod';
+
 import { getApiBaseUrl } from './api-config.ts';
 import { clearAccessToken, getAccessToken, refreshAccessToken } from './auth-manager.ts';
 
@@ -31,11 +33,18 @@ export class ApiRequestError extends Error {
 }
 
 /** Options for individual API requests. */
-export interface RequestOptions {
+export interface RequestOptions<T = unknown> {
   /** AbortSignal for request cancellation. */
   signal?: AbortSignal;
   /** Additional headers to merge with defaults. */
   headers?: Record<string, string>;
+  /**
+   * Optional Zod schema for runtime response validation.
+   * When provided, the parsed JSON body is validated against the schema
+   * before being returned. If validation fails, a ZodError is thrown.
+   * Use `.passthrough()` on object schemas to be lenient about extra fields.
+   */
+  schema?: ZodSchema<T>;
 }
 
 /** Resolve a path against the API base URL. */
@@ -90,7 +99,7 @@ async function parseErrorResponse(res: Response): Promise<ApiRequestError> {
  * the access token and retries the original request once. If refresh
  * fails, clears the token and redirects to the login page.
  */
-async function request<T>(path: string, init: RequestInit, baseHeaders: Record<string, string>, opts?: RequestOptions): Promise<{ res: Response; parsed: T }> {
+async function request<T>(path: string, init: RequestInit, baseHeaders: Record<string, string>, opts?: RequestOptions<T>): Promise<{ res: Response; parsed: T }> {
   const headers = buildHeaders(baseHeaders, opts?.headers);
   const url = resolveUrl(path);
 
@@ -125,14 +134,14 @@ async function request<T>(path: string, init: RequestInit, baseHeaders: Record<s
       throw await parseErrorResponse(retryRes);
     }
 
-    return { res: retryRes, parsed: await parseBody<T>(retryRes) };
+    return { res: retryRes, parsed: await parseBody<T>(retryRes, opts?.schema) };
   }
 
   if (!res.ok) {
     throw await parseErrorResponse(res);
   }
 
-  return { res, parsed: await parseBody<T>(res) };
+  return { res, parsed: await parseBody<T>(res, opts?.schema) };
 }
 
 
@@ -158,13 +167,18 @@ function snakeifyKeys(obj: unknown): unknown {
   return obj;
 }
 
-/** Parse response body as JSON, returning undefined for 204 No Content. */
-async function parseBody<T>(res: Response): Promise<T> {
+/**
+ * Parse response body as JSON, returning undefined for 204 No Content.
+ * When a Zod schema is provided, the parsed JSON is validated against it.
+ * This catches shape mismatches early instead of letting them propagate
+ * as cryptic runtime errors deep in React component trees.
+ */
+async function parseBody<T>(res: Response, schema?: ZodSchema<T>): Promise<T> {
   if (res.status === 204) {
     return undefined as T;
   }
   const json = await res.json();
-  return json as T;
+  return schema ? schema.parse(json) : (json as T);
 }
 
 /**
@@ -188,7 +202,7 @@ export const apiClient = {
    * @returns Parsed JSON response
    * @throws {ApiRequestError} on non-2xx responses
    */
-  async get<T>(path: string, opts?: RequestOptions): Promise<T> {
+  async get<T>(path: string, opts?: RequestOptions<T>): Promise<T> {
     const { parsed } = await request<T>(path, { method: 'GET' }, { accept: 'application/json' }, opts);
     return parsed;
   },
@@ -203,7 +217,7 @@ export const apiClient = {
    * @returns Parsed JSON response
    * @throws {ApiRequestError} on non-2xx responses
    */
-  async post<T>(path: string, body: unknown, opts?: RequestOptions): Promise<T> {
+  async post<T>(path: string, body: unknown, opts?: RequestOptions<T>): Promise<T> {
     const { parsed } = await request<T>(
       path,
       { method: 'POST', body: JSON.stringify(snakeifyKeys(body)) },
@@ -223,7 +237,7 @@ export const apiClient = {
    * @returns Parsed JSON response
    * @throws {ApiRequestError} on non-2xx responses
    */
-  async put<T>(path: string, body: unknown, opts?: RequestOptions): Promise<T> {
+  async put<T>(path: string, body: unknown, opts?: RequestOptions<T>): Promise<T> {
     const { parsed } = await request<T>(
       path,
       { method: 'PUT', body: JSON.stringify(snakeifyKeys(body)) },
@@ -243,7 +257,7 @@ export const apiClient = {
    * @returns Parsed JSON response
    * @throws {ApiRequestError} on non-2xx responses
    */
-  async patch<T>(path: string, body: unknown, opts?: RequestOptions): Promise<T> {
+  async patch<T>(path: string, body: unknown, opts?: RequestOptions<T>): Promise<T> {
     const { parsed } = await request<T>(
       path,
       { method: 'PATCH', body: JSON.stringify(snakeifyKeys(body)) },
@@ -262,7 +276,7 @@ export const apiClient = {
    * @returns Parsed JSON response (or undefined for 204 No Content)
    * @throws {ApiRequestError} on non-2xx responses
    */
-  async delete<T = void>(path: string, opts?: RequestOptions): Promise<T> {
+  async delete<T = void>(path: string, opts?: RequestOptions<T>): Promise<T> {
     const { parsed } = await request<T>(path, { method: 'DELETE' }, { accept: 'application/json' }, opts);
     return parsed;
   },
