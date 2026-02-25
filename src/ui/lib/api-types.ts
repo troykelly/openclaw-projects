@@ -90,6 +90,8 @@ export interface UpdateWorkItemBody {
   not_after?: string | null;
   estimate_minutes?: number | null;
   actual_minutes?: number | null;
+  recurrence_rule?: string | null;
+  recurrence_natural?: string | null;
 }
 
 // ---------------------------------------------------------------------------
