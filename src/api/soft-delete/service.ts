@@ -103,6 +103,52 @@ export async function restoreContact(pool: Pool, contact_id: string): Promise<Re
 }
 
 /**
+ * Soft delete an API source
+ */
+export async function softDeleteApiSourceEntity(pool: Pool, api_source_id: string): Promise<boolean> {
+  const result = await pool.query(
+    `UPDATE api_source
+     SET deleted_at = now()
+     WHERE id = $1 AND deleted_at IS NULL
+     RETURNING id`,
+    [api_source_id],
+  );
+  return result.rowCount !== null && result.rowCount > 0;
+}
+
+/**
+ * Permanently delete an API source
+ */
+export async function hardDeleteApiSource(pool: Pool, api_source_id: string): Promise<boolean> {
+  const result = await pool.query(`DELETE FROM api_source WHERE id = $1 RETURNING id`, [api_source_id]);
+  return result.rowCount !== null && result.rowCount > 0;
+}
+
+/**
+ * Restore a soft-deleted API source
+ */
+export async function restoreApiSourceEntity(pool: Pool, api_source_id: string): Promise<RestoreResult | null> {
+  const result = await pool.query(
+    `UPDATE api_source
+     SET deleted_at = NULL
+     WHERE id = $1 AND deleted_at IS NOT NULL
+     RETURNING id::text`,
+    [api_source_id],
+  );
+
+  if (result.rowCount === 0) {
+    return null;
+  }
+
+  return {
+    success: true,
+    entity_type: 'api_source',
+    entity_id: result.rows[0].id,
+    restored_at: new Date(),
+  };
+}
+
+/**
  * Restore any entity by type and ID
  */
 export async function restore(pool: Pool, entity_type: SoftDeleteEntityType, entity_id: string): Promise<RestoreResult | null> {
@@ -111,6 +157,8 @@ export async function restore(pool: Pool, entity_type: SoftDeleteEntityType, ent
       return restoreWorkItem(pool, entity_id);
     case 'contact':
       return restoreContact(pool, entity_id);
+    case 'api_source':
+      return restoreApiSourceEntity(pool, entity_id);
     default:
       throw new Error(`Unknown entity type: ${entity_type}`);
   }
@@ -154,6 +202,36 @@ export async function listTrash(pool: Pool, options: TrashQueryOptions = {}): Pr
     }
 
     total += parseInt(wiCountResult.rows[0].count, 10);
+  }
+
+  // Query API sources
+  if (!options.entity_type || options.entity_type === 'api_source') {
+    const asResult = await pool.query(
+      `SELECT
+        id::text,
+        name,
+        deleted_at,
+        GREATEST(0, $1 - EXTRACT(DAY FROM (now() - deleted_at)))::integer as days_until_purge
+      FROM api_source
+      WHERE deleted_at IS NOT NULL
+      ORDER BY deleted_at DESC
+      LIMIT $2 OFFSET $3`,
+      [DEFAULT_RETENTION_DAYS, limit, offset],
+    );
+
+    const asCountResult = await pool.query(`SELECT COUNT(*) FROM api_source WHERE deleted_at IS NOT NULL`);
+
+    for (const row of asResult.rows) {
+      items.push({
+        id: row.id,
+        entity_type: 'api_source',
+        title: row.name,
+        deleted_at: row.deleted_at,
+        days_until_purge: row.days_until_purge,
+      });
+    }
+
+    total += parseInt(asCountResult.rows[0].count, 10);
   }
 
   // Query contacts
@@ -215,18 +293,22 @@ export async function purgeOldItems(pool: Pool, retention_days: number = DEFAULT
 export async function getTrashCount(pool: Pool): Promise<{
   workItems: number;
   contacts: number;
+  apiSources: number;
   total: number;
 }> {
   const wiResult = await pool.query(`SELECT COUNT(*) FROM work_item WHERE deleted_at IS NOT NULL`);
   const cResult = await pool.query(`SELECT COUNT(*) FROM contact WHERE deleted_at IS NOT NULL`);
+  const asResult = await pool.query(`SELECT COUNT(*) FROM api_source WHERE deleted_at IS NOT NULL`);
 
   const workItems = parseInt(wiResult.rows[0].count, 10);
   const contacts = parseInt(cResult.rows[0].count, 10);
+  const apiSources = parseInt(asResult.rows[0].count, 10);
 
   return {
     workItems,
     contacts,
-    total: workItems + contacts,
+    apiSources,
+    total: workItems + contacts + apiSources,
   };
 }
 
@@ -234,7 +316,12 @@ export async function getTrashCount(pool: Pool): Promise<{
  * Check if entity is soft-deleted
  */
 export async function isDeleted(pool: Pool, entity_type: SoftDeleteEntityType, entity_id: string): Promise<boolean> {
-  const table = entity_type === 'work_item' ? 'work_item' : 'contact';
+  const TABLE_MAP: Record<SoftDeleteEntityType, string> = {
+    work_item: 'work_item',
+    contact: 'contact',
+    api_source: 'api_source',
+  };
+  const table = TABLE_MAP[entity_type];
   const result = await pool.query(`SELECT deleted_at FROM ${table} WHERE id = $1`, [entity_id]);
 
   if (result.rowCount === 0) {
