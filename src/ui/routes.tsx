@@ -43,6 +43,19 @@ const DevSessionsPage = React.lazy(() => import('@/ui/pages/DevSessionsPage.js')
 const OAuthCallbackPage = React.lazy(() => import('@/ui/pages/OAuthCallbackPage.js').then((m) => ({ default: m.OAuthCallbackPage })));
 const AuthConsumePage = React.lazy(() => import('@/ui/pages/AuthConsumePage.js').then((m) => ({ default: m.AuthConsumePage })));
 
+// Terminal pages (Epic #1667)
+const TerminalDashboardPage = React.lazy(() => import('@/ui/pages/terminal/TerminalDashboardPage.js').then((m) => ({ default: m.TerminalDashboardPage })));
+const TerminalConnectionsPage = React.lazy(() => import('@/ui/pages/terminal/ConnectionsPage.js').then((m) => ({ default: m.ConnectionsPage })));
+const TerminalConnectionDetailPage = React.lazy(() => import('@/ui/pages/terminal/ConnectionDetailPage.js').then((m) => ({ default: m.ConnectionDetailPage })));
+const TerminalCredentialsPage = React.lazy(() => import('@/ui/pages/terminal/CredentialsPage.js').then((m) => ({ default: m.CredentialsPage })));
+const TerminalSessionDetailPage = React.lazy(() => import('@/ui/pages/terminal/SessionDetailPage.js').then((m) => ({ default: m.SessionDetailPage })));
+const TerminalSessionHistoryPage = React.lazy(() => import('@/ui/pages/terminal/SessionHistoryPage.js').then((m) => ({ default: m.SessionHistoryPage })));
+const TerminalSearchPage = React.lazy(() => import('@/ui/pages/terminal/TerminalSearchPage.js').then((m) => ({ default: m.TerminalSearchPage })));
+const TerminalTunnelsPage = React.lazy(() => import('@/ui/pages/terminal/TunnelsPage.js').then((m) => ({ default: m.TunnelsPage })));
+const TerminalEnrollmentPage = React.lazy(() => import('@/ui/pages/terminal/EnrollmentPage.js').then((m) => ({ default: m.EnrollmentPage })));
+const TerminalKnownHostsPage = React.lazy(() => import('@/ui/pages/terminal/KnownHostsPage.js').then((m) => ({ default: m.KnownHostsPage })));
+const TerminalActivityPage = React.lazy(() => import('@/ui/pages/terminal/TerminalActivityPage.js').then((m) => ({ default: m.TerminalActivityPage })));
+
 /** Loading fallback shown while lazy-loaded pages are being fetched. */
 function PageLoader(): React.JSX.Element {
   return (
@@ -220,6 +233,23 @@ export const routes: RouteObject[] = [
       {
         path: 'search',
         element: lazy(SearchPage),
+      },
+      // Terminal routes (Epic #1667)
+      {
+        path: 'terminal',
+        children: [
+          { index: true, element: lazy(TerminalDashboardPage) },
+          { path: 'connections', element: lazy(TerminalConnectionsPage) },
+          { path: 'connections/:id', element: lazy(TerminalConnectionDetailPage) },
+          { path: 'credentials', element: lazy(TerminalCredentialsPage) },
+          { path: 'sessions/:id', element: lazy(TerminalSessionDetailPage) },
+          { path: 'sessions/:id/history', element: lazy(TerminalSessionHistoryPage) },
+          { path: 'search', element: lazy(TerminalSearchPage) },
+          { path: 'tunnels', element: lazy(TerminalTunnelsPage) },
+          { path: 'enrollment', element: lazy(TerminalEnrollmentPage) },
+          { path: 'known-hosts', element: lazy(TerminalKnownHostsPage) },
+          { path: 'activity', element: lazy(TerminalActivityPage) },
+        ],
       },
       {
         path: '*',

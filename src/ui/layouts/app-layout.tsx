@@ -39,6 +39,7 @@ function pathToSection(pathname: string): string {
   if (pathname.startsWith('/recipes')) return 'recipes';
   if (pathname.startsWith('/meal-log')) return 'meal-log';
   if (pathname.startsWith('/dev-sessions')) return 'dev-sessions';
+  if (pathname.startsWith('/terminal')) return 'terminal';
   if (pathname.startsWith('/settings')) return 'settings';
   if (pathname.startsWith('/search')) return 'search';
   if (pathname.startsWith('/work-items') || pathname.startsWith('/kanban')) return 'projects';
@@ -56,6 +57,7 @@ const sectionRoutes: Record<string, string> = {
   notes: '/notes',
   recipes: '/recipes',
   'meal-log': '/meal-log',
+  terminal: '/terminal',
   'dev-sessions': '/dev-sessions',
   settings: '/settings',
 };
@@ -96,6 +98,18 @@ function deriveBreadcrumbs(pathname: string, bootstrap: AppBootstrap | null, not
   }
   if (pathname.startsWith('/dev-sessions')) {
     return [{ id: 'dev-sessions', label: 'Dev Sessions' }];
+  }
+  if (pathname.startsWith('/terminal')) {
+    const crumbs: BreadcrumbItem[] = [{ id: 'terminal', label: 'Terminal', href: '/terminal' }];
+    if (pathname.startsWith('/terminal/connections')) crumbs.push({ id: 'connections', label: 'Connections' });
+    else if (pathname.startsWith('/terminal/credentials')) crumbs.push({ id: 'credentials', label: 'Credentials' });
+    else if (pathname.startsWith('/terminal/sessions')) crumbs.push({ id: 'sessions', label: 'Session' });
+    else if (pathname.startsWith('/terminal/tunnels')) crumbs.push({ id: 'tunnels', label: 'Tunnels' });
+    else if (pathname.startsWith('/terminal/enrollment')) crumbs.push({ id: 'enrollment', label: 'Enrollment' });
+    else if (pathname.startsWith('/terminal/known-hosts')) crumbs.push({ id: 'known-hosts', label: 'Known Hosts' });
+    else if (pathname.startsWith('/terminal/search')) crumbs.push({ id: 'terminal-search', label: 'Search' });
+    else if (pathname.startsWith('/terminal/activity')) crumbs.push({ id: 'terminal-activity', label: 'Activity' });
+    return crumbs;
   }
   if (pathname.startsWith('/settings')) {
     return [{ id: 'settings', label: 'Settings' }];

@@ -1504,3 +1504,246 @@ export interface AppBootstrap {
   /** Namespace grants for the authenticated user (Epic #1418). */
   namespace_grants?: NamespaceGrant[];
 }
+
+// ---------------------------------------------------------------------------
+// Terminal Management (Epic #1667)
+// ---------------------------------------------------------------------------
+
+/** Terminal connection definition. */
+export interface TerminalConnection {
+  id: string;
+  namespace: string;
+  name: string;
+  host: string | null;
+  port: number;
+  username: string | null;
+  auth_method: string | null;
+  credential_id: string | null;
+  proxy_jump_id: string | null;
+  is_local: boolean;
+  env: Record<string, string> | null;
+  connect_timeout_s: number;
+  keepalive_interval: number;
+  idle_timeout_s: number | null;
+  max_sessions: number | null;
+  host_key_policy: string;
+  tags: string[];
+  notes: string | null;
+  last_connected_at: string | null;
+  last_error: string | null;
+  deleted_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Response from GET /api/terminal/connections */
+export interface TerminalConnectionsResponse {
+  connections: TerminalConnection[];
+}
+
+/** Terminal credential (secrets never returned). */
+export interface TerminalCredential {
+  id: string;
+  namespace: string;
+  name: string;
+  kind: string;
+  fingerprint: string | null;
+  public_key: string | null;
+  command: string | null;
+  command_timeout_s: number;
+  cache_ttl_s: number;
+  deleted_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Response from GET /api/terminal/credentials */
+export interface TerminalCredentialsResponse {
+  credentials: TerminalCredential[];
+}
+
+/** Response from POST /api/terminal/credentials/generate */
+export interface TerminalKeyPairResponse {
+  credential: TerminalCredential;
+  public_key: string;
+}
+
+/** Terminal session. */
+export interface TerminalSession {
+  id: string;
+  namespace: string;
+  connection_id: string;
+  tmux_session_name: string;
+  worker_id: string | null;
+  status: string;
+  cols: number;
+  rows: number;
+  capture_interval_s: number;
+  capture_on_command: boolean;
+  embed_commands: boolean;
+  embed_scrollback: boolean;
+  started_at: string | null;
+  last_activity_at: string | null;
+  terminated_at: string | null;
+  exit_code: number | null;
+  error_message: string | null;
+  tags: string[];
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  connection?: TerminalConnection;
+  windows?: TerminalSessionWindow[];
+}
+
+/** Response from GET /api/terminal/sessions */
+export interface TerminalSessionsResponse {
+  sessions: TerminalSession[];
+}
+
+/** Terminal session window. */
+export interface TerminalSessionWindow {
+  id: string;
+  session_id: string;
+  namespace: string;
+  window_index: number;
+  window_name: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  panes?: TerminalSessionPane[];
+}
+
+/** Terminal session pane. */
+export interface TerminalSessionPane {
+  id: string;
+  window_id: string;
+  namespace: string;
+  pane_index: number;
+  is_active: boolean;
+  pid: number | null;
+  current_command: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Terminal session entry (command, output, annotation, etc.). */
+export interface TerminalSessionEntry {
+  id: string;
+  session_id: string;
+  pane_id: string | null;
+  namespace: string;
+  kind: string;
+  content: string;
+  embedded_at: string | null;
+  sequence: number;
+  captured_at: string;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+}
+
+/** Response from GET /api/terminal/sessions/:id/entries */
+export interface TerminalEntriesResponse {
+  entries: TerminalSessionEntry[];
+  total: number;
+}
+
+/** SSH tunnel. */
+export interface TerminalTunnel {
+  id: string;
+  namespace: string;
+  connection_id: string;
+  session_id: string | null;
+  direction: string;
+  bind_host: string;
+  bind_port: number;
+  target_host: string | null;
+  target_port: number | null;
+  status: string;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+  connection?: TerminalConnection;
+}
+
+/** Response from GET /api/terminal/tunnels */
+export interface TerminalTunnelsResponse {
+  tunnels: TerminalTunnel[];
+}
+
+/** Enrollment token. */
+export interface TerminalEnrollmentToken {
+  id: string;
+  namespace: string;
+  label: string;
+  max_uses: number | null;
+  uses: number;
+  expires_at: string | null;
+  connection_defaults: Record<string, unknown> | null;
+  allowed_tags: string[];
+  created_at: string;
+  /** Only set on creation response. */
+  token?: string;
+}
+
+/** Response from GET /api/terminal/enrollment-tokens */
+export interface TerminalEnrollmentTokensResponse {
+  tokens: TerminalEnrollmentToken[];
+}
+
+/** SSH known host. */
+export interface TerminalKnownHost {
+  id: string;
+  namespace: string;
+  connection_id: string | null;
+  host: string;
+  port: number;
+  key_type: string;
+  key_fingerprint: string;
+  public_key: string;
+  trusted_at: string;
+  trusted_by: string | null;
+  created_at: string;
+}
+
+/** Response from GET /api/terminal/known-hosts */
+export interface TerminalKnownHostsResponse {
+  known_hosts: TerminalKnownHost[];
+}
+
+/** Terminal activity log entry. */
+export interface TerminalActivityItem {
+  id: string;
+  namespace: string;
+  session_id: string | null;
+  connection_id: string | null;
+  actor: string;
+  action: string;
+  detail: Record<string, unknown> | null;
+  created_at: string;
+}
+
+/** Response from GET /api/terminal/activity */
+export interface TerminalActivityResponse {
+  items: TerminalActivityItem[];
+}
+
+/** Terminal search result. */
+export interface TerminalSearchResult {
+  entry: TerminalSessionEntry;
+  score: number;
+  context: TerminalSessionEntry[];
+}
+
+/** Response from POST /api/terminal/search */
+export interface TerminalSearchResponse {
+  results: TerminalSearchResult[];
+  total: number;
+}
+
+/** Terminal dashboard stats. */
+export interface TerminalDashboardStats {
+  active_sessions: number;
+  total_connections: number;
+  active_tunnels: number;
+  recent_errors: number;
+}
