@@ -430,5 +430,87 @@ export {
   type TerminalTunnelToolOptions,
 } from './terminal-tunnels.js';
 
+// API onboarding tools (Issue #1784, #1785, #1786)
+export {
+  createApiOnboardTool,
+  ApiOnboardParamsSchema,
+  type ApiOnboardParams,
+  type ApiOnboardTool,
+  type ApiOnboardResult,
+  type ApiOnboardToolOptions,
+} from './api-onboard.js';
+
+export {
+  createApiRecallTool,
+  ApiRecallParamsSchema,
+  type ApiRecallParams,
+  type ApiRecallTool,
+  type ApiRecallResult,
+  type ApiRecallToolOptions,
+} from './api-recall.js';
+
+export {
+  createApiGetTool,
+  ApiGetParamsSchema,
+  type ApiGetParams,
+  type ApiGetTool,
+  type ApiGetResult,
+  type ApiGetToolOptions,
+} from './api-get.js';
+
+export {
+  createApiListTool,
+  ApiListParamsSchema,
+  type ApiListParams,
+  type ApiListTool,
+  type ApiListResult,
+  type ApiListToolOptions,
+} from './api-list.js';
+
+export {
+  createApiUpdateTool,
+  ApiUpdateParamsSchema,
+  type ApiUpdateParams,
+  type ApiUpdateTool,
+  type ApiUpdateResult,
+  type ApiUpdateToolOptions,
+} from './api-update.js';
+
+export {
+  createApiCredentialManageTool,
+  ApiCredentialManageParamsSchema,
+  type ApiCredentialManageParams,
+  type ApiCredentialManageTool,
+  type ApiCredentialManageResult,
+  type ApiCredentialManageToolOptions,
+} from './api-credential-manage.js';
+
+export {
+  createApiRefreshTool,
+  ApiRefreshParamsSchema,
+  type ApiRefreshParams,
+  type ApiRefreshTool,
+  type ApiRefreshResult,
+  type ApiRefreshToolOptions,
+} from './api-refresh.js';
+
+export {
+  createApiRemoveTool,
+  ApiRemoveParamsSchema,
+  type ApiRemoveParams,
+  type ApiRemoveTool,
+  type ApiRemoveResult,
+  type ApiRemoveToolOptions,
+} from './api-remove.js';
+
+export {
+  createApiRestoreTool,
+  ApiRestoreParamsSchema,
+  type ApiRestoreParams,
+  type ApiRestoreTool,
+  type ApiRestoreResult,
+  type ApiRestoreToolOptions,
+} from './api-restore.js';
+
 /** Tool factory types */
 export type ToolFactoryOptions = Record<string, never>;
