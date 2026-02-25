@@ -128,6 +128,17 @@ describe('Project Webhooks (Issue #1274)', () => {
 
       expect(res.statusCode).toBe(404);
     });
+
+    it('returns 400 for non-UUID project id', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/projects/default/webhooks',
+        payload: { label: 'Test', user_email: TEST_EMAIL },
+      });
+
+      expect(res.statusCode).toBe(400);
+      expect(res.json().error).toMatch(/invalid.*id/i);
+    });
   });
 
   // ── GET /api/projects/:id/webhooks — list webhooks ────
@@ -141,6 +152,16 @@ describe('Project Webhooks (Issue #1274)', () => {
 
       expect(res.statusCode).toBe(200);
       expect(res.json()).toEqual([]);
+    });
+
+    it('returns 400 for non-UUID project id', async () => {
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/projects/default/webhooks',
+      });
+
+      expect(res.statusCode).toBe(400);
+      expect(res.json().error).toMatch(/invalid.*id/i);
     });
 
     it('returns created webhooks', async () => {
@@ -168,6 +189,16 @@ describe('Project Webhooks (Issue #1274)', () => {
   // ── DELETE /api/projects/:id/webhooks/:webhook_id ─────
 
   describe('DELETE /api/projects/:id/webhooks/:webhook_id', () => {
+    it('returns 400 for non-UUID project id', async () => {
+      const res = await app.inject({
+        method: 'DELETE',
+        url: '/api/projects/default/webhooks/00000000-0000-0000-0000-000000000000',
+      });
+
+      expect(res.statusCode).toBe(400);
+      expect(res.json().error).toMatch(/invalid.*id/i);
+    });
+
     it('deletes a webhook', async () => {
       const createRes = await app.inject({
         method: 'POST',
@@ -296,6 +327,16 @@ describe('Project Webhooks (Issue #1274)', () => {
   // ── GET /api/projects/:id/events — list events ────────
 
   describe('GET /api/projects/:id/events', () => {
+    it('returns 400 for non-UUID project id', async () => {
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/projects/default/events',
+      });
+
+      expect(res.statusCode).toBe(400);
+      expect(res.json().error).toMatch(/invalid.*id/i);
+    });
+
     it('returns empty array when no events exist', async () => {
       const res = await app.inject({
         method: 'GET',

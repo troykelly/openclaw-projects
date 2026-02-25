@@ -204,6 +204,16 @@ describe('Analytics API', () => {
 
       expect(response.statusCode).toBe(404);
     });
+
+    it('returns 400 for non-UUID id like "default"', async () => {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/analytics/burndown/default',
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json().error).toMatch(/invalid.*id/i);
+    });
   });
 
   describe('GET /api/analytics/overdue', () => {

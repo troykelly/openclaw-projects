@@ -220,7 +220,6 @@ export function AnalyticsSection(): React.JSX.Element {
     async function load() {
       try {
         const results = await Promise.allSettled([
-          apiClient.get<{ data: BurndownPoint[] }>('/api/analytics/burndown/default'),
           apiClient.get<{ data: VelocityPeriod[] }>('/api/analytics/velocity'),
           apiClient.get<{ projects: ProjectHealth[] }>('/api/analytics/project-health'),
         ]);
@@ -228,16 +227,13 @@ export function AnalyticsSection(): React.JSX.Element {
         if (!alive) return;
 
         if (results[0].status === 'fulfilled' && Array.isArray(results[0].value.data)) {
-          setBurndown(results[0].value.data);
+          setVelocity(results[0].value.data);
         }
-        if (results[1].status === 'fulfilled' && Array.isArray(results[1].value.data)) {
-          setVelocity(results[1].value.data);
-        }
-        if (results[2].status === 'fulfilled' && Array.isArray(results[2].value.projects)) {
-          setHealth(results[2].value.projects);
+        if (results[1].status === 'fulfilled' && Array.isArray(results[1].value.projects)) {
+          setHealth(results[1].value.projects);
         }
 
-        // Only show error if all three failed
+        // Only show error if all failed
         const allFailed = results.every((r) => r.status === 'rejected');
         if (allFailed) {
           setError('Failed to load analytics data');
