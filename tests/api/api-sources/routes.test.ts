@@ -56,7 +56,6 @@ describe('API Sources Routes', () => {
         payload: {
           name: 'Petstore API',
           description: 'A sample pet API',
-          spec_url: 'https://petstore.example.com/openapi.json',
           tags: ['pets', 'sample'],
         },
       }));

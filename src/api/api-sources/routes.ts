@@ -22,6 +22,7 @@ import {
   updateApiCredential,
   deleteApiCredential,
 } from './credential-service.ts';
+import { onboardApiSource } from './onboard.ts';
 import type {
   ApiSourceStatus,
   CreateApiSourceInput,
@@ -113,13 +114,59 @@ export async function apiSourceRoutesPlugin(
   // API Source CRUD
   // ============================================================
 
-  // POST /api/api-sources — create a new API source
-  app.post('/api/api-sources', async (req: FastifyRequest, reply: FastifyReply) => {
+  // POST /api/api-sources — create a new API source (with optional onboarding)
+  // Rate limited: onboarding parses specs + generates embeddings (expensive).
+  // 10 requests per hour covers both simple create and onboard.
+  app.post('/api/api-sources', {
+    config: {
+      rateLimit: {
+        max: 10,
+        timeWindow: '1 hour',
+      },
+    },
+  }, async (req: FastifyRequest, reply: FastifyReply) => {
     const namespace = getNamespace(req, reply);
     if (!namespace) return;
 
-    const body = req.body as Partial<CreateApiSourceInput> | null;
-    if (!body || !body.name || typeof body.name !== 'string') {
+    const body = req.body as Record<string, unknown> | null;
+    if (!body) {
+      return reply.code(400).send({ error: 'Request body is required' });
+    }
+
+    // If spec_url or spec_content is provided, use the onboard flow
+    if (body.spec_url || body.spec_content) {
+      if (body.spec_url && typeof body.spec_url !== 'string') {
+        return reply.code(400).send({ error: 'spec_url must be a string' });
+      }
+      if (body.spec_content && typeof body.spec_content !== 'string') {
+        return reply.code(400).send({ error: 'spec_content must be a string' });
+      }
+
+      try {
+        const result = await onboardApiSource(pool, {
+          namespace,
+          spec_url: body.spec_url as string | undefined,
+          spec_content: body.spec_content as string | undefined,
+          name: body.name as string | undefined,
+          description: body.description as string | undefined,
+          tags: Array.isArray(body.tags) ? (body.tags as string[]) : undefined,
+          created_by_agent: body.created_by_agent as string | undefined,
+          credentials: body.credentials as Array<Omit<CreateApiCredentialInput, 'api_source_id'>> | undefined,
+          spec_auth_headers: body.spec_auth_headers as Record<string, string> | undefined,
+        });
+
+        return reply.code(201).send({ data: result });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Onboard failed';
+        if (message.startsWith('SSRF blocked:')) {
+          return reply.code(422).send({ error: message });
+        }
+        return reply.code(400).send({ error: message });
+      }
+    }
+
+    // Simple create flow (no spec)
+    if (!body.name || typeof body.name !== 'string') {
       return reply.code(400).send({ error: 'name is required' });
     }
 
@@ -128,8 +175,8 @@ export async function apiSourceRoutesPlugin(
     }
 
     const source = await createApiSource(pool, {
-      ...body,
-      name: body.name,
+      ...(body as Partial<CreateApiSourceInput>),
+      name: body.name as string,
       namespace,
     });
 
