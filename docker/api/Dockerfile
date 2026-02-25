@@ -20,6 +20,11 @@ RUN pnpm install --frozen-lockfile
 COPY src/api/ ./src/api/
 COPY src/db.ts ./src/db.ts
 COPY src/email/ ./src/email/
+# Terminal routes import credentials + gRPC client from tmux-worker (Epic #1667)
+COPY src/tmux-worker/credentials/ ./src/tmux-worker/credentials/
+COPY src/tmux-worker/proto-loader.ts ./src/tmux-worker/proto-loader.ts
+COPY src/tmux-worker/types.ts ./src/tmux-worker/types.ts
+COPY proto/ ./proto/
 COPY tsconfig.json ./
 COPY tsconfig.build.json ./
 
@@ -72,6 +77,11 @@ COPY --from=deps /app/package.json ./
 COPY --from=builder /app/src/api/ ./src/api/
 COPY --from=builder /app/src/db.ts ./src/db.ts
 COPY --from=builder /app/src/email/ ./src/email/
+# Terminal routes import credentials + gRPC client from tmux-worker (Epic #1667)
+COPY --from=builder /app/src/tmux-worker/credentials/ ./src/tmux-worker/credentials/
+COPY --from=builder /app/src/tmux-worker/proto-loader.ts ./src/tmux-worker/proto-loader.ts
+COPY --from=builder /app/src/tmux-worker/types.ts ./src/tmux-worker/types.ts
+COPY --from=builder /app/proto/ ./proto/
 
 # Set environment variables
 ENV NODE_ENV=production

@@ -6,7 +6,7 @@
  * vertical list. Changes save immediately with visual confirmation.
  */
 
-import { Bell, CheckCircle, Clock, Eye, Info, Keyboard, Layout, Link2, MapPin, Monitor, Moon, Radio, Smartphone, Sun, User } from 'lucide-react';
+import { Bell, CheckCircle, Clock, Eye, Info, Keyboard, Layout, Link2, MapPin, Monitor, Moon, Radio, Smartphone, Sun, User, Webhook } from 'lucide-react';
 import * as React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Skeleton } from '@/ui/components/feedback';
@@ -21,6 +21,8 @@ import { ConnectedAccountsSection } from './connected-accounts-section';
 import { EmbeddingSettingsSection } from './embedding-settings-section';
 import { InboundRoutingSection } from './inbound-routing-section';
 import { LocationSection } from './location-section';
+import { NotificationPreferencesSection } from './notification-preferences-section';
+import { WebhookManagementSection } from './webhook-management-section';
 import type { DefaultView, EmailDigestFrequency, Theme } from './types';
 import { useSettings } from './use-settings';
 
@@ -56,6 +58,7 @@ const SECTIONS = [
   { id: 'appearance', label: 'Appearance', icon: Sun },
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'routing', label: 'Inbound Routing', icon: Radio },
+  { id: 'webhooks', label: 'Webhooks', icon: Webhook },
   { id: 'shortcuts', label: 'Keyboard Shortcuts', icon: Keyboard },
   { id: 'about', label: 'About', icon: Info },
 ] as const;
@@ -500,6 +503,7 @@ export function SettingsPage() {
     appearance: null,
     notifications: null,
     routing: null,
+    webhooks: null,
     shortcuts: null,
     about: null,
   });
@@ -731,6 +735,9 @@ export function SettingsPage() {
               />
             </div>
 
+            {/* Per-type Notification Preferences (#1729) */}
+            <NotificationPreferencesSection />
+
             {/* Inbound Routing */}
             <div
               ref={(el) => {
@@ -738,6 +745,15 @@ export function SettingsPage() {
               }}
             >
               <InboundRoutingSection />
+            </div>
+
+            {/* Webhooks (#1733) */}
+            <div
+              ref={(el) => {
+                sectionRefs.current.webhooks = el;
+              }}
+            >
+              <WebhookManagementSection />
             </div>
 
             {/* Keyboard Shortcuts */}

@@ -15,6 +15,12 @@ export interface TmuxWorkerConfig {
   encryptionKeyHex: string;
   /** Database connection string. */
   databaseUrl: string;
+  /** Path to the gRPC TLS server certificate (PEM). */
+  grpcTlsCert: string;
+  /** Path to the gRPC TLS server private key (PEM). */
+  grpcTlsKey: string;
+  /** Path to the CA certificate for client verification (PEM). */
+  grpcTlsCa: string;
 }
 
 /**
@@ -39,6 +45,10 @@ export function loadConfig(): TmuxWorkerConfig {
     process.env.DATABASE_URL ??
     buildDatabaseUrl();
 
+  const grpcTlsCert = process.env.GRPC_TLS_CERT ?? '';
+  const grpcTlsKey = process.env.GRPC_TLS_KEY ?? '';
+  const grpcTlsCa = process.env.GRPC_TLS_CA ?? '';
+
   return {
     grpcPort,
     enrollmentSshPort,
@@ -46,6 +56,9 @@ export function loadConfig(): TmuxWorkerConfig {
     healthPort,
     encryptionKeyHex,
     databaseUrl,
+    grpcTlsCert,
+    grpcTlsKey,
+    grpcTlsCa,
   };
 }
 

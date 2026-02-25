@@ -104,6 +104,15 @@ export function useDeleteContactDate() {
 // Endpoint Management (#1585)
 // ============================================================
 
+export function useAddContactEndpoint() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ contactId, ...body }: { contactId: string; type: string; value: string; label?: string | null; is_primary?: boolean }) =>
+      apiClient.post<ContactEndpoint>(`/api/contacts/${contactId}/endpoints`, body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: contactKeys.all }),
+  });
+}
+
 export function useUpdateContactEndpoint() {
   const qc = useQueryClient();
   return useMutation({

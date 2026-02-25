@@ -93,6 +93,18 @@ const APPLICATION_TABLES = [
   'meal_log',
   // Pantry inventory (Issue #1280)
   'pantry_item',
+  // Terminal management (Epic #1667) — FK children first
+  'terminal_activity',
+  'terminal_session_entry',
+  'terminal_session_pane',
+  'terminal_session_window',
+  'terminal_tunnel',
+  'terminal_session',
+  'terminal_known_host',
+  'terminal_enrollment_token',
+  'terminal_connection',
+  'terminal_credential',
+  'terminal_setting',
   // Inbound routing (Epic #1497) — FK children before prompt_template
   'channel_default',
   'inbound_destination',

@@ -4,10 +4,23 @@
  * Displays a searchable, filterable list of memories with type badges,
  * content previews, tags, linked work item info, and dates. Supports:
  * - Searching memories by title and content
+ * - Semantic search via pgvector (#1716)
  * - Filtering by memory type (preference, fact, decision, context)
+ * - Filtering by date range (#1730)
+ * - Active/superseded filtering (#1725)
+ * - Tag display on cards (#1721)
+ * - Tag editing in form (#1721)
+ * - Metadata editing: importance, confidence, expiration, source (#1719)
+ * - Geolocation display (#1728)
+ * - Memory-contact linking (#1723)
+ * - Related memories + similarity (#1724)
+ * - Supersede/version chain (#1725)
+ * - File attachment display (#1726)
  * - Inline expansion for full content viewing
  * - Create/Edit memory via dialog with markdown editor
  * - Delete memory with confirmation
+ * - Bulk operations: select, bulk delete, bulk update type (#1750)
+ * - Contact/relationship scoping in create form (#1751)
  * - Loading, error, and empty states
  * - Dark mode and mobile responsive
  *
@@ -20,39 +33,64 @@ import {
   CheckCircle,
   ChevronDown,
   ChevronUp,
+  ExternalLink,
+  Eye,
+  EyeOff,
   FileText,
   Folder,
   Layers,
   Lightbulb,
   Link2,
+  MapPin,
   MoreVertical,
   Paperclip,
   Pencil,
   Plus,
   Search,
+  Sparkles,
+  Tag,
   Trash2,
+  User,
+  X,
 } from 'lucide-react';
 import React, { useCallback, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router';
 import { EmptyState, ErrorState, Skeleton, SkeletonList } from '@/ui/components/feedback';
+import { BulkMemoryActionBar } from '@/ui/components/memory/bulk-action-bar';
+import { ContactPicker } from '@/ui/components/memory/contact-picker';
+import type { ContactOption } from '@/ui/components/memory/contact-picker';
 import { Badge } from '@/ui/components/ui/badge';
 import { Button } from '@/ui/components/ui/button';
 import { Card, CardContent } from '@/ui/components/ui/card';
+import { Checkbox } from '@/ui/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/ui/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/ui/components/ui/dropdown-menu';
 import { Input } from '@/ui/components/ui/input';
+import { Label } from '@/ui/components/ui/label';
 import { ScrollArea } from '@/ui/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/components/ui/select';
+import { Switch } from '@/ui/components/ui/switch';
 import { Textarea } from '@/ui/components/ui/textarea';
-import { useMemories } from '@/ui/hooks/queries/use-memories';
+import { useContacts } from '@/ui/hooks/queries/use-contacts';
+import { useMemories, useMemorySearch } from '@/ui/hooks/queries/use-memories';
 import { useProjects } from '@/ui/hooks/queries/use-projects';
 import { apiClient } from '@/ui/lib/api-client';
 import type { CreateMemoryBody, Memory, UpdateMemoryBody } from '@/ui/lib/api-types';
 
 /** Memory type for filtering. */
-type MemoryType = 'preference' | 'fact' | 'decision' | 'context';
+type MemoryTypeFilter = 'preference' | 'fact' | 'decision' | 'context' | 'note' | 'reference';
 
 /** All valid memory types. */
-const _MEMORY_TYPES: MemoryType[] = ['preference', 'fact', 'decision', 'context'];
+const _MEMORY_TYPES: MemoryTypeFilter[] = ['preference', 'fact', 'decision', 'context', 'note', 'reference'];
+
+/** Date range presets for filtering (#1730). */
+const DATE_RANGE_PRESETS = [
+  { label: 'All time', value: 'all' },
+  { label: 'Last 7 days', value: '7d' },
+  { label: 'Last 30 days', value: '30d' },
+  { label: 'This week', value: 'week' },
+  { label: 'This month', value: 'month' },
+] as const;
 
 /** Get icon for a memory type. */
 function getTypeIcon(type: string | undefined): React.ReactNode {
@@ -81,6 +119,10 @@ function getTypeLabel(type: string | undefined): string {
       return 'Decision';
     case 'context':
       return 'Context';
+    case 'note':
+      return 'Note';
+    case 'reference':
+      return 'Reference';
     default:
       return 'Memory';
   }
@@ -97,6 +139,10 @@ function getTypeBadgeClass(type: string | undefined): string {
       return 'bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/20';
     case 'context':
       return 'bg-orange-500/10 text-orange-700 dark:text-orange-300 border-orange-500/20';
+    case 'note':
+      return 'bg-yellow-500/10 text-yellow-700 dark:text-yellow-300 border-yellow-500/20';
+    case 'reference':
+      return 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border-cyan-500/20';
     default:
       return '';
   }
@@ -111,18 +157,72 @@ function formatDate(dateStr: string): string {
   });
 }
 
+/** Calculate the date threshold for a date range preset. */
+function getDateThreshold(preset: string): Date | null {
+  const now = new Date();
+  switch (preset) {
+    case '7d':
+      return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    case '30d':
+      return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    case 'week': {
+      const day = now.getDay();
+      const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+      return new Date(now.getFullYear(), now.getMonth(), diff);
+    }
+    case 'month':
+      return new Date(now.getFullYear(), now.getMonth(), 1);
+    default:
+      return null;
+  }
+}
+
 export function MemoryPage(): React.JSX.Element {
+  const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [projectFilter, setProjectFilter] = useState<string>('all');
+  const [contactFilter, setContactFilter] = useState<string>('all');
+  const [dateRange, setDateRange] = useState<string>('all');
+  const [showSuperseded, setShowSuperseded] = useState(false);
+  const [semanticSearch, setSemanticSearch] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [editingMemory, setEditingMemory] = useState<Memory | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Memory | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Bulk selection state (#1750)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleteConfirmOpen, setBulkDeleteConfirmOpen] = useState(false);
+
   const { data, isLoading, isError, error, refetch } = useMemories();
   const { data: projectsData } = useProjects();
+  const { data: contactsData } = useContacts();
+  const { data: searchData } = useMemorySearch(
+    semanticSearch ? search : '',
+    typeFilter !== 'all' ? { memory_type: typeFilter } : undefined,
+  );
+
+  /** Contact options for the picker (#1751). */
+  const contactOptions: ContactOption[] = useMemo(() => {
+    if (!contactsData?.contacts) return [];
+    return contactsData.contacts.map((c) => ({
+      id: c.id,
+      display_name: c.display_name ?? '',
+    }));
+  }, [contactsData?.contacts]);
+
+  /** Map of contact IDs to display names for showing on cards (#1751). */
+  const contactNameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    if (contactsData?.contacts) {
+      for (const c of contactsData.contacts) {
+        map.set(c.id, c.display_name ?? '');
+      }
+    }
+    return map;
+  }, [contactsData?.contacts]);
 
   /** Map of project IDs to their titles for display. */
   const projectNameMap = useMemo(() => {
@@ -137,12 +237,22 @@ export function MemoryPage(): React.JSX.Element {
 
   /** Filter and search memories. */
   const filteredMemories = useMemo(() => {
+    // If semantic search is active and we have results, use those
+    if (semanticSearch && search.trim().length >= 2 && searchData?.results) {
+      return searchData.results;
+    }
+
     if (!data?.memories) return [];
     let result = data.memories;
 
+    // Filter by active status (#1725)
+    if (!showSuperseded) {
+      result = result.filter((m) => m.is_active !== false);
+    }
+
     // Filter by type
     if (typeFilter !== 'all') {
-      result = result.filter((m) => m.type === typeFilter);
+      result = result.filter((m) => (m.memory_type ?? m.type) === typeFilter);
     }
 
     // Filter by project scope
@@ -152,24 +262,98 @@ export function MemoryPage(): React.JSX.Element {
       result = result.filter((m) => m.project_id === projectFilter);
     }
 
+    // Filter by contact scope (#1751)
+    if (contactFilter !== 'all') {
+      result = result.filter((m) => (m as Memory & { contact_id?: string }).contact_id === contactFilter);
+    }
+
+    // Filter by date range (#1730)
+    if (dateRange !== 'all') {
+      const threshold = getDateThreshold(dateRange);
+      if (threshold) {
+        result = result.filter((m) => new Date(m.created_at) >= threshold);
+      }
+    }
+
     // Search by title and content
-    if (search.trim()) {
+    if (search.trim() && !semanticSearch) {
       const query = search.toLowerCase();
       result = result.filter((m) => m.title.toLowerCase().includes(query) || m.content.toLowerCase().includes(query));
     }
 
     return result;
-  }, [data?.memories, typeFilter, projectFilter, search]);
+  }, [data?.memories, typeFilter, projectFilter, contactFilter, search, dateRange, showSuperseded, semanticSearch, searchData?.results]);
 
   const handleToggleExpand = useCallback((id: string) => {
     setExpandedId((prev) => (prev === id ? null : id));
   }, []);
 
+  // Bulk selection handlers (#1750)
+  const toggleSelect = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }, []);
+
+  const clearSelection = useCallback(() => {
+    setSelectedIds(new Set());
+  }, []);
+
+  const handleBulkDelete = useCallback(async () => {
+    if (selectedIds.size === 0) return;
+    setIsSubmitting(true);
+    try {
+      // Delete each selected memory
+      await Promise.all(
+        Array.from(selectedIds).map((id) => apiClient.delete(`/api/memories/${id}`)),
+      );
+      setSelectedIds(new Set());
+      setBulkDeleteConfirmOpen(false);
+      refetch();
+    } catch (err) {
+      console.error('Failed to bulk delete memories:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [selectedIds, refetch]);
+
+  const handleBulkUpdateType = useCallback(
+    async (newType: string) => {
+      if (selectedIds.size === 0) return;
+      setIsSubmitting(true);
+      try {
+        await apiClient.patch('/api/memories/bulk', {
+          ids: Array.from(selectedIds),
+          updates: { type: newType },
+        });
+        setSelectedIds(new Set());
+        refetch();
+      } catch (err) {
+        console.error('Failed to bulk update memories:', err);
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
+    [selectedIds, refetch],
+  );
+
+  const handleNavigateToDetail = useCallback(
+    (id: string) => {
+      navigate(`/memory/${id}`);
+    },
+    [navigate],
+  );
+
   const handleCreate = useCallback(
     async (body: CreateMemoryBody) => {
       setIsSubmitting(true);
       try {
-        // Create as a standalone memory (not attached to a work item)
         await apiClient.post('/api/memory', body);
         setFormOpen(false);
         setEditingMemory(null);
@@ -227,6 +411,15 @@ export function MemoryPage(): React.JSX.Element {
     setFormOpen(true);
   }, []);
 
+  const handleSupersede = useCallback(
+    async (memory: Memory) => {
+      // Open create form pre-populated as a superseding memory
+      setEditingMemory(null);
+      setFormOpen(true);
+    },
+    [],
+  );
+
   // Loading state
   if (isLoading) {
     return (
@@ -259,6 +452,7 @@ export function MemoryPage(): React.JSX.Element {
   }
 
   const total = data?.total ?? 0;
+  const hasActiveFilters = typeFilter !== 'all' || projectFilter !== 'all' || dateRange !== 'all' || showSuperseded;
 
   return (
     <div data-testid="page-memory" className="p-6 h-full flex flex-col">
@@ -268,7 +462,7 @@ export function MemoryPage(): React.JSX.Element {
           <h1 className="text-2xl font-semibold text-foreground">Memory</h1>
           <p className="text-sm text-muted-foreground mt-1">
             {total} memor{total !== 1 ? 'ies' : 'y'}
-            {(typeFilter !== 'all' || projectFilter !== 'all') && ` (${filteredMemories.length} shown)`}
+            {(hasActiveFilters || contactFilter !== 'all' || search) && ` (${filteredMemories.length} shown)`}
           </p>
         </div>
         <Button onClick={handleAddNew} data-testid="add-memory-button">
@@ -278,17 +472,30 @@ export function MemoryPage(): React.JSX.Element {
       </div>
 
       {/* Search and Filters */}
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:flex-wrap">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             type="text"
-            placeholder="Search memories..."
+            placeholder={semanticSearch ? 'Semantic search...' : 'Search memories...'}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
             data-testid="memory-search-input"
           />
+        </div>
+
+        {/* Semantic search toggle (#1716) */}
+        <div className="flex items-center gap-2" data-testid="semantic-search-toggle">
+          <Switch
+            id="semantic-toggle"
+            checked={semanticSearch}
+            onCheckedChange={setSemanticSearch}
+          />
+          <Label htmlFor="semantic-toggle" className="text-sm flex items-center gap-1 cursor-pointer">
+            <Sparkles className="size-3" />
+            Semantic
+          </Label>
         </div>
 
         <Select value={typeFilter} onValueChange={setTypeFilter}>
@@ -301,6 +508,8 @@ export function MemoryPage(): React.JSX.Element {
             <SelectItem value="fact">Facts</SelectItem>
             <SelectItem value="decision">Decisions</SelectItem>
             <SelectItem value="context">Context</SelectItem>
+            <SelectItem value="note">Notes</SelectItem>
+            <SelectItem value="reference">References</SelectItem>
           </SelectContent>
         </Select>
 
@@ -318,7 +527,57 @@ export function MemoryPage(): React.JSX.Element {
             ))}
           </SelectContent>
         </Select>
+
+        {/* Contact filter (#1751) */}
+        <Select value={contactFilter} onValueChange={setContactFilter}>
+          <SelectTrigger className="w-[180px]" data-testid="contact-filter">
+            <SelectValue placeholder="All contacts" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All contacts</SelectItem>
+            {contactOptions.map((c) => (
+              <SelectItem key={c.id} value={c.id}>
+                {c.display_name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* Date range filter (#1730) */}
+        <Select value={dateRange} onValueChange={setDateRange}>
+          <SelectTrigger className="w-[160px]" data-testid="date-range-filter">
+            <SelectValue placeholder="All time" />
+          </SelectTrigger>
+          <SelectContent>
+            {DATE_RANGE_PRESETS.map((preset) => (
+              <SelectItem key={preset.value} value={preset.value}>
+                {preset.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* Active/superseded filter (#1725) */}
+        <div className="flex items-center gap-2" data-testid="active-filter-toggle">
+          <Switch
+            id="show-superseded"
+            checked={showSuperseded}
+            onCheckedChange={setShowSuperseded}
+          />
+          <Label htmlFor="show-superseded" className="text-sm flex items-center gap-1 cursor-pointer">
+            {showSuperseded ? <Eye className="size-3" /> : <EyeOff className="size-3" />}
+            Superseded
+          </Label>
+        </div>
       </div>
+
+      {/* Semantic search results info */}
+      {semanticSearch && searchData && search.trim().length >= 2 && (
+        <div className="mb-3 text-xs text-muted-foreground flex items-center gap-2">
+          <Sparkles className="size-3" />
+          {searchData.results.length} result{searchData.results.length !== 1 ? 's' : ''} via {searchData.search_type} search
+        </div>
+      )}
 
       {/* Memory List */}
       {filteredMemories.length === 0 ? (
@@ -326,13 +585,13 @@ export function MemoryPage(): React.JSX.Element {
           <CardContent className="p-8">
             <EmptyState
               variant="documents"
-              title={search || typeFilter !== 'all' || projectFilter !== 'all' ? 'No memories found' : 'No memories yet'}
+              title={search || hasActiveFilters || contactFilter !== 'all' ? 'No memories found' : 'No memories yet'}
               description={
-                search || typeFilter !== 'all' || projectFilter !== 'all'
+                search || hasActiveFilters || contactFilter !== 'all'
                   ? 'Try adjusting your search or filter criteria.'
                   : 'Store knowledge, preferences, decisions, and context for AI agents.'
               }
-              onAction={!search && typeFilter === 'all' && projectFilter === 'all' ? handleAddNew : undefined}
+              onAction={!search && !hasActiveFilters && contactFilter === 'all' ? handleAddNew : undefined}
               actionLabel="Create Memory"
             />
           </CardContent>
@@ -342,25 +601,71 @@ export function MemoryPage(): React.JSX.Element {
           <div className="space-y-3" data-testid="memory-list">
             {filteredMemories.map((memory) => {
               const isExpanded = expandedId === memory.id;
+              const isSelected = selectedIds.has(memory.id);
               const preview = memory.content.length > 200 ? `${memory.content.slice(0, 200)}...` : memory.content;
+              const memoryContactId = (memory as Memory & { contact_id?: string }).contact_id;
+              const effectiveType = memory.memory_type ?? memory.type;
+              const similarity = 'similarity' in memory ? (memory as Memory & { similarity: number }).similarity : undefined;
 
               return (
-                <Card key={memory.id} data-testid="memory-card" className="group transition-colors hover:bg-accent/30">
+                <Card
+                  key={memory.id}
+                  data-testid="memory-card"
+                  className={`group transition-colors hover:bg-accent/30 ${isSelected ? 'ring-2 ring-primary' : ''} ${memory.is_active === false ? 'opacity-60' : ''}`}
+                >
                   <CardContent className="p-4">
                     {/* Card Header */}
                     <div className="flex items-start justify-between gap-2">
+                      {/* Selection checkbox (#1750) */}
+                      <div className="pt-0.5 pr-2">
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={() => toggleSelect(memory.id)}
+                          data-testid="memory-select-checkbox"
+                          aria-label={`Select ${memory.title}`}
+                        />
+                      </div>
+
                       <div className="flex-1 min-w-0 cursor-pointer" onClick={() => handleToggleExpand(memory.id)}>
-                        <div className="flex items-center gap-2 mb-1">
-                          {memory.type && (
-                            <Badge variant="outline" className={`text-xs gap-1 ${getTypeBadgeClass(memory.type)}`} data-testid="memory-type-badge">
-                              {getTypeIcon(memory.type)}
-                              {getTypeLabel(memory.type)}
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          {effectiveType && (
+                            <Badge variant="outline" className={`text-xs gap-1 ${getTypeBadgeClass(effectiveType)}`} data-testid="memory-type-badge">
+                              {getTypeIcon(effectiveType)}
+                              {getTypeLabel(effectiveType)}
                             </Badge>
                           )}
                           {memory.project_id && projectNameMap.has(memory.project_id) && (
                             <Badge variant="outline" className="text-xs gap-1" data-testid="memory-project-badge">
                               <Folder className="size-3" />
                               {projectNameMap.get(memory.project_id)}
+                            </Badge>
+                          )}
+                          {/* Contact scope badge (#1751) */}
+                          {memoryContactId && contactNameMap.has(memoryContactId) && (
+                            <Badge variant="outline" className="text-xs gap-1" data-testid="memory-contact-badge">
+                              <User className="size-3" />
+                              {contactNameMap.get(memoryContactId)}
+                            </Badge>
+                          )}
+                          {/* Superseded indicator (#1725) */}
+                          {memory.is_active === false && (
+                            <Badge variant="outline" className="text-xs gap-1 bg-muted text-muted-foreground">
+                              <EyeOff className="size-3" />
+                              Superseded
+                            </Badge>
+                          )}
+                          {/* Geolocation badge (#1728) */}
+                          {memory.place_label && (
+                            <Badge variant="outline" className="text-xs gap-1">
+                              <MapPin className="size-3" />
+                              {memory.place_label}
+                            </Badge>
+                          )}
+                          {/* Similarity score for search results (#1716) */}
+                          {similarity != null && (
+                            <Badge variant="outline" className="text-xs gap-1 bg-violet-500/10 text-violet-700 dark:text-violet-300 border-violet-500/20">
+                              <Sparkles className="size-3" />
+                              {(similarity * 100).toFixed(0)}%
                             </Badge>
                           )}
                         </div>
@@ -375,10 +680,20 @@ export function MemoryPage(): React.JSX.Element {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleNavigateToDetail(memory.id)}>
+                            <ExternalLink className="mr-2 size-4" />
+                            View Details
+                          </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleEdit(memory)}>
                             <Pencil className="mr-2 size-4" />
                             Edit
                           </DropdownMenuItem>
+                          {memory.is_active !== false && (
+                            <DropdownMenuItem onClick={() => handleSupersede(memory)}>
+                              <Layers className="mr-2 size-4" />
+                              Supersede
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => setDeleteTarget(memory)}>
                             <Trash2 className="mr-2 size-4" />
                             Delete
@@ -387,11 +702,71 @@ export function MemoryPage(): React.JSX.Element {
                       </DropdownMenu>
                     </div>
 
+                    {/* Tags (#1721) */}
+                    {Array.isArray(memory.tags) && memory.tags.length > 0 && (
+                      <div className="mt-1.5 flex flex-wrap gap-1">
+                        {memory.tags.map((tag) => (
+                          <Badge key={tag} variant="secondary" className="text-xs gap-1 h-5">
+                            <Tag className="size-2.5" />
+                            {tag}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+
                     {/* Content preview / expanded */}
-                    <div className="mt-2 cursor-pointer" onClick={() => handleToggleExpand(memory.id)}>
+                    <div className="mt-2 cursor-pointer ml-8" onClick={() => handleToggleExpand(memory.id)}>
                       {isExpanded ? (
                         <div className="text-sm text-foreground whitespace-pre-wrap" data-testid="memory-full-content">
                           {memory.content}
+
+                          {/* Expanded metadata section (#1719) */}
+                          <div className="mt-3 pt-3 border-t border-border space-y-2 text-xs text-muted-foreground">
+                            <div className="flex flex-wrap gap-4">
+                              {memory.importance != null && (
+                                <span>Importance: <strong className="text-foreground">{memory.importance}/10</strong></span>
+                              )}
+                              {memory.confidence != null && (
+                                <span>Confidence: <strong className="text-foreground">{(memory.confidence * 100).toFixed(0)}%</strong></span>
+                              )}
+                              {memory.expires_at && (
+                                <span>Expires: <strong className="text-foreground">{formatDate(memory.expires_at)}</strong></span>
+                              )}
+                              {memory.source_url && (
+                                <a
+                                  href={memory.source_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-1 text-primary hover:underline"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <ExternalLink className="size-3" />
+                                  Source
+                                </a>
+                              )}
+                            </div>
+                            {/* Geolocation details (#1728) */}
+                            {memory.address && (
+                              <div className="flex items-center gap-1">
+                                <MapPin className="size-3" />
+                                <span>{memory.address}</span>
+                                {memory.lat != null && memory.lng != null && (
+                                  <a
+                                    href={`https://www.openstreetmap.org/?mlat=${memory.lat}&mlon=${memory.lng}#map=16/${memory.lat}/${memory.lng}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-primary hover:underline ml-1"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    Map
+                                  </a>
+                                )}
+                              </div>
+                            )}
+                            {memory.created_by_agent && (
+                              <span>Created by agent: {memory.created_by_agent}</span>
+                            )}
+                          </div>
                         </div>
                       ) : (
                         <p className="text-sm text-muted-foreground line-clamp-2">{preview}</p>
@@ -399,7 +774,7 @@ export function MemoryPage(): React.JSX.Element {
                     </div>
 
                     {/* Footer */}
-                    <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+                    <div className="mt-3 ml-8 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
                       <div className="flex items-center gap-3">
                         {memory.work_item_id && (
                           <span className="flex items-center gap-1">
@@ -443,6 +818,34 @@ export function MemoryPage(): React.JSX.Element {
         </ScrollArea>
       )}
 
+      {/* Bulk action bar (#1750) */}
+      <BulkMemoryActionBar
+        selectedCount={selectedIds.size}
+        onDelete={() => setBulkDeleteConfirmOpen(true)}
+        onUpdateType={handleBulkUpdateType}
+        onClearSelection={clearSelection}
+      />
+
+      {/* Bulk delete confirmation (#1750) */}
+      <Dialog open={bulkDeleteConfirmOpen} onOpenChange={setBulkDeleteConfirmOpen}>
+        <DialogContent className="sm:max-w-sm" data-testid="bulk-delete-confirm-dialog">
+          <DialogHeader>
+            <DialogTitle>Delete Memories</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete {selectedIds.size} memor{selectedIds.size !== 1 ? 'ies' : 'y'}? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkDeleteConfirmOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleBulkDelete} disabled={isSubmitting} data-testid="confirm-bulk-delete">
+              Delete {selectedIds.size}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Create/Edit Memory Dialog */}
       <MemoryFormDialog
         open={formOpen}
@@ -452,6 +855,7 @@ export function MemoryPage(): React.JSX.Element {
         }}
         memory={editingMemory}
         isSubmitting={isSubmitting}
+        contactOptions={contactOptions}
         onSubmit={(data) => {
           if (editingMemory) {
             handleUpdate(data);
@@ -496,38 +900,88 @@ interface MemoryFormDialogProps {
   onOpenChange: (open: boolean) => void;
   memory: Memory | null;
   isSubmitting: boolean;
+  contactOptions: ContactOption[];
   onSubmit: (data: CreateMemoryBody | UpdateMemoryBody) => void;
 }
 
-function MemoryFormDialog({ open, onOpenChange, memory, isSubmitting, onSubmit }: MemoryFormDialogProps) {
+function MemoryFormDialog({ open, onOpenChange, memory, isSubmitting, contactOptions, onSubmit }: MemoryFormDialogProps) {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [type, setType] = useState<string>('fact');
+  const [contactId, setContactId] = useState<string | null>(null);
+  const [importance, setImportance] = useState<number>(5);
+  const [confidence, setConfidence] = useState<number>(0.8);
+  const [expiresAt, setExpiresAt] = useState<string>('');
+  const [sourceUrl, setSourceUrl] = useState<string>('');
+  const [tagsInput, setTagsInput] = useState<string>('');
+  const [tags, setTags] = useState<string[]>([]);
 
   // Reset form when dialog opens/closes or memory changes
   React.useEffect(() => {
     if (open) {
       setTitle(memory?.title ?? '');
       setContent(memory?.content ?? '');
-      setType(memory?.type ?? 'fact');
+      setType(memory?.memory_type ?? memory?.type ?? 'fact');
+      setContactId(null);
+      setImportance(memory?.importance ?? 5);
+      setConfidence(memory?.confidence ?? 0.8);
+      setExpiresAt(memory?.expires_at ? memory.expires_at.slice(0, 10) : '');
+      setSourceUrl(memory?.source_url ?? '');
+      setTags(memory?.tags ?? []);
+      setTagsInput('');
     }
   }, [open, memory]);
+
+  const handleAddTag = () => {
+    const tag = tagsInput.trim().toLowerCase();
+    if (tag && !tags.includes(tag)) {
+      setTags([...tags, tag]);
+    }
+    setTagsInput('');
+  };
+
+  const handleRemoveTag = (tag: string) => {
+    setTags(tags.filter((t) => t !== tag));
+  };
+
+  const handleTagKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      handleAddTag();
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (memory) {
-      // Update: only send changed fields
-      onSubmit({
+      // Update: send changed fields
+      const body: UpdateMemoryBody = {
         title: title.trim(),
         content: content.trim(),
-      });
+        importance,
+        confidence,
+        tags,
+        source_url: sourceUrl.trim() || undefined,
+        expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
+      };
+      onSubmit(body);
     } else {
-      // Create: send all fields
-      onSubmit({
+      // Create: send all fields including optional contact_id (#1751)
+      const body: CreateMemoryBody = {
         title: title.trim(),
         content: content.trim(),
         type: type,
-      });
+        memory_type: type as CreateMemoryBody['memory_type'],
+        importance,
+        confidence,
+        tags,
+        source_url: sourceUrl.trim() || undefined,
+        expires_at: expiresAt ? new Date(expiresAt).toISOString() : undefined,
+      };
+      if (contactId) {
+        body.contact_id = contactId;
+      }
+      onSubmit(body);
     }
   };
 
@@ -535,7 +989,7 @@ function MemoryFormDialog({ open, onOpenChange, memory, isSubmitting, onSubmit }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl" data-testid="memory-form-dialog">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto" data-testid="memory-form-dialog">
         <DialogHeader>
           <DialogTitle>{memory ? 'Edit Memory' : 'Create Memory'}</DialogTitle>
           <DialogDescription>{memory ? 'Update the memory details below.' : 'Store knowledge, preferences, decisions, or context.'}</DialogDescription>
@@ -543,9 +997,9 @@ function MemoryFormDialog({ open, onOpenChange, memory, isSubmitting, onSubmit }
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <label htmlFor="memory-title" className="text-sm font-medium">
+            <Label htmlFor="memory-title">
               Title <span className="text-destructive">*</span>
-            </label>
+            </Label>
             <Input
               id="memory-title"
               value={title}
@@ -556,38 +1010,137 @@ function MemoryFormDialog({ open, onOpenChange, memory, isSubmitting, onSubmit }
             />
           </div>
 
+          <div className="space-y-2">
+            <Label htmlFor="memory-type">Type</Label>
+            <Select value={type} onValueChange={setType}>
+              <SelectTrigger data-testid="memory-type-select">
+                <SelectValue placeholder="Select type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="preference">Preference</SelectItem>
+                <SelectItem value="fact">Fact</SelectItem>
+                <SelectItem value="decision">Decision</SelectItem>
+                <SelectItem value="context">Context</SelectItem>
+                <SelectItem value="note">Note</SelectItem>
+                <SelectItem value="reference">Reference</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Contact picker (#1751) - only for create */}
           {!memory && (
             <div className="space-y-2">
-              <label htmlFor="memory-type" className="text-sm font-medium">
-                Type
-              </label>
-              <Select value={type} onValueChange={setType}>
-                <SelectTrigger data-testid="memory-type-select">
-                  <SelectValue placeholder="Select type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="preference">Preference</SelectItem>
-                  <SelectItem value="fact">Fact</SelectItem>
-                  <SelectItem value="decision">Decision</SelectItem>
-                  <SelectItem value="context">Context</SelectItem>
-                </SelectContent>
-              </Select>
+              <label className="text-sm font-medium">Link to Contact</label>
+              <ContactPicker
+                contacts={contactOptions}
+                selectedContactId={contactId}
+                onSelect={setContactId}
+              />
             </div>
           )}
 
           <div className="space-y-2">
-            <label htmlFor="memory-content" className="text-sm font-medium">
+            <Label htmlFor="memory-content">
               Content <span className="text-destructive">*</span>
-            </label>
+            </Label>
             <Textarea
               id="memory-content"
               value={content}
               onChange={(e) => setContent(e.target.value)}
               placeholder="Write memory content here... (Markdown supported)"
-              className="min-h-[200px] font-mono text-sm"
+              className="min-h-[150px] font-mono text-sm"
               required
               data-testid="memory-content-input"
             />
+          </div>
+
+          {/* Metadata section (#1719) */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="memory-importance">
+                Importance ({importance}/10)
+              </Label>
+              <Input
+                id="memory-importance"
+                type="range"
+                min={1}
+                max={10}
+                value={importance}
+                onChange={(e) => setImportance(Number(e.target.value))}
+                data-testid="memory-importance-slider"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="memory-confidence">
+                Confidence ({(confidence * 100).toFixed(0)}%)
+              </Label>
+              <Input
+                id="memory-confidence"
+                type="range"
+                min={0}
+                max={100}
+                value={confidence * 100}
+                onChange={(e) => setConfidence(Number(e.target.value) / 100)}
+                data-testid="memory-confidence-slider"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="memory-expires">Expiration Date</Label>
+              <Input
+                id="memory-expires"
+                type="date"
+                value={expiresAt}
+                onChange={(e) => setExpiresAt(e.target.value)}
+                data-testid="memory-expires-input"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="memory-source">Source URL</Label>
+              <Input
+                id="memory-source"
+                type="url"
+                value={sourceUrl}
+                onChange={(e) => setSourceUrl(e.target.value)}
+                placeholder="https://..."
+                data-testid="memory-source-input"
+              />
+            </div>
+          </div>
+
+          {/* Tags input (#1721) */}
+          <div className="space-y-2">
+            <Label htmlFor="memory-tags">Tags</Label>
+            <div className="flex flex-wrap gap-1 mb-2">
+              {tags.map((tag) => (
+                <Badge key={tag} variant="secondary" className="text-xs gap-1 h-6">
+                  <Tag className="size-2.5" />
+                  {tag}
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveTag(tag)}
+                    className="ml-0.5 hover:text-destructive"
+                  >
+                    <X className="size-3" />
+                  </button>
+                </Badge>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <Input
+                id="memory-tags"
+                value={tagsInput}
+                onChange={(e) => setTagsInput(e.target.value)}
+                onKeyDown={handleTagKeyDown}
+                placeholder="Add tag and press Enter"
+                data-testid="memory-tags-input"
+              />
+              <Button type="button" variant="outline" size="sm" onClick={handleAddTag}>
+                Add
+              </Button>
+            </div>
           </div>
 
           <DialogFooter>

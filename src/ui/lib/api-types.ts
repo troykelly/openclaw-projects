@@ -90,6 +90,8 @@ export interface UpdateWorkItemBody {
   not_after?: string | null;
   estimate_minutes?: number | null;
   actual_minutes?: number | null;
+  recurrence_rule?: string | null;
+  recurrence_natural?: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -289,16 +291,71 @@ export interface MergeResult {
 // Memories
 // ---------------------------------------------------------------------------
 
+/** Valid memory types. */
+export type MemoryType = 'preference' | 'fact' | 'note' | 'decision' | 'context' | 'reference';
+
+/** Embedding status for memories. */
+export type MemoryEmbeddingStatus = 'pending' | 'complete' | 'failed';
+
 /** Single memory from GET /api/work-items/:id/memories or GET /api/memory */
 export interface Memory {
   id: string;
   title: string;
   content: string;
+  /** @deprecated Use memory_type instead */
   type?: string;
+  memory_type: MemoryType;
   work_item_id?: string | null;
+  contact_id?: string | null;
+  relationship_id?: string | null;
   project_id?: string | null;
+  /** Importance score 1-10 */
+  importance: number;
+  /** Confidence score 0-1 */
+  confidence: number;
+  /** When the memory expires (ISO date string) */
+  expires_at?: string | null;
+  /** Source URL for external references */
+  source_url?: string | null;
+  /** Freeform text tags */
+  tags: string[];
+  /** Agent that created this memory */
+  created_by_agent?: string | null;
+  /** Whether created by a human (vs agent) */
+  created_by_human: boolean;
+  /** Whether this memory is currently active */
+  is_active: boolean;
+  /** ID of memory that supersedes this one */
+  superseded_by?: string | null;
+  /** Embedding generation status */
+  embedding_status: MemoryEmbeddingStatus;
+  /** WGS84 latitude */
+  lat?: number | null;
+  /** WGS84 longitude */
+  lng?: number | null;
+  /** Reverse-geocoded address */
+  address?: string | null;
+  /** Short human-friendly place name */
+  place_label?: string | null;
+  /** Namespace for data scoping */
+  namespace?: string;
+  /** Number of file attachments */
+  attachment_count?: number;
   created_at: string;
   updated_at: string;
+}
+
+/** A memory search result with similarity score. */
+export interface MemorySearchResult extends Memory {
+  similarity: number;
+  namespace_priority?: number;
+}
+
+/** Response from GET /api/memories/search */
+export interface MemorySearchResponse {
+  results: MemorySearchResult[];
+  search_type: 'semantic' | 'text';
+  query_embedding_provider?: string;
 }
 
 /** Response from GET /api/work-items/:id/memories */
@@ -312,17 +369,65 @@ export interface MemoryListResponse {
   total: number;
 }
 
-/** Body for POST /api/work-items/:id/memories */
+/** Body for POST /api/memory or POST /api/work-items/:id/memories */
 export interface CreateMemoryBody {
   title: string;
   content: string;
   type?: string;
+  memory_type?: MemoryType;
+  importance?: number;
+  confidence?: number;
+  expires_at?: string | null;
+  source_url?: string | null;
+  tags?: string[];
+  work_item_id?: string | null;
+  contact_id?: string | null;
+  relationship_id?: string | null;
+  project_id?: string | null;
+  lat?: number | null;
+  lng?: number | null;
+  address?: string | null;
+  place_label?: string | null;
 }
 
 /** Body for PATCH /api/memories/:id */
 export interface UpdateMemoryBody {
   title?: string;
   content?: string;
+  memory_type?: MemoryType;
+  importance?: number;
+  confidence?: number;
+  expires_at?: string | null;
+  superseded_by?: string | null;
+  tags?: string[];
+  source_url?: string | null;
+}
+
+/** Linked contact for a memory. */
+export interface MemoryLinkedContact {
+  contact_id: string;
+  display_name: string | null;
+  linked_at: string;
+}
+
+/** Response from GET /api/memories/:id/contacts */
+export interface MemoryLinkedContactsResponse {
+  contacts: MemoryLinkedContact[];
+}
+
+/** Related memory entry. */
+export interface RelatedMemory {
+  id: string;
+  related_memory_id: string;
+  title: string;
+  memory_type: MemoryType;
+  relationship_type?: string;
+  created_at: string;
+}
+
+/** Response from GET /api/memories/:id/related */
+export interface RelatedMemoriesResponse {
+  memories: RelatedMemory[];
 }
 
 // ---------------------------------------------------------------------------

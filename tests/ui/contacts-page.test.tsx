@@ -46,6 +46,12 @@ const mockContacts: Contact[] = [
     id: 'c-1',
     display_name: 'Alice Johnson',
     notes: 'Key stakeholder',
+    preferred_channel: null,
+    quiet_hours_start: null,
+    quiet_hours_end: null,
+    quiet_hours_timezone: null,
+    urgency_override_channel: null,
+    notification_notes: null,
     created_at: '2024-01-15T10:00:00Z',
     endpoints: [
       { type: 'email', value: 'alice@example.com' },
@@ -56,6 +62,12 @@ const mockContacts: Contact[] = [
     id: 'c-2',
     display_name: 'Bob Smith',
     notes: null,
+    preferred_channel: null,
+    quiet_hours_start: null,
+    quiet_hours_end: null,
+    quiet_hours_timezone: null,
+    urgency_override_channel: null,
+    notification_notes: null,
     created_at: '2024-01-20T10:00:00Z',
     endpoints: [{ type: 'email', value: 'bob@example.com' }],
   },
@@ -63,6 +75,12 @@ const mockContacts: Contact[] = [
     id: 'c-3',
     display_name: 'Charlie Brown',
     notes: null,
+    preferred_channel: null,
+    quiet_hours_start: null,
+    quiet_hours_end: null,
+    quiet_hours_timezone: null,
+    urgency_override_channel: null,
+    notification_notes: null,
     created_at: '2024-01-10T10:00:00Z',
     endpoints: [],
   },
@@ -147,9 +165,10 @@ describe('ContactsPage', () => {
       expect(screen.getByTestId('contact-form-dialog')).toBeInTheDocument();
     });
 
-    // Verify the dialog contains the form elements
+    // Verify the dialog contains the form elements (#1701: structured fields)
     const dialog = screen.getByTestId('contact-form-dialog');
-    expect(within(dialog).getByTestId('contact-name-input')).toBeInTheDocument();
+    expect(within(dialog).getByTestId('contact-given-name')).toBeInTheDocument();
+    expect(within(dialog).getByTestId('contact-family-name')).toBeInTheDocument();
     expect(within(dialog).getByTestId('contact-form-submit')).toBeInTheDocument();
   });
 
