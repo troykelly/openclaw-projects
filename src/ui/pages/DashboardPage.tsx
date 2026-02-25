@@ -23,6 +23,7 @@ import { Badge } from '@/ui/components/ui/badge';
 import { Button } from '@/ui/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/ui/components/ui/card';
 import { Plus, Search, FolderOpen, Calendar, Clock, Activity, ArrowRight, CheckCircle2, Circle, AlertTriangle, Loader2 } from 'lucide-react';
+import { AnalyticsSection } from '@/ui/components/analytics';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -411,6 +412,9 @@ export function DashboardPage(): React.JSX.Element {
           )}
         </CardContent>
       </Card>
+
+      {/* Analytics Section (#1734) */}
+      <AnalyticsSection />
 
       {/* Quick Actions Section */}
       <Card data-testid="section-quick-actions">
