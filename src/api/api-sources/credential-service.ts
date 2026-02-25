@@ -62,14 +62,41 @@ function rowToApiCredential(row: any): ApiCredential {
 
 /**
  * Create a new API credential. The resolve_reference is encrypted before storage.
+ * Uses a transaction to prevent placeholder rows on partial failure.
  */
 export async function createApiCredential(
   pool: Queryable,
   input: CreateApiCredentialInput,
 ): Promise<ApiCredential> {
-  // First insert with a placeholder to get the row ID, then update with encrypted value.
-  // We need the ID for HKDF key derivation, so we use a two-step approach.
-  const insertResult = await pool.query(
+  // We need a two-step insert: first get the row ID, then encrypt with that ID.
+  // Wrap in a transaction so a failure in step 2 doesn't leave a __placeholder__ row.
+  const isPoolClient = 'release' in pool;
+
+  // If already a PoolClient (caller manages the transaction), use it directly.
+  // If a Pool, acquire a client and manage our own transaction.
+  if (isPoolClient) {
+    return createCredentialInner(pool, input);
+  }
+
+  const client = await (pool as Pool).connect();
+  try {
+    await client.query('BEGIN');
+    const result = await createCredentialInner(client, input);
+    await client.query('COMMIT');
+    return result;
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+async function createCredentialInner(
+  db: Queryable,
+  input: CreateApiCredentialInput,
+): Promise<ApiCredential> {
+  const insertResult = await db.query(
     `INSERT INTO api_credential (
       api_source_id, purpose, header_name, header_prefix,
       resolve_strategy, resolve_reference
@@ -81,16 +108,16 @@ export async function createApiCredential(
       input.header_name,
       input.header_prefix ?? null,
       input.resolve_strategy,
-      '__placeholder__', // temporary, will be updated with encrypted value
+      '__placeholder__',
     ],
   );
 
   const row = insertResult.rows[0];
   const credentialId = row.id;
 
-  // Encrypt and update
+  // Encrypt and update in the same transaction
   const encrypted = encryptCredentialReference(input.resolve_reference, credentialId);
-  await pool.query(
+  await db.query(
     `UPDATE api_credential SET resolve_reference = $1 WHERE id = $2`,
     [encrypted, credentialId],
   );

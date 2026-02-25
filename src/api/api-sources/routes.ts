@@ -370,24 +370,33 @@ export async function apiSourceRoutesPlugin(
   });
 
   // GET /api/api-sources/:id/credentials — list credentials
+  // decrypt=true requires write scope (sensitive secret access); read scope returns masked values only.
   app.get('/api/api-sources/:id/credentials', async (req: FastifyRequest, reply: FastifyReply) => {
     const { id: apiSourceId } = req.params as IdParams;
     if (!isValidUUID(apiSourceId)) {
       return reply.code(400).send({ error: 'Invalid API source ID' });
     }
 
-    const namespaces = getQueryNamespaces(req);
-    if (!namespaces) return reply.code(403).send({ error: 'Namespace access denied' });
+    const query = req.query as PaginationQuery;
+    const decrypt = query.decrypt === 'true';
+
+    // Decrypt requires write scope; read scope returns masked values only
+    let namespace: string;
+    if (decrypt) {
+      const ns = getNamespace(req, reply);
+      if (!ns) return;
+      namespace = ns;
+    } else {
+      const namespaces = getQueryNamespaces(req);
+      if (!namespaces) return reply.code(403).send({ error: 'Namespace access denied' });
+      namespace = namespaces[0];
+    }
 
     // Verify the API source exists and is accessible
-    const namespace = namespaces[0];
     const source = await getApiSource(pool, apiSourceId, namespace);
     if (!source) {
       return reply.code(404).send({ error: 'API source not found' });
     }
-
-    const query = req.query as PaginationQuery;
-    const decrypt = query.decrypt === 'true';
 
     const credentials = await listApiCredentials(pool, apiSourceId, decrypt);
 
@@ -395,23 +404,32 @@ export async function apiSourceRoutesPlugin(
   });
 
   // GET /api/api-sources/:id/credentials/:cred_id — get a single credential
+  // decrypt=true requires write scope (sensitive secret access); read scope returns masked values only.
   app.get('/api/api-sources/:id/credentials/:cred_id', async (req: FastifyRequest, reply: FastifyReply) => {
     const { id: apiSourceId, cred_id: credId } = req.params as CredentialParams;
     if (!isValidUUID(apiSourceId) || !isValidUUID(credId)) {
       return reply.code(400).send({ error: 'Invalid ID format' });
     }
 
-    const namespaces = getQueryNamespaces(req);
-    if (!namespaces) return reply.code(403).send({ error: 'Namespace access denied' });
+    const query = req.query as PaginationQuery;
+    const decrypt = query.decrypt === 'true';
 
-    const namespace = namespaces[0];
+    // Decrypt requires write scope; read scope returns masked values only
+    let namespace: string;
+    if (decrypt) {
+      const ns = getNamespace(req, reply);
+      if (!ns) return;
+      namespace = ns;
+    } else {
+      const namespaces = getQueryNamespaces(req);
+      if (!namespaces) return reply.code(403).send({ error: 'Namespace access denied' });
+      namespace = namespaces[0];
+    }
+
     const source = await getApiSource(pool, apiSourceId, namespace);
     if (!source) {
       return reply.code(404).send({ error: 'API source not found' });
     }
-
-    const query = req.query as PaginationQuery;
-    const decrypt = query.decrypt === 'true';
 
     const cred = await getApiCredential(pool, credId, apiSourceId, decrypt);
     if (!cred) {

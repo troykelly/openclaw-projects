@@ -26,6 +26,9 @@ const MAX_SPEC_SIZE = 10 * 1024 * 1024;
 /** Fetch timeout in milliseconds. */
 const FETCH_TIMEOUT_MS = 30_000;
 
+/** Maximum redirect hops to follow. */
+const MAX_REDIRECTS = 5;
+
 /** Allowed content types for spec fetch. */
 const ALLOWED_CONTENT_TYPES = new Set([
   'application/json',
@@ -47,53 +50,71 @@ export function hashSpec(content: string): string {
 
 /**
  * Fetch an OpenAPI spec from a URL with safety limits.
+ * Follows redirects manually so each hop is SSRF-validated.
  */
 export async function fetchSpec(
   url: string,
   headers?: Record<string, string>,
 ): Promise<string> {
-  // SSRF validation
-  const ssrfError = validateSsrf(url);
-  if (ssrfError) {
-    throw new Error(`SSRF blocked: ${ssrfError}`);
+  let currentUrl = url;
+
+  for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+    // SSRF validation on every hop (prevents DNS rebinding + open-redirect pivots)
+    const ssrfError = validateSsrf(currentUrl);
+    if (ssrfError) {
+      throw new Error(`SSRF blocked: ${ssrfError}`);
+    }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+    try {
+      const response = await fetch(currentUrl, {
+        headers: headers ?? {},
+        signal: controller.signal,
+        redirect: 'manual',
+      });
+
+      // Handle redirects manually
+      if (response.status >= 300 && response.status < 400) {
+        const location = response.headers.get('location');
+        if (!location) {
+          throw new Error(`Redirect ${response.status} with no Location header`);
+        }
+        // Resolve relative redirect URLs
+        currentUrl = new URL(location, currentUrl).toString();
+        continue;
+      }
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch spec: HTTP ${response.status} ${response.statusText}`);
+      }
+
+      // Content-Type validation
+      const contentType = response.headers.get('content-type')?.split(';')[0]?.trim();
+      if (contentType && !ALLOWED_CONTENT_TYPES.has(contentType)) {
+        throw new Error(`Unexpected content type: ${contentType}`);
+      }
+
+      // Size limit check via Content-Length header
+      const contentLength = response.headers.get('content-length');
+      if (contentLength && parseInt(contentLength, 10) > MAX_SPEC_SIZE) {
+        throw new Error(`Spec too large: ${contentLength} bytes exceeds ${MAX_SPEC_SIZE} limit`);
+      }
+
+      // Read body with size limit
+      const body = await response.text();
+      if (body.length > MAX_SPEC_SIZE) {
+        throw new Error(`Spec too large: ${body.length} bytes exceeds ${MAX_SPEC_SIZE} limit`);
+      }
+
+      return body;
+    } finally {
+      clearTimeout(timeout);
+    }
   }
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-
-  try {
-    const response = await fetch(url, {
-      headers: headers ?? {},
-      signal: controller.signal,
-      redirect: 'follow',
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch spec: HTTP ${response.status} ${response.statusText}`);
-    }
-
-    // Content-Type validation
-    const contentType = response.headers.get('content-type')?.split(';')[0]?.trim();
-    if (contentType && !ALLOWED_CONTENT_TYPES.has(contentType)) {
-      throw new Error(`Unexpected content type: ${contentType}`);
-    }
-
-    // Size limit check via Content-Length header
-    const contentLength = response.headers.get('content-length');
-    if (contentLength && parseInt(contentLength, 10) > MAX_SPEC_SIZE) {
-      throw new Error(`Spec too large: ${contentLength} bytes exceeds ${MAX_SPEC_SIZE} limit`);
-    }
-
-    // Read body with size limit
-    const body = await response.text();
-    if (body.length > MAX_SPEC_SIZE) {
-      throw new Error(`Spec too large: ${body.length} bytes exceeds ${MAX_SPEC_SIZE} limit`);
-    }
-
-    return body;
-  } finally {
-    clearTimeout(timeout);
-  }
+  throw new Error(`Too many redirects (>${MAX_REDIRECTS})`);
 }
 
 /** Input for the onboard function. */

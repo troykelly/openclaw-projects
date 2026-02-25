@@ -183,8 +183,8 @@ export interface ApiMemorySearchResultWithCredentials extends ApiMemorySearchRes
  * 2. Run semantic search (cosine similarity on api_memory.embedding)
  * 3. Run text search (tsvector on api_memory.search_vector)
  * 4. Combine results (configurable weighting, default 50/50)
- * 5. For each unique api_source_id in results, fetch credentials (decrypted)
- * 6. Attach credentials to each result
+ * 5. For each unique api_source_id in results, fetch credentials (masked)
+ * 6. Attach masked credentials to each result
  * 7. Return ranked results
  */
 export async function searchApiMemories(
@@ -277,7 +277,9 @@ export async function searchApiMemories(
 }
 
 /**
- * Attach decrypted credentials to search results, grouped by api_source_id.
+ * Attach masked credentials to search results, grouped by api_source_id.
+ * Credentials are always masked in search results — agents must use the
+ * credential endpoint with decrypt=true (write scope) for plaintext access.
  */
 async function attachCredentials(
   pool: Pool,
@@ -295,7 +297,7 @@ async function attachCredentials(
   const credMap = new Map<string, ApiCredential[]>();
   await Promise.all(
     Array.from(sourceIds).map(async (sourceId) => {
-      const creds = await listApiCredentials(pool, sourceId, true);
+      const creds = await listApiCredentials(pool, sourceId, false);
       credMap.set(sourceId, creds);
     }),
   );
