@@ -24,6 +24,7 @@ import {
 } from './credential-service.ts';
 import { onboardApiSource } from './onboard.ts';
 import { refreshApiSource } from './refresh.ts';
+import { linkApiSourceToWorkItem, unlinkApiSourceFromWorkItem, getApiSourceLinks } from './links.ts';
 import { searchApiMemories, listApiMemories } from './search.ts';
 import type {
   ApiSourceStatus,
@@ -45,6 +46,11 @@ interface IdParams {
 interface CredentialParams {
   id: string;
   cred_id: string;
+}
+
+interface LinkParams {
+  id: string;
+  work_item_id: string;
 }
 
 interface PaginationQuery {
@@ -546,5 +552,84 @@ export async function apiSourceRoutesPlugin(
     });
 
     return reply.send({ data: memories, limit, offset });
+  });
+
+  // ============================================================
+  // Work Item Linkage
+  // ============================================================
+
+  // POST /api/api-sources/:id/links — link API source to a work item
+  app.post('/api/api-sources/:id/links', async (req: FastifyRequest, reply: FastifyReply) => {
+    const { id } = req.params as IdParams;
+    if (!isValidUUID(id)) {
+      return reply.code(400).send({ error: 'Invalid API source ID' });
+    }
+
+    const namespace = getNamespace(req, reply);
+    if (!namespace) return;
+
+    const source = await getApiSource(pool, id, namespace);
+    if (!source) {
+      return reply.code(404).send({ error: 'API source not found' });
+    }
+
+    const body = req.body as Record<string, unknown> | null;
+    if (!body || !body.work_item_id || typeof body.work_item_id !== 'string') {
+      return reply.code(400).send({ error: 'work_item_id is required' });
+    }
+
+    if (!isValidUUID(body.work_item_id)) {
+      return reply.code(400).send({ error: 'Invalid work_item_id format' });
+    }
+
+    const created = await linkApiSourceToWorkItem(pool, id, body.work_item_id);
+
+    return reply.code(created ? 201 : 200).send({
+      data: { api_source_id: id, work_item_id: body.work_item_id, linked: created },
+    });
+  });
+
+  // DELETE /api/api-sources/:id/links/:work_item_id — unlink
+  app.delete('/api/api-sources/:id/links/:work_item_id', async (req: FastifyRequest, reply: FastifyReply) => {
+    const { id, work_item_id: workItemId } = req.params as LinkParams;
+    if (!isValidUUID(id) || !isValidUUID(workItemId)) {
+      return reply.code(400).send({ error: 'Invalid ID format' });
+    }
+
+    const namespace = getNamespace(req, reply);
+    if (!namespace) return;
+
+    const source = await getApiSource(pool, id, namespace);
+    if (!source) {
+      return reply.code(404).send({ error: 'API source not found' });
+    }
+
+    const removed = await unlinkApiSourceFromWorkItem(pool, id, workItemId);
+    if (!removed) {
+      return reply.code(404).send({ error: 'Link not found' });
+    }
+
+    return reply.code(204).send();
+  });
+
+  // GET /api/api-sources/:id/links — list links for a source
+  app.get('/api/api-sources/:id/links', async (req: FastifyRequest, reply: FastifyReply) => {
+    const { id } = req.params as IdParams;
+    if (!isValidUUID(id)) {
+      return reply.code(400).send({ error: 'Invalid API source ID' });
+    }
+
+    const namespaces = getQueryNamespaces(req);
+    if (!namespaces) return reply.code(403).send({ error: 'Namespace access denied' });
+
+    const namespace = namespaces[0];
+    const source = await getApiSource(pool, id, namespace);
+    if (!source) {
+      return reply.code(404).send({ error: 'API source not found' });
+    }
+
+    const links = await getApiSourceLinks(pool, id);
+
+    return reply.send({ data: links });
   });
 }
