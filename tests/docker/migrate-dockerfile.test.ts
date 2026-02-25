@@ -7,9 +7,17 @@ const DOCKERFILE_PATH = join(__dirname, '../../docker/migrate/Dockerfile');
 const BUILD_CONTEXT = join(__dirname, '../..');
 const IMAGE_NAME = 'openclaw-migrate-test';
 
+/**
+ * Check if Docker is available AND can actually pull images.
+ * Docker daemon may be running but the credential helper may be broken,
+ * which causes all builds to fail with "error getting credentials".
+ */
 const canRunDocker = (() => {
   try {
     execSync('docker info', { stdio: 'ignore' });
+    // Verify credential helper works by attempting an image pull.
+    // hello-world is tiny and validates registry auth works end-to-end.
+    execSync('docker pull hello-world', { stdio: 'ignore', timeout: 30000 });
     return true;
   } catch {
     return false;
@@ -95,7 +103,7 @@ describe('Migrate Dockerfile hardening', () => {
   describe('Image build validation', () => {
     beforeAll(() => {
       if (!canRunDocker) {
-        console.log('Skipping Docker build tests - Docker not available');
+        console.log('Skipping Docker build tests - Docker not available or credential helper broken');
         return;
       }
 

@@ -7,6 +7,23 @@ const ROOT_DIR = resolve(__dirname, '../..');
 const DOCKERFILE_PATH = resolve(ROOT_DIR, 'docker/api/Dockerfile');
 const DOCKERIGNORE_PATH = resolve(ROOT_DIR, 'docker/api/.dockerignore');
 
+/**
+ * Check if Docker is available AND can actually pull images.
+ * Docker daemon may be running but the credential helper may be broken,
+ * which causes all builds to fail with "error getting credentials".
+ */
+const canRunDocker = (() => {
+  try {
+    execSync('docker info', { stdio: 'ignore' });
+    // Verify credential helper works by attempting an image pull.
+    // hello-world is tiny and validates registry auth works end-to-end.
+    execSync('docker pull hello-world', { stdio: 'ignore', timeout: 30000 });
+    return true;
+  } catch {
+    return false;
+  }
+})();
+
 describe('API Dockerfile hardening', () => {
   let dockerfileContent: string;
   let dockerignoreContent: string;
@@ -113,37 +130,22 @@ describe('API Dockerfile hardening', () => {
 describe('API Docker image build and runtime', () => {
   const IMAGE_NAME = 'openclaw-api-test:hardening';
 
-  // Skip actual build tests if not in CI or if docker is unavailable
-  const canRunDocker = (() => {
-    try {
-      execSync('docker info', { stdio: 'ignore' });
-      return true;
-    } catch {
-      return false;
-    }
-  })();
-
   // Build image once before tests if docker is available
   beforeAll(() => {
     if (!canRunDocker) {
-      console.log('Skipping Docker build tests - Docker not available');
+      console.log('Skipping Docker build tests - Docker not available or credential helper broken');
       return;
     }
 
     // Build for current platform first for faster tests
-    try {
-      execSync(
-        `docker build -t ${IMAGE_NAME} -f docker/api/Dockerfile \
-          --build-arg BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ") \
-          --build-arg VCS_REF=test \
-          --build-arg VERSION=test \
-          .`,
-        { cwd: ROOT_DIR, stdio: 'pipe', timeout: 300000 },
-      );
-    } catch (error) {
-      console.error('Failed to build Docker image:', error);
-      throw error;
-    }
+    execSync(
+      `docker build -t ${IMAGE_NAME} -f docker/api/Dockerfile \
+        --build-arg BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ") \
+        --build-arg VCS_REF=test \
+        --build-arg VERSION=test \
+        .`,
+      { cwd: ROOT_DIR, stdio: 'pipe', timeout: 300000 },
+    );
   }, 600000);
 
   it.skipIf(!canRunDocker)('builds successfully', () => {
@@ -188,15 +190,6 @@ describe('API Docker image build and runtime', () => {
 });
 
 describe('Multi-architecture build support', () => {
-  const canRunDocker = (() => {
-    try {
-      execSync('docker info', { stdio: 'ignore' });
-      return true;
-    } catch {
-      return false;
-    }
-  })();
-
   const hasBuildx = (() => {
     if (!canRunDocker) return false;
     try {
@@ -217,9 +210,10 @@ describe('Multi-architecture build support', () => {
         encoding: 'utf-8',
         stdio: 'pipe',
       });
-      // If we see "docker" driver type, multi-platform is not supported
-      // If we see "docker-container" or similar, it is supported
-      return !output.includes('Driver: docker\n');
+      // If we see "docker" driver type (with possible trailing whitespace),
+      // multi-platform is not supported.
+      // docker-container or remote drivers do support it.
+      return !/Driver:\s+docker\s*$/m.test(output);
     } catch {
       return false;
     }
@@ -245,7 +239,7 @@ describe('Multi-architecture build support', () => {
     'builds for linux/amd64 and linux/arm64 with compatible buildx driver',
     () => {
       // This test only runs when a multi-platform capable driver is available
-      const result = execSync(
+      execSync(
         `docker buildx build --platform linux/amd64,linux/arm64 \
         -f docker/api/Dockerfile \
         --build-arg BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ") \
