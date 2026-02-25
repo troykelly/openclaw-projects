@@ -1887,7 +1887,7 @@ function createToolHandlers(state: PluginState) {
           }
 
           // Multiple matches or low confidence → return candidates, don't delete
-          const list = matches.map((m) => `- [${m.id.slice(0, 8)}] ${m.content.slice(0, 60)}${m.content.length > 60 ? '...' : ''}`).join('\n');
+          const list = matches.map((m) => `- [${m.id}] ${m.content.slice(0, 60)}${m.content.length > 60 ? '...' : ''}`).join('\n');
           return {
             success: true,
             data: {

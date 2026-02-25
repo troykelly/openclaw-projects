@@ -1172,6 +1172,44 @@ describe('OpenClaw 2026 API Registration', () => {
     });
   });
 
+  describe('memory_forget candidate list (#1798)', () => {
+    it('should include full UUIDs in candidate list, not truncated 8-char IDs', async () => {
+      const originalFetch = globalThis.fetch;
+      const fullUuid1 = '12345678-1234-1234-1234-123456789012';
+      const fullUuid2 = 'abcdefab-abcd-abcd-abcd-abcdefabcdef';
+
+      // Mock fetch to return multiple low-confidence matches (triggers candidate list path)
+      globalThis.fetch = vi.fn().mockImplementation(async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          results: [
+            { id: fullUuid1, content: 'First memory content', similarity: 0.75 },
+            { id: fullUuid2, content: 'Second memory content', similarity: 0.65 },
+          ],
+        }),
+      })) as unknown as typeof fetch;
+
+      try {
+        registerOpenClaw(mockApi);
+
+        const memoryForget = registeredTools.find((t) => t.name === 'memory_forget');
+        expect(memoryForget).toBeDefined();
+
+        const result = await memoryForget!.execute('test-id', { query: 'test query' }, undefined, undefined);
+
+        // The candidate list text should contain FULL UUIDs so agents can use them for deletion
+        expect(result.content[0].text).toContain(fullUuid1);
+        expect(result.content[0].text).toContain(fullUuid2);
+        // Should NOT contain only the truncated 8-char prefix
+        expect(result.content[0].text).not.toMatch(/\[12345678\]/);
+        expect(result.content[0].text).not.toMatch(/\[abcdefab\]/);
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+  });
+
   describe('default export', () => {
     it('should be a function', async () => {
       const { default: defaultExport } = await import('../src/register-openclaw.js');
