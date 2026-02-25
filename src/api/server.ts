@@ -19952,56 +19952,89 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const { id } = req.params as { id: string };
     const body = req.body as { label?: string; user_email?: string };
 
+    const email = await getSessionEmail(req) ?? (isAuthDisabled() ? body?.user_email?.trim() || null : null);
+    if (!email && !isAuthDisabled()) {
+      return reply.code(401).send({ error: 'unauthorized' });
+    }
+
     if (!body?.label || body.label.trim().length === 0) {
       return reply.code(400).send({ error: 'label is required' });
     }
 
     const pool = createPool();
+    try {
+      // Verify project exists
+      const projectCheck = await pool.query(`SELECT id FROM work_item WHERE id = $1`, [id]);
+      if (projectCheck.rows.length === 0) {
+        return reply.code(404).send({ error: 'project not found' });
+      }
 
-    // Verify project exists
-    const projectCheck = await pool.query(`SELECT id FROM work_item WHERE id = $1`, [id]);
-    if (projectCheck.rows.length === 0) {
+      const token = randomBytes(32).toString('base64url');
+      const result = await pool.query(
+        `INSERT INTO project_webhook (project_id, user_email, label, token)
+         VALUES ($1, $2, $3, $4)
+         RETURNING id::text, project_id::text, user_email, label, token, is_active, last_received, created_at, updated_at`,
+        [id, email, body.label.trim(), token],
+      );
+      return reply.code(201).send(result.rows[0]);
+    } catch (err) {
+      req.log.error({ err, project_id: id }, 'Failed to create webhook');
+      return reply.code(500).send({ error: 'Failed to create webhook' });
+    } finally {
       await pool.end();
-      return reply.code(404).send({ error: 'project not found' });
     }
-
-    const token = randomBytes(32).toString('base64url');
-    const result = await pool.query(
-      `INSERT INTO project_webhook (project_id, user_email, label, token)
-       VALUES ($1, $2, $3, $4)
-       RETURNING id::text, project_id::text, user_email, label, token, is_active, last_received, created_at, updated_at`,
-      [id, body.user_email?.trim() || null, body.label.trim(), token],
-    );
-    await pool.end();
-    return reply.code(201).send(result.rows[0]);
   });
 
   // GET /api/projects/:id/webhooks - List webhooks for a project
   app.get('/api/projects/:id/webhooks', async (req, reply) => {
     const { id } = req.params as { id: string };
+
+    const email = await getSessionEmail(req);
+    if (!email && !isAuthDisabled()) {
+      return reply.code(401).send({ error: 'unauthorized' });
+    }
+
     const pool = createPool();
-    const result = await pool.query(
-      `SELECT id::text, project_id::text, user_email, label, token, is_active, last_received, created_at, updated_at
-       FROM project_webhook WHERE project_id = $1 ORDER BY created_at DESC`,
-      [id],
-    );
-    await pool.end();
-    return reply.send(result.rows);
+    try {
+      const result = await pool.query(
+        `SELECT id::text, project_id::text, user_email, label, token, is_active, last_received, created_at, updated_at
+         FROM project_webhook WHERE project_id = $1 ORDER BY created_at DESC`,
+        [id],
+      );
+      return reply.send(result.rows);
+    } catch (err) {
+      req.log.error({ err, project_id: id }, 'Failed to list webhooks');
+      return reply.code(500).send({ error: 'Failed to list webhooks' });
+    } finally {
+      await pool.end();
+    }
   });
 
   // DELETE /api/projects/:id/webhooks/:webhook_id - Delete a webhook
   app.delete('/api/projects/:id/webhooks/:webhook_id', async (req, reply) => {
     const { id, webhook_id } = req.params as { id: string; webhook_id: string };
-    const pool = createPool();
-    const result = await pool.query(
-      `DELETE FROM project_webhook WHERE id = $1 AND project_id = $2 RETURNING id`,
-      [webhook_id, id],
-    );
-    await pool.end();
-    if (result.rows.length === 0) {
-      return reply.code(404).send({ error: 'not found' });
+
+    const email = await getSessionEmail(req);
+    if (!email && !isAuthDisabled()) {
+      return reply.code(401).send({ error: 'unauthorized' });
     }
-    return reply.code(204).send();
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `DELETE FROM project_webhook WHERE id = $1 AND project_id = $2 RETURNING id`,
+        [webhook_id, id],
+      );
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'not found' });
+      }
+      return reply.code(204).send();
+    } catch (err) {
+      req.log.error({ err, project_id: id, webhook_id }, 'Failed to delete webhook');
+      return reply.code(500).send({ error: 'Failed to delete webhook' });
+    } finally {
+      await pool.end();
+    }
   });
 
   // POST /api/webhooks/:webhook_id - Public ingestion endpoint (bearer token auth)
