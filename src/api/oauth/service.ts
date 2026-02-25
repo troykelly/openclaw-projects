@@ -78,6 +78,8 @@ export async function getAuthorizationUrl(
     redirect_path?: string;
     features?: OAuthFeature[];
     permission_level?: OAuthPermissionLevel;
+    geo_provider_id?: string;
+    instance_url?: string;
   },
 ): Promise<OAuthAuthorizationUrl> {
   const config = requireProviderConfig(provider);
@@ -106,9 +108,9 @@ export async function getAuthorizationUrl(
 
   // Persist state with PKCE code verifier for validation during callback
   await pool.query(
-    `INSERT INTO oauth_state (state, provider, code_verifier, scopes, user_email, redirect_path)
-     VALUES ($1, $2, $3, $4, $5, $6)`,
-    [state, provider, result.code_verifier, result.scopes, opts?.user_email ?? null, opts?.redirect_path ?? null],
+    `INSERT INTO oauth_state (state, provider, code_verifier, scopes, user_email, redirect_path, geo_provider_id, instance_url)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+    [state, provider, result.code_verifier, result.scopes, opts?.user_email ?? null, opts?.redirect_path ?? null, opts?.geo_provider_id ?? null, opts?.instance_url ?? null],
   );
 
   return result;
@@ -127,7 +129,7 @@ export async function validateState(pool: Pool, state: string): Promise<OAuthSta
   const result = await pool.query(
     `DELETE FROM oauth_state
      WHERE state = $1 AND expires_at > now()
-     RETURNING provider, code_verifier, scopes, user_email, redirect_path, created_at, expires_at`,
+     RETURNING provider, code_verifier, scopes, user_email, redirect_path, geo_provider_id, instance_url, created_at, expires_at`,
     [state],
   );
 
@@ -138,10 +140,12 @@ export async function validateState(pool: Pool, state: string): Promise<OAuthSta
   const row = result.rows[0];
   return {
     provider: row.provider,
-    code_verifier: row.code_verifier,
+    code_verifier: row.code_verifier ?? '',
     scopes: row.scopes ?? [],
     user_email: row.user_email ?? undefined,
     redirect_path: row.redirect_path ?? undefined,
+    geo_provider_id: row.geo_provider_id ?? undefined,
+    instance_url: row.instance_url ?? undefined,
     created_at: new Date(row.created_at),
     expires_at: new Date(row.expires_at),
   };

@@ -77,10 +77,12 @@ export interface OAuthAuthorizationUrl {
 
 export interface OAuthStateData {
   provider: OAuthProvider;
-  code_verifier: string;
+  code_verifier: string;           // kept for Google/Microsoft; null for HA
   scopes: string[];
   user_email?: string;
   redirect_path?: string;
+  geo_provider_id?: string;        // links to geo_provider for HA OAuth
+  instance_url?: string;           // HA instance URL for token exchange
   created_at: Date;
   expires_at: Date;
 }
