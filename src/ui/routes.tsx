@@ -36,6 +36,9 @@ const CommunicationsPage = React.lazy(() => import('@/ui/pages/CommunicationsPag
 const ContactDetailPage = React.lazy(() => import('@/ui/pages/ContactDetailPage.js').then((m) => ({ default: m.ContactDetailPage })));
 const RecipesPage = React.lazy(() => import('@/ui/pages/RecipesPage.js').then((m) => ({ default: m.RecipesPage })));
 const MealLogPage = React.lazy(() => import('@/ui/pages/MealLogPage.js').then((m) => ({ default: m.MealLogPage })));
+const HomeAutomationPage = React.lazy(() => import('@/ui/pages/HomeAutomationPage.js').then((m) => ({ default: m.HomeAutomationPage })));
+const PantryPage = React.lazy(() => import('@/ui/pages/PantryPage.js').then((m) => ({ default: m.PantryPage })));
+const VoicePage = React.lazy(() => import('@/ui/pages/VoicePage.js').then((m) => ({ default: m.VoicePage })));
 const DevSessionsPage = React.lazy(() => import('@/ui/pages/DevSessionsPage.js').then((m) => ({ default: m.DevSessionsPage })));
 const OAuthCallbackPage = React.lazy(() => import('@/ui/pages/OAuthCallbackPage.js').then((m) => ({ default: m.OAuthCallbackPage })));
 const AuthConsumePage = React.lazy(() => import('@/ui/pages/AuthConsumePage.js').then((m) => ({ default: m.AuthConsumePage })));
@@ -79,6 +82,9 @@ function lazy(Component: React.LazyExoticComponent<React.ComponentType>): React.
  *   /memory/:id -> MemoryDetailPage
  *   /recipes -> RecipesPage
  *   /meal-log -> MealLogPage
+ *   /home-automation -> HomeAutomationPage
+ *   /pantry -> PantryPage
+ *   /voice -> VoicePage
  *   /dev-sessions -> DevSessionsPage
  *   /settings -> SettingsPage
  *   /auth/consume -> AuthConsumePage (outside AppLayout, pre-auth)
@@ -182,6 +188,18 @@ export const routes: RouteObject[] = [
       {
         path: 'meal-log',
         element: lazy(MealLogPage),
+      },
+      {
+        path: 'home-automation',
+        element: lazy(HomeAutomationPage),
+      },
+      {
+        path: 'pantry',
+        element: lazy(PantryPage),
+      },
+      {
+        path: 'voice',
+        element: lazy(VoicePage),
       },
       {
         path: 'dev-sessions',
