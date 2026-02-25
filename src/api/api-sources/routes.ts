@@ -23,8 +23,10 @@ import {
   deleteApiCredential,
 } from './credential-service.ts';
 import { onboardApiSource } from './onboard.ts';
+import { searchApiMemories, listApiMemories } from './search.ts';
 import type {
   ApiSourceStatus,
+  ApiMemoryKind,
   CreateApiSourceInput,
   UpdateApiSourceInput,
   CreateApiCredentialInput,
@@ -59,6 +61,7 @@ const MAX_LIMIT = 500;
 const VALID_STATUSES = new Set(['active', 'error', 'disabled']);
 const VALID_PURPOSES = new Set(['api_call', 'spec_fetch']);
 const VALID_STRATEGIES = new Set(['literal', 'env', 'file', 'command']);
+const VALID_MEMORY_KINDS = new Set(['overview', 'tag_group', 'operation']);
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -440,5 +443,79 @@ export async function apiSourceRoutesPlugin(
     }
 
     return reply.code(204).send();
+  });
+
+  // ============================================================
+  // Search + Memory Listing
+  // ============================================================
+
+  // GET /api/api-memories/search — hybrid search across API memories
+  app.get('/api/api-memories/search', async (req: FastifyRequest, reply: FastifyReply) => {
+    const namespaces = getQueryNamespaces(req);
+    if (!namespaces) return reply.code(403).send({ error: 'Namespace access denied' });
+
+    const query = req.query as Record<string, string | undefined>;
+    const q = query.q?.trim();
+    if (!q) {
+      return reply.code(400).send({ error: 'q (search query) is required' });
+    }
+
+    const { limit, offset } = parsePagination(query as PaginationQuery);
+
+    const memoryKind = query.memory_kind && VALID_MEMORY_KINDS.has(query.memory_kind)
+      ? (query.memory_kind as ApiMemoryKind)
+      : undefined;
+
+    const apiSourceId = query.api_source_id && isValidUUID(query.api_source_id)
+      ? query.api_source_id
+      : undefined;
+
+    const tags = query.tags
+      ? query.tags.split(',').map((t) => t.trim()).filter(Boolean)
+      : undefined;
+
+    const namespace = namespaces[0];
+    const results = await searchApiMemories(pool, {
+      namespace,
+      query: q,
+      api_source_id: apiSourceId,
+      memory_kind: memoryKind,
+      tags,
+      limit,
+    });
+
+    return reply.send({ data: results, limit, offset });
+  });
+
+  // GET /api/api-sources/:id/memories — list all memories for a source
+  app.get('/api/api-sources/:id/memories', async (req: FastifyRequest, reply: FastifyReply) => {
+    const { id } = req.params as IdParams;
+    if (!isValidUUID(id)) {
+      return reply.code(400).send({ error: 'Invalid API source ID' });
+    }
+
+    const namespaces = getQueryNamespaces(req);
+    if (!namespaces) return reply.code(403).send({ error: 'Namespace access denied' });
+
+    const namespace = namespaces[0];
+    const source = await getApiSource(pool, id, namespace);
+    if (!source) {
+      return reply.code(404).send({ error: 'API source not found' });
+    }
+
+    const query = req.query as Record<string, string | undefined>;
+    const { limit, offset } = parsePagination(query as PaginationQuery);
+
+    const memoryKind = query.memory_kind && VALID_MEMORY_KINDS.has(query.memory_kind)
+      ? (query.memory_kind as ApiMemoryKind)
+      : undefined;
+
+    const memories = await listApiMemories(pool, id, namespace, {
+      memory_kind: memoryKind,
+      limit,
+      offset,
+    });
+
+    return reply.send({ data: memories, limit, offset });
   });
 }
