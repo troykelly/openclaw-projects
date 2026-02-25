@@ -1625,6 +1625,17 @@ function createToolHandlers(state: PluginState) {
     user_email: state.agentEmail,
   });
 
+  /**
+   * Request options with namespace header for by-ID operations (#1760).
+   * Only use for GET/PATCH/DELETE on specific items (e.g. /api/work-items/:id).
+   * Do NOT use for list/search/create — those already pass namespace via body/query
+   * and the X-Namespace header would override them (middleware checks headers first).
+   */
+  const reqOptsScoped = (): { user_id: string; user_email?: string; namespace: string } => ({
+    ...reqOpts(),
+    namespace: state.resolvedNamespace.default,
+  });
+
   /** Read namespace from mutable state on every call (Issue #1644) */
   function getStoreNamespace(params: Record<string, unknown>): string {
     const ns = params.namespace;
@@ -1828,7 +1839,7 @@ function createToolHandlers(state: PluginState) {
 
       try {
         if (memory_id) {
-          const response = await apiClient.delete(`/api/memories/${memory_id}`, reqOpts());
+          const response = await apiClient.delete(`/api/memories/${memory_id}`, reqOptsScoped());
           if (!response.success) {
             return { success: false, error: response.error.message };
           }
@@ -1861,7 +1872,7 @@ function createToolHandlers(state: PluginState) {
 
           // Single high-confidence match → auto-delete
           if (matches.length === 1 && (matches[0].similarity ?? 0) > 0.9) {
-            const delResponse = await apiClient.delete(`/api/memories/${matches[0].id}`, reqOpts());
+            const delResponse = await apiClient.delete(`/api/memories/${matches[0].id}`, reqOptsScoped());
             if (!delResponse.success) {
               return { success: false, error: delResponse.error.message };
             }
@@ -1928,7 +1939,7 @@ function createToolHandlers(state: PluginState) {
       try {
         const response = await apiClient.get<{ id: string; title: string; description?: string; status: string }>(
           `/api/work-items/${project_id}?user_email=${encodeURIComponent(state.agentId)}`,
-          reqOpts(),
+          reqOptsScoped(),
         );
 
         if (!response.success) {
@@ -2095,7 +2106,7 @@ function createToolHandlers(state: PluginState) {
         const response = await apiClient.patch<{ id: string }>(
           `/api/work-items/${todoId}/status?user_email=${encodeURIComponent(state.agentId)}`,
           { status: 'completed' },
-          reqOpts(),
+          reqOptsScoped(),
         );
 
         if (!response.success) {
@@ -2259,7 +2270,7 @@ function createToolHandlers(state: PluginState) {
       try {
         const response = await apiClient.get<{ id: string; name: string; email?: string; phone?: string; notes?: string }>(
           `/api/contacts/${contact_id}?user_email=${encodeURIComponent(state.agentId)}`,
-          reqOpts(),
+          reqOptsScoped(),
         );
 
         if (!response.success) {
@@ -2358,7 +2369,7 @@ function createToolHandlers(state: PluginState) {
           if (k !== 'namespace' && v !== undefined) body[k] = v;
         }
 
-        const response = await apiClient.patch<{ id: string; display_name?: string }>(`/api/contacts/${contact_id}`, body, reqOpts());
+        const response = await apiClient.patch<{ id: string; display_name?: string }>(`/api/contacts/${contact_id}`, body, reqOptsScoped());
 
         if (!response.success) {
           return { success: false, error: response.error.message };
@@ -2412,7 +2423,7 @@ function createToolHandlers(state: PluginState) {
       if (!contact_id || !tags?.length) return { success: false, error: 'contact_id and tags are required' };
 
       try {
-        const response = await apiClient.post(`/api/contacts/${contact_id}/tags`, { tags }, reqOpts());
+        const response = await apiClient.post(`/api/contacts/${contact_id}/tags`, { tags }, reqOptsScoped());
 
         if (!response.success) {
           return { success: false, error: response.error.message };
@@ -2437,7 +2448,7 @@ function createToolHandlers(state: PluginState) {
       if (!contact_id || !tag) return { success: false, error: 'contact_id and tag are required' };
 
       try {
-        const response = await apiClient.delete(`/api/contacts/${contact_id}/tags/${encodeURIComponent(tag)}`, reqOpts());
+        const response = await apiClient.delete(`/api/contacts/${contact_id}/tags/${encodeURIComponent(tag)}`, reqOptsScoped());
 
         if (!response.success) {
           return { success: false, error: response.error.message };
@@ -3260,7 +3271,7 @@ function createToolHandlers(state: PluginState) {
             is_directional: boolean;
             notes: string | null;
           }>;
-        }>(`/api/contacts/${contact_id}/relationships?user_email=${encodeURIComponent(state.agentId)}`, reqOpts());
+        }>(`/api/contacts/${contact_id}/relationships?user_email=${encodeURIComponent(state.agentId)}`, reqOptsScoped());
 
         if (!response.success) {
           if (response.error.code === 'NOT_FOUND') {
