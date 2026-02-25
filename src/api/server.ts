@@ -12,7 +12,7 @@ import websocket from '@fastify/websocket';
 import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify';
 import { createPool } from '../db.ts';
 import { sendMagicLinkEmail } from '../email/magicLink.ts';
-import { type AuthIdentity, getAuthIdentity, getSessionEmail, resolveNamespaces, requireMinRole, RoleError } from './auth/middleware.ts';
+import { type AuthIdentity, getAuthIdentity, getSessionEmail, resolveUserEmail, resolveNamespaces, requireMinRole, RoleError } from './auth/middleware.ts';
 import { isAuthDisabled, verifyAccessToken, signAccessToken } from './auth/jwt.ts';
 import { createRefreshToken, consumeRefreshToken, revokeTokenFamily } from './auth/refresh-tokens.ts';
 import { logAuthEvent } from './auth/audit.ts';
@@ -12916,10 +12916,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       namespaces?: string;
     };
 
+    // Resolve user email from JWT (or fallback to query param when auth disabled)
+    const email = await resolveUserEmail(req, query.user_email);
+
     // Epic #1418: namespace scoping — user_email is still accepted for backward compat
     // but notification delivery is per-user (user_email kept per design doc 6.1)
-    if (!query.user_email && !req.namespaceContext) {
-      return reply.code(400).send({ error: 'user_email is required' });
+    if (!email && !req.namespaceContext) {
+      return reply.code(401).send({ error: 'unauthorized' });
     }
 
     const limit = Math.min(Number.parseInt(query.limit || '50', 10), 100);
@@ -12948,8 +12951,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }
     }
 
-    if (query.user_email) {
-      params.push(query.user_email);
+    if (email) {
+      params.push(email);
       conditions.push(`user_email = $${params.length}`);
     }
     let whereClause = `WHERE ${conditions.join(' AND ')}`;
@@ -12997,8 +13000,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.get('/api/notifications/unread-count', async (req, reply) => {
     const query = req.query as { user_email?: string; namespaces?: string };
 
-    if (!query.user_email) {
-      return reply.code(400).send({ error: 'user_email is required' });
+    const email = await resolveUserEmail(req, query.user_email);
+    if (!email) {
+      return reply.code(401).send({ error: 'unauthorized' });
     }
 
     const pool = createPool();
@@ -13006,7 +13010,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const conditions: string[] = ['read_at IS NULL', 'dismissed_at IS NULL'];
     const params: unknown[] = [];
 
-    params.push(query.user_email);
+    params.push(email);
     conditions.push(`user_email = $${params.length}`);
 
     // Issue #1480: optional namespace filter
@@ -13033,8 +13037,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const query = req.query as { user_email?: string };
 
-    if (!query.user_email) {
-      return reply.code(400).send({ error: 'user_email is required' });
+    const email = await resolveUserEmail(req, query.user_email);
+    if (!email) {
+      return reply.code(401).send({ error: 'unauthorized' });
     }
 
     const pool = createPool();
@@ -13043,7 +13048,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
        SET read_at = COALESCE(read_at, now())
        WHERE id = $1 AND user_email = $2
        RETURNING id`,
-      [params.id, query.user_email],
+      [params.id, email],
     );
     await pool.end();
 
@@ -13058,8 +13063,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.post('/api/notifications/read-all', async (req, reply) => {
     const query = req.query as { user_email?: string };
 
-    if (!query.user_email) {
-      return reply.code(400).send({ error: 'user_email is required' });
+    const email = await resolveUserEmail(req, query.user_email);
+    if (!email) {
+      return reply.code(401).send({ error: 'unauthorized' });
     }
 
     const pool = createPool();
@@ -13068,7 +13074,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
        SET read_at = now()
        WHERE user_email = $1 AND read_at IS NULL AND dismissed_at IS NULL
        RETURNING id`,
-      [query.user_email],
+      [email],
     );
     await pool.end();
 
@@ -13080,8 +13086,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const query = req.query as { user_email?: string };
 
-    if (!query.user_email) {
-      return reply.code(400).send({ error: 'user_email is required' });
+    const email = await resolveUserEmail(req, query.user_email);
+    if (!email) {
+      return reply.code(401).send({ error: 'unauthorized' });
     }
 
     const pool = createPool();
@@ -13090,7 +13097,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
        SET dismissed_at = now()
        WHERE id = $1 AND user_email = $2
        RETURNING id`,
-      [params.id, query.user_email],
+      [params.id, email],
     );
     await pool.end();
 
@@ -13105,8 +13112,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.get('/api/notifications/preferences', async (req, reply) => {
     const query = req.query as { user_email?: string };
 
-    if (!query.user_email) {
-      return reply.code(400).send({ error: 'user_email is required' });
+    const email = await resolveUserEmail(req, query.user_email);
+    if (!email) {
+      return reply.code(401).send({ error: 'unauthorized' });
     }
 
     const pool = createPool();
@@ -13114,7 +13122,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       `SELECT notification_type, in_app_enabled, email_enabled
        FROM notification_preference
        WHERE user_email = $1`,
-      [query.user_email],
+      [email],
     );
     await pool.end();
 
@@ -13140,8 +13148,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const query = req.query as { user_email?: string };
     const body = req.body as Record<string, { in_app?: boolean; email?: boolean }>;
 
-    if (!query.user_email) {
-      return reply.code(400).send({ error: 'user_email is required' });
+    const email = await resolveUserEmail(req, query.user_email);
+    if (!email) {
+      return reply.code(401).send({ error: 'unauthorized' });
     }
 
     // Validate notification types
@@ -13161,7 +13170,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
            in_app_enabled = COALESCE($3, notification_preference.in_app_enabled),
            email_enabled = COALESCE($4, notification_preference.email_enabled),
            updated_at = now()`,
-        [query.user_email, type, pref.in_app ?? true, pref.email ?? false],
+        [email, type, pref.in_app ?? true, pref.email ?? false],
       );
     }
 
