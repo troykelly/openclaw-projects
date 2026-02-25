@@ -13,7 +13,6 @@ import type { Pool } from 'pg';
 import { runMigrate } from './helpers/migrate.ts';
 import { createTestPool, truncateAllTables } from './helpers/db.ts';
 import { buildServer } from '../src/api/server.ts';
-import type { FastifyInstance } from 'fastify';
 
 describe('Work Item Type Handling (Issue #1135)', () => {
   const app = buildServer();

@@ -859,9 +859,6 @@ export function ContactDetailPage(): React.JSX.Element {
   );
 }
 
-// Need this import for the delete handler
-import { apiClient } from '@/ui/lib/api-client';
-
 // ---------------------------------------------------------------------------
 // ContactEditDialog - extracted for readability
 // ---------------------------------------------------------------------------
