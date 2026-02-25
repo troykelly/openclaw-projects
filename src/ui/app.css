@@ -29,6 +29,12 @@
   --color-destructive: #ef4444;
   --color-destructive-foreground: #ffffff;
 
+  --color-popover: #ffffff;
+  --color-popover-foreground: #171717;
+
+  --color-card: #ffffff;
+  --color-card-foreground: #171717;
+
   --color-success: #22c55e;
   --color-warning: #f59e0b;
   --color-error: #ef4444;
@@ -65,6 +71,12 @@
 
     --color-accent: #818cf8;
     --color-accent-foreground: #0a0a0a;
+
+    --color-popover: #171717;
+    --color-popover-foreground: #fafafa;
+
+    --color-card: #171717;
+    --color-card-foreground: #fafafa;
   }
 }
 
@@ -87,6 +99,12 @@
 
   --color-accent: #818cf8;
   --color-accent-foreground: #0a0a0a;
+
+  --color-popover: #171717;
+  --color-popover-foreground: #fafafa;
+
+  --color-card: #171717;
+  --color-card-foreground: #fafafa;
 
   /* Dark mode shadows - use subtle glows instead */
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
@@ -114,6 +132,12 @@
 
   --color-accent: #a5b4fc;
   --color-accent-foreground: #000000;
+
+  --color-popover: #0a0a0a;
+  --color-popover-foreground: #ffffff;
+
+  --color-card: #0a0a0a;
+  --color-card-foreground: #ffffff;
 }
 
 /* Smooth theme transitions */
