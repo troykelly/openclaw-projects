@@ -1,0 +1,309 @@
+syntax = "proto3";
+
+package openclaw.terminal.v1;
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+// TerminalService manages tmux sessions over SSH and locally.
+service TerminalService {
+  // Connection testing
+  rpc TestConnection(TestConnectionRequest) returns (TestConnectionResponse);
+
+  // Session lifecycle
+  rpc CreateSession(CreateSessionRequest) returns (SessionInfo);
+  rpc TerminateSession(TerminateSessionRequest) returns (google.protobuf.Empty);
+  rpc ListSessions(ListSessionsRequest) returns (ListSessionsResponse);
+  rpc GetSession(GetSessionRequest) returns (SessionInfo);
+  rpc ResizeSession(ResizeSessionRequest) returns (google.protobuf.Empty);
+
+  // Window/pane management
+  rpc CreateWindow(CreateWindowRequest) returns (WindowInfo);
+  rpc CloseWindow(CloseWindowRequest) returns (google.protobuf.Empty);
+  rpc SplitPane(SplitPaneRequest) returns (PaneInfo);
+  rpc ClosePane(ClosePaneRequest) returns (google.protobuf.Empty);
+
+  // Terminal I/O — bidirectional stream
+  rpc AttachSession(stream TerminalInput) returns (stream TerminalOutput);
+
+  // Command execution
+  rpc SendCommand(SendCommandRequest) returns (SendCommandResponse);
+  rpc SendKeys(SendKeysRequest) returns (google.protobuf.Empty);
+
+  // Scrollback capture
+  rpc CapturePane(CapturePaneRequest) returns (CapturePaneResponse);
+
+  // Tunnels
+  rpc CreateTunnel(CreateTunnelRequest) returns (TunnelInfo);
+  rpc CloseTunnel(CloseTunnelRequest) returns (google.protobuf.Empty);
+  rpc ListTunnels(ListTunnelsRequest) returns (ListTunnelsResponse);
+
+  // Enrollment
+  rpc GetEnrollmentListener(google.protobuf.Empty) returns (stream EnrollmentEvent);
+
+  // Host key verification
+  rpc ApproveHostKey(ApproveHostKeyRequest) returns (google.protobuf.Empty);
+  rpc RejectHostKey(RejectHostKeyRequest) returns (google.protobuf.Empty);
+
+  // Health
+  rpc GetWorkerStatus(google.protobuf.Empty) returns (WorkerStatus);
+}
+
+// ─── Connection ─────────────────────────────────────────────
+
+message TestConnectionRequest {
+  string connection_id = 1;
+}
+
+message TestConnectionResponse {
+  bool success = 1;
+  string message = 2;
+  double latency_ms = 3;
+  string host_key_fingerprint = 4;
+}
+
+// ─── Session lifecycle ──────────────────────────────────────
+
+message CreateSessionRequest {
+  string connection_id = 1;
+  string namespace = 2;
+  string tmux_session_name = 3;
+  int32 cols = 4;
+  int32 rows = 5;
+  bool capture_on_command = 6;
+  bool embed_commands = 7;
+  bool embed_scrollback = 8;
+  int32 capture_interval_s = 9;
+  repeated string tags = 10;
+  string notes = 11;
+}
+
+message TerminateSessionRequest {
+  string session_id = 1;
+}
+
+message ListSessionsRequest {
+  string namespace = 1;
+  string connection_id = 2;
+  string status_filter = 3;
+}
+
+message ListSessionsResponse {
+  repeated SessionInfo sessions = 1;
+}
+
+message GetSessionRequest {
+  string session_id = 1;
+}
+
+message ResizeSessionRequest {
+  string session_id = 1;
+  int32 cols = 2;
+  int32 rows = 3;
+}
+
+message SessionInfo {
+  string id = 1;
+  string namespace = 2;
+  string connection_id = 3;
+  string tmux_session_name = 4;
+  string worker_id = 5;
+  string status = 6;
+  int32 cols = 7;
+  int32 rows = 8;
+  repeated WindowInfo windows = 9;
+  google.protobuf.Timestamp started_at = 10;
+  google.protobuf.Timestamp last_activity_at = 11;
+  google.protobuf.Timestamp terminated_at = 12;
+  int32 exit_code = 13;
+  string error_message = 14;
+  repeated string tags = 15;
+  string notes = 16;
+}
+
+// ─── Window / Pane ──────────────────────────────────────────
+
+message CreateWindowRequest {
+  string session_id = 1;
+  string window_name = 2;
+}
+
+message CloseWindowRequest {
+  string session_id = 1;
+  int32 window_index = 2;
+}
+
+message SplitPaneRequest {
+  string session_id = 1;
+  int32 window_index = 2;
+  bool horizontal = 3; // true = horizontal split, false = vertical
+}
+
+message ClosePaneRequest {
+  string session_id = 1;
+  int32 window_index = 2;
+  int32 pane_index = 3;
+}
+
+message WindowInfo {
+  string id = 1;
+  string session_id = 2;
+  int32 window_index = 3;
+  string window_name = 4;
+  bool is_active = 5;
+  repeated PaneInfo panes = 6;
+}
+
+message PaneInfo {
+  string id = 1;
+  string window_id = 2;
+  int32 pane_index = 3;
+  bool is_active = 4;
+  int32 pid = 5;
+  string current_command = 6;
+}
+
+// ─── Terminal I/O ───────────────────────────────────────────
+
+message TerminalInput {
+  string session_id = 1;
+  oneof payload {
+    bytes data = 2;          // keystrokes
+    TerminalResize resize = 3;
+  }
+}
+
+message TerminalOutput {
+  oneof payload {
+    bytes data = 1;          // screen updates
+    TerminalEvent event = 2;
+  }
+}
+
+message TerminalResize {
+  int32 cols = 1;
+  int32 rows = 2;
+}
+
+message TerminalEvent {
+  string type = 1; // 'status_change', 'host_key_prompt', 'disconnected', 'error'
+  string message = 2;
+  string session_id = 3;
+  HostKeyInfo host_key = 4; // populated for host_key_prompt events
+}
+
+message HostKeyInfo {
+  string host = 1;
+  int32 port = 2;
+  string key_type = 3;
+  string fingerprint = 4;
+  string public_key = 5;
+}
+
+// ─── Command execution ─────────────────────────────────────
+
+message SendCommandRequest {
+  string session_id = 1;
+  string command = 2;
+  int32 timeout_s = 3;
+  string pane_id = 4;
+}
+
+message SendCommandResponse {
+  string output = 1;
+  bool timed_out = 2;
+  int32 exit_code = 3;
+}
+
+message SendKeysRequest {
+  string session_id = 1;
+  string keys = 2;
+  string pane_id = 3;
+}
+
+// ─── Scrollback ─────────────────────────────────────────────
+
+message CapturePaneRequest {
+  string session_id = 1;
+  string pane_id = 2;
+  int32 lines = 3; // number of lines to capture (0 = all visible)
+}
+
+message CapturePaneResponse {
+  string content = 1;
+  int32 lines_captured = 2;
+}
+
+// ─── Tunnels ────────────────────────────────────────────────
+
+message CreateTunnelRequest {
+  string connection_id = 1;
+  string namespace = 2;
+  string session_id = 3; // optional association
+  string direction = 4;  // 'local', 'remote', 'dynamic'
+  string bind_host = 5;
+  int32 bind_port = 6;
+  string target_host = 7;
+  int32 target_port = 8;
+}
+
+message CloseTunnelRequest {
+  string tunnel_id = 1;
+}
+
+message ListTunnelsRequest {
+  string namespace = 1;
+  string connection_id = 2;
+}
+
+message ListTunnelsResponse {
+  repeated TunnelInfo tunnels = 1;
+}
+
+message TunnelInfo {
+  string id = 1;
+  string connection_id = 2;
+  string session_id = 3;
+  string direction = 4;
+  string bind_host = 5;
+  int32 bind_port = 6;
+  string target_host = 7;
+  int32 target_port = 8;
+  string status = 9;
+  string error_message = 10;
+}
+
+// ─── Enrollment ─────────────────────────────────────────────
+
+message EnrollmentEvent {
+  string connection_id = 1;  // newly created connection
+  string host = 2;
+  int32 port = 3;
+  string label = 4;
+  repeated string tags = 5;
+  google.protobuf.Timestamp enrolled_at = 6;
+}
+
+// ─── Host key verification ──────────────────────────────────
+
+message ApproveHostKeyRequest {
+  string session_id = 1;
+  string host = 2;
+  int32 port = 3;
+  string key_type = 4;
+  string fingerprint = 5;
+  string public_key = 6;
+}
+
+message RejectHostKeyRequest {
+  string session_id = 1;
+}
+
+// ─── Health ─────────────────────────────────────────────────
+
+message WorkerStatus {
+  string worker_id = 1;
+  int32 active_sessions = 2;
+  int64 uptime_seconds = 3;
+  string version = 4;
+}

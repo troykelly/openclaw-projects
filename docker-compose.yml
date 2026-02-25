@@ -216,6 +216,8 @@ services:
       NOMINATIM_URL: ${NOMINATIM_URL:-http://nominatim:8080}
       # File upload
       MAX_FILE_SIZE_BYTES: ${MAX_FILE_SIZE_BYTES:-10485760}
+      # TMux worker gRPC connection (optional, enables terminal features)
+      TMUX_WORKER_GRPC_URL: ${TMUX_WORKER_GRPC_URL:-tmux-worker:50051}
     ports:
       - "[::1]:${API_PORT:-3000}:3000"       # IPv6 (preferred)
       - "127.0.0.1:${API_PORT:-3000}:3000"  # IPv4 fallback
@@ -296,6 +298,55 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 128M
+
+  # =============================================================================
+  # TMux Worker (terminal session management via gRPC)
+  # =============================================================================
+  tmux-worker:
+    image: ghcr.io/troykelly/openclaw-projects-tmux-worker:latest
+    container_name: openclaw-tmux-worker
+    profiles: ["terminal"]
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      NODE_ENV: production
+      PGHOST: db
+      PGPORT: 5432
+      PGUSER: ${POSTGRES_USER:-openclaw}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      PGDATABASE: ${POSTGRES_DB:-openclaw}
+      GRPC_PORT: 50051
+      ENROLLMENT_SSH_PORT: 2222
+      TMUX_WORKER_HEALTH_PORT: 9002
+      WORKER_ID: tmux-worker-1
+      OAUTH_TOKEN_ENCRYPTION_KEY: ${OAUTH_TOKEN_ENCRYPTION_KEY:-}
+    ports:
+      - "[::1]:${TMUX_GRPC_PORT:-50051}:50051"          # gRPC (internal)
+      - "127.0.0.1:${TMUX_GRPC_PORT:-50051}:50051"
+      - "[::1]:${TMUX_SSH_PORT:-2222}:2222"              # Enrollment SSH
+      - "127.0.0.1:${TMUX_SSH_PORT:-2222}:2222"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9002/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    # Container hardening
+    # Note: tmux-worker needs more capabilities for SSH/tmux process management
+    security_opt:
+      - no-new-privileges:true
     deploy:
       resources:
         limits:
