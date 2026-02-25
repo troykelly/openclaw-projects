@@ -242,8 +242,8 @@ export function MemoryPage(): React.JSX.Element {
       return searchData.results;
     }
 
-    if (!data?.memories) return [];
-    let result = data.memories;
+    if (!data?.items) return [];
+    let result = data.items;
 
     // Filter by active status (#1725)
     if (!showSuperseded) {
@@ -282,7 +282,7 @@ export function MemoryPage(): React.JSX.Element {
     }
 
     return result;
-  }, [data?.memories, typeFilter, projectFilter, contactFilter, search, dateRange, showSuperseded, semanticSearch, searchData?.results]);
+  }, [data?.items, typeFilter, projectFilter, contactFilter, search, dateRange, showSuperseded, semanticSearch, searchData?.results]);
 
   const handleToggleExpand = useCallback((id: string) => {
     setExpandedId((prev) => (prev === id ? null : id));

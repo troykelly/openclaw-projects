@@ -11,6 +11,7 @@ export function useSettings() {
 
   useEffect(() => {
     let alive = true;
+    mountedRef.current = true;
 
     async function fetchSettings(): Promise<void> {
       try {

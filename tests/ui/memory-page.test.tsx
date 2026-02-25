@@ -159,7 +159,7 @@ const mockMemories: Memory[] = [
 ];
 
 const mockResponse: MemoryListResponse = {
-  memories: mockMemories,
+  items: mockMemories,
   total: 4,
 };
 
@@ -298,7 +298,7 @@ describe('MemoryPage', () => {
 
   it('shows empty state when no memories', async () => {
     (apiClient.get as ReturnType<typeof vi.fn>).mockResolvedValue({
-      memories: [],
+      items: [],
       total: 0,
     });
 
@@ -344,7 +344,7 @@ describe('MemoryPage', () => {
 
   it('displays singular memory count for 1 memory', async () => {
     (apiClient.get as ReturnType<typeof vi.fn>).mockResolvedValue({
-      memories: [mockMemories[0]],
+      items: [mockMemories[0]],
       total: 1,
     });
 

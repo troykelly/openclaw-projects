@@ -363,10 +363,21 @@ export interface WorkItemMemoriesResponse {
   memories: Memory[];
 }
 
-/** Response from GET /api/memory */
+/** Response from GET /api/memory — backend returns `items`, not `memories`. */
 export interface MemoryListResponse {
+  items: Memory[];
+  total: number;
+}
+
+/** Response from GET /api/projects/:id/memories */
+export interface ProjectMemoriesResponse {
   memories: Memory[];
   total: number;
+}
+
+/** Response from GET /api/contacts/:id/memories */
+export interface ContactMemoriesResponse {
+  memories: Memory[];
 }
 
 /** Body for POST /api/memory or POST /api/work-items/:id/memories */

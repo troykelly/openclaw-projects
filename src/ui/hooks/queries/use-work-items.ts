@@ -5,6 +5,7 @@
  */
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/ui/lib/api-client.ts';
+import { workItemsResponseSchema, workItemTreeResponseSchema } from '@/ui/lib/api-schemas.ts';
 import type { WorkItemsResponse, WorkItemDetail, WorkItemTreeResponse } from '@/ui/lib/api-types.ts';
 
 /** Query key factory for work items. */
@@ -28,7 +29,7 @@ export function useWorkItems(filters?: Record<string, string>) {
 
   return useQuery({
     queryKey: workItemKeys.list(filters),
-    queryFn: ({ signal }) => apiClient.get<WorkItemsResponse>(`/api/work-items${queryString}`, { signal }),
+    queryFn: ({ signal }) => apiClient.get<WorkItemsResponse>(`/api/work-items${queryString}`, { signal, schema: workItemsResponseSchema }),
   });
 }
 
@@ -54,6 +55,6 @@ export function useWorkItem(id: string) {
 export function useWorkItemTree() {
   return useQuery({
     queryKey: workItemKeys.tree(),
-    queryFn: ({ signal }) => apiClient.get<WorkItemTreeResponse>('/api/work-items/tree', { signal }),
+    queryFn: ({ signal }) => apiClient.get<WorkItemTreeResponse>('/api/work-items/tree', { signal, schema: workItemTreeResponseSchema }),
   });
 }
