@@ -31,6 +31,28 @@ export async function signTestJwt(email: string = 'test@example.com'): Promise<s
 }
 
 /**
+ * Sign a short-lived M2M (machine-to-machine) JWT for integration tests.
+ * M2M tokens use type: 'm2m' and can operate on any user's data when
+ * a user_email is specified in the request.
+ */
+export async function signTestM2mJwt(serviceId: string = 'test-agent', scope: string = 'read write'): Promise<string> {
+  const secret = new TextEncoder().encode(TEST_JWT_SECRET);
+  const kid = createHash('sha256')
+    .update(TEST_JWT_SECRET.slice(0, 8))
+    .digest('hex')
+    .slice(0, 8);
+
+  return new SignJWT({ type: 'm2m', scope })
+    .setProtectedHeader({ alg: 'HS256', kid })
+    .setSubject(serviceId)
+    .setIssuer('openclaw-projects')
+    .setIssuedAt()
+    .setExpirationTime('15m')
+    .setJti(randomUUID())
+    .sign(secret);
+}
+
+/**
  * Build an Authorization header object for use with app.inject().
  *
  * Usage:
@@ -42,5 +64,11 @@ export async function signTestJwt(email: string = 'test@example.com'): Promise<s
  */
 export async function getAuthHeaders(email: string = 'test@example.com'): Promise<Record<string, string>> {
   const token = await signTestJwt(email);
+  return { authorization: `Bearer ${token}` };
+}
+
+/** Build M2M Authorization header. */
+export async function getM2mAuthHeaders(serviceId: string = 'test-agent'): Promise<Record<string, string>> {
+  const token = await signTestM2mJwt(serviceId);
   return { authorization: `Bearer ${token}` };
 }

@@ -12919,9 +12919,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     // Resolve user email from JWT (or fallback to query param when auth disabled)
     const email = await resolveUserEmail(req, query.user_email);
 
-    // Epic #1418: namespace scoping — user_email is still accepted for backward compat
-    // but notification delivery is per-user (user_email kept per design doc 6.1)
-    if (!email && !req.namespaceContext) {
+    // Notifications are always per-user. Even M2M tokens must specify a
+    // user_email to query — never allow unscoped cross-user queries.
+    if (!email) {
       return reply.code(401).send({ error: 'unauthorized' });
     }
 
@@ -12951,10 +12951,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }
     }
 
-    if (email) {
-      params.push(email);
-      conditions.push(`user_email = $${params.length}`);
-    }
+    // Always scope to the resolved email — never skip the user_email predicate
+    params.push(email);
+    conditions.push(`user_email = $${params.length}`);
     let whereClause = `WHERE ${conditions.join(' AND ')}`;
 
     if (unreadOnly) {
@@ -20003,10 +20002,21 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
     try {
+      // Owner-scoped: only return webhooks created by the authenticated user.
+      // When auth is disabled (tests), return all webhooks for the project.
+      const params: unknown[] = [id];
+      let whereClause = 'WHERE project_id = $1';
+      if (email) {
+        params.push(email);
+        whereClause += ` AND user_email = $${params.length}`;
+      }
+
       const result = await pool.query(
-        `SELECT id::text, project_id::text, user_email, label, token, is_active, last_received, created_at, updated_at
-         FROM project_webhook WHERE project_id = $1 ORDER BY created_at DESC`,
-        [id],
+        `SELECT id::text, project_id::text, user_email, label,
+                CONCAT(LEFT(token, 8), '...') AS token,
+                is_active, last_received, created_at, updated_at
+         FROM project_webhook ${whereClause} ORDER BY created_at DESC`,
+        params,
       );
       return reply.send(result.rows);
     } catch (err) {
@@ -20028,9 +20038,18 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
     try {
+      // Owner-scoped: only allow deletion of webhooks owned by the authenticated user.
+      // When auth is disabled (tests), allow deletion without owner check.
+      const params: unknown[] = [webhook_id, id];
+      let whereClause = 'WHERE id = $1 AND project_id = $2';
+      if (email) {
+        params.push(email);
+        whereClause += ` AND user_email = $${params.length}`;
+      }
+
       const result = await pool.query(
-        `DELETE FROM project_webhook WHERE id = $1 AND project_id = $2 RETURNING id`,
-        [webhook_id, id],
+        `DELETE FROM project_webhook ${whereClause} RETURNING id`,
+        params,
       );
       if (result.rows.length === 0) {
         return reply.code(404).send({ error: 'not found' });
