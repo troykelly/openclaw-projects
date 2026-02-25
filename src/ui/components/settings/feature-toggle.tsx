@@ -78,8 +78,9 @@ export function needsScopeUpgrade(
   permission_level: OAuthPermissionLevel,
   currentScopes: string[],
 ): boolean {
-  const required = SCOPE_MAP[provider][feature][permission_level];
-  const current = new Set(currentScopes);
+  const required = SCOPE_MAP[provider]?.[feature]?.[permission_level];
+  if (!Array.isArray(required)) return true;
+  const current = new Set(Array.isArray(currentScopes) ? currentScopes : []);
   return required.some((s) => !current.has(s));
 }
 

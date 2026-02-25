@@ -327,8 +327,22 @@ export function EmbeddingSettingsSection() {
     );
   }
 
-  const { provider, budget, usage } = state.data;
-  const available_providers = Array.isArray(state.data.available_providers) ? state.data.available_providers : [];
+  const provider = state.data?.provider ?? null;
+  const available_providers = Array.isArray(state.data?.available_providers) ? state.data.available_providers : [];
+  const rawBudget = state.data?.budget;
+  const budget = {
+    daily_limit_usd: rawBudget?.daily_limit_usd ?? 0,
+    monthly_limit_usd: rawBudget?.monthly_limit_usd ?? 0,
+    today_spend_usd: rawBudget?.today_spend_usd ?? 0,
+    month_spend_usd: rawBudget?.month_spend_usd ?? 0,
+    pause_on_limit: rawBudget?.pause_on_limit ?? false,
+  };
+  const rawUsage = state.data?.usage;
+  const usage = {
+    today: { count: rawUsage?.today?.count ?? 0, tokens: rawUsage?.today?.tokens ?? 0 },
+    month: { count: rawUsage?.month?.count ?? 0, tokens: rawUsage?.month?.tokens ?? 0 },
+    total: { count: rawUsage?.total?.count ?? 0, tokens: rawUsage?.total?.tokens ?? 0 },
+  };
 
   return (
     <>

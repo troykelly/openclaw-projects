@@ -18,7 +18,7 @@
  */
 
 import {
-  ArrowLeft, Bell, Calendar, Cake, Clock, Globe, Heart,
+  ArrowLeft, Bell, Briefcase, Calendar, Cake, Clock, Globe, Heart,
   Link2, Mail, MapPin, MessageSquare, Pencil, Phone,
   Plus, Tag, Trash2, Upload, X, Loader2,
 } from 'lucide-react';
@@ -43,6 +43,8 @@ import {
   useAddContactTags, useRemoveContactTag,
   useUploadContactPhoto, useDeleteContactPhoto,
 } from '@/ui/hooks/mutations/use-update-contact';
+import { useContactWorkItems } from '@/ui/hooks/queries/use-work-item-contacts';
+import { apiClient } from '@/ui/lib/api-client';
 import type { CommChannel, Contact, ContactAddress, ContactDate, ContactEndpoint, CreateContactBody, EndpointType } from '@/ui/lib/api-types';
 import { formatContactName, getContactInitials } from '@/ui/lib/format-contact-name';
 
@@ -89,6 +91,7 @@ export function ContactDetailPage(): React.JSX.Element {
     contact_id ?? '',
     'endpoints,addresses,dates,tags',
   );
+  const { data: linkedWorkItemsData } = useContactWorkItems(contact_id ?? '');
 
   const updateMutation = useUpdateContact();
   const addEndpoint = useAddContactEndpoint();
@@ -378,6 +381,10 @@ export function ContactDetailPage(): React.JSX.Element {
           <TabsTrigger value="activity" className="gap-1">
             <Calendar className="size-3" />
             Activity
+          </TabsTrigger>
+          <TabsTrigger value="work-items" className="gap-1">
+            <Briefcase className="size-3" />
+            Work Items
           </TabsTrigger>
         </TabsList>
 
@@ -686,6 +693,32 @@ export function ContactDetailPage(): React.JSX.Element {
         {/* Activity Tab */}
         <TabsContent value="activity" className="mt-4">
           <EmptyState variant="calendar" title="No activity yet" description="Activity related to this contact will appear here." />
+        </TabsContent>
+
+        {/* Work Items Tab (#1720) */}
+        <TabsContent value="work-items" className="mt-4" data-testid="linked-work-items-tab">
+          {(linkedWorkItemsData?.work_items ?? []).length > 0 ? (
+            <div className="space-y-2">
+              {linkedWorkItemsData!.work_items.map((wi) => (
+                <Card key={wi.id}>
+                  <CardContent className="p-4 flex items-center gap-3">
+                    <Briefcase className="size-5 text-muted-foreground shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <a href={`/app/work-items/${wi.work_item_id}`} className="text-sm font-medium hover:underline truncate block">
+                        {wi.title}
+                      </a>
+                      <div className="flex gap-2 mt-1">
+                        <Badge variant="outline" className="text-xs">{wi.kind}</Badge>
+                        <Badge variant="secondary" className="text-xs">{wi.status}</Badge>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <EmptyState variant="documents" title="No linked work items" description="Work items linked to this contact will appear here." />
+          )}
         </TabsContent>
       </Tabs>
 
