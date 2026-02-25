@@ -312,11 +312,13 @@ export interface MemoryListResponse {
   total: number;
 }
 
-/** Body for POST /api/work-items/:id/memories */
+/** Body for POST /api/work-items/:id/memories or POST /api/memory */
 export interface CreateMemoryBody {
   title: string;
   content: string;
   type?: string;
+  contact_id?: string;
+  relationship_id?: string;
 }
 
 /** Body for PATCH /api/memories/:id */
