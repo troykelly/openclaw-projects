@@ -348,6 +348,7 @@ interface AddProviderFormState {
   label: string;
   /** Home Assistant fields */
   haUrl: string;
+  haAuthMethod: 'oauth' | 'token';
   haAccessToken: string;
   /** MQTT fields */
   mqttHost: string;
@@ -360,6 +361,7 @@ const INITIAL_FORM_STATE: AddProviderFormState = {
   providerType: 'home_assistant',
   label: '',
   haUrl: '',
+  haAuthMethod: 'oauth',
   haAccessToken: '',
   mqttHost: '',
   mqttPort: '1883',
@@ -370,10 +372,11 @@ const INITIAL_FORM_STATE: AddProviderFormState = {
 interface AddProviderDialogProps {
   onCreate: (payload: CreateProviderPayload) => Promise<GeoProvider>;
   onCreated: () => void;
+  onInitiateHaOAuth: (instanceUrl: string, label: string) => Promise<{ url: string; provider_id: string }>;
   isSubmitting: boolean;
 }
 
-function AddProviderDialog({ onCreate, onCreated, isSubmitting }: AddProviderDialogProps) {
+function AddProviderDialog({ onCreate, onCreated, onInitiateHaOAuth, isSubmitting }: AddProviderDialogProps) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<AddProviderFormState>(INITIAL_FORM_STATE);
   const [error, setError] = useState<string | null>(null);
@@ -411,6 +414,18 @@ function AddProviderDialog({ onCreate, onCreated, isSubmitting }: AddProviderDia
         setError('Home Assistant URL is required');
         return;
       }
+
+      if (form.haAuthMethod === 'oauth') {
+        try {
+          const { url } = await onInitiateHaOAuth(form.haUrl.trim(), form.label.trim());
+          window.location.href = url;
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'Failed to start OAuth flow');
+        }
+        return;
+      }
+
+      // Token method — existing behavior
       if (!form.haAccessToken.trim()) {
         setError('Access token is required');
         return;
@@ -453,7 +468,7 @@ function AddProviderDialog({ onCreate, onCreated, isSubmitting }: AddProviderDia
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create provider');
     }
-  }, [form, onCreate, onCreated, handleOpen]);
+  }, [form, onCreate, onCreated, onInitiateHaOAuth, handleOpen]);
 
   /** Close the dialog after webhook token has been shown. */
   const handleWebhookDone = useCallback(() => {
@@ -536,21 +551,54 @@ function AddProviderDialog({ onCreate, onCreated, isSubmitting }: AddProviderDia
                       id="ha-url"
                       value={form.haUrl}
                       onChange={(e) => updateField('haUrl', e.target.value)}
-                      placeholder="https://homeassistant.local:8123"
+                      placeholder="https://ha.example.com or https://xxxxx.ui.nabu.casa"
                       data-testid="ha-url-input"
                     />
                   </div>
+
                   <div className="space-y-2">
-                    <Label htmlFor="ha-token">Access Token</Label>
-                    <Input
-                      id="ha-token"
-                      type="password"
-                      value={form.haAccessToken}
-                      onChange={(e) => updateField('haAccessToken', e.target.value)}
-                      placeholder="Long-lived access token"
-                      data-testid="ha-token-input"
-                    />
+                    <Label>Authentication</Label>
+                    <div data-testid="ha-auth-method" className="space-y-2">
+                      <label className="flex items-center space-x-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="ha-auth-method"
+                          value="oauth"
+                          checked={form.haAuthMethod === 'oauth'}
+                          onChange={() => updateField('haAuthMethod', 'oauth')}
+                          data-testid="ha-auth-oauth"
+                          className="accent-primary"
+                        />
+                        <span className="text-sm">Connect with OAuth (recommended)</span>
+                      </label>
+                      <label className="flex items-center space-x-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="ha-auth-method"
+                          value="token"
+                          checked={form.haAuthMethod === 'token'}
+                          onChange={() => updateField('haAuthMethod', 'token')}
+                          data-testid="ha-auth-token"
+                          className="accent-primary"
+                        />
+                        <span className="text-sm">Long-lived Access Token</span>
+                      </label>
+                    </div>
                   </div>
+
+                  {form.haAuthMethod === 'token' && (
+                    <div className="space-y-2">
+                      <Label htmlFor="ha-token">Access Token</Label>
+                      <Input
+                        id="ha-token"
+                        type="password"
+                        value={form.haAccessToken}
+                        onChange={(e) => updateField('haAccessToken', e.target.value)}
+                        placeholder="Long-lived access token from HA profile"
+                        data-testid="ha-token-input"
+                      />
+                    </div>
+                  )}
                 </>
               )}
 
@@ -666,7 +714,7 @@ export function LocationSection({
 }: LocationSectionProps) {
   const { state: providersState, refetch } = useGeoProviders();
   const { state: locationState } = useCurrentLocation();
-  const { createProvider, deleteProvider, verifyProvider, isSubmitting } = useGeoMutations();
+  const { createProvider, deleteProvider, verifyProvider, initiateHaOAuth, isSubmitting } = useGeoMutations();
 
   const [retentionHours, setRetentionHours] = useState(String(geoHighResRetentionHours));
   const [retention_days, setRetentionDays] = useState(String(geoGeneralRetentionDays));
@@ -758,6 +806,7 @@ export function LocationSection({
             <AddProviderDialog
               onCreate={createProvider}
               onCreated={refetch}
+              onInitiateHaOAuth={initiateHaOAuth}
               isSubmitting={isSubmitting}
             />
           </div>

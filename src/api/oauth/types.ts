@@ -4,7 +4,7 @@
  * All property names use snake_case to match the project-wide convention (Issue #1412).
  */
 
-export type OAuthProvider = 'google' | 'microsoft';
+export type OAuthProvider = 'google' | 'microsoft' | 'home_assistant';
 
 /** Permission levels for OAuth connections. */
 export type OAuthPermissionLevel = 'read' | 'read_write';
@@ -77,10 +77,12 @@ export interface OAuthAuthorizationUrl {
 
 export interface OAuthStateData {
   provider: OAuthProvider;
-  code_verifier: string;
+  code_verifier: string;           // kept for Google/Microsoft; null for HA
   scopes: string[];
   user_email?: string;
   redirect_path?: string;
+  geo_provider_id?: string;        // links to geo_provider for HA OAuth
+  instance_url?: string;           // HA instance URL for token exchange
   created_at: Date;
   expires_at: Date;
 }

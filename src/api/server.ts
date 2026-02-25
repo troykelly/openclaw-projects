@@ -13945,6 +13945,46 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
       const provider = stateData.provider;
 
+      // HA OAuth callback — store tokens in geo_provider, not oauth_connection (Issue #1808)
+      if (provider === 'home_assistant') {
+        if (!stateData.instance_url || !stateData.geo_provider_id) {
+          return reply.code(400).send({ error: 'Invalid HA OAuth state — missing instance_url or geo_provider_id' });
+        }
+
+        const rawBase = process.env.PUBLIC_BASE_URL || 'http://localhost:3000';
+        const clientId = rawBase.replace(/\/+$/, '');
+
+        const { exchangeCodeForTokens: haExchange } = await import('./oauth/home-assistant.ts');
+        const tokens = await haExchange(stateData.instance_url, query.code!, clientId);
+
+        // Encrypt and store credentials as JSON in geo_provider
+        const credentialsJson = JSON.stringify({
+          access_token: tokens.access_token,
+          refresh_token: tokens.refresh_token,
+          expires_at: tokens.expires_at?.toISOString(),
+          token_type: tokens.token_type,
+        });
+
+        const { encryptCredentials } = await import('./geolocation/crypto.ts');
+        const encrypted = encryptCredentials(credentialsJson, stateData.geo_provider_id);
+
+        const { updateProvider: updateGeoProvider } = await import('./geolocation/service.ts');
+        await updateGeoProvider(pool, stateData.geo_provider_id, {
+          credentials: encrypted,
+          status: 'active',
+        });
+
+        // Redirect to settings with success indicator
+        let parsedBase: URL;
+        try {
+          parsedBase = new URL(rawBase);
+        } catch {
+          return reply.code(500).send({ error: 'Server misconfiguration: invalid PUBLIC_BASE_URL' });
+        }
+        const redirectUrl = `${parsedBase.origin}${parsedBase.pathname.replace(/\/+$/, '')}/app/settings?ha_connected=${stateData.geo_provider_id}`;
+        return reply.redirect(redirectUrl);
+      }
+
       if (!isProviderConfigured(provider)) {
         return reply.code(503).send({
           error: `OAuth provider ${provider} is not configured`,
@@ -19567,6 +19607,84 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const entities = await plugin.discoverEntities(provider.config, credentials);
       return reply.send(entities);
     } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/geolocation/providers/ha/authorize — Initiate HA OAuth flow (Issue #1808)
+  app.get('/api/geolocation/providers/ha/authorize', async (req, reply) => {
+    const email = await getSessionEmail(req);
+    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
+
+    const query = req.query as { instance_url?: string; label?: string };
+    if (!query.instance_url || !query.label) {
+      return reply.code(400).send({ error: 'instance_url and label are required' });
+    }
+
+    // Validate instance URL (SSRF guard)
+    const { validateOutboundUrl } = await import('./geolocation/network-guard.ts');
+    const urlResult = validateOutboundUrl(query.instance_url);
+    if (!urlResult.ok) {
+      return reply.code(400).send({ error: urlResult.error });
+    }
+
+    const pool = createPool();
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Enforce provider limit
+      const countResult = await client.query('SELECT COUNT(*)::int AS cnt FROM geo_provider WHERE owner_email = $1 AND deleted_at IS NULL FOR UPDATE', [email]);
+      if (countResult.rows[0].cnt >= GEO_MAX_PROVIDERS_PER_USER) {
+        await client.query('ROLLBACK');
+        return reply.code(429).send({ error: `Maximum of ${GEO_MAX_PROVIDERS_PER_USER} providers allowed` });
+      }
+
+      // Create geo_provider in 'connecting' state
+      const { createProvider: createGeoProvider } = await import('./geolocation/service.ts');
+      const provider = await createGeoProvider(client, {
+        owner_email: email,
+        provider_type: 'home_assistant',
+        auth_type: 'oauth2',
+        label: query.label,
+        config: { url: query.instance_url },
+        credentials: null,
+      });
+
+      // Auto-create subscription for owner
+      const { createSubscription: createGeoSubscription } = await import('./geolocation/service.ts');
+      await createGeoSubscription(client, {
+        provider_id: provider.id,
+        user_email: email,
+        priority: 0,
+        is_active: true,
+        entities: [],
+      });
+
+      // Generate state and build HA authorize URL
+      const state = randomBytes(32).toString('base64url');
+      const rawBase = process.env.PUBLIC_BASE_URL || 'http://localhost:3000';
+      const clientId = rawBase.replace(/\/+$/, '');
+      const redirectUri = `${clientId}/api/oauth/callback`;
+
+      const { buildAuthorizationUrl } = await import('./oauth/home-assistant.ts');
+      const { url } = buildAuthorizationUrl(query.instance_url, clientId, redirectUri, state);
+
+      // Persist state (no code_verifier — HA uses IndieAuth, not PKCE)
+      await client.query(
+        `INSERT INTO oauth_state (state, provider, code_verifier, scopes, user_email, geo_provider_id, instance_url)
+         VALUES ($1, 'home_assistant', NULL, '{}', $2, $3, $4)`,
+        [state, email, provider.id, query.instance_url],
+      );
+
+      await client.query('COMMIT');
+
+      return reply.send({ url, provider_id: provider.id });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
       await pool.end();
     }
   });
