@@ -1,1 +1,1 @@
-export { NotificationBell, type Notification } from './notification-bell';
+export { NotificationBell, type NotificationBellProps } from './notification-bell';

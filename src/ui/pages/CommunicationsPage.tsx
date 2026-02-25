@@ -29,6 +29,7 @@ import { CalendarEventDetailSheet } from '@/ui/components/communications/calenda
 import type { LinkedEmail, LinkedCalendarEvent } from '@/ui/components/communications/types';
 import { Skeleton, SkeletonList, EmptyState, ErrorState } from '@/ui/components/feedback';
 import { useEmails, useCalendarEvents } from '@/ui/hooks/queries/use-global-communications';
+import { mapApiEmailToLinkedEmail, mapApiEventToLinkedCalendarEvent } from '@/ui/lib/communication-mappers';
 
 /** Tab values for the communications view. */
 export type CommunicationTab = 'all' | 'emails' | 'calendar';
@@ -136,13 +137,10 @@ export function CommunicationsPage({
   const hasPropsEmails = propEmails !== undefined;
   const hasPropsEvents = propEvents !== undefined;
 
-  // Use props if provided (for testing / server-rendered data), otherwise use
-  // query data. The API returns ApiCommunication[] which differs from the
-  // LinkedEmail / LinkedCalendarEvent shapes the page expects — a full mapping
-  // layer will be added in a follow-up. For now, fall back to empty arrays when
-  // only the API data is available.
-  const emails = propEmails ?? [];
-  const calendarEvents = propEvents ?? [];
+  // Use props if provided (for testing / server-rendered data), otherwise map
+  // the API response shapes to the component-expected shapes.
+  const emails = propEmails ?? (emailsQuery.data?.emails ? emailsQuery.data.emails.map(mapApiEmailToLinkedEmail) : []);
+  const calendarEvents = propEvents ?? (eventsQuery.data?.events ? eventsQuery.data.events.map(mapApiEventToLinkedCalendarEvent) : []);
 
   // Loading: prop loading flag, or hooks loading when no props provided
   const isLoading = propIsLoading || (!hasPropsEmails && emailsQuery.isLoading) || (!hasPropsEvents && eventsQuery.isLoading);

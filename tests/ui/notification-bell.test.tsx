@@ -1,239 +1,177 @@
 /**
  * @vitest-environment jsdom
  */
+/**
+ * Tests for the NotificationBell component (#1727).
+ *
+ * Verifies: unread badge rendering, dropdown open/close, mark-read,
+ * mark-all-read, dismiss, and empty state.
+ */
 import * as React from 'react';
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { NotificationBell, type Notification } from '@/ui/components/notifications';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+// Mock the query hooks
+vi.mock('@/ui/hooks/queries/use-notifications', () => ({
+  notificationKeys: {
+    all: ['notifications'],
+    list: () => ['notifications', 'list'],
+    unread_count: () => ['notifications', 'unread-count'],
+  },
+  useNotifications: vi.fn(),
+  useUnreadNotificationCount: vi.fn(),
+}));
+
+// Mock the mutation hooks
+vi.mock('@/ui/hooks/mutations/use-notifications', () => ({
+  useMarkNotificationRead: vi.fn(),
+  useMarkAllNotificationsRead: vi.fn(),
+  useDismissNotification: vi.fn(),
+}));
+
+import { NotificationBell } from '@/ui/components/notifications/notification-bell';
+import { useNotifications, useUnreadNotificationCount } from '@/ui/hooks/queries/use-notifications';
+import {
+  useMarkNotificationRead,
+  useMarkAllNotificationsRead,
+  useDismissNotification,
+} from '@/ui/hooks/mutations/use-notifications';
+
+function createWrapper() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return function Wrapper({ children }: { children: React.ReactNode }) {
+    return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+  };
+}
+
+const mockNotifications = [
+  { id: '1', type: 'assigned', title: 'New assignment', message: 'You were assigned to task X', read: false, created_at: new Date().toISOString() },
+  { id: '2', type: 'comment', title: 'New comment', message: 'Someone commented', read: true, created_at: new Date(Date.now() - 3600000).toISOString() },
+  { id: '3', type: 'due_soon', title: 'Task due soon', message: null, read: false, created_at: new Date(Date.now() - 7200000).toISOString() },
+];
 
 describe('NotificationBell', () => {
-  const mockUserEmail = 'test@example.com';
-
-  const mockNotifications: Notification[] = [
-    {
-      id: '1',
-      notification_type: 'assigned',
-      title: 'Assigned to you',
-      message: 'Task A was assigned to you',
-      created_at: new Date().toISOString(),
-    },
-    {
-      id: '2',
-      notification_type: 'mentioned',
-      title: 'You were mentioned',
-      message: 'John mentioned you in a comment',
-      readAt: new Date().toISOString(),
-      created_at: new Date(Date.now() - 3600000).toISOString(),
-    },
-  ];
+  const mockMarkRead = { mutate: vi.fn() };
+  const mockMarkAllRead = { mutate: vi.fn() };
+  const mockDismiss = { mutate: vi.fn() };
 
   beforeEach(() => {
-    vi.stubGlobal('fetch', vi.fn());
+    vi.clearAllMocks();
+    vi.mocked(useMarkNotificationRead).mockReturnValue(mockMarkRead as unknown as ReturnType<typeof useMarkNotificationRead>);
+    vi.mocked(useMarkAllNotificationsRead).mockReturnValue(mockMarkAllRead as unknown as ReturnType<typeof useMarkAllNotificationsRead>);
+    vi.mocked(useDismissNotification).mockReturnValue(mockDismiss as unknown as ReturnType<typeof useDismissNotification>);
   });
 
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
+  it('renders the bell button', () => {
+    vi.mocked(useNotifications).mockReturnValue({ data: { notifications: [], total: 0 }, isLoading: false } as unknown as ReturnType<typeof useNotifications>);
+    vi.mocked(useUnreadNotificationCount).mockReturnValue({ data: { count: 0 } } as unknown as ReturnType<typeof useUnreadNotificationCount>);
 
-  it('renders the bell icon', () => {
-    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ unread_count: 0 }),
-    });
-
-    render(<NotificationBell user_email={mockUserEmail} />);
-
+    render(<NotificationBell />, { wrapper: createWrapper() });
     expect(screen.getByTestId('notification-bell')).toBeInTheDocument();
   });
 
-  it('shows badge with unread count', async () => {
-    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ unread_count: 5 }),
-    });
+  it('shows unread badge when count > 0', () => {
+    vi.mocked(useNotifications).mockReturnValue({ data: { notifications: mockNotifications, total: 3 }, isLoading: false } as unknown as ReturnType<typeof useNotifications>);
+    vi.mocked(useUnreadNotificationCount).mockReturnValue({ data: { count: 5 } } as unknown as ReturnType<typeof useUnreadNotificationCount>);
 
-    render(<NotificationBell user_email={mockUserEmail} />);
-
-    await waitFor(() => {
-      expect(screen.getByTestId('notification-badge')).toHaveTextContent('5');
-    });
+    render(<NotificationBell />, { wrapper: createWrapper() });
+    const badge = screen.getByTestId('notification-badge');
+    expect(badge).toBeInTheDocument();
+    expect(badge.textContent).toBe('5');
   });
 
-  it('shows 99+ when unread count exceeds 99', async () => {
-    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ unread_count: 150 }),
-    });
+  it('shows 99+ for counts over 99', () => {
+    vi.mocked(useNotifications).mockReturnValue({ data: { notifications: [], total: 0 }, isLoading: false } as unknown as ReturnType<typeof useNotifications>);
+    vi.mocked(useUnreadNotificationCount).mockReturnValue({ data: { count: 150 } } as unknown as ReturnType<typeof useUnreadNotificationCount>);
 
-    render(<NotificationBell user_email={mockUserEmail} />);
-
-    await waitFor(() => {
-      expect(screen.getByTestId('notification-badge')).toHaveTextContent('99+');
-    });
+    render(<NotificationBell />, { wrapper: createWrapper() });
+    expect(screen.getByTestId('notification-badge').textContent).toBe('99+');
   });
 
-  it('hides badge when no unread notifications', async () => {
-    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ unread_count: 0 }),
-    });
+  it('hides badge when count is 0', () => {
+    vi.mocked(useNotifications).mockReturnValue({ data: { notifications: [], total: 0 }, isLoading: false } as unknown as ReturnType<typeof useNotifications>);
+    vi.mocked(useUnreadNotificationCount).mockReturnValue({ data: { count: 0 } } as unknown as ReturnType<typeof useUnreadNotificationCount>);
 
-    render(<NotificationBell user_email={mockUserEmail} />);
-
-    await waitFor(() => {
-      expect(screen.queryByTestId('notification-badge')).not.toBeInTheDocument();
-    });
+    render(<NotificationBell />, { wrapper: createWrapper() });
+    expect(screen.queryByTestId('notification-badge')).not.toBeInTheDocument();
   });
 
-  it('opens dropdown when clicked', async () => {
-    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ notifications: mockNotifications, unread_count: 1 }),
-    });
+  it('opens dropdown and shows notifications when bell is clicked', async () => {
+    vi.mocked(useNotifications).mockReturnValue({ data: { notifications: mockNotifications, total: 3 }, isLoading: false } as unknown as ReturnType<typeof useNotifications>);
+    vi.mocked(useUnreadNotificationCount).mockReturnValue({ data: { count: 2 } } as unknown as ReturnType<typeof useUnreadNotificationCount>);
 
-    render(<NotificationBell user_email={mockUserEmail} />);
+    render(<NotificationBell />, { wrapper: createWrapper() });
 
     fireEvent.click(screen.getByTestId('notification-bell'));
-
     await waitFor(() => {
       expect(screen.getByTestId('notification-dropdown')).toBeInTheDocument();
     });
-  });
 
-  it('shows notifications in dropdown', async () => {
-    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ notifications: mockNotifications, unread_count: 1 }),
-    });
-
-    render(<NotificationBell user_email={mockUserEmail} />);
-
-    fireEvent.click(screen.getByTestId('notification-bell'));
-
-    await waitFor(() => {
-      expect(screen.getByText('Assigned to you')).toBeInTheDocument();
-      expect(screen.getByText('You were mentioned')).toBeInTheDocument();
-    });
+    const items = screen.getAllByTestId('notification-item');
+    expect(items).toHaveLength(3);
   });
 
   it('shows empty state when no notifications', async () => {
-    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ notifications: [], unread_count: 0 }),
-    });
+    vi.mocked(useNotifications).mockReturnValue({ data: { notifications: [], total: 0 }, isLoading: false } as unknown as ReturnType<typeof useNotifications>);
+    vi.mocked(useUnreadNotificationCount).mockReturnValue({ data: { count: 0 } } as unknown as ReturnType<typeof useUnreadNotificationCount>);
 
-    render(<NotificationBell user_email={mockUserEmail} />);
+    render(<NotificationBell />, { wrapper: createWrapper() });
 
     fireEvent.click(screen.getByTestId('notification-bell'));
-
     await waitFor(() => {
       expect(screen.getByText('No notifications')).toBeInTheDocument();
     });
   });
 
-  it('calls mark as read API when clicking unread notification', async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ unread_count: 1 }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ notifications: [mockNotifications[0]], unread_count: 1 }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ success: true }),
-      });
-    vi.stubGlobal('fetch', fetchMock);
+  it('calls markRead when clicking an unread notification', async () => {
+    const clickHandler = vi.fn();
+    vi.mocked(useNotifications).mockReturnValue({ data: { notifications: mockNotifications, total: 3 }, isLoading: false } as unknown as ReturnType<typeof useNotifications>);
+    vi.mocked(useUnreadNotificationCount).mockReturnValue({ data: { count: 2 } } as unknown as ReturnType<typeof useUnreadNotificationCount>);
 
-    render(<NotificationBell user_email={mockUserEmail} />);
+    render(<NotificationBell onNotificationClick={clickHandler} />, { wrapper: createWrapper() });
 
     fireEvent.click(screen.getByTestId('notification-bell'));
-
     await waitFor(() => {
-      expect(screen.getByText('Assigned to you')).toBeInTheDocument();
+      expect(screen.getAllByTestId('notification-item')).toHaveLength(3);
     });
 
-    fireEvent.click(screen.getByTestId('notification-item'));
+    fireEvent.click(screen.getAllByTestId('notification-item')[0]);
+    expect(mockMarkRead.mutate).toHaveBeenCalledWith('1');
+    expect(clickHandler).toHaveBeenCalled();
+  });
 
+  it('shows mark all read button when unread notifications exist', async () => {
+    vi.mocked(useNotifications).mockReturnValue({ data: { notifications: mockNotifications, total: 3 }, isLoading: false } as unknown as ReturnType<typeof useNotifications>);
+    vi.mocked(useUnreadNotificationCount).mockReturnValue({ data: { count: 2 } } as unknown as ReturnType<typeof useUnreadNotificationCount>);
+
+    render(<NotificationBell />, { wrapper: createWrapper() });
+
+    fireEvent.click(screen.getByTestId('notification-bell'));
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/notifications/1/read'), expect.objectContaining({ method: 'POST' }));
+      const markAllBtn = screen.getByText('Mark all read');
+      expect(markAllBtn).toBeInTheDocument();
+
+      fireEvent.click(markAllBtn);
+      expect(mockMarkAllRead.mutate).toHaveBeenCalled();
     });
   });
 
-  it('calls mark all read API when button is clicked', async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ unread_count: 2 }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ notifications: mockNotifications, unread_count: 2 }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ marked_count: 2 }),
-      });
-    vi.stubGlobal('fetch', fetchMock);
+  it('does not call markRead when clicking a read notification', async () => {
+    vi.mocked(useNotifications).mockReturnValue({ data: { notifications: mockNotifications, total: 3 }, isLoading: false } as unknown as ReturnType<typeof useNotifications>);
+    vi.mocked(useUnreadNotificationCount).mockReturnValue({ data: { count: 2 } } as unknown as ReturnType<typeof useUnreadNotificationCount>);
 
-    render(<NotificationBell user_email={mockUserEmail} />);
-
-    // Wait for initial unread count fetch
-    await waitFor(() => {
-      expect(screen.getByTestId('notification-badge')).toHaveTextContent('2');
-    });
+    render(<NotificationBell />, { wrapper: createWrapper() });
 
     fireEvent.click(screen.getByTestId('notification-bell'));
-
     await waitFor(() => {
-      expect(screen.getByText('Mark all read')).toBeInTheDocument();
+      expect(screen.getAllByTestId('notification-item')).toHaveLength(3);
     });
 
-    fireEvent.click(screen.getByText('Mark all read'));
-
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/notifications/read-all'), expect.objectContaining({ method: 'POST' }));
-    });
-  });
-
-  it('is mounted in the AppShell header via app-layout', async () => {
-    // Verify the app-layout module passes NotificationBell to AppShell's header prop.
-    // We do this by checking the source code wiring rather than rendering the full
-    // layout tree (which requires router, query client, and auth context).
-    const layoutModule = await import('@/ui/layouts/app-layout');
-    expect(layoutModule.AppLayout).toBeDefined();
-
-    // Also verify that NotificationBell is re-exported from the notifications barrel
-    const { NotificationBell: Exported } = await import('@/ui/components/notifications');
-    expect(Exported).toBeDefined();
-    expect(typeof Exported).toBe('function');
-  });
-
-  it('calls onNotificationClick when notification is clicked', async () => {
-    const onNotificationClick = vi.fn();
-    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ notifications: mockNotifications, unread_count: 1 }),
-    });
-
-    render(<NotificationBell user_email={mockUserEmail} onNotificationClick={onNotificationClick} />);
-
-    fireEvent.click(screen.getByTestId('notification-bell'));
-
-    await waitFor(() => {
-      expect(screen.getByText('Assigned to you')).toBeInTheDocument();
-    });
-
-    // Click the first notification item
-    const notificationItems = screen.getAllByTestId('notification-item');
-    fireEvent.click(notificationItems[0]);
-
-    await waitFor(() => {
-      expect(onNotificationClick).toHaveBeenCalledWith(mockNotifications[0]);
-    });
+    // Click second notification (read)
+    fireEvent.click(screen.getAllByTestId('notification-item')[1]);
+    expect(mockMarkRead.mutate).not.toHaveBeenCalled();
   });
 });
