@@ -292,5 +292,20 @@ export function useGeoMutations() {
     [],
   );
 
-  return { createProvider, deleteProvider, verifyProvider, isSubmitting };
+  const initiateHaOAuth = useCallback(
+    async (instanceUrl: string, label: string): Promise<{ url: string; provider_id: string }> => {
+      setIsSubmitting(true);
+      try {
+        const res = await apiClient.get<{ url: string; provider_id: string }>(
+          `/api/geolocation/providers/ha/authorize?instance_url=${encodeURIComponent(instanceUrl)}&label=${encodeURIComponent(label)}`,
+        );
+        return res;
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
+    [],
+  );
+
+  return { createProvider, deleteProvider, verifyProvider, initiateHaOAuth, isSubmitting };
 }
