@@ -22,6 +22,49 @@ import type { HaStateChange } from '../ha-event-processor.ts';
 import { HaEventRouter } from '../ha-event-router.ts';
 import { GeoIngestorProcessor } from '../processors/geo-ingestor-processor.ts';
 
+// ---------- credential parsing ----------
+
+const TOKEN_EXPIRY_BUFFER_MS = 5 * 60 * 1000; // refresh 5 minutes before expiry
+
+export interface HaCredentials {
+  accessToken: string;
+  refreshToken?: string;
+  expiresAt?: Date;
+  isOAuth: boolean;
+  isExpired: boolean;
+}
+
+/**
+ * Parse HA credentials — either a plain access token string or JSON OAuth blob.
+ */
+export function parseHaCredentials(raw: string): HaCredentials {
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed === 'object' && parsed !== null && typeof (parsed as Record<string, unknown>).access_token === 'string') {
+      const obj = parsed as Record<string, unknown>;
+      const expiresAt = typeof obj.expires_at === 'string' ? new Date(obj.expires_at) : undefined;
+      const isExpired = expiresAt
+        ? expiresAt.getTime() - TOKEN_EXPIRY_BUFFER_MS <= Date.now()
+        : false;
+      return {
+        accessToken: obj.access_token as string,
+        refreshToken: typeof obj.refresh_token === 'string' ? obj.refresh_token : undefined,
+        expiresAt,
+        isOAuth: true,
+        isExpired,
+      };
+    }
+  } catch {
+    // Not JSON — treat as plain token
+  }
+
+  return {
+    accessToken: raw,
+    isOAuth: false,
+    isExpired: false,
+  };
+}
+
 // ---------- entity matching ----------
 
 const TRACKED_PREFIXES = ['device_tracker.', 'person.'];
@@ -215,10 +258,13 @@ function connectWs(
   config: ProviderConfig,
   credentials: string,
   onUpdate: LocationUpdateHandler,
+  refreshCb?: () => Promise<string>,
 ): Promise<Connection> {
   const baseUrl = config.url as string;
   const wsUrl = buildWsUrl(baseUrl);
   const namespace = 'default';
+  const creds = parseHaCredentials(credentials);
+  let currentToken = creds.accessToken;
 
   // Set up event router with geo ingestor processor
   const router = new HaEventRouter();
@@ -255,7 +301,7 @@ function connectWs(
 
       switch (msg.type) {
         case 'auth_required':
-          ws.send(JSON.stringify({ type: 'auth', access_token: credentials }));
+          ws.send(JSON.stringify({ type: 'auth', access_token: currentToken }));
           break;
 
         case 'auth_ok':
@@ -273,7 +319,16 @@ function connectWs(
 
         case 'auth_invalid':
           ctx.connected = false;
-          ws.close();
+          if (refreshCb) {
+            void refreshCb().then((newToken) => {
+              currentToken = newToken;
+              ws.send(JSON.stringify({ type: 'auth', access_token: newToken }));
+            }).catch(() => {
+              ws.close();
+            });
+          } else {
+            ws.close();
+          }
           break;
 
         case 'event':
@@ -355,7 +410,7 @@ function connectWs(
 
       switch (msg.type) {
         case 'auth_required':
-          ws.send(JSON.stringify({ type: 'auth', access_token: credentials }));
+          ws.send(JSON.stringify({ type: 'auth', access_token: currentToken }));
           break;
 
         case 'auth_ok':
@@ -379,8 +434,18 @@ function connectWs(
         case 'auth_invalid':
           clearTimeout(timeout);
           ctx.connected = false;
-          ws.close();
-          reject(new Error('Authentication failed: invalid access token'));
+          if (refreshCb) {
+            void refreshCb().then((newToken) => {
+              currentToken = newToken;
+              ws.send(JSON.stringify({ type: 'auth', access_token: newToken }));
+            }).catch(() => {
+              ws.close();
+              reject(new Error('Authentication failed: token refresh failed'));
+            });
+          } else {
+            ws.close();
+            reject(new Error('Authentication failed: invalid access token'));
+          }
           break;
 
         case 'event':
@@ -460,9 +525,10 @@ export const homeAssistantPlugin: GeoProviderPlugin = {
 
   async verify(config: ProviderConfig, credentials: string): Promise<VerifyResult> {
     const baseUrl = config.url as string;
+    const creds = parseHaCredentials(credentials);
 
     try {
-      const apiResp = await haFetch(baseUrl, '/api/', credentials);
+      const apiResp = await haFetch(baseUrl, '/api/', creds.accessToken);
       if (!apiResp.ok) {
         return {
           success: false,
@@ -472,7 +538,7 @@ export const homeAssistantPlugin: GeoProviderPlugin = {
       }
 
       const apiInfo = await apiResp.json() as { version?: string; message?: string };
-      const entities = await fetchTrackedStates(baseUrl, credentials);
+      const entities = await fetchTrackedStates(baseUrl, creds.accessToken);
 
       return {
         success: true,
@@ -490,7 +556,8 @@ export const homeAssistantPlugin: GeoProviderPlugin = {
 
   async discoverEntities(config: ProviderConfig, credentials: string): Promise<EntityInfo[]> {
     const baseUrl = config.url as string;
-    return fetchTrackedStates(baseUrl, credentials);
+    const creds = parseHaCredentials(credentials);
+    return fetchTrackedStates(baseUrl, creds.accessToken);
   },
 
   connect(
@@ -498,7 +565,19 @@ export const homeAssistantPlugin: GeoProviderPlugin = {
     credentials: string,
     onUpdate: LocationUpdateHandler,
   ): Promise<Connection> {
-    return connectWs(config, credentials, onUpdate);
+    const creds = parseHaCredentials(credentials);
+    const refreshCb = creds.isOAuth && creds.refreshToken
+      ? async (): Promise<string> => {
+          // Dynamic import to avoid circular deps at module level
+          const { refreshAccessToken } = await import('../../oauth/home-assistant.ts');
+          const baseUrl = (config.url as string).replace(/\/+$/, '');
+          // clientId is the origin of the HA instance
+          const clientId = new URL(baseUrl).origin;
+          const tokens = await refreshAccessToken(baseUrl, creds.refreshToken!, clientId);
+          return tokens.access_token;
+        }
+      : undefined;
+    return connectWs(config, credentials, onUpdate, refreshCb);
   },
 };
 
