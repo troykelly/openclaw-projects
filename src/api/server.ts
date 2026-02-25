@@ -118,6 +118,7 @@ import {
   WebhookHealthChecker,
 } from './webhooks/index.ts';
 import { voiceRoutesPlugin } from './voice/routes.ts';
+import { terminalRoutesPlugin } from './terminal/routes.ts';
 import { haRoutesPlugin } from './ha-routes.ts';
 import { postmarkIPWhitelistMiddleware, twilioIPWhitelistMiddleware } from './webhooks/ip-whitelist.ts';
 import { validateSsrf as ssrfValidateSsrf } from './webhooks/ssrf.ts';
@@ -684,6 +685,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     // Skip auth for public share link downloads (Issue #610, #1549)
     // These URLs contain dynamic tokens, so we use prefix matching
     if (url.startsWith('/api/files/shared/') || url.startsWith('/api/shared/')) {
+      return;
+    }
+
+    // Terminal WebSocket endpoint handles its own auth via JWT query param (Epic #1667)
+    if (url.startsWith('/api/terminal/sessions/') && url.endsWith('/attach')) {
       return;
     }
 
@@ -22335,6 +22341,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // REST routes (/api/voice/*) use the normal auth middleware.
   const voicePool = createPool();
   app.register(voiceRoutesPlugin, { pool: voicePool });
+
+  // ── Terminal Management Routes (Epic #1667) ─────────────────────────
+  // TMux session management: connections, credentials, sessions, streaming,
+  // commands. WebSocket (/api/terminal/sessions/:id/attach) handles its own auth.
+  const terminalPool = createPool();
+  app.register(terminalRoutesPlugin, { pool: terminalPool });
 
   // ── Home Automation Routes (Issue #1606, Epic #1440) ────────────────
   const haPool = createPool();
