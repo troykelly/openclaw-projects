@@ -374,16 +374,29 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   }
 
   /**
-   * Check whether the request carries an explicit namespace selector
-   * (X-Namespace header, ?namespace= query param, or body.namespace).
+   * Check whether the request carries an explicit namespace selector.
+   * Mirrors the sources checked by extractRequestedNamespaces in middleware:
+   *   X-Namespace / X-Namespaces header, ?namespace= / ?namespaces= query,
+   *   body.namespace / body.namespaces.
    */
   function hasExplicitNamespace(req: FastifyRequest): boolean {
-    const header = req.headers['x-namespace'];
-    if (typeof header === 'string' && header.length > 0) return true;
+    // Headers (singular + plural)
+    const hdr = req.headers['x-namespace'];
+    if (typeof hdr === 'string' && hdr.length > 0) return true;
+    const hdrMulti = req.headers['x-namespaces'];
+    if (typeof hdrMulti === 'string' && hdrMulti.length > 0) return true;
+    // Query params (singular + plural)
     const q = req.query as Record<string, unknown> | undefined;
-    if (q && typeof q.namespace === 'string' && q.namespace.length > 0) return true;
+    if (q) {
+      if (typeof q.namespace === 'string' && q.namespace.length > 0) return true;
+      if (typeof q.namespaces === 'string' && q.namespaces.length > 0) return true;
+    }
+    // Body (singular + plural)
     const b = req.body as Record<string, unknown> | undefined | null;
-    if (b && typeof b === 'object' && typeof (b as Record<string, unknown>).namespace === 'string' && ((b as Record<string, unknown>).namespace as string).length > 0) return true;
+    if (b && typeof b === 'object') {
+      if (typeof (b as Record<string, unknown>).namespace === 'string' && ((b as Record<string, unknown>).namespace as string).length > 0) return true;
+      if (Array.isArray((b as Record<string, unknown>).namespaces) && ((b as Record<string, unknown>).namespaces as unknown[]).length > 0) return true;
+    }
     return false;
   }
 
