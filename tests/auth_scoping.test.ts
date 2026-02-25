@@ -143,6 +143,7 @@ describe('Auth scoping', () => {
   describe('Webhook ownership enforcement', () => {
     const OWNER = 'webhook-owner@example.com';
     const OTHER = 'other-user@example.com';
+    const OWNER_NS = 'webhook-owner';
     let project_id: string;
 
     beforeEach(async () => {
@@ -150,20 +151,28 @@ describe('Auth scoping', () => {
       savedAuthDisabled = process.env.OPENCLAW_PROJECTS_AUTH_DISABLED;
       delete process.env.OPENCLAW_PROJECTS_AUTH_DISABLED;
 
-      // Create test project with namespace matching the OWNER's JWT subject
-      // (verifyWriteScope/verifyReadScope from #1811 requires namespace-scoped access)
-      const result = await pool.query(
-        `INSERT INTO work_item (title, kind, namespace) VALUES ('Webhook Test Project', 'project', $1)
-         RETURNING id::text as id`,
-        [OWNER],
-      );
-      project_id = (result.rows[0] as { id: string }).id;
-
-      // Create a webhook owned by OWNER
+      // Create user_setting for OWNER (required FK for namespace_grant)
       await pool.query(
         `INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT (email) DO NOTHING`,
         [OWNER],
       );
+
+      // Grant OWNER access to their namespace so resolveNamespaces() returns it
+      await pool.query(
+        `INSERT INTO namespace_grant (email, namespace, access, is_home)
+         VALUES ($1, $2, 'readwrite', true)
+         ON CONFLICT (email, namespace) DO NOTHING`,
+        [OWNER, OWNER_NS],
+      );
+
+      // Create test project in OWNER's namespace
+      // (verifyWriteScope/verifyReadScope from #1811 requires namespace-scoped access)
+      const result = await pool.query(
+        `INSERT INTO work_item (title, kind, namespace) VALUES ('Webhook Test Project', 'project', $1)
+         RETURNING id::text as id`,
+        [OWNER_NS],
+      );
+      project_id = (result.rows[0] as { id: string }).id;
     });
 
     afterEach(() => {
