@@ -19621,9 +19621,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(400).send({ error: 'instance_url and label are required' });
     }
 
-    // Validate instance URL (SSRF guard)
-    const { validateOutboundUrl } = await import('./geolocation/network-guard.ts');
-    const urlResult = validateOutboundUrl(query.instance_url);
+    // Validate instance URL (SSRF guard — includes DNS rebinding check, Issue #1820)
+    const { resolveAndValidateOutboundUrl } = await import('./geolocation/network-guard.ts');
+    const urlResult = await resolveAndValidateOutboundUrl(query.instance_url);
     if (!urlResult.ok) {
       return reply.code(400).send({ error: urlResult.error });
     }
