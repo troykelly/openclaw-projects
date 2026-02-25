@@ -329,7 +329,7 @@ describe('useMemories', () => {
   });
 
   it('should fetch global memory list', async () => {
-    const data = { memories: [], total: 0 };
+    const data = { items: [], total: 0 };
     mockFetchResponse(data);
 
     const { Wrapper } = createWrapper();

@@ -81,37 +81,48 @@ export const tagCountArraySchema = z.array(tagCountSchema);
 // Memories
 // ---------------------------------------------------------------------------
 
-export const memorySchema = z.object({
+/** Minimal memory shape shared across all endpoints. */
+export const memoryBaseSchema = z.object({
   id: z.string(),
   title: z.string(),
   content: z.string(),
-  memory_type: z.string(),
-  importance: z.number(),
-  confidence: z.number(),
-  tags: z.array(z.string()),
-  created_by_human: z.boolean(),
-  is_active: z.boolean(),
-  embedding_status: z.string(),
-  created_at: z.string(),
-  updated_at: z.string(),
 }).passthrough();
 
+/**
+ * GET /api/memory returns `{ items, total }` (not `{ memories }`).
+ * Each item has at minimum: id, title, content.
+ */
 export const memoryListResponseSchema = z.object({
-  memories: z.array(memorySchema),
+  items: z.array(memoryBaseSchema),
   total: z.number(),
 }).passthrough();
 
+/**
+ * GET /api/work-items/:id/memories returns `{ memories: [{ id, title, content, type, ... }] }`.
+ * The shape is a reduced projection — only validate the guaranteed fields.
+ */
 export const workItemMemoriesResponseSchema = z.object({
-  memories: z.array(memorySchema),
+  memories: z.array(memoryBaseSchema),
 }).passthrough();
 
-export const memorySearchResultSchema = memorySchema.extend({
-  similarity: z.number(),
+/** GET /api/memories/search returns `{ results, search_type }`. */
+export const memorySearchResultSchema = memoryBaseSchema.extend({
+  similarity: z.number().optional(),
 }).passthrough();
 
 export const memorySearchResponseSchema = z.object({
   results: z.array(memorySearchResultSchema),
-  search_type: z.enum(['semantic', 'text']),
+  search_type: z.string(),
+}).passthrough();
+
+/**
+ * GET /api/memories/:id/similar returns `{ source_memory_id, threshold, similar }`.
+ * Different shape from search — use a separate schema.
+ */
+export const memorySimilarResponseSchema = z.object({
+  source_memory_id: z.string(),
+  threshold: z.number(),
+  similar: z.array(memoryBaseSchema),
 }).passthrough();
 
 // ---------------------------------------------------------------------------

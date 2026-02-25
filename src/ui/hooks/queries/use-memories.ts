@@ -12,14 +12,17 @@ import { apiClient } from '@/ui/lib/api-client.ts';
 import {
   memoryListResponseSchema,
   memorySearchResponseSchema,
+  memorySimilarResponseSchema,
   workItemMemoriesResponseSchema,
 } from '@/ui/lib/api-schemas.ts';
 import type {
+  ContactMemoriesResponse,
   Memory,
   MemoryAttachmentsResponse,
   MemoryLinkedContactsResponse,
   MemoryListResponse,
   MemorySearchResponse,
+  ProjectMemoriesResponse,
   RelatedMemoriesResponse,
   WorkItemMemoriesResponse,
 } from '@/ui/lib/api-types.ts';
@@ -84,12 +87,12 @@ export function useMemoryDetail(id: string) {
  * Fetch memories scoped to a specific project.
  *
  * @param project_id - The project UUID
- * @returns TanStack Query result with `MemoryListResponse`
+ * @returns TanStack Query result with `ProjectMemoriesResponse`
  */
 export function useProjectMemories(project_id: string) {
   return useQuery({
     queryKey: memoryKeys.forProject(project_id),
-    queryFn: ({ signal }) => apiClient.get<MemoryListResponse>(`/api/projects/${project_id}/memories`, { signal, schema: memoryListResponseSchema }),
+    queryFn: ({ signal }) => apiClient.get<ProjectMemoriesResponse>(`/api/projects/${project_id}/memories`, { signal }),
     enabled: !!project_id,
   });
 }
@@ -98,12 +101,12 @@ export function useProjectMemories(project_id: string) {
  * Fetch memories linked to a specific contact (Issue #1723).
  *
  * @param contact_id - The contact UUID
- * @returns TanStack Query result with `MemoryListResponse`
+ * @returns TanStack Query result with `ContactMemoriesResponse`
  */
 export function useContactMemories(contact_id: string) {
   return useQuery({
     queryKey: memoryKeys.forContact(contact_id),
-    queryFn: ({ signal }) => apiClient.get<MemoryListResponse>(`/api/contacts/${contact_id}/memories`, { signal, schema: memoryListResponseSchema }),
+    queryFn: ({ signal }) => apiClient.get<ContactMemoriesResponse>(`/api/contacts/${contact_id}/memories`, { signal }),
     enabled: !!contact_id,
   });
 }
@@ -159,7 +162,7 @@ export function useRelatedMemories(memory_id: string) {
 export function useSimilarMemories(memory_id: string) {
   return useQuery({
     queryKey: memoryKeys.similar(memory_id),
-    queryFn: ({ signal }) => apiClient.get<MemorySearchResponse>(`/api/memories/${memory_id}/similar`, { signal, schema: memorySearchResponseSchema }),
+    queryFn: ({ signal }) => apiClient.get<MemorySearchResponse>(`/api/memories/${memory_id}/similar`, { signal, schema: memorySimilarResponseSchema }),
     enabled: !!memory_id,
   });
 }
