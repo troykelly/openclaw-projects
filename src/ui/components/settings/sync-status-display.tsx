@@ -63,7 +63,7 @@ export function SyncStatusDisplay({
   return (
     <div className="space-y-2">
       {enabled_features.map((feature) => {
-        const info = sync_status[feature];
+        const info = sync_status?.[feature];
         const isSyncing = info?.status === 'syncing';
         const lastSync = info?.last_sync_at ?? null;
 
