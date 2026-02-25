@@ -162,22 +162,19 @@ export function getConfiguredProviders(): OAuthProvider[] {
   const providers: OAuthProvider[] = [];
   if (isProviderConfigured('microsoft')) providers.push('microsoft');
   if (isProviderConfigured('google')) providers.push('google');
-  // HA is always "configured" — no env vars needed (per-instance, public client)
-  providers.push('home_assistant');
+  // HA is intentionally excluded — it uses its own authorize endpoint
+  // (/api/geolocation/providers/ha/authorize) and geolocation crypto,
+  // not the generic OAuth flow or OAUTH_TOKEN_ENCRYPTION_KEY.
   return providers;
 }
 
 /**
  * Return a summary of which providers are configured.
  */
-export function getConfigSummary(): {
-  microsoft: { configured: boolean };
-  google: { configured: boolean };
-  home_assistant: { configured: boolean };
-} {
+export function getConfigSummary(): Record<string, { configured: boolean }> {
   return {
     microsoft: { configured: isProviderConfigured('microsoft') },
     google: { configured: isProviderConfigured('google') },
-    home_assistant: { configured: true }, // Always available — per-instance, no env vars
+    // HA not listed — uses its own authorize endpoint, not generic OAuth
   };
 }
