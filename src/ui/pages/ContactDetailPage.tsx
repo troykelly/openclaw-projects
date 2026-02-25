@@ -11,7 +11,7 @@
  * Navigated to via /contacts/:contact_id.
  */
 
-import { ArrowLeft, Bell, Calendar, Clock, Globe, Link2, Mail, MessageSquare, Pencil, Phone, Trash2 } from 'lucide-react';
+import { ArrowLeft, Bell, Brain, Calendar, Clock, Globe, Link2, Mail, MessageSquare, Pencil, Phone, Trash2 } from 'lucide-react';
 import React, { useCallback, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { EmptyState, ErrorState, Skeleton, SkeletonText } from '@/ui/components/feedback';
@@ -24,8 +24,9 @@ import { Separator } from '@/ui/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/ui/components/ui/tabs';
 import { Textarea } from '@/ui/components/ui/textarea';
 import { useContactDetail } from '@/ui/hooks/queries/use-contacts';
+import { useContactMemories } from '@/ui/hooks/queries/use-memories';
 import { apiClient } from '@/ui/lib/api-client';
-import type { CommChannel, Contact, ContactBody } from '@/ui/lib/api-types';
+import type { CommChannel, Contact, ContactBody, Memory } from '@/ui/lib/api-types';
 import { getInitials } from '@/ui/lib/work-item-utils';
 
 const CHANNEL_LABELS: Record<string, string> = {
@@ -44,6 +45,7 @@ export function ContactDetailPage(): React.JSX.Element {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
   const { data: contact, isLoading, isError, error, refetch } = useContactDetail(contact_id ?? '');
+  const { data: memoriesData } = useContactMemories(contact_id ?? '');
 
   const handleBack = useCallback(() => {
     navigate('/contacts');
@@ -193,6 +195,10 @@ export function ContactDetailPage(): React.JSX.Element {
             <Calendar className="size-3" />
             Activity
           </TabsTrigger>
+          <TabsTrigger value="memories" className="gap-1">
+            <Brain className="size-3" />
+            Memories
+          </TabsTrigger>
         </TabsList>
 
         {/* Endpoints Tab */}
@@ -325,6 +331,31 @@ export function ContactDetailPage(): React.JSX.Element {
         {/* Activity Tab */}
         <TabsContent value="activity" className="mt-4">
           <EmptyState variant="calendar" title="No activity yet" description="Activity related to this contact will appear here." />
+        </TabsContent>
+
+        {/* Memories Tab (#1723) */}
+        <TabsContent value="memories" className="mt-4" data-testid="contact-memories-tab">
+          {Array.isArray(memoriesData?.memories) && memoriesData.memories.length > 0 ? (
+            <div className="space-y-2">
+              {memoriesData.memories.map((mem: Memory) => (
+                <Card key={mem.id} className="cursor-pointer hover:bg-accent/30" onClick={() => navigate(`/memory/${mem.id}`)}>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="text-sm font-medium">{mem.title}</h4>
+                        <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{mem.content}</p>
+                      </div>
+                      <Badge variant="outline" className="text-xs shrink-0 ml-2">
+                        {mem.memory_type ?? mem.type ?? 'memory'}
+                      </Badge>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <EmptyState variant="documents" title="No memories" description="No memories are linked to this contact." />
+          )}
         </TabsContent>
       </Tabs>
 
