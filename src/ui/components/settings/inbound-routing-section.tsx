@@ -7,14 +7,16 @@
  * 3. Prompt Templates — reusable prompt templates for routing
  */
 
-import { AlertCircle, Bot, FileText, Loader2, Mail, MessageSquare, Pencil, Phone, Plus, Radio, Trash2, Waves } from 'lucide-react';
+import { AlertCircle, Bot, ChevronsUpDown, FileText, Loader2, Mail, MessageSquare, Pencil, Phone, Plus, Radio, Trash2, Waves } from 'lucide-react';
 import * as React from 'react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Badge } from '@/ui/components/ui/badge';
 import { Button } from '@/ui/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/ui/components/ui/card';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/ui/components/ui/command';
 import { Input } from '@/ui/components/ui/input';
 import { Label } from '@/ui/components/ui/label';
+import { Popover, PopoverContent, PopoverTrigger } from '@/ui/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/components/ui/select';
 import { Separator } from '@/ui/components/ui/separator';
 import { Switch } from '@/ui/components/ui/switch';
@@ -83,6 +85,114 @@ function channelLabel(type: string) {
 }
 
 // ---------------------------------------------------------------------------
+// Agent Combobox (#1806)
+// ---------------------------------------------------------------------------
+
+interface AgentComboboxProps {
+  /** Current agent ID value. */
+  value: string;
+  /** Called when the user selects or types an agent ID. */
+  onChange: (value: string) => void;
+  /** Known agent IDs from existing channel defaults. */
+  knownAgents: string[];
+  /** HTML id for label association. */
+  id?: string;
+  /** Channel type key used for test IDs. */
+  channelType: string;
+}
+
+/** Combobox that shows known agents as suggestions and allows free text entry. */
+function AgentCombobox({ value, onChange, knownAgents, id, channelType }: AgentComboboxProps) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // When the popover opens, sync the search field with the current value
+  const handleOpenChange = useCallback((nextOpen: boolean) => {
+    if (nextOpen) {
+      setSearch(value);
+    }
+    setOpen(nextOpen);
+  }, [value]);
+
+  const handleSelect = useCallback((agentId: string) => {
+    onChange(agentId);
+    setOpen(false);
+  }, [onChange]);
+
+  // Allow using the typed text directly (free text entry)
+  const handleUseCustom = useCallback(() => {
+    if (search.trim()) {
+      onChange(search.trim());
+      setOpen(false);
+    }
+  }, [search, onChange]);
+
+  // Filter known agents by search term
+  const filtered = useMemo(
+    () => knownAgents.filter((a) => a.toLowerCase().includes(search.toLowerCase())),
+    [knownAgents, search],
+  );
+
+  const showCustomOption = search.trim() !== '' && !knownAgents.includes(search.trim());
+
+  return (
+    <Popover open={open} onOpenChange={handleOpenChange}>
+      <PopoverTrigger asChild>
+        <Button
+          id={id}
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          data-testid={`agent-combobox-trigger-${channelType}`}
+          className="mt-1 w-full justify-between font-normal"
+        >
+          <span className="truncate">{value || 'Select agent...'}</span>
+          <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+        <Command shouldFilter={false}>
+          <CommandInput
+            ref={inputRef}
+            data-testid={`agent-combobox-input-${channelType}`}
+            placeholder="Type or select agent ID..."
+            value={search}
+            onValueChange={setSearch}
+          />
+          <CommandList>
+            <CommandEmpty>No known agents found.</CommandEmpty>
+            {filtered.length > 0 && (
+              <CommandGroup heading="Known Agents">
+                {filtered.map((agentId) => (
+                  <CommandItem
+                    key={agentId}
+                    value={agentId}
+                    onSelect={() => handleSelect(agentId)}
+                  >
+                    {agentId}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            )}
+            {showCustomOption && (
+              <CommandGroup heading="Custom">
+                <CommandItem
+                  value={`custom-${search.trim()}`}
+                  onSelect={handleUseCustom}
+                >
+                  Use &ldquo;{search.trim()}&rdquo;
+                </CommandItem>
+              </CommandGroup>
+            )}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Channel Defaults Section (#1508)
 // ---------------------------------------------------------------------------
 
@@ -130,6 +240,12 @@ function ChannelDefaultsSection() {
     }
   }, [editValues, fetchDefaults]);
 
+  // Collect unique agent IDs from existing defaults for combobox suggestions
+  const knownAgents = useMemo(
+    () => [...new Set(defaults.map((d) => d.agent_id).filter(Boolean))],
+    [defaults],
+  );
+
   if (loading) {
     return (
       <Card>
@@ -175,15 +291,15 @@ function ChannelDefaultsSection() {
               <div className="flex items-end gap-2">
                 <div className="flex-1">
                   <Label htmlFor={`default-agent-${value}`} className="text-xs text-muted-foreground">Agent ID</Label>
-                  <Input
+                  <AgentCombobox
                     id={`default-agent-${value}`}
                     value={editVal.agent_id}
-                    onChange={(e) => setEditValues(prev => ({
+                    onChange={(agentId) => setEditValues(prev => ({
                       ...prev,
-                      [value]: { agent_id: e.target.value },
+                      [value]: { agent_id: agentId },
                     }))}
-                    placeholder="e.g. agent-sms-triage"
-                    className="mt-1"
+                    knownAgents={knownAgents}
+                    channelType={value}
                   />
                 </div>
                 <Button
