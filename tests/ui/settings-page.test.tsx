@@ -533,9 +533,9 @@ describe('SettingsPage', () => {
 
       await waitForLoaded();
 
-      const docsLink = screen.getByText('docs.openclaw.ai');
+      const docsLink = screen.getByText('github.com/troykelly/openclaw-projects');
       expect(docsLink).toBeInTheDocument();
-      expect(docsLink.closest('a')).toHaveAttribute('href', 'https://docs.openclaw.ai/');
+      expect(docsLink.closest('a')).toHaveAttribute('href', 'https://github.com/troykelly/openclaw-projects');
     });
 
     it('shows OpenClaw integration description', async () => {
