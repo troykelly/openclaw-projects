@@ -93,7 +93,7 @@ export function useGeoProviders() {
       '/api/geolocation/providers',
       { signal },
     );
-    return res.providers;
+    return Array.isArray(res?.providers) ? res.providers : [];
   }, []);
 
   useEffect(() => {
@@ -166,7 +166,7 @@ export function useCurrentLocation() {
       '/api/geolocation/current',
       { signal },
     );
-    return res.location;
+    return res?.location ?? null;
   }, []);
 
   useEffect(() => {
