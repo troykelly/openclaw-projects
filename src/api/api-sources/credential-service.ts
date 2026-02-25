@@ -18,6 +18,25 @@ import {
   maskCredentialReference,
 } from './credential-crypto.ts';
 
+// ─── Audit logging for credential decryption ──────────────────────────────
+
+/**
+ * Log a credential decryption event to the audit trail.
+ * Uses 'auth' action type (closest match in the audit_action_type enum)
+ * with metadata indicating the actual operation was a decrypt.
+ */
+async function logCredentialDecrypt(pool: Queryable, credentialId: string, apiSourceId: string): Promise<void> {
+  try {
+    await pool.query(
+      `INSERT INTO audit_log (actor_type, action, entity_type, entity_id, metadata)
+       VALUES ('system'::audit_actor_type, 'auth'::audit_action_type, 'api_credential', $1, $2)`,
+      [credentialId, JSON.stringify({ operation: 'decrypt', api_source_id: apiSourceId })],
+    );
+  } catch {
+    // Audit logging should not block credential retrieval
+  }
+}
+
 /** Queryable database connection — either a Pool or a PoolClient (for transactions). */
 type Queryable = Pool | PoolClient;
 
@@ -103,6 +122,8 @@ export async function getApiCredential(
 
   if (decrypt) {
     cred.resolve_reference = decryptCredentialReference(cred.resolve_reference, cred.id);
+    // Audit: log plaintext credential access (#1793)
+    void logCredentialDecrypt(pool, cred.id, apiSourceId);
   } else {
     cred.resolve_reference = maskCredentialReference(
       decryptCredentialReference(cred.resolve_reference, cred.id),
@@ -133,6 +154,8 @@ export async function listApiCredentials(
 
     if (decrypt) {
       cred.resolve_reference = decryptCredentialReference(cred.resolve_reference, cred.id);
+      // Audit: log plaintext credential access (#1793)
+      void logCredentialDecrypt(pool, cred.id, apiSourceId);
     } else {
       cred.resolve_reference = maskCredentialReference(
         decryptCredentialReference(cred.resolve_reference, cred.id),
