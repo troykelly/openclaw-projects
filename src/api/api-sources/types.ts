@@ -204,3 +204,88 @@ export interface RefreshResult {
   memories_deleted: number;
   spec_changed: boolean;
 }
+
+// ── Parser types (used by embedding-text, parser, and onboard) ──────────
+
+/**
+ * A parameter extracted from an OpenAPI operation.
+ */
+export interface ParsedParameter {
+  name: string;
+  in: 'path' | 'query' | 'header' | 'cookie';
+  description: string | null;
+  required: boolean;
+  schema: Record<string, unknown> | null;
+}
+
+/**
+ * A response extracted from an OpenAPI operation.
+ */
+export interface ParsedResponse {
+  description: string;
+  schema?: Record<string, unknown>;
+}
+
+/**
+ * A single operation extracted from an OpenAPI spec.
+ */
+export interface ParsedOperation {
+  operationKey: string;
+  method: string;
+  path: string;
+  summary: string | null;
+  description: string | null;
+  tags: string[];
+  parameters: ParsedParameter[];
+  requestBody: Record<string, unknown> | null;
+  responses: Record<string, ParsedResponse>;
+}
+
+/**
+ * Summary of an operation for tag group embedding text.
+ */
+export interface OperationSummary {
+  operationKey: string;
+  method: string;
+  path: string;
+  summary: string | null;
+}
+
+/**
+ * A group of operations sharing the same tag.
+ */
+export interface ParsedTagGroup {
+  tag: string;
+  description: string | null;
+  operations: OperationSummary[];
+}
+
+/**
+ * Summary of a tag group for overview embedding text.
+ */
+export interface TagGroupSummary {
+  tag: string;
+  operationCount: number;
+}
+
+/**
+ * Overview of an entire parsed API.
+ */
+export interface ParsedApiOverview {
+  name: string;
+  description: string | null;
+  version: string | null;
+  servers: Array<{ url: string }>;
+  authSummary: string;
+  tagGroups: TagGroupSummary[];
+  totalOperations: number;
+}
+
+/**
+ * Full parsed result from an OpenAPI spec.
+ */
+export interface ParsedApi {
+  overview: ParsedApiOverview;
+  tagGroups: ParsedTagGroup[];
+  operations: ParsedOperation[];
+}
