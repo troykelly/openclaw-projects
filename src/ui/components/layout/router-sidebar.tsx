@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Bell, Folder, Users, Search, Settings, ChevronLeft, ChevronRight, Plus, Brain, MessageSquare, Package, ChefHat, UtensilsCrossed, Code, Home, Warehouse, Mic } from 'lucide-react';
+import { Bell, Folder, Users, Search, Settings, ChevronLeft, ChevronRight, Plus, Brain, MessageSquare, Package, ChefHat, UtensilsCrossed, Code, Home, Warehouse, Mic, Terminal } from 'lucide-react';
 import { cn } from '@/ui/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/ui/components/ui/tooltip';
 import { ScrollArea } from '@/ui/components/ui/scroll-area';
@@ -28,6 +28,7 @@ const defaultNavItems: RouterNavItem[] = [
   { id: 'home-automation', label: 'Home Automation', icon: Home, to: '/home-automation' },
   { id: 'pantry', label: 'Pantry', icon: Warehouse, to: '/pantry' },
   { id: 'voice', label: 'Voice', icon: Mic, to: '/voice' },
+  { id: 'terminal', label: 'Terminal', icon: Terminal, to: '/terminal' },
   { id: 'dev-sessions', label: 'Dev Sessions', icon: Code, to: '/dev-sessions' },
   { id: 'skill-store', label: 'Skill Store', icon: Package, to: '/skill-store' },
 ];
