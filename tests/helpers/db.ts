@@ -105,6 +105,11 @@ const APPLICATION_TABLES = [
   'terminal_connection',
   'terminal_credential',
   'terminal_setting',
+  // API sources (API Onboarding) — FK children first
+  'api_memory',
+  'api_credential',
+  'api_source_link',
+  'api_source',
   // Inbound routing (Epic #1497) — FK children before prompt_template
   'channel_default',
   'inbound_destination',
