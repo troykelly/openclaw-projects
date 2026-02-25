@@ -1619,10 +1619,11 @@ function createToolHandlers(state: PluginState) {
   // Issue #1644: Read user_id from mutable state on every call.
   const getAgentId = (): string => state.agentId;
 
-  /** Read user_id from mutable state on every call (Issue #1644) */
-  const reqOpts = (): { user_id: string; user_email?: string } => ({
+  /** Read user_id and namespace from mutable state on every call (Issue #1644, #1797) */
+  const reqOpts = (): { user_id: string; user_email?: string; namespace: string } => ({
     user_id: state.agentId,
     user_email: state.agentEmail,
+    namespace: state.resolvedNamespace.default,
   });
 
   /**
