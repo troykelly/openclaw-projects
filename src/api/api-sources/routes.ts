@@ -23,6 +23,7 @@ import {
   deleteApiCredential,
 } from './credential-service.ts';
 import { onboardApiSource } from './onboard.ts';
+import { refreshApiSource } from './refresh.ts';
 import { searchApiMemories, listApiMemories } from './search.ts';
 import type {
   ApiSourceStatus,
@@ -285,6 +286,34 @@ export async function apiSourceRoutesPlugin(
     }
 
     return reply.send({ data: source });
+  });
+
+  // POST /api/api-sources/:id/refresh — re-fetch spec and diff memories
+  app.post('/api/api-sources/:id/refresh', async (req: FastifyRequest, reply: FastifyReply) => {
+    const { id } = req.params as IdParams;
+    if (!isValidUUID(id)) {
+      return reply.code(400).send({ error: 'Invalid API source ID' });
+    }
+
+    const namespace = getNamespace(req, reply);
+    if (!namespace) return;
+
+    try {
+      const result = await refreshApiSource(pool, id, namespace);
+      return reply.send({ data: result });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Refresh failed';
+      if (message === 'API source not found') {
+        return reply.code(404).send({ error: message });
+      }
+      if (message.startsWith('Cannot refresh:')) {
+        return reply.code(422).send({ error: message });
+      }
+      if (message.startsWith('SSRF blocked:')) {
+        return reply.code(422).send({ error: message });
+      }
+      return reply.code(500).send({ error: message });
+    }
   });
 
   // ============================================================
