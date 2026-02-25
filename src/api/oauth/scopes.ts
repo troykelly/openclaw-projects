@@ -52,6 +52,12 @@ const SCOPE_MAP: Record<OAuthProvider, Record<OAuthFeature, { read: string[]; re
       read_write: ['https://graph.microsoft.com/Calendars.ReadWrite'],
     },
   },
+  home_assistant: {
+    contacts: { read: [], read_write: [] },
+    email: { read: [], read_write: [] },
+    files: { read: [], read_write: [] },
+    calendar: { read: [], read_write: [] },
+  },
 };
 
 /**
@@ -61,6 +67,7 @@ const SCOPE_MAP: Record<OAuthProvider, Record<OAuthFeature, { read: string[]; re
 const BASE_SCOPES: Record<OAuthProvider, string[]> = {
   google: ['https://www.googleapis.com/auth/userinfo.email'],
   microsoft: ['https://graph.microsoft.com/User.Read', 'offline_access'],
+  home_assistant: [], // HA uses IndieAuth — no scopes
 };
 
 /**

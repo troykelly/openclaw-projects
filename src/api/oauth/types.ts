@@ -4,7 +4,7 @@
  * All property names use snake_case to match the project-wide convention (Issue #1412).
  */
 
-export type OAuthProvider = 'google' | 'microsoft';
+export type OAuthProvider = 'google' | 'microsoft' | 'home_assistant';
 
 /** Permission levels for OAuth connections. */
 export type OAuthPermissionLevel = 'read' | 'read_write';

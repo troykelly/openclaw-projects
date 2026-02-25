@@ -50,6 +50,7 @@ export default defineProject({
       'tests/file-storage/s3-presigned-external-endpoint.test.ts',
       'tests/file-storage/sharing-presigned-url.test.ts',
       'tests/oauth/config.test.ts',
+      'tests/unit/oauth/**/*.test.ts',
       'tests/openclaw-contract/**/*.test.ts',
       'tests/postmark/email-utils.test.ts',
       'tests/realtime/emitter.test.ts',

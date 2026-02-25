@@ -36,12 +36,14 @@ export const GOOGLE_SCOPES = {
 export const DEFAULT_SCOPES: Record<OAuthProvider, string[]> = {
   microsoft: [MICROSOFT_SCOPES.contacts, MICROSOFT_SCOPES.profile, MICROSOFT_SCOPES.offline],
   google: [GOOGLE_SCOPES.contacts, GOOGLE_SCOPES.profile],
+  home_assistant: [], // HA doesn't use scopes — IndieAuth
 };
 
 // Full scopes including email and calendar
 export const FULL_SCOPES: Record<OAuthProvider, string[]> = {
   microsoft: [MICROSOFT_SCOPES.contacts, MICROSOFT_SCOPES.email, MICROSOFT_SCOPES.calendar, MICROSOFT_SCOPES.profile, MICROSOFT_SCOPES.offline],
   google: [GOOGLE_SCOPES.contacts, GOOGLE_SCOPES.email, GOOGLE_SCOPES.calendar, GOOGLE_SCOPES.profile],
+  home_assistant: [],
 };
 
 function getEnvVar(name: string): string | undefined {
@@ -127,6 +129,8 @@ export function getProviderConfig(provider: OAuthProvider): OAuthConfig | null {
       return getMicrosoftConfig();
     case 'google':
       return getGoogleConfig();
+    case 'home_assistant':
+      return null; // HA doesn't use centralized config — per-instance
     default:
       return null;
   }
@@ -158,6 +162,8 @@ export function getConfiguredProviders(): OAuthProvider[] {
   const providers: OAuthProvider[] = [];
   if (isProviderConfigured('microsoft')) providers.push('microsoft');
   if (isProviderConfigured('google')) providers.push('google');
+  // HA is always "configured" — no env vars needed (per-instance, public client)
+  providers.push('home_assistant');
   return providers;
 }
 
@@ -167,9 +173,11 @@ export function getConfiguredProviders(): OAuthProvider[] {
 export function getConfigSummary(): {
   microsoft: { configured: boolean };
   google: { configured: boolean };
+  home_assistant: { configured: boolean };
 } {
   return {
     microsoft: { configured: isProviderConfigured('microsoft') },
     google: { configured: isProviderConfigured('google') },
+    home_assistant: { configured: true }, // Always available — per-instance, no env vars
   };
 }

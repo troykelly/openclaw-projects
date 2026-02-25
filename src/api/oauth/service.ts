@@ -159,6 +159,10 @@ export async function cleanExpiredStates(pool: Pool): Promise<number> {
 }
 
 export async function exchangeCodeForTokens(provider: OAuthProvider, code: string, code_verifier?: string): Promise<OAuthTokens> {
+  if (provider === 'home_assistant') {
+    throw new OAuthError('HA token exchange requires instance_url — use haExchangeCodeForTokens directly', 'HA_REQUIRES_INSTANCE', 'home_assistant');
+  }
+
   const config = requireProviderConfig(provider);
 
   switch (provider) {
@@ -177,12 +181,18 @@ export async function getUserEmail(provider: OAuthProvider, access_token: string
       return microsoft.getUserEmail(access_token);
     case 'google':
       return google.getUserEmail(access_token);
+    case 'home_assistant':
+      throw new OAuthError('HA does not provide user email — use session email', 'HA_NO_EMAIL', 'home_assistant');
     default:
       throw new OAuthError(`Unknown provider: ${provider}`, 'UNKNOWN_PROVIDER', provider);
   }
 }
 
 export async function refreshTokens(provider: OAuthProvider, refresh_token: string): Promise<OAuthTokens> {
+  if (provider === 'home_assistant') {
+    throw new OAuthError('HA token refresh requires instance_url — use haRefreshAccessToken directly', 'HA_REQUIRES_INSTANCE', 'home_assistant');
+  }
+
   const config = requireProviderConfig(provider);
 
   switch (provider) {
@@ -205,6 +215,8 @@ export async function fetchProviderContacts(
       return microsoft.fetchAllContacts(access_token, sync_cursor);
     case 'google':
       return google.fetchAllContacts(access_token, sync_cursor);
+    case 'home_assistant':
+      throw new OAuthError('HA does not support contact sync', 'HA_NO_CONTACTS', 'home_assistant');
     default:
       throw new OAuthError(`Unknown provider: ${provider}`, 'UNKNOWN_PROVIDER', provider);
   }
