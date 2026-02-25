@@ -6,6 +6,21 @@
 export type AuditActorType = 'agent' | 'human' | 'system';
 export type AuditActionType = 'create' | 'update' | 'delete' | 'auth' | 'webhook';
 
+/**
+ * Known entity types used in audit log entries.
+ * The entity_type column is text, so any string is valid at the DB level.
+ * This type documents the known values for API consumers.
+ */
+export type AuditEntityType =
+  | 'work_item'
+  | 'memory'
+  | 'contact'
+  | 'oauth_connection'
+  | 'webhook'
+  | 'api_source'
+  | 'api_credential'
+  | 'api_memory';
+
 export interface AuditLogEntry {
   id: string;
   timestamp: Date;

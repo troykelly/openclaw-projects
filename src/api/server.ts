@@ -120,6 +120,7 @@ import {
 import { voiceRoutesPlugin } from './voice/routes.ts';
 import { terminalRoutesPlugin } from './terminal/routes.ts';
 import { haRoutesPlugin } from './ha-routes.ts';
+import { apiSourceRoutesPlugin } from './api-sources/routes.ts';
 import { postmarkIPWhitelistMiddleware, twilioIPWhitelistMiddleware } from './webhooks/ip-whitelist.ts';
 import { validateSsrf as ssrfValidateSsrf } from './webhooks/ssrf.ts';
 import { computeNextRunAt } from './skill-store/schedule-next-run.ts';
@@ -19621,9 +19622,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(400).send({ error: 'instance_url and label are required' });
     }
 
-    // Validate instance URL (SSRF guard)
-    const { validateOutboundUrl } = await import('./geolocation/network-guard.ts');
-    const urlResult = validateOutboundUrl(query.instance_url);
+    // Validate instance URL (SSRF guard — includes DNS rebinding check, Issue #1820)
+    const { resolveAndValidateOutboundUrl } = await import('./geolocation/network-guard.ts');
+    const urlResult = await resolveAndValidateOutboundUrl(query.instance_url);
     if (!urlResult.ok) {
       return reply.code(400).send({ error: urlResult.error });
     }
@@ -20087,9 +20088,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
     try {
-      // Verify project exists
-      const projectCheck = await pool.query(`SELECT id FROM work_item WHERE id = $1`, [id]);
-      if (projectCheck.rows.length === 0) {
+      // Issue #1811: Verify caller has write access to the project (namespace scoping)
+      if (!(await verifyWriteScope(pool, 'work_item', id, req))) {
         return reply.code(404).send({ error: 'project not found' });
       }
 
@@ -20120,6 +20120,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
     try {
+      // Issue #1811: Verify caller has read access to the project (namespace scoping)
+      if (!(await verifyReadScope(pool, 'work_item', id, req))) {
+        return reply.code(404).send({ error: 'project not found' });
+      }
+
       // Owner-scoped: only return webhooks created by the authenticated user.
       // When auth is disabled (tests), return all webhooks for the project.
       const params: unknown[] = [id];
@@ -20156,6 +20161,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
     try {
+      // Issue #1811: Verify caller has write access to the project (namespace scoping)
+      if (!(await verifyWriteScope(pool, 'work_item', id, req))) {
+        return reply.code(404).send({ error: 'project not found' });
+      }
+
       // Owner-scoped: only allow deletion of webhooks owned by the authenticated user.
       // When auth is disabled (tests), allow deletion without owner check.
       const params: unknown[] = [webhook_id, id];
@@ -22598,6 +22608,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // ── Home Automation Routes (Issue #1606, Epic #1440) ────────────────
   const haPool = createPool();
   app.register(haRoutesPlugin, { pool: haPool });
+
+  // ── API Source Routes (API Onboarding) ─────────────────────────────
+  const apiSourcePool = createPool();
+  app.register(apiSourceRoutesPlugin, { pool: apiSourcePool });
 
   // ── SPA fallback for client-side routing (Issue #481) ──────────────
   // Serve index.html for /static/app/* paths that don't match a real file.

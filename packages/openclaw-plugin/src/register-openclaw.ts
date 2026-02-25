@@ -30,6 +30,15 @@ import {
   createSkillStoreListTool,
   createSkillStorePutTool,
   createSkillStoreSearchTool,
+  createApiOnboardTool,
+  createApiRecallTool,
+  createApiGetTool,
+  createApiListTool,
+  createApiUpdateTool,
+  createApiCredentialManageTool,
+  createApiRefreshTool,
+  createApiRemoveTool,
+  createApiRestoreTool,
 } from './tools/index.js';
 import type {
   AgentToolResult,
@@ -1556,6 +1565,117 @@ const namespaceRevokeSchema: JSONSchema = {
     },
   },
   required: ['namespace', 'grant_id'],
+};
+
+// ── API Onboarding tool schemas (#1784, #1785, #1786) ─────────────────────
+
+const apiOnboardSchema: JSONSchema = {
+  type: 'object',
+  properties: {
+    spec_url: { type: 'string', description: 'URL to fetch the OpenAPI spec from.', format: 'uri' },
+    spec_content: { type: 'string', description: 'Inline OpenAPI spec content (JSON or YAML).' },
+    name: { type: 'string', description: 'Human-readable name for the API.', maxLength: 200 },
+    description: { type: 'string', description: 'Description of the API.', maxLength: 2000 },
+    tags: { type: 'array', description: 'Tags to categorise the API.', items: { type: 'string' } },
+    credentials: {
+      type: 'array',
+      description: 'Credentials for authenticating API calls.',
+      items: {
+        type: 'object',
+        properties: {
+          header_name: { type: 'string' },
+          header_prefix: { type: 'string' },
+          resolve_strategy: { type: 'string', enum: ['literal', 'env', 'file', 'command'] },
+          resolve_reference: { type: 'string' },
+          purpose: { type: 'string', enum: ['api_call', 'spec_fetch'] },
+        },
+        required: ['header_name', 'resolve_strategy', 'resolve_reference'],
+      },
+    },
+    spec_auth_headers: { type: 'object', description: 'Headers for fetching the spec URL (if auth-protected).', additionalProperties: { type: 'string' } },
+  },
+  required: [],
+};
+
+const apiRecallSchema: JSONSchema = {
+  type: 'object',
+  properties: {
+    query: { type: 'string', description: 'Natural-language search query for API capabilities.', minLength: 1, maxLength: 1000 },
+    limit: { type: 'integer', description: 'Maximum results to return.', minimum: 1, maximum: 50, default: 10 },
+    memory_kind: { type: 'string', description: 'Filter by memory kind.', enum: ['overview', 'tag_group', 'operation'] },
+    api_source_id: { type: 'string', description: 'Filter to a specific API source.', format: 'uuid' },
+    tags: { type: 'array', description: 'Filter by tags.', items: { type: 'string' } },
+  },
+  required: ['query'],
+};
+
+const apiGetSchema: JSONSchema = {
+  type: 'object',
+  properties: {
+    id: { type: 'string', description: 'UUID of the API source.', format: 'uuid' },
+  },
+  required: ['id'],
+};
+
+const apiListSchema: JSONSchema = {
+  type: 'object',
+  properties: {
+    limit: { type: 'integer', description: 'Maximum results.', minimum: 1, maximum: 100 },
+    offset: { type: 'integer', description: 'Pagination offset.', minimum: 0 },
+    status: { type: 'string', description: 'Filter by status.', enum: ['active', 'error', 'disabled'] },
+  },
+  required: [],
+};
+
+const apiUpdateSchema: JSONSchema = {
+  type: 'object',
+  properties: {
+    id: { type: 'string', description: 'UUID of the API source to update.', format: 'uuid' },
+    name: { type: 'string', description: 'New name.', maxLength: 200 },
+    description: { type: 'string', description: 'New description.', maxLength: 2000 },
+    tags: { type: 'array', description: 'New tags.', items: { type: 'string' } },
+    status: { type: 'string', description: 'New status.', enum: ['active', 'error', 'disabled'] },
+  },
+  required: ['id'],
+};
+
+const apiCredentialManageSchema: JSONSchema = {
+  type: 'object',
+  properties: {
+    api_source_id: { type: 'string', description: 'UUID of the API source.', format: 'uuid' },
+    action: { type: 'string', description: 'Action to perform.', enum: ['add', 'update', 'remove'] },
+    credential_id: { type: 'string', description: 'UUID of the credential (for update/remove).', format: 'uuid' },
+    header_name: { type: 'string', description: 'HTTP header name (e.g. Authorization).' },
+    header_prefix: { type: 'string', description: 'Header value prefix (e.g. Bearer).' },
+    resolve_strategy: { type: 'string', description: 'How to resolve the credential.', enum: ['literal', 'env', 'file', 'command'] },
+    resolve_reference: { type: 'string', description: 'Credential value or reference.' },
+    purpose: { type: 'string', description: 'Credential purpose.', enum: ['api_call', 'spec_fetch'] },
+  },
+  required: ['api_source_id', 'action'],
+};
+
+const apiRefreshSchema: JSONSchema = {
+  type: 'object',
+  properties: {
+    id: { type: 'string', description: 'UUID of the API source to refresh.', format: 'uuid' },
+  },
+  required: ['id'],
+};
+
+const apiRemoveSchema: JSONSchema = {
+  type: 'object',
+  properties: {
+    id: { type: 'string', description: 'UUID of the API source to soft-delete.', format: 'uuid' },
+  },
+  required: ['id'],
+};
+
+const apiRestoreSchema: JSONSchema = {
+  type: 'object',
+  properties: {
+    id: { type: 'string', description: 'UUID of the API source to restore.', format: 'uuid' },
+  },
+  required: ['id'],
 };
 
 /**
@@ -3838,6 +3958,53 @@ function createToolHandlers(state: PluginState) {
         return { success: false, error: 'Failed to revoke namespace access' };
       }
     },
+
+    // ── API Onboarding tools (#1784, #1785, #1786) ──────────────────────
+
+    async api_onboard(params: Record<string, unknown>): Promise<ToolResult> {
+      const tool = createApiOnboardTool({ client: apiClient, logger, config, user_id: getAgentId() });
+      return tool.execute(params as Parameters<typeof tool.execute>[0]);
+    },
+
+    async api_recall(params: Record<string, unknown>): Promise<ToolResult> {
+      const tool = createApiRecallTool({ client: apiClient, logger, config, user_id: getAgentId() });
+      return tool.execute(params as Parameters<typeof tool.execute>[0]);
+    },
+
+    async api_get(params: Record<string, unknown>): Promise<ToolResult> {
+      const tool = createApiGetTool({ client: apiClient, logger, config, user_id: getAgentId() });
+      return tool.execute(params as Parameters<typeof tool.execute>[0]);
+    },
+
+    async api_list(params: Record<string, unknown>): Promise<ToolResult> {
+      const tool = createApiListTool({ client: apiClient, logger, config, user_id: getAgentId() });
+      return tool.execute(params as Parameters<typeof tool.execute>[0]);
+    },
+
+    async api_update(params: Record<string, unknown>): Promise<ToolResult> {
+      const tool = createApiUpdateTool({ client: apiClient, logger, config, user_id: getAgentId() });
+      return tool.execute(params as Parameters<typeof tool.execute>[0]);
+    },
+
+    async api_credential_manage(params: Record<string, unknown>): Promise<ToolResult> {
+      const tool = createApiCredentialManageTool({ client: apiClient, logger, config, user_id: getAgentId() });
+      return tool.execute(params as Parameters<typeof tool.execute>[0]);
+    },
+
+    async api_refresh(params: Record<string, unknown>): Promise<ToolResult> {
+      const tool = createApiRefreshTool({ client: apiClient, logger, config, user_id: getAgentId() });
+      return tool.execute(params as Parameters<typeof tool.execute>[0]);
+    },
+
+    async api_remove(params: Record<string, unknown>): Promise<ToolResult> {
+      const tool = createApiRemoveTool({ client: apiClient, logger, config, user_id: getAgentId() });
+      return tool.execute(params as Parameters<typeof tool.execute>[0]);
+    },
+
+    async api_restore(params: Record<string, unknown>): Promise<ToolResult> {
+      const tool = createApiRestoreTool({ client: apiClient, logger, config, user_id: getAgentId() });
+      return tool.execute(params as Parameters<typeof tool.execute>[0]);
+    },
   };
 }
 
@@ -4420,6 +4587,90 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
       parameters: namespaceRevokeSchema,
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.namespace_revoke(params);
+        return toAgentToolResult(result);
+      },
+    },
+
+    // ── API Onboarding tools (#1784, #1785, #1786) ──────────────────────
+
+    {
+      name: 'api_onboard',
+      description: 'Onboard a new API by providing its OpenAPI spec URL or inline content. Parses the spec into searchable memories and optionally stores credentials.',
+      parameters: withNamespace(apiOnboardSchema),
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.api_onboard(params);
+        return toAgentToolResult(result);
+      },
+    },
+    {
+      name: 'api_recall',
+      description: 'Search onboarded API memories to find endpoints, operations, and capabilities. Returns operation details including method, path, parameters, and credentials.',
+      parameters: withNamespaces(apiRecallSchema),
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.api_recall(params);
+        return toAgentToolResult(result);
+      },
+    },
+    {
+      name: 'api_get',
+      description: 'Get details about a specific onboarded API source including its status, spec version, and tags.',
+      parameters: apiGetSchema,
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.api_get(params);
+        return toAgentToolResult(result);
+      },
+    },
+    {
+      name: 'api_list',
+      description: 'List all onboarded API sources. Optionally filter by status (active, error, disabled).',
+      parameters: apiListSchema,
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.api_list(params);
+        return toAgentToolResult(result);
+      },
+    },
+    {
+      name: 'api_update',
+      description: 'Update an onboarded API source. Change its name, description, tags, or status.',
+      parameters: apiUpdateSchema,
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.api_update(params);
+        return toAgentToolResult(result);
+      },
+    },
+    {
+      name: 'api_credential_manage',
+      description: 'Manage credentials for an onboarded API source: add, update, or remove authentication headers.',
+      parameters: apiCredentialManageSchema,
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.api_credential_manage(params);
+        return toAgentToolResult(result);
+      },
+    },
+    {
+      name: 'api_refresh',
+      description: 'Refresh an API source by re-fetching its OpenAPI spec and updating memories. Returns a diff summary.',
+      parameters: apiRefreshSchema,
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.api_refresh(params);
+        return toAgentToolResult(result);
+      },
+    },
+    {
+      name: 'api_remove',
+      description: 'Soft-delete an onboarded API source. Can be restored later with api_restore.',
+      parameters: apiRemoveSchema,
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.api_remove(params);
+        return toAgentToolResult(result);
+      },
+    },
+    {
+      name: 'api_restore',
+      description: 'Restore a previously soft-deleted API source.',
+      parameters: apiRestoreSchema,
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.api_restore(params);
         return toAgentToolResult(result);
       },
     },

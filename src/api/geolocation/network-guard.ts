@@ -2,8 +2,13 @@
  * SSRF / TLS network validation for outbound provider connections.
  * Enforces TLS-only connections and blocks private IP ranges.
  * Part of Issue #1244.
+ *
+ * Issue #1820: Added DNS-resolving variants (resolveAndValidateOutboundUrl,
+ * resolveAndValidateOutboundHost) that perform hostname resolution and check
+ * the resolved IP against private ranges to prevent DNS rebinding attacks.
  */
 
+import { promises as dns } from 'node:dns';
 import type { Result } from './types.ts';
 
 /** Schemes that require TLS — the only ones we allow. */
@@ -135,6 +140,72 @@ export function validateOutboundHost(host: string, port: number): Result<void, s
   }
 
   return { ok: true, value: undefined };
+}
+
+/**
+ * Resolve a hostname's IP and check it against private ranges.
+ * Returns an error string if the resolved IP is private, or null if safe.
+ * Skips DNS resolution for hostnames that are already IP literals.
+ *
+ * Issue #1820: Prevents DNS rebinding SSRF where an attacker-controlled
+ * domain resolves to a private IP, bypassing the literal hostname check.
+ */
+async function resolveHostToPrivateCheck(host: string): Promise<string | null> {
+  // If the host is already an IP literal, isPrivateIp already caught it
+  // in the sync validation. Only resolve non-IP hostnames.
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host) || host.includes(':')) {
+    return null;
+  }
+
+  try {
+    const { address } = await dns.lookup(host);
+    if (isPrivateIp(address)) {
+      return `Host "${host}" resolves to private/reserved IP ${address}`;
+    }
+    return null;
+  } catch {
+    return `Could not resolve host "${host}"`;
+  }
+}
+
+/**
+ * Async version of validateOutboundUrl that also resolves the hostname
+ * via DNS and verifies the resolved IP is not in a private range.
+ *
+ * Use this instead of validateOutboundUrl whenever the calling context
+ * is async (HTTP handlers, provider verify/connect, etc.).
+ *
+ * Issue #1820.
+ */
+export async function resolveAndValidateOutboundUrl(url: string): Promise<Result<URL, string>> {
+  const syncResult = validateOutboundUrl(url);
+  if (!syncResult.ok) return syncResult;
+
+  const host = syncResult.value.hostname;
+  const dnsError = await resolveHostToPrivateCheck(host);
+  if (dnsError) {
+    return { ok: false, error: dnsError };
+  }
+
+  return syncResult;
+}
+
+/**
+ * Async version of validateOutboundHost that also resolves the hostname
+ * via DNS and verifies the resolved IP is not in a private range.
+ *
+ * Issue #1820.
+ */
+export async function resolveAndValidateOutboundHost(host: string, port: number): Promise<Result<void, string>> {
+  const syncResult = validateOutboundHost(host, port);
+  if (!syncResult.ok) return syncResult;
+
+  const dnsError = await resolveHostToPrivateCheck(host);
+  if (dnsError) {
+    return { ok: false, error: dnsError };
+  }
+
+  return syncResult;
 }
 
 /**

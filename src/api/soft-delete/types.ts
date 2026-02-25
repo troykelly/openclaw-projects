@@ -7,7 +7,7 @@
 /**
  * Entity types that support soft delete
  */
-export type SoftDeleteEntityType = 'work_item' | 'contact';
+export type SoftDeleteEntityType = 'work_item' | 'contact' | 'api_source';
 
 /**
  * Trash item summary for listing

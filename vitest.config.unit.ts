@@ -63,6 +63,7 @@ export default defineProject({
       'tests/worker/**/*.test.ts',
       'tests/ha-connector/**/*.test.ts',
       'tests/unit/geolocation/**/*.test.ts',
+      'tests/unit/api-sources/**/*.test.ts',
 
       // ── Pure unit tests co-located in src/ ─────────────────────────
       'src/api/auth/**/*.test.ts',
