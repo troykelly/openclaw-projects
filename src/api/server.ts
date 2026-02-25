@@ -120,6 +120,7 @@ import {
 import { voiceRoutesPlugin } from './voice/routes.ts';
 import { terminalRoutesPlugin } from './terminal/routes.ts';
 import { haRoutesPlugin } from './ha-routes.ts';
+import { apiSourceRoutesPlugin } from './api-sources/routes.ts';
 import { postmarkIPWhitelistMiddleware, twilioIPWhitelistMiddleware } from './webhooks/ip-whitelist.ts';
 import { validateSsrf as ssrfValidateSsrf } from './webhooks/ssrf.ts';
 import { computeNextRunAt } from './skill-store/schedule-next-run.ts';
@@ -22607,6 +22608,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // ── Home Automation Routes (Issue #1606, Epic #1440) ────────────────
   const haPool = createPool();
   app.register(haRoutesPlugin, { pool: haPool });
+
+  // ── API Source Routes (API Onboarding) ─────────────────────────────
+  const apiSourcePool = createPool();
+  app.register(apiSourceRoutesPlugin, { pool: apiSourcePool });
 
   // ── SPA fallback for client-side routing (Issue #481) ──────────────
   // Serve index.html for /static/app/* paths that don't match a real file.
