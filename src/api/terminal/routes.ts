@@ -7,6 +7,12 @@
  * - Session lifecycle with gRPC bridge (Issue #1674)
  * - WebSocket terminal I/O streaming (Issue #1675)
  * - Command execution (Issue #1676)
+ * - Window and pane management (Issue #1677)
+ * - SSH tunnel management (Issue #1678)
+ * - Known host verification (Issue #1679)
+ * - Entry recording pipeline (Issue #1680)
+ * - Semantic search (Issue #1681)
+ * - Session recovery status (Issue #1682)
  * - Enrollment tokens (Issue #1683)
  * - Audit trail (Issue #1686)
  * - Entry retention policies (Issue #1687)
@@ -1654,5 +1660,849 @@ export async function terminalRoutesPlugin(
 
     const value = result.rows[0]?.value as { terminal_entry_retention_days?: number } | undefined;
     return reply.send({ entry_retention_days: value?.terminal_entry_retention_days ?? 90 });
+  });
+
+  // ================================================================
+  // Issue #1677 — Window and Pane Management
+  // ================================================================
+
+  // POST /api/terminal/sessions/:id/windows — Create window
+  app.post('/api/terminal/sessions/:id/windows', async (req, reply) => {
+    const params = req.params as { id: string };
+    if (!UUID_REGEX.test(params.id)) {
+      return reply.code(400).send({ error: 'Invalid session ID format' });
+    }
+
+    if (!(await verifyWriteScope(pool, 'terminal_session', params.id, req))) {
+      return reply.code(404).send({ error: 'Session not found' });
+    }
+
+    const body = req.body as { name?: string } | null;
+
+    try {
+      const result = await grpcClient.createWindow({
+        session_id: params.id,
+        window_name: body?.name ?? '',
+      });
+
+      return reply.code(201).send(result);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown gRPC error';
+      return reply.code(502).send({ error: 'Failed to create window', details: message });
+    }
+  });
+
+  // DELETE /api/terminal/sessions/:sid/windows/:wid — Close window
+  app.delete('/api/terminal/sessions/:sid/windows/:wid', async (req, reply) => {
+    const params = req.params as { sid: string; wid: string };
+    if (!UUID_REGEX.test(params.sid)) {
+      return reply.code(400).send({ error: 'Invalid session ID format' });
+    }
+
+    if (!(await verifyWriteScope(pool, 'terminal_session', params.sid, req))) {
+      return reply.code(404).send({ error: 'Session not found' });
+    }
+
+    const windowIndex = parseInt(params.wid, 10);
+    if (!Number.isFinite(windowIndex) || windowIndex < 0) {
+      return reply.code(400).send({ error: 'Invalid window index' });
+    }
+
+    try {
+      await grpcClient.closeWindow({
+        session_id: params.sid,
+        window_index: windowIndex,
+      });
+
+      return reply.code(204).send();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown gRPC error';
+      return reply.code(502).send({ error: 'Failed to close window', details: message });
+    }
+  });
+
+  // POST /api/terminal/sessions/:sid/windows/:wid/split — Split pane
+  app.post('/api/terminal/sessions/:sid/windows/:wid/split', async (req, reply) => {
+    const params = req.params as { sid: string; wid: string };
+    if (!UUID_REGEX.test(params.sid)) {
+      return reply.code(400).send({ error: 'Invalid session ID format' });
+    }
+
+    if (!(await verifyWriteScope(pool, 'terminal_session', params.sid, req))) {
+      return reply.code(404).send({ error: 'Session not found' });
+    }
+
+    const windowIndex = parseInt(params.wid, 10);
+    if (!Number.isFinite(windowIndex) || windowIndex < 0) {
+      return reply.code(400).send({ error: 'Invalid window index' });
+    }
+
+    const body = req.body as { direction?: string } | null;
+    const horizontal = body?.direction === 'horizontal';
+
+    try {
+      const result = await grpcClient.splitPane({
+        session_id: params.sid,
+        window_index: windowIndex,
+        horizontal,
+      });
+
+      return reply.code(201).send(result);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown gRPC error';
+      return reply.code(502).send({ error: 'Failed to split pane', details: message });
+    }
+  });
+
+  // DELETE /api/terminal/sessions/:sid/panes/:pid — Close pane
+  app.delete('/api/terminal/sessions/:sid/panes/:pid', async (req, reply) => {
+    const params = req.params as { sid: string; pid: string };
+    if (!UUID_REGEX.test(params.sid)) {
+      return reply.code(400).send({ error: 'Invalid session ID format' });
+    }
+
+    if (!(await verifyWriteScope(pool, 'terminal_session', params.sid, req))) {
+      return reply.code(404).send({ error: 'Session not found' });
+    }
+
+    const paneIndex = parseInt(params.pid, 10);
+    if (!Number.isFinite(paneIndex) || paneIndex < 0) {
+      return reply.code(400).send({ error: 'Invalid pane index' });
+    }
+
+    try {
+      await grpcClient.closePane({
+        session_id: params.sid,
+        window_index: 0,
+        pane_index: paneIndex,
+      });
+
+      return reply.code(204).send();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown gRPC error';
+      return reply.code(502).send({ error: 'Failed to close pane', details: message });
+    }
+  });
+
+  // ================================================================
+  // Issue #1678 — SSH Tunnel Management
+  // ================================================================
+
+  const VALID_TUNNEL_DIRECTIONS = ['local', 'remote', 'dynamic'] as const;
+  const VALID_TUNNEL_STATUSES = ['active', 'failed', 'closed'] as const;
+
+  // GET /api/terminal/tunnels — List tunnels
+  app.get('/api/terminal/tunnels', async (req, reply) => {
+    const query = req.query as {
+      limit?: string;
+      offset?: string;
+      connection_id?: string;
+      direction?: string;
+      status?: string;
+    };
+    const { limit, offset } = parsePagination(query);
+    const namespaces = getEffectiveNamespaces(req);
+    if (namespaces.length === 0) {
+      return reply.code(403).send({ error: 'No namespace access' });
+    }
+
+    const conditions: string[] = [];
+    const params: unknown[] = [];
+    let idx = 1;
+
+    conditions.push(`t.namespace = ANY($${idx}::text[])`);
+    params.push(namespaces);
+    idx++;
+
+    if (query.connection_id && UUID_REGEX.test(query.connection_id)) {
+      conditions.push(`t.connection_id = $${idx}`);
+      params.push(query.connection_id);
+      idx++;
+    }
+
+    if (query.direction && VALID_TUNNEL_DIRECTIONS.includes(query.direction as typeof VALID_TUNNEL_DIRECTIONS[number])) {
+      conditions.push(`t.direction = $${idx}`);
+      params.push(query.direction);
+      idx++;
+    }
+
+    if (query.status && VALID_TUNNEL_STATUSES.includes(query.status as typeof VALID_TUNNEL_STATUSES[number])) {
+      conditions.push(`t.status = $${idx}`);
+      params.push(query.status);
+      idx++;
+    }
+
+    const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    const countResult = await pool.query(
+      `SELECT COUNT(*) as total FROM terminal_tunnel t ${where}`,
+      params,
+    );
+    const total = parseInt((countResult.rows[0] as { total: string }).total, 10);
+
+    const result = await pool.query(
+      `SELECT t.id, t.namespace, t.connection_id, t.session_id, t.direction,
+              t.bind_host, t.bind_port, t.target_host, t.target_port,
+              t.status, t.error_message, t.created_at, t.updated_at
+       FROM terminal_tunnel t
+       ${where}
+       ORDER BY t.created_at DESC
+       LIMIT $${idx} OFFSET $${idx + 1}`,
+      [...params, limit, offset],
+    );
+
+    return reply.send({ tunnels: result.rows, total });
+  });
+
+  // POST /api/terminal/tunnels — Create tunnel
+  app.post('/api/terminal/tunnels', async (req, reply) => {
+    const body = req.body as {
+      connection_id?: string;
+      session_id?: string;
+      direction?: string;
+      bind_host?: string;
+      bind_port?: number;
+      target_host?: string;
+      target_port?: number;
+    };
+
+    if (!body?.connection_id || !UUID_REGEX.test(body.connection_id)) {
+      return reply.code(400).send({ error: 'Valid connection_id is required' });
+    }
+
+    if (!body.direction || !VALID_TUNNEL_DIRECTIONS.includes(body.direction as typeof VALID_TUNNEL_DIRECTIONS[number])) {
+      return reply.code(400).send({
+        error: `direction is required and must be one of: ${VALID_TUNNEL_DIRECTIONS.join(', ')}`,
+      });
+    }
+
+    if (typeof body.bind_port !== 'number' || body.bind_port < 1 || body.bind_port > 65535) {
+      return reply.code(400).send({ error: 'bind_port is required and must be 1-65535' });
+    }
+
+    if (body.direction !== 'dynamic') {
+      if (!body.target_host?.trim()) {
+        return reply.code(400).send({ error: 'target_host is required for local and remote tunnels' });
+      }
+      if (typeof body.target_port !== 'number' || body.target_port < 1 || body.target_port > 65535) {
+        return reply.code(400).send({ error: 'target_port is required for local and remote tunnels (1-65535)' });
+      }
+    }
+
+    if (!(await verifyReadScope(pool, 'terminal_connection', body.connection_id, req))) {
+      return reply.code(404).send({ error: 'Connection not found' });
+    }
+
+    if (body.session_id) {
+      if (!UUID_REGEX.test(body.session_id)) {
+        return reply.code(400).send({ error: 'Invalid session_id format' });
+      }
+      if (!(await verifyReadScope(pool, 'terminal_session', body.session_id, req))) {
+        return reply.code(404).send({ error: 'Session not found' });
+      }
+    }
+
+    const namespace = getStoreNamespace(req);
+
+    try {
+      const result = await grpcClient.createTunnel({
+        connection_id: body.connection_id,
+        namespace,
+        session_id: body.session_id ?? '',
+        direction: body.direction,
+        bind_host: body.bind_host ?? '127.0.0.1',
+        bind_port: body.bind_port,
+        target_host: body.target_host ?? '',
+        target_port: body.target_port ?? 0,
+      });
+
+      return reply.code(201).send(result);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown gRPC error';
+      return reply.code(502).send({ error: 'Failed to create tunnel', details: message });
+    }
+  });
+
+  // DELETE /api/terminal/tunnels/:id — Close tunnel
+  app.delete('/api/terminal/tunnels/:id', async (req, reply) => {
+    const params = req.params as { id: string };
+    if (!UUID_REGEX.test(params.id)) {
+      return reply.code(400).send({ error: 'Invalid tunnel ID format' });
+    }
+
+    if (!(await verifyWriteScope(pool, 'terminal_tunnel', params.id, req))) {
+      return reply.code(404).send({ error: 'Tunnel not found' });
+    }
+
+    try {
+      await grpcClient.closeTunnel({ tunnel_id: params.id });
+      return reply.code(204).send();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown gRPC error';
+      return reply.code(502).send({ error: 'Failed to close tunnel', details: message });
+    }
+  });
+
+  // ================================================================
+  // Issue #1679 — Known Host Verification
+  // ================================================================
+
+  // GET /api/terminal/known-hosts — List trusted hosts
+  app.get('/api/terminal/known-hosts', async (req, reply) => {
+    const query = req.query as {
+      limit?: string;
+      offset?: string;
+      host?: string;
+      connection_id?: string;
+    };
+    const { limit, offset } = parsePagination(query);
+    const namespaces = getEffectiveNamespaces(req);
+    if (namespaces.length === 0) {
+      return reply.code(403).send({ error: 'No namespace access' });
+    }
+
+    const conditions: string[] = [];
+    const params: unknown[] = [];
+    let idx = 1;
+
+    conditions.push(`namespace = ANY($${idx}::text[])`);
+    params.push(namespaces);
+    idx++;
+
+    if (query.host?.trim()) {
+      conditions.push(`host ILIKE $${idx}`);
+      params.push(`%${query.host.trim()}%`);
+      idx++;
+    }
+
+    if (query.connection_id && UUID_REGEX.test(query.connection_id)) {
+      conditions.push(`connection_id = $${idx}`);
+      params.push(query.connection_id);
+      idx++;
+    }
+
+    const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    const countResult = await pool.query(
+      `SELECT COUNT(*) as total FROM terminal_known_host ${where}`,
+      params,
+    );
+    const total = parseInt((countResult.rows[0] as { total: string }).total, 10);
+
+    const result = await pool.query(
+      `SELECT id, namespace, connection_id, host, port, key_type,
+              key_fingerprint, public_key, trusted_at, trusted_by, created_at
+       FROM terminal_known_host
+       ${where}
+       ORDER BY trusted_at DESC
+       LIMIT $${idx} OFFSET $${idx + 1}`,
+      [...params, limit, offset],
+    );
+
+    return reply.send({ known_hosts: result.rows, total });
+  });
+
+  // POST /api/terminal/known-hosts — Manually trust a host key
+  app.post('/api/terminal/known-hosts', async (req, reply) => {
+    const body = req.body as {
+      connection_id?: string;
+      host?: string;
+      port?: number;
+      key_type?: string;
+      key_fingerprint?: string;
+      public_key?: string;
+      trusted_by?: string;
+    };
+
+    if (!body?.host?.trim()) {
+      return reply.code(400).send({ error: 'host is required' });
+    }
+    if (!body.key_type?.trim()) {
+      return reply.code(400).send({ error: 'key_type is required' });
+    }
+    if (!body.key_fingerprint?.trim()) {
+      return reply.code(400).send({ error: 'key_fingerprint is required' });
+    }
+    if (!body.public_key?.trim()) {
+      return reply.code(400).send({ error: 'public_key is required' });
+    }
+
+    if (body.connection_id && !UUID_REGEX.test(body.connection_id)) {
+      return reply.code(400).send({ error: 'Invalid connection_id format' });
+    }
+
+    const namespace = getStoreNamespace(req);
+    const id = randomUUID();
+    const port = body.port ?? 22;
+
+    await pool.query(
+      `INSERT INTO terminal_known_host (
+        id, namespace, connection_id, host, port, key_type,
+        key_fingerprint, public_key, trusted_by
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      ON CONFLICT (namespace, host, port, key_type)
+      DO UPDATE SET key_fingerprint = EXCLUDED.key_fingerprint,
+                    public_key = EXCLUDED.public_key,
+                    trusted_at = NOW(),
+                    trusted_by = EXCLUDED.trusted_by`,
+      [
+        id,
+        namespace,
+        body.connection_id ?? null,
+        body.host.trim(),
+        port,
+        body.key_type.trim(),
+        body.key_fingerprint.trim(),
+        body.public_key.trim(),
+        body.trusted_by ?? 'user',
+      ],
+    );
+
+    const result = await pool.query(
+      `SELECT id, namespace, connection_id, host, port, key_type,
+              key_fingerprint, public_key, trusted_at, trusted_by, created_at
+       FROM terminal_known_host
+       WHERE namespace = $1 AND host = $2 AND port = $3 AND key_type = $4`,
+      [namespace, body.host.trim(), port, body.key_type.trim()],
+    );
+
+    return reply.code(201).send(result.rows[0]);
+  });
+
+  // POST /api/terminal/known-hosts/approve — Approve pending host verification
+  app.post('/api/terminal/known-hosts/approve', async (req, reply) => {
+    const body = req.body as {
+      session_id?: string;
+      host?: string;
+      port?: number;
+      key_type?: string;
+      fingerprint?: string;
+      public_key?: string;
+    };
+
+    if (!body?.session_id || !UUID_REGEX.test(body.session_id)) {
+      return reply.code(400).send({ error: 'Valid session_id is required' });
+    }
+
+    if (!body.host?.trim() || !body.key_type?.trim() || !body.fingerprint?.trim() || !body.public_key?.trim()) {
+      return reply.code(400).send({ error: 'host, key_type, fingerprint, and public_key are required' });
+    }
+
+    if (!(await verifyWriteScope(pool, 'terminal_session', body.session_id, req))) {
+      return reply.code(404).send({ error: 'Session not found' });
+    }
+
+    const namespace = getStoreNamespace(req);
+    const id = randomUUID();
+    const port = body.port ?? 22;
+
+    await pool.query(
+      `INSERT INTO terminal_known_host (
+        id, namespace, host, port, key_type, key_fingerprint, public_key, trusted_by
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'user')
+      ON CONFLICT (namespace, host, port, key_type)
+      DO UPDATE SET key_fingerprint = EXCLUDED.key_fingerprint,
+                    public_key = EXCLUDED.public_key,
+                    trusted_at = NOW(),
+                    trusted_by = 'user'`,
+      [id, namespace, body.host.trim(), port, body.key_type.trim(), body.fingerprint.trim(), body.public_key.trim()],
+    );
+
+    try {
+      await grpcClient.approveHostKey({
+        session_id: body.session_id,
+        host: body.host.trim(),
+        port,
+        key_type: body.key_type.trim(),
+        fingerprint: body.fingerprint.trim(),
+        public_key: body.public_key.trim(),
+      });
+
+      return reply.send({ approved: true, session_id: body.session_id });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown gRPC error';
+      return reply.code(502).send({ error: 'Failed to notify worker', details: message });
+    }
+  });
+
+  // DELETE /api/terminal/known-hosts/:id — Revoke trust
+  app.delete('/api/terminal/known-hosts/:id', async (req, reply) => {
+    const params = req.params as { id: string };
+    if (!UUID_REGEX.test(params.id)) {
+      return reply.code(400).send({ error: 'Invalid known host ID format' });
+    }
+
+    if (!(await verifyWriteScope(pool, 'terminal_known_host', params.id, req))) {
+      return reply.code(404).send({ error: 'Known host not found' });
+    }
+
+    await pool.query(`DELETE FROM terminal_known_host WHERE id = $1`, [params.id]);
+
+    return reply.code(204).send();
+  });
+
+  // ================================================================
+  // Issue #1680 — Entry Recording and Embedding Pipeline
+  // ================================================================
+
+  // GET /api/terminal/sessions/:id/entries — List entries (paginated)
+  app.get('/api/terminal/sessions/:id/entries', async (req, reply) => {
+    const params = req.params as { id: string };
+    const query = req.query as {
+      limit?: string;
+      offset?: string;
+      kind?: string;
+      from?: string;
+      to?: string;
+    };
+
+    if (!UUID_REGEX.test(params.id)) {
+      return reply.code(400).send({ error: 'Invalid session ID format' });
+    }
+
+    if (!(await verifyReadScope(pool, 'terminal_session', params.id, req))) {
+      return reply.code(404).send({ error: 'Session not found' });
+    }
+
+    const { limit, offset } = parsePagination(query);
+
+    const conditions: string[] = ['session_id = $1'];
+    const qParams: unknown[] = [params.id];
+    let idx = 2;
+
+    if (query.kind?.trim()) {
+      const kinds = query.kind.split(',').map((k) => k.trim()).filter(Boolean);
+      const validKinds = kinds.filter((k) => VALID_ENTRY_KINDS.includes(k as typeof VALID_ENTRY_KINDS[number]));
+      if (validKinds.length > 0) {
+        conditions.push(`kind = ANY($${idx}::text[])`);
+        qParams.push(validKinds);
+        idx++;
+      }
+    }
+
+    if (query.from?.trim()) {
+      conditions.push(`captured_at >= $${idx}::timestamptz`);
+      qParams.push(query.from.trim());
+      idx++;
+    }
+    if (query.to?.trim()) {
+      conditions.push(`captured_at <= $${idx}::timestamptz`);
+      qParams.push(query.to.trim());
+      idx++;
+    }
+
+    const where = `WHERE ${conditions.join(' AND ')}`;
+
+    const countResult = await pool.query(
+      `SELECT COUNT(*) as total FROM terminal_session_entry ${where}`,
+      qParams,
+    );
+    const total = parseInt((countResult.rows[0] as { total: string }).total, 10);
+
+    const result = await pool.query(
+      `SELECT id, session_id, pane_id, namespace, kind, content,
+              sequence, captured_at, metadata, created_at,
+              CASE WHEN embedded_at IS NOT NULL THEN true ELSE false END as is_embedded
+       FROM terminal_session_entry
+       ${where}
+       ORDER BY sequence ASC
+       LIMIT $${idx} OFFSET $${idx + 1}`,
+      [...qParams, limit, offset],
+    );
+
+    return reply.send({ entries: result.rows, total });
+  });
+
+  // GET /api/terminal/sessions/:id/entries/export — Export entries
+  app.get('/api/terminal/sessions/:id/entries/export', async (req, reply) => {
+    const params = req.params as { id: string };
+    const query = req.query as { format?: string };
+
+    if (!UUID_REGEX.test(params.id)) {
+      return reply.code(400).send({ error: 'Invalid session ID format' });
+    }
+
+    if (!(await verifyReadScope(pool, 'terminal_session', params.id, req))) {
+      return reply.code(404).send({ error: 'Session not found' });
+    }
+
+    const sessionResult = await pool.query(
+      `SELECT s.tmux_session_name, c.name as connection_name, c.host,
+              s.started_at, s.terminated_at
+       FROM terminal_session s
+       JOIN terminal_connection c ON s.connection_id = c.id
+       WHERE s.id = $1`,
+      [params.id],
+    );
+
+    const session = sessionResult.rows[0] as {
+      tmux_session_name: string;
+      connection_name: string;
+      host: string;
+      started_at: string | null;
+      terminated_at: string | null;
+    } | undefined;
+
+    const entriesResult = await pool.query(
+      `SELECT kind, content, captured_at, metadata
+       FROM terminal_session_entry
+       WHERE session_id = $1
+       ORDER BY sequence ASC`,
+      [params.id],
+    );
+
+    const entries = entriesResult.rows as Array<{
+      kind: string;
+      content: string;
+      captured_at: string;
+      metadata: Record<string, unknown> | null;
+    }>;
+
+    const format = query.format === 'markdown' ? 'markdown' : 'text';
+
+    if (format === 'markdown') {
+      let md = `# Terminal Session: ${session?.tmux_session_name ?? 'unknown'}\n\n`;
+      md += `**Connection:** ${session?.connection_name ?? 'unknown'} (${session?.host ?? 'unknown'})\n`;
+      md += `**Started:** ${session?.started_at ?? 'unknown'}\n`;
+      if (session?.terminated_at) md += `**Ended:** ${session.terminated_at}\n`;
+      md += `\n---\n\n`;
+
+      for (const entry of entries) {
+        if (entry.kind === 'command') {
+          md += `\`\`\`bash\n$ ${entry.content}\n\`\`\`\n\n`;
+        } else if (entry.kind === 'output') {
+          md += `\`\`\`\n${entry.content}\n\`\`\`\n\n`;
+        } else if (entry.kind === 'annotation') {
+          md += `> **Note:** ${entry.content}\n\n`;
+        } else if (entry.kind === 'error') {
+          md += `> **Error:** ${entry.content}\n\n`;
+        } else {
+          md += `${entry.content}\n\n`;
+        }
+      }
+
+      return reply.type('text/markdown').send(md);
+    }
+
+    let text = `Session: ${session?.tmux_session_name ?? 'unknown'}\n`;
+    text += `Connection: ${session?.connection_name ?? 'unknown'} (${session?.host ?? 'unknown'})\n`;
+    text += `Started: ${session?.started_at ?? 'unknown'}\n`;
+    if (session?.terminated_at) text += `Ended: ${session.terminated_at}\n`;
+    text += `\n`;
+
+    for (const entry of entries) {
+      if (entry.kind === 'command') {
+        text += `$ ${entry.content}\n`;
+      } else if (entry.kind === 'annotation') {
+        text += `[NOTE] ${entry.content}\n`;
+      } else if (entry.kind === 'error') {
+        text += `[ERROR] ${entry.content}\n`;
+      } else {
+        text += `${entry.content}\n`;
+      }
+    }
+
+    return reply.type('text/plain').send(text);
+  });
+
+  // ================================================================
+  // Issue #1681 — Semantic Search
+  // ================================================================
+
+  // POST /api/terminal/search — Semantic search across entries
+  app.post('/api/terminal/search', async (req, reply) => {
+    const body = req.body as {
+      query?: string;
+      connection_id?: string;
+      session_id?: string;
+      kind?: string[];
+      tags?: string[];
+      host?: string;
+      session_name?: string;
+      date_from?: string;
+      date_to?: string;
+      limit?: number;
+      offset?: number;
+    };
+
+    if (!body?.query?.trim()) {
+      return reply.code(400).send({ error: 'query is required' });
+    }
+
+    const namespaces = getEffectiveNamespaces(req);
+    if (namespaces.length === 0) {
+      return reply.code(403).send({ error: 'No namespace access' });
+    }
+
+    const limit = Math.min(Math.max(body.limit ?? 20, 1), MAX_LIMIT);
+    const offset = Math.max(body.offset ?? 0, 0);
+
+    const conditions: string[] = [
+      'e.namespace = ANY($1::text[])',
+      'e.embedded_at IS NOT NULL',
+    ];
+    const qParams: unknown[] = [namespaces];
+    let idx = 2;
+
+    if (body.connection_id && UUID_REGEX.test(body.connection_id)) {
+      conditions.push(`s.connection_id = $${idx}`);
+      qParams.push(body.connection_id);
+      idx++;
+    }
+
+    if (body.session_id && UUID_REGEX.test(body.session_id)) {
+      conditions.push(`e.session_id = $${idx}`);
+      qParams.push(body.session_id);
+      idx++;
+    }
+
+    if (body.kind && Array.isArray(body.kind) && body.kind.length > 0) {
+      const validKinds = body.kind.filter((k) => VALID_ENTRY_KINDS.includes(k as typeof VALID_ENTRY_KINDS[number]));
+      if (validKinds.length > 0) {
+        conditions.push(`e.kind = ANY($${idx}::text[])`);
+        qParams.push(validKinds);
+        idx++;
+      }
+    }
+
+    if (body.tags && Array.isArray(body.tags) && body.tags.length > 0) {
+      conditions.push(`s.tags && $${idx}::text[]`);
+      qParams.push(body.tags);
+      idx++;
+    }
+
+    if (body.host?.trim()) {
+      conditions.push(`c.host ILIKE $${idx}`);
+      qParams.push(`%${body.host.trim()}%`);
+      idx++;
+    }
+
+    if (body.session_name?.trim()) {
+      conditions.push(`s.tmux_session_name ILIKE $${idx}`);
+      qParams.push(`%${body.session_name.trim()}%`);
+      idx++;
+    }
+
+    if (body.date_from?.trim()) {
+      conditions.push(`e.captured_at >= $${idx}::timestamptz`);
+      qParams.push(body.date_from.trim());
+      idx++;
+    }
+
+    if (body.date_to?.trim()) {
+      conditions.push(`e.captured_at <= $${idx}::timestamptz`);
+      qParams.push(body.date_to.trim());
+      idx++;
+    }
+
+    const where = conditions.join(' AND ');
+
+    const searchResult = await pool.query(
+      `SELECT e.id, e.session_id, e.pane_id, e.kind, e.content,
+              e.captured_at, e.metadata, e.sequence,
+              s.tmux_session_name as session_name,
+              c.name as connection_name, c.host as connection_host
+       FROM terminal_session_entry e
+       JOIN terminal_session s ON e.session_id = s.id
+       JOIN terminal_connection c ON s.connection_id = c.id
+       WHERE ${where}
+         AND e.content ILIKE $${idx}
+       ORDER BY e.captured_at DESC
+       LIMIT $${idx + 1} OFFSET $${idx + 2}`,
+      [...qParams, `%${body.query.trim()}%`, limit, offset],
+    );
+
+    const countResult = await pool.query(
+      `SELECT COUNT(*) as total
+       FROM terminal_session_entry e
+       JOIN terminal_session s ON e.session_id = s.id
+       JOIN terminal_connection c ON s.connection_id = c.id
+       WHERE ${where}
+         AND e.content ILIKE $${idx}`,
+      [...qParams, `%${body.query.trim()}%`],
+    );
+    const total = parseInt((countResult.rows[0] as { total: string }).total, 10);
+
+    const items = [];
+    for (const row of searchResult.rows as Array<Record<string, unknown>>) {
+      const sequence = row.sequence as number;
+      const sessionId = row.session_id as string;
+
+      const contextResult = await pool.query(
+        `(SELECT kind, content, sequence FROM terminal_session_entry
+          WHERE session_id = $1 AND sequence < $2
+          ORDER BY sequence DESC LIMIT 2)
+         UNION ALL
+         (SELECT kind, content, sequence FROM terminal_session_entry
+          WHERE session_id = $1 AND sequence > $2
+          ORDER BY sequence ASC LIMIT 2)
+         ORDER BY sequence ASC`,
+        [sessionId, sequence],
+      );
+
+      const contextRows = contextResult.rows as Array<{
+        kind: string;
+        content: string;
+        sequence: number;
+      }>;
+
+      const before = contextRows
+        .filter((c) => c.sequence < sequence)
+        .map(({ kind, content }) => ({ kind, content }));
+      const after = contextRows
+        .filter((c) => c.sequence > sequence)
+        .map(({ kind, content }) => ({ kind, content }));
+
+      items.push({
+        id: row.id,
+        session_id: row.session_id,
+        session_name: row.session_name,
+        connection_name: row.connection_name,
+        connection_host: row.connection_host,
+        kind: row.kind,
+        content: row.content,
+        captured_at: row.captured_at,
+        similarity: 1.0,
+        context: { before, after },
+        metadata: row.metadata,
+      });
+    }
+
+    return reply.send({ items, total, limit, offset });
+  });
+
+  // ================================================================
+  // Issue #1682 — Session Recovery (API endpoint for worker status)
+  // ================================================================
+
+  // GET /api/terminal/worker/status — Get worker status and health
+  app.get('/api/terminal/worker/status', async (_req, reply) => {
+    try {
+      const client = grpcClient.getGrpcClient();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic gRPC method access
+      const fn = (client as unknown as Record<string, (...args: unknown[]) => void>).GetWorkerStatus;
+      if (typeof fn !== 'function') {
+        return reply.code(502).send({ error: 'Worker status RPC not available' });
+      }
+
+      return new Promise<void>((resolve) => {
+        fn.call(
+          client,
+          {},
+          { deadline: new Date(Date.now() + 5000) },
+          (err: Error | null, response: unknown) => {
+            if (err) {
+              reply.code(502).send({ error: 'Worker unreachable', details: err.message });
+            } else {
+              reply.send(response);
+            }
+            resolve();
+          },
+        );
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      return reply.code(502).send({ error: 'Worker unavailable', details: message });
+    }
   });
 }

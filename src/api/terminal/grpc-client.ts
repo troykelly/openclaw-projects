@@ -26,6 +26,19 @@ import type {
   CapturePaneResponse,
   TerminalInput,
   TerminalOutput,
+  CreateWindowRequest,
+  WindowInfo,
+  CloseWindowRequest,
+  SplitPaneRequest,
+  PaneInfo,
+  ClosePaneRequest,
+  CreateTunnelRequest,
+  TunnelInfo,
+  CloseTunnelRequest,
+  ListTunnelsRequest,
+  ListTunnelsResponse,
+  ApproveHostKeyRequest,
+  RejectHostKeyRequest,
 } from '../../tmux-worker/types.ts';
 
 /** Default gRPC deadline in milliseconds for unary RPCs. */
@@ -176,4 +189,46 @@ export function attachSession(): grpc.ClientDuplexStream<TerminalInput, Terminal
     throw new Error('gRPC method AttachSession not found on client');
   }
   return fn.call(client) as grpc.ClientDuplexStream<TerminalInput, TerminalOutput>;
+}
+
+// ── Phase 3: Window/Pane management (#1677) ──────────────────
+
+export function createWindow(req: CreateWindowRequest): Promise<WindowInfo> {
+  return unaryCall('CreateWindow', req);
+}
+
+export function closeWindow(req: CloseWindowRequest): Promise<Record<string, never>> {
+  return unaryCall('CloseWindow', req);
+}
+
+export function splitPane(req: SplitPaneRequest): Promise<PaneInfo> {
+  return unaryCall('SplitPane', req);
+}
+
+export function closePane(req: ClosePaneRequest): Promise<Record<string, never>> {
+  return unaryCall('ClosePane', req);
+}
+
+// ── Phase 3: Tunnel management (#1678) ───────────────────────
+
+export function createTunnel(req: CreateTunnelRequest): Promise<TunnelInfo> {
+  return unaryCall('CreateTunnel', req);
+}
+
+export function closeTunnel(req: CloseTunnelRequest): Promise<Record<string, never>> {
+  return unaryCall('CloseTunnel', req);
+}
+
+export function listTunnels(req: ListTunnelsRequest): Promise<ListTunnelsResponse> {
+  return unaryCall('ListTunnels', req);
+}
+
+// ── Phase 3: Host key verification (#1679) ───────────────────
+
+export function approveHostKey(req: ApproveHostKeyRequest): Promise<Record<string, never>> {
+  return unaryCall('ApproveHostKey', req);
+}
+
+export function rejectHostKey(req: RejectHostKeyRequest): Promise<Record<string, never>> {
+  return unaryCall('RejectHostKey', req);
 }
