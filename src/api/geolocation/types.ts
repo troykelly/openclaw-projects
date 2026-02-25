@@ -69,7 +69,7 @@ export interface Connection {
 /** The plugin interface all geolocation providers must implement. */
 export interface GeoProviderPlugin {
   type: GeoProviderType;
-  validateConfig(config: unknown): Result<ProviderConfig, ValidationError[]>;
+  validateConfig(config: unknown): Result<ProviderConfig, ValidationError[]> | Promise<Result<ProviderConfig, ValidationError[]>>;
   verify(config: ProviderConfig, credentials: string): Promise<VerifyResult>;
   discoverEntities(config: ProviderConfig, credentials: string): Promise<EntityInfo[]>;
   connect(

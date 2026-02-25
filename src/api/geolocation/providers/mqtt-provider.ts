@@ -7,7 +7,7 @@
 import type { IClientOptions, MqttClient } from 'mqtt';
 import mqtt from 'mqtt';
 
-import { validateOutboundHost } from '../network-guard.ts';
+import { resolveAndValidateOutboundHost } from '../network-guard.ts';
 import { registerProvider } from '../registry.ts';
 import type {
   Connection,
@@ -614,7 +614,7 @@ async function verifyMqtt(config: MqttProviderConfig, credentials: string): Prom
 export const mqttPlugin: GeoProviderPlugin = {
   type: 'mqtt',
 
-  validateConfig(config: unknown): Result<ProviderConfig, ValidationError[]> {
+  async validateConfig(config: unknown): Promise<Result<ProviderConfig, ValidationError[]>> {
     if (typeof config !== 'object' || config === null) {
       return {
         ok: false,
@@ -663,8 +663,8 @@ export const mqttPlugin: GeoProviderPlugin = {
     // Bail early if we have basic errors
     if (errors.length > 0) return { ok: false, error: errors };
 
-    // Network guard validation
-    const hostResult = validateOutboundHost(cfg.host as string, port as number);
+    // Issue #1822: DNS-resolving SSRF check prevents DNS rebinding attacks
+    const hostResult = await resolveAndValidateOutboundHost(cfg.host as string, port as number);
     if (!hostResult.ok) {
       return {
         ok: false,
