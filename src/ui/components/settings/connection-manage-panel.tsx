@@ -76,7 +76,7 @@ export function ConnectionManagePanel({
     Array.isArray(connection.enabled_features) ? [...connection.enabled_features] : [],
   );
   const [sync_status, setSyncStatus] = useState<Record<string, FeatureSyncInfo | undefined>>(
-    connection.sync_status as Record<string, FeatureSyncInfo | undefined>,
+    (connection.sync_status ?? {}) as Record<string, FeatureSyncInfo | undefined>,
   );
   const [isSaving, setIsSaving] = useState(false);
   const [reAuthUrl, setReAuthUrl] = useState<string | null>(null);
@@ -274,7 +274,7 @@ export function ConnectionManagePanel({
                 key={feature}
                 feature={feature}
                 enabled={enabled_features.includes(feature)}
-                currentScopes={connection.scopes}
+                currentScopes={Array.isArray(connection.scopes) ? connection.scopes : []}
                 provider={connection.provider}
                 permission_level={permission_level}
                 onToggle={handleFeatureToggle}

@@ -15,8 +15,25 @@ export function useEmbeddingSettings() {
 
     async function fetchSettings(): Promise<void> {
       try {
-        const data = await apiClient.get<EmbeddingSettings>('/api/settings/embeddings');
+        const raw = await apiClient.get<EmbeddingSettings>('/api/settings/embeddings');
         if (!alive) return;
+        // Validate nested objects — apiClient casts JSON as T without runtime checks
+        const data: EmbeddingSettings = {
+          provider: raw?.provider ?? null,
+          available_providers: Array.isArray(raw?.available_providers) ? raw.available_providers : [],
+          budget: {
+            daily_limit_usd: raw?.budget?.daily_limit_usd ?? 0,
+            monthly_limit_usd: raw?.budget?.monthly_limit_usd ?? 0,
+            today_spend_usd: raw?.budget?.today_spend_usd ?? 0,
+            month_spend_usd: raw?.budget?.month_spend_usd ?? 0,
+            pause_on_limit: raw?.budget?.pause_on_limit ?? false,
+          },
+          usage: {
+            today: { count: raw?.usage?.today?.count ?? 0, tokens: raw?.usage?.today?.tokens ?? 0 },
+            month: { count: raw?.usage?.month?.count ?? 0, tokens: raw?.usage?.month?.tokens ?? 0 },
+            total: { count: raw?.usage?.total?.count ?? 0, tokens: raw?.usage?.total?.tokens ?? 0 },
+          },
+        };
         setState({ kind: 'loaded', data });
       } catch (error) {
         if (!alive) return;
