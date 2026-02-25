@@ -91,6 +91,7 @@ function ChannelDefaultsSection() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<Record<string, { agent_id: string }>>({});
+  const [error, setError] = useState<string | null>(null);
 
   const fetchDefaults = useCallback(async () => {
     try {
@@ -102,8 +103,9 @@ function ChannelDefaultsSection() {
         values[d.channel_type] = { agent_id: d.agent_id };
       }
       setEditValues(values);
+      setError(null);
     } catch {
-      // Silently handle
+      setError('Failed to load channel defaults');
     } finally {
       setLoading(false);
     }
@@ -115,13 +117,14 @@ function ChannelDefaultsSection() {
     const val = editValues[channelType];
     if (!val?.agent_id?.trim()) return;
     setSaving(channelType);
+    setError(null);
     try {
       await apiClient.put<ChannelDefault>(`/api/channel-defaults/${channelType}`, {
         agent_id: val.agent_id.trim(),
       });
       await fetchDefaults();
     } catch {
-      // Handle error
+      setError('Failed to save channel default');
     } finally {
       setSaving(null);
     }
@@ -148,6 +151,12 @@ function ChannelDefaultsSection() {
         <CardDescription>Default routing for each channel type. Applied when a destination has no override.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {error && (
+          <div data-testid="channel-defaults-error" className="flex items-center gap-2 rounded-lg border border-destructive/50 bg-destructive/10 p-3">
+            <AlertCircle className="size-4 shrink-0 text-destructive" />
+            <p className="text-sm text-destructive">{error}</p>
+          </div>
+        )}
         {CHANNEL_TYPES.map(({ value, label, icon: Icon }) => {
           const existing = defaults.find(d => d.channel_type === value);
           const editVal = editValues[value] ?? { agent_id: '' };
@@ -209,6 +218,7 @@ function InboundDestinationsSection() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editAgent, setEditAgent] = useState('');
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchDestinations = useCallback(async () => {
     try {
@@ -216,8 +226,9 @@ function InboundDestinationsSection() {
         '/api/inbound-destinations?limit=100&include_inactive=true',
       );
       setDestinations(Array.isArray(data.items) ? data.items : []);
+      setError(null);
     } catch {
-      // Handle error
+      setError('Failed to load inbound destinations');
     } finally {
       setLoading(false);
     }
@@ -232,6 +243,7 @@ function InboundDestinationsSection() {
 
   const handleSave = useCallback(async (id: string) => {
     setSaving(true);
+    setError(null);
     try {
       await apiClient.put<InboundDestination>(`/api/inbound-destinations/${id}`, {
         agent_id: editAgent.trim() || null,
@@ -239,7 +251,7 @@ function InboundDestinationsSection() {
       setEditingId(null);
       await fetchDestinations();
     } catch {
-      // Handle error
+      setError('Failed to save destination override');
     } finally {
       setSaving(false);
     }
@@ -270,6 +282,12 @@ function InboundDestinationsSection() {
         <CardDescription>Auto-discovered addresses that have received messages. Set routing overrides per destination.</CardDescription>
       </CardHeader>
       <CardContent>
+        {error && (
+          <div data-testid="inbound-destinations-error" className="mb-4 flex items-center gap-2 rounded-lg border border-destructive/50 bg-destructive/10 p-3">
+            <AlertCircle className="size-4 shrink-0 text-destructive" />
+            <p className="text-sm text-destructive">{error}</p>
+          </div>
+        )}
         {/* Filter */}
         <div className="mb-4">
           <Select value={filter} onValueChange={setFilter}>
@@ -349,6 +367,7 @@ function PromptTemplatesSection() {
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<PromptTemplate | null>(null);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Form state
   const [formLabel, setFormLabel] = useState('');
@@ -362,8 +381,9 @@ function PromptTemplatesSection() {
         '/api/prompt-templates?limit=100&include_inactive=true',
       );
       setTemplates(Array.isArray(data.items) ? data.items : []);
+      setError(null);
     } catch {
-      // Handle error
+      setError('Failed to load prompt templates');
     } finally {
       setLoading(false);
     }
@@ -397,6 +417,7 @@ function PromptTemplatesSection() {
   const handleSave = useCallback(async () => {
     if (!formLabel.trim() || !formContent.trim()) return;
     setSaving(true);
+    setError(null);
     try {
       if (editing) {
         await apiClient.patch(`/api/prompt-templates/${editing.id}`, {
@@ -416,18 +437,19 @@ function PromptTemplatesSection() {
       resetForm();
       await fetchTemplates();
     } catch {
-      // Handle error
+      setError('Failed to save prompt template');
     } finally {
       setSaving(false);
     }
   }, [editing, formLabel, formContent, formChannel, formIsDefault, resetForm, fetchTemplates]);
 
   const handleDelete = useCallback(async (id: string) => {
+    setError(null);
     try {
       await apiClient.delete(`/api/prompt-templates/${id}`);
       await fetchTemplates();
     } catch {
-      // Handle error
+      setError('Failed to delete prompt template');
     }
   }, [fetchTemplates]);
 
@@ -461,6 +483,12 @@ function PromptTemplatesSection() {
         <CardDescription>Reusable prompt templates for agent routing. Linked to channel defaults or destination overrides.</CardDescription>
       </CardHeader>
       <CardContent>
+        {error && (
+          <div data-testid="prompt-templates-error" className="mb-4 flex items-center gap-2 rounded-lg border border-destructive/50 bg-destructive/10 p-3">
+            <AlertCircle className="size-4 shrink-0 text-destructive" />
+            <p className="text-sm text-destructive">{error}</p>
+          </div>
+        )}
         {/* Create/Edit form */}
         {showForm && (
           <div className="mb-4 space-y-3 rounded-lg border bg-muted/30 p-4">
