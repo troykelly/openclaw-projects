@@ -13876,6 +13876,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }
     }
 
+    // Reject M2M tokens — OAuth account linking is a user-only operation.
+    // M2M tokens don't represent a user and should not own OAuth connections
+    // or mint user JWTs via the callback's one-time code flow.
+    const identity = await getAuthIdentity(req);
+    if (identity?.type === 'm2m') {
+      return reply.code(403).send({ error: 'OAuth account linking is not available for machine-to-machine tokens' });
+    }
+
     const scopes = query.scopes?.split(',');
     const permission_level = (query.permission_level as OAuthPermissionLevel) || 'read';
     const state = randomBytes(32).toString('hex');
@@ -14004,6 +14012,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       // Use the authenticated app user (from state) as the connection owner.
       // Fall back to provider email for backward compatibility (e.g. unauthenticated flows).
       const ownerEmail = stateData.user_email || providerEmail;
+
+      // Validate that we have a usable email before persisting
+      if (!ownerEmail || !ownerEmail.includes('@')) {
+        return reply.code(400).send({ error: 'Could not determine a valid user email for the OAuth connection' });
+      }
 
       // Save connection with app user as owner, provider email as provider_account_email
       await saveConnection(pool, ownerEmail, provider, tokens, {
