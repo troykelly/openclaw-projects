@@ -62,8 +62,8 @@ describe('AnalyticsSection', () => {
   });
 
   it('renders all analytics components after loading', async () => {
+    // Component fetches velocity + health (burndown removed — no project context)
     vi.mocked(apiClient.get)
-      .mockResolvedValueOnce(mockBurndown)
       .mockResolvedValueOnce(mockVelocity)
       .mockResolvedValueOnce(mockHealth);
 
@@ -76,22 +76,21 @@ describe('AnalyticsSection', () => {
     });
   });
 
-  it('renders burndown chart', async () => {
+  it('renders burndown as empty (no API call)', async () => {
+    // Burndown API call was removed — burndown always renders empty state
     vi.mocked(apiClient.get)
-      .mockResolvedValueOnce(mockBurndown)
       .mockResolvedValueOnce(mockVelocity)
       .mockResolvedValueOnce(mockHealth);
 
     render(<AnalyticsSection />);
 
     await waitFor(() => {
-      expect(screen.getByTestId('burndown-chart')).toBeInTheDocument();
+      expect(screen.getByText('No burndown data available.')).toBeInTheDocument();
     });
   });
 
   it('renders velocity chart', async () => {
     vi.mocked(apiClient.get)
-      .mockResolvedValueOnce(mockBurndown)
       .mockResolvedValueOnce(mockVelocity)
       .mockResolvedValueOnce(mockHealth);
 
@@ -104,7 +103,6 @@ describe('AnalyticsSection', () => {
 
   it('renders project health cards', async () => {
     vi.mocked(apiClient.get)
-      .mockResolvedValueOnce(mockBurndown)
       .mockResolvedValueOnce(mockVelocity)
       .mockResolvedValueOnce(mockHealth);
 
@@ -122,25 +120,23 @@ describe('AnalyticsSection', () => {
   });
 
   it('handles partial data gracefully', async () => {
-    // Only burndown succeeds
+    // Only velocity succeeds, health fails
     vi.mocked(apiClient.get)
-      .mockResolvedValueOnce(mockBurndown)
-      .mockRejectedValueOnce(new Error('Velocity unavailable'))
+      .mockResolvedValueOnce(mockVelocity)
       .mockRejectedValueOnce(new Error('Health unavailable'));
 
     render(<AnalyticsSection />);
 
     await waitFor(() => {
-      expect(screen.getByTestId('burndown-chart')).toBeInTheDocument();
+      expect(screen.getByTestId('velocity-chart')).toBeInTheDocument();
     });
 
     // Should still render, showing available data
-    expect(screen.getByText('Burndown')).toBeInTheDocument();
+    expect(screen.getByText('Velocity')).toBeInTheDocument();
   });
 
   it('shows error state when all fetches fail', async () => {
     vi.mocked(apiClient.get)
-      .mockRejectedValueOnce(new Error('Failed'))
       .mockRejectedValueOnce(new Error('Failed'))
       .mockRejectedValueOnce(new Error('Failed'));
 
@@ -153,7 +149,6 @@ describe('AnalyticsSection', () => {
 
   it('renders empty state for charts with no data', async () => {
     vi.mocked(apiClient.get)
-      .mockResolvedValueOnce({ data: [] })
       .mockResolvedValueOnce({ data: [] })
       .mockResolvedValueOnce({ projects: [] });
 

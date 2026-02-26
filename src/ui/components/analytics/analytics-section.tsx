@@ -157,7 +157,7 @@ function VelocityChart({ data }: { data: VelocityPeriod[] }): React.JSX.Element 
             </text>
             {/* Period label */}
             <text x={x + barW / 2} y={height - 8} fontSize={8} textAnchor="middle" fill="currentColor" opacity={0.5}>
-              {d.period.length > 6 ? d.period.slice(5) : d.period}
+              {(d.period ?? '').length > 6 ? d.period.slice(5) : (d.period ?? '')}
             </text>
           </g>
         );
