@@ -226,6 +226,71 @@ describe('Contacts API', () => {
     });
   });
 
+  describe('POST /api/contacts with endpoints (#1881)', () => {
+    it('creates contact with email and phone endpoints', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/contacts',
+        payload: {
+          given_name: 'Endpoint',
+          family_name: 'Test',
+          endpoints: [
+            { type: 'email', value: 'endpoint@example.com' },
+            { type: 'phone', value: '+15551234567' },
+          ],
+        },
+      });
+
+      expect(res.statusCode).toBe(201);
+      const body = JSON.parse(res.body);
+      expect(body.id).toBeDefined();
+
+      // Verify endpoints were created
+      const endpoints = await pool.query(
+        `SELECT endpoint_type::text, endpoint_value FROM contact_endpoint WHERE contact_id = $1 ORDER BY endpoint_type`,
+        [body.id],
+      );
+      expect(endpoints.rows).toHaveLength(2);
+      expect(endpoints.rows).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ endpoint_type: 'email', endpoint_value: 'endpoint@example.com' }),
+          expect.objectContaining({ endpoint_type: 'phone', endpoint_value: '+15551234567' }),
+        ]),
+      );
+    });
+
+    it('creates contact without endpoints (backward compat)', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/contacts',
+        payload: { display_name: 'No Endpoints' },
+      });
+
+      expect(res.statusCode).toBe(201);
+      const body = JSON.parse(res.body);
+
+      const endpoints = await pool.query(
+        `SELECT id FROM contact_endpoint WHERE contact_id = $1`,
+        [body.id],
+      );
+      expect(endpoints.rows).toHaveLength(0);
+    });
+
+    it('rejects invalid endpoint type', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/contacts',
+        payload: {
+          display_name: 'Bad Endpoint',
+          endpoints: [{ type: 'fax', value: '1234' }],
+        },
+      });
+
+      // Should fail — the DB has contact_endpoint_type enum that will reject invalid types
+      expect(res.statusCode).toBeGreaterThanOrEqual(400);
+    });
+  });
+
   describe('GET /api/contacts/:id', () => {
     it('returns 404 for non-existent contact', async () => {
       const res = await app.inject({

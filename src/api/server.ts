@@ -6514,6 +6514,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       // Multi-value fields (#1582)
       custom_fields?: Array<{ key: string; value: string }>;
       tags?: string[];
+      // Endpoints (#1881)
+      endpoints?: Array<{ type: string; value: string; metadata?: Record<string, unknown> }>;
       preferred_channel?: string | null; quiet_hours_start?: string | null; quiet_hours_end?: string | null;
       quiet_hours_timezone?: string | null; urgency_override_channel?: string | null; notification_notes?: string | null;
     };
@@ -6624,12 +6626,34 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         }
       }
 
+      // Create endpoints (#1881)
+      if (body.endpoints && Array.isArray(body.endpoints) && body.endpoints.length > 0) {
+        for (const ep of body.endpoints) {
+          if (ep.type && ep.value) {
+            await client.query(
+              `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value, metadata, namespace)
+               VALUES ($1, $2::contact_endpoint_type, $3, COALESCE($4::jsonb, '{}'::jsonb), $5)
+               ON CONFLICT (endpoint_type, normalized_value) DO NOTHING`,
+              [contactId, ep.type, ep.value, ep.metadata ? JSON.stringify(ep.metadata) : null, namespace],
+            );
+          }
+        }
+      }
+
       await client.query('COMMIT');
       client.release();
 
       // Include tags in response
       const contact = result.rows[0];
       contact.tags = body.tags ? [...new Set(body.tags.map((t) => t.trim()).filter(Boolean))] : [];
+
+      // Include endpoints in response (#1881)
+      const epResult = await pool.query(
+        `SELECT id::text, endpoint_type::text as type, endpoint_value as value, metadata
+         FROM contact_endpoint WHERE contact_id = $1`,
+        [contactId],
+      );
+      contact.endpoints = epResult.rows;
 
       await pool.end();
       return reply.code(201).send(contact);
