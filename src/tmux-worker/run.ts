@@ -5,7 +5,8 @@
  * Handles graceful shutdown on SIGTERM/SIGINT.
  */
 
-import { loadConfig } from './config.ts';
+import fs from 'node:fs';
+import { loadConfig, validateEncryptionKey } from './config.ts';
 import { getPool, closePool } from './db.ts';
 import { startHealthServer, stopHealthServer, setHealthy } from './health.ts';
 import { createGrpcServer, startGrpcServer, stopGrpcServer } from './grpc-server.ts';
@@ -20,6 +21,30 @@ async function main(): Promise<void> {
 
   const config = loadConfig();
   console.log(`Worker ID: ${config.workerId}`);
+
+  // Validate encryption key (Issue #1859 — fail fast, not fail later)
+  const keyValidation = validateEncryptionKey(config.encryptionKeyHex);
+  if (!keyValidation.valid) {
+    console.error(`Encryption key validation failed: ${keyValidation.error}`);
+    process.exit(1);
+  }
+
+  // Validate TLS cert files if configured (Issue #1856)
+  if (config.grpcTlsCert && config.grpcTlsKey && config.grpcTlsCa) {
+    for (const [label, filePath] of [
+      ['GRPC_TLS_CERT', config.grpcTlsCert],
+      ['GRPC_TLS_KEY', config.grpcTlsKey],
+      ['GRPC_TLS_CA', config.grpcTlsCa],
+    ] as const) {
+      try {
+        fs.accessSync(filePath, fs.constants.R_OK);
+      } catch {
+        console.error(`TLS file not readable: ${label}=${filePath}`);
+        process.exit(1);
+      }
+    }
+    console.log('TLS certificate files verified');
+  }
 
   // Connect to database
   const pool = getPool(config);
