@@ -540,6 +540,12 @@ export function workItemsPaths(): OpenApiDomainModule {
               schema: { type: 'string' },
               example: 'task',
             },
+            {
+              name: 'parent_work_item_id',
+              in: 'query',
+              description: 'Filter by parent work item ID',
+              schema: { type: 'string', format: 'uuid' },
+            },
           ],
           responses: {
             '200': jsonResponse('List of work items', {

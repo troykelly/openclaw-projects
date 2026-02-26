@@ -3274,7 +3274,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // GET /api/work-items - List work items (excludes soft-deleted, Issue #225)
   app.get('/api/work-items', async (req, reply) => {
-    const query = req.query as { include_deleted?: string; item_type?: string };
+    const query = req.query as { include_deleted?: string; item_type?: string; parent_work_item_id?: string };
     const pool = createPool();
 
     // Build WHERE clause
@@ -3290,6 +3290,16 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     if (query.item_type) {
       params.push(query.item_type);
       conditions.push(`kind = $${params.length}`);
+    }
+
+    // Filter by parent_work_item_id (#1882)
+    if (query.parent_work_item_id) {
+      if (!isValidUUID(query.parent_work_item_id)) {
+        await pool.end();
+        return reply.code(400).send({ error: 'Invalid parent_work_item_id format' });
+      }
+      params.push(query.parent_work_item_id);
+      conditions.push(`parent_id = $${params.length}`);
     }
 
     // Namespace scoping (Epic #1418, Phase 4)
