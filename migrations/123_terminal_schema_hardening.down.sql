@@ -4,7 +4,13 @@
 -- ============================================================
 
 -- ── Revert Retention Cron ────────────────────────────────────
-SELECT cron.unschedule('terminal-entry-cleanup');
+DO $$
+BEGIN
+  PERFORM cron.unschedule('terminal-entry-cleanup');
+EXCEPTION WHEN OTHERS THEN
+  NULL;
+END;
+$$;
 
 SELECT cron.schedule(
   'terminal-entry-cleanup',

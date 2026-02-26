@@ -695,6 +695,7 @@ export async function terminalRoutesPlugin(
     }
 
     // Issue #1869 — Re-encrypt value when provided
+    let valueReEncrypted = false;
     const hasNewValue = typeof body.value === 'string' && (body.value as string).length > 0;
     if (hasNewValue) {
       // Fetch the credential kind to determine if value re-encryption is appropriate
@@ -713,19 +714,20 @@ export async function terminalRoutesPlugin(
         setClauses.push(`encrypted_value = $${idx}`);
         values.push(encryptedValue);
         idx++;
+        valueReEncrypted = true;
       }
+    }
 
-      // Update fingerprint and public_key if provided alongside value
-      if ('fingerprint' in body) {
-        setClauses.push(`fingerprint = $${idx}`);
-        values.push(body.fingerprint ?? null);
-        idx++;
-      }
-      if ('public_key' in body) {
-        setClauses.push(`public_key = $${idx}`);
-        values.push(body.public_key ?? null);
-        idx++;
-      }
+    // Allow fingerprint and public_key updates independently of value
+    if ('fingerprint' in body) {
+      setClauses.push(`fingerprint = $${idx}`);
+      values.push(body.fingerprint ?? null);
+      idx++;
+    }
+    if ('public_key' in body) {
+      setClauses.push(`public_key = $${idx}`);
+      values.push(body.public_key ?? null);
+      idx++;
     }
 
     if (setClauses.length === 0) {
@@ -746,7 +748,7 @@ export async function terminalRoutesPlugin(
       action: 'credential.update',
       detail: {
         credential_id: params.id,
-        value_changed: hasNewValue,
+        value_changed: valueReEncrypted,
         fields: Object.keys(body).filter((k) => k !== 'value' && k !== 'encrypted_value'),
       },
     });
@@ -1365,12 +1367,13 @@ export async function terminalRoutesPlugin(
     const timeoutS = Math.min(body.timeout_s ?? 30, 300); // Max 5 minutes
     const actor = await getActor(req);
 
+    // SECURITY: Do NOT log full command text — may contain secrets (tokens, passwords in flags)
     recordActivity(pool, {
       namespace: getStoreNamespace(req),
       session_id: params.id,
       actor,
       action: 'command.send',
-      detail: { command: body.command.trim(), pane_id: body.pane_id ?? null },
+      detail: { command_length: body.command.trim().length, pane_id: body.pane_id ?? null },
     });
 
     try {

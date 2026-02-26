@@ -62,7 +62,15 @@ ALTER TABLE terminal_known_host
 -- ── Retention Cron Optimization ──────────────────────────────
 -- Replace the correlated subquery cron job with a CTE-based approach
 -- that pre-fetches per-namespace retention values.
-SELECT cron.unschedule('terminal-entry-cleanup');
+-- Guard: only unschedule if the job exists
+DO $$
+BEGIN
+  PERFORM cron.unschedule('terminal-entry-cleanup');
+EXCEPTION WHEN OTHERS THEN
+  -- Job may not exist; safe to continue
+  NULL;
+END;
+$$;
 
 SELECT cron.schedule(
   'terminal-entry-cleanup',
