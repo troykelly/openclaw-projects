@@ -24,9 +24,17 @@ import type {
   SessionInfo,
   TestConnectionRequest,
   TestConnectionResponse,
+  SendCommandRequest,
+  SendCommandResponse,
+  SendKeysRequest,
+  CapturePaneRequest,
+  CapturePaneResponse,
+  TerminalInput,
+  TerminalOutput,
 } from './types.ts';
 import { TmuxManager } from './tmux/manager.ts';
 import { SSHConnectionManager } from './ssh/client.ts';
+import type { EntryRecorder } from './entry-recorder.ts';
 import {
   handleCreateSession,
   handleTerminateSession,
@@ -34,6 +42,12 @@ import {
   handleGetSession,
   handleResizeSession,
 } from './session-lifecycle.ts';
+import {
+  handleSendCommand,
+  handleSendKeys,
+  handleCapturePane,
+  handleAttachSession,
+} from './terminal-io.ts';
 
 const startTime = Date.now();
 
@@ -43,6 +57,7 @@ const startTime = Date.now();
 export function createGrpcServer(
   config: TmuxWorkerConfig,
   pool: pg.Pool,
+  entryRecorder?: EntryRecorder,
 ): grpc.Server {
   const server = new grpc.Server({
     'grpc.max_send_message_length': 4 * 1024 * 1024, // 4MB
@@ -50,7 +65,7 @@ export function createGrpcServer(
   });
 
   const serviceDefinition = getTerminalServiceDefinition();
-  const handlers = buildHandlers(config, pool);
+  const handlers = buildHandlers(config, pool, entryRecorder);
 
   server.addService(serviceDefinition, handlers);
 
@@ -149,13 +164,15 @@ function mapErrorToGrpcStatus(err: unknown): { code: grpc.status; message: strin
 /**
  * Build the handler map for all TerminalService RPCs.
  *
- * Session lifecycle RPCs (Create, Terminate, List, Get, Resize) are fully
- * implemented. TestConnection delegates to SSHConnectionManager. All other
- * RPCs remain UNIMPLEMENTED for later phases.
+ * Session lifecycle RPCs (Create, Terminate, List, Get, Resize) and
+ * terminal I/O RPCs (AttachSession, SendCommand, SendKeys, CapturePane)
+ * are fully implemented. TestConnection delegates to SSHConnectionManager.
+ * Remaining RPCs are UNIMPLEMENTED for later phases.
  */
 function buildHandlers(
   config: TmuxWorkerConfig,
   pool: pg.Pool,
+  entryRecorder?: EntryRecorder,
 ): grpc.UntypedServiceImplementation {
   const tmuxManager = new TmuxManager();
   const sshManager = new SSHConnectionManager(pool, config.encryptionKeyHex);
@@ -257,15 +274,70 @@ function buildHandlers(
         });
     },
 
+    // ── Terminal I/O ────────────────────────────────────────────
+    AttachSession: (
+      call: grpc.ServerDuplexStream<TerminalInput, TerminalOutput>,
+    ) => {
+      if (!entryRecorder) {
+        call.emit('error', {
+          code: grpc.status.INTERNAL,
+          message: 'EntryRecorder not available',
+        });
+        return;
+      }
+      handleAttachSession(call, pool, tmuxManager, entryRecorder);
+    },
+
+    // ── Command execution ────────────────────────────────────────
+    SendCommand: (
+      call: grpc.ServerUnaryCall<SendCommandRequest, SendCommandResponse>,
+      callback: grpc.sendUnaryData<SendCommandResponse>,
+    ) => {
+      if (!entryRecorder) {
+        callback({ code: grpc.status.INTERNAL, message: 'EntryRecorder not available' });
+        return;
+      }
+      const req = call.request;
+      handleSendCommand(req, pool, tmuxManager, entryRecorder)
+        .then((result) => callback(null, result))
+        .catch((err) => {
+          callback(mapErrorToGrpcStatus(err));
+        });
+    },
+
+    SendKeys: (
+      call: grpc.ServerUnaryCall<SendKeysRequest, Record<string, never>>,
+      callback: grpc.sendUnaryData<Record<string, never>>,
+    ) => {
+      const req = call.request;
+      handleSendKeys(req, pool, tmuxManager)
+        .then(() => callback(null, {}))
+        .catch((err) => {
+          callback(mapErrorToGrpcStatus(err));
+        });
+    },
+
+    CapturePane: (
+      call: grpc.ServerUnaryCall<CapturePaneRequest, CapturePaneResponse>,
+      callback: grpc.sendUnaryData<CapturePaneResponse>,
+    ) => {
+      if (!entryRecorder) {
+        callback({ code: grpc.status.INTERNAL, message: 'EntryRecorder not available' });
+        return;
+      }
+      const req = call.request;
+      handleCapturePane(req, pool, tmuxManager, entryRecorder)
+        .then((result) => callback(null, result))
+        .catch((err) => {
+          callback(mapErrorToGrpcStatus(err));
+        });
+    },
+
     // ── Unimplemented stubs (later phases) ───────────────────
     CreateWindow: unimplemented('CreateWindow'),
     CloseWindow: unimplemented('CloseWindow'),
     SplitPane: unimplemented('SplitPane'),
     ClosePane: unimplemented('ClosePane'),
-    AttachSession: unimplementedStream('AttachSession'),
-    SendCommand: unimplemented('SendCommand'),
-    SendKeys: unimplemented('SendKeys'),
-    CapturePane: unimplemented('CapturePane'),
     CreateTunnel: unimplemented('CreateTunnel'),
     CloseTunnel: unimplemented('CloseTunnel'),
     ListTunnels: unimplemented('ListTunnels'),

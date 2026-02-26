@@ -115,7 +115,8 @@ describe('tmux-worker/grpc-server', () => {
     expect(err.message).not.toContain('is not yet implemented');
   });
 
-  it('remaining unimplemented RPCs still return UNIMPLEMENTED', async () => {
+  it('command RPCs return INTERNAL without EntryRecorder', async () => {
+    // SendCommand requires an EntryRecorder. Without one, it returns INTERNAL.
     expect(client).toBeDefined();
 
     const err = await new Promise<grpc.ServiceError>((resolve) => {
@@ -129,7 +130,25 @@ describe('tmux-worker/grpc-server', () => {
       );
     });
 
+    expect(err.code).toBe(grpc.status.INTERNAL);
+    expect(err.message).toContain('EntryRecorder');
+  });
+
+  it('remaining unimplemented RPCs still return UNIMPLEMENTED', async () => {
+    expect(client).toBeDefined();
+
+    const err = await new Promise<grpc.ServiceError>((resolve) => {
+      client!.CreateTunnel(
+        { connection_id: 'test', namespace: 'default' },
+        (err: grpc.ServiceError | null) => {
+          if (err) {
+            resolve(err);
+          }
+        },
+      );
+    });
+
     expect(err.code).toBe(grpc.status.UNIMPLEMENTED);
-    expect(err.message).toContain('SendCommand');
+    expect(err.message).toContain('CreateTunnel');
   });
 });
