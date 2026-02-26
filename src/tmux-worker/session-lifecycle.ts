@@ -13,16 +13,17 @@ import { randomUUID } from 'node:crypto';
 import type pg from 'pg';
 import type { TmuxManager } from './tmux/manager.ts';
 import type { SSHConnectionManager } from './ssh/client.ts';
-import type {
-  CreateSessionRequest,
-  TerminateSessionRequest,
-  ListSessionsRequest,
-  ListSessionsResponse,
-  GetSessionRequest,
-  ResizeSessionRequest,
-  SessionInfo,
-  WindowInfo,
-  PaneInfo,
+import {
+  toTimestamp,
+  type CreateSessionRequest,
+  type TerminateSessionRequest,
+  type ListSessionsRequest,
+  type ListSessionsResponse,
+  type GetSessionRequest,
+  type ResizeSessionRequest,
+  type SessionInfo,
+  type WindowInfo,
+  type PaneInfo,
 } from './types.ts';
 
 /** Database row shape for terminal_connection (minimal fields needed). */
@@ -89,9 +90,9 @@ function toSessionInfo(
     cols: session.cols,
     rows: session.rows,
     windows,
-    started_at: session.started_at,
-    last_activity_at: session.last_activity_at,
-    terminated_at: session.terminated_at,
+    started_at: toTimestamp(session.started_at),
+    last_activity_at: toTimestamp(session.last_activity_at),
+    terminated_at: toTimestamp(session.terminated_at),
     exit_code: session.exit_code ?? 0,
     error_message: session.error_message ?? '',
     tags: session.tags || [],
@@ -234,8 +235,8 @@ export async function handleCreateSession(
         ],
       },
     ],
-    started_at: now,
-    last_activity_at: now,
+    started_at: toTimestamp(now),
+    last_activity_at: toTimestamp(now),
     terminated_at: null,
     exit_code: 0,
     error_message: '',
