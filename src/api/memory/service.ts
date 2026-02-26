@@ -273,7 +273,7 @@ export async function getMemory(pool: Pool, id: string): Promise<MemoryEntry | n
       COALESCE(fa.cnt, 0)::int as attachment_count
     FROM memory m
     LEFT JOIN LATERAL (
-      SELECT COUNT(*) as cnt FROM file_attachment WHERE entity_type = 'memory' AND entity_id = m.id
+      SELECT COUNT(*) as cnt FROM unified_memory_attachment WHERE memory_id = m.id
     ) fa ON true
     WHERE m.id = $1`,
     [id],

@@ -8791,6 +8791,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
       return reply.code(201).send({
         ...memory,
+        type: memory.memory_type,
         linked_item_id: memory.work_item_id,
         linked_item_title: linkedItemTitle ?? null,
         embedding_status,
@@ -10099,7 +10100,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         return reply.code(404).send({ error: 'not found' });
       }
 
-      return reply.send(updated);
+      return reply.send({ ...updated, type: updated.memory_type });
     } catch (err) {
       if (err instanceof Error && (err.message.startsWith('Invalid memory type') || err.message.startsWith('expires_at'))) {
         return reply.code(400).send({ error: err.message });
