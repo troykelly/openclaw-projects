@@ -8712,89 +8712,98 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // Memory CRUD API (issue #121)
-  // POST /api/memory - Create a new memory linked to a work item
+  // POST /api/memory - Create a new memory (linked_item_id optional)
   app.post('/api/memory', async (req, reply) => {
+    const { createMemory, generateTitleFromContent } = await import('./memory/index.ts');
+
     const body = req.body as {
       title?: string;
       content?: string;
       linked_item_id?: string;
+      work_item_id?: string;
+      contact_id?: string;
       type?: string;
+      memory_type?: string;
       tags?: string[];
+      importance?: number;
+      confidence?: number;
+      expires_at?: string | null;
+      source_url?: string | null;
+      lat?: number;
+      lng?: number;
+      address?: string;
+      place_label?: string;
     };
-
-    if (!body?.title || body.title.trim().length === 0) {
-      return reply.code(400).send({ error: 'title is required' });
-    }
 
     if (!body?.content || body.content.trim().length === 0) {
       return reply.code(400).send({ error: 'content is required' });
     }
 
-    if (!body?.linked_item_id) {
-      return reply.code(400).send({ error: 'linked_item_id is required' });
-    }
-
-    const memory_type = body.type ?? 'note';
-    const validTypes = ['note', 'decision', 'context', 'reference'];
-    if (!validTypes.includes(memory_type)) {
-      return reply.code(400).send({ error: `type must be one of: ${validTypes.join(', ')}` });
-    }
-
     const pool = createPool();
 
-    // Check if linked work item exists and get its title
-    const linkedItem = await pool.query('SELECT title FROM work_item WHERE id = $1', [body.linked_item_id]);
-    if (linkedItem.rows.length === 0) {
-      await pool.end();
-      return reply.code(400).send({ error: 'linked item not found' });
+    // If linked_item_id is provided, validate it exists
+    let linkedItemTitle: string | undefined;
+    const workItemId = (body.linked_item_id || body.work_item_id) || undefined;
+    if (workItemId) {
+      const linkedItem = await pool.query('SELECT title FROM work_item WHERE id = $1', [workItemId]);
+      if (linkedItem.rows.length === 0) {
+        await pool.end();
+        return reply.code(400).send({ error: 'linked item not found' });
+      }
+      linkedItemTitle = (linkedItem.rows[0] as { title: string }).title;
     }
 
-    const linkedItemTitle = (linkedItem.rows[0] as { title: string }).title;
+    // Validate expires_at if provided
+    let expiresAt: Date | undefined;
+    if (body.expires_at) {
+      expiresAt = new Date(body.expires_at);
+      if (Number.isNaN(expiresAt.getTime())) {
+        await pool.end();
+        return reply.code(400).send({ error: 'expires_at must be a valid ISO date string' });
+      }
+    }
 
-    const tags = body.tags ?? [];
+    try {
+      const memoryType = (body.memory_type ?? body.type ?? 'note') as import('./memory/types.ts').MemoryType;
+      const title = body.title?.trim() || generateTitleFromContent(body.content);
 
-    const result = await pool.query(
-      `INSERT INTO memory (work_item_id, title, content, memory_type, tags, namespace)
-       VALUES ($1, $2, $3, $4::memory_type, $5, $6)
-       RETURNING id::text as id,
-                 title,
-                 content,
-                 memory_type::text as type,
-                 tags,
-                 work_item_id::text as "linked_item_id",
-                 created_at as "created_at",
-                 embedding_status`,
-      [body.linked_item_id, body.title.trim(), body.content.trim(), memory_type, tags, getStoreNamespace(req)],
-    );
+      const memory = await createMemory(pool, {
+        title,
+        content: body.content.trim(),
+        memory_type: memoryType,
+        work_item_id: workItemId,
+        contact_id: body.contact_id || undefined,
+        tags: body.tags,
+        importance: body.importance,
+        confidence: body.confidence,
+        expires_at: expiresAt,
+        source_url: body.source_url ?? undefined,
+        lat: body.lat,
+        lng: body.lng,
+        address: body.address,
+        place_label: body.place_label,
+        namespace: getStoreNamespace(req),
+      });
 
-    const row = result.rows[0] as {
-      id: string;
-      title: string;
-      content: string;
-      type: string;
-      tags: string[];
-      linked_item_id: string;
-      created_at: string;
-      embedding_status: string;
-    };
+      // Generate embedding asynchronously
+      const memoryContent = `${memory.title}\n\n${memory.content}`;
+      const embedding_status = await generateMemoryEmbedding(pool, memory.id, memoryContent);
 
-    // Generate embedding asynchronously (don't block response)
-    const memoryContent = `${row.title}\n\n${row.content}`;
-    const embedding_status = await generateMemoryEmbedding(pool, row.id, memoryContent);
-
-    await pool.end();
-
-    return reply.code(201).send({
-      id: row.id,
-      title: row.title,
-      content: row.content,
-      type: row.type,
-      tags: row.tags,
-      linked_item_id: row.linked_item_id,
-      linked_item_title: linkedItemTitle,
-      created_at: row.created_at,
-      embedding_status: embedding_status,
-    });
+      return reply.code(201).send({
+        ...memory,
+        type: memory.memory_type,
+        linked_item_id: memory.work_item_id,
+        linked_item_title: linkedItemTitle ?? null,
+        embedding_status,
+      });
+    } catch (err) {
+      if (err instanceof Error && err.message.startsWith('Invalid memory type')) {
+        return reply.code(400).send({ error: err.message });
+      }
+      throw err;
+    } finally {
+      await pool.end();
+    }
   });
 
   // PUT /api/memory/:id - Update a memory
@@ -8811,7 +8820,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     const memory_type = body.type ?? 'note';
-    const validTypes = ['note', 'decision', 'context', 'reference'];
+    const validTypes = ['preference', 'fact', 'note', 'decision', 'context', 'reference'];
     if (!validTypes.includes(memory_type)) {
       return reply.code(400).send({ error: `type must be one of: ${validTypes.join(', ')}` });
     }
@@ -9392,9 +9401,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         id: string;
         title?: string;
         content?: string;
+        type?: string;
+        memory_type?: string;
         importance?: number;
         confidence?: number;
-        is_active?: boolean;
       }>;
     };
 
@@ -9447,6 +9457,19 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           values.push(update.content);
         }
 
+        const memoryType = update.memory_type ?? update.type;
+        if (memoryType !== undefined) {
+          const validTypes = ['preference', 'fact', 'note', 'decision', 'context', 'reference'];
+          if (!validTypes.includes(memoryType)) {
+            results.push({ index: i, id: update.id, status: 'failed', error: `type must be one of: ${validTypes.join(', ')}` });
+            failedCount++;
+            continue;
+          }
+          paramCount++;
+          setClauses.push(`memory_type = $${paramCount}::memory_type`);
+          values.push(memoryType);
+        }
+
         if (update.importance !== undefined) {
           paramCount++;
           setClauses.push(`importance = $${paramCount}`);
@@ -9457,12 +9480,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           paramCount++;
           setClauses.push(`confidence = $${paramCount}`);
           values.push(update.confidence);
-        }
-
-        if (update.is_active !== undefined) {
-          paramCount++;
-          setClauses.push(`is_active = $${paramCount}`);
-          values.push(update.is_active);
         }
 
         // Only update if there's something to update
@@ -9988,7 +10005,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     const memory_type = body.type ?? 'note';
-    const validTypes = ['note', 'decision', 'context', 'reference'];
+    const validTypes = ['preference', 'fact', 'note', 'decision', 'context', 'reference'];
     if (!validTypes.includes(memory_type)) {
       return reply.code(400).send({ error: `type must be one of: ${validTypes.join(', ')}` });
     }
@@ -10042,67 +10059,56 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // PATCH /api/memories/:id - Update a memory
   app.patch('/api/memories/:id', async (req, reply) => {
+    const { updateMemory } = await import('./memory/index.ts');
     const params = req.params as { id: string };
-    const body = req.body as { title?: string; content?: string; type?: string };
+    const body = req.body as {
+      title?: string;
+      content?: string;
+      type?: string;
+      memory_type?: string;
+      importance?: number;
+      confidence?: number;
+      expires_at?: string | null;
+      superseded_by?: string | null;
+      tags?: string[];
+      source_url?: string | null;
+    };
 
     const pool = createPool();
 
-    // Check if memory exists
-    const exists = await pool.query('SELECT 1 FROM memory WHERE id = $1', [params.id]);
-    if (exists.rows.length === 0) {
-      await pool.end();
-      return reply.code(404).send({ error: 'not found' });
-    }
+    try {
+      // Accept memory_type as alias for type (frontend sends memory_type)
+      const memoryType = body.memory_type ?? body.type;
 
-    // Build update query
-    const updates: string[] = [];
-    const values: (string | null)[] = [];
-    let paramIndex = 1;
+      const updated = await updateMemory(pool, params.id, {
+        title: body.title,
+        content: body.content,
+        memory_type: memoryType as import('./memory/types.ts').MemoryType | undefined,
+        importance: body.importance,
+        confidence: body.confidence,
+        expires_at: body.expires_at === null ? null : body.expires_at ? (() => {
+          const d = new Date(body.expires_at as string);
+          if (Number.isNaN(d.getTime())) throw new Error('expires_at must be a valid ISO date string');
+          return d;
+        })() : undefined,
+        superseded_by: body.superseded_by,
+        tags: body.tags,
+        source_url: body.source_url,
+      });
 
-    if (body.title !== undefined) {
-      updates.push(`title = $${paramIndex}`);
-      values.push(body.title.trim());
-      paramIndex++;
-    }
-
-    if (body.content !== undefined) {
-      updates.push(`content = $${paramIndex}`);
-      values.push(body.content.trim());
-      paramIndex++;
-    }
-
-    if (body.type !== undefined) {
-      const validTypes = ['note', 'decision', 'context', 'reference'];
-      if (!validTypes.includes(body.type)) {
-        await pool.end();
-        return reply.code(400).send({ error: `type must be one of: ${validTypes.join(', ')}` });
+      if (!updated) {
+        return reply.code(404).send({ error: 'not found' });
       }
-      updates.push(`memory_type = $${paramIndex}::memory_type`);
-      values.push(body.type);
-      paramIndex++;
-    }
 
-    if (updates.length === 0) {
+      return reply.send({ ...updated, type: updated.memory_type });
+    } catch (err) {
+      if (err instanceof Error && (err.message.startsWith('Invalid memory type') || err.message.startsWith('expires_at'))) {
+        return reply.code(400).send({ error: err.message });
+      }
+      throw err;
+    } finally {
       await pool.end();
-      return reply.code(400).send({ error: 'no fields to update' });
     }
-
-    updates.push('updated_at = now()');
-    values.push(params.id);
-
-    const result = await pool.query(
-      `UPDATE memory SET ${updates.join(', ')} WHERE id = $${paramIndex}
-       RETURNING id::text as id,
-                 title,
-                 content,
-                 memory_type::text as type,
-                 created_at,
-                 updated_at`,
-      values,
-    );
-
-    await pool.end();
-    return reply.send(result.rows[0]);
   });
 
   // DELETE /api/memories/:id - Delete a memory

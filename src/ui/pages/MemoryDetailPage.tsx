@@ -166,8 +166,8 @@ export function MemoryDetailPage(): React.JSX.Element {
   const effectiveType = memory.memory_type ?? memory.type;
   const attachments: MemoryAttachment[] = Array.isArray(attachmentsData?.attachments) ? attachmentsData.attachments : [];
   const contacts = Array.isArray(contactsData?.contacts) ? contactsData.contacts : [];
-  const related = Array.isArray(relatedData?.memories) ? relatedData.memories : [];
-  const similar = Array.isArray(similarData?.results) ? similarData.results : [];
+  const related = Array.isArray(relatedData?.related) ? relatedData.related : [];
+  const similar = Array.isArray(similarData?.similar) ? similarData.similar : [];
 
   return (
     <div data-testid="page-memory-detail" className="p-6 h-full flex flex-col">
@@ -397,13 +397,13 @@ export function MemoryDetailPage(): React.JSX.Element {
               <h3 className="text-sm font-medium mb-2">Related Memories</h3>
               <div className="space-y-2">
                 {related.map((r) => (
-                  <Card key={r.id} className="cursor-pointer hover:bg-accent/30" onClick={() => navigate(`/memory/${r.related_memory_id}`)}>
+                  <Card key={r.relationship_id} className="cursor-pointer hover:bg-accent/30" onClick={() => navigate(`/memory/${r.id}`)}>
                     <CardContent className="p-3 flex items-center justify-between">
                       <div>
                         <p className="text-sm font-medium">{r.title}</p>
-                        <p className="text-xs text-muted-foreground">{getTypeLabel(r.memory_type)}</p>
+                        <p className="text-xs text-muted-foreground">{getTypeLabel(r.type)}</p>
                       </div>
-                      <Badge variant="outline" className="text-xs">{r.relationship_type ?? 'related'}</Badge>
+                      <Badge variant="outline" className="text-xs">{r.relationship_type}</Badge>
                     </CardContent>
                   </Card>
                 ))}
@@ -423,7 +423,7 @@ export function MemoryDetailPage(): React.JSX.Element {
                     <CardContent className="p-3 flex items-center justify-between">
                       <div>
                         <p className="text-sm font-medium">{s.title}</p>
-                        <p className="text-xs text-muted-foreground">{getTypeLabel(s.memory_type)}</p>
+                        <p className="text-xs text-muted-foreground">{getTypeLabel(s.memory_type ?? s.type ?? 'note')}</p>
                       </div>
                       <Badge variant="outline" className="text-xs gap-1 bg-violet-500/10 text-violet-700 dark:text-violet-300 border-violet-500/20">
                         <Sparkles className="size-2.5" />

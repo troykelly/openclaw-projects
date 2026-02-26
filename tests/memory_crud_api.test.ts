@@ -77,17 +77,18 @@ describe('Memory CRUD API (issue #121)', () => {
       expect(res.json().type).toBe('decision');
     });
 
-    it('returns 400 when title is missing', async () => {
+    it('auto-generates title when title is missing', async () => {
       const res = await app.inject({
         method: 'POST',
         url: '/api/memory',
         payload: {
-          content: 'Content',
+          content: 'Some content that should auto-generate a title',
           linked_item_id: work_item_id,
         },
       });
-      expect(res.statusCode).toBe(400);
-      expect(res.json()).toEqual({ error: 'title is required' });
+      expect(res.statusCode).toBe(201);
+      const body = res.json() as { title: string };
+      expect(body.title).toBeTruthy();
     });
 
     it('returns 400 when content is missing', async () => {
@@ -103,17 +104,19 @@ describe('Memory CRUD API (issue #121)', () => {
       expect(res.json()).toEqual({ error: 'content is required' });
     });
 
-    it('returns 400 when linked_item_id is missing', async () => {
+    it('creates memory without linked_item_id (global memory)', async () => {
       const res = await app.inject({
         method: 'POST',
         url: '/api/memory',
         payload: {
-          title: 'Title',
-          content: 'Content',
+          title: 'Global Memory',
+          content: 'Content without work item',
         },
       });
-      expect(res.statusCode).toBe(400);
-      expect(res.json()).toEqual({ error: 'linked_item_id is required' });
+      expect(res.statusCode).toBe(201);
+      const body = res.json() as { id: string; linked_item_id: string | null };
+      expect(body.id).toMatch(/^[0-9a-f-]{36}$/i);
+      expect(body.linked_item_id).toBeNull();
     });
 
     it('returns 400 for non-existent work item', async () => {
@@ -142,7 +145,7 @@ describe('Memory CRUD API (issue #121)', () => {
         },
       });
       expect(res.statusCode).toBe(400);
-      expect(res.json().error).toContain('type must be one of');
+      expect(res.json().error).toContain('Invalid memory type');
     });
   });
 

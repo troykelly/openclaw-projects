@@ -355,7 +355,15 @@ export interface MemorySearchResult extends Memory {
 export interface MemorySearchResponse {
   results: MemorySearchResult[];
   search_type: 'semantic' | 'text';
-  query_embedding_provider?: string;
+  /** Server returns embedding_provider (not query_embedding_provider) */
+  embedding_provider?: string;
+}
+
+/** Response from GET /api/memories/:id/similar */
+export interface SimilarMemoriesResponse {
+  source_memory_id: string;
+  threshold: number;
+  similar: Array<Memory & { similarity: number }>;
 }
 
 /** Response from GET /api/work-items/:id/memories */
@@ -426,19 +434,35 @@ export interface MemoryLinkedContactsResponse {
   contacts: MemoryLinkedContact[];
 }
 
-/** Related memory entry. */
+/** Related memory entry from GET /api/memories/:id/related */
 export interface RelatedMemory {
+  /** Relationship row ID */
+  relationship_id: string;
+  /** Relationship type (related, supersedes, contradicts, supports) */
+  relationship_type: string;
+  /** Notes on the relationship */
+  relationship_notes: string | null;
+  /** When the relationship was created */
+  linked_at: string;
+  /** Direction of the relationship (incoming or outgoing) */
+  direction: 'incoming' | 'outgoing';
+  /** Related memory ID */
   id: string;
-  related_memory_id: string;
+  /** Related memory title */
   title: string;
-  memory_type: MemoryType;
-  relationship_type?: string;
+  /** Related memory content */
+  content: string;
+  /** Related memory type */
+  type: string;
+  /** Linked work item ID */
+  linked_item_id: string | null;
   created_at: string;
+  updated_at: string;
 }
 
 /** Response from GET /api/memories/:id/related */
 export interface RelatedMemoriesResponse {
-  memories: RelatedMemory[];
+  related: RelatedMemory[];
 }
 
 // ---------------------------------------------------------------------------

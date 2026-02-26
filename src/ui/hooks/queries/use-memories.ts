@@ -24,6 +24,7 @@ import type {
   MemorySearchResponse,
   ProjectMemoriesResponse,
   RelatedMemoriesResponse,
+  SimilarMemoriesResponse,
   WorkItemMemoriesResponse,
 } from '@/ui/lib/api-types.ts';
 
@@ -157,12 +158,12 @@ export function useRelatedMemories(memory_id: string) {
  * Find similar memories using vector similarity (Issue #1724).
  *
  * @param memory_id - The memory UUID
- * @returns TanStack Query result with `MemorySearchResponse`
+ * @returns TanStack Query result with `SimilarMemoriesResponse`
  */
 export function useSimilarMemories(memory_id: string) {
   return useQuery({
     queryKey: memoryKeys.similar(memory_id),
-    queryFn: ({ signal }) => apiClient.get<MemorySearchResponse>(`/api/memories/${memory_id}/similar`, { signal, schema: memorySimilarResponseSchema }),
+    queryFn: ({ signal }) => apiClient.get<SimilarMemoriesResponse>(`/api/memories/${memory_id}/similar`, { signal, schema: memorySimilarResponseSchema }),
     enabled: !!memory_id,
   });
 }
