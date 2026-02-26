@@ -48,6 +48,7 @@ const TerminalDashboardPage = React.lazy(() => import('@/ui/pages/terminal/Termi
 const TerminalConnectionsPage = React.lazy(() => import('@/ui/pages/terminal/ConnectionsPage.js').then((m) => ({ default: m.ConnectionsPage })));
 const TerminalConnectionDetailPage = React.lazy(() => import('@/ui/pages/terminal/ConnectionDetailPage.js').then((m) => ({ default: m.ConnectionDetailPage })));
 const TerminalCredentialsPage = React.lazy(() => import('@/ui/pages/terminal/CredentialsPage.js').then((m) => ({ default: m.CredentialsPage })));
+const TerminalSessionsListPage = React.lazy(() => import('@/ui/pages/terminal/SessionsListPage.js').then((m) => ({ default: m.SessionsListPage })));
 const TerminalSessionDetailPage = React.lazy(() => import('@/ui/pages/terminal/SessionDetailPage.js').then((m) => ({ default: m.SessionDetailPage })));
 const TerminalSessionHistoryPage = React.lazy(() => import('@/ui/pages/terminal/SessionHistoryPage.js').then((m) => ({ default: m.SessionHistoryPage })));
 const TerminalSearchPage = React.lazy(() => import('@/ui/pages/terminal/TerminalSearchPage.js').then((m) => ({ default: m.TerminalSearchPage })));
@@ -242,6 +243,7 @@ export const routes: RouteObject[] = [
           { path: 'connections', element: lazy(TerminalConnectionsPage) },
           { path: 'connections/:id', element: lazy(TerminalConnectionDetailPage) },
           { path: 'credentials', element: lazy(TerminalCredentialsPage) },
+          { path: 'sessions', element: lazy(TerminalSessionsListPage) },
           { path: 'sessions/:id', element: lazy(TerminalSessionDetailPage) },
           { path: 'sessions/:id/history', element: lazy(TerminalSessionHistoryPage) },
           { path: 'search', element: lazy(TerminalSearchPage) },
