@@ -12,6 +12,8 @@
 import { Server as SSHServer, utils as sshUtils } from 'ssh2';
 import { generateKeyPairSync } from 'node:crypto';
 import { createHash } from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
 import type pg from 'pg';
 import type { TmuxWorkerConfig } from './config.ts';
 
@@ -100,8 +102,8 @@ function clearRateLimit(ip: string): void {
 }
 
 /**
- * Generate a host key for the SSH server.
- * Returns the private key in OpenSSH format.
+ * Generate a fresh Ed25519 host key.
+ * Returns the private key in PEM format.
  */
 function generateHostKey(): Buffer {
   const { privateKey } = generateKeyPairSync('ed25519', {
@@ -109,6 +111,38 @@ function generateHostKey(): Buffer {
     privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
   });
   return Buffer.from(privateKey);
+}
+
+/**
+ * Load a persisted SSH host key from disk, or generate and save a new one.
+ *
+ * If keyPath is empty or falsy, generates an ephemeral key (no persistence).
+ * If keyPath points to an existing file, loads it.
+ * Otherwise, generates a new key and saves it to keyPath with 0600 permissions.
+ *
+ * Issue #1857 — Persist enrollment SSH host key across worker restarts
+ */
+export function loadOrGenerateHostKey(keyPath: string): Buffer {
+  if (!keyPath) {
+    return generateHostKey();
+  }
+
+  // Load existing key
+  if (fs.existsSync(keyPath)) {
+    console.log(`Loading SSH enrollment host key from ${keyPath}`);
+    return fs.readFileSync(keyPath);
+  }
+
+  // Generate and save
+  console.log(`Generating new SSH enrollment host key at ${keyPath}`);
+  const key = generateHostKey();
+
+  // Ensure parent directory exists
+  const dir = path.dirname(keyPath);
+  fs.mkdirSync(dir, { recursive: true });
+
+  fs.writeFileSync(keyPath, key, { mode: 0o600 });
+  return key;
 }
 
 /**
@@ -150,7 +184,7 @@ export function createEnrollmentSSHServer(
   config: TmuxWorkerConfig,
   pool: pg.Pool,
 ): SSHServer {
-  const hostKey = generateHostKey();
+  const hostKey = loadOrGenerateHostKey(config.enrollmentSshHostKeyPath);
 
   const server = new SSHServer(
     { hostKeys: [hostKey] },
