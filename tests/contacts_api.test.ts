@@ -470,6 +470,113 @@ describe('Contacts API', () => {
     });
   });
 
+  describe('POST /api/contacts/:id/endpoints (#1702)', () => {
+    it('accepts type/value aliases for endpoint_type/endpoint_value', async () => {
+      const created = await app.inject({
+        method: 'POST',
+        url: '/api/contacts',
+        payload: { display_name: 'Alias Test' },
+      });
+      const { id } = created.json() as { id: string };
+
+      const res = await app.inject({
+        method: 'POST',
+        url: `/api/contacts/${id}/endpoints`,
+        payload: { type: 'email', value: 'alias@example.com' },
+      });
+
+      expect(res.statusCode).toBe(201);
+      const body = res.json() as { id: string; type: string; value: string };
+      expect(body.type).toBe('email');
+      expect(body.value).toBe('alias@example.com');
+    });
+
+    it('still accepts endpoint_type/endpoint_value (backward compat)', async () => {
+      const created = await app.inject({
+        method: 'POST',
+        url: '/api/contacts',
+        payload: { display_name: 'Legacy Test' },
+      });
+      const { id } = created.json() as { id: string };
+
+      const res = await app.inject({
+        method: 'POST',
+        url: `/api/contacts/${id}/endpoints`,
+        payload: { endpoint_type: 'phone', endpoint_value: '+15551234567' },
+      });
+
+      expect(res.statusCode).toBe(201);
+      const body = res.json() as { id: string; type: string; value: string };
+      expect(body.type).toBe('phone');
+      expect(body.value).toBe('+15551234567');
+    });
+
+    it('accepts label and is_primary on create', async () => {
+      const created = await app.inject({
+        method: 'POST',
+        url: '/api/contacts',
+        payload: { display_name: 'Label Test' },
+      });
+      const { id } = created.json() as { id: string };
+
+      const res = await app.inject({
+        method: 'POST',
+        url: `/api/contacts/${id}/endpoints`,
+        payload: { type: 'email', value: 'labeled@example.com', label: 'Work', is_primary: true },
+      });
+
+      expect(res.statusCode).toBe(201);
+      const body = res.json() as { id: string; type: string; value: string; label: string; is_primary: boolean };
+      expect(body.label).toBe('Work');
+      expect(body.is_primary).toBe(true);
+    });
+
+    it('returns aliased field names in response (type, value)', async () => {
+      const created = await app.inject({
+        method: 'POST',
+        url: '/api/contacts',
+        payload: { display_name: 'Response Shape Test' },
+      });
+      const { id } = created.json() as { id: string };
+
+      const res = await app.inject({
+        method: 'POST',
+        url: `/api/contacts/${id}/endpoints`,
+        payload: { type: 'email', value: 'shape@example.com' },
+      });
+
+      expect(res.statusCode).toBe(201);
+      const body = res.json() as Record<string, unknown>;
+      // Should have aliased fields, not raw column names
+      expect(body).toHaveProperty('type');
+      expect(body).toHaveProperty('value');
+      expect(body).toHaveProperty('label');
+      expect(body).toHaveProperty('is_primary');
+      expect(body).toHaveProperty('created_at');
+      expect(body).toHaveProperty('updated_at');
+      // Should NOT have raw column names
+      expect(body).not.toHaveProperty('endpoint_type');
+      expect(body).not.toHaveProperty('endpoint_value');
+    });
+
+    it('returns 400 when neither type nor endpoint_type provided', async () => {
+      const created = await app.inject({
+        method: 'POST',
+        url: '/api/contacts',
+        payload: { display_name: 'Error Test' },
+      });
+      const { id } = created.json() as { id: string };
+
+      const res = await app.inject({
+        method: 'POST',
+        url: `/api/contacts/${id}/endpoints`,
+        payload: { value: 'noType@example.com' },
+      });
+
+      expect(res.statusCode).toBe(400);
+    });
+  });
+
   describe('GET /api/contacts/:id/work-items', () => {
     it('returns 404 for non-existent contact', async () => {
       const res = await app.inject({
