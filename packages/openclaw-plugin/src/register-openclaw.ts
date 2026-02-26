@@ -3960,19 +3960,34 @@ function createToolHandlers(state: PluginState) {
     async namespace_members(params: Record<string, unknown>): Promise<ToolResult> {
       const { namespace } = params as { namespace: string };
       try {
-        const response = await apiClient.get<{ namespace: string; members: Array<{ id: string; email: string; access: string; is_home: boolean }>; member_count: number }>(
+        const response = await apiClient.get<{
+          namespace: string;
+          members: Array<{ id: string; email: string; access: string; is_home: boolean }>;
+          member_count: number;
+        }>(
           `/api/namespaces/${encodeURIComponent(namespace)}`,
           reqOpts(),
         );
         if (!response.success) {
+          logger.warn('namespace_members API call failed', {
+            namespace,
+            status: response.error?.status,
+            message: response.error?.message,
+          });
           return { success: false, error: response.error.message || 'Failed to list namespace members' };
         }
-        const { members, member_count } = response.data;
+        const data = response.data;
+        const members = Array.isArray(data.members) ? data.members : [];
+        const memberCount = data.member_count ?? members.length;
+
         if (members.length === 0) {
-          return { success: true, data: { content: `Namespace **${namespace}** has no members.`, details: response.data } };
+          return { success: true, data: { content: `Namespace **${namespace}** has no members.`, details: data } };
         }
-        const content = [`**${namespace}** — ${member_count} member(s):`, ...members.map((m) => `- ${m.email} (${m.access}${m.is_home ? ', home' : ''})`)].join('\n');
-        return { success: true, data: { content, details: response.data } };
+        const content = [
+          `**${namespace}** — ${memberCount} member(s):`,
+          ...members.map((m) => `- ${m.email} (${m.access ?? 'unknown'}${m.is_home ? ', home' : ''})`),
+        ].join('\n');
+        return { success: true, data: { content, details: data } };
       } catch (error) {
         logger.error('namespace_members failed', { error });
         return { success: false, error: 'Failed to list namespace members' };

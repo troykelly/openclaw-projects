@@ -306,6 +306,31 @@ describe('Namespace & User Provisioning API', () => {
         expect(res.statusCode).toBe(200);
         expect(res.json().namespace).toBe('test-ns-m2m-view');
       });
+
+      it('returns members with defined access field for M2M token (#1883)', async () => {
+        await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, [TEST_EMAIL]);
+        await pool.query(
+          `INSERT INTO namespace_grant (email, namespace, access, is_home) VALUES ($1, 'test-ns-m2m-members', 'readwrite', true)`,
+          [TEST_EMAIL],
+        );
+
+        const headers = await getM2MHeaders();
+        const res = await app.inject({ method: 'GET', url: '/api/namespaces/test-ns-m2m-members', headers });
+        expect(res.statusCode).toBe(200);
+
+        const body = res.json();
+        expect(body.namespace).toBe('test-ns-m2m-members');
+        expect(Array.isArray(body.members)).toBe(true);
+        expect(body.members.length).toBeGreaterThan(0);
+        // Verify each member has a defined access field (not undefined)
+        for (const member of body.members) {
+          expect(member.email).toBeDefined();
+          expect(member.access).toBeDefined();
+          expect(typeof member.access).toBe('string');
+          expect(member.access.length).toBeGreaterThan(0);
+        }
+        expect(body.member_count).toBe(body.members.length);
+      });
     });
 
     describe('GET /api/namespaces/:ns/grants', () => {
