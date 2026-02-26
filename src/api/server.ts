@@ -19348,7 +19348,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(201).send(provider);
     } catch (err) {
       await client.query('ROLLBACK');
-      throw err;
+      const pgErr = err as Error & { code?: string };
+      req.log.error({ err: pgErr, email }, 'geo provider creation failed');
+      if (pgErr.code === '23503') {
+        return reply.code(409).send({ error: 'Referenced resource does not exist' });
+      }
+      if (pgErr.code === '23505') {
+        return reply.code(409).send({ error: 'Provider already exists' });
+      }
+      return reply.code(500).send({ error: 'Failed to create provider' });
     } finally {
       client.release();
       await pool.end();
@@ -19696,7 +19704,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.send({ url, provider_id: provider.id });
     } catch (err) {
       await client.query('ROLLBACK');
-      throw err;
+      const pgErr = err as Error & { code?: string };
+      req.log.error({ err: pgErr, email }, 'HA OAuth authorize failed');
+      if (pgErr.code === '23503') {
+        return reply.code(409).send({ error: 'Referenced resource does not exist' });
+      }
+      if (pgErr.code === '23505') {
+        return reply.code(409).send({ error: 'Provider already exists' });
+      }
+      return reply.code(500).send({ error: 'Failed to initiate OAuth flow' });
     } finally {
       client.release();
       await pool.end();

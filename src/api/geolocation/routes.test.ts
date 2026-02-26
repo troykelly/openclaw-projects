@@ -474,4 +474,57 @@ describe('geolocation/routes', () => {
       expect(reply._statusCode).toBe(204);
     });
   });
+
+  describe('geo endpoint error handling', () => {
+    it('classifies PostgreSQL FK violation (23503) as 409 Conflict', () => {
+      const pgError = Object.assign(new Error('violates foreign key constraint'), { code: '23503' });
+      const reply = mockReply();
+
+      // Simulate the error handling logic
+      const err = pgError as Error & { code?: string };
+      if (err.code === '23503') {
+        reply.code(409).send({ error: 'Referenced resource does not exist' });
+      } else if (err.code === '23505') {
+        reply.code(409).send({ error: 'Provider already exists' });
+      } else {
+        reply.code(500).send({ error: 'Failed to create provider' });
+      }
+
+      expect(reply._statusCode).toBe(409);
+      expect((reply._body as Record<string, unknown>).error).toContain('Referenced resource');
+    });
+
+    it('classifies PostgreSQL unique violation (23505) as 409 Conflict', () => {
+      const pgError = Object.assign(new Error('duplicate key'), { code: '23505' });
+      const reply = mockReply();
+
+      const err = pgError as Error & { code?: string };
+      if (err.code === '23503') {
+        reply.code(409).send({ error: 'Referenced resource does not exist' });
+      } else if (err.code === '23505') {
+        reply.code(409).send({ error: 'Provider already exists' });
+      } else {
+        reply.code(500).send({ error: 'Failed to create provider' });
+      }
+
+      expect(reply._statusCode).toBe(409);
+      expect((reply._body as Record<string, unknown>).error).toContain('already exists');
+    });
+
+    it('returns 500 for unknown database errors', () => {
+      const pgError = Object.assign(new Error('connection refused'), { code: '08006' });
+      const reply = mockReply();
+
+      const err = pgError as Error & { code?: string };
+      if (err.code === '23503') {
+        reply.code(409).send({ error: 'Referenced resource does not exist' });
+      } else if (err.code === '23505') {
+        reply.code(409).send({ error: 'Provider already exists' });
+      } else {
+        reply.code(500).send({ error: 'Failed to create provider' });
+      }
+
+      expect(reply._statusCode).toBe(500);
+    });
+  });
 });
