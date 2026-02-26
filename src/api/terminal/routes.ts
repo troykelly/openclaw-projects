@@ -321,6 +321,15 @@ export async function terminalRoutesPlugin(
       [id],
     );
 
+    const actor = await getActor(req);
+    recordActivity(pool, {
+      namespace,
+      connection_id: id,
+      actor,
+      action: 'connection.create',
+      detail: { name: body.name.trim(), host: body.host ?? null },
+    });
+
     return reply.code(201).send(row.rows[0]);
   });
 
@@ -407,6 +416,15 @@ export async function terminalRoutesPlugin(
       [params.id],
     );
 
+    const actor = await getActor(req);
+    recordActivity(pool, {
+      namespace: getStoreNamespace(req),
+      connection_id: params.id,
+      actor,
+      action: 'connection.update',
+      detail: { fields: Object.keys(body).filter((k) => allowedFields.includes(k)) },
+    });
+
     return reply.send(result.rows[0]);
   });
 
@@ -426,6 +444,14 @@ export async function terminalRoutesPlugin(
       [params.id],
     );
 
+    const actor = await getActor(req);
+    recordActivity(pool, {
+      namespace: getStoreNamespace(req),
+      connection_id: params.id,
+      actor,
+      action: 'connection.delete',
+    });
+
     return reply.code(204).send();
   });
 
@@ -439,6 +465,14 @@ export async function terminalRoutesPlugin(
     if (!(await verifyReadScope(pool, 'terminal_connection', params.id, req))) {
       return reply.code(404).send({ error: 'Connection not found' });
     }
+
+    const actor = await getActor(req);
+    recordActivity(pool, {
+      namespace: getStoreNamespace(req),
+      connection_id: params.id,
+      actor,
+      action: 'connection.test',
+    });
 
     try {
       const result = await grpcClient.testConnection({ connection_id: params.id });
@@ -482,6 +516,16 @@ export async function terminalRoutesPlugin(
         ],
       );
       imported.push({ id, name: entry.name });
+    }
+
+    if (imported.length > 0) {
+      const actor = await getActor(req);
+      recordActivity(pool, {
+        namespace,
+        actor,
+        action: 'connection.import_ssh_config',
+        detail: { count: imported.length },
+      });
     }
 
     return reply.code(201).send({ imported, count: imported.length });
@@ -587,6 +631,14 @@ export async function terminalRoutesPlugin(
       [id],
     );
 
+    const actor = await getActor(req);
+    recordActivity(pool, {
+      namespace,
+      actor,
+      action: 'credential.create',
+      detail: { credential_id: id, name: body.name.trim(), kind: body.kind },
+    });
+
     return reply.code(201).send(row.rows[0]);
   });
 
@@ -616,7 +668,7 @@ export async function terminalRoutesPlugin(
     return reply.send(result.rows[0]);
   });
 
-  // PATCH /api/terminal/credentials/:id — Update credential (metadata only)
+  // PATCH /api/terminal/credentials/:id — Update credential
   app.patch('/api/terminal/credentials/:id', async (req, reply) => {
     const params = req.params as { id: string };
     if (!UUID_REGEX.test(params.id)) {
@@ -628,17 +680,50 @@ export async function terminalRoutesPlugin(
     }
 
     const body = req.body as Record<string, unknown>;
-    // Only allow safe fields to be updated — never encrypted_value directly
-    const allowedFields = ['name', 'command', 'command_timeout_s', 'cache_ttl_s'];
+    const allowedMetadataFields = ['name', 'command', 'command_timeout_s', 'cache_ttl_s'];
 
     const setClauses: string[] = [];
     const values: unknown[] = [];
     let idx = 1;
 
-    for (const field of allowedFields) {
+    for (const field of allowedMetadataFields) {
       if (field in body) {
         setClauses.push(`${field} = $${idx}`);
         values.push(body[field]);
+        idx++;
+      }
+    }
+
+    // Issue #1869 — Re-encrypt value when provided
+    const hasNewValue = typeof body.value === 'string' && (body.value as string).length > 0;
+    if (hasNewValue) {
+      // Fetch the credential kind to determine if value re-encryption is appropriate
+      const kindResult = await pool.query(
+        `SELECT kind FROM terminal_credential WHERE id = $1 AND deleted_at IS NULL`,
+        [params.id],
+      );
+      if (kindResult.rows.length === 0) {
+        return reply.code(404).send({ error: 'Credential not found' });
+      }
+      const kind = (kindResult.rows[0] as { kind: string }).kind;
+
+      if (kind === 'ssh_key' || kind === 'password') {
+        const masterKey = getEncryptionKey();
+        const encryptedValue = encryptCredential(body.value as string, masterKey, params.id);
+        setClauses.push(`encrypted_value = $${idx}`);
+        values.push(encryptedValue);
+        idx++;
+      }
+
+      // Update fingerprint and public_key if provided alongside value
+      if ('fingerprint' in body) {
+        setClauses.push(`fingerprint = $${idx}`);
+        values.push(body.fingerprint ?? null);
+        idx++;
+      }
+      if ('public_key' in body) {
+        setClauses.push(`public_key = $${idx}`);
+        values.push(body.public_key ?? null);
         idx++;
       }
     }
@@ -653,6 +738,18 @@ export async function terminalRoutesPlugin(
       `UPDATE terminal_credential SET ${setClauses.join(', ')} WHERE id = $${idx}`,
       [...values, params.id],
     );
+
+    const actor = await getActor(req);
+    recordActivity(pool, {
+      namespace: getStoreNamespace(req),
+      actor,
+      action: 'credential.update',
+      detail: {
+        credential_id: params.id,
+        value_changed: hasNewValue,
+        fields: Object.keys(body).filter((k) => k !== 'value' && k !== 'encrypted_value'),
+      },
+    });
 
     // SECURITY: Never return encrypted_value
     const result = await pool.query(
@@ -680,6 +777,14 @@ export async function terminalRoutesPlugin(
       `UPDATE terminal_credential SET deleted_at = NOW(), updated_at = NOW() WHERE id = $1`,
       [params.id],
     );
+
+    const actor = await getActor(req);
+    recordActivity(pool, {
+      namespace: getStoreNamespace(req),
+      actor,
+      action: 'credential.delete',
+      detail: { credential_id: params.id },
+    });
 
     return reply.code(204).send();
   });
@@ -736,6 +841,14 @@ export async function terminalRoutesPlugin(
        FROM terminal_credential WHERE id = $1`,
       [id],
     );
+
+    const actor = await getActor(req);
+    recordActivity(pool, {
+      namespace,
+      actor,
+      action: 'credential.generate',
+      detail: { credential_id: id, name: body.name.trim(), key_type: keyType },
+    });
 
     return reply.code(201).send({
       ...row.rows[0],
@@ -832,6 +945,8 @@ export async function terminalRoutesPlugin(
     const namespace = getStoreNamespace(req);
     const sessionName = body.tmux_session_name ?? `session-${Date.now()}`;
 
+    const actor = await getActor(req);
+
     try {
       const session = await grpcClient.createSession({
         connection_id: body.connection_id,
@@ -846,6 +961,16 @@ export async function terminalRoutesPlugin(
         tags: body.tags ?? [],
         notes: body.notes ?? '',
       });
+
+      recordActivity(pool, {
+        namespace,
+        session_id: session.id,
+        connection_id: body.connection_id,
+        actor,
+        action: 'session.create',
+        detail: { tmux_session_name: sessionName },
+      });
+
       return reply.code(201).send(session);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown gRPC error';
@@ -946,6 +1071,15 @@ export async function terminalRoutesPlugin(
       [...values, params.id],
     );
 
+    const actor = await getActor(req);
+    recordActivity(pool, {
+      namespace: getStoreNamespace(req),
+      session_id: params.id,
+      actor,
+      action: 'session.update',
+      detail: { fields: Object.keys(body).filter((k) => allowedFields.includes(k)) },
+    });
+
     const result = await pool.query(
       `SELECT id, namespace, connection_id, tmux_session_name, worker_id, status,
               cols, rows, tags, notes, created_at, updated_at
@@ -967,8 +1101,18 @@ export async function terminalRoutesPlugin(
       return reply.code(404).send({ error: 'Session not found' });
     }
 
+    const actor = await getActor(req);
+
     try {
       await grpcClient.terminateSession({ session_id: params.id });
+
+      recordActivity(pool, {
+        namespace: getStoreNamespace(req),
+        session_id: params.id,
+        actor,
+        action: 'session.terminate',
+      });
+
       return reply.code(204).send();
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown gRPC error';
@@ -1004,6 +1148,15 @@ export async function terminalRoutesPlugin(
         `UPDATE terminal_session SET cols = $1, rows = $2, updated_at = NOW() WHERE id = $3`,
         [body.cols, body.rows, params.id],
       );
+
+      const actor = await getActor(req);
+      recordActivity(pool, {
+        namespace: getStoreNamespace(req),
+        session_id: params.id,
+        actor,
+        action: 'session.resize',
+        detail: { cols: body.cols, rows: body.rows },
+      });
 
       return reply.send({ success: true });
     } catch (err) {
@@ -1051,6 +1204,15 @@ export async function terminalRoutesPlugin(
        FROM terminal_session_entry WHERE id = $1`,
       [entryId],
     );
+
+    const actor = await getActor(req);
+    recordActivity(pool, {
+      namespace,
+      session_id: params.id,
+      actor,
+      action: 'session.annotate',
+      detail: { entry_id: entryId },
+    });
 
     return reply.code(201).send(result.rows[0]);
   });
@@ -1110,13 +1272,17 @@ export async function terminalRoutesPlugin(
     grpcStream.write({ session_id: params.id });
 
     // Bridge WebSocket → gRPC
+    // Issue #1870: Guard against writing to a closed/closing gRPC stream
     socket.on('message', (data: Buffer | string) => {
+      if (!grpcStream.writable) return;
+
       const rawData = typeof data === 'string' ? Buffer.from(data) : data;
 
       // Try to parse as JSON for resize messages
       try {
         const parsed = JSON.parse(rawData.toString()) as { type?: string; cols?: number; rows?: number };
         if (parsed.type === 'resize' && parsed.cols && parsed.rows) {
+          if (!grpcStream.writable) return;
           grpcStream.write({
             session_id: params.id,
             resize: { cols: parsed.cols, rows: parsed.rows },
@@ -1127,6 +1293,7 @@ export async function terminalRoutesPlugin(
         // Not JSON — treat as raw terminal input
       }
 
+      if (!grpcStream.writable) return;
       grpcStream.write({
         session_id: params.id,
         data: rawData,
@@ -1196,6 +1363,15 @@ export async function terminalRoutesPlugin(
     }
 
     const timeoutS = Math.min(body.timeout_s ?? 30, 300); // Max 5 minutes
+    const actor = await getActor(req);
+
+    recordActivity(pool, {
+      namespace: getStoreNamespace(req),
+      session_id: params.id,
+      actor,
+      action: 'command.send',
+      detail: { command: body.command.trim(), pane_id: body.pane_id ?? null },
+    });
 
     try {
       const result = await grpcClient.sendCommand(
@@ -1230,6 +1406,17 @@ export async function terminalRoutesPlugin(
     if (!body?.keys) {
       return reply.code(400).send({ error: 'keys is required' });
     }
+
+    const actor = await getActor(req);
+
+    // SECURITY: Do NOT log actual keystrokes — only audit that keys were sent
+    recordActivity(pool, {
+      namespace: getStoreNamespace(req),
+      session_id: params.id,
+      actor,
+      action: 'keys.send',
+      detail: { pane_id: body.pane_id ?? null },
+    });
 
     try {
       await grpcClient.sendKeys({
@@ -1679,10 +1866,20 @@ export async function terminalRoutesPlugin(
 
     const body = req.body as { name?: string } | null;
 
+    const actor = await getActor(req);
+
     try {
       const result = await grpcClient.createWindow({
         session_id: params.id,
         window_name: body?.name ?? '',
+      });
+
+      recordActivity(pool, {
+        namespace: getStoreNamespace(req),
+        session_id: params.id,
+        actor,
+        action: 'window.create',
+        detail: { window_name: body?.name ?? null },
       });
 
       return reply.code(201).send(result);
@@ -1708,10 +1905,20 @@ export async function terminalRoutesPlugin(
       return reply.code(400).send({ error: 'Invalid window index' });
     }
 
+    const actor = await getActor(req);
+
     try {
       await grpcClient.closeWindow({
         session_id: params.sid,
         window_index: windowIndex,
+      });
+
+      recordActivity(pool, {
+        namespace: getStoreNamespace(req),
+        session_id: params.sid,
+        actor,
+        action: 'window.close',
+        detail: { window_index: windowIndex },
       });
 
       return reply.code(204).send();
@@ -1740,11 +1947,21 @@ export async function terminalRoutesPlugin(
     const body = req.body as { direction?: string } | null;
     const horizontal = body?.direction === 'horizontal';
 
+    const actor = await getActor(req);
+
     try {
       const result = await grpcClient.splitPane({
         session_id: params.sid,
         window_index: windowIndex,
         horizontal,
+      });
+
+      recordActivity(pool, {
+        namespace: getStoreNamespace(req),
+        session_id: params.sid,
+        actor,
+        action: 'pane.split',
+        detail: { window_index: windowIndex, horizontal },
       });
 
       return reply.code(201).send(result);
@@ -1770,11 +1987,21 @@ export async function terminalRoutesPlugin(
       return reply.code(400).send({ error: 'Invalid pane index' });
     }
 
+    const actor = await getActor(req);
+
     try {
       await grpcClient.closePane({
         session_id: params.sid,
         window_index: 0,
         pane_index: paneIndex,
+      });
+
+      recordActivity(pool, {
+        namespace: getStoreNamespace(req),
+        session_id: params.sid,
+        actor,
+        action: 'pane.close',
+        detail: { pane_index: paneIndex },
       });
 
       return reply.code(204).send();
@@ -1904,6 +2131,8 @@ export async function terminalRoutesPlugin(
 
     const namespace = getStoreNamespace(req);
 
+    const actor = await getActor(req);
+
     try {
       const result = await grpcClient.createTunnel({
         connection_id: body.connection_id,
@@ -1914,6 +2143,20 @@ export async function terminalRoutesPlugin(
         bind_port: body.bind_port,
         target_host: body.target_host ?? '',
         target_port: body.target_port ?? 0,
+      });
+
+      recordActivity(pool, {
+        namespace,
+        connection_id: body.connection_id,
+        session_id: body.session_id ?? undefined,
+        actor,
+        action: 'tunnel.create',
+        detail: {
+          direction: body.direction,
+          bind_port: body.bind_port,
+          target_host: body.target_host ?? null,
+          target_port: body.target_port ?? null,
+        },
       });
 
       return reply.code(201).send(result);
@@ -1934,8 +2177,18 @@ export async function terminalRoutesPlugin(
       return reply.code(404).send({ error: 'Tunnel not found' });
     }
 
+    const actor = await getActor(req);
+
     try {
       await grpcClient.closeTunnel({ tunnel_id: params.id });
+
+      recordActivity(pool, {
+        namespace: getStoreNamespace(req),
+        actor,
+        action: 'tunnel.close',
+        detail: { tunnel_id: params.id },
+      });
+
       return reply.code(204).send();
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown gRPC error';
@@ -2066,6 +2319,15 @@ export async function terminalRoutesPlugin(
       [namespace, body.host.trim(), port, body.key_type.trim()],
     );
 
+    const actor = await getActor(req);
+    recordActivity(pool, {
+      namespace,
+      connection_id: body.connection_id ?? undefined,
+      actor,
+      action: 'known_host.trust',
+      detail: { host: body.host.trim(), port, key_type: body.key_type.trim() },
+    });
+
     return reply.code(201).send(result.rows[0]);
   });
 
@@ -2108,6 +2370,8 @@ export async function terminalRoutesPlugin(
       [id, namespace, body.host.trim(), port, body.key_type.trim(), body.fingerprint.trim(), body.public_key.trim()],
     );
 
+    const actor = await getActor(req);
+
     try {
       await grpcClient.approveHostKey({
         session_id: body.session_id,
@@ -2116,6 +2380,14 @@ export async function terminalRoutesPlugin(
         key_type: body.key_type.trim(),
         fingerprint: body.fingerprint.trim(),
         public_key: body.public_key.trim(),
+      });
+
+      recordActivity(pool, {
+        namespace,
+        session_id: body.session_id,
+        actor,
+        action: 'known_host.approve',
+        detail: { host: body.host.trim(), port, key_type: body.key_type.trim() },
       });
 
       return reply.send({ approved: true, session_id: body.session_id });
@@ -2137,6 +2409,14 @@ export async function terminalRoutesPlugin(
     }
 
     await pool.query(`DELETE FROM terminal_known_host WHERE id = $1`, [params.id]);
+
+    const actor = await getActor(req);
+    recordActivity(pool, {
+      namespace: getStoreNamespace(req),
+      actor,
+      action: 'known_host.delete',
+      detail: { known_host_id: params.id },
+    });
 
     return reply.code(204).send();
   });
@@ -2469,6 +2749,13 @@ export async function terminalRoutesPlugin(
     }
 
     return reply.send({ items, total, limit, offset });
+  });
+
+  // ================================================================
+  // Issue #1870 — Graceful gRPC client shutdown
+  // ================================================================
+  app.addHook('onClose', async () => {
+    grpcClient.closeGrpcClient();
   });
 
   // ================================================================
