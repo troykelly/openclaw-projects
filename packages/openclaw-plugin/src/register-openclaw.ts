@@ -39,7 +39,29 @@ import {
   createApiRefreshTool,
   createApiRemoveTool,
   createApiRestoreTool,
+  // Terminal tools (Issue #1858)
+  createTerminalConnectionListTool,
+  createTerminalConnectionCreateTool,
+  createTerminalConnectionUpdateTool,
+  createTerminalConnectionDeleteTool,
+  createTerminalConnectionTestTool,
+  createTerminalCredentialCreateTool,
+  createTerminalCredentialListTool,
+  createTerminalCredentialDeleteTool,
+  createTerminalSessionStartTool,
+  createTerminalSessionListTool,
+  createTerminalSessionTerminateTool,
+  createTerminalSessionInfoTool,
+  createTerminalSendCommandTool,
+  createTerminalSendKeysTool,
+  createTerminalCapturePaneTool,
+  createTerminalSearchTool,
+  createTerminalAnnotateTool,
+  createTerminalTunnelCreateTool,
+  createTerminalTunnelListTool,
+  createTerminalTunnelCloseTool,
 } from './tools/index.js';
+import { zodToJsonSchema } from './utils/zod-to-json-schema.js';
 import type {
   AgentToolResult,
   JSONSchema,
@@ -4676,6 +4698,49 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
       },
     },
   ];
+
+  // ── Terminal tools (Issue #1858) ──────────────────────────────
+  // Register all 20 terminal plugin tools using factory pattern.
+
+  const termToolOpts = { client: apiClient, logger, config, user_id };
+
+  const terminalToolFactories = [
+    createTerminalConnectionListTool,
+    createTerminalConnectionCreateTool,
+    createTerminalConnectionUpdateTool,
+    createTerminalConnectionDeleteTool,
+    createTerminalConnectionTestTool,
+    createTerminalCredentialCreateTool,
+    createTerminalCredentialListTool,
+    createTerminalCredentialDeleteTool,
+    createTerminalSessionStartTool,
+    createTerminalSessionListTool,
+    createTerminalSessionTerminateTool,
+    createTerminalSessionInfoTool,
+    createTerminalSendCommandTool,
+    createTerminalSendKeysTool,
+    createTerminalCapturePaneTool,
+    createTerminalSearchTool,
+    createTerminalAnnotateTool,
+    createTerminalTunnelCreateTool,
+    createTerminalTunnelListTool,
+    createTerminalTunnelCloseTool,
+  ] as const;
+
+  for (const factory of terminalToolFactories) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- factory functions have heterogeneous option types that share the same shape
+    const tool = (factory as (opts: typeof termToolOpts) => { name: string; description: string; parameters: unknown; execute: (params: any) => Promise<any> })(termToolOpts);
+
+    tools.push({
+      name: tool.name,
+      description: tool.description,
+      parameters: zodToJsonSchema(tool.parameters as import('zod').ZodTypeAny),
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await tool.execute(params);
+        return toAgentToolResult(result);
+      },
+    });
+  }
 
   for (const tool of tools) {
     api.registerTool(tool);
