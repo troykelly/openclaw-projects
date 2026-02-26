@@ -1,8 +1,8 @@
 /**
  * gRPC server for the TerminalService.
  *
- * Initial implementation provides GetWorkerStatus (health) only.
- * All other RPCs return UNIMPLEMENTED status until later phases.
+ * Implements session lifecycle RPCs (Create, Terminate, List, Get, Resize)
+ * and GetWorkerStatus. Remaining RPCs return UNIMPLEMENTED until later phases.
  *
  * Supports mTLS when GRPC_TLS_CERT, GRPC_TLS_KEY, and GRPC_TLS_CA are configured.
  * Falls back to insecure channel with a warning when certs are not found.
@@ -13,7 +13,27 @@ import fs from 'node:fs';
 import type pg from 'pg';
 import { getTerminalServiceDefinition } from './proto-loader.ts';
 import type { TmuxWorkerConfig } from './config.ts';
-import type { WorkerStatus } from './types.ts';
+import type {
+  WorkerStatus,
+  CreateSessionRequest,
+  TerminateSessionRequest,
+  ListSessionsRequest,
+  ListSessionsResponse,
+  GetSessionRequest,
+  ResizeSessionRequest,
+  SessionInfo,
+  TestConnectionRequest,
+  TestConnectionResponse,
+} from './types.ts';
+import { TmuxManager } from './tmux/manager.ts';
+import { SSHConnectionManager } from './ssh/client.ts';
+import {
+  handleCreateSession,
+  handleTerminateSession,
+  handleListSessions,
+  handleGetSession,
+  handleResizeSession,
+} from './session-lifecycle.ts';
 
 const startTime = Date.now();
 
@@ -30,9 +50,6 @@ export function createGrpcServer(
   });
 
   const serviceDefinition = getTerminalServiceDefinition();
-
-  // Build handler map: only GetWorkerStatus is implemented,
-  // all others return UNIMPLEMENTED.
   const handlers = buildHandlers(config, pool);
 
   server.addService(serviceDefinition, handlers);
@@ -112,14 +129,39 @@ export function stopGrpcServer(server: grpc.Server): Promise<void> {
 }
 
 /**
+ * Map error messages to appropriate gRPC status codes.
+ * "not found" errors → NOT_FOUND; validation errors → INVALID_ARGUMENT;
+ * everything else → INTERNAL.
+ */
+function mapErrorToGrpcStatus(err: unknown): { code: grpc.status; message: string } {
+  const message = err instanceof Error ? err.message : String(err);
+  const lower = message.toLowerCase();
+
+  if (lower.includes('not found')) {
+    return { code: grpc.status.NOT_FOUND, message };
+  }
+  if (lower.includes('invalid') || lower.includes('missing') || lower.includes('required')) {
+    return { code: grpc.status.INVALID_ARGUMENT, message };
+  }
+  return { code: grpc.status.INTERNAL, message };
+}
+
+/**
  * Build the handler map for all TerminalService RPCs.
+ *
+ * Session lifecycle RPCs (Create, Terminate, List, Get, Resize) are fully
+ * implemented. TestConnection delegates to SSHConnectionManager. All other
+ * RPCs remain UNIMPLEMENTED for later phases.
  */
 function buildHandlers(
   config: TmuxWorkerConfig,
-  _pool: pg.Pool,
+  pool: pg.Pool,
 ): grpc.UntypedServiceImplementation {
+  const tmuxManager = new TmuxManager();
+  const sshManager = new SSHConnectionManager(pool, config.encryptionKeyHex);
+
   return {
-    // ── Implemented ──────────────────────────────────────────
+    // ── Health ────────────────────────────────────────────────
     GetWorkerStatus: (
       _call: grpc.ServerUnaryCall<Record<string, never>, WorkerStatus>,
       callback: grpc.sendUnaryData<WorkerStatus>,
@@ -127,19 +169,95 @@ function buildHandlers(
       const uptimeSeconds = Math.floor((Date.now() - startTime) / 1000);
       callback(null, {
         worker_id: config.workerId,
-        active_sessions: 0,
+        active_sessions: sshManager.activeConnectionCount,
         uptime_seconds: String(uptimeSeconds),
         version: '0.1.0',
       });
     },
 
-    // ── Unimplemented stubs ──────────────────────────────────
-    TestConnection: unimplemented('TestConnection'),
-    CreateSession: unimplemented('CreateSession'),
-    TerminateSession: unimplemented('TerminateSession'),
-    ListSessions: unimplemented('ListSessions'),
-    GetSession: unimplemented('GetSession'),
-    ResizeSession: unimplemented('ResizeSession'),
+    // ── Connection testing ───────────────────────────────────
+    TestConnection: (
+      call: grpc.ServerUnaryCall<TestConnectionRequest, TestConnectionResponse>,
+      callback: grpc.sendUnaryData<TestConnectionResponse>,
+    ) => {
+      const req = call.request;
+      sshManager
+        .testConnection(req.connection_id)
+        .then((result) => {
+          callback(null, {
+            success: result.success,
+            message: result.message,
+            latency_ms: result.latencyMs,
+            host_key_fingerprint: result.hostKeyFingerprint,
+          });
+        })
+        .catch((err) => {
+          callback(mapErrorToGrpcStatus(err));
+        });
+    },
+
+    // ── Session lifecycle ────────────────────────────────────
+    CreateSession: (
+      call: grpc.ServerUnaryCall<CreateSessionRequest, SessionInfo>,
+      callback: grpc.sendUnaryData<SessionInfo>,
+    ) => {
+      const req = call.request;
+      handleCreateSession(req, pool, tmuxManager, sshManager, config.workerId)
+        .then((result) => callback(null, result))
+        .catch((err) => {
+          callback(mapErrorToGrpcStatus(err));
+        });
+    },
+
+    TerminateSession: (
+      call: grpc.ServerUnaryCall<TerminateSessionRequest, Record<string, never>>,
+      callback: grpc.sendUnaryData<Record<string, never>>,
+    ) => {
+      const req = call.request;
+      handleTerminateSession(req, pool, tmuxManager, sshManager)
+        .then(() => callback(null, {}))
+        .catch((err) => {
+          callback(mapErrorToGrpcStatus(err));
+        });
+    },
+
+    ListSessions: (
+      call: grpc.ServerUnaryCall<ListSessionsRequest, ListSessionsResponse>,
+      callback: grpc.sendUnaryData<ListSessionsResponse>,
+    ) => {
+      const req = call.request;
+      handleListSessions(req, pool)
+        .then((result) => callback(null, result))
+        .catch((err) => {
+          callback(mapErrorToGrpcStatus(err));
+        });
+    },
+
+    GetSession: (
+      call: grpc.ServerUnaryCall<GetSessionRequest, SessionInfo>,
+      callback: grpc.sendUnaryData<SessionInfo>,
+    ) => {
+      const req = call.request;
+      handleGetSession(req, pool)
+        .then((result) => callback(null, result))
+        .catch((err) => {
+          callback(mapErrorToGrpcStatus(err));
+        });
+    },
+
+    ResizeSession: (
+      call: grpc.ServerUnaryCall<ResizeSessionRequest, Record<string, never>>,
+      callback: grpc.sendUnaryData<Record<string, never>>,
+    ) => {
+      const req = call.request;
+      handleResizeSession(req, pool, tmuxManager)
+        .then(() => callback(null, {}))
+        .catch((err) => {
+          callback(mapErrorToGrpcStatus(err));
+        });
+    },
+
+    // ── Unimplemented stubs (later phases) ───────────────────
     CreateWindow: unimplemented('CreateWindow'),
     CloseWindow: unimplemented('CloseWindow'),
     SplitPane: unimplemented('SplitPane'),

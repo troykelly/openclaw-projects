@@ -91,8 +91,10 @@ describe('tmux-worker/grpc-server', () => {
     expect(status.version).toBe('0.1.0');
   });
 
-  it('unimplemented RPCs return UNIMPLEMENTED status', async () => {
-    // Client should already be set up from previous test
+  it('session lifecycle RPCs return INTERNAL (no DB) instead of UNIMPLEMENTED', async () => {
+    // Session lifecycle RPCs are now implemented, but will fail with INTERNAL
+    // errors since we have no real DB connection in this test.
+    // This confirms the stubs were replaced with real handlers.
     expect(client).toBeDefined();
 
     const err = await new Promise<grpc.ServiceError>((resolve) => {
@@ -106,7 +108,28 @@ describe('tmux-worker/grpc-server', () => {
       );
     });
 
+    // No longer UNIMPLEMENTED — now it tries to run real logic but fails
+    // because the mock pool has no real DB behind it.
+    // Could be INTERNAL (DB error) or NOT_FOUND (connection not found).
+    expect(err.code).not.toBe(grpc.status.UNIMPLEMENTED);
+    expect(err.message).not.toContain('is not yet implemented');
+  });
+
+  it('remaining unimplemented RPCs still return UNIMPLEMENTED', async () => {
+    expect(client).toBeDefined();
+
+    const err = await new Promise<grpc.ServiceError>((resolve) => {
+      client!.SendCommand(
+        { session_id: 'test', command: 'echo hello' },
+        (err: grpc.ServiceError | null) => {
+          if (err) {
+            resolve(err);
+          }
+        },
+      );
+    });
+
     expect(err.code).toBe(grpc.status.UNIMPLEMENTED);
-    expect(err.message).toContain('CreateSession');
+    expect(err.message).toContain('SendCommand');
   });
 });
