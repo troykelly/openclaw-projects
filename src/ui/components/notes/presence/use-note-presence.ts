@@ -113,7 +113,7 @@ export function useNotePresence({ noteId, user_email, autoJoin = true }: UseNote
     if (!hasJoinedRef.current) return;
 
     try {
-      await apiClient.delete(`/api/notes/${noteId}/presence`, { headers: { 'X-User-Email': user_email } });
+      await apiClient.delete(`/api/notes/${noteId}/presence`, undefined, { headers: { 'X-User-Email': user_email } });
       hasJoinedRef.current = false;
       setIsConnected(false);
     } catch (err) {

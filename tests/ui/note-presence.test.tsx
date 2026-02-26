@@ -330,6 +330,7 @@ describe('useNotePresence hook', () => {
     await waitForHook(() => {
       expect(mockApiDelete).toHaveBeenCalledWith(
         '/api/notes/test-note-456/presence',
+        undefined,
         expect.objectContaining({
           headers: { 'X-User-Email': 'user@example.com' },
         }),

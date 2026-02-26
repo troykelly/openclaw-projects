@@ -38,7 +38,7 @@ export function useBulkDeleteWorkItems() {
 
   return useMutation({
     mutationFn: (body: BulkDeleteBody) =>
-      apiClient.post('/api/work-items/bulk/delete', body),
+      apiClient.delete('/api/work-items/bulk', body),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: workItemKeys.all });
     },
