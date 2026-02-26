@@ -1,6 +1,7 @@
 /**
  * Card for displaying a single comment
  * Issue #399: Implement comments system with threading
+ * Issue #1839: Fixed to match actual API response shapes
  */
 import * as React from 'react';
 import { Reply, Pencil, Trash2, MoreHorizontal } from 'lucide-react';
@@ -36,36 +37,49 @@ function formatRelativeTime(dateString: string): string {
   return date.toLocaleDateString();
 }
 
-function isEdited(created_at: string, updated_at: string): boolean {
-  return new Date(updated_at).getTime() - new Date(created_at).getTime() > 1000;
+function isEdited(comment: Comment): boolean {
+  if (comment.edited_at) return true;
+  return new Date(comment.updated_at).getTime() - new Date(comment.created_at).getTime() > 1000;
 }
 
-export function CommentCard({ comment, currentUserId, onReply, onEdit, onDelete, onReact, className }: CommentCardProps) {
-  const isOwner = comment.authorId === currentUserId;
-  const edited = isEdited(comment.created_at, comment.updated_at);
+/** Derive a display name from an email address. */
+function displayName(email: string): string {
+  const local = email.split('@')[0];
+  // Convert dots/underscores/hyphens to spaces and capitalize
+  return local
+    .replace(/[._-]/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
 
-  const initials = comment.author.name
+/** Get initials from an email address. */
+function initials(email: string): string {
+  const name = displayName(email);
+  return name
     .split(' ')
     .map((n) => n[0])
     .join('')
     .toUpperCase()
     .slice(0, 2);
+}
+
+export function CommentCard({ comment, currentUserId, onReply, onEdit, onDelete, onReact, className }: CommentCardProps) {
+  const isOwner = comment.user_email === currentUserId;
+  const edited = isEdited(comment);
+  const name = displayName(comment.user_email);
+  const avatar = initials(comment.user_email);
+  const reactionEntries = Object.entries(comment.reactions);
 
   return (
     <div className={cn('flex gap-3', className)}>
       {/* Avatar */}
       <div className="shrink-0">
-        {comment.author.avatar ? (
-          <img src={comment.author.avatar} alt={comment.author.name} className="w-8 h-8 rounded-full object-cover" />
-        ) : (
-          <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-medium">{initials}</div>
-        )}
+        <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-medium">{avatar}</div>
       </div>
 
       {/* Content */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="font-medium text-sm">{comment.author.name}</span>
+          <span className="font-medium text-sm">{name}</span>
           <span data-testid="comment-timestamp" className="text-xs text-muted-foreground">
             {formatRelativeTime(comment.created_at)}
           </span>
@@ -75,7 +89,7 @@ export function CommentCard({ comment, currentUserId, onReply, onEdit, onDelete,
         <div className="mt-1 text-sm whitespace-pre-wrap">{comment.content}</div>
 
         {/* Reactions */}
-        {comment.reactions.length > 0 && (
+        {reactionEntries.length > 0 && (
           <CommentReactions reactions={comment.reactions} currentUserId={currentUserId} onReact={(emoji) => onReact?.(comment.id, emoji)} className="mt-2" />
         )}
 

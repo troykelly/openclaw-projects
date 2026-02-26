@@ -10016,6 +10016,23 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     return reply.code(201).send(result.rows[0]);
   });
 
+  // GET /api/memories/:id - Get a single memory by ID (Issue #1841)
+  app.get('/api/memories/:id', async (req, reply) => {
+    const { getMemory } = await import('./memory/index.ts');
+    const params = req.params as { id: string };
+    const pool = createPool();
+
+    try {
+      const memory = await getMemory(pool, params.id);
+      if (!memory) {
+        return reply.code(404).send({ error: 'not found' });
+      }
+      return reply.send(memory);
+    } finally {
+      await pool.end();
+    }
+  });
+
   // PATCH /api/memories/:id - Update a memory
   app.patch('/api/memories/:id', async (req, reply) => {
     const params = req.params as { id: string };

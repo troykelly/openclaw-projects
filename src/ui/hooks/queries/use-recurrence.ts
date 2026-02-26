@@ -2,28 +2,41 @@
  * TanStack Query hooks for work item recurrence.
  *
  * Issue #1710: Recurring tasks.
+ * Issue #1839: Fixed to match actual API response shapes.
+ *
+ * GET /api/work-items/:id/recurrence returns:
+ *   { rule, rule_description, end, parent_id, is_template, next_occurrence }
+ *
+ * GET /api/work-items/:id/instances returns:
+ *   { instances: [{ id, title, status, scheduled_date, created_at, completed_at }], count }
  */
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/ui/lib/api-client.ts';
 
-/** Recurrence rule from the API. */
+/** Recurrence rule from the API — matches actual server response. */
 export interface RecurrenceRule {
-  recurrence_rule: string | null;
-  recurrence_natural: string | null;
+  rule: string;
+  rule_description: string | null;
+  end: string | null;
+  parent_id: string | null;
+  is_template: boolean;
+  next_occurrence: string | null;
 }
 
-/** Instance of a recurring work item. */
+/** Instance of a recurring work item — matches actual server response. */
 export interface RecurrenceInstance {
   id: string;
   title: string;
   status: string;
-  not_before: string | null;
+  scheduled_date: string | null;
   created_at: string;
+  completed_at: string | null;
 }
 
 /** API response for recurrence instances. */
 export interface RecurrenceInstancesResponse {
   instances: RecurrenceInstance[];
+  count: number;
 }
 
 /** Query key factory for recurrence. */

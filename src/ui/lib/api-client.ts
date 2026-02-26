@@ -268,16 +268,23 @@ export const apiClient = {
   },
 
   /**
-   * Perform a DELETE request.
+   * Perform a DELETE request, optionally with a JSON body.
    *
    * @typeParam T - Expected response shape (often void / empty)
    * @param path - API path starting with `/api/...`
+   * @param body - Optional request body (will be serialised to JSON)
    * @param opts - Optional request configuration
    * @returns Parsed JSON response (or undefined for 204 No Content)
    * @throws {ApiRequestError} on non-2xx responses
    */
-  async delete<T = void>(path: string, opts?: RequestOptions<T>): Promise<T> {
-    const { parsed } = await request<T>(path, { method: 'DELETE' }, { accept: 'application/json' }, opts);
+  async delete<T = void>(path: string, body?: unknown, opts?: RequestOptions<T>): Promise<T> {
+    const init: RequestInit = { method: 'DELETE' };
+    const headers: Record<string, string> = { accept: 'application/json' };
+    if (body !== undefined) {
+      init.body = JSON.stringify(snakeifyKeys(body));
+      headers['content-type'] = 'application/json';
+    }
+    const { parsed } = await request<T>(path, init, headers, opts);
     return parsed;
   },
 };

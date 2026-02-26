@@ -1,33 +1,22 @@
 /**
  * Types for comments system
  * Issue #399: Implement comments system with threading
+ * Issue #1839: Fixed to match actual API response shapes
  */
 
-/** Author of a comment */
-export interface Author {
-  id: string;
-  name: string;
-  avatar?: string;
-}
-
-/** Reaction on a comment */
-export interface CommentReaction {
-  emoji: string;
-  count: number;
-  users: string[];
-}
-
-/** A comment on a work item */
+/** A comment on a work item — matches actual API response. */
 export interface Comment {
   id: string;
+  work_item_id: string;
+  parent_id: string | null;
+  user_email: string;
   content: string;
-  authorId: string;
-  author: Author;
-  parent_id?: string;
+  mentions: string[] | null;
+  edited_at: string | null;
   created_at: string;
   updated_at: string;
-  replyCount: number;
-  reactions: CommentReaction[];
+  /** Reactions keyed by emoji with count values: { "👍": 2, "❤️": 1 } */
+  reactions: Record<string, number>;
 }
 
 /** Common reaction emojis */

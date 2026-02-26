@@ -14,8 +14,6 @@ export { CommentsSection } from './comments-section';
 export type { CommentsSectionProps } from './comments-section';
 export type {
   Comment,
-  CommentReaction,
-  Author,
   ReactionEmoji,
 } from './types';
 export { REACTION_EMOJIS } from './types';
