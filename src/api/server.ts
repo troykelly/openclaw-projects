@@ -19293,6 +19293,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     try {
       await client.query('BEGIN');
 
+      // Ensure user_setting row exists (FK target for geo_provider.owner_email)
+      const { ensureUserSetting } = await import('./geolocation/service.ts');
+      await ensureUserSetting(client, email);
+
       // Enforce provider limit (inside transaction for atomicity)
       const countResult = await client.query('SELECT COUNT(*)::int AS cnt FROM geo_provider WHERE owner_email = $1 AND deleted_at IS NULL FOR UPDATE', [email]);
       if (countResult.rows[0].cnt >= GEO_MAX_PROVIDERS_PER_USER) {
@@ -19300,8 +19304,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         return reply.code(429).send({ error: `Maximum of ${GEO_MAX_PROVIDERS_PER_USER} providers allowed` });
       }
 
-      // Encrypt credentials if provided
-      const credentials = (body.credentials as string | undefined) ?? null;
+      // Extract credentials: prefer explicit body.credentials, but for HA access_token
+      // auth the UI sends the token inside config.access_token instead.
+      let credentials = (body.credentials as string | undefined) ?? null;
+      if (!credentials && providerType === 'home_assistant' && authType === 'access_token' && typeof config.access_token === 'string') {
+        credentials = config.access_token;
+        delete config.access_token; // Don't store plaintext token in JSONB config
+      }
       const { encryptCredentials } = await import('./geolocation/crypto.ts');
       // We need the provider ID for encryption, so create first then update
       const { createProvider: createGeoProvider } = await import('./geolocation/service.ts');
@@ -19339,7 +19348,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(201).send(provider);
     } catch (err) {
       await client.query('ROLLBACK');
-      throw err;
+      const pgErr = err as Error & { code?: string };
+      req.log.error({ err: pgErr, email }, 'geo provider creation failed');
+      if (pgErr.code === '23503') {
+        return reply.code(409).send({ error: 'Referenced resource does not exist' });
+      }
+      if (pgErr.code === '23505') {
+        return reply.code(409).send({ error: 'Provider already exists' });
+      }
+      return reply.code(500).send({ error: 'Failed to create provider' });
     } finally {
       client.release();
       await pool.end();
@@ -19634,6 +19651,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     try {
       await client.query('BEGIN');
 
+      // Ensure user_setting row exists (FK target for geo_provider.owner_email)
+      const { ensureUserSetting: ensureUserSettingOAuth } = await import('./geolocation/service.ts');
+      await ensureUserSettingOAuth(client, email);
+
       // Enforce provider limit
       const countResult = await client.query('SELECT COUNT(*)::int AS cnt FROM geo_provider WHERE owner_email = $1 AND deleted_at IS NULL FOR UPDATE', [email]);
       if (countResult.rows[0].cnt >= GEO_MAX_PROVIDERS_PER_USER) {
@@ -19683,7 +19704,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.send({ url, provider_id: provider.id });
     } catch (err) {
       await client.query('ROLLBACK');
-      throw err;
+      const pgErr = err as Error & { code?: string };
+      req.log.error({ err: pgErr, email }, 'HA OAuth authorize failed');
+      if (pgErr.code === '23503') {
+        return reply.code(409).send({ error: 'Referenced resource does not exist' });
+      }
+      if (pgErr.code === '23505') {
+        return reply.code(409).send({ error: 'Provider already exists' });
+      }
+      return reply.code(500).send({ error: 'Failed to initiate OAuth flow' });
     } finally {
       client.release();
       await pool.end();

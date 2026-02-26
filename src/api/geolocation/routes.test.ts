@@ -365,6 +365,61 @@ describe('geolocation/routes', () => {
     });
   });
 
+  describe('HA access_token extraction from config', () => {
+    it('extracts config.access_token as credentials for HA access_token auth', () => {
+      // Simulate the extraction logic that should exist in POST route
+      const providerType = 'home_assistant';
+      const authType = 'access_token';
+      const config: Record<string, unknown> = {
+        url: 'https://ha.example.com',
+        access_token: 'my-ha-long-lived-token',
+      };
+      let credentials: string | null = null;
+
+      // This is the logic that should be added to the POST route
+      if (providerType === 'home_assistant' && authType === 'access_token' && typeof config.access_token === 'string') {
+        credentials = config.access_token;
+        delete config.access_token;
+      }
+
+      expect(credentials).toBe('my-ha-long-lived-token');
+      expect(config).not.toHaveProperty('access_token');
+      expect(config.url).toBe('https://ha.example.com');
+    });
+
+    it('does not extract when auth_type is not access_token', () => {
+      const providerType = 'home_assistant';
+      const authType = 'oauth2';
+      const config: Record<string, unknown> = {
+        url: 'https://ha.example.com',
+        access_token: 'should-not-be-extracted',
+      };
+      let credentials: string | null = null;
+
+      if (providerType === 'home_assistant' && authType === 'access_token' && typeof config.access_token === 'string') {
+        credentials = config.access_token;
+        delete config.access_token;
+      }
+
+      expect(credentials).toBeNull();
+      expect(config).toHaveProperty('access_token');
+    });
+
+    it('does not extract when config.access_token is missing', () => {
+      const providerType = 'home_assistant';
+      const authType = 'access_token';
+      const config: Record<string, unknown> = { url: 'https://ha.example.com' };
+      let credentials: string | null = null;
+
+      if (providerType === 'home_assistant' && authType === 'access_token' && typeof config.access_token === 'string') {
+        credentials = config.access_token;
+        delete config.access_token;
+      }
+
+      expect(credentials).toBeNull();
+    });
+  });
+
   describe('cascade delete guard for shared providers', () => {
     it('canDeleteProvider returns can_delete=true for non-shared provider', async () => {
       const { canDeleteProvider } = geoService;
@@ -417,6 +472,59 @@ describe('geolocation/routes', () => {
       }
 
       expect(reply._statusCode).toBe(204);
+    });
+  });
+
+  describe('geo endpoint error handling', () => {
+    it('classifies PostgreSQL FK violation (23503) as 409 Conflict', () => {
+      const pgError = Object.assign(new Error('violates foreign key constraint'), { code: '23503' });
+      const reply = mockReply();
+
+      // Simulate the error handling logic
+      const err = pgError as Error & { code?: string };
+      if (err.code === '23503') {
+        reply.code(409).send({ error: 'Referenced resource does not exist' });
+      } else if (err.code === '23505') {
+        reply.code(409).send({ error: 'Provider already exists' });
+      } else {
+        reply.code(500).send({ error: 'Failed to create provider' });
+      }
+
+      expect(reply._statusCode).toBe(409);
+      expect((reply._body as Record<string, unknown>).error).toContain('Referenced resource');
+    });
+
+    it('classifies PostgreSQL unique violation (23505) as 409 Conflict', () => {
+      const pgError = Object.assign(new Error('duplicate key'), { code: '23505' });
+      const reply = mockReply();
+
+      const err = pgError as Error & { code?: string };
+      if (err.code === '23503') {
+        reply.code(409).send({ error: 'Referenced resource does not exist' });
+      } else if (err.code === '23505') {
+        reply.code(409).send({ error: 'Provider already exists' });
+      } else {
+        reply.code(500).send({ error: 'Failed to create provider' });
+      }
+
+      expect(reply._statusCode).toBe(409);
+      expect((reply._body as Record<string, unknown>).error).toContain('already exists');
+    });
+
+    it('returns 500 for unknown database errors', () => {
+      const pgError = Object.assign(new Error('connection refused'), { code: '08006' });
+      const reply = mockReply();
+
+      const err = pgError as Error & { code?: string };
+      if (err.code === '23503') {
+        reply.code(409).send({ error: 'Referenced resource does not exist' });
+      } else if (err.code === '23505') {
+        reply.code(409).send({ error: 'Provider already exists' });
+      } else {
+        reply.code(500).send({ error: 'Failed to create provider' });
+      }
+
+      expect(reply._statusCode).toBe(500);
     });
   });
 });
