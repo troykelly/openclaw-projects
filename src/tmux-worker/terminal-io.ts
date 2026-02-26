@@ -27,6 +27,18 @@ export const COMMAND_MARKER_PREFIX = '__OC_CMD_MARKER_';
 /** Default command timeout in seconds. */
 const DEFAULT_COMMAND_TIMEOUT_S = 30;
 
+/** Maximum allowed command timeout in seconds. */
+const MAX_COMMAND_TIMEOUT_S = 300;
+
+/** Maximum command length in characters. */
+const MAX_COMMAND_LENGTH = 65_536;
+
+/** Maximum keys length in characters. */
+const MAX_KEYS_LENGTH = 8_192;
+
+/** Maximum lines to capture from a pane. */
+const MAX_CAPTURE_LINES = 50_000;
+
 /** Polling interval for command marker detection (ms). */
 const MARKER_POLL_INTERVAL_MS = 250;
 
@@ -139,8 +151,15 @@ export async function handleSendCommand(
   tmuxManager: TmuxManager,
   entryRecorder: EntryRecorder,
 ): Promise<SendCommandResponse> {
+  if (req.command.length > MAX_COMMAND_LENGTH) {
+    throw new Error(`Command too long (max ${MAX_COMMAND_LENGTH} characters)`);
+  }
+
   const target = await resolveSessionPaneTarget(pool, req.session_id, req.pane_id);
-  const timeoutS = req.timeout_s > 0 ? req.timeout_s : DEFAULT_COMMAND_TIMEOUT_S;
+  const timeoutS = Math.min(
+    req.timeout_s > 0 ? req.timeout_s : DEFAULT_COMMAND_TIMEOUT_S,
+    MAX_COMMAND_TIMEOUT_S,
+  );
   const markerId = `${COMMAND_MARKER_PREFIX}${randomUUID().slice(0, 8)}`;
 
   // Record command entry
@@ -249,6 +268,10 @@ export async function handleSendKeys(
   pool: pg.Pool,
   tmuxManager: TmuxManager,
 ): Promise<void> {
+  if (req.keys.length > MAX_KEYS_LENGTH) {
+    throw new Error(`Keys too long (max ${MAX_KEYS_LENGTH} characters)`);
+  }
+
   const target = await resolveSessionPaneTarget(pool, req.session_id, req.pane_id);
 
   await tmuxManager.sendKeys(
@@ -280,11 +303,12 @@ export async function handleCapturePane(
 ): Promise<CapturePaneResponse> {
   const target = await resolveSessionPaneTarget(pool, req.session_id, req.pane_id);
 
+  const lines = req.lines > 0 ? Math.min(req.lines, MAX_CAPTURE_LINES) : undefined;
   const content = await tmuxManager.capturePane(
     target.tmuxSessionName,
     target.windowIndex,
     target.paneIndex,
-    req.lines > 0 ? req.lines : undefined,
+    lines,
   );
 
   const linesCaptured = content.split('\n').filter(Boolean).length;
@@ -320,9 +344,11 @@ export function handleAttachSession(
 ): void {
   let target: SessionPaneTarget | null = null;
   let initialized = false;
+  let initializing = false; // Guard against concurrent init
   let captureTimer: ReturnType<typeof setInterval> | null = null;
   let lastCapture = '';
   let ended = false;
+  let paused = false; // Backpressure flag
 
   const cleanup = () => {
     if (ended) return;
@@ -338,6 +364,9 @@ export function handleAttachSession(
 
     // First message must carry session_id
     if (!initialized) {
+      // Guard against concurrent initialization from rapid messages
+      if (initializing) return;
+
       if (!input.session_id) {
         call.emit('error', {
           code: grpc.status.INVALID_ARGUMENT,
@@ -345,6 +374,8 @@ export function handleAttachSession(
         });
         return;
       }
+
+      initializing = true;
 
       // Resolve session and start I/O
       resolveSessionPaneTarget(pool, input.session_id, '')
@@ -365,7 +396,7 @@ export function handleAttachSession(
 
           // Start output capture polling
           captureTimer = setInterval(() => {
-            if (ended || !target) return;
+            if (ended || !target || paused) return;
             void captureAndSendOutput(call, tmuxManager, target, entryRecorder);
           }, 100); // 100ms polling for responsive output
         })
@@ -464,7 +495,14 @@ export function handleAttachSession(
         // Send the diff as output data
         const newContent = extractNewOutput(lastCapture, current);
         if (newContent.length > 0) {
-          stream.write({ data: Buffer.from(newContent) });
+          // Check backpressure: if write returns false, pause until drain
+          const ok = stream.write({ data: Buffer.from(newContent) });
+          if (!ok) {
+            paused = true;
+            stream.once('drain', () => {
+              paused = false;
+            });
+          }
 
           // Record to entry recorder
           recorder.record({
