@@ -14,6 +14,7 @@
 import type { Pool } from 'pg';
 
 export const TERMINAL_EMBEDDING_BATCH_SIZE = 50;
+const EXPECTED_DIMENSIONS = 1024;
 
 interface EntryRow {
   id: string;
@@ -75,7 +76,7 @@ export async function processTerminalEmbeddings(
     try {
       const embResult = await embeddingService.embed(row.content);
 
-      if (embResult) {
+      if (embResult && isValidEmbedding(embResult.embedding)) {
         await pool.query(
           `UPDATE terminal_session_entry
            SET embedding = $1::vector, embedded_at = now()
@@ -83,7 +84,7 @@ export async function processTerminalEmbeddings(
           [JSON.stringify(embResult.embedding), row.id],
         );
       } else {
-        // Embedding returned null — mark as skipped
+        // Embedding returned null or invalid — mark as skipped
         await pool.query(
           `UPDATE terminal_session_entry
            SET embedded_at = now()
@@ -97,7 +98,17 @@ export async function processTerminalEmbeddings(
         `[terminal-embeddings] Failed to embed entry ${row.id} (${row.kind}):`,
         (err as Error).message,
       );
-      // Skip this entry, continue with others
+      // Mark as skipped to prevent infinite retry
+      try {
+        await pool.query(
+          `UPDATE terminal_session_entry
+           SET embedded_at = now()
+           WHERE id = $1`,
+          [row.id],
+        );
+      } catch {
+        // Best-effort; will retry on next tick
+      }
       continue;
     }
   }
@@ -112,6 +123,16 @@ export async function processTerminalEmbeddings(
  * - 'scrollback': embed only if embed_scrollback is true
  * - 'error': always embed (errors are always valuable for search)
  */
+/**
+ * Validate that an embedding vector has the expected dimensions and finite values.
+ */
+function isValidEmbedding(embedding: number[]): boolean {
+  if (!Array.isArray(embedding) || embedding.length !== EXPECTED_DIMENSIONS) {
+    return false;
+  }
+  return embedding.every((v) => typeof v === 'number' && Number.isFinite(v));
+}
+
 function shouldEmbedEntry(row: EntryRow): boolean {
   switch (row.kind) {
     case 'command':

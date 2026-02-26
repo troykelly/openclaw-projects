@@ -2630,6 +2630,11 @@ export async function terminalRoutesPlugin(
 
     const queryText = body.query.trim();
 
+    // Input length bounds
+    if (queryText.length > 1000) {
+      return reply.code(400).send({ error: 'query too long (max 1000 characters)' });
+    }
+
     // Validate optional kind filters
     let validKinds: string[] | undefined;
     if (body.kind && Array.isArray(body.kind) && body.kind.length > 0) {
@@ -2678,20 +2683,30 @@ export async function terminalRoutesPlugin(
       queryPlan = buildIlikeSearchQuery({ ...baseFilters, queryText });
     }
 
-    const searchResult = await pool.query(queryPlan.sql, queryPlan.params);
+    let searchResult;
+    try {
+      searchResult = await pool.query(queryPlan.sql, queryPlan.params);
+    } catch (err) {
+      console.error('[terminal-search] Query failed:', (err as Error).message);
+      return reply.code(500).send({ error: 'Search query failed' });
+    }
 
     // For semantic search, total is capped by result count (no exact total for vector search)
     // For ILIKE, we compute the exact count
     let total: number;
     if (!useSemantic) {
-      // Build a count query by replacing the SELECT...ORDER BY...LIMIT with COUNT(*)
-      const countSql = queryPlan.sql
-        .replace(/SELECT[\s\S]+?FROM/, 'SELECT COUNT(*) as total FROM')
-        .replace(/ORDER BY[\s\S]+$/, '');
-      // Remove limit/offset params (last two)
-      const countParams = queryPlan.params.slice(0, -2);
-      const countResult = await pool.query(countSql, countParams);
-      total = parseInt((countResult.rows[0] as { total: string }).total, 10);
+      try {
+        // Build a count query by replacing the SELECT...ORDER BY...LIMIT with COUNT(*)
+        const countSql = queryPlan.sql
+          .replace(/SELECT[\s\S]+?FROM/, 'SELECT COUNT(*) as total FROM')
+          .replace(/ORDER BY[\s\S]+$/, '');
+        // Remove limit/offset params (last two)
+        const countParams = queryPlan.params.slice(0, -2);
+        const countResult = await pool.query(countSql, countParams);
+        total = parseInt((countResult.rows[0] as { total: string }).total, 10);
+      } catch {
+        total = searchResult.rows.length;
+      }
     } else {
       // For semantic search, estimate total as offset + result count
       total = offset + searchResult.rows.length;
