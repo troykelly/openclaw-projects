@@ -286,8 +286,10 @@ describe('Contacts API', () => {
         },
       });
 
-      // Should fail — the DB has contact_endpoint_type enum that will reject invalid types
-      expect(res.statusCode).toBeGreaterThanOrEqual(400);
+      // Should fail with 400 — validated before DB interaction
+      expect(res.statusCode).toBe(400);
+      const body = JSON.parse(res.body);
+      expect(body.error).toContain('Invalid endpoint type');
     });
   });
 

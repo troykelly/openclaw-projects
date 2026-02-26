@@ -443,6 +443,10 @@ async function resolveContact(
   queryNamespaces?: string[],
 ): Promise<{ id: string; display_name: string } | null> {
   // Try as UUID first — namespace-scoped when namespaces provided (Issue #1653)
+  // Design decision (#1830): Falls back to un-scoped lookup when namespace-scoped
+  // search misses. M2M tokens are globally namespace-capable by design; this allows
+  // agents to link contacts across namespaces (e.g., contacts created in 'default'
+  // found by agent operating in 'troy'). Namespace-scoped match is preferred.
   const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
   if (uuidPattern.test(identifier)) {

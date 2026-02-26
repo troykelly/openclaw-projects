@@ -6633,16 +6633,25 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }
 
       // Create endpoints (#1881)
+      const VALID_ENDPOINT_TYPES = ['phone', 'email', 'telegram', 'slack', 'github', 'webhook'] as const;
       if (body.endpoints && Array.isArray(body.endpoints) && body.endpoints.length > 0) {
         for (const ep of body.endpoints) {
-          if (ep.type && ep.value) {
-            await client.query(
-              `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value, metadata, namespace)
-               VALUES ($1, $2::contact_endpoint_type, $3, COALESCE($4::jsonb, '{}'::jsonb), $5)
-               ON CONFLICT (endpoint_type, normalized_value) DO NOTHING`,
-              [contactId, ep.type, ep.value, ep.metadata ? JSON.stringify(ep.metadata) : null, namespace],
-            );
+          if (!ep || typeof ep !== 'object') continue;
+          const epType = typeof ep.type === 'string' ? ep.type.trim() : '';
+          const epValue = typeof ep.value === 'string' ? ep.value.trim() : '';
+          if (!epType || !epValue) continue;
+          if (!VALID_ENDPOINT_TYPES.includes(epType as typeof VALID_ENDPOINT_TYPES[number])) {
+            await client.query('ROLLBACK');
+            client.release();
+            await pool.end();
+            return reply.code(400).send({ error: `Invalid endpoint type "${epType}". Must be one of: ${VALID_ENDPOINT_TYPES.join(', ')}` });
           }
+          await client.query(
+            `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value, metadata, namespace)
+             VALUES ($1, $2::contact_endpoint_type, $3, COALESCE($4::jsonb, '{}'::jsonb), $5)
+             ON CONFLICT (endpoint_type, normalized_value) DO NOTHING`,
+            [contactId, epType, epValue, ep.metadata ? JSON.stringify(ep.metadata) : null, namespace],
+          );
         }
       }
 
