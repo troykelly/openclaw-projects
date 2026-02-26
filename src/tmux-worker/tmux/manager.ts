@@ -15,6 +15,13 @@ import { execFile } from 'node:child_process';
 const TMUX_COMMAND_TIMEOUT = 10_000;
 
 /**
+ * Field separator for tmux format strings.
+ * Using tab character to avoid conflicts with colons in session/window names
+ * and commands (e.g., "vim:file.txt", "user@host:port").
+ */
+const SEP = '\t';
+
+/**
  * Regex for valid tmux session names.
  * Allows alphanumeric, underscore, hyphen, dot. Must not start with hyphen.
  */
@@ -157,18 +164,18 @@ export class TmuxManager {
     try {
       const output = await runTmux([
         'list-sessions',
-        '-F', '#{session_name}:#{session_width}:#{session_height}',
+        '-F', `#{session_name}${SEP}#{session_width}${SEP}#{session_height}`,
       ]);
       return output
         .trim()
         .split('\n')
         .filter(Boolean)
         .map((line) => {
-          const [name, width, height] = line.split(':');
+          const parts = line.split(SEP);
           return {
-            name,
-            width: parseInt(width, 10),
-            height: parseInt(height, 10),
+            name: parts[0],
+            width: parseInt(parts[1], 10),
+            height: parseInt(parts[2], 10),
           };
         });
     } catch {
@@ -187,18 +194,18 @@ export class TmuxManager {
     const output = await runTmux([
       'list-windows',
       '-t', session,
-      '-F', '#{window_index}:#{window_name}:#{window_active}',
+      '-F', `#{window_index}${SEP}#{window_name}${SEP}#{window_active}`,
     ]);
     return output
       .trim()
       .split('\n')
       .filter(Boolean)
       .map((line) => {
-        const [index, name, active] = line.split(':');
+        const parts = line.split(SEP);
         return {
-          index: parseInt(index, 10),
-          name,
-          active: active === '1',
+          index: parseInt(parts[0], 10),
+          name: parts[1],
+          active: parts[2] === '1',
         };
       });
   }
@@ -214,19 +221,19 @@ export class TmuxManager {
     const output = await runTmux([
       'list-panes',
       '-t', `${session}:${windowIndex}`,
-      '-F', '#{pane_index}:#{pane_active}:#{pane_pid}:#{pane_current_command}',
+      '-F', `#{pane_index}${SEP}#{pane_active}${SEP}#{pane_pid}${SEP}#{pane_current_command}`,
     ]);
     return output
       .trim()
       .split('\n')
       .filter(Boolean)
       .map((line) => {
-        const [index, active, pid, command] = line.split(':');
+        const parts = line.split(SEP);
         return {
-          index: parseInt(index, 10),
-          active: active === '1',
-          pid: parseInt(pid, 10),
-          currentCommand: command || '',
+          index: parseInt(parts[0], 10),
+          active: parts[1] === '1',
+          pid: parseInt(parts[2], 10),
+          currentCommand: parts[3] || '',
         };
       });
   }

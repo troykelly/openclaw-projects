@@ -153,51 +153,58 @@ export async function handleCreateSession(
     throw new Error(`Failed to create tmux session "${sessionName}": ${message}`);
   }
 
-  // 4. Insert session row
+  // 4. Insert DB records. If any insert fails, clean up the tmux session
+  // to avoid orphans.
   const sessionId = randomUUID();
+  const windowId = randomUUID();
+  const paneId = randomUUID();
   const now = new Date().toISOString();
 
-  await pool.query(
-    `INSERT INTO terminal_session
-     (id, namespace, connection_id, tmux_session_name, worker_id, status,
-      cols, rows, capture_on_command, embed_commands, embed_scrollback,
-      capture_interval_s, tags, notes, started_at, last_activity_at, created_at, updated_at)
-     VALUES ($1, $2, $3, $4, $5, 'active', $6, $7, $8, $9, $10, $11, $12, $13, $14, $14, $14, $14)`,
-    [
-      sessionId,
-      req.namespace,
-      req.connection_id,
-      sessionName,
-      workerId,
-      cols,
-      rows,
-      req.capture_on_command ?? true,
-      req.embed_commands ?? true,
-      req.embed_scrollback ?? false,
-      req.capture_interval_s ?? 30,
-      req.tags || [],
-      req.notes || null,
-      now,
-    ],
-  );
+  try {
+    await pool.query(
+      `INSERT INTO terminal_session
+       (id, namespace, connection_id, tmux_session_name, worker_id, status,
+        cols, rows, capture_on_command, embed_commands, embed_scrollback,
+        capture_interval_s, tags, notes, started_at, last_activity_at, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, 'active', $6, $7, $8, $9, $10, $11, $12, $13, $14, $14, $14, $14)`,
+      [
+        sessionId,
+        req.namespace,
+        req.connection_id,
+        sessionName,
+        workerId,
+        cols,
+        rows,
+        req.capture_on_command ?? true,
+        req.embed_commands ?? true,
+        req.embed_scrollback ?? false,
+        req.capture_interval_s ?? 30,
+        req.tags || [],
+        req.notes || null,
+        now,
+      ],
+    );
 
-  // 5. Insert initial window
-  const windowId = randomUUID();
-  await pool.query(
-    `INSERT INTO terminal_session_window
-     (id, session_id, namespace, window_index, window_name, is_active, created_at, updated_at)
-     VALUES ($1, $2, $3, 0, 'default', true, $4, $4)`,
-    [windowId, sessionId, req.namespace, now],
-  );
+    // 5. Insert initial window
+    await pool.query(
+      `INSERT INTO terminal_session_window
+       (id, session_id, namespace, window_index, window_name, is_active, created_at, updated_at)
+       VALUES ($1, $2, $3, 0, 'default', true, $4, $4)`,
+      [windowId, sessionId, req.namespace, now],
+    );
 
-  // 6. Insert initial pane
-  const paneId = randomUUID();
-  await pool.query(
-    `INSERT INTO terminal_session_pane
-     (id, window_id, namespace, pane_index, is_active, created_at, updated_at)
-     VALUES ($1, $2, $3, 0, true, $4, $4)`,
-    [paneId, windowId, req.namespace, now],
-  );
+    // 6. Insert initial pane
+    await pool.query(
+      `INSERT INTO terminal_session_pane
+       (id, window_id, namespace, pane_index, is_active, created_at, updated_at)
+       VALUES ($1, $2, $3, 0, true, $4, $4)`,
+      [paneId, windowId, req.namespace, now],
+    );
+  } catch (dbErr) {
+    // Clean up the tmux session to avoid orphan
+    try { await tmuxManager.killSession(sessionName); } catch { /* best-effort */ }
+    throw dbErr;
+  }
 
   return {
     id: sessionId,

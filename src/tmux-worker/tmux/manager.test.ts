@@ -150,7 +150,7 @@ describe('tmux/manager', () => {
 
   describe('listSessions', () => {
     it('parses session list output', async () => {
-      const output = 'sess1:120:40\nsess2:80:24\n';
+      const output = 'sess1\t120\t40\nsess2\t80\t24\n';
       mockExecFile.mockImplementation(
         (cmd: string, args: string[], opts: unknown, cb: (err: Error | null, stdout: string, stderr: string) => void) => {
           cb(null, output, '');
@@ -178,7 +178,7 @@ describe('tmux/manager', () => {
 
   describe('listWindows', () => {
     it('parses window list output', async () => {
-      const output = '0:bash:1\n1:vim:0\n';
+      const output = '0\tbash\t1\n1\tvim\t0\n';
       mockExecFile.mockImplementation(
         (cmd: string, args: string[], opts: unknown, cb: (err: Error | null, stdout: string, stderr: string) => void) => {
           cb(null, output, '');
@@ -194,7 +194,7 @@ describe('tmux/manager', () => {
 
   describe('listPanes', () => {
     it('parses pane list output', async () => {
-      const output = '0:1:12345:bash\n1:0:12346:vim\n';
+      const output = '0\t1\t12345\tbash\n1\t0\t12346\tvim\n';
       mockExecFile.mockImplementation(
         (cmd: string, args: string[], opts: unknown, cb: (err: Error | null, stdout: string, stderr: string) => void) => {
           cb(null, output, '');

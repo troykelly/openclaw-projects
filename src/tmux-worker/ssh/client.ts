@@ -312,24 +312,26 @@ function connectSSH(
       reject(err);
     });
 
-    // Build config with host key verification
+    // Build config with host key verification.
+    // ssh2 v1.x hostVerifier supports callback pattern for async verification:
+    //   hostVerifier(key, callback) where callback(accepted: boolean)
     const fullConfig: ConnectConfig = {
       ...config,
-      hostVerifier: (key: Buffer) => {
-        // ssh2 expects synchronous return or a promise
-        // We use the async verifyHostKey but need to handle it carefully
-        // For skip policy, accept immediately
+      hostVerifier: (key: Buffer, callback: ((accept: boolean) => void) | undefined) => {
         if (conn.host_key_policy === 'skip') {
+          if (callback) { callback(true); return; }
           return true;
         }
-        // For strict/tofu, we need async verification
-        // ssh2 v1.x supports returning a promise from hostVerifier
-        return verifyHostKey(pool, conn, 'ssh-unknown', key).then((result) => {
-          if (result === 'accept') return true;
-          if (result === 'reject') return false;
-          // pending — reject for now, session will be set to pending_host_verification
-          return false;
-        });
+        // Async verification via callback
+        verifyHostKey(pool, conn, 'ssh-unknown', key)
+          .then((result) => {
+            const accepted = result === 'accept';
+            if (callback) { callback(accepted); return; }
+          })
+          .catch(() => {
+            if (callback) { callback(false); return; }
+          });
+        // When callback is provided, return value is ignored by ssh2
       },
     };
 
@@ -351,65 +353,78 @@ async function connectThroughProxyChain(
 ): Promise<{ client: SSH2Client; intermediaries: SSH2Client[] }> {
   const intermediaries: SSH2Client[] = [];
 
-  let currentStream: ClientChannel | undefined;
+  /** Clean up all intermediary clients on failure. */
+  function cleanupIntermediaries(): void {
+    for (const hop of intermediaries) {
+      try { hop.end(); } catch { /* best-effort cleanup */ }
+    }
+    intermediaries.length = 0;
+  }
 
-  // Connect through each hop in the chain
-  for (const hop of chain) {
-    const hopClient = new SSH2Client();
-    const credential = hop.credential_id
-      ? await resolveCredential(pool, hop.credential_id, masterKeyHex)
+  try {
+    let currentStream: ClientChannel | undefined;
+
+    // Connect through each hop in the chain
+    for (let i = 0; i < chain.length; i++) {
+      const hop = chain[i];
+      const hopClient = new SSH2Client();
+      const credential = hop.credential_id
+        ? await resolveCredential(pool, hop.credential_id, masterKeyHex)
+        : null;
+      const hopConfig = buildSSHConfig(hop, credential);
+
+      if (!hopConfig) {
+        throw new Error(`Proxy hop ${hop.id} (${hop.name}) is configured as local — cannot proxy through it`);
+      }
+
+      if (currentStream) {
+        hopConfig.sock = currentStream as unknown as Readable;
+      }
+
+      await connectSSH(hopClient, hopConfig, hop, pool);
+      intermediaries.push(hopClient);
+
+      // Forward to the next hop (or the final target)
+      const nextHop = chain[i + 1] || target;
+      if (!nextHop.host) {
+        throw new Error(`Cannot forward to ${nextHop.id} — no host configured`);
+      }
+      currentStream = await new Promise<ClientChannel>((resolve, reject) => {
+        hopClient.forwardOut(
+          '127.0.0.1',
+          0,
+          nextHop.host!,
+          nextHop.port || 22,
+          (err, stream) => {
+            if (err) reject(err);
+            else resolve(stream);
+          },
+        );
+      });
+    }
+
+    // Connect the final target through the last stream
+    const targetClient = new SSH2Client();
+    const targetCredential = target.credential_id
+      ? await resolveCredential(pool, target.credential_id, masterKeyHex)
       : null;
-    const hopConfig = buildSSHConfig(hop, credential);
+    const targetConfig = buildSSHConfig(target, targetCredential);
 
-    if (!hopConfig) {
-      throw new Error(`Proxy hop ${hop.id} (${hop.name}) is configured as local — cannot proxy through it`);
+    if (!targetConfig) {
+      throw new Error(`Target connection ${target.id} is local — cannot SSH to it`);
     }
 
     if (currentStream) {
-      // Connect through the previous hop's forwarded stream
-      hopConfig.sock = currentStream as unknown as Readable;
+      targetConfig.sock = currentStream as unknown as Readable;
     }
 
-    await connectSSH(hopClient, hopConfig, hop, pool);
-    intermediaries.push(hopClient);
+    await connectSSH(targetClient, targetConfig, target, pool);
 
-    // Forward to the next hop (or the final target)
-    const nextHop = chain[chain.indexOf(hop) + 1] || target;
-    if (!nextHop.host) {
-      throw new Error(`Cannot forward to ${nextHop.id} — no host configured`);
-    }
-    currentStream = await new Promise<ClientChannel>((resolve, reject) => {
-      hopClient.forwardOut(
-        '127.0.0.1',
-        0,
-        nextHop.host!,
-        nextHop.port || 22,
-        (err, stream) => {
-          if (err) reject(err);
-          else resolve(stream);
-        },
-      );
-    });
+    return { client: targetClient, intermediaries };
+  } catch (err) {
+    cleanupIntermediaries();
+    throw err;
   }
-
-  // Connect the final target through the last stream
-  const targetClient = new SSH2Client();
-  const targetCredential = target.credential_id
-    ? await resolveCredential(pool, target.credential_id, masterKeyHex)
-    : null;
-  const targetConfig = buildSSHConfig(target, targetCredential);
-
-  if (!targetConfig) {
-    throw new Error(`Target connection ${target.id} is local — cannot SSH to it`);
-  }
-
-  if (currentStream) {
-    targetConfig.sock = currentStream as unknown as Readable;
-  }
-
-  await connectSSH(targetClient, targetConfig, target, pool);
-
-  return { client: targetClient, intermediaries };
 }
 
 /**
@@ -573,7 +588,8 @@ export class SSHConnectionManager {
   }
 
   /**
-   * Test connectivity to a connection without creating a persistent connection.
+   * Test connectivity to a connection without using or disrupting the connection pool.
+   * Creates a temporary SSH connection, verifies it works, and immediately closes it.
    *
    * @returns Object with success flag, latency, and optional error message
    */
@@ -582,26 +598,51 @@ export class SSHConnectionManager {
   ): Promise<{ success: boolean; message: string; latencyMs: number; hostKeyFingerprint: string }> {
     const start = Date.now();
     try {
-      const connResult = await this.getConnection(connectionId);
-      const latencyMs = Date.now() - start;
+      // Fetch connection from DB
+      const result = await this.pool.query<ConnectionRow>(
+        `SELECT id, namespace, name, host, port, username, auth_method,
+                credential_id, proxy_jump_id, is_local, env,
+                connect_timeout_s, keepalive_interval, idle_timeout_s,
+                max_sessions, host_key_policy, tags, notes
+         FROM terminal_connection
+         WHERE id = $1 AND deleted_at IS NULL`,
+        [connectionId],
+      );
 
-      if (!connResult) {
-        return { success: false, message: 'Connection not found', latencyMs, hostKeyFingerprint: '' };
+      if (result.rows.length === 0) {
+        return { success: false, message: 'Connection not found', latencyMs: Date.now() - start, hostKeyFingerprint: '' };
       }
 
-      if (connResult.isLocal) {
-        return { success: true, message: 'Local connection OK', latencyMs, hostKeyFingerprint: '' };
+      const conn = result.rows[0];
+
+      if (conn.is_local) {
+        return { success: true, message: 'Local connection OK', latencyMs: Date.now() - start, hostKeyFingerprint: '' };
       }
 
-      // Disconnect the test connection
-      await this.disconnect(connectionId);
+      // Create a temporary SSH client (not pooled)
+      const credential = conn.credential_id
+        ? await resolveCredential(this.pool, conn.credential_id, this.masterKeyHex)
+        : null;
+      const sshConfig = buildSSHConfig(conn, credential);
 
-      return {
-        success: true,
-        message: `Connected in ${latencyMs}ms`,
-        latencyMs,
-        hostKeyFingerprint: '',
-      };
+      if (!sshConfig) {
+        return { success: false, message: 'No SSH config produced', latencyMs: Date.now() - start, hostKeyFingerprint: '' };
+      }
+
+      const tempClient = new SSH2Client();
+      try {
+        await connectSSH(tempClient, sshConfig, conn, this.pool);
+        const latencyMs = Date.now() - start;
+        tempClient.end();
+        return {
+          success: true,
+          message: `Connected in ${latencyMs}ms`,
+          latencyMs,
+          hostKeyFingerprint: '',
+        };
+      } finally {
+        tempClient.end();
+      }
     } catch (err) {
       const latencyMs = Date.now() - start;
       const message = err instanceof Error ? err.message : String(err);

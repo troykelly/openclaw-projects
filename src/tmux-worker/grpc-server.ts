@@ -129,6 +129,24 @@ export function stopGrpcServer(server: grpc.Server): Promise<void> {
 }
 
 /**
+ * Map error messages to appropriate gRPC status codes.
+ * "not found" errors → NOT_FOUND; validation errors → INVALID_ARGUMENT;
+ * everything else → INTERNAL.
+ */
+function mapErrorToGrpcStatus(err: unknown): { code: grpc.status; message: string } {
+  const message = err instanceof Error ? err.message : String(err);
+  const lower = message.toLowerCase();
+
+  if (lower.includes('not found')) {
+    return { code: grpc.status.NOT_FOUND, message };
+  }
+  if (lower.includes('invalid') || lower.includes('missing') || lower.includes('required')) {
+    return { code: grpc.status.INVALID_ARGUMENT, message };
+  }
+  return { code: grpc.status.INTERNAL, message };
+}
+
+/**
  * Build the handler map for all TerminalService RPCs.
  *
  * Session lifecycle RPCs (Create, Terminate, List, Get, Resize) are fully
@@ -174,10 +192,7 @@ function buildHandlers(
           });
         })
         .catch((err) => {
-          callback({
-            code: grpc.status.INTERNAL,
-            message: err instanceof Error ? err.message : String(err),
-          });
+          callback(mapErrorToGrpcStatus(err));
         });
     },
 
@@ -190,10 +205,7 @@ function buildHandlers(
       handleCreateSession(req, pool, tmuxManager, sshManager, config.workerId)
         .then((result) => callback(null, result))
         .catch((err) => {
-          callback({
-            code: grpc.status.INTERNAL,
-            message: err instanceof Error ? err.message : String(err),
-          });
+          callback(mapErrorToGrpcStatus(err));
         });
     },
 
@@ -205,10 +217,7 @@ function buildHandlers(
       handleTerminateSession(req, pool, tmuxManager, sshManager)
         .then(() => callback(null, {}))
         .catch((err) => {
-          callback({
-            code: grpc.status.INTERNAL,
-            message: err instanceof Error ? err.message : String(err),
-          });
+          callback(mapErrorToGrpcStatus(err));
         });
     },
 
@@ -220,10 +229,7 @@ function buildHandlers(
       handleListSessions(req, pool)
         .then((result) => callback(null, result))
         .catch((err) => {
-          callback({
-            code: grpc.status.INTERNAL,
-            message: err instanceof Error ? err.message : String(err),
-          });
+          callback(mapErrorToGrpcStatus(err));
         });
     },
 
@@ -235,10 +241,7 @@ function buildHandlers(
       handleGetSession(req, pool)
         .then((result) => callback(null, result))
         .catch((err) => {
-          callback({
-            code: grpc.status.INTERNAL,
-            message: err instanceof Error ? err.message : String(err),
-          });
+          callback(mapErrorToGrpcStatus(err));
         });
     },
 
@@ -250,10 +253,7 @@ function buildHandlers(
       handleResizeSession(req, pool, tmuxManager)
         .then(() => callback(null, {}))
         .catch((err) => {
-          callback({
-            code: grpc.status.INTERNAL,
-            message: err instanceof Error ? err.message : String(err),
-          });
+          callback(mapErrorToGrpcStatus(err));
         });
     },
 

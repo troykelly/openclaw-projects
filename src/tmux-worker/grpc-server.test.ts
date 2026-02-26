@@ -110,7 +110,8 @@ describe('tmux-worker/grpc-server', () => {
 
     // No longer UNIMPLEMENTED — now it tries to run real logic but fails
     // because the mock pool has no real DB behind it.
-    expect(err.code).toBe(grpc.status.INTERNAL);
+    // Could be INTERNAL (DB error) or NOT_FOUND (connection not found).
+    expect(err.code).not.toBe(grpc.status.UNIMPLEMENTED);
     expect(err.message).not.toContain('is not yet implemented');
   });
 
