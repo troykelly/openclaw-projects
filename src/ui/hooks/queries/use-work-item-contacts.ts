@@ -7,11 +7,12 @@ import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/ui/lib/api-client.ts';
 import type { Contact } from '@/ui/lib/api-types.ts';
 
-/** Linked contact from the API. */
+/** Linked contact from the API. Server returns contact_id as the identifier. */
 export interface LinkedContact {
-  id: string;
   contact_id: string;
   display_name: string | null;
+  relationship: string | null;
+  created_at: string;
 }
 
 /** API response for linked contacts. */
