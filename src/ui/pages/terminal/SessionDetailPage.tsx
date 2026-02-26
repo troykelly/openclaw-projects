@@ -77,16 +77,18 @@ export function SessionDetailPage(): React.JSX.Element {
 
   const handleApproveHostKey = useCallback(() => {
     if (!session) return;
-    // The approve hook needs host key details from the session.
-    // In the pending_host_verification state, the session should have
-    // the host key info in error_message or from the connection.
-    approveHostKey.mutate({
-      host: session.connection?.host ?? '',
-      port: session.connection?.port ?? 22,
-      key_type: 'ssh-ed25519',
-      public_key: '',
-    });
-  }, [session, approveHostKey]);
+    approveHostKey.mutate(
+      {
+        session_id: session.id,
+        host: session.connection?.host ?? '',
+        port: session.connection?.port ?? 22,
+        key_type: session.error_message?.includes('ssh-rsa') ? 'ssh-rsa' : 'ssh-ed25519',
+        fingerprint: session.error_message ?? '',
+        public_key: '',
+      },
+      { onSuccess: () => void sessionQuery.refetch() },
+    );
+  }, [session, approveHostKey, sessionQuery]);
 
   const handleRejectHostKey = useCallback(() => {
     if (!session) return;

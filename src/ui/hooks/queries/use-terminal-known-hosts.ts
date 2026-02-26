@@ -21,7 +21,7 @@ export function useTerminalKnownHosts() {
 export function useApproveTerminalKnownHost() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: { host: string; port: number; key_type: string; public_key: string }) =>
+    mutationFn: (data: { session_id: string; host: string; port: number; key_type: string; fingerprint: string; public_key: string }) =>
       apiClient.post<TerminalKnownHost>('/api/terminal/known-hosts/approve', data),
     onSuccess: () => { void queryClient.invalidateQueries({ queryKey: terminalKnownHostKeys.all }); },
   });

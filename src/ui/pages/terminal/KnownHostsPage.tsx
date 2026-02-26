@@ -11,7 +11,6 @@ import { KnownHostCard } from '@/ui/components/terminal/known-host-card';
 import { HostKeyDialog } from '@/ui/components/terminal/host-key-dialog';
 import {
   useTerminalKnownHosts,
-  useApproveTerminalKnownHost,
   useDeleteTerminalKnownHost,
 } from '@/ui/hooks/queries/use-terminal-known-hosts';
 import type { TerminalKnownHost } from '@/ui/lib/api-types';
@@ -19,25 +18,15 @@ import type { TerminalKnownHost } from '@/ui/lib/api-types';
 export function KnownHostsPage(): React.JSX.Element {
   const knownHostsQuery = useTerminalKnownHosts();
   const deleteKnownHost = useDeleteTerminalKnownHost();
-  const approveHostKey = useApproveTerminalKnownHost();
   const [verifyHost, setVerifyHost] = useState<TerminalKnownHost | null>(null);
 
   const knownHosts = Array.isArray(knownHostsQuery.data?.known_hosts) ? knownHostsQuery.data.known_hosts : [];
 
-  const handleApprove = () => {
-    if (!verifyHost) return;
-    approveHostKey.mutate(
-      {
-        host: verifyHost.host,
-        port: verifyHost.port,
-        key_type: verifyHost.key_type,
-        public_key: verifyHost.public_key ?? '',
-      },
-      { onSuccess: () => setVerifyHost(null) },
-    );
+  const handleDismiss = () => {
+    setVerifyHost(null);
   };
 
-  const handleReject = () => {
+  const handleRevokeFromDialog = () => {
     if (!verifyHost) return;
     deleteKnownHost.mutate(verifyHost.id, { onSuccess: () => setVerifyHost(null) });
   };
@@ -67,7 +56,7 @@ export function KnownHostsPage(): React.JSX.Element {
         </div>
       )}
 
-      {/* Host Key Verification Dialog (#1866) */}
+      {/* Host Key Verification Dialog (#1866) — shows key details with option to revoke */}
       {verifyHost && (
         <HostKeyDialog
           open={!!verifyHost}
@@ -76,9 +65,9 @@ export function KnownHostsPage(): React.JSX.Element {
           port={verifyHost.port}
           keyType={verifyHost.key_type}
           fingerprint={verifyHost.key_fingerprint}
-          onApprove={handleApprove}
-          onReject={handleReject}
-          isPending={approveHostKey.isPending || deleteKnownHost.isPending}
+          onApprove={handleDismiss}
+          onReject={handleRevokeFromDialog}
+          isPending={deleteKnownHost.isPending}
         />
       )}
     </div>
