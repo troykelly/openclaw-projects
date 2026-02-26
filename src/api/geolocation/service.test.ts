@@ -112,6 +112,22 @@ describe('geolocation/service', () => {
         updated_at: providerRow.updated_at,
       });
     });
+
+    it('converts Buffer credentials to string (bytea from pg)', () => {
+      const rowWithBuffer = {
+        ...providerRow,
+        credentials: Buffer.from('encrypted-blob'),
+      };
+      const result = rowToProvider(rowWithBuffer);
+      expect(typeof result.credentials).toBe('string');
+      expect(result.credentials).toBe('encrypted-blob');
+    });
+
+    it('returns null credentials when credentials is null', () => {
+      const rowWithNull = { ...providerRow, credentials: null };
+      const result = rowToProvider(rowWithNull);
+      expect(result.credentials).toBeNull();
+    });
   });
 
   describe('rowToProviderUser', () => {
