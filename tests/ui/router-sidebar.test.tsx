@@ -24,7 +24,7 @@ function renderSidebarWithRouter(initialPath = '/activity') {
       ),
       children: [
         { path: 'activity', element: <div data-testid="page-activity">Activity</div> },
-        { path: 'projects', element: <div data-testid="page-projects">Projects</div> },
+        { path: 'work-items', element: <div data-testid="page-projects">Projects</div> },
         { path: 'contacts', element: <div data-testid="page-contacts">Contacts</div> },
         { path: 'memory', element: <div data-testid="page-memory">Memory</div> },
         { path: 'communications', element: <div data-testid="page-communications">Communications</div> },
@@ -80,8 +80,8 @@ describe('RouterSidebar NavLink active state', () => {
     expect(activityLink.className).toContain('text-primary');
   });
 
-  it('marks Projects link as active when on /projects', () => {
-    renderSidebarWithRouter('/projects');
+  it('marks Projects link as active when on /work-items', () => {
+    renderSidebarWithRouter('/work-items');
     const projectsLink = screen.getByRole('link', { name: /projects/i });
     expect(projectsLink.className).toContain('bg-primary/10');
   });

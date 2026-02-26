@@ -2,6 +2,7 @@
  * @vitest-environment jsdom
  * Tests for app shell layout rebuild
  * Issue #465: Rebuild app shell layout with solid opaque backgrounds
+ * Updated for #1875: RouterSidebar replaces old Sidebar in AppShell
  *
  * Validates:
  * - Sidebar renders with solid opaque background (no gradients, no transparency)
@@ -16,10 +17,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import * as React from 'react';
+import { createMemoryRouter, RouterProvider, Outlet, type RouteObject } from 'react-router';
 
 import { Sidebar, type SidebarProps, type NavItem } from '@/ui/components/layout/sidebar';
-import { MobileNav, type MobileNavProps } from '@/ui/components/layout/mobile-nav';
-import { AppShell, type AppShellProps } from '@/ui/components/layout/app-shell';
+import { MobileNav } from '@/ui/components/layout/mobile-nav';
+import { AppShell } from '@/ui/components/layout/app-shell';
 
 // ── helpers ──────────────────────────────────────────────────────────
 
@@ -78,7 +80,49 @@ const localStorageMock = (() => {
   };
 })();
 
-// ── Sidebar tests ────────────────────────────────────────────────────
+// ── Router helpers ───────────────────────────────────────────────────
+
+/** Render MobileNav inside a MemoryRouter (requires router for PrefetchLink). */
+function renderMobileNavInRouter(initialPath = '/activity') {
+  const routes: RouteObject[] = [
+    {
+      element: (
+        <div>
+          <MobileNav />
+          <Outlet />
+        </div>
+      ),
+      children: [
+        { path: 'activity', element: <div>Activity</div> },
+        { path: 'work-items', element: <div>Projects</div> },
+        { path: 'contacts', element: <div>Contacts</div> },
+      ],
+    },
+  ];
+  const router = createMemoryRouter(routes, { initialEntries: [initialPath] });
+  return render(<RouterProvider router={router} />);
+}
+
+/** Render AppShell inside a MemoryRouter (requires router for RouterSidebar + MobileNav). */
+function renderAppShellInRouter(initialPath = '/activity', props: Partial<React.ComponentProps<typeof AppShell>> = {}) {
+  const routes: RouteObject[] = [
+    {
+      element: (
+        <AppShell {...props}>
+          <Outlet />
+        </AppShell>
+      ),
+      children: [
+        { path: 'activity', element: <div>Content</div> },
+        { path: 'work-items', element: <div>Projects</div> },
+      ],
+    },
+  ];
+  const router = createMemoryRouter(routes, { initialEntries: [initialPath] });
+  return render(<RouterProvider router={router} />);
+}
+
+// ── Sidebar tests (old component, standalone) ───────────────────────
 
 describe('Sidebar - Opaque Background', () => {
   beforeEach(() => {
@@ -180,23 +224,23 @@ describe('Sidebar - Opaque Background', () => {
   });
 });
 
-// ── MobileNav tests ──────────────────────────────────────────────────
+// ── MobileNav tests (router-aware) ─────────────────────────────────
 
 describe('MobileNav - Opaque Background', () => {
   it('should render the mobile nav element', () => {
-    render(<MobileNav />);
+    renderMobileNavInRouter();
     const mobileNav = screen.getByTestId('mobile-nav');
     expect(mobileNav).toBeInTheDocument();
   });
 
   it('should use a solid opaque background, not transparent or blurred', () => {
-    render(<MobileNav />);
+    renderMobileNavInRouter();
     const mobileNav = screen.getByTestId('mobile-nav');
     assertOpaqueBackground(mobileNav, 'MobileNav');
   });
 
   it('should have bg-surface for solid background (no opacity modifier)', () => {
-    render(<MobileNav />);
+    renderMobileNavInRouter();
     const mobileNav = screen.getByTestId('mobile-nav');
     const cls = getClasses(mobileNav);
     // Must have bg-surface without /95 or any opacity modifier
@@ -205,7 +249,7 @@ describe('MobileNav - Opaque Background', () => {
   });
 
   it('should be fixed at the bottom of the viewport', () => {
-    render(<MobileNav />);
+    renderMobileNavInRouter();
     const mobileNav = screen.getByTestId('mobile-nav');
     expect(mobileNav).toHaveClass('fixed');
     expect(mobileNav).toHaveClass('bottom-0');
@@ -213,19 +257,19 @@ describe('MobileNav - Opaque Background', () => {
   });
 
   it('should have z-50 for highest stacking priority', () => {
-    render(<MobileNav />);
+    renderMobileNavInRouter();
     const mobileNav = screen.getByTestId('mobile-nav');
     expect(mobileNav).toHaveClass('z-50');
   });
 
   it('should have border-t for visual separation from content', () => {
-    render(<MobileNav />);
+    renderMobileNavInRouter();
     const mobileNav = screen.getByTestId('mobile-nav');
     expect(mobileNav).toHaveClass('border-t');
   });
 
   it('should be hidden on desktop via md:hidden', () => {
-    render(<MobileNav />);
+    renderMobileNavInRouter();
     const mobileNav = screen.getByTestId('mobile-nav');
     const cls = getClasses(mobileNav);
     // The mobile nav should have classes that hide it on desktop
@@ -233,25 +277,21 @@ describe('MobileNav - Opaque Background', () => {
   });
 
   it('should render navigation items', () => {
-    render(<MobileNav />);
-    expect(screen.getByText('Activity')).toBeInTheDocument();
-    expect(screen.getByText('Projects')).toBeInTheDocument();
-  });
-
-  it('should mark active item with aria-current=page', () => {
-    render(<MobileNav activeItem="projects" />);
-    const projectsButton = screen.getByText('Projects').closest('button');
-    expect(projectsButton).toHaveAttribute('aria-current', 'page');
+    renderMobileNavInRouter();
+    const nav = screen.getByTestId('mobile-nav');
+    // Use within the nav element to avoid matching page content
+    expect(nav.querySelector('[href="/activity"]')).not.toBeNull();
+    expect(nav.querySelector('[href="/work-items"]')).not.toBeNull();
   });
 
   it('should have navigation landmark with appropriate label', () => {
-    render(<MobileNav />);
+    renderMobileNavInRouter();
     const nav = screen.getByRole('navigation', { name: /mobile/i });
     expect(nav).toBeInTheDocument();
   });
 });
 
-// ── AppShell tests ───────────────────────────────────────────────────
+// ── AppShell tests (now uses RouterSidebar) ─────────────────────────
 
 describe('AppShell - Layout Structure', () => {
   beforeEach(() => {
@@ -264,38 +304,36 @@ describe('AppShell - Layout Structure', () => {
   });
 
   it('should render the app shell container', () => {
-    render(<AppShell>Content</AppShell>);
+    renderAppShellInRouter();
     const shell = screen.getByTestId('app-shell');
     expect(shell).toBeInTheDocument();
   });
 
   it('should be a flex container that fills viewport height', () => {
-    render(<AppShell>Content</AppShell>);
+    renderAppShellInRouter();
     const shell = screen.getByTestId('app-shell');
     expect(shell).toHaveClass('flex');
     expect(shell).toHaveClass('h-screen');
   });
 
   it('should render children in the content area', () => {
-    render(<AppShell>Test Content</AppShell>);
-    expect(screen.getByText('Test Content')).toBeInTheDocument();
+    renderAppShellInRouter();
+    expect(screen.getByText('Content')).toBeInTheDocument();
   });
 
   it('should render the header with solid opaque background', () => {
-    render(<AppShell breadcrumbs={[{ label: 'Test' }]}>Content</AppShell>);
-    // The header should exist and have solid background
+    renderAppShellInRouter('/activity', { breadcrumbs: [{ label: 'Test' }] });
     const header = screen.getByTestId('app-shell').querySelector('header');
     expect(header).not.toBeNull();
     if (header) {
       assertOpaqueBackground(header, 'Header');
       const cls = getClasses(header);
-      // Must have a solid background
       expect(cls).toMatch(/bg-surface(?!\/)/);
     }
   });
 
   it('should render the header with sticky positioning', () => {
-    render(<AppShell breadcrumbs={[{ label: 'Test' }]}>Content</AppShell>);
+    renderAppShellInRouter('/activity', { breadcrumbs: [{ label: 'Test' }] });
     const header = screen.getByTestId('app-shell').querySelector('header');
     expect(header).not.toBeNull();
     if (header) {
@@ -305,7 +343,7 @@ describe('AppShell - Layout Structure', () => {
   });
 
   it('should render the header with z-10 stacking', () => {
-    render(<AppShell breadcrumbs={[{ label: 'Test' }]}>Content</AppShell>);
+    renderAppShellInRouter('/activity', { breadcrumbs: [{ label: 'Test' }] });
     const header = screen.getByTestId('app-shell').querySelector('header');
     expect(header).not.toBeNull();
     if (header) {
@@ -314,7 +352,7 @@ describe('AppShell - Layout Structure', () => {
   });
 
   it('should render header with border-b for visual separation', () => {
-    render(<AppShell breadcrumbs={[{ label: 'Test' }]}>Content</AppShell>);
+    renderAppShellInRouter('/activity', { breadcrumbs: [{ label: 'Test' }] });
     const header = screen.getByTestId('app-shell').querySelector('header');
     expect(header).not.toBeNull();
     if (header) {
@@ -323,7 +361,7 @@ describe('AppShell - Layout Structure', () => {
   });
 
   it('should render header at h-14 height', () => {
-    render(<AppShell breadcrumbs={[{ label: 'Test' }]}>Content</AppShell>);
+    renderAppShellInRouter('/activity', { breadcrumbs: [{ label: 'Test' }] });
     const header = screen.getByTestId('app-shell').querySelector('header');
     expect(header).not.toBeNull();
     if (header) {
@@ -332,8 +370,7 @@ describe('AppShell - Layout Structure', () => {
   });
 
   it('should render content area with overflow-y-auto for independent scrolling', () => {
-    render(<AppShell>Content</AppShell>);
-    // Content area should be scrollable
+    renderAppShellInRouter();
     const contentArea = screen.getByText('Content').closest('[class*="overflow"]');
     expect(contentArea).not.toBeNull();
     if (contentArea) {
@@ -342,9 +379,7 @@ describe('AppShell - Layout Structure', () => {
   });
 
   it('should persist sidebar collapsed state in localStorage', () => {
-    const { rerender } = render(<AppShell>Content</AppShell>);
-    // The sidebar starts expanded. The collapse state is managed in AppShell.
-    // Click collapse in sidebar
+    renderAppShellInRouter();
     const collapseBtn = screen.queryByLabelText('Collapse sidebar');
     if (collapseBtn) {
       fireEvent.click(collapseBtn);
@@ -353,19 +388,19 @@ describe('AppShell - Layout Structure', () => {
   });
 
   it('should render breadcrumbs in the header when provided', () => {
-    render(<AppShell breadcrumbs={[{ label: 'Dashboard' }, { label: 'My Project' }]}>Content</AppShell>);
+    renderAppShellInRouter('/activity', { breadcrumbs: [{ label: 'Dashboard' }, { label: 'My Project' }] });
     expect(screen.getByText('Dashboard')).toBeInTheDocument();
     expect(screen.getByText('My Project')).toBeInTheDocument();
   });
 
   it('should render header actions on the right side', () => {
-    render(<AppShell header={<button>Action</button>}>Content</AppShell>);
+    renderAppShellInRouter('/activity', { header: <button>Action</button> });
     expect(screen.getByText('Action')).toBeInTheDocument();
   });
 
-  it('should include both desktop sidebar and mobile nav', () => {
-    render(<AppShell>Content</AppShell>);
-    const sidebar = screen.getByTestId('sidebar');
+  it('should include both desktop RouterSidebar and mobile nav', () => {
+    renderAppShellInRouter();
+    const sidebar = screen.getByTestId('router-sidebar');
     const mobileNav = screen.getByTestId('mobile-nav');
     expect(sidebar).toBeInTheDocument();
     expect(mobileNav).toBeInTheDocument();
@@ -384,20 +419,20 @@ describe('Z-Index Hierarchy', () => {
     });
   });
 
-  it('should have sidebar at z-20 (above content, below modals)', () => {
+  it('should have old sidebar at z-20 (above content, below modals)', () => {
     render(<Sidebar />);
     const sidebar = screen.getByTestId('sidebar');
     expect(sidebar).toHaveClass('z-20');
   });
 
   it('should have mobile nav at z-50 (highest navigation priority)', () => {
-    render(<MobileNav />);
+    renderMobileNavInRouter();
     const mobileNav = screen.getByTestId('mobile-nav');
     expect(mobileNav).toHaveClass('z-50');
   });
 
   it('should have header at z-10 (within content column)', () => {
-    render(<AppShell breadcrumbs={[{ label: 'Test' }]}>Content</AppShell>);
+    renderAppShellInRouter('/activity', { breadcrumbs: [{ label: 'Test' }] });
     const header = screen.getByTestId('app-shell').querySelector('header');
     expect(header).not.toBeNull();
     if (header) {
@@ -406,8 +441,8 @@ describe('Z-Index Hierarchy', () => {
   });
 
   it('should maintain proper stacking order: header(10) < sidebar(20) < mobile-nav(50)', () => {
-    render(<AppShell breadcrumbs={[{ label: 'Test' }]}>Content</AppShell>);
-    const sidebar = screen.getByTestId('sidebar');
+    renderAppShellInRouter('/activity', { breadcrumbs: [{ label: 'Test' }] });
+    const sidebar = screen.getByTestId('router-sidebar');
     const mobileNav = screen.getByTestId('mobile-nav');
     const header = screen.getByTestId('app-shell').querySelector('header');
 
@@ -431,6 +466,18 @@ describe('Z-Index Hierarchy', () => {
 
 // ── Content Area Scrolling tests ─────────────────────────────────────
 
+/** Render AppShell with custom children (not Outlet) inside a router. */
+function renderAppShellWithChildrenInRouter(children: React.ReactNode) {
+  const routes: RouteObject[] = [
+    {
+      path: 'activity',
+      element: <AppShell>{children}</AppShell>,
+    },
+  ];
+  const router = createMemoryRouter(routes, { initialEntries: ['/activity'] });
+  return render(<RouterProvider router={router} />);
+}
+
 describe('Content Area - Independent Scrolling', () => {
   beforeEach(() => {
     localStorageMock.clear();
@@ -442,56 +489,37 @@ describe('Content Area - Independent Scrolling', () => {
   });
 
   it('should have overflow-y-auto on the content container', () => {
-    render(
-      <AppShell>
-        <div data-testid="inner-content">Scrollable content</div>
-      </AppShell>,
-    );
+    renderAppShellWithChildrenInRouter(<div data-testid="inner-content">Scrollable content</div>);
     const innerContent = screen.getByTestId('inner-content');
     const scrollContainer = innerContent.closest('[class*="overflow-y-auto"]');
     expect(scrollContainer).not.toBeNull();
   });
 
   it('should have flex-1 to fill remaining space', () => {
-    render(
-      <AppShell>
-        <div data-testid="inner-content">Content</div>
-      </AppShell>,
-    );
+    renderAppShellWithChildrenInRouter(<div data-testid="inner-content">Content</div>);
     const innerContent = screen.getByTestId('inner-content');
     const scrollContainer = innerContent.closest('[class*="flex-1"]');
     expect(scrollContainer).not.toBeNull();
   });
 
   it('should have padding on the content area', () => {
-    render(
-      <AppShell>
-        <div data-testid="inner-content">Content</div>
-      </AppShell>,
-    );
-    // Content area should have p-6 for desktop, p-4 for mobile via responsive classes
+    renderAppShellWithChildrenInRouter(<div data-testid="inner-content">Content</div>);
     const innerContent = screen.getByTestId('inner-content');
     const scrollContainer = innerContent.closest('[class*="overflow-y-auto"]');
     expect(scrollContainer).not.toBeNull();
     if (scrollContainer) {
       const cls = getClasses(scrollContainer as HTMLElement);
-      // Should have some padding class
       expect(cls).toMatch(/p-[46]/);
     }
   });
 
   it('should add bottom padding on mobile for mobile nav clearance', () => {
-    render(
-      <AppShell>
-        <div data-testid="inner-content">Content</div>
-      </AppShell>,
-    );
+    renderAppShellWithChildrenInRouter(<div data-testid="inner-content">Content</div>);
     const innerContent = screen.getByTestId('inner-content');
     const scrollContainer = innerContent.closest('[class*="overflow-y-auto"]');
     expect(scrollContainer).not.toBeNull();
     if (scrollContainer) {
       const cls = getClasses(scrollContainer as HTMLElement);
-      // Should have pb-16 or pb-20 to clear mobile nav, and md:pb-0 for desktop
       expect(cls).toMatch(/pb-\d+/);
     }
   });

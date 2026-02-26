@@ -248,8 +248,6 @@ function AuthenticatedLayout(): React.JSX.Element {
     return { noteName, notebookName };
   }, [isNotesRoute, noteId, notebook_id, notesData?.notes, notebooksData?.notebooks]);
 
-  const activeSection = useMemo(() => pathToSection(location.pathname), [location.pathname]);
-
   const breadcrumbs = useMemo(() => deriveBreadcrumbs(location.pathname, bootstrap, notesContext), [location.pathname, bootstrap, notesContext]);
 
   const handleSectionChange = useCallback(
@@ -350,9 +348,8 @@ function AuthenticatedLayout(): React.JSX.Element {
       />
       <CommandPalette onSearch={handleSearch} onSelect={handleSearchSelect} onNavigate={handleNavigate} />
       <AppShell
-        activeSection={activeSection}
-        onSectionChange={handleSectionChange}
         onCreateClick={handleOpenCreateDialog}
+        onSearchClick={handleOpenSearch}
         breadcrumbs={breadcrumbs}
         onHomeClick={() => navigate('/dashboard')}
         header={email ? <NotificationBell user_email={email} /> : undefined}

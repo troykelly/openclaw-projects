@@ -1,60 +1,66 @@
 import * as React from 'react';
 import { useState } from 'react';
-import { Bell, Folder, Calendar, Users, Search, StickyNote, MoreHorizontal, X } from 'lucide-react';
+import { Bell, Folder, Users, Brain, MessageSquare, ChefHat, UtensilsCrossed, Code, Home, Warehouse, Mic, Terminal, Package, MoreHorizontal, X } from 'lucide-react';
 import { cn } from '@/ui/lib/utils';
-import type { NavItem } from './sidebar';
+import { PrefetchLink } from '@/ui/components/navigation/PrefetchLink';
+
+/** Navigation item definition used by MobileNav. */
+export interface MobileNavItem {
+  /** Unique identifier for the nav item. */
+  id: string;
+  /** Display label. */
+  label: string;
+  /** Lucide icon component. */
+  icon: React.ComponentType<{ className?: string }>;
+  /** Route path relative to the router basename. */
+  to: string;
+}
 
 /**
  * Primary nav items shown in the main mobile nav bar (4 items + More).
- * Timeline was previously removed (#672) but is now in the overflow menu
- * to maintain a clean 5-item layout while keeping all features accessible.
+ * Matches RouterSidebar navigation items for consistency.
  */
-const primaryNavItems: NavItem[] = [
-  { id: 'activity', label: 'Activity', icon: Bell },
-  { id: 'projects', label: 'Projects', icon: Folder },
-  { id: 'notes', label: 'Notes', icon: StickyNote },
-  { id: 'people', label: 'People', icon: Users },
+const primaryNavItems: MobileNavItem[] = [
+  { id: 'activity', label: 'Activity', icon: Bell, to: '/activity' },
+  { id: 'projects', label: 'Projects', icon: Folder, to: '/work-items' },
+  { id: 'people', label: 'People', icon: Users, to: '/contacts' },
+  { id: 'memory', label: 'Memory', icon: Brain, to: '/memory' },
 ];
 
 /**
  * Overflow items shown in the expandable "More" menu.
- * Includes Timeline and Search which were removed from the primary nav.
+ * Includes all remaining nav items from RouterSidebar.
  */
-const overflowNavItems: NavItem[] = [
-  { id: 'timeline', label: 'Timeline', icon: Calendar },
-  { id: 'search', label: 'Search', icon: Search },
+const overflowNavItems: MobileNavItem[] = [
+  { id: 'communications', label: 'Communications', icon: MessageSquare, to: '/communications' },
+  { id: 'recipes', label: 'Recipes', icon: ChefHat, to: '/recipes' },
+  { id: 'meal-log', label: 'Meal Log', icon: UtensilsCrossed, to: '/meal-log' },
+  { id: 'home-automation', label: 'Home Automation', icon: Home, to: '/home-automation' },
+  { id: 'pantry', label: 'Pantry', icon: Warehouse, to: '/pantry' },
+  { id: 'voice', label: 'Voice', icon: Mic, to: '/voice' },
+  { id: 'terminal', label: 'Terminal', icon: Terminal, to: '/terminal' },
+  { id: 'dev-sessions', label: 'Dev Sessions', icon: Code, to: '/dev-sessions' },
+  { id: 'skill-store', label: 'Skill Store', icon: Package, to: '/skill-store' },
 ];
 
 /** Combined items for backwards compatibility */
-const defaultNavItems: NavItem[] = [...primaryNavItems, ...overflowNavItems];
+const defaultNavItems: MobileNavItem[] = [...primaryNavItems, ...overflowNavItems];
 
 export interface MobileNavProps {
-  items?: NavItem[];
-  activeItem?: string;
-  onItemClick?: (item: NavItem) => void;
+  items?: MobileNavItem[];
   className?: string;
 }
 
-export function MobileNav({ items = defaultNavItems, activeItem = 'activity', onItemClick, className }: MobileNavProps) {
+export function MobileNav({ items = defaultNavItems, className }: MobileNavProps) {
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
 
   // Split items into primary (first 4) and overflow (rest)
-  // This allows custom items to be passed while maintaining the layout
   const primary = items.slice(0, 4);
   const overflow = items.slice(4);
   const hasOverflow = overflow.length > 0;
 
-  // Check if active item is in overflow menu
-  const isOverflowActive = overflow.some((item) => item.id === activeItem);
-
   const handleMoreClick = () => {
     setMoreMenuOpen(!moreMenuOpen);
-  };
-
-  const handleItemClick = (item: NavItem) => {
-    item.onClick?.();
-    onItemClick?.(item);
-    setMoreMenuOpen(false); // Close menu after selection
   };
 
   return (
@@ -62,7 +68,7 @@ export function MobileNav({ items = defaultNavItems, activeItem = 'activity', on
       {/* Overflow menu backdrop */}
       {moreMenuOpen && <div className="fixed inset-0 z-40 bg-black/20 md:hidden" onClick={() => setMoreMenuOpen(false)} aria-hidden="true" />}
 
-      {/* Overflow menu panel (#672) */}
+      {/* Overflow menu panel */}
       {moreMenuOpen && hasOverflow && (
         <div
           data-testid="mobile-nav-overflow"
@@ -72,23 +78,24 @@ export function MobileNav({ items = defaultNavItems, activeItem = 'activity', on
         >
           {overflow.map((item) => {
             const Icon = item.icon;
-            const is_active = activeItem === item.id;
 
             return (
-              <button
+              <PrefetchLink
                 key={item.id}
-                type="button"
+                to={item.to}
+                prefetchPath={item.to}
                 role="menuitem"
-                onClick={() => handleItemClick(item)}
-                className={cn(
-                  'flex items-center gap-2 rounded-lg px-4 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground',
-                  is_active && 'bg-primary/10 text-primary',
-                )}
-                aria-current={is_active ? 'page' : undefined}
+                onClick={() => setMoreMenuOpen(false)}
+                className={({ isActive }) =>
+                  cn(
+                    'flex items-center gap-2 rounded-lg px-4 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground',
+                    isActive && 'bg-primary/10 text-primary',
+                  )
+                }
               >
                 <Icon className="size-4" />
                 <span className="font-medium">{item.label}</span>
-              </button>
+              </PrefetchLink>
             );
           })}
         </div>
@@ -109,22 +116,23 @@ export function MobileNav({ items = defaultNavItems, activeItem = 'activity', on
         {/* Primary nav items */}
         {primary.map((item) => {
           const Icon = item.icon;
-          const is_active = activeItem === item.id;
 
           return (
-            <button
+            <PrefetchLink
               key={item.id}
-              type="button"
-              onClick={() => handleItemClick(item)}
-              className={cn(
-                'flex flex-col items-center justify-center gap-1 px-3 py-2 text-muted-foreground transition-colors hover:text-foreground',
-                is_active && 'text-primary',
-              )}
-              aria-current={is_active ? 'page' : undefined}
+              to={item.to}
+              prefetchPath={item.to}
+              end={item.to === '/activity'}
+              className={({ isActive }) =>
+                cn(
+                  'flex flex-col items-center justify-center gap-1 px-3 py-2 text-muted-foreground transition-colors hover:text-foreground',
+                  isActive && 'text-primary',
+                )
+              }
             >
               <Icon className="size-5" />
               <span className="text-[10px] font-medium">{item.label}</span>
-            </button>
+            </PrefetchLink>
           );
         })}
 
@@ -135,7 +143,7 @@ export function MobileNav({ items = defaultNavItems, activeItem = 'activity', on
             onClick={handleMoreClick}
             className={cn(
               'flex flex-col items-center justify-center gap-1 px-3 py-2 text-muted-foreground transition-colors hover:text-foreground',
-              (moreMenuOpen || isOverflowActive) && 'text-primary',
+              moreMenuOpen && 'text-primary',
             )}
             aria-expanded={moreMenuOpen}
             aria-haspopup="menu"
