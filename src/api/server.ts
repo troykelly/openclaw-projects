@@ -13876,15 +13876,26 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }
     }
 
+    // Reject M2M tokens — OAuth account linking is a user-only operation.
+    // M2M tokens don't represent a user and should not own OAuth connections
+    // or mint user JWTs via the callback's one-time code flow.
+    const identity = await getAuthIdentity(req);
+    if (identity?.type === 'm2m') {
+      return reply.code(403).send({ error: 'OAuth account linking is not available for machine-to-machine tokens' });
+    }
+
     const scopes = query.scopes?.split(',');
     const permission_level = (query.permission_level as OAuthPermissionLevel) || 'read';
     const state = randomBytes(32).toString('hex');
+
+    const sessionEmail = await getSessionEmail(req);
 
     const pool = createPool();
     try {
       const authResult = await getAuthorizationUrl(pool, provider, state, scopes, {
         features,
         permission_level,
+        user_email: sessionEmail ?? undefined,
       });
 
       // When called via apiClient (Accept: application/json), return URL as JSON
@@ -13995,12 +14006,21 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       // Exchange code for tokens (with PKCE code_verifier)
       const tokens = await exchangeCodeForTokens(provider, query.code, stateData.code_verifier);
 
-      // Get user email from provider
-      const user_email = await getOAuthUserEmail(provider, tokens.access_token);
+      // Get provider account email for multi-account identification
+      const providerEmail = await getOAuthUserEmail(provider, tokens.access_token);
 
-      // Save connection with provider account email for multi-account support
-      await saveConnection(pool, user_email, provider, tokens, {
-        provider_account_email: user_email,
+      // Use the authenticated app user (from state) as the connection owner.
+      // Fall back to provider email for backward compatibility (e.g. unauthenticated flows).
+      const ownerEmail = stateData.user_email || providerEmail;
+
+      // Validate that we have a usable email before persisting
+      if (!ownerEmail || !ownerEmail.includes('@')) {
+        return reply.code(400).send({ error: 'Could not determine a valid user email for the OAuth connection' });
+      }
+
+      // Save connection with app user as owner, provider email as provider_account_email
+      await saveConnection(pool, ownerEmail, provider, tokens, {
+        provider_account_email: providerEmail,
       });
 
       // Generate a one-time authorization code for the SPA to exchange for a JWT.
@@ -14011,7 +14031,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       await pool.query(
         `INSERT INTO auth_one_time_code (code_sha256, email, expires_at)
          VALUES ($1, $2, now() + interval '60 seconds')`,
-        [authCodeSha, user_email],
+        [authCodeSha, ownerEmail],
       );
 
       // Redirect to the SPA auth consume page with the one-time code.
