@@ -321,12 +321,12 @@ services:
     container_name: openclaw-tmux-certs
     profiles: ["terminal"]
     restart: "no"
-    command: ["node", "/app/scripts/generate-certs.js"]
+    command: ["node", "/app/scripts/generate-certs.cjs"]
     environment:
       CERT_OUTPUT_DIR: /certs
     volumes:
       - tmux_certs:/certs
-      - ./scripts/generate-certs.js:/app/scripts/generate-certs.js:ro
+      - ./scripts/generate-certs.cjs:/app/scripts/generate-certs.cjs:ro
     # Container hardening
     security_opt:
       - no-new-privileges:true
@@ -364,6 +364,8 @@ services:
       GRPC_TLS_CERT: /certs/worker.pem
       GRPC_TLS_KEY: /certs/worker-key.pem
       GRPC_TLS_CA: /certs/ca.pem
+      # Persistent SSH host key (Issue #1857)
+      ENROLLMENT_SSH_HOST_KEY_PATH: /data/ssh_host_key
     ports:
       - "[::1]:${TMUX_GRPC_PORT:-50051}:50051"          # gRPC (internal)
       - "127.0.0.1:${TMUX_GRPC_PORT:-50051}:50051"
@@ -371,6 +373,7 @@ services:
       - "127.0.0.1:${TMUX_SSH_PORT:-2222}:2222"
     volumes:
       - tmux_certs:/certs:ro
+      - tmux_data:/data
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:9002/health"]
       interval: 10s
@@ -567,3 +570,4 @@ volumes:
   nominatim_data:
   prompt_guard_model_cache:
   tmux_certs:
+  tmux_data:
