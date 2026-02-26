@@ -22,12 +22,13 @@ export interface ProtoTimestamp {
 
 /**
  * Convert a Date (or ISO string) to a proto Timestamp.
- * Returns null for null/undefined input.
+ * Returns null for null/undefined input or invalid dates.
  */
 export function toTimestamp(input: Date | string | null | undefined): ProtoTimestamp | null {
   if (input == null) return null;
   const date = typeof input === 'string' ? new Date(input) : input;
   const ms = date.getTime();
+  if (Number.isNaN(ms)) return null;
   const seconds = Math.floor(ms / 1000);
   const nanos = (ms % 1000) * 1_000_000;
   return { seconds: String(seconds), nanos };
@@ -35,12 +36,17 @@ export function toTimestamp(input: Date | string | null | undefined): ProtoTimes
 
 /**
  * Convert a proto Timestamp to an ISO date string.
- * Returns null for null/undefined input.
+ * Returns null for null/undefined input or invalid values.
  */
 export function fromTimestamp(ts: ProtoTimestamp | null | undefined): string | null {
   if (ts == null) return null;
-  const ms = Number(ts.seconds) * 1000 + Math.floor(ts.nanos / 1_000_000);
-  return new Date(ms).toISOString();
+  const sec = Number(ts.seconds);
+  if (Number.isNaN(sec)) return null;
+  const nanos = Number.isFinite(ts.nanos) ? ts.nanos : 0;
+  const ms = sec * 1000 + Math.floor(nanos / 1_000_000);
+  const date = new Date(ms);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString();
 }
 
 // ─── Connection ─────────────────────────────────────────────

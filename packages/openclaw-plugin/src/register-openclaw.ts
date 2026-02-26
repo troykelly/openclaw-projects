@@ -4702,7 +4702,13 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
   // ── Terminal tools (Issue #1858) ──────────────────────────────
   // Register all 20 terminal plugin tools using factory pattern.
 
-  const termToolOpts = { client: apiClient, logger, config, user_id };
+  // Use getter for user_id so terminal tools always read the current
+  // state.agentId, not the value at registration time (Issue #1858, Codex review).
+  const termToolOpts = Object.defineProperty(
+    { client: apiClient, logger, config, user_id: '' },
+    'user_id',
+    { get: () => state.agentId, enumerable: true },
+  );
 
   const terminalToolFactories = [
     createTerminalConnectionListTool,

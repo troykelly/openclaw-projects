@@ -475,7 +475,7 @@ function main() {
   const caKeyPair = generateRsaKeyPair(4096);
   const caCertPem = generateCACert(caKeyPair, CA_DAYS);
 
-  fs.writeFileSync(caKeyPath, caKeyPair.privateKey);
+  fs.writeFileSync(caKeyPath, caKeyPair.privateKey, { mode: 0o600 });
   fs.writeFileSync(caCertPath, caCertPem);
 
   // 2. Generate API client certificate
@@ -493,7 +493,7 @@ function main() {
     null,
   );
 
-  fs.writeFileSync(apiKeyPath, apiKeyPair.privateKey);
+  fs.writeFileSync(apiKeyPath, apiKeyPair.privateKey, { mode: 0o600 });
   fs.writeFileSync(apiCertPath, apiCertPem);
 
   // 3. Generate worker server certificate with SANs
@@ -515,13 +515,8 @@ function main() {
     ],
   );
 
-  fs.writeFileSync(workerKeyPath, workerKeyPair.privateKey);
+  fs.writeFileSync(workerKeyPath, workerKeyPair.privateKey, { mode: 0o600 });
   fs.writeFileSync(workerCertPath, workerCertPem);
-
-  // Restrict key file permissions
-  for (const f of [caKeyPath, apiKeyPath, workerKeyPath]) {
-    fs.chmodSync(f, 0o600);
-  }
 
   console.log('mTLS certificates generated successfully.');
   console.log(`  CA:     ${caCertPath}`);
