@@ -10,6 +10,7 @@ import { createPool } from '../db.ts';
 import { processJobs, getPendingJobCounts } from '../api/jobs/processor.ts';
 import { processPendingWebhooks } from '../api/webhooks/dispatcher.ts';
 import { processGeoGeocode, processGeoEmbeddings } from '../api/geolocation/workers.ts';
+import { processTerminalEmbeddings } from './terminal-embeddings.ts';
 import { validateOpenClawConfig, getConfigSummary } from '../api/webhooks/config.ts';
 import { CircuitBreaker } from './circuit-breaker.ts';
 import { NotifyListener } from './listener.ts';
@@ -265,6 +266,17 @@ async function tick(pool: Pool, breaker: CircuitBreaker): Promise<void> {
     }
     if (geocoded > 0 || embedded > 0) {
       console.log(`[Worker] Geo: ${geocoded} geocoded, ${embedded} embedded`);
+    }
+
+    // ── Process terminal entry embeddings ──
+    let terminalEmbedded = 0;
+    try {
+      terminalEmbedded = await processTerminalEmbeddings(pool);
+    } catch (err) {
+      console.warn('[Worker] Terminal embeddings error:', (err as Error).message);
+    }
+    if (terminalEmbedded > 0) {
+      console.log(`[Worker] Terminal: ${terminalEmbedded} entries embedded`);
     }
 
     // ── Update pending gauges ──
