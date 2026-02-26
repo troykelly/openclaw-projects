@@ -1,8 +1,17 @@
 /**
  * gRPC server for the TerminalService.
  *
- * Implements session lifecycle RPCs (Create, Terminate, List, Get, Resize)
- * and GetWorkerStatus. Remaining RPCs return UNIMPLEMENTED until later phases.
+ * Implements all TerminalService RPCs:
+ * - GetWorkerStatus (health)
+ * - TestConnection (SSH connectivity verification)
+ * - Session lifecycle (Create, Terminate, List, Get, Resize)
+ * - Window/pane management (CreateWindow, CloseWindow, SplitPane, ClosePane)
+ * - SSH tunnels (CreateTunnel, CloseTunnel, ListTunnels)
+ * - Host key verification (ApproveHostKey, RejectHostKey)
+ * - Enrollment stream (GetEnrollmentListener)
+ *
+ * AttachSession, SendCommand, SendKeys, CapturePane remain UNIMPLEMENTED
+ * (implemented in the terminal I/O phase).
  *
  * Supports mTLS when GRPC_TLS_CERT, GRPC_TLS_KEY, and GRPC_TLS_CA are configured.
  * Falls back to insecure channel with a warning when certs are not found.
@@ -24,6 +33,20 @@ import type {
   SessionInfo,
   TestConnectionRequest,
   TestConnectionResponse,
+  CreateWindowRequest,
+  CloseWindowRequest,
+  SplitPaneRequest,
+  ClosePaneRequest,
+  WindowInfo,
+  PaneInfo,
+  CreateTunnelRequest,
+  CloseTunnelRequest,
+  ListTunnelsRequest,
+  ListTunnelsResponse,
+  TunnelInfo,
+  ApproveHostKeyRequest,
+  RejectHostKeyRequest,
+  EnrollmentEvent,
 } from './types.ts';
 import { TmuxManager } from './tmux/manager.ts';
 import { SSHConnectionManager } from './ssh/client.ts';
@@ -34,6 +57,25 @@ import {
   handleGetSession,
   handleResizeSession,
 } from './session-lifecycle.ts';
+import {
+  handleCreateWindow,
+  handleCloseWindow,
+  handleSplitPane,
+  handleClosePane,
+} from './window-pane-handlers.ts';
+import {
+  handleCreateTunnel,
+  handleCloseTunnel,
+  handleListTunnels,
+} from './tunnel-handlers.ts';
+import {
+  handleApproveHostKey,
+  handleRejectHostKey,
+} from './host-key-handlers.ts';
+import {
+  enrollmentEventBus,
+  toEnrollmentEvent,
+} from './enrollment-stream.ts';
 
 const startTime = Date.now();
 
@@ -130,8 +172,8 @@ export function stopGrpcServer(server: grpc.Server): Promise<void> {
 
 /**
  * Map error messages to appropriate gRPC status codes.
- * "not found" errors → NOT_FOUND; validation errors → INVALID_ARGUMENT;
- * everything else → INTERNAL.
+ * "not found" errors -> NOT_FOUND; validation errors -> INVALID_ARGUMENT;
+ * everything else -> INTERNAL.
  */
 function mapErrorToGrpcStatus(err: unknown): { code: grpc.status; message: string } {
   const message = err instanceof Error ? err.message : String(err);
@@ -149,9 +191,16 @@ function mapErrorToGrpcStatus(err: unknown): { code: grpc.status; message: strin
 /**
  * Build the handler map for all TerminalService RPCs.
  *
- * Session lifecycle RPCs (Create, Terminate, List, Get, Resize) are fully
- * implemented. TestConnection delegates to SSHConnectionManager. All other
- * RPCs remain UNIMPLEMENTED for later phases.
+ * Fully implemented:
+ * - GetWorkerStatus, TestConnection
+ * - CreateSession, TerminateSession, ListSessions, GetSession, ResizeSession
+ * - CreateWindow, CloseWindow, SplitPane, ClosePane
+ * - CreateTunnel, CloseTunnel, ListTunnels
+ * - ApproveHostKey, RejectHostKey
+ * - GetEnrollmentListener
+ *
+ * Remaining UNIMPLEMENTED (terminal I/O phase):
+ * - AttachSession, SendCommand, SendKeys, CapturePane
  */
 function buildHandlers(
   config: TmuxWorkerConfig,
@@ -175,7 +224,7 @@ function buildHandlers(
       });
     },
 
-    // ── Connection testing ───────────────────────────────────
+    // ── Connection testing (#1853) ──────────────────────────
     TestConnection: (
       call: grpc.ServerUnaryCall<TestConnectionRequest, TestConnectionResponse>,
       callback: grpc.sendUnaryData<TestConnectionResponse>,
@@ -196,7 +245,7 @@ function buildHandlers(
         });
     },
 
-    // ── Session lifecycle ────────────────────────────────────
+    // ── Session lifecycle (#1847) ───────────────────────────
     CreateSession: (
       call: grpc.ServerUnaryCall<CreateSessionRequest, SessionInfo>,
       callback: grpc.sendUnaryData<SessionInfo>,
@@ -257,21 +306,142 @@ function buildHandlers(
         });
     },
 
-    // ── Unimplemented stubs (later phases) ───────────────────
-    CreateWindow: unimplemented('CreateWindow'),
-    CloseWindow: unimplemented('CloseWindow'),
-    SplitPane: unimplemented('SplitPane'),
-    ClosePane: unimplemented('ClosePane'),
+    // ── Window/Pane management (#1851) ──────────────────────
+    CreateWindow: (
+      call: grpc.ServerUnaryCall<CreateWindowRequest, WindowInfo>,
+      callback: grpc.sendUnaryData<WindowInfo>,
+    ) => {
+      const req = call.request;
+      handleCreateWindow(req, pool, tmuxManager)
+        .then((result) => callback(null, result))
+        .catch((err) => {
+          callback(mapErrorToGrpcStatus(err));
+        });
+    },
+
+    CloseWindow: (
+      call: grpc.ServerUnaryCall<CloseWindowRequest, Record<string, never>>,
+      callback: grpc.sendUnaryData<Record<string, never>>,
+    ) => {
+      const req = call.request;
+      handleCloseWindow(req, pool, tmuxManager)
+        .then(() => callback(null, {}))
+        .catch((err) => {
+          callback(mapErrorToGrpcStatus(err));
+        });
+    },
+
+    SplitPane: (
+      call: grpc.ServerUnaryCall<SplitPaneRequest, PaneInfo>,
+      callback: grpc.sendUnaryData<PaneInfo>,
+    ) => {
+      const req = call.request;
+      handleSplitPane(req, pool, tmuxManager)
+        .then((result) => callback(null, result))
+        .catch((err) => {
+          callback(mapErrorToGrpcStatus(err));
+        });
+    },
+
+    ClosePane: (
+      call: grpc.ServerUnaryCall<ClosePaneRequest, Record<string, never>>,
+      callback: grpc.sendUnaryData<Record<string, never>>,
+    ) => {
+      const req = call.request;
+      handleClosePane(req, pool, tmuxManager)
+        .then(() => callback(null, {}))
+        .catch((err) => {
+          callback(mapErrorToGrpcStatus(err));
+        });
+    },
+
+    // ── Terminal I/O (UNIMPLEMENTED — terminal I/O phase) ────
     AttachSession: unimplementedStream('AttachSession'),
     SendCommand: unimplemented('SendCommand'),
     SendKeys: unimplemented('SendKeys'),
     CapturePane: unimplemented('CapturePane'),
-    CreateTunnel: unimplemented('CreateTunnel'),
-    CloseTunnel: unimplemented('CloseTunnel'),
-    ListTunnels: unimplemented('ListTunnels'),
-    GetEnrollmentListener: unimplementedServerStream('GetEnrollmentListener'),
-    ApproveHostKey: unimplemented('ApproveHostKey'),
-    RejectHostKey: unimplemented('RejectHostKey'),
+
+    // ── SSH tunnel management (#1852) ───────────────────────
+    CreateTunnel: (
+      call: grpc.ServerUnaryCall<CreateTunnelRequest, TunnelInfo>,
+      callback: grpc.sendUnaryData<TunnelInfo>,
+    ) => {
+      const req = call.request;
+      handleCreateTunnel(req, pool, sshManager)
+        .then((result) => callback(null, result))
+        .catch((err) => {
+          callback(mapErrorToGrpcStatus(err));
+        });
+    },
+
+    CloseTunnel: (
+      call: grpc.ServerUnaryCall<CloseTunnelRequest, Record<string, never>>,
+      callback: grpc.sendUnaryData<Record<string, never>>,
+    ) => {
+      const req = call.request;
+      handleCloseTunnel(req, pool)
+        .then(() => callback(null, {}))
+        .catch((err) => {
+          callback(mapErrorToGrpcStatus(err));
+        });
+    },
+
+    ListTunnels: (
+      call: grpc.ServerUnaryCall<ListTunnelsRequest, ListTunnelsResponse>,
+      callback: grpc.sendUnaryData<ListTunnelsResponse>,
+    ) => {
+      const req = call.request;
+      handleListTunnels(req, pool)
+        .then((result) => callback(null, result))
+        .catch((err) => {
+          callback(mapErrorToGrpcStatus(err));
+        });
+    },
+
+    // ── Enrollment stream (#1855) ───────────────────────────
+    GetEnrollmentListener: (
+      call: grpc.ServerWritableStream<Record<string, never>, EnrollmentEvent>,
+    ) => {
+      const cleanup = enrollmentEventBus.onEnrollment((event) => {
+        const grpcEvent = toEnrollmentEvent(event);
+        call.write(grpcEvent);
+      });
+
+      call.on('cancelled', () => {
+        cleanup();
+      });
+
+      call.on('error', () => {
+        cleanup();
+      });
+
+      // Stream stays open until the client disconnects
+    },
+
+    // ── Host key verification (#1854) ───────────────────────
+    ApproveHostKey: (
+      call: grpc.ServerUnaryCall<ApproveHostKeyRequest, Record<string, never>>,
+      callback: grpc.sendUnaryData<Record<string, never>>,
+    ) => {
+      const req = call.request;
+      handleApproveHostKey(req, pool)
+        .then(() => callback(null, {}))
+        .catch((err) => {
+          callback(mapErrorToGrpcStatus(err));
+        });
+    },
+
+    RejectHostKey: (
+      call: grpc.ServerUnaryCall<RejectHostKeyRequest, Record<string, never>>,
+      callback: grpc.sendUnaryData<Record<string, never>>,
+    ) => {
+      const req = call.request;
+      handleRejectHostKey(req, pool)
+        .then(() => callback(null, {}))
+        .catch((err) => {
+          callback(mapErrorToGrpcStatus(err));
+        });
+    },
   };
 }
 
@@ -299,20 +469,6 @@ function unimplementedStream(
   name: string,
 ): grpc.handleBidiStreamingCall<unknown, unknown> {
   return (call: grpc.ServerDuplexStream<unknown, unknown>) => {
-    call.emit('error', {
-      code: grpc.status.UNIMPLEMENTED,
-      message: `${name} is not yet implemented`,
-    });
-  };
-}
-
-/**
- * Create an unimplemented handler for a server-streaming RPC.
- */
-function unimplementedServerStream(
-  name: string,
-): grpc.handleServerStreamingCall<unknown, unknown> {
-  return (call: grpc.ServerWritableStream<unknown, unknown>) => {
     call.emit('error', {
       code: grpc.status.UNIMPLEMENTED,
       message: `${name} is not yet implemented`,

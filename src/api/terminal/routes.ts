@@ -2400,6 +2400,43 @@ export async function terminalRoutesPlugin(
     }
   });
 
+  // POST /api/terminal/known-hosts/reject — Reject pending host verification (#1854)
+  app.post('/api/terminal/known-hosts/reject', async (req, reply) => {
+    const body = req.body as {
+      session_id?: string;
+    };
+
+    if (!body?.session_id || !UUID_REGEX.test(body.session_id)) {
+      return reply.code(400).send({ error: 'Valid session_id is required' });
+    }
+
+    if (!(await verifyWriteScope(pool, 'terminal_session', body.session_id, req))) {
+      return reply.code(404).send({ error: 'Session not found' });
+    }
+
+    try {
+      await grpcClient.rejectHostKey({
+        session_id: body.session_id,
+      });
+
+      const actor = await getActor(req);
+      const namespace = getStoreNamespace(req);
+
+      recordActivity(pool, {
+        namespace,
+        session_id: body.session_id,
+        actor,
+        action: 'known_host.reject',
+        detail: { session_id: body.session_id },
+      });
+
+      return reply.send({ rejected: true, session_id: body.session_id });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown gRPC error';
+      return reply.code(502).send({ error: 'Failed to notify worker', details: message });
+    }
+  });
+
   // DELETE /api/terminal/known-hosts/:id — Revoke trust
   app.delete('/api/terminal/known-hosts/:id', async (req, reply) => {
     const params = req.params as { id: string };
