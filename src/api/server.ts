@@ -19293,6 +19293,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     try {
       await client.query('BEGIN');
 
+      // Ensure user_setting row exists (FK target for geo_provider.owner_email)
+      const { ensureUserSetting } = await import('./geolocation/service.ts');
+      await ensureUserSetting(client, email);
+
       // Enforce provider limit (inside transaction for atomicity)
       const countResult = await client.query('SELECT COUNT(*)::int AS cnt FROM geo_provider WHERE owner_email = $1 AND deleted_at IS NULL FOR UPDATE', [email]);
       if (countResult.rows[0].cnt >= GEO_MAX_PROVIDERS_PER_USER) {
@@ -19633,6 +19637,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
+
+      // Ensure user_setting row exists (FK target for geo_provider.owner_email)
+      const { ensureUserSetting: ensureUserSettingOAuth } = await import('./geolocation/service.ts');
+      await ensureUserSettingOAuth(client, email);
 
       // Enforce provider limit
       const countResult = await client.query('SELECT COUNT(*)::int AS cnt FROM geo_provider WHERE owner_email = $1 AND deleted_at IS NULL FOR UPDATE', [email]);

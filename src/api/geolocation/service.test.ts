@@ -21,6 +21,7 @@ import {
   rowToLocation,
   canDeleteProvider,
   deleteSubscriptionsByProvider,
+  ensureUserSetting,
 } from './service.ts';
 
 /** Build a mock Pool that returns the given rows for any query. */
@@ -374,6 +375,24 @@ describe('geolocation/service', () => {
       expect(query[0]).toContain('DELETE FROM geo_provider_user');
       expect(query[0]).toContain('provider_id');
       expect(query[1]).toEqual([providerRow.id]);
+    });
+  });
+
+  describe('ensureUserSetting', () => {
+    it('executes an upsert query for the given email', async () => {
+      const pool = mockPool([]);
+      await ensureUserSetting(pool, 'user@example.com');
+      const query = (pool.query as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(query[0]).toContain('INSERT INTO user_setting');
+      expect(query[0]).toContain('ON CONFLICT');
+      expect(query[1]).toEqual(['user@example.com']);
+    });
+
+    it('is idempotent (no error on duplicate)', async () => {
+      const pool = mockPool([]);
+      await ensureUserSetting(pool, 'user@example.com');
+      await ensureUserSetting(pool, 'user@example.com');
+      expect((pool.query as ReturnType<typeof vi.fn>)).toHaveBeenCalledTimes(2);
     });
   });
 });

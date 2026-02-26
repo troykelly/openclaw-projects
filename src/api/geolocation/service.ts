@@ -161,6 +161,20 @@ export interface InsertLocationInput {
   raw_payload?: unknown;
 }
 
+// ─── Pre-requisite helpers ────────────────────────────────────────────────────
+
+/**
+ * Ensure a `user_setting` row exists for the given email.
+ * geo_provider.owner_email has an FK to user_setting(email),
+ * so this must be called before any geo_provider INSERT.
+ */
+export async function ensureUserSetting(pool: Queryable, email: string): Promise<void> {
+  await pool.query(
+    `INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT (email) DO NOTHING`,
+    [email],
+  );
+}
+
 // ─── Provider CRUD ───────────────────────────────────────────────────────────
 
 export async function createProvider(pool: Queryable, input: CreateProviderInput): Promise<GeoProvider> {
