@@ -2027,7 +2027,9 @@ function createToolHandlers(state: PluginState) {
             };
           }
 
-          // Multiple matches or low confidence → return candidates, don't delete
+          // Multiple matches or low confidence → return candidates, don't delete.
+          // Candidate list uses full UUIDs — required by OpenClaw gateway which
+          // enforces format:"uuid" on memory_id parameter (#1828)
           const list = matches.map((m) => `- [${m.id}] ${m.content.slice(0, 60)}${m.content.length > 60 ? '...' : ''}`).join('\n');
           return {
             success: true,
