@@ -157,7 +157,7 @@ function VelocityChart({ data }: { data: VelocityPeriod[] }): React.JSX.Element 
             </text>
             {/* Period label */}
             <text x={x + barW / 2} y={height - 8} fontSize={8} textAnchor="middle" fill="currentColor" opacity={0.5}>
-              {d.period.length > 6 ? d.period.slice(5) : d.period}
+              {(d.period ?? '').length > 6 ? d.period.slice(5) : (d.period ?? '')}
             </text>
           </g>
         );
@@ -220,7 +220,6 @@ export function AnalyticsSection(): React.JSX.Element {
     async function load() {
       try {
         const results = await Promise.allSettled([
-          apiClient.get<{ data: BurndownPoint[] }>('/api/analytics/burndown/default'),
           apiClient.get<{ data: VelocityPeriod[] }>('/api/analytics/velocity'),
           apiClient.get<{ projects: ProjectHealth[] }>('/api/analytics/project-health'),
         ]);
@@ -228,16 +227,13 @@ export function AnalyticsSection(): React.JSX.Element {
         if (!alive) return;
 
         if (results[0].status === 'fulfilled' && Array.isArray(results[0].value.data)) {
-          setBurndown(results[0].value.data);
+          setVelocity(results[0].value.data);
         }
-        if (results[1].status === 'fulfilled' && Array.isArray(results[1].value.data)) {
-          setVelocity(results[1].value.data);
-        }
-        if (results[2].status === 'fulfilled' && Array.isArray(results[2].value.projects)) {
-          setHealth(results[2].value.projects);
+        if (results[1].status === 'fulfilled' && Array.isArray(results[1].value.projects)) {
+          setHealth(results[1].value.projects);
         }
 
-        // Only show error if all three failed
+        // Only show error if all failed
         const allFailed = results.every((r) => r.status === 'rejected');
         if (allFailed) {
           setError('Failed to load analytics data');
@@ -274,7 +270,7 @@ export function AnalyticsSection(): React.JSX.Element {
     );
   }
 
-  if (error && burndown.length === 0 && velocity.length === 0 && health.length === 0) {
+  if (error && velocity.length === 0 && health.length === 0) {
     return (
       <Card data-testid="analytics-section">
         <CardHeader>
@@ -294,19 +290,21 @@ export function AnalyticsSection(): React.JSX.Element {
     <div className="space-y-6" data-testid="analytics-section">
       {/* Burndown + Velocity row */}
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Burndown chart */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <TrendingUp className="size-5 text-blue-500" />
-              Burndown
-            </CardTitle>
-            <CardDescription>Items remaining over time</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <BurndownChart data={burndown} />
-          </CardContent>
-        </Card>
+        {/* Burndown chart — only shown when data is available (requires project context) */}
+        {burndown.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <TrendingUp className="size-5 text-blue-500" />
+                Burndown
+              </CardTitle>
+              <CardDescription>Items remaining over time</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <BurndownChart data={burndown} />
+            </CardContent>
+          </Card>
+        )}
 
         {/* Velocity chart */}
         <Card>

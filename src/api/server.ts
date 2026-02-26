@@ -13669,6 +13669,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // GET /api/analytics/burndown/:id - Get burndown data for a work item
   app.get('/api/analytics/burndown/:id', async (req, reply) => {
     const params = req.params as { id: string };
+
+    if (!isValidUUID(params.id)) {
+      return reply.code(400).send({ error: 'Invalid work item id — expected a UUID' });
+    }
+
     const pool = createPool();
 
     // Check if work item exists
@@ -20124,6 +20129,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // POST /api/projects/:id/webhooks - Create a webhook for a project
   app.post('/api/projects/:id/webhooks', async (req, reply) => {
     const { id } = req.params as { id: string };
+
+    if (!isValidUUID(id)) {
+      return reply.code(400).send({ error: 'Invalid project id — expected a UUID' });
+    }
+
     const body = req.body as { label?: string; user_email?: string };
 
     const email = await getSessionEmail(req) ?? (isAuthDisabled() ? body?.user_email?.trim() || null : null);
@@ -20161,6 +20171,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // GET /api/projects/:id/webhooks - List webhooks for a project
   app.get('/api/projects/:id/webhooks', async (req, reply) => {
     const { id } = req.params as { id: string };
+
+    if (!isValidUUID(id)) {
+      return reply.code(400).send({ error: 'Invalid project id — expected a UUID' });
+    }
 
     const email = await getSessionEmail(req);
     if (!email && !isAuthDisabled()) {
@@ -20203,6 +20217,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.delete('/api/projects/:id/webhooks/:webhook_id', async (req, reply) => {
     const { id, webhook_id } = req.params as { id: string; webhook_id: string };
 
+    if (!isValidUUID(id)) {
+      return reply.code(400).send({ error: 'Invalid project id — expected a UUID' });
+    }
+    if (!isValidUUID(webhook_id)) {
+      return reply.code(400).send({ error: 'Invalid webhook id — expected a UUID' });
+    }
+
     const email = await getSessionEmail(req);
     if (!email && !isAuthDisabled()) {
       return reply.code(401).send({ error: 'unauthorized' });
@@ -20243,6 +20264,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // POST /api/webhooks/:webhook_id - Public ingestion endpoint (bearer token auth)
   app.post('/api/webhooks/:webhook_id', async (req, reply) => {
     const { webhook_id } = req.params as { webhook_id: string };
+
+    if (!isValidUUID(webhook_id)) {
+      return reply.code(400).send({ error: 'Invalid webhook id — expected a UUID' });
+    }
+
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -20299,6 +20325,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // GET /api/projects/:id/events - List project events (paginated)
   app.get('/api/projects/:id/events', async (req, reply) => {
     const { id } = req.params as { id: string };
+
+    if (!isValidUUID(id)) {
+      return reply.code(400).send({ error: 'Invalid project id — expected a UUID' });
+    }
+
     const query = req.query as { limit?: string; offset?: string };
     const limit = Math.min(Number(query.limit) || 50, 200);
     const offset = Number(query.offset) || 0;

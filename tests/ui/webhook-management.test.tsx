@@ -2,11 +2,14 @@
  * @vitest-environment jsdom
  */
 /**
- * Tests for the webhook management section (#1733).
+ * Tests for the webhook management section (#1733, #1832).
+ *
+ * After #1832, the settings-page webhook section only shows global status
+ * (from /api/webhooks/status). Project-scoped webhook CRUD is on project pages.
  */
 import * as React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 
 // Mock apiClient
 vi.mock('@/ui/lib/api-client', () => ({
@@ -21,25 +24,18 @@ vi.mock('@/ui/lib/api-client', () => ({
 import { WebhookManagementSection } from '@/ui/components/settings/webhook-management-section';
 import { apiClient } from '@/ui/lib/api-client';
 
+// Mock data matches the actual GET /api/webhooks/status response shape
 const mockStatus = {
-  total: 2,
-  active: 1,
-  pending_deliveries: 3,
-  failed_deliveries: 1,
-};
-
-const mockWebhooks = {
-  webhooks: [
-    { id: 'wh-1', url: 'https://example.com/hook1', events: ['*'], is_active: true, created_at: '2026-02-01T00:00:00Z' },
-    { id: 'wh-2', url: 'https://example.com/hook2', events: ['task.created'], is_active: false, created_at: '2026-02-10T00:00:00Z' },
-  ],
-};
-
-const mockDeliveries = {
-  events: [
-    { id: 'd-1', webhook_id: 'wh-1', event_type: 'task.created', status: 'success', response_code: 200, attempted_at: '2026-02-20T10:00:00Z' },
-    { id: 'd-2', webhook_id: 'wh-1', event_type: 'task.updated', status: 'failed', response_code: 500, attempted_at: '2026-02-20T11:00:00Z', error_message: 'Server error' },
-  ],
+  configured: true,
+  gateway_url: 'https://gateway.example.com',
+  has_token: true,
+  default_model: 'gpt-4',
+  timeout_seconds: 30,
+  stats: {
+    pending: 3,
+    failed: 1,
+    dispatched: 42,
+  },
 };
 
 describe('WebhookManagementSection', () => {
@@ -58,82 +54,41 @@ describe('WebhookManagementSection', () => {
     expect(screen.getByText('Webhooks')).toBeInTheDocument();
   });
 
-  it('renders webhook list after loading', async () => {
-    vi.mocked(apiClient.get)
-      .mockResolvedValueOnce(mockStatus)
-      .mockResolvedValueOnce(mockWebhooks)
-      .mockResolvedValueOnce(mockDeliveries);
+  it('renders status overview after loading', async () => {
+    vi.mocked(apiClient.get).mockResolvedValueOnce(mockStatus);
 
     render(<WebhookManagementSection />);
 
     await waitFor(() => {
-      const items = screen.getAllByTestId('webhook-item');
-      expect(items).toHaveLength(2);
-    });
-
-    expect(screen.getByText('https://example.com/hook1')).toBeInTheDocument();
-    expect(screen.getByText('https://example.com/hook2')).toBeInTheDocument();
-  });
-
-  it('renders status overview cards', async () => {
-    vi.mocked(apiClient.get)
-      .mockResolvedValueOnce(mockStatus)
-      .mockResolvedValueOnce(mockWebhooks)
-      .mockResolvedValueOnce(mockDeliveries);
-
-    render(<WebhookManagementSection />);
-
-    await waitFor(() => {
-      expect(screen.getByText('2')).toBeInTheDocument(); // Total
-      expect(screen.getByText('Total')).toBeInTheDocument();
-    });
-  });
-
-  it('renders delivery log', async () => {
-    vi.mocked(apiClient.get)
-      .mockResolvedValueOnce(mockStatus)
-      .mockResolvedValueOnce(mockWebhooks)
-      .mockResolvedValueOnce(mockDeliveries);
-
-    render(<WebhookManagementSection />);
-
-    await waitFor(() => {
-      const deliveryItems = screen.getAllByTestId('delivery-item');
-      expect(deliveryItems).toHaveLength(2);
-    });
-  });
-
-  it('shows add webhook form when button is clicked', async () => {
-    vi.mocked(apiClient.get)
-      .mockResolvedValueOnce(mockStatus)
-      .mockResolvedValueOnce(mockWebhooks)
-      .mockResolvedValueOnce(mockDeliveries);
-
-    render(<WebhookManagementSection />);
-
-    await waitFor(() => {
-      expect(screen.getByTestId('webhook-add-btn')).toBeInTheDocument();
-    });
-
-    fireEvent.click(screen.getByTestId('webhook-add-btn'));
-
-    await waitFor(() => {
-      expect(screen.getByTestId('webhook-create-form')).toBeInTheDocument();
-      expect(screen.getByTestId('webhook-url-input')).toBeInTheDocument();
+      expect(screen.getByText('Configured')).toBeInTheDocument();
+      expect(screen.getByText('Yes')).toBeInTheDocument();
+      expect(screen.getByText('42')).toBeInTheDocument(); // Dispatched
+      expect(screen.getByText('Dispatched')).toBeInTheDocument();
     });
   });
 
   it('shows retry button when failed deliveries exist', async () => {
-    vi.mocked(apiClient.get)
-      .mockResolvedValueOnce(mockStatus)
-      .mockResolvedValueOnce(mockWebhooks)
-      .mockResolvedValueOnce(mockDeliveries);
+    vi.mocked(apiClient.get).mockResolvedValueOnce(mockStatus);
 
     render(<WebhookManagementSection />);
 
     await waitFor(() => {
       expect(screen.getByTestId('webhook-retry-btn')).toBeInTheDocument();
     });
+  });
+
+  it('does not show retry button when no failed deliveries', async () => {
+    vi.mocked(apiClient.get).mockResolvedValueOnce({
+      ...mockStatus,
+      stats: { ...mockStatus.stats, failed: 0 },
+    });
+
+    render(<WebhookManagementSection />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Configured')).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId('webhook-retry-btn')).not.toBeInTheDocument();
   });
 
   it('renders error state on failure', async () => {
@@ -144,6 +99,35 @@ describe('WebhookManagementSection', () => {
     await waitFor(() => {
       expect(screen.getByTestId('webhook-error')).toBeInTheDocument();
       expect(screen.getByText('Connection refused')).toBeInTheDocument();
+    });
+  });
+
+  it('does not call project-scoped endpoints with "default"', async () => {
+    vi.mocked(apiClient.get).mockResolvedValueOnce(mockStatus);
+
+    render(<WebhookManagementSection />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Configured')).toBeInTheDocument();
+    });
+
+    // Verify only the global status endpoint was called, not project-scoped ones
+    const calls = vi.mocked(apiClient.get).mock.calls;
+    expect(calls).toHaveLength(1);
+    expect(calls[0][0]).toBe('/api/webhooks/status');
+    // Ensure no calls to /api/projects/default/*
+    for (const call of calls) {
+      expect(call[0]).not.toContain('/projects/default');
+    }
+  });
+
+  it('shows empty message when status is null and no error', async () => {
+    vi.mocked(apiClient.get).mockResolvedValueOnce({});
+
+    render(<WebhookManagementSection />);
+
+    await waitFor(() => {
+      expect(screen.getByText('No webhooks configured.')).toBeInTheDocument();
     });
   });
 });

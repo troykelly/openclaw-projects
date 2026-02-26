@@ -61,37 +61,41 @@ describe('AnalyticsSection', () => {
     expect(screen.getByTestId('analytics-section')).toBeInTheDocument();
   });
 
-  it('renders all analytics components after loading', async () => {
+  it('renders velocity and health after loading (burndown hidden without data)', async () => {
+    // Component fetches velocity + health (burndown removed — no project context)
     vi.mocked(apiClient.get)
-      .mockResolvedValueOnce(mockBurndown)
       .mockResolvedValueOnce(mockVelocity)
       .mockResolvedValueOnce(mockHealth);
 
     render(<AnalyticsSection />);
 
     await waitFor(() => {
-      expect(screen.getByText('Burndown')).toBeInTheDocument();
+      expect(screen.getByText('Velocity')).toBeInTheDocument();
+      expect(screen.getByText('Project Health')).toBeInTheDocument();
+    });
+    // Burndown card hidden — no data fetched
+    expect(screen.queryByText('Burndown')).not.toBeInTheDocument();
+  });
+
+  it('hides burndown card when no data (no API call)', async () => {
+    // Burndown API call was removed — card is hidden when empty
+    vi.mocked(apiClient.get)
+      .mockResolvedValueOnce(mockVelocity)
+      .mockResolvedValueOnce(mockHealth);
+
+    render(<AnalyticsSection />);
+
+    await waitFor(() => {
+      // Burndown card should not be present since no data is fetched
+      expect(screen.queryByText('Burndown')).not.toBeInTheDocument();
+      // Velocity and health should render
       expect(screen.getByText('Velocity')).toBeInTheDocument();
       expect(screen.getByText('Project Health')).toBeInTheDocument();
     });
   });
 
-  it('renders burndown chart', async () => {
-    vi.mocked(apiClient.get)
-      .mockResolvedValueOnce(mockBurndown)
-      .mockResolvedValueOnce(mockVelocity)
-      .mockResolvedValueOnce(mockHealth);
-
-    render(<AnalyticsSection />);
-
-    await waitFor(() => {
-      expect(screen.getByTestId('burndown-chart')).toBeInTheDocument();
-    });
-  });
-
   it('renders velocity chart', async () => {
     vi.mocked(apiClient.get)
-      .mockResolvedValueOnce(mockBurndown)
       .mockResolvedValueOnce(mockVelocity)
       .mockResolvedValueOnce(mockHealth);
 
@@ -104,7 +108,6 @@ describe('AnalyticsSection', () => {
 
   it('renders project health cards', async () => {
     vi.mocked(apiClient.get)
-      .mockResolvedValueOnce(mockBurndown)
       .mockResolvedValueOnce(mockVelocity)
       .mockResolvedValueOnce(mockHealth);
 
@@ -122,25 +125,23 @@ describe('AnalyticsSection', () => {
   });
 
   it('handles partial data gracefully', async () => {
-    // Only burndown succeeds
+    // Only velocity succeeds, health fails
     vi.mocked(apiClient.get)
-      .mockResolvedValueOnce(mockBurndown)
-      .mockRejectedValueOnce(new Error('Velocity unavailable'))
+      .mockResolvedValueOnce(mockVelocity)
       .mockRejectedValueOnce(new Error('Health unavailable'));
 
     render(<AnalyticsSection />);
 
     await waitFor(() => {
-      expect(screen.getByTestId('burndown-chart')).toBeInTheDocument();
+      expect(screen.getByTestId('velocity-chart')).toBeInTheDocument();
     });
 
     // Should still render, showing available data
-    expect(screen.getByText('Burndown')).toBeInTheDocument();
+    expect(screen.getByText('Velocity')).toBeInTheDocument();
   });
 
   it('shows error state when all fetches fail', async () => {
     vi.mocked(apiClient.get)
-      .mockRejectedValueOnce(new Error('Failed'))
       .mockRejectedValueOnce(new Error('Failed'))
       .mockRejectedValueOnce(new Error('Failed'));
 
@@ -154,13 +155,13 @@ describe('AnalyticsSection', () => {
   it('renders empty state for charts with no data', async () => {
     vi.mocked(apiClient.get)
       .mockResolvedValueOnce({ data: [] })
-      .mockResolvedValueOnce({ data: [] })
       .mockResolvedValueOnce({ projects: [] });
 
     render(<AnalyticsSection />);
 
     await waitFor(() => {
-      expect(screen.getByText('No burndown data available.')).toBeInTheDocument();
+      // Burndown card is hidden when no data (no API call to populate it)
+      expect(screen.queryByText('No burndown data available.')).not.toBeInTheDocument();
       expect(screen.getByText('No velocity data available.')).toBeInTheDocument();
       expect(screen.getByText('No project health data available.')).toBeInTheDocument();
     });
