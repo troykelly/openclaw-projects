@@ -76,6 +76,8 @@ export interface UpdateMemoryInput {
   superseded_by?: string | null;
   /** Freeform text tags for categorical filtering */
   tags?: string[];
+  /** Source URL for external references */
+  source_url?: string | null;
 }
 
 /** A memory entry from the database */

@@ -10042,67 +10042,51 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // PATCH /api/memories/:id - Update a memory
   app.patch('/api/memories/:id', async (req, reply) => {
+    const { updateMemory } = await import('./memory/index.ts');
     const params = req.params as { id: string };
-    const body = req.body as { title?: string; content?: string; type?: string };
+    const body = req.body as {
+      title?: string;
+      content?: string;
+      type?: string;
+      memory_type?: string;
+      importance?: number;
+      confidence?: number;
+      expires_at?: string | null;
+      superseded_by?: string | null;
+      tags?: string[];
+      source_url?: string | null;
+    };
 
     const pool = createPool();
 
-    // Check if memory exists
-    const exists = await pool.query('SELECT 1 FROM memory WHERE id = $1', [params.id]);
-    if (exists.rows.length === 0) {
-      await pool.end();
-      return reply.code(404).send({ error: 'not found' });
-    }
+    try {
+      // Accept memory_type as alias for type (frontend sends memory_type)
+      const memoryType = body.memory_type ?? body.type;
 
-    // Build update query
-    const updates: string[] = [];
-    const values: (string | null)[] = [];
-    let paramIndex = 1;
+      const updated = await updateMemory(pool, params.id, {
+        title: body.title,
+        content: body.content,
+        memory_type: memoryType as import('./memory/types.ts').MemoryType | undefined,
+        importance: body.importance,
+        confidence: body.confidence,
+        expires_at: body.expires_at === null ? null : body.expires_at ? new Date(body.expires_at) : undefined,
+        superseded_by: body.superseded_by,
+        tags: body.tags,
+      });
 
-    if (body.title !== undefined) {
-      updates.push(`title = $${paramIndex}`);
-      values.push(body.title.trim());
-      paramIndex++;
-    }
-
-    if (body.content !== undefined) {
-      updates.push(`content = $${paramIndex}`);
-      values.push(body.content.trim());
-      paramIndex++;
-    }
-
-    if (body.type !== undefined) {
-      const validTypes = ['preference', 'fact', 'note', 'decision', 'context', 'reference'];
-      if (!validTypes.includes(body.type)) {
-        await pool.end();
-        return reply.code(400).send({ error: `type must be one of: ${validTypes.join(', ')}` });
+      if (!updated) {
+        return reply.code(404).send({ error: 'not found' });
       }
-      updates.push(`memory_type = $${paramIndex}::memory_type`);
-      values.push(body.type);
-      paramIndex++;
-    }
 
-    if (updates.length === 0) {
+      return reply.send(updated);
+    } catch (err) {
+      if (err instanceof Error && err.message.startsWith('Invalid memory type')) {
+        return reply.code(400).send({ error: err.message });
+      }
+      throw err;
+    } finally {
       await pool.end();
-      return reply.code(400).send({ error: 'no fields to update' });
     }
-
-    updates.push('updated_at = now()');
-    values.push(params.id);
-
-    const result = await pool.query(
-      `UPDATE memory SET ${updates.join(', ')} WHERE id = $${paramIndex}
-       RETURNING id::text as id,
-                 title,
-                 content,
-                 memory_type::text as type,
-                 created_at,
-                 updated_at`,
-      values,
-    );
-
-    await pool.end();
-    return reply.send(result.rows[0]);
   });
 
   // DELETE /api/memories/:id - Delete a memory

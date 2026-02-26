@@ -353,6 +353,12 @@ export async function updateMemory(pool: Pool, id: string, input: UpdateMemoryIn
     paramIndex++;
   }
 
+  if (input.source_url !== undefined) {
+    updates.push(`source_url = $${paramIndex}`);
+    params.push(input.source_url);
+    paramIndex++;
+  }
+
   if (updates.length === 0) {
     return getMemory(pool, id);
   }
