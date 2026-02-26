@@ -21,6 +21,8 @@ export interface TmuxWorkerConfig {
   grpcTlsKey: string;
   /** Path to the CA certificate for client verification (PEM). */
   grpcTlsCa: string;
+  /** Path to persist the SSH enrollment host key. Empty = ephemeral. */
+  enrollmentSshHostKeyPath: string;
 }
 
 /**
@@ -48,6 +50,7 @@ export function loadConfig(): TmuxWorkerConfig {
   const grpcTlsCert = process.env.GRPC_TLS_CERT ?? '';
   const grpcTlsKey = process.env.GRPC_TLS_KEY ?? '';
   const grpcTlsCa = process.env.GRPC_TLS_CA ?? '';
+  const enrollmentSshHostKeyPath = process.env.ENROLLMENT_SSH_HOST_KEY_PATH ?? '';
 
   return {
     grpcPort,
@@ -59,7 +62,30 @@ export function loadConfig(): TmuxWorkerConfig {
     grpcTlsCert,
     grpcTlsKey,
     grpcTlsCa,
+    enrollmentSshHostKeyPath,
   };
+}
+
+/**
+ * Validate an encryption key hex string.
+ * Returns { valid: true } on success, or { valid: false, error: string } on failure.
+ *
+ * Issue #1859 — Validate encryption key at worker startup
+ */
+export function validateEncryptionKey(hexKey: string): { valid: boolean; error?: string } {
+  if (hexKey.length !== 64) {
+    return {
+      valid: false,
+      error: `OAUTH_TOKEN_ENCRYPTION_KEY must be a 64-character hex string (32 bytes), got ${hexKey.length} characters`,
+    };
+  }
+  if (!/^[0-9a-fA-F]{64}$/.test(hexKey)) {
+    return {
+      valid: false,
+      error: 'OAUTH_TOKEN_ENCRYPTION_KEY must contain only hexadecimal characters (0-9, a-f, A-F)',
+    };
+  }
+  return { valid: true };
 }
 
 /** Construct a DATABASE_URL from individual PG* environment variables. */
