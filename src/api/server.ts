@@ -3274,7 +3274,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // GET /api/work-items - List work items (excludes soft-deleted, Issue #225)
   app.get('/api/work-items', async (req, reply) => {
-    const query = req.query as { include_deleted?: string; item_type?: string };
+    const query = req.query as { include_deleted?: string; item_type?: string; parent_work_item_id?: string };
     const pool = createPool();
 
     // Build WHERE clause
@@ -3290,6 +3290,16 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     if (query.item_type) {
       params.push(query.item_type);
       conditions.push(`kind = $${params.length}`);
+    }
+
+    // Filter by parent_work_item_id (#1882)
+    if (query.parent_work_item_id) {
+      if (!isValidUUID(query.parent_work_item_id)) {
+        await pool.end();
+        return reply.code(400).send({ error: 'Invalid parent_work_item_id format' });
+      }
+      params.push(query.parent_work_item_id);
+      conditions.push(`parent_id = $${params.length}`);
     }
 
     // Namespace scoping (Epic #1418, Phase 4)
@@ -5029,8 +5039,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         return reply.code(404).send({ error: 'File not found' });
       }
 
-      // Allow if user uploaded the file, or if auth is disabled (dev mode)
-      if (metadata.uploaded_by !== email && !isAuthDisabled()) {
+      // Allow if user uploaded the file, or if auth is disabled (dev mode),
+      // or if M2M token and file is in caller's namespace (#1884)
+      const identity = await getAuthIdentity(req);
+      const isM2M = identity?.type === 'm2m';
+      const callerNamespace = req.namespaceContext?.storeNamespace ?? 'default';
+      const fileInCallerNamespace = metadata.namespace === callerNamespace;
+
+      if (metadata.uploaded_by !== email && !isAuthDisabled() && !(isM2M && fileInCallerNamespace)) {
         await pool.end();
         return reply.code(403).send({ error: 'You do not have permission to share this file' });
       }
@@ -6504,6 +6520,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       // Multi-value fields (#1582)
       custom_fields?: Array<{ key: string; value: string }>;
       tags?: string[];
+      // Endpoints (#1881)
+      endpoints?: Array<{ type: string; value: string; metadata?: Record<string, unknown> }>;
       preferred_channel?: string | null; quiet_hours_start?: string | null; quiet_hours_end?: string | null;
       quiet_hours_timezone?: string | null; urgency_override_channel?: string | null; notification_notes?: string | null;
     };
@@ -6614,12 +6632,43 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         }
       }
 
+      // Create endpoints (#1881)
+      const VALID_ENDPOINT_TYPES = ['phone', 'email', 'telegram', 'slack', 'github', 'webhook'] as const;
+      if (body.endpoints && Array.isArray(body.endpoints) && body.endpoints.length > 0) {
+        for (const ep of body.endpoints) {
+          if (!ep || typeof ep !== 'object') continue;
+          const epType = typeof ep.type === 'string' ? ep.type.trim() : '';
+          const epValue = typeof ep.value === 'string' ? ep.value.trim() : '';
+          if (!epType || !epValue) continue;
+          if (!VALID_ENDPOINT_TYPES.includes(epType as typeof VALID_ENDPOINT_TYPES[number])) {
+            await client.query('ROLLBACK');
+            client.release();
+            await pool.end();
+            return reply.code(400).send({ error: `Invalid endpoint type "${epType}". Must be one of: ${VALID_ENDPOINT_TYPES.join(', ')}` });
+          }
+          await client.query(
+            `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value, metadata, namespace)
+             VALUES ($1, $2::contact_endpoint_type, $3, COALESCE($4::jsonb, '{}'::jsonb), $5)
+             ON CONFLICT (endpoint_type, normalized_value) DO NOTHING`,
+            [contactId, epType, epValue, ep.metadata ? JSON.stringify(ep.metadata) : null, namespace],
+          );
+        }
+      }
+
       await client.query('COMMIT');
       client.release();
 
       // Include tags in response
       const contact = result.rows[0];
       contact.tags = body.tags ? [...new Set(body.tags.map((t) => t.trim()).filter(Boolean))] : [];
+
+      // Include endpoints in response (#1881)
+      const epResult = await pool.query(
+        `SELECT id::text, endpoint_type::text as type, endpoint_value as value, metadata
+         FROM contact_endpoint WHERE contact_id = $1`,
+        [contactId],
+      );
+      contact.endpoints = epResult.rows;
 
       await pool.end();
       return reply.code(201).send(contact);

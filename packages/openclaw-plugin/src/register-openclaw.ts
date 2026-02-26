@@ -2027,7 +2027,9 @@ function createToolHandlers(state: PluginState) {
             };
           }
 
-          // Multiple matches or low confidence → return candidates, don't delete
+          // Multiple matches or low confidence → return candidates, don't delete.
+          // Candidate list uses full UUIDs — required by OpenClaw gateway which
+          // enforces format:"uuid" on memory_id parameter (#1828)
           const list = matches.map((m) => `- [${m.id}] ${m.content.slice(0, 60)}${m.content.length > 60 ? '...' : ''}`).join('\n');
           return {
             success: true,
@@ -2411,7 +2413,7 @@ function createToolHandlers(state: PluginState) {
       const { contact_id } = params as { contact_id: string };
 
       try {
-        const response = await apiClient.get<{ id: string; display_name?: string; given_name?: string; family_name?: string; email?: string; phone?: string; notes?: string }>(
+        const response = await apiClient.get<Record<string, unknown>>(
           `/api/contacts/${contact_id}?user_email=${encodeURIComponent(state.agentId)}`,
           reqOptsScoped(),
         );
@@ -2421,11 +2423,25 @@ function createToolHandlers(state: PluginState) {
         }
 
         const contact = response.data;
-        const contactName = contact.display_name || [contact.given_name, contact.family_name].filter(Boolean).join(' ') || 'Unknown';
-        const lines = [`Contact: ${contactName}`];
-        if (contact.email) lines.push(`Email: ${contact.email}`);
-        if (contact.phone) lines.push(`Phone: ${contact.phone}`);
+        const contactName = (contact.display_name as string)
+          || [contact.given_name, contact.family_name].filter(Boolean).join(' ')
+          || 'Unknown';
+        const lines = [`Contact: ${contactName} (ID: ${contact.id})`];
+
+        // Extract email/phone from endpoints if top-level fields are absent (#1831)
+        const endpoints = Array.isArray(contact.endpoints) ? contact.endpoints : [];
+        const emailEndpoint = endpoints.find((ep: Record<string, unknown>) => ep.type === 'email' || ep.endpoint_type === 'email');
+        const phoneEndpoint = endpoints.find((ep: Record<string, unknown>) => ep.type === 'phone' || ep.endpoint_type === 'phone');
+
+        const email = (contact.email as string) || (emailEndpoint?.value as string) || (emailEndpoint?.endpoint_value as string);
+        const phone = (contact.phone as string) || (phoneEndpoint?.value as string) || (phoneEndpoint?.endpoint_value as string);
+
+        if (email) lines.push(`Email: ${email}`);
+        if (phone) lines.push(`Phone: ${phone}`);
         if (contact.notes) lines.push(`Notes: ${contact.notes}`);
+        if (contact.given_name || contact.family_name) {
+          lines.push(`Name: ${[contact.given_name, contact.family_name].filter(Boolean).join(' ')}`);
+        }
 
         return {
           success: true,
@@ -3946,19 +3962,34 @@ function createToolHandlers(state: PluginState) {
     async namespace_members(params: Record<string, unknown>): Promise<ToolResult> {
       const { namespace } = params as { namespace: string };
       try {
-        const response = await apiClient.get<{ namespace: string; members: Array<{ id: string; email: string; access: string; is_home: boolean }>; member_count: number }>(
+        const response = await apiClient.get<{
+          namespace: string;
+          members: Array<{ id: string; email: string; access: string; is_home: boolean }>;
+          member_count: number;
+        }>(
           `/api/namespaces/${encodeURIComponent(namespace)}`,
           reqOpts(),
         );
         if (!response.success) {
+          logger.warn('namespace_members API call failed', {
+            namespace,
+            status: response.error?.status,
+            message: response.error?.message,
+          });
           return { success: false, error: response.error.message || 'Failed to list namespace members' };
         }
-        const { members, member_count } = response.data;
+        const data = response.data;
+        const members = Array.isArray(data.members) ? data.members : [];
+        const memberCount = data.member_count ?? members.length;
+
         if (members.length === 0) {
-          return { success: true, data: { content: `Namespace **${namespace}** has no members.`, details: response.data } };
+          return { success: true, data: { content: `Namespace **${namespace}** has no members.`, details: data } };
         }
-        const content = [`**${namespace}** — ${member_count} member(s):`, ...members.map((m) => `- ${m.email} (${m.access}${m.is_home ? ', home' : ''})`)].join('\n');
-        return { success: true, data: { content, details: response.data } };
+        const content = [
+          `**${namespace}** — ${memberCount} member(s):`,
+          ...members.map((m) => `- ${m.email} (${m.access ?? 'unknown'}${m.is_home ? ', home' : ''})`),
+        ].join('\n');
+        return { success: true, data: { content, details: data } };
       } catch (error) {
         logger.error('namespace_members failed', { error });
         return { success: false, error: 'Failed to list namespace members' };

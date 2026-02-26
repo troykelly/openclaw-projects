@@ -644,4 +644,95 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
       expect(shareResult.rowCount).toBe(0);
     });
   });
+
+  // ============================================
+  // M2M Access (#1884)
+  // ============================================
+
+  describe('POST /api/files/:id/share M2M access (#1884)', () => {
+    it('allows M2M token to share a file in the same namespace', async function () {
+      if (!storageConfigured) {
+        const res = await app.inject({
+          method: 'POST',
+          url: '/api/files/00000000-0000-0000-0000-000000000001/share',
+          payload: {},
+        });
+        expect(res.statusCode).toBe(503);
+        return;
+      }
+
+      // Create file with namespace 'default'
+      const fileResult = await pool.query(
+        `INSERT INTO file_attachment (
+          storage_key, original_filename, content_type, size_bytes, checksum_sha256,
+          uploaded_by, namespace
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+        RETURNING id::text`,
+        ['test/m2m-share.txt', 'm2m-share.txt', 'text/plain', 1024, 'abc123', 'human@example.com', 'default'],
+      );
+      const id = fileResult.rows[0].id;
+
+      const { getM2mAuthHeaders } = await import('./helpers/auth.ts');
+      const headers = await getM2mAuthHeaders('test-agent');
+
+      const res = await app.inject({
+        method: 'POST',
+        url: `/api/files/${id}/share`,
+        headers: { ...headers, 'x-namespace': 'default' },
+        payload: { expires_in: 300 },
+      });
+
+      // Should succeed — M2M token has namespace access
+      expect(res.statusCode).toBe(200);
+      const body = JSON.parse(res.body);
+      expect(body.url || body.token).toBeDefined();
+    });
+
+    it('rejects M2M token sharing a file in a different namespace (auth-enabled only)', async function () {
+      if (!storageConfigured) {
+        const res = await app.inject({
+          method: 'POST',
+          url: '/api/files/00000000-0000-0000-0000-000000000001/share',
+          payload: {},
+        });
+        expect(res.statusCode).toBe(503);
+        return;
+      }
+
+      // When auth is disabled (default for test env), ownership checks are
+      // bypassed entirely, so cross-namespace shares succeed. This test
+      // verifies the code path exists but only asserts 403 when auth is
+      // actually enabled.
+      const authDisabled = process.env.OPENCLAW_PROJECTS_AUTH_DISABLED === 'true' ||
+        process.env.OPENCLAW_PROJECTS_AUTH_DISABLED === '1';
+
+      const fileResult = await pool.query(
+        `INSERT INTO file_attachment (
+          storage_key, original_filename, content_type, size_bytes, checksum_sha256,
+          uploaded_by, namespace
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+        RETURNING id::text`,
+        ['test/other-ns.txt', 'other-ns.txt', 'text/plain', 1024, 'abc123', 'someone@example.com', 'restricted'],
+      );
+      const id = fileResult.rows[0].id;
+
+      const { getM2mAuthHeaders } = await import('./helpers/auth.ts');
+      const headers = await getM2mAuthHeaders('test-agent');
+
+      const res = await app.inject({
+        method: 'POST',
+        url: `/api/files/${id}/share`,
+        headers: { ...headers, 'x-namespace': 'default' },
+        payload: { expires_in: 300 },
+      });
+
+      if (authDisabled) {
+        // Auth disabled: ownership check is skipped
+        expect(res.statusCode).toBe(200);
+      } else {
+        // Auth enabled: should reject cross-namespace M2M shares
+        expect(res.statusCode).toBe(403);
+      }
+    });
+  });
 });

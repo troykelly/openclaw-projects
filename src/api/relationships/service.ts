@@ -443,18 +443,31 @@ async function resolveContact(
   queryNamespaces?: string[],
 ): Promise<{ id: string; display_name: string } | null> {
   // Try as UUID first — namespace-scoped when namespaces provided (Issue #1653)
+  // Design decision (#1830): Falls back to un-scoped lookup when namespace-scoped
+  // search misses. M2M tokens are globally namespace-capable by design; this allows
+  // agents to link contacts across namespaces (e.g., contacts created in 'default'
+  // found by agent operating in 'troy'). Namespace-scoped match is preferred.
   const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
   if (uuidPattern.test(identifier)) {
-    const query = queryNamespaces?.length
-      ? `SELECT id::text as id, display_name FROM contact WHERE id = $1 AND namespace = ANY($2::text[])`
-      : `SELECT id::text as id, display_name FROM contact WHERE id = $1`;
-    const params = queryNamespaces?.length
-      ? [identifier, queryNamespaces]
-      : [identifier];
-    const result = await pool.query(query, params);
-    if (result.rows.length > 0) {
-      const row = result.rows[0] as { id: string; display_name: string };
+    // Try namespace-scoped first
+    if (queryNamespaces?.length) {
+      const result = await pool.query(
+        `SELECT id::text as id, display_name FROM contact WHERE id = $1 AND namespace = ANY($2::text[])`,
+        [identifier, queryNamespaces],
+      );
+      if (result.rows.length > 0) {
+        const row = result.rows[0] as { id: string; display_name: string };
+        return { id: row.id, display_name: row.display_name };
+      }
+    }
+    // Fallback: un-scoped UUID lookup (#1830)
+    const fallback = await pool.query(
+      `SELECT id::text as id, display_name FROM contact WHERE id = $1`,
+      [identifier],
+    );
+    if (fallback.rows.length > 0) {
+      const row = fallback.rows[0] as { id: string; display_name: string };
       return { id: row.id, display_name: row.display_name };
     }
   }
@@ -466,6 +479,7 @@ async function resolveContact(
     OR lower(TRIM(COALESCE(given_name, '') || ' ' || COALESCE(family_name, ''))) = lower($1)
   ) AND deleted_at IS NULL`;
 
+  // Try namespace-scoped name lookup first
   if (queryNamespaces && queryNamespaces.length > 0) {
     const nameResult = await pool.query(
       `SELECT id::text as id, COALESCE(display_name, TRIM(COALESCE(given_name, '') || ' ' || COALESCE(family_name, ''))) as display_name
@@ -479,20 +493,20 @@ async function resolveContact(
       const row = nameResult.rows[0] as { id: string; display_name: string };
       return { id: row.id, display_name: row.display_name };
     }
-  } else {
-    // No namespace filter (backward compat for callers without namespace context)
-    const nameResult = await pool.query(
-      `SELECT id::text as id, COALESCE(display_name, TRIM(COALESCE(given_name, '') || ' ' || COALESCE(family_name, ''))) as display_name
-       FROM contact
-       WHERE ${nameMatchClause}
-       ORDER BY created_at ASC
-       LIMIT 1`,
-      [identifier],
-    );
-    if (nameResult.rows.length > 0) {
-      const row = nameResult.rows[0] as { id: string; display_name: string };
-      return { id: row.id, display_name: row.display_name };
-    }
+  }
+
+  // Fallback: un-scoped name lookup (#1830)
+  const nameResult = await pool.query(
+    `SELECT id::text as id, COALESCE(display_name, TRIM(COALESCE(given_name, '') || ' ' || COALESCE(family_name, ''))) as display_name
+     FROM contact
+     WHERE ${nameMatchClause}
+     ORDER BY created_at ASC
+     LIMIT 1`,
+    [identifier],
+  );
+  if (nameResult.rows.length > 0) {
+    const row = nameResult.rows[0] as { id: string; display_name: string };
+    return { id: row.id, display_name: row.display_name };
   }
 
   return null;
