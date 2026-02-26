@@ -67,6 +67,8 @@ export interface ContextSearchToolOptions {
   logger: Logger;
   config: PluginConfig;
   user_id: string;
+  /** Namespace scoping for memory search (Issue #1834) */
+  namespaces?: string[];
 }
 
 /** Tool definition */
@@ -167,7 +169,7 @@ function formatResultsAsText(results: ContextSearchResultItem[]): string {
  * Creates the context_search tool.
  */
 export function createContextSearchTool(options: ContextSearchToolOptions): ContextSearchTool {
-  const { client, logger, user_id } = options;
+  const { client, logger, user_id, namespaces } = options;
 
   return {
     name: 'context_search',
@@ -214,6 +216,10 @@ export function createContextSearchTool(options: ContextSearchToolOptions): Cont
           limit: String(limit),
           user_email: user_id,
         });
+        // Namespace scoping for memory search (Issue #1834)
+        if (namespaces && namespaces.length > 0) {
+          memoryParams.set('namespaces', namespaces.join(','));
+        }
         taggedPromises.push({
           tag: 'memory',
           promise: client.get<{ results: MemoryApiResult[]; search_type: string }>(`/api/memories/search?${memoryParams.toString()}`, { user_id }),
