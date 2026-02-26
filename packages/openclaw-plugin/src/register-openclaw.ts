@@ -2411,7 +2411,7 @@ function createToolHandlers(state: PluginState) {
       const { contact_id } = params as { contact_id: string };
 
       try {
-        const response = await apiClient.get<{ id: string; display_name?: string; given_name?: string; family_name?: string; email?: string; phone?: string; notes?: string }>(
+        const response = await apiClient.get<Record<string, unknown>>(
           `/api/contacts/${contact_id}?user_email=${encodeURIComponent(state.agentId)}`,
           reqOptsScoped(),
         );
@@ -2421,11 +2421,25 @@ function createToolHandlers(state: PluginState) {
         }
 
         const contact = response.data;
-        const contactName = contact.display_name || [contact.given_name, contact.family_name].filter(Boolean).join(' ') || 'Unknown';
-        const lines = [`Contact: ${contactName}`];
-        if (contact.email) lines.push(`Email: ${contact.email}`);
-        if (contact.phone) lines.push(`Phone: ${contact.phone}`);
+        const contactName = (contact.display_name as string)
+          || [contact.given_name, contact.family_name].filter(Boolean).join(' ')
+          || 'Unknown';
+        const lines = [`Contact: ${contactName} (ID: ${contact.id})`];
+
+        // Extract email/phone from endpoints if top-level fields are absent (#1831)
+        const endpoints = Array.isArray(contact.endpoints) ? contact.endpoints : [];
+        const emailEndpoint = endpoints.find((ep: Record<string, unknown>) => ep.type === 'email' || ep.endpoint_type === 'email');
+        const phoneEndpoint = endpoints.find((ep: Record<string, unknown>) => ep.type === 'phone' || ep.endpoint_type === 'phone');
+
+        const email = (contact.email as string) || (emailEndpoint?.value as string) || (emailEndpoint?.endpoint_value as string);
+        const phone = (contact.phone as string) || (phoneEndpoint?.value as string) || (phoneEndpoint?.endpoint_value as string);
+
+        if (email) lines.push(`Email: ${email}`);
+        if (phone) lines.push(`Phone: ${phone}`);
         if (contact.notes) lines.push(`Notes: ${contact.notes}`);
+        if (contact.given_name || contact.family_name) {
+          lines.push(`Name: ${[contact.given_name, contact.family_name].filter(Boolean).join(' ')}`);
+        }
 
         return {
           success: true,
