@@ -2755,6 +2755,95 @@ export async function terminalRoutesPlugin(
   });
 
   // ================================================================
+  // Issue #1863 — Dashboard Stats
+  // ================================================================
+
+  // GET /api/terminal/stats — Aggregate stats for dashboard
+  app.get('/api/terminal/stats', async (req, reply) => {
+    const namespaces = getEffectiveNamespaces(req);
+    if (namespaces.length === 0) {
+      return reply.code(403).send({ error: 'No namespace access' });
+    }
+
+    const nsPlaceholder = '$1::text[]';
+
+    const [sessionsResult, connectionsResult, tunnelsResult, errorsResult] = await Promise.all([
+      pool.query(
+        `SELECT COUNT(*) as count FROM terminal_session
+         WHERE namespace = ANY(${nsPlaceholder}) AND status IN ('active', 'idle')`,
+        [namespaces],
+      ),
+      pool.query(
+        `SELECT COUNT(*) as count FROM terminal_connection
+         WHERE namespace = ANY(${nsPlaceholder}) AND deleted_at IS NULL`,
+        [namespaces],
+      ),
+      pool.query(
+        `SELECT COUNT(*) as count FROM terminal_tunnel
+         WHERE namespace = ANY(${nsPlaceholder}) AND status = 'active'`,
+        [namespaces],
+      ),
+      pool.query(
+        `SELECT COUNT(*) as count FROM terminal_activity
+         WHERE namespace = ANY(${nsPlaceholder}) AND action LIKE '%.error' AND created_at > NOW() - interval '24 hours'`,
+        [namespaces],
+      ),
+    ]);
+
+    return reply.send({
+      active_sessions: parseInt((sessionsResult.rows[0] as { count: string }).count, 10),
+      total_connections: parseInt((connectionsResult.rows[0] as { count: string }).count, 10),
+      active_tunnels: parseInt((tunnelsResult.rows[0] as { count: string }).count, 10),
+      recent_errors: parseInt((errorsResult.rows[0] as { count: string }).count, 10),
+    });
+  });
+
+  // ================================================================
+  // Issue #1867 — Reject Host Key
+  // ================================================================
+
+  // POST /api/terminal/known-hosts/reject — Reject pending host key verification
+  app.post('/api/terminal/known-hosts/reject', async (req, reply) => {
+    const body = req.body as {
+      session_id?: string;
+    };
+
+    if (!body?.session_id || !UUID_REGEX.test(body.session_id)) {
+      return reply.code(400).send({ error: 'Valid session_id is required' });
+    }
+
+    if (!(await verifyWriteScope(pool, 'terminal_session', body.session_id, req))) {
+      return reply.code(404).send({ error: 'Session not found' });
+    }
+
+    // Update session status to error since host key was rejected
+    await pool.query(
+      `UPDATE terminal_session SET status = 'error', error_message = 'Host key rejected by user', updated_at = NOW()
+       WHERE id = $1`,
+      [body.session_id],
+    );
+
+    const actor = await getActor(req);
+
+    try {
+      await grpcClient.rejectHostKey({ session_id: body.session_id });
+
+      recordActivity(pool, {
+        namespace: getStoreNamespace(req),
+        session_id: body.session_id,
+        actor,
+        action: 'known_host.reject',
+        detail: { session_id: body.session_id },
+      });
+
+      return reply.send({ rejected: true, session_id: body.session_id });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown gRPC error';
+      return reply.code(502).send({ error: 'Failed to notify worker', details: message });
+    }
+  });
+
+  // ================================================================
   // Issue #1870 — Graceful gRPC client shutdown
   // ================================================================
   app.addHook('onClose', async () => {

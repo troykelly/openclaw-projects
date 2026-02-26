@@ -22,7 +22,7 @@ export const terminalSessionKeys = {
   stats: () => [...terminalSessionKeys.all, 'stats'] as const,
 };
 
-/** Fetch terminal sessions list. */
+/** Fetch terminal sessions list. Auto-refreshes every 30s. */
 export function useTerminalSessions(filters?: { status?: string; connection_id?: string }) {
   const params = new URLSearchParams();
   if (filters?.status) params.set('status', filters.status);
@@ -32,6 +32,7 @@ export function useTerminalSessions(filters?: { status?: string; connection_id?:
   return useQuery({
     queryKey: terminalSessionKeys.list(filters as Record<string, string>),
     queryFn: ({ signal }) => apiClient.get<TerminalSessionsResponse>(`/api/terminal/sessions${qs ? `?${qs}` : ''}`, { signal }),
+    refetchInterval: 30_000,
   });
 }
 
@@ -60,11 +61,12 @@ export function useTerminalEntries(sessionId: string, params?: { limit?: number;
   });
 }
 
-/** Fetch terminal dashboard stats. */
+/** Fetch terminal dashboard stats. Auto-refreshes every 30s. */
 export function useTerminalStats() {
   return useQuery({
     queryKey: terminalSessionKeys.stats(),
     queryFn: ({ signal }) => apiClient.get<TerminalDashboardStats>('/api/terminal/stats', { signal }),
+    refetchInterval: 30_000,
   });
 }
 
