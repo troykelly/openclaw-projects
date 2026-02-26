@@ -10,6 +10,7 @@ import { workItemKeys } from '@/ui/hooks/queries/use-work-items.ts';
 /** Body for adding a participant. */
 export interface AddParticipantBody {
   participant: string;
+  /** Role is required by the server. Defaults to 'assignee' if omitted. */
   role?: string;
 }
 
@@ -17,7 +18,7 @@ export interface AddParticipantBody {
 export interface Participant {
   id: string;
   participant: string;
-  role?: string;
+  role: string;
 }
 
 /** Add a participant to a work item. */
@@ -26,7 +27,10 @@ export function useAddParticipant(workItemId: string) {
 
   return useMutation({
     mutationFn: (body: AddParticipantBody) =>
-      apiClient.post<Participant>(`/api/work-items/${workItemId}/participants`, body),
+      apiClient.post<Participant>(`/api/work-items/${workItemId}/participants`, {
+        ...body,
+        role: body.role || 'assignee',
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: workItemKeys.detail(workItemId) });
     },
