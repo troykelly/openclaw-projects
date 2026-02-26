@@ -19304,8 +19304,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         return reply.code(429).send({ error: `Maximum of ${GEO_MAX_PROVIDERS_PER_USER} providers allowed` });
       }
 
-      // Encrypt credentials if provided
-      const credentials = (body.credentials as string | undefined) ?? null;
+      // Extract credentials: prefer explicit body.credentials, but for HA access_token
+      // auth the UI sends the token inside config.access_token instead.
+      let credentials = (body.credentials as string | undefined) ?? null;
+      if (!credentials && providerType === 'home_assistant' && authType === 'access_token' && typeof config.access_token === 'string') {
+        credentials = config.access_token;
+        delete config.access_token; // Don't store plaintext token in JSONB config
+      }
       const { encryptCredentials } = await import('./geolocation/crypto.ts');
       // We need the provider ID for encryption, so create first then update
       const { createProvider: createGeoProvider } = await import('./geolocation/service.ts');
