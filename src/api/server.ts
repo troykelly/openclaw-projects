@@ -8735,7 +8735,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     const memory_type = body.type ?? 'note';
-    const validTypes = ['note', 'decision', 'context', 'reference'];
+    const validTypes = ['preference', 'fact', 'note', 'decision', 'context', 'reference'];
     if (!validTypes.includes(memory_type)) {
       return reply.code(400).send({ error: `type must be one of: ${validTypes.join(', ')}` });
     }
@@ -8811,7 +8811,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     const memory_type = body.type ?? 'note';
-    const validTypes = ['note', 'decision', 'context', 'reference'];
+    const validTypes = ['preference', 'fact', 'note', 'decision', 'context', 'reference'];
     if (!validTypes.includes(memory_type)) {
       return reply.code(400).send({ error: `type must be one of: ${validTypes.join(', ')}` });
     }
@@ -9988,7 +9988,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     const memory_type = body.type ?? 'note';
-    const validTypes = ['note', 'decision', 'context', 'reference'];
+    const validTypes = ['preference', 'fact', 'note', 'decision', 'context', 'reference'];
     if (!validTypes.includes(memory_type)) {
       return reply.code(400).send({ error: `type must be one of: ${validTypes.join(', ')}` });
     }
@@ -10072,7 +10072,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     if (body.type !== undefined) {
-      const validTypes = ['note', 'decision', 'context', 'reference'];
+      const validTypes = ['preference', 'fact', 'note', 'decision', 'context', 'reference'];
       if (!validTypes.includes(body.type)) {
         await pool.end();
         return reply.code(400).send({ error: `type must be one of: ${validTypes.join(', ')}` });
