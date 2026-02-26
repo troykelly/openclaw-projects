@@ -46,13 +46,15 @@ const mockComments = {
   comments: [
     {
       id: 'c1',
+      work_item_id: 'item-1',
       content: 'First comment',
-      authorId: 'user-1',
-      author: { id: 'user-1', name: 'Test User' },
+      user_email: 'test.user@example.com',
+      parent_id: null,
+      mentions: null,
+      edited_at: null,
       created_at: '2026-01-15T10:00:00Z',
       updated_at: '2026-01-15T10:00:00Z',
-      replyCount: 0,
-      reactions: [],
+      reactions: {},
     },
   ],
 };
@@ -70,22 +72,25 @@ const mockAttachments = {
 };
 
 const mockRollup = {
-  total_children: 5,
-  by_status: { done: 3, in_progress: 1, not_started: 1 },
+  work_item_id: 'item-1',
   total_estimate_minutes: 600,
-  completed_estimate_minutes: 360,
-  progress_pct: 60,
+  total_actual_minutes: 360,
 };
 
 const mockRecurrence = {
-  recurrence_rule: 'FREQ=WEEKLY;BYDAY=MO',
-  recurrence_natural: 'Every Monday',
+  rule: 'FREQ=WEEKLY;BYDAY=MO',
+  rule_description: 'Every Monday',
+  end: null,
+  parent_id: null,
+  is_template: false,
+  next_occurrence: '2026-03-02T00:00:00Z',
 };
 
 const mockInstances = {
   instances: [
-    { id: 'inst-1', title: 'Test Work Item (Feb 24)', status: 'done', not_before: '2026-02-24T00:00:00Z', created_at: '2026-02-24T00:00:00Z' },
+    { id: 'inst-1', title: 'Test Work Item (Feb 24)', status: 'done', scheduled_date: '2026-02-24T00:00:00Z', created_at: '2026-02-24T00:00:00Z', completed_at: '2026-02-24T12:00:00Z' },
   ],
+  count: 1,
 };
 
 const mockLinkedContacts = {

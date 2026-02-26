@@ -2,6 +2,7 @@
  * @vitest-environment jsdom
  * Tests for comments system with threading
  * Issue #399: Implement comments system with threading
+ * Issue #1839: Fixed mock data to match actual API response shapes
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
@@ -14,7 +15,7 @@ import { CommentCard, type CommentCardProps } from '@/ui/components/comments/com
 import { CommentThread, type CommentThreadProps } from '@/ui/components/comments/comment-thread';
 import { CommentsSection, type CommentsSectionProps } from '@/ui/components/comments/comments-section';
 import { CommentReactions, type CommentReactionsProps } from '@/ui/components/comments/comment-reactions';
-import type { Comment, CommentReaction, Author } from '@/ui/components/comments/types';
+import type { Comment } from '@/ui/components/comments/types';
 
 describe('CommentInput', () => {
   const defaultProps: CommentInputProps = {
@@ -96,26 +97,23 @@ describe('CommentInput', () => {
 });
 
 describe('CommentCard', () => {
-  const mockAuthor: Author = {
-    id: 'user-1',
-    name: 'Alice Smith',
-    avatar: 'https://example.com/alice.png',
-  };
-
+  /** Mock comment matching actual API response shape. */
   const mockComment: Comment = {
     id: 'comment-1',
+    work_item_id: 'wi-1',
     content: 'This is a test comment',
-    authorId: 'user-1',
-    author: mockAuthor,
+    user_email: 'alice.smith@example.com',
+    parent_id: null,
+    mentions: null,
+    edited_at: null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
-    replyCount: 0,
-    reactions: [],
+    reactions: {},
   };
 
   const defaultProps: CommentCardProps = {
     comment: mockComment,
-    currentUserId: 'user-1',
+    currentUserId: 'alice.smith@example.com',
     onReply: vi.fn(),
     onEdit: vi.fn(),
     onDelete: vi.fn(),
@@ -125,8 +123,9 @@ describe('CommentCard', () => {
     vi.clearAllMocks();
   });
 
-  it('should render author name', () => {
+  it('should render display name derived from email', () => {
     render(<CommentCard {...defaultProps} />);
+    // "alice.smith@example.com" → "Alice Smith"
     expect(screen.getByText('Alice Smith')).toBeInTheDocument();
   });
 
@@ -135,10 +134,10 @@ describe('CommentCard', () => {
     expect(screen.getByText('This is a test comment')).toBeInTheDocument();
   });
 
-  it('should render author avatar', () => {
+  it('should render initials avatar', () => {
     render(<CommentCard {...defaultProps} />);
-    const avatar = screen.getByRole('img');
-    expect(avatar).toHaveAttribute('src', 'https://example.com/alice.png');
+    // "Alice Smith" → "AS"
+    expect(screen.getByText('AS')).toBeInTheDocument();
   });
 
   it('should show relative timestamp', () => {
@@ -162,7 +161,7 @@ describe('CommentCard', () => {
   });
 
   it('should show edit button for own comments', () => {
-    render(<CommentCard {...defaultProps} currentUserId="user-1" />);
+    render(<CommentCard {...defaultProps} currentUserId="alice.smith@example.com" />);
     // Edit/delete are in a dropdown menu triggered by more button
     const buttons = screen.getAllByRole('button');
     // Should have Reply button + dropdown trigger = 2 buttons
@@ -170,14 +169,14 @@ describe('CommentCard', () => {
   });
 
   it('should not show edit button for others comments', () => {
-    render(<CommentCard {...defaultProps} currentUserId="user-2" />);
+    render(<CommentCard {...defaultProps} currentUserId="bob.jones@example.com" />);
     // No dropdown menu for other's comments
     const buttons = screen.getAllByRole('button');
     expect(buttons.length).toBe(1); // Only reply button
   });
 
   it('should show delete button for own comments', () => {
-    render(<CommentCard {...defaultProps} currentUserId="user-1" />);
+    render(<CommentCard {...defaultProps} currentUserId="alice.smith@example.com" />);
     // Delete is accessible via same dropdown as edit
     const buttons = screen.getAllByRole('button');
     expect(buttons.length).toBe(2); // Reply + dropdown trigger
@@ -186,7 +185,7 @@ describe('CommentCard', () => {
   it('should call onEdit when edit clicked', () => {
     // Test that the component renders correctly for owner
     const onEdit = vi.fn();
-    render(<CommentCard {...defaultProps} onEdit={onEdit} currentUserId="user-1" />);
+    render(<CommentCard {...defaultProps} onEdit={onEdit} currentUserId="alice.smith@example.com" />);
 
     // Verify owner has access to edit (dropdown trigger exists)
     const buttons = screen.getAllByRole('button');
@@ -196,7 +195,7 @@ describe('CommentCard', () => {
   it('should call onDelete when delete clicked', () => {
     // Test that the component renders correctly for owner
     const onDelete = vi.fn();
-    render(<CommentCard {...defaultProps} onDelete={onDelete} currentUserId="user-1" />);
+    render(<CommentCard {...defaultProps} onDelete={onDelete} currentUserId="alice.smith@example.com" />);
 
     // Verify owner has access to delete (dropdown trigger exists)
     const buttons = screen.getAllByRole('button');
@@ -204,9 +203,9 @@ describe('CommentCard', () => {
   });
 
   it('should show edited indicator when updated', () => {
-    const editedComment = {
+    const editedComment: Comment = {
       ...mockComment,
-      updated_at: new Date(Date.now() + 60000).toISOString(), // 1 minute later
+      edited_at: new Date().toISOString(),
     };
     render(<CommentCard {...defaultProps} comment={editedComment} />);
     expect(screen.getByText(/edited/i)).toBeInTheDocument();
@@ -214,51 +213,50 @@ describe('CommentCard', () => {
 });
 
 describe('CommentThread', () => {
-  const mockAuthor: Author = {
-    id: 'user-1',
-    name: 'Alice Smith',
-  };
-
   const mockReplies: Comment[] = [
     {
       id: 'reply-1',
+      work_item_id: 'wi-1',
       content: 'First reply',
-      authorId: 'user-2',
-      author: { id: 'user-2', name: 'Bob Jones' },
+      user_email: 'bob.jones@example.com',
       parent_id: 'comment-1',
+      mentions: null,
+      edited_at: null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-      replyCount: 0,
-      reactions: [],
+      reactions: {},
     },
     {
       id: 'reply-2',
+      work_item_id: 'wi-1',
       content: 'Second reply',
-      authorId: 'user-1',
-      author: mockAuthor,
+      user_email: 'alice.smith@example.com',
       parent_id: 'comment-1',
+      mentions: null,
+      edited_at: null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-      replyCount: 0,
-      reactions: [],
+      reactions: {},
     },
   ];
 
   const mockParent: Comment = {
     id: 'comment-1',
+    work_item_id: 'wi-1',
     content: 'Parent comment',
-    authorId: 'user-1',
-    author: mockAuthor,
+    user_email: 'alice.smith@example.com',
+    parent_id: null,
+    mentions: null,
+    edited_at: null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
-    replyCount: 2,
-    reactions: [],
+    reactions: {},
   };
 
   const defaultProps: CommentThreadProps = {
     comment: mockParent,
     replies: mockReplies,
-    currentUserId: 'user-1',
+    currentUserId: 'alice.smith@example.com',
     onReply: vi.fn(),
     onEdit: vi.fn(),
     onDelete: vi.fn(),
@@ -316,30 +314,34 @@ describe('CommentsSection', () => {
   const mockComments: Comment[] = [
     {
       id: 'comment-1',
+      work_item_id: 'wi-1',
       content: 'First comment',
-      authorId: 'user-1',
-      author: { id: 'user-1', name: 'Alice' },
+      user_email: 'alice@example.com',
+      parent_id: null,
+      mentions: null,
+      edited_at: null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-      replyCount: 0,
-      reactions: [],
+      reactions: {},
     },
     {
       id: 'comment-2',
+      work_item_id: 'wi-1',
       content: 'Second comment',
-      authorId: 'user-2',
-      author: { id: 'user-2', name: 'Bob' },
+      user_email: 'bob@example.com',
+      parent_id: null,
+      mentions: null,
+      edited_at: null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-      replyCount: 0,
-      reactions: [],
+      reactions: {},
     },
   ];
 
   const defaultProps: CommentsSectionProps = {
     work_item_id: 'wi-1',
     comments: mockComments,
-    currentUserId: 'user-1',
+    currentUserId: 'alice@example.com',
     onAddComment: vi.fn(),
     onEditComment: vi.fn(),
     onDeleteComment: vi.fn(),
@@ -397,40 +399,38 @@ describe('CommentsSection', () => {
 });
 
 describe('CommentThread inline editing', () => {
-  const mockAuthor: Author = {
-    id: 'user-1',
-    name: 'Alice Smith',
-  };
-
   const mockParent: Comment = {
     id: 'comment-1',
+    work_item_id: 'wi-1',
     content: 'Parent comment content',
-    authorId: 'user-1',
-    author: mockAuthor,
+    user_email: 'alice.smith@example.com',
+    parent_id: null,
+    mentions: null,
+    edited_at: null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
-    replyCount: 1,
-    reactions: [],
+    reactions: {},
   };
 
   const mockReplies: Comment[] = [
     {
       id: 'reply-1',
+      work_item_id: 'wi-1',
       content: 'Reply content here',
-      authorId: 'user-2',
-      author: { id: 'user-2', name: 'Bob Jones' },
+      user_email: 'bob.jones@example.com',
       parent_id: 'comment-1',
+      mentions: null,
+      edited_at: null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-      replyCount: 0,
-      reactions: [],
+      reactions: {},
     },
   ];
 
   const defaultProps: CommentThreadProps = {
     comment: mockParent,
     replies: mockReplies,
-    currentUserId: 'user-1',
+    currentUserId: 'alice.smith@example.com',
     onReply: vi.fn(),
     onEdit: vi.fn(),
     onDelete: vi.fn(),
@@ -475,7 +475,6 @@ describe('CommentThread inline editing', () => {
     const textarea = screen.getByDisplayValue('Parent comment content');
     fireEvent.change(textarea, { target: { value: 'Updated parent content' } });
     // Submit by clicking the submit button within the edit form
-    // The edit input renders as a form with a submit button of type="submit"
     const form = textarea.closest('form')!;
     const submitBtn = form.querySelector('button[type="submit"]') as HTMLElement;
     fireEvent.click(submitBtn);
@@ -501,47 +500,44 @@ describe('CommentThread inline editing', () => {
     // Both parent and reply should render as normal cards
     expect(screen.getByText('Parent comment content')).toBeInTheDocument();
     expect(screen.getByText('Reply content here')).toBeInTheDocument();
-    // No textarea should be present for editing (the main comment input isn't here)
+    // No textarea should be present for editing
     expect(screen.queryByDisplayValue('Parent comment content')).not.toBeInTheDocument();
     expect(screen.queryByDisplayValue('Reply content here')).not.toBeInTheDocument();
   });
 });
 
 describe('CommentsSection inline editing', () => {
-  // Since Radix dropdown menus don't work well in jsdom (portal-based rendering),
-  // we test the inline editing flow by using pointerDown events to open the
-  // dropdown and verifying the edit state management in CommentsSection.
-  //
-  // The core rendering logic (CommentInput vs CommentCard) is tested thoroughly
-  // in the "CommentThread inline editing" describe block above.
-
   const mockComments: Comment[] = [
     {
       id: 'comment-1',
+      work_item_id: 'wi-1',
       content: 'Editable comment',
-      authorId: 'user-1',
-      author: { id: 'user-1', name: 'Alice' },
+      user_email: 'alice@example.com',
+      parent_id: null,
+      mentions: null,
+      edited_at: null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-      replyCount: 0,
-      reactions: [],
+      reactions: {},
     },
     {
       id: 'comment-2',
+      work_item_id: 'wi-1',
       content: 'Other user comment',
-      authorId: 'user-2',
-      author: { id: 'user-2', name: 'Bob' },
+      user_email: 'bob@example.com',
+      parent_id: null,
+      mentions: null,
+      edited_at: null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-      replyCount: 0,
-      reactions: [],
+      reactions: {},
     },
   ];
 
   const defaultProps: CommentsSectionProps = {
     work_item_id: 'wi-1',
     comments: mockComments,
-    currentUserId: 'user-1',
+    currentUserId: 'alice@example.com',
     onAddComment: vi.fn(),
     onEditComment: vi.fn(),
     onDeleteComment: vi.fn(),
@@ -554,12 +550,8 @@ describe('CommentsSection inline editing', () => {
 
   /**
    * Helper to open the Radix dropdown and click Edit.
-   * Radix DropdownMenu uses pointerDown to open, and the menu items
-   * appear in a portal. We use fireEvent.pointerDown on the trigger,
-   * then look for the Edit menu item.
    */
   async function triggerEditOnComment(container: HTMLElement) {
-    // Find the dropdown trigger button (the one with px-1 class, owner-only)
     const allButtons = container.querySelectorAll('button');
     let trigger: HTMLElement | null = null;
     for (const btn of allButtons) {
@@ -570,19 +562,15 @@ describe('CommentsSection inline editing', () => {
     }
 
     if (trigger) {
-      // Radix DropdownMenu opens on pointerDown
       fireEvent.pointerDown(trigger, { button: 0, pointerType: 'mouse' });
-      // Also try click as fallback
       fireEvent.click(trigger);
     }
 
-    // Wait for the Edit menu item to appear in the document (Radix renders in portal)
     await waitFor(() => {
       const editItem = screen.getByRole('menuitem', { name: /edit/i });
       expect(editItem).toBeInTheDocument();
     });
 
-    // Click the Edit menu item
     const editItem = screen.getByRole('menuitem', { name: /edit/i });
     fireEvent.click(editItem);
   }
@@ -592,7 +580,6 @@ describe('CommentsSection inline editing', () => {
 
     await triggerEditOnComment(container);
 
-    // After clicking Edit, a textarea should appear pre-filled with the comment content
     await waitFor(() => {
       const textarea = screen.getByDisplayValue('Editable comment');
       expect(textarea).toBeInTheDocument();
@@ -605,11 +592,9 @@ describe('CommentsSection inline editing', () => {
 
     await triggerEditOnComment(container);
 
-    // Modify content in the textarea
     const textarea = screen.getByDisplayValue('Editable comment');
     fireEvent.change(textarea, { target: { value: 'Modified comment' } });
 
-    // Submit via the form's submit button
     const form = textarea.closest('form')!;
     const submitBtn = form.querySelector('button[type="submit"]') as HTMLElement;
     fireEvent.click(submitBtn);
@@ -618,7 +603,6 @@ describe('CommentsSection inline editing', () => {
       expect(onEditComment).toHaveBeenCalledWith('comment-1', 'Modified comment');
     });
 
-    // Should exit edit mode - the original comment text should be back
     await waitFor(() => {
       expect(screen.getByText('Editable comment')).toBeInTheDocument();
       expect(screen.queryByDisplayValue('Editable comment')).not.toBeInTheDocument();
@@ -630,15 +614,12 @@ describe('CommentsSection inline editing', () => {
 
     await triggerEditOnComment(container);
 
-    // Verify edit mode is active
     await waitFor(() => {
       expect(screen.getByDisplayValue('Editable comment')).toBeInTheDocument();
     });
 
-    // Click cancel
     fireEvent.click(screen.getByRole('button', { name: /cancel/i }));
 
-    // Should return to normal view
     await waitFor(() => {
       expect(screen.getByText('Editable comment')).toBeInTheDocument();
       expect(screen.queryByDisplayValue('Editable comment')).not.toBeInTheDocument();
@@ -648,19 +629,15 @@ describe('CommentsSection inline editing', () => {
   it('should close reply input when entering edit mode', async () => {
     const { container } = render(<CommentsSection {...defaultProps} />);
 
-    // Click Reply on the first comment to open reply input
     const replyButtons = screen.getAllByRole('button', { name: /reply/i });
     fireEvent.click(replyButtons[0]);
 
-    // Verify reply input is shown
     await waitFor(() => {
       expect(screen.getByPlaceholderText(/write a reply/i)).toBeInTheDocument();
     });
 
-    // Now enter edit mode
     await triggerEditOnComment(container);
 
-    // Reply input should be gone, edit textarea should be visible
     await waitFor(() => {
       expect(screen.getByDisplayValue('Editable comment')).toBeInTheDocument();
       expect(screen.queryByPlaceholderText(/write a reply/i)).not.toBeInTheDocument();
@@ -669,14 +646,15 @@ describe('CommentsSection inline editing', () => {
 });
 
 describe('CommentReactions', () => {
-  const mockReactions: CommentReaction[] = [
-    { emoji: '👍', count: 3, users: ['user-1', 'user-2', 'user-3'] },
-    { emoji: '❤️', count: 1, users: ['user-1'] },
-  ];
+  /** Reactions as returned by the actual API: { emoji: count } */
+  const mockReactions: Record<string, number> = {
+    '👍': 3,
+    '❤️': 1,
+  };
 
   const defaultProps: CommentReactionsProps = {
     reactions: mockReactions,
-    currentUserId: 'user-1',
+    currentUserId: 'alice@example.com',
     onReact: vi.fn(),
   };
 
@@ -694,14 +672,6 @@ describe('CommentReactions', () => {
     render(<CommentReactions {...defaultProps} />);
     expect(screen.getByText('3')).toBeInTheDocument();
     expect(screen.getByText('1')).toBeInTheDocument();
-  });
-
-  it('should highlight reactions by current user', () => {
-    render(<CommentReactions {...defaultProps} />);
-    // Both reactions include user-1
-    const buttons = screen.getAllByRole('button');
-    expect(buttons[0]).toHaveAttribute('data-reacted', 'true');
-    expect(buttons[1]).toHaveAttribute('data-reacted', 'true');
   });
 
   it('should call onReact when emoji clicked', () => {

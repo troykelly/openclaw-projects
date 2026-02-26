@@ -2,7 +2,9 @@
  * @vitest-environment jsdom
  */
 /**
- * Tests for the analytics section (#1734).
+ * Tests for the analytics section (#1734, #1839).
+ *
+ * Mock data matches actual API response shapes from server.ts.
  */
 import * as React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -18,31 +20,22 @@ vi.mock('@/ui/lib/api-client', () => ({
 import { AnalyticsSection } from '@/ui/components/analytics/analytics-section';
 import { apiClient } from '@/ui/lib/api-client';
 
-const mockBurndown = {
-  data: [
-    { date: '2026-02-15', ideal: 20, actual: 20 },
-    { date: '2026-02-16', ideal: 16, actual: 18 },
-    { date: '2026-02-17', ideal: 12, actual: 15 },
-    { date: '2026-02-18', ideal: 8, actual: 12 },
-    { date: '2026-02-19', ideal: 4, actual: 9 },
-    { date: '2026-02-20', ideal: 0, actual: 5 },
-  ],
-};
-
+/** Matches GET /api/analytics/velocity response. */
 const mockVelocity = {
-  data: [
-    { period: '2026-W06', completed: 8 },
-    { period: '2026-W07', completed: 12 },
-    { period: '2026-W08', completed: 10 },
-    { period: '2026-W09', completed: 15 },
+  weeks: [
+    { week_start: '2026-02-02', completed_count: 8, estimated_minutes: 480 },
+    { week_start: '2026-02-09', completed_count: 12, estimated_minutes: 720 },
+    { week_start: '2026-02-16', completed_count: 10, estimated_minutes: 600 },
+    { week_start: '2026-02-23', completed_count: 15, estimated_minutes: 900 },
   ],
 };
 
+/** Matches GET /api/analytics/project-health response. */
 const mockHealth = {
   projects: [
-    { project_id: 'p1', project_title: 'Project Alpha', health: 'healthy', completion_pct: 75, open_items: 5, blocked_items: 0, overdue_items: 0 },
-    { project_id: 'p2', project_title: 'Project Beta', health: 'at_risk', completion_pct: 45, open_items: 12, blocked_items: 3, overdue_items: 2 },
-    { project_id: 'p3', project_title: 'Project Gamma', health: 'behind', completion_pct: 20, open_items: 25, blocked_items: 5, overdue_items: 8 },
+    { id: 'p1', title: 'Project Alpha', open_count: 2, in_progress_count: 3, closed_count: 15, total_count: 20 },
+    { id: 'p2', title: 'Project Beta', open_count: 12, in_progress_count: 3, closed_count: 5, total_count: 20 },
+    { id: 'p3', title: 'Project Gamma', open_count: 25, in_progress_count: 0, closed_count: 5, total_count: 30 },
   ],
 };
 
@@ -61,37 +54,21 @@ describe('AnalyticsSection', () => {
     expect(screen.getByTestId('analytics-section')).toBeInTheDocument();
   });
 
-  it('renders all analytics components after loading', async () => {
+  it('renders velocity and project health after loading', async () => {
     vi.mocked(apiClient.get)
-      .mockResolvedValueOnce(mockBurndown)
       .mockResolvedValueOnce(mockVelocity)
       .mockResolvedValueOnce(mockHealth);
 
     render(<AnalyticsSection />);
 
     await waitFor(() => {
-      expect(screen.getByText('Burndown')).toBeInTheDocument();
       expect(screen.getByText('Velocity')).toBeInTheDocument();
       expect(screen.getByText('Project Health')).toBeInTheDocument();
     });
   });
 
-  it('renders burndown chart', async () => {
-    vi.mocked(apiClient.get)
-      .mockResolvedValueOnce(mockBurndown)
-      .mockResolvedValueOnce(mockVelocity)
-      .mockResolvedValueOnce(mockHealth);
-
-    render(<AnalyticsSection />);
-
-    await waitFor(() => {
-      expect(screen.getByTestId('burndown-chart')).toBeInTheDocument();
-    });
-  });
-
   it('renders velocity chart', async () => {
     vi.mocked(apiClient.get)
-      .mockResolvedValueOnce(mockBurndown)
       .mockResolvedValueOnce(mockVelocity)
       .mockResolvedValueOnce(mockHealth);
 
@@ -102,9 +79,8 @@ describe('AnalyticsSection', () => {
     });
   });
 
-  it('renders project health cards', async () => {
+  it('renders project health cards with derived health status', async () => {
     vi.mocked(apiClient.get)
-      .mockResolvedValueOnce(mockBurndown)
       .mockResolvedValueOnce(mockVelocity)
       .mockResolvedValueOnce(mockHealth);
 
@@ -116,31 +92,34 @@ describe('AnalyticsSection', () => {
     });
 
     expect(screen.getByText('Project Alpha')).toBeInTheDocument();
+    expect(screen.getByText('Project Beta')).toBeInTheDocument();
+    expect(screen.getByText('Project Gamma')).toBeInTheDocument();
+    // Project Alpha: 15/20 closed → Healthy
     expect(screen.getByText('Healthy')).toBeInTheDocument();
+    // Project Beta: 12 open > 5 closed, in_progress > 0 → At Risk
     expect(screen.getByText('At Risk')).toBeInTheDocument();
+    // Project Gamma: 25 open > 5 closed, in_progress = 0 → Behind
     expect(screen.getByText('Behind')).toBeInTheDocument();
   });
 
   it('handles partial data gracefully', async () => {
-    // Only burndown succeeds
+    // Only velocity succeeds
     vi.mocked(apiClient.get)
-      .mockResolvedValueOnce(mockBurndown)
-      .mockRejectedValueOnce(new Error('Velocity unavailable'))
+      .mockResolvedValueOnce(mockVelocity)
       .mockRejectedValueOnce(new Error('Health unavailable'));
 
     render(<AnalyticsSection />);
 
     await waitFor(() => {
-      expect(screen.getByTestId('burndown-chart')).toBeInTheDocument();
+      expect(screen.getByTestId('velocity-chart')).toBeInTheDocument();
     });
 
     // Should still render, showing available data
-    expect(screen.getByText('Burndown')).toBeInTheDocument();
+    expect(screen.getByText('Velocity')).toBeInTheDocument();
   });
 
   it('shows error state when all fetches fail', async () => {
     vi.mocked(apiClient.get)
-      .mockRejectedValueOnce(new Error('Failed'))
       .mockRejectedValueOnce(new Error('Failed'))
       .mockRejectedValueOnce(new Error('Failed'));
 
@@ -153,14 +132,12 @@ describe('AnalyticsSection', () => {
 
   it('renders empty state for charts with no data', async () => {
     vi.mocked(apiClient.get)
-      .mockResolvedValueOnce({ data: [] })
-      .mockResolvedValueOnce({ data: [] })
+      .mockResolvedValueOnce({ weeks: [] })
       .mockResolvedValueOnce({ projects: [] });
 
     render(<AnalyticsSection />);
 
     await waitFor(() => {
-      expect(screen.getByText('No burndown data available.')).toBeInTheDocument();
       expect(screen.getByText('No velocity data available.')).toBeInTheDocument();
       expect(screen.getByText('No project health data available.')).toBeInTheDocument();
     });

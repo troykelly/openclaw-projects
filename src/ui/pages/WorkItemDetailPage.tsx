@@ -259,7 +259,7 @@ export function WorkItemDetailPage(): React.JSX.Element {
   const linkedContacts = linkedContactsData?.contacts ?? [];
 
   // Recurrence
-  const recurrenceRule = recurrenceData?.recurrence_natural ?? null;
+  const recurrenceRule = recurrenceData?.rule_description ?? null;
   const recurrenceInstances = instancesData?.instances ?? [];
 
   // Handlers
@@ -569,29 +569,35 @@ export function WorkItemDetailPage(): React.JSX.Element {
             )}
           </div>
 
-          {/* Rollup progress bar (#1718) */}
-          {rollupData && rollupData.total_children > 0 && (
+          {/* Rollup progress bar (#1718, fixed #1839) */}
+          {rollupData && rollupData.total_estimate_minutes != null && rollupData.total_estimate_minutes > 0 && (
             <Card data-testid="rollup-progress">
               <CardContent className="pt-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium flex items-center gap-2">
-                    <BarChart3 className="size-4 text-muted-foreground" />
-                    Progress
-                  </span>
-                  <span className="text-sm font-medium">{rollupData.progress_pct}%</span>
-                </div>
-                <div className="w-full bg-muted rounded-full h-2">
-                  <div
-                    className="bg-primary h-2 rounded-full transition-all"
-                    style={{ width: `${rollupData.progress_pct}%` }}
-                  />
-                </div>
-                <div className="flex gap-3 mt-2 text-xs text-muted-foreground">
-                  <span>{rollupData.total_children} children</span>
-                  {Object.entries(rollupData.by_status).map(([status, count]) => (
-                    <span key={status}>{status.replace('_', ' ')}: {count}</span>
-                  ))}
-                </div>
+                {(() => {
+                  const estimated = rollupData.total_estimate_minutes ?? 0;
+                  const actual = rollupData.total_actual_minutes ?? 0;
+                  const progressPct = estimated > 0 ? Math.min(100, Math.round((actual / estimated) * 100)) : 0;
+                  return (
+                    <>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium flex items-center gap-2">
+                          <BarChart3 className="size-4 text-muted-foreground" />
+                          Effort
+                        </span>
+                        <span className="text-sm font-medium">{progressPct}%</span>
+                      </div>
+                      <div className="w-full bg-muted rounded-full h-2">
+                        <div
+                          className="bg-primary h-2 rounded-full transition-all"
+                          style={{ width: `${progressPct}%` }}
+                        />
+                      </div>
+                      <div className="flex gap-3 mt-2 text-xs text-muted-foreground">
+                        <span>{actual} of {estimated} min logged</span>
+                      </div>
+                    </>
+                  );
+                })()}
               </CardContent>
             </Card>
           )}
