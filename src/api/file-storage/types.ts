@@ -42,6 +42,7 @@ export interface FileAttachment {
   size_bytes: number;
   checksum_sha256?: string;
   uploaded_by?: string;
+  namespace?: string;
   created_at: Date;
 }
 

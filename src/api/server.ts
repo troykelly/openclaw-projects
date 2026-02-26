@@ -5039,8 +5039,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         return reply.code(404).send({ error: 'File not found' });
       }
 
-      // Allow if user uploaded the file, or if auth is disabled (dev mode)
-      if (metadata.uploaded_by !== email && !isAuthDisabled()) {
+      // Allow if user uploaded the file, or if auth is disabled (dev mode),
+      // or if M2M token and file is in caller's namespace (#1884)
+      const identity = await getAuthIdentity(req);
+      const isM2M = identity?.type === 'm2m';
+      const callerNamespace = req.namespaceContext?.storeNamespace ?? 'default';
+      const fileInCallerNamespace = metadata.namespace === callerNamespace;
+
+      if (metadata.uploaded_by !== email && !isAuthDisabled() && !(isM2M && fileInCallerNamespace)) {
         await pool.end();
         return reply.code(403).send({ error: 'You do not have permission to share this file' });
       }
