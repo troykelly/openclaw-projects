@@ -34,3 +34,13 @@ export function useDeleteTerminalKnownHost() {
     onSuccess: () => { void queryClient.invalidateQueries({ queryKey: terminalKnownHostKeys.all }); },
   });
 }
+
+/** Reject a pending host key verification. */
+export function useRejectTerminalKnownHost() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { session_id: string }) =>
+      apiClient.post<{ rejected: boolean; session_id: string }>('/api/terminal/known-hosts/reject', data),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: terminalKnownHostKeys.all }); },
+  });
+}
