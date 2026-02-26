@@ -8264,25 +8264,25 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       );
       await client.query(`DELETE FROM contact_date WHERE contact_id = $1`, [loser.id]);
 
-      // 4. Move relationships (update references, skip duplicates)
+      // 4. Move relationships (update references, skip duplicates) — Issue #1829
       await client.query(
-        `UPDATE contact_relationship SET from_contact_id = $1
-         WHERE from_contact_id = $2
-           AND (relationship_type, to_contact_id) NOT IN (
-             SELECT relationship_type, to_contact_id FROM contact_relationship WHERE from_contact_id = $1
+        `UPDATE relationship SET contact_a_id = $1
+         WHERE contact_a_id = $2
+           AND (relationship_type_id, contact_b_id) NOT IN (
+             SELECT relationship_type_id, contact_b_id FROM relationship WHERE contact_a_id = $1
            )`,
         [survivor.id, loser.id],
       );
       await client.query(
-        `UPDATE contact_relationship SET to_contact_id = $1
-         WHERE to_contact_id = $2
-           AND (relationship_type, from_contact_id) NOT IN (
-             SELECT relationship_type, from_contact_id FROM contact_relationship WHERE to_contact_id = $1
+        `UPDATE relationship SET contact_b_id = $1
+         WHERE contact_b_id = $2
+           AND (relationship_type_id, contact_a_id) NOT IN (
+             SELECT relationship_type_id, contact_a_id FROM relationship WHERE contact_b_id = $1
            )`,
         [survivor.id, loser.id],
       );
       await client.query(
-        `DELETE FROM contact_relationship WHERE from_contact_id = $1 OR to_contact_id = $1`,
+        `DELETE FROM relationship WHERE contact_a_id = $1 OR contact_b_id = $1`,
         [loser.id],
       );
 
@@ -8911,6 +8911,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         since?: string;
         before?: string;
         period?: string;
+        namespaces?: string;
       };
 
       if (!query.q || query.q.trim().length === 0) {
@@ -8953,6 +8954,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         created_before = resolved;
       }
 
+      // Namespace scoping (Issue #1833, #1834)
+      const searchNamespaces = query.namespaces
+        ? query.namespaces.split(',').map((n: string) => n.trim()).filter(Boolean)
+        : undefined;
+
       const pool = createPool();
 
       try {
@@ -8967,6 +8973,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           tags: searchTags,
           created_after,
           created_before,
+          namespaces: searchNamespaces,
         });
 
         // Map results to include score (Issue #1145)

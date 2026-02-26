@@ -292,8 +292,7 @@ const memoryForgetSchema: JSONSchema = {
   properties: {
     memory_id: {
       type: 'string',
-      description: 'ID of the memory to forget',
-      format: 'uuid',
+      description: 'ID of the memory to forget (full UUID)',
     },
     query: {
       type: 'string',
@@ -2353,7 +2352,8 @@ function createToolHandlers(state: PluginState) {
     },
 
     async context_search(params: Record<string, unknown>): Promise<ToolResult> {
-      const tool = createContextSearchTool({ client: apiClient, logger, config, user_id: getAgentId() });
+      const contextNs = getRecallNamespaces(params);
+      const tool = createContextSearchTool({ client: apiClient, logger, config, user_id: getAgentId(), namespaces: contextNs.length > 0 ? contextNs : undefined });
       return tool.execute(params as Parameters<typeof tool.execute>[0]);
     },
 
@@ -2389,7 +2389,7 @@ function createToolHandlers(state: PluginState) {
       const { contact_id } = params as { contact_id: string };
 
       try {
-        const response = await apiClient.get<{ id: string; name: string; email?: string; phone?: string; notes?: string }>(
+        const response = await apiClient.get<{ id: string; display_name?: string; given_name?: string; family_name?: string; email?: string; phone?: string; notes?: string }>(
           `/api/contacts/${contact_id}?user_email=${encodeURIComponent(state.agentId)}`,
           reqOptsScoped(),
         );
@@ -2399,7 +2399,8 @@ function createToolHandlers(state: PluginState) {
         }
 
         const contact = response.data;
-        const lines = [`Contact: ${contact.name}`];
+        const contactName = contact.display_name || [contact.given_name, contact.family_name].filter(Boolean).join(' ') || 'Unknown';
+        const lines = [`Contact: ${contactName}`];
         if (contact.email) lines.push(`Email: ${contact.email}`);
         if (contact.phone) lines.push(`Phone: ${contact.phone}`);
         if (contact.notes) lines.push(`Notes: ${contact.notes}`);
@@ -3923,7 +3924,7 @@ function createToolHandlers(state: PluginState) {
     async namespace_members(params: Record<string, unknown>): Promise<ToolResult> {
       const { namespace } = params as { namespace: string };
       try {
-        const response = await apiClient.get<{ namespace: string; members: Array<{ id: string; email: string; role: string; is_default: boolean }>; member_count: number }>(
+        const response = await apiClient.get<{ namespace: string; members: Array<{ id: string; email: string; access: string; is_home: boolean }>; member_count: number }>(
           `/api/namespaces/${encodeURIComponent(namespace)}`,
           reqOpts(),
         );
@@ -3934,7 +3935,7 @@ function createToolHandlers(state: PluginState) {
         if (members.length === 0) {
           return { success: true, data: { content: `Namespace **${namespace}** has no members.`, details: response.data } };
         }
-        const content = [`**${namespace}** — ${member_count} member(s):`, ...members.map((m) => `- ${m.email} (${m.role}${m.is_default ? ', default' : ''})`)].join('\n');
+        const content = [`**${namespace}** — ${member_count} member(s):`, ...members.map((m) => `- ${m.email} (${m.access}${m.is_home ? ', home' : ''})`)].join('\n');
         return { success: true, data: { content, details: response.data } };
       } catch (error) {
         logger.error('namespace_members failed', { error });

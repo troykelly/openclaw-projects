@@ -138,13 +138,14 @@ export async function searchMemoriesSemantic(
     tags?: string[];
     created_after?: Date;
     created_before?: Date;
+    namespaces?: string[];
   } = {},
 ): Promise<{
   results: Array<MemoryWithEmbedding & { similarity: number }>;
   search_type: 'semantic' | 'text';
   query_embedding_provider?: string;
 }> {
-  const { limit = 20, offset = 0, memory_type, work_item_id, contact_id, relationship_id, project_id, tags, created_after, created_before } = options;
+  const { limit = 20, offset = 0, memory_type, work_item_id, contact_id, relationship_id, project_id, tags, created_after, created_before, namespaces } = options;
 
   // Try to generate embedding for query
   let queryEmbedding: number[] | null = null;
@@ -203,6 +204,13 @@ export async function searchMemoriesSemantic(
   if (tags && tags.length > 0) {
     conditions.push(`m.tags @> $${paramIndex}`);
     params.push(tags);
+    paramIndex++;
+  }
+
+  // Namespace scoping (Issue #1833, #1834)
+  if (namespaces && namespaces.length > 0) {
+    conditions.push(`m.namespace = ANY($${paramIndex}::text[])`);
+    params.push(namespaces as unknown as string);
     paramIndex++;
   }
 

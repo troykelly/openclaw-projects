@@ -459,11 +459,18 @@ async function resolveContact(
     }
   }
 
-  // Name lookup: namespace-scoped when namespaces provided (names aren't globally unique)
+  // Name lookup: match display_name OR constructed given+family name (Issue #1830)
+  // Contacts created with given_name/family_name may have NULL display_name.
+  const nameMatchClause = `(
+    lower(display_name) = lower($1)
+    OR lower(TRIM(COALESCE(given_name, '') || ' ' || COALESCE(family_name, ''))) = lower($1)
+  ) AND deleted_at IS NULL`;
+
   if (queryNamespaces && queryNamespaces.length > 0) {
     const nameResult = await pool.query(
-      `SELECT id::text as id, display_name FROM contact
-       WHERE lower(display_name) = lower($1) AND namespace = ANY($2::text[])
+      `SELECT id::text as id, COALESCE(display_name, TRIM(COALESCE(given_name, '') || ' ' || COALESCE(family_name, ''))) as display_name
+       FROM contact
+       WHERE ${nameMatchClause} AND namespace = ANY($2::text[])
        ORDER BY created_at ASC
        LIMIT 1`,
       [identifier, queryNamespaces],
@@ -475,8 +482,9 @@ async function resolveContact(
   } else {
     // No namespace filter (backward compat for callers without namespace context)
     const nameResult = await pool.query(
-      `SELECT id::text as id, display_name FROM contact
-       WHERE lower(display_name) = lower($1)
+      `SELECT id::text as id, COALESCE(display_name, TRIM(COALESCE(given_name, '') || ' ' || COALESCE(family_name, ''))) as display_name
+       FROM contact
+       WHERE ${nameMatchClause}
        ORDER BY created_at ASC
        LIMIT 1`,
       [identifier],
