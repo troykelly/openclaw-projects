@@ -9404,7 +9404,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         memory_type?: string;
         importance?: number;
         confidence?: number;
-        is_active?: boolean;
       }>;
     };
 
@@ -9480,12 +9479,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           paramCount++;
           setClauses.push(`confidence = $${paramCount}`);
           values.push(update.confidence);
-        }
-
-        if (update.is_active !== undefined) {
-          paramCount++;
-          setClauses.push(`is_active = $${paramCount}`);
-          values.push(update.is_active);
         }
 
         // Only update if there's something to update
