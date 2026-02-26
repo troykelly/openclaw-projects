@@ -8743,7 +8743,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     // If linked_item_id is provided, validate it exists
     let linkedItemTitle: string | undefined;
-    const workItemId = body.linked_item_id ?? body.work_item_id;
+    const workItemId = (body.linked_item_id || body.work_item_id) || undefined;
     if (workItemId) {
       const linkedItem = await pool.query('SELECT title FROM work_item WHERE id = $1', [workItemId]);
       if (linkedItem.rows.length === 0) {
@@ -8751,6 +8751,16 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         return reply.code(400).send({ error: 'linked item not found' });
       }
       linkedItemTitle = (linkedItem.rows[0] as { title: string }).title;
+    }
+
+    // Validate expires_at if provided
+    let expiresAt: Date | undefined;
+    if (body.expires_at) {
+      expiresAt = new Date(body.expires_at);
+      if (Number.isNaN(expiresAt.getTime())) {
+        await pool.end();
+        return reply.code(400).send({ error: 'expires_at must be a valid ISO date string' });
+      }
     }
 
     try {
@@ -8761,12 +8771,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         title,
         content: body.content.trim(),
         memory_type: memoryType,
-        work_item_id: workItemId ?? undefined,
-        contact_id: body.contact_id ?? undefined,
+        work_item_id: workItemId,
+        contact_id: body.contact_id || undefined,
         tags: body.tags,
         importance: body.importance,
         confidence: body.confidence,
-        expires_at: body.expires_at ? new Date(body.expires_at) : undefined,
+        expires_at: expiresAt,
         source_url: body.source_url ?? undefined,
         lat: body.lat,
         lng: body.lng,
@@ -10082,9 +10092,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         memory_type: memoryType as import('./memory/types.ts').MemoryType | undefined,
         importance: body.importance,
         confidence: body.confidence,
-        expires_at: body.expires_at === null ? null : body.expires_at ? new Date(body.expires_at) : undefined,
+        expires_at: body.expires_at === null ? null : body.expires_at ? (() => {
+          const d = new Date(body.expires_at as string);
+          if (Number.isNaN(d.getTime())) throw new Error('expires_at must be a valid ISO date string');
+          return d;
+        })() : undefined,
         superseded_by: body.superseded_by,
         tags: body.tags,
+        source_url: body.source_url,
       });
 
       if (!updated) {
@@ -10093,7 +10108,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
       return reply.send(updated);
     } catch (err) {
-      if (err instanceof Error && err.message.startsWith('Invalid memory type')) {
+      if (err instanceof Error && (err.message.startsWith('Invalid memory type') || err.message.startsWith('expires_at'))) {
         return reply.code(400).send({ error: err.message });
       }
       throw err;
