@@ -75,7 +75,7 @@ export function rowToProvider(row: any): GeoProvider {
     status: row.status,
     status_message: row.status_message,
     config: row.config,
-    credentials: row.credentials,
+    credentials: row.credentials ? Buffer.isBuffer(row.credentials) ? row.credentials.toString() : row.credentials : null,
     poll_interval_seconds: row.poll_interval_seconds,
     max_age_seconds: row.max_age_seconds,
     is_shared: row.is_shared,
@@ -159,6 +159,20 @@ export interface InsertLocationInput {
   address?: string | null;
   place_label?: string | null;
   raw_payload?: unknown;
+}
+
+// ─── Pre-requisite helpers ────────────────────────────────────────────────────
+
+/**
+ * Ensure a `user_setting` row exists for the given email.
+ * geo_provider.owner_email has an FK to user_setting(email),
+ * so this must be called before any geo_provider INSERT.
+ */
+export async function ensureUserSetting(pool: Queryable, email: string): Promise<void> {
+  await pool.query(
+    `INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT (email) DO NOTHING`,
+    [email],
+  );
 }
 
 // ─── Provider CRUD ───────────────────────────────────────────────────────────

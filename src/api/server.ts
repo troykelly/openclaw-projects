@@ -13686,6 +13686,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // GET /api/analytics/burndown/:id - Get burndown data for a work item
   app.get('/api/analytics/burndown/:id', async (req, reply) => {
     const params = req.params as { id: string };
+
+    if (!isValidUUID(params.id)) {
+      return reply.code(400).send({ error: 'Invalid work item id — expected a UUID' });
+    }
+
     const pool = createPool();
 
     // Check if work item exists
@@ -13893,15 +13898,26 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }
     }
 
+    // Reject M2M tokens — OAuth account linking is a user-only operation.
+    // M2M tokens don't represent a user and should not own OAuth connections
+    // or mint user JWTs via the callback's one-time code flow.
+    const identity = await getAuthIdentity(req);
+    if (identity?.type === 'm2m') {
+      return reply.code(403).send({ error: 'OAuth account linking is not available for machine-to-machine tokens' });
+    }
+
     const scopes = query.scopes?.split(',');
     const permission_level = (query.permission_level as OAuthPermissionLevel) || 'read';
     const state = randomBytes(32).toString('hex');
+
+    const sessionEmail = await getSessionEmail(req);
 
     const pool = createPool();
     try {
       const authResult = await getAuthorizationUrl(pool, provider, state, scopes, {
         features,
         permission_level,
+        user_email: sessionEmail ?? undefined,
       });
 
       // When called via apiClient (Accept: application/json), return URL as JSON
@@ -14012,12 +14028,21 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       // Exchange code for tokens (with PKCE code_verifier)
       const tokens = await exchangeCodeForTokens(provider, query.code, stateData.code_verifier);
 
-      // Get user email from provider
-      const user_email = await getOAuthUserEmail(provider, tokens.access_token);
+      // Get provider account email for multi-account identification
+      const providerEmail = await getOAuthUserEmail(provider, tokens.access_token);
 
-      // Save connection with provider account email for multi-account support
-      await saveConnection(pool, user_email, provider, tokens, {
-        provider_account_email: user_email,
+      // Use the authenticated app user (from state) as the connection owner.
+      // Fall back to provider email for backward compatibility (e.g. unauthenticated flows).
+      const ownerEmail = stateData.user_email || providerEmail;
+
+      // Validate that we have a usable email before persisting
+      if (!ownerEmail || !ownerEmail.includes('@')) {
+        return reply.code(400).send({ error: 'Could not determine a valid user email for the OAuth connection' });
+      }
+
+      // Save connection with app user as owner, provider email as provider_account_email
+      await saveConnection(pool, ownerEmail, provider, tokens, {
+        provider_account_email: providerEmail,
       });
 
       // Generate a one-time authorization code for the SPA to exchange for a JWT.
@@ -14028,7 +14053,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       await pool.query(
         `INSERT INTO auth_one_time_code (code_sha256, email, expires_at)
          VALUES ($1, $2, now() + interval '60 seconds')`,
-        [authCodeSha, user_email],
+        [authCodeSha, ownerEmail],
       );
 
       // Redirect to the SPA auth consume page with the one-time code.
@@ -19310,6 +19335,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     try {
       await client.query('BEGIN');
 
+      // Ensure user_setting row exists (FK target for geo_provider.owner_email)
+      const { ensureUserSetting } = await import('./geolocation/service.ts');
+      await ensureUserSetting(client, email);
+
       // Enforce provider limit (inside transaction for atomicity)
       const countResult = await client.query('SELECT COUNT(*)::int AS cnt FROM geo_provider WHERE owner_email = $1 AND deleted_at IS NULL FOR UPDATE', [email]);
       if (countResult.rows[0].cnt >= GEO_MAX_PROVIDERS_PER_USER) {
@@ -19317,8 +19346,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         return reply.code(429).send({ error: `Maximum of ${GEO_MAX_PROVIDERS_PER_USER} providers allowed` });
       }
 
-      // Encrypt credentials if provided
-      const credentials = (body.credentials as string | undefined) ?? null;
+      // Extract credentials: prefer explicit body.credentials, but for HA access_token
+      // auth the UI sends the token inside config.access_token instead.
+      let credentials = (body.credentials as string | undefined) ?? null;
+      if (!credentials && providerType === 'home_assistant' && authType === 'access_token' && typeof config.access_token === 'string') {
+        credentials = config.access_token;
+        delete config.access_token; // Don't store plaintext token in JSONB config
+      }
       const { encryptCredentials } = await import('./geolocation/crypto.ts');
       // We need the provider ID for encryption, so create first then update
       const { createProvider: createGeoProvider } = await import('./geolocation/service.ts');
@@ -19356,7 +19390,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(201).send(provider);
     } catch (err) {
       await client.query('ROLLBACK');
-      throw err;
+      const pgErr = err as Error & { code?: string };
+      req.log.error({ err: pgErr, email }, 'geo provider creation failed');
+      if (pgErr.code === '23503') {
+        return reply.code(409).send({ error: 'Referenced resource does not exist' });
+      }
+      if (pgErr.code === '23505') {
+        return reply.code(409).send({ error: 'Provider already exists' });
+      }
+      return reply.code(500).send({ error: 'Failed to create provider' });
     } finally {
       client.release();
       await pool.end();
@@ -19651,6 +19693,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     try {
       await client.query('BEGIN');
 
+      // Ensure user_setting row exists (FK target for geo_provider.owner_email)
+      const { ensureUserSetting: ensureUserSettingOAuth } = await import('./geolocation/service.ts');
+      await ensureUserSettingOAuth(client, email);
+
       // Enforce provider limit
       const countResult = await client.query('SELECT COUNT(*)::int AS cnt FROM geo_provider WHERE owner_email = $1 AND deleted_at IS NULL FOR UPDATE', [email]);
       if (countResult.rows[0].cnt >= GEO_MAX_PROVIDERS_PER_USER) {
@@ -19700,7 +19746,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.send({ url, provider_id: provider.id });
     } catch (err) {
       await client.query('ROLLBACK');
-      throw err;
+      const pgErr = err as Error & { code?: string };
+      req.log.error({ err: pgErr, email }, 'HA OAuth authorize failed');
+      if (pgErr.code === '23503') {
+        return reply.code(409).send({ error: 'Referenced resource does not exist' });
+      }
+      if (pgErr.code === '23505') {
+        return reply.code(409).send({ error: 'Provider already exists' });
+      }
+      return reply.code(500).send({ error: 'Failed to initiate OAuth flow' });
     } finally {
       client.release();
       await pool.end();
@@ -20092,6 +20146,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // POST /api/projects/:id/webhooks - Create a webhook for a project
   app.post('/api/projects/:id/webhooks', async (req, reply) => {
     const { id } = req.params as { id: string };
+
+    if (!isValidUUID(id)) {
+      return reply.code(400).send({ error: 'Invalid project id — expected a UUID' });
+    }
+
     const body = req.body as { label?: string; user_email?: string };
 
     const email = await getSessionEmail(req) ?? (isAuthDisabled() ? body?.user_email?.trim() || null : null);
@@ -20129,6 +20188,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // GET /api/projects/:id/webhooks - List webhooks for a project
   app.get('/api/projects/:id/webhooks', async (req, reply) => {
     const { id } = req.params as { id: string };
+
+    if (!isValidUUID(id)) {
+      return reply.code(400).send({ error: 'Invalid project id — expected a UUID' });
+    }
 
     const email = await getSessionEmail(req);
     if (!email && !isAuthDisabled()) {
@@ -20171,6 +20234,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.delete('/api/projects/:id/webhooks/:webhook_id', async (req, reply) => {
     const { id, webhook_id } = req.params as { id: string; webhook_id: string };
 
+    if (!isValidUUID(id)) {
+      return reply.code(400).send({ error: 'Invalid project id — expected a UUID' });
+    }
+    if (!isValidUUID(webhook_id)) {
+      return reply.code(400).send({ error: 'Invalid webhook id — expected a UUID' });
+    }
+
     const email = await getSessionEmail(req);
     if (!email && !isAuthDisabled()) {
       return reply.code(401).send({ error: 'unauthorized' });
@@ -20211,6 +20281,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // POST /api/webhooks/:webhook_id - Public ingestion endpoint (bearer token auth)
   app.post('/api/webhooks/:webhook_id', async (req, reply) => {
     const { webhook_id } = req.params as { webhook_id: string };
+
+    if (!isValidUUID(webhook_id)) {
+      return reply.code(400).send({ error: 'Invalid webhook id — expected a UUID' });
+    }
+
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -20267,6 +20342,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // GET /api/projects/:id/events - List project events (paginated)
   app.get('/api/projects/:id/events', async (req, reply) => {
     const { id } = req.params as { id: string };
+
+    if (!isValidUUID(id)) {
+      return reply.code(400).send({ error: 'Invalid project id — expected a UUID' });
+    }
+
     const query = req.query as { limit?: string; offset?: string };
     const limit = Math.min(Number(query.limit) || 50, 200);
     const offset = Number(query.offset) || 0;
