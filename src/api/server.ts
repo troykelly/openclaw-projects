@@ -9390,6 +9390,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         id: string;
         title?: string;
         content?: string;
+        type?: string;
+        memory_type?: string;
         importance?: number;
         confidence?: number;
         is_active?: boolean;
@@ -9443,6 +9445,19 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           paramCount++;
           setClauses.push(`content = $${paramCount}`);
           values.push(update.content);
+        }
+
+        const memoryType = update.memory_type ?? update.type;
+        if (memoryType !== undefined) {
+          const validTypes = ['preference', 'fact', 'note', 'decision', 'context', 'reference'];
+          if (!validTypes.includes(memoryType)) {
+            results.push({ index: i, id: update.id, status: 'failed', error: `type must be one of: ${validTypes.join(', ')}` });
+            failedCount++;
+            continue;
+          }
+          paramCount++;
+          setClauses.push(`memory_type = $${paramCount}::memory_type`);
+          values.push(memoryType);
         }
 
         if (update.importance !== undefined) {
