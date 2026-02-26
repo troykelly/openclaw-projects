@@ -93,6 +93,11 @@ export function terminalSearchPaths(): OpenApiDomainModule {
           total: { type: 'integer' },
           limit: { type: 'integer' },
           offset: { type: 'integer' },
+          search_mode: {
+            type: 'string',
+            enum: ['semantic', 'text'],
+            description: 'Whether search used pgvector cosine similarity (semantic) or ILIKE text matching (text fallback)',
+          },
         },
       },
     },
@@ -103,8 +108,9 @@ export function terminalSearchPaths(): OpenApiDomainModule {
           operationId: 'searchTerminalEntries',
           summary: 'Semantic search across terminal entries',
           description:
-            'Searches terminal session entries using text matching with filters for connection, session, entry kind, tags, host, date range. ' +
-            'Results include surrounding context entries.',
+            'Searches terminal session entries using pgvector cosine similarity when embeddings are available, ' +
+            'with ILIKE text matching as fallback. Supports filters for connection, session, entry kind, tags, host, date range. ' +
+            'Results include surrounding context entries and a similarity score.',
           tags: ['Terminal Search'],
           parameters: [namespaceParam()],
           requestBody: jsonBody(ref('TerminalSearchRequest')),
