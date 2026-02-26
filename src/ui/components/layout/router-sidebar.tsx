@@ -1,9 +1,12 @@
 import * as React from 'react';
-import { Bell, Folder, Users, Search, Settings, ChevronLeft, ChevronRight, Plus, Brain, MessageSquare, Package, ChefHat, UtensilsCrossed, Code, Home, Warehouse, Mic, Terminal } from 'lucide-react';
+import { Bell, Folder, Users, Search, Settings, ChevronLeft, ChevronRight, Plus, Brain, MessageSquare, Package, ChefHat, UtensilsCrossed, Code, Home, Warehouse, Mic, Terminal, Globe } from 'lucide-react';
 import { cn } from '@/ui/lib/utils';
+import { APP_VERSION } from '@/ui/lib/version';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/ui/components/ui/tooltip';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/components/ui/select';
 import { ScrollArea } from '@/ui/components/ui/scroll-area';
 import { PrefetchLink } from '@/ui/components/navigation/PrefetchLink';
+import { useNamespaceSafe } from '@/ui/contexts/namespace-context';
 
 /** Navigation item definition used by RouterSidebar. */
 export interface RouterNavItem {
@@ -19,7 +22,7 @@ export interface RouterNavItem {
 
 const defaultNavItems: RouterNavItem[] = [
   { id: 'activity', label: 'Activity', icon: Bell, to: '/activity' },
-  { id: 'projects', label: 'Projects', icon: Folder, to: '/projects' },
+  { id: 'projects', label: 'Projects', icon: Folder, to: '/work-items' },
   { id: 'people', label: 'People', icon: Users, to: '/contacts' },
   { id: 'memory', label: 'Memory', icon: Brain, to: '/memory' },
   { id: 'communications', label: 'Communications', icon: MessageSquare, to: '/communications' },
@@ -62,14 +65,20 @@ export function RouterSidebar({ items = defaultNavItems, onCreateClick, onSearch
     onCollapsedChange?.(!collapsed);
   };
 
+  const ns = useNamespaceSafe();
+  const grants = ns?.grants ?? [];
+  const activeNamespace = ns?.activeNamespace ?? 'default';
+  const setActiveNamespace = ns?.setActiveNamespace;
+  const hasMultipleNamespaces = ns?.hasMultipleNamespaces ?? false;
+
   return (
     <TooltipProvider delayDuration={0}>
       <aside
         data-testid="router-sidebar"
         data-collapsed={collapsed}
         className={cn(
-          'flex h-full flex-col border-r border-border/50 bg-gradient-to-b from-surface to-background transition-all duration-300 ease-out',
-          collapsed ? 'w-[68px]' : 'w-60',
+          'flex h-full flex-col border-r border-border bg-surface z-20 transition-all duration-300 ease-out',
+          collapsed ? 'w-16' : 'w-60',
           className,
         )}
       >
@@ -91,6 +100,62 @@ export function RouterSidebar({ items = defaultNavItems, onCreateClick, onSearch
             </button>
           )}
         </div>
+
+        {/* Namespace Selector */}
+        {grants.length > 0 && (
+          <div className="px-3 pt-2">
+            {hasMultipleNamespaces ? (
+              collapsed ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      className="flex w-full items-center justify-center rounded-md py-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                      aria-label={`Namespace: ${activeNamespace}`}
+                    >
+                      <Globe className="size-4" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right" sideOffset={8} className="font-medium">
+                    {activeNamespace}
+                  </TooltipContent>
+                </Tooltip>
+              ) : (
+                <Select value={activeNamespace} onValueChange={(v) => setActiveNamespace?.(v)}>
+                  <SelectTrigger size="sm" className="w-full text-xs" aria-label="Select namespace">
+                    <Globe className="size-3.5 shrink-0 text-muted-foreground" />
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {grants.map((g) => (
+                      <SelectItem key={g.namespace} value={g.namespace}>
+                        {g.namespace}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )
+            ) : (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div
+                    className={cn(
+                      'flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-muted-foreground',
+                      collapsed && 'justify-center px-0',
+                    )}
+                  >
+                    <Globe className="size-3.5 shrink-0" />
+                    {!collapsed && <span className="truncate">{activeNamespace}</span>}
+                  </div>
+                </TooltipTrigger>
+                {collapsed && (
+                  <TooltipContent side="right" sideOffset={8} className="font-medium">
+                    {activeNamespace}
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            )}
+          </div>
+        )}
 
         {/* Create Button */}
         {onCreateClick && (
@@ -164,7 +229,7 @@ export function RouterSidebar({ items = defaultNavItems, onCreateClick, onSearch
         </ScrollArea>
 
         {/* Footer */}
-        <div className="border-t border-border/50 p-3 space-y-1">
+        <div className="border-t border-border p-3 space-y-1">
           <Tooltip>
             <TooltipTrigger asChild>
               <button
@@ -225,6 +290,11 @@ export function RouterSidebar({ items = defaultNavItems, onCreateClick, onSearch
               <ChevronRight className="size-4" />
             </button>
           )}
+
+          {/* Version */}
+          <p data-testid="app-version" className={cn('text-center text-[10px] text-muted-foreground/50 select-none pt-1', collapsed && 'px-0')}>
+            {collapsed ? 'v' : `v${APP_VERSION}`}
+          </p>
         </div>
       </aside>
     </TooltipProvider>

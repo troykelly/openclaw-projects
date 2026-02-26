@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useState, useEffect, useCallback } from 'react';
 import { cn } from '@/ui/lib/utils';
-import { Sidebar, type NavItem } from './sidebar';
+import { RouterSidebar } from './router-sidebar';
 import { MobileNav } from './mobile-nav';
 import { Breadcrumb, type BreadcrumbItem } from './breadcrumb';
 import { KeyboardShortcutsModal } from '@/ui/components/keyboard-shortcuts-modal';
@@ -11,9 +11,8 @@ const SIDEBAR_COLLAPSED_KEY = 'sidebar-collapsed';
 
 export interface AppShellProps {
   children: React.ReactNode;
-  activeSection?: string;
-  onSectionChange?: (section: string) => void;
   onCreateClick?: () => void;
+  onSearchClick?: () => void;
   breadcrumbs?: BreadcrumbItem[];
   onBreadcrumbClick?: (item: BreadcrumbItem, index: number) => void;
   onHomeClick?: () => void;
@@ -23,9 +22,8 @@ export interface AppShellProps {
 
 export function AppShell({
   children,
-  activeSection = 'activity',
-  onSectionChange,
   onCreateClick,
+  onSearchClick,
   breadcrumbs = [],
   onBreadcrumbClick,
   onHomeClick,
@@ -42,34 +40,26 @@ export function AppShell({
     localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(collapsed));
   }, []);
 
-  const handleNavItemClick = useCallback(
-    (item: NavItem) => {
-      onSectionChange?.(item.id);
-    },
-    [onSectionChange],
-  );
-
   // Handle keyboard shortcut for search (⌘K)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
-        onSectionChange?.('search');
+        onSearchClick?.();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onSectionChange]);
+  }, [onSearchClick]);
 
   return (
     <div data-testid="app-shell" className={cn('flex h-screen bg-background', className)}>
       {/* Desktop Sidebar */}
       <div className="hidden md:block">
-        <Sidebar
-          activeItem={activeSection}
-          onItemClick={handleNavItemClick}
+        <RouterSidebar
           onCreateClick={onCreateClick}
+          onSearchClick={onSearchClick}
           collapsed={sidebarCollapsed}
           onCollapsedChange={handleCollapsedChange}
         />
@@ -91,7 +81,7 @@ export function AppShell({
       </main>
 
       {/* Mobile Navigation */}
-      <MobileNav activeItem={activeSection} onItemClick={handleNavItemClick} />
+      <MobileNav />
 
       {/* Keyboard Shortcuts Help Modal (⌘/) */}
       <KeyboardShortcutsModal />
