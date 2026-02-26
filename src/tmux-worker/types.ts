@@ -4,7 +4,44 @@
  * These mirror the protobuf definitions in proto/terminal/v1/terminal.proto
  * for use in application code. The @grpc/proto-loader handles runtime
  * serialization; these types provide compile-time safety.
+ *
+ * Note: google.protobuf.Timestamp is deserialized by @grpc/proto-loader
+ * (with longs: 'String') as { seconds: string; nanos: number }, NOT as
+ * a plain ISO string. Issue #1860.
  */
+
+// ─── Proto Timestamp ─────────────────────────────────────────
+
+/**
+ * Proto Timestamp as deserialized by @grpc/proto-loader with longs: 'String'.
+ */
+export interface ProtoTimestamp {
+  seconds: string;
+  nanos: number;
+}
+
+/**
+ * Convert a Date (or ISO string) to a proto Timestamp.
+ * Returns null for null/undefined input.
+ */
+export function toTimestamp(input: Date | string | null | undefined): ProtoTimestamp | null {
+  if (input == null) return null;
+  const date = typeof input === 'string' ? new Date(input) : input;
+  const ms = date.getTime();
+  const seconds = Math.floor(ms / 1000);
+  const nanos = (ms % 1000) * 1_000_000;
+  return { seconds: String(seconds), nanos };
+}
+
+/**
+ * Convert a proto Timestamp to an ISO date string.
+ * Returns null for null/undefined input.
+ */
+export function fromTimestamp(ts: ProtoTimestamp | null | undefined): string | null {
+  if (ts == null) return null;
+  const ms = Number(ts.seconds) * 1000 + Math.floor(ts.nanos / 1_000_000);
+  return new Date(ms).toISOString();
+}
 
 // ─── Connection ─────────────────────────────────────────────
 
@@ -78,9 +115,9 @@ export interface SessionInfo {
   cols: number;
   rows: number;
   windows: WindowInfo[];
-  started_at: string | null;
-  last_activity_at: string | null;
-  terminated_at: string | null;
+  started_at: ProtoTimestamp | null;
+  last_activity_at: ProtoTimestamp | null;
+  terminated_at: ProtoTimestamp | null;
   exit_code: number;
   error_message: string;
   tags: string[];
@@ -246,7 +283,7 @@ export interface EnrollmentEvent {
   port: number;
   label: string;
   tags: string[];
-  enrolled_at: string | null;
+  enrolled_at: ProtoTimestamp | null;
 }
 
 // ─── Host key verification ──────────────────────────────────

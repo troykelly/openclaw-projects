@@ -17,6 +17,8 @@ import type {
   CreateSessionRequest,
   SessionInfo,
   TerminateSessionRequest,
+  ListSessionsRequest,
+  ListSessionsResponse,
   GetSessionRequest,
   ResizeSessionRequest,
   SendCommandRequest,
@@ -155,6 +157,10 @@ export function createSession(req: CreateSessionRequest): Promise<SessionInfo> {
 
 export function terminateSession(req: TerminateSessionRequest): Promise<Record<string, never>> {
   return unaryCall('TerminateSession', req);
+}
+
+export function listSessions(req: ListSessionsRequest): Promise<ListSessionsResponse> {
+  return unaryCall('ListSessions', req);
 }
 
 export function getSession(req: GetSessionRequest): Promise<SessionInfo> {
