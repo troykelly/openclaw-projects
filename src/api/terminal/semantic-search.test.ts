@@ -35,6 +35,7 @@ describe('shouldUseSemantic', () => {
 
     const sql = (pool.query as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
     expect(sql).toContain('embedded_at IS NOT NULL');
+    expect(sql).toContain('embedding IS NOT NULL');
     expect(sql).toContain('namespace');
   });
 
@@ -63,8 +64,9 @@ describe('buildSemanticSearchQuery', () => {
     expect(sql).toContain('<=>');
     // Must compute similarity as 1 - distance
     expect(sql).toContain('1 - (');
-    // Must filter for embedded entries
+    // Must filter for embedded entries with actual vectors
     expect(sql).toContain('embedded_at IS NOT NULL');
+    expect(sql).toContain('embedding IS NOT NULL');
     // Must order by vector distance
     expect(sql).toContain('ORDER BY');
     expect(sql).toContain('<=>');

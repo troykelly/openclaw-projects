@@ -39,6 +39,7 @@ export async function shouldUseSemantic(pool: Pool, namespaces: string[]): Promi
      FROM terminal_session_entry
      WHERE namespace = ANY($1::text[])
        AND embedded_at IS NOT NULL
+       AND embedding IS NOT NULL
      LIMIT 1`,
     [namespaces],
   );
@@ -53,6 +54,7 @@ export function buildSemanticSearchQuery(filters: SearchFilters): QueryPlan {
   const conditions: string[] = [
     'e.namespace = ANY($1::text[])',
     'e.embedded_at IS NOT NULL',
+    'e.embedding IS NOT NULL',
   ];
   const params: unknown[] = [filters.namespaces];
   let idx = 2;
