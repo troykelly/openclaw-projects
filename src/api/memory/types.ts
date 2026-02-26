@@ -100,6 +100,8 @@ export interface MemoryEntry {
   expires_at: Date | null;
   superseded_by: string | null;
   embedding_status: 'pending' | 'complete' | 'failed';
+  /** Whether this memory is currently active */
+  is_active: boolean;
   /** WGS84 latitude */
   lat: number | null;
   /** WGS84 longitude */
