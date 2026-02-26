@@ -61,7 +61,7 @@ describe('AnalyticsSection', () => {
     expect(screen.getByTestId('analytics-section')).toBeInTheDocument();
   });
 
-  it('renders all analytics components after loading', async () => {
+  it('renders velocity and health after loading (burndown hidden without data)', async () => {
     // Component fetches velocity + health (burndown removed — no project context)
     vi.mocked(apiClient.get)
       .mockResolvedValueOnce(mockVelocity)
@@ -70,14 +70,15 @@ describe('AnalyticsSection', () => {
     render(<AnalyticsSection />);
 
     await waitFor(() => {
-      expect(screen.getByText('Burndown')).toBeInTheDocument();
       expect(screen.getByText('Velocity')).toBeInTheDocument();
       expect(screen.getByText('Project Health')).toBeInTheDocument();
     });
+    // Burndown card hidden — no data fetched
+    expect(screen.queryByText('Burndown')).not.toBeInTheDocument();
   });
 
-  it('renders burndown as empty (no API call)', async () => {
-    // Burndown API call was removed — burndown always renders empty state
+  it('hides burndown card when no data (no API call)', async () => {
+    // Burndown API call was removed — card is hidden when empty
     vi.mocked(apiClient.get)
       .mockResolvedValueOnce(mockVelocity)
       .mockResolvedValueOnce(mockHealth);
@@ -85,7 +86,11 @@ describe('AnalyticsSection', () => {
     render(<AnalyticsSection />);
 
     await waitFor(() => {
-      expect(screen.getByText('No burndown data available.')).toBeInTheDocument();
+      // Burndown card should not be present since no data is fetched
+      expect(screen.queryByText('Burndown')).not.toBeInTheDocument();
+      // Velocity and health should render
+      expect(screen.getByText('Velocity')).toBeInTheDocument();
+      expect(screen.getByText('Project Health')).toBeInTheDocument();
     });
   });
 
@@ -155,7 +160,8 @@ describe('AnalyticsSection', () => {
     render(<AnalyticsSection />);
 
     await waitFor(() => {
-      expect(screen.getByText('No burndown data available.')).toBeInTheDocument();
+      // Burndown card is hidden when no data (no API call to populate it)
+      expect(screen.queryByText('No burndown data available.')).not.toBeInTheDocument();
       expect(screen.getByText('No velocity data available.')).toBeInTheDocument();
       expect(screen.getByText('No project health data available.')).toBeInTheDocument();
     });

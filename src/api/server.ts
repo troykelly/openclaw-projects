@@ -20220,6 +20220,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     if (!isValidUUID(id)) {
       return reply.code(400).send({ error: 'Invalid project id — expected a UUID' });
     }
+    if (!isValidUUID(webhook_id)) {
+      return reply.code(400).send({ error: 'Invalid webhook id — expected a UUID' });
+    }
 
     const email = await getSessionEmail(req);
     if (!email && !isAuthDisabled()) {
@@ -20261,6 +20264,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // POST /api/webhooks/:webhook_id - Public ingestion endpoint (bearer token auth)
   app.post('/api/webhooks/:webhook_id', async (req, reply) => {
     const { webhook_id } = req.params as { webhook_id: string };
+
+    if (!isValidUUID(webhook_id)) {
+      return reply.code(400).send({ error: 'Invalid webhook id — expected a UUID' });
+    }
+
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {

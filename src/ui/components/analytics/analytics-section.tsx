@@ -270,7 +270,7 @@ export function AnalyticsSection(): React.JSX.Element {
     );
   }
 
-  if (error && burndown.length === 0 && velocity.length === 0 && health.length === 0) {
+  if (error && velocity.length === 0 && health.length === 0) {
     return (
       <Card data-testid="analytics-section">
         <CardHeader>
@@ -290,19 +290,21 @@ export function AnalyticsSection(): React.JSX.Element {
     <div className="space-y-6" data-testid="analytics-section">
       {/* Burndown + Velocity row */}
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Burndown chart */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <TrendingUp className="size-5 text-blue-500" />
-              Burndown
-            </CardTitle>
-            <CardDescription>Items remaining over time</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <BurndownChart data={burndown} />
-          </CardContent>
-        </Card>
+        {/* Burndown chart — only shown when data is available (requires project context) */}
+        {burndown.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <TrendingUp className="size-5 text-blue-500" />
+                Burndown
+              </CardTitle>
+              <CardDescription>Items remaining over time</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <BurndownChart data={burndown} />
+            </CardContent>
+          </Card>
+        )}
 
         {/* Velocity chart */}
         <Card>

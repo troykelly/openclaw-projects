@@ -24,11 +24,18 @@ vi.mock('@/ui/lib/api-client', () => ({
 import { WebhookManagementSection } from '@/ui/components/settings/webhook-management-section';
 import { apiClient } from '@/ui/lib/api-client';
 
+// Mock data matches the actual GET /api/webhooks/status response shape
 const mockStatus = {
-  total: 2,
-  active: 1,
-  pending_deliveries: 3,
-  failed_deliveries: 1,
+  configured: true,
+  gateway_url: 'https://gateway.example.com',
+  has_token: true,
+  default_model: 'gpt-4',
+  timeout_seconds: 30,
+  stats: {
+    pending: 3,
+    failed: 1,
+    dispatched: 42,
+  },
 };
 
 describe('WebhookManagementSection', () => {
@@ -53,8 +60,10 @@ describe('WebhookManagementSection', () => {
     render(<WebhookManagementSection />);
 
     await waitFor(() => {
-      expect(screen.getByText('2')).toBeInTheDocument(); // Total
-      expect(screen.getByText('Total')).toBeInTheDocument();
+      expect(screen.getByText('Configured')).toBeInTheDocument();
+      expect(screen.getByText('Yes')).toBeInTheDocument();
+      expect(screen.getByText('42')).toBeInTheDocument(); // Dispatched
+      expect(screen.getByText('Dispatched')).toBeInTheDocument();
     });
   });
 
@@ -71,13 +80,13 @@ describe('WebhookManagementSection', () => {
   it('does not show retry button when no failed deliveries', async () => {
     vi.mocked(apiClient.get).mockResolvedValueOnce({
       ...mockStatus,
-      failed_deliveries: 0,
+      stats: { ...mockStatus.stats, failed: 0 },
     });
 
     render(<WebhookManagementSection />);
 
     await waitFor(() => {
-      expect(screen.getByText('Total')).toBeInTheDocument();
+      expect(screen.getByText('Configured')).toBeInTheDocument();
     });
     expect(screen.queryByTestId('webhook-retry-btn')).not.toBeInTheDocument();
   });
@@ -99,7 +108,7 @@ describe('WebhookManagementSection', () => {
     render(<WebhookManagementSection />);
 
     await waitFor(() => {
-      expect(screen.getByText('Total')).toBeInTheDocument();
+      expect(screen.getByText('Configured')).toBeInTheDocument();
     });
 
     // Verify only the global status endpoint was called, not project-scoped ones
