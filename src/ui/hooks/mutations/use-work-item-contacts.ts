@@ -7,13 +7,19 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/ui/lib/api-client.ts';
 import { workItemContactKeys } from '@/ui/hooks/queries/use-work-item-contacts.ts';
 
+/** Valid relationship types for work item contact linking. */
+export type ContactRelationshipType = 'owner' | 'assignee' | 'stakeholder' | 'reviewer';
+
 /** Link a contact to a work item. */
 export function useLinkContact(workItemId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (contactId: string) =>
-      apiClient.post(`/api/work-items/${workItemId}/contacts`, { contact_id: contactId }),
+    mutationFn: ({ contactId, relationship }: { contactId: string; relationship?: ContactRelationshipType }) =>
+      apiClient.post(`/api/work-items/${workItemId}/contacts`, {
+        contact_id: contactId,
+        relationship: relationship || 'stakeholder',
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: workItemContactKeys.forWorkItem(workItemId) });
     },

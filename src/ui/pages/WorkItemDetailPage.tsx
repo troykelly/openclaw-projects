@@ -156,7 +156,7 @@ export function WorkItemDetailPage(): React.JSX.Element {
   // Add participant dialog state
   const [addParticipantDialogOpen, setAddParticipantDialogOpen] = useState(false);
   const [addParticipantName, setAddParticipantName] = useState('');
-  const [addParticipantRole, setAddParticipantRole] = useState('');
+  const [addParticipantRole, setAddParticipantRole] = useState('assignee');
 
   // Recurrence dialog state
   const [recurrenceDialogOpen, setRecurrenceDialogOpen] = useState(false);
@@ -165,33 +165,19 @@ export function WorkItemDetailPage(): React.JSX.Element {
   // Link contact dialog state
   const [linkContactDialogOpen, setLinkContactDialogOpen] = useState(false);
   const [linkContactId, setLinkContactId] = useState('');
+  const [linkContactRelationship, setLinkContactRelationship] = useState<'owner' | 'assignee' | 'stakeholder' | 'reviewer'>('stakeholder');
 
   // Map API detail to component format
   const workItem: DetailComponentType | null = apiDetail
     ? (() => {
-        const deps: WorkItemDependency[] = [];
-        if (apiDetail.dependencies?.blocks) {
-          deps.push(
-            ...apiDetail.dependencies.blocks.map((d) => ({
-              id: d.id,
-              title: d.title,
-              kind: 'issue' as WorkItemKind,
-              status: 'not_started' as WorkItemStatus,
-              direction: 'blocks' as const,
-            })),
-          );
-        }
-        if (apiDetail.dependencies?.blocked_by) {
-          deps.push(
-            ...apiDetail.dependencies.blocked_by.map((d) => ({
-              id: d.id,
-              title: d.title,
-              kind: 'issue' as WorkItemKind,
-              status: 'not_started' as WorkItemStatus,
-              direction: 'blocked_by' as const,
-            })),
-          );
-        }
+        // Issue #1712: server returns flat array with direction field
+        const deps: WorkItemDependency[] = (Array.isArray(apiDetail.dependencies) ? apiDetail.dependencies : []).map((d) => ({
+          id: d.id,
+          title: d.title,
+          kind: (d.kind as WorkItemKind) || 'issue',
+          status: (d.status as WorkItemStatus) || 'not_started',
+          direction: d.direction as 'blocks' | 'blocked_by',
+        }));
         return {
           id: apiDetail.id,
           title: apiDetail.title,
@@ -316,12 +302,12 @@ export function WorkItemDetailPage(): React.JSX.Element {
   const handleSubmitParticipant = () => {
     if (!addParticipantName.trim()) return;
     addParticipantMutation.mutate(
-      { participant: addParticipantName.trim(), role: addParticipantRole.trim() || undefined },
+      { participant: addParticipantName.trim(), role: addParticipantRole.trim() || 'assignee' },
       {
         onSuccess: () => {
           setAddParticipantDialogOpen(false);
           setAddParticipantName('');
-          setAddParticipantRole('');
+          setAddParticipantRole('assignee');
         },
       },
     );
@@ -388,8 +374,8 @@ export function WorkItemDetailPage(): React.JSX.Element {
   const handleLinkContact = () => {
     if (!linkContactId.trim()) return;
     linkContactMutation.mutate(
-      linkContactId.trim(),
-      { onSuccess: () => { setLinkContactDialogOpen(false); setLinkContactId(''); } },
+      { contactId: linkContactId.trim(), relationship: linkContactRelationship },
+      { onSuccess: () => { setLinkContactDialogOpen(false); setLinkContactId(''); setLinkContactRelationship('stakeholder'); } },
     );
   };
 
@@ -901,7 +887,7 @@ export function WorkItemDetailPage(): React.JSX.Element {
                   ) : (
                     <ul className="space-y-2">
                       {linkedContacts.map((lc) => (
-                        <li key={lc.id} className="flex items-center gap-2">
+                        <li key={lc.contact_id} className="flex items-center gap-2">
                           <div className="size-7 rounded-full bg-primary/10 dark:bg-primary/20 flex items-center justify-center">
                             <span className="text-xs font-medium text-primary">
                               {(lc.display_name ?? 'U')[0].toUpperCase()}
@@ -917,7 +903,7 @@ export function WorkItemDetailPage(): React.JSX.Element {
                             variant="ghost"
                             size="icon"
                             className="size-6 text-destructive hover:text-destructive"
-                            onClick={() => handleUnlinkContact(lc.id)}
+                            onClick={() => handleUnlinkContact(lc.contact_id)}
                           >
                             <X className="size-3" />
                             <span className="sr-only">Remove link</span>
@@ -1109,7 +1095,7 @@ export function WorkItemDetailPage(): React.JSX.Element {
               />
             </div>
             <div className="space-y-2">
-              <label htmlFor="participant-role" className="text-sm font-medium">Role (optional)</label>
+              <label htmlFor="participant-role" className="text-sm font-medium">Role</label>
               <Input
                 id="participant-role"
                 placeholder="e.g. reviewer, assignee"
@@ -1170,6 +1156,20 @@ export function WorkItemDetailPage(): React.JSX.Element {
                 value={linkContactId}
                 onChange={(e) => setLinkContactId(e.target.value)}
               />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="link-contact-relationship" className="text-sm font-medium">Relationship</label>
+              <select
+                id="link-contact-relationship"
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                value={linkContactRelationship}
+                onChange={(e) => setLinkContactRelationship(e.target.value as 'owner' | 'assignee' | 'stakeholder' | 'reviewer')}
+              >
+                <option value="stakeholder">Stakeholder</option>
+                <option value="assignee">Assignee</option>
+                <option value="owner">Owner</option>
+                <option value="reviewer">Reviewer</option>
+              </select>
             </div>
           </div>
           <DialogFooter>

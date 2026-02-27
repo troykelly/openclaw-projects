@@ -44,10 +44,7 @@ export interface WorkItemDetail {
   created_at: string;
   updated_at: string;
   namespace?: string;
-  dependencies?: {
-    blocks: Array<{ id: string; title: string }>;
-    blocked_by: Array<{ id: string; title: string }>;
-  };
+  dependencies?: Array<{ id: string; title: string; kind: string; status: string; direction: 'blocks' | 'blocked_by' }>;
 }
 
 /** Tree node from GET /api/work-items/tree */
