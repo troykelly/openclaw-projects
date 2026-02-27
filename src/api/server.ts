@@ -6397,20 +6397,36 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   app.post('/api/work-items/:id/dependencies', async (req, reply) => {
     const params = req.params as { id: string };
-    const body = req.body as { depends_on_work_item_id?: string; kind?: string };
-    if (!body?.depends_on_work_item_id) {
-      return reply.code(400).send({ error: 'depends_on_work_item_id is required' });
+    const body = req.body as { depends_on_work_item_id?: string; kind?: string; target_id?: string; direction?: string };
+
+    // Issue #1712: accept target_id/direction aliases from frontend
+    const rawTargetId = body.depends_on_work_item_id || body.target_id;
+    if (!rawTargetId) {
+      return reply.code(400).send({ error: 'depends_on_work_item_id or target_id is required' });
     }
 
-    const dependsOnWorkItemId = body.depends_on_work_item_id;
+    // Translate direction to internal depends_on semantics:
+    //   direction='blocks'     -> current item blocks target -> target depends on current -> store (target, current)
+    //   direction='blocked_by' -> current item is blocked by target -> store (current, target)
+    let dependsOnWorkItemId: string;
+    let workItemId: string;
+    if (body.direction === 'blocks') {
+      // Current item blocks target: target depends on current
+      workItemId = rawTargetId;
+      dependsOnWorkItemId = params.id;
+    } else {
+      // Default: current item depends on target (blocked_by or legacy kind-based)
+      workItemId = params.id;
+      dependsOnWorkItemId = rawTargetId;
+    }
 
     const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-    if (!uuidRe.test(dependsOnWorkItemId)) {
-      return reply.code(400).send({ error: 'depends_on_work_item_id must be a UUID' });
+    if (!uuidRe.test(rawTargetId)) {
+      return reply.code(400).send({ error: 'target_id must be a UUID' });
     }
 
-    if (dependsOnWorkItemId === params.id) {
+    if (rawTargetId === params.id) {
       return reply.code(400).send({ error: 'dependency cannot reference itself' });
     }
 
@@ -6423,8 +6439,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(404).send({ error: 'not found' });
     }
 
+    // When direction='blocks', we write a dependency row on the target item,
+    // so verify write scope on it too to prevent unauthorized cross-item writes.
+    if (body.direction === 'blocks' && !(await verifyWriteScope(pool, 'work_item', rawTargetId, req))) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+
     // Ensure both nodes exist so we can return a 4xx instead of relying on FK errors.
-    const a = await pool.query('SELECT 1 FROM work_item WHERE id = $1', [params.id]);
+    const a = await pool.query('SELECT 1 FROM work_item WHERE id = $1', [workItemId]);
     if (a.rows.length === 0) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
@@ -6450,7 +6473,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           WHERE dep.kind = $3
        )
        SELECT 1 FROM walk WHERE id = $2 LIMIT 1`,
-      [dependsOnWorkItemId, params.id, kind],
+      [dependsOnWorkItemId, workItemId, kind],
     );
 
     if (cycle.rows.length > 0) {
@@ -6462,7 +6485,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       `INSERT INTO work_item_dependency (work_item_id, depends_on_work_item_id, kind)
        VALUES ($1, $2, $3)
        RETURNING id::text as id, work_item_id::text as work_item_id, depends_on_work_item_id::text as depends_on_work_item_id, kind`,
-      [params.id, dependsOnWorkItemId, kind],
+      [workItemId, dependsOnWorkItemId, kind],
     );
 
     // Minimal scheduling: when establishing a precedence dependency, ensure the dependent cannot start
@@ -6474,7 +6497,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
            JOIN work_item wi ON wi.id = wid.depends_on_work_item_id
           WHERE wid.work_item_id = $1
             AND wid.kind = 'depends_on'`,
-        [params.id],
+        [workItemId],
       );
 
       const latestBlockerTimeUnknown: unknown = (latest.rows[0] as { latest_blocker_time: unknown } | undefined)?.latest_blocker_time;
@@ -6498,7 +6521,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
                               END,
                   updated_at = now()
             WHERE id = $1`,
-          [params.id, latestBlockerTimeIso],
+          [workItemId, latestBlockerTimeIso],
         );
       }
     }
@@ -7681,11 +7704,26 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const body = req.body as {
       endpoint_type?: string;
       endpoint_value?: string;
+      // Issue #1702: accept type/value aliases consistent with GET response
+      type?: string;
+      value?: string;
+      label?: string | null;
+      is_primary?: boolean;
       metadata?: unknown;
     };
 
-    if (!body?.endpoint_type || !body?.endpoint_value) {
-      return reply.code(400).send({ error: 'endpoint_type and endpoint_value are required' });
+    // Issue #1702: accept both endpoint_type/endpoint_value and type/value
+    const endpointType = body.endpoint_type || body.type;
+    const endpointValue = body.endpoint_value || body.value;
+
+    if (!endpointType || !endpointValue) {
+      return reply.code(400).send({ error: 'endpoint_type and endpoint_value (or type and value) are required' });
+    }
+
+    // Build metadata from explicit metadata field, merging label/is_primary if provided
+    let metadataObj: Record<string, unknown> = {};
+    if (body.metadata && typeof body.metadata === 'object') {
+      metadataObj = { ...metadataObj, ...(body.metadata as Record<string, unknown>) };
     }
 
     const pool = createPool();
@@ -7695,12 +7733,19 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(404).send({ error: 'not found' });
     }
 
+    // Issue #1702: accept label and is_primary on create (not just PATCH)
+    const labelValue = body.label !== undefined ? body.label : null;
+    const isPrimaryValue = body.is_primary !== undefined ? body.is_primary : false;
+    const metadataJson = Object.keys(metadataObj).length > 0 ? JSON.stringify(metadataObj) : null;
+
     const inserted = await pool.query(
-      `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value, metadata, namespace)
-       VALUES ($1, $2::contact_endpoint_type, $3, COALESCE($4::jsonb, '{}'::jsonb), $5)
-       RETURNING id::text as id, contact_id::text as contact_id, endpoint_type::text as endpoint_type,
-                 endpoint_value, normalized_value, metadata`,
-      [params.id, body.endpoint_type, body.endpoint_value, body.metadata ? JSON.stringify(body.metadata) : null, getStoreNamespace(req)],
+      `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value, label, is_primary, metadata, namespace)
+       VALUES ($1, $2::contact_endpoint_type, $3, $4, $5, COALESCE($6::jsonb, '{}'::jsonb), $7)
+       RETURNING id::text as id, contact_id::text as contact_id,
+                 endpoint_type::text as type, endpoint_value as value,
+                 normalized_value, label, is_primary, is_login_eligible, metadata,
+                 created_at, updated_at`,
+      [params.id, endpointType, endpointValue, labelValue, isPrimaryValue, metadataJson, getStoreNamespace(req)],
     );
 
     await pool.end();
@@ -13331,10 +13376,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // POST /api/work-items/:id/comments - Create a new comment
   app.post('/api/work-items/:id/comments', async (req, reply) => {
     const params = req.params as { id: string };
-    const query = req.query as { user_email?: string };
-    const body = req.body as { user_email: string; content: string; parent_id?: string };
+    const body = req.body as { user_email?: string; content: string; parent_id?: string };
 
-    if (!body.user_email || !body.content) {
+    // Issue #1707: extract user_email from JWT session, fall back to body
+    const sessionEmail = await getSessionEmail(req);
+    const userEmail = sessionEmail || body.user_email;
+
+    if (!userEmail || !body.content) {
       return reply.code(400).send({ error: 'user_email and content are required' });
     }
 
@@ -13372,7 +13420,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          content,
          mentions,
          created_at as "created_at"`,
-      [params.id, body.user_email, body.content, body.parent_id || null, mentions],
+      [params.id, userEmail, body.content, body.parent_id || null, mentions],
     );
 
     await pool.end();
@@ -13383,10 +13431,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // PUT /api/work-items/:id/comments/:comment_id - Update a comment
   app.put('/api/work-items/:id/comments/:comment_id', async (req, reply) => {
     const params = req.params as { id: string; comment_id: string };
-    const query = req.query as { user_email?: string };
-    const body = req.body as { user_email: string; content: string };
+    const body = req.body as { user_email?: string; content: string };
 
-    if (!body.user_email || !body.content) {
+    // Issue #1707: extract user_email from JWT session, fall back to body
+    const sessionEmail = await getSessionEmail(req);
+    const userEmail = sessionEmail || body.user_email;
+
+    if (!userEmail || !body.content) {
       return reply.code(400).send({ error: 'user_email and content are required' });
     }
 
@@ -13406,7 +13457,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(404).send({ error: 'not found' });
     }
 
-    if (comment.rows[0].user_email !== body.user_email) {
+    if (comment.rows[0].user_email !== userEmail) {
       await pool.end();
       return reply.code(403).send({ error: 'cannot edit other user comment' });
     }
@@ -13442,7 +13493,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string; comment_id: string };
     const query = req.query as { user_email?: string };
 
-    if (!query.user_email) {
+    // Issue #1707: extract user_email from JWT session, fall back to query param
+    const sessionEmail = await getSessionEmail(req);
+    const userEmail = sessionEmail || query.user_email;
+
+    if (!userEmail) {
       return reply.code(400).send({ error: 'user_email is required' });
     }
 
@@ -13462,7 +13517,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(404).send({ error: 'not found' });
     }
 
-    if (comment.rows[0].user_email !== query.user_email) {
+    if (comment.rows[0].user_email !== userEmail) {
       await pool.end();
       return reply.code(403).send({ error: 'cannot delete other user comment' });
     }
@@ -13476,10 +13531,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // POST /api/work-items/:id/comments/:comment_id/reactions - Toggle a reaction
   app.post('/api/work-items/:id/comments/:comment_id/reactions', async (req, reply) => {
     const params = req.params as { id: string; comment_id: string };
-    const query = req.query as { user_email?: string };
-    const body = req.body as { user_email: string; emoji: string };
+    const body = req.body as { user_email?: string; emoji: string };
 
-    if (!body.user_email || !body.emoji) {
+    // Issue #1707: extract user_email from JWT session, fall back to body
+    const sessionEmail = await getSessionEmail(req);
+    const userEmail = sessionEmail || body.user_email;
+
+    if (!userEmail || !body.emoji) {
       return reply.code(400).send({ error: 'user_email and emoji are required' });
     }
 
@@ -13502,14 +13560,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     // Check if reaction exists - if so, remove it (toggle)
     const existing = await pool.query('SELECT 1 FROM work_item_comment_reaction WHERE comment_id = $1 AND user_email = $2 AND emoji = $3', [
       params.comment_id,
-      body.user_email,
+      userEmail,
       body.emoji,
     ]);
 
     if (existing.rows.length > 0) {
       await pool.query('DELETE FROM work_item_comment_reaction WHERE comment_id = $1 AND user_email = $2 AND emoji = $3', [
         params.comment_id,
-        body.user_email,
+        userEmail,
         body.emoji,
       ]);
       await pool.end();
@@ -13519,7 +13577,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     await pool.query(
       `INSERT INTO work_item_comment_reaction (comment_id, user_email, emoji)
        VALUES ($1, $2, $3)`,
-      [params.comment_id, body.user_email, body.emoji],
+      [params.comment_id, userEmail, body.emoji],
     );
 
     await pool.end();
