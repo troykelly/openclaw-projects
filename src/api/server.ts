@@ -19459,7 +19459,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const { ensureUserSetting } = await import('./geolocation/service.ts');
       await ensureUserSetting(client, email);
 
-      // Enforce provider limit (inside transaction for atomicity)
+      // Serialize concurrent provider creates for same user via advisory lock
+      await client.query('SELECT pg_advisory_xact_lock(hashtext($1 || \'geo_provider_limit\'))', [email]);
+
+      // Enforce provider limit (inside transaction + advisory lock for atomicity)
       const countResult = await client.query('SELECT COUNT(*)::int AS cnt FROM geo_provider WHERE owner_email = $1 AND deleted_at IS NULL', [email]);
       if (countResult.rows[0].cnt >= GEO_MAX_PROVIDERS_PER_USER) {
         await client.query('ROLLBACK');
@@ -19817,7 +19820,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const { ensureUserSetting: ensureUserSettingOAuth } = await import('./geolocation/service.ts');
       await ensureUserSettingOAuth(client, email);
 
-      // Enforce provider limit
+      // Serialize concurrent provider creates for same user via advisory lock
+      await client.query('SELECT pg_advisory_xact_lock(hashtext($1 || \'geo_provider_limit\'))', [email]);
+
+      // Enforce provider limit (inside transaction + advisory lock for atomicity)
       const countResult = await client.query('SELECT COUNT(*)::int AS cnt FROM geo_provider WHERE owner_email = $1 AND deleted_at IS NULL', [email]);
       if (countResult.rows[0].cnt >= GEO_MAX_PROVIDERS_PER_USER) {
         await client.query('ROLLBACK');
