@@ -512,5 +512,36 @@ export {
   type ApiRestoreToolOptions,
 } from './api-restore.js';
 
+// Dev session tools (Issue #1896)
+export {
+  createDevSessionCreateTool,
+  createDevSessionListTool,
+  createDevSessionGetTool,
+  createDevSessionUpdateTool,
+  createDevSessionCompleteTool,
+  DevSessionCreateParamsSchema,
+  DevSessionListParamsSchema,
+  DevSessionGetParamsSchema,
+  DevSessionUpdateParamsSchema,
+  DevSessionCompleteParamsSchema,
+  type DevSessionCreateParams,
+  type DevSessionListParams,
+  type DevSessionGetParams,
+  type DevSessionUpdateParams,
+  type DevSessionCompleteParams,
+  type DevSessionCreateTool,
+  type DevSessionListTool,
+  type DevSessionGetTool,
+  type DevSessionUpdateTool,
+  type DevSessionCompleteTool,
+  type DevSessionCreateResult,
+  type DevSessionListResult,
+  type DevSessionGetResult,
+  type DevSessionUpdateResult,
+  type DevSessionCompleteResult,
+  type DevSession,
+  type DevSessionToolOptions,
+} from './dev-sessions.js';
+
 /** Tool factory types */
 export type ToolFactoryOptions = Record<string, never>;
