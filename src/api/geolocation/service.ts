@@ -293,7 +293,7 @@ export interface CanDeleteProviderResult {
  */
 export async function canDeleteProvider(pool: Queryable, providerId: string): Promise<CanDeleteProviderResult> {
   const providerResult = await pool.query(
-    `SELECT owner_email, is_shared FROM geo_provider WHERE id = $1 AND deleted_at IS NULL FOR UPDATE`,
+    `SELECT owner_email, is_shared FROM geo_provider WHERE id = $1 AND deleted_at IS NULL`,
     [providerId],
   );
 
@@ -410,6 +410,7 @@ export async function getCurrentLocation(pool: Queryable, user_email: string): P
      JOIN geo_provider_user gpu ON gl.provider_id = gpu.provider_id
      JOIN geo_provider gp ON gl.provider_id = gp.id
      WHERE gpu.user_email = $1
+       AND gl.user_email = $1
        AND gpu.is_active = true
        AND gp.deleted_at IS NULL
        AND gl.time > now() - (gp.max_age_seconds || ' seconds')::interval
