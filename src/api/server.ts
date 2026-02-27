@@ -19460,7 +19460,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       await ensureUserSetting(client, email);
 
       // Enforce provider limit (inside transaction for atomicity)
-      const countResult = await client.query('SELECT COUNT(*)::int AS cnt FROM geo_provider WHERE owner_email = $1 AND deleted_at IS NULL FOR UPDATE', [email]);
+      const countResult = await client.query('SELECT COUNT(*)::int AS cnt FROM geo_provider WHERE owner_email = $1 AND deleted_at IS NULL', [email]);
       if (countResult.rows[0].cnt >= GEO_MAX_PROVIDERS_PER_USER) {
         await client.query('ROLLBACK');
         return reply.code(429).send({ error: `Maximum of ${GEO_MAX_PROVIDERS_PER_USER} providers allowed` });
@@ -19818,7 +19818,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       await ensureUserSettingOAuth(client, email);
 
       // Enforce provider limit
-      const countResult = await client.query('SELECT COUNT(*)::int AS cnt FROM geo_provider WHERE owner_email = $1 AND deleted_at IS NULL FOR UPDATE', [email]);
+      const countResult = await client.query('SELECT COUNT(*)::int AS cnt FROM geo_provider WHERE owner_email = $1 AND deleted_at IS NULL', [email]);
       if (countResult.rows[0].cnt >= GEO_MAX_PROVIDERS_PER_USER) {
         await client.query('ROLLBACK');
         return reply.code(429).send({ error: `Maximum of ${GEO_MAX_PROVIDERS_PER_USER} providers allowed` });
