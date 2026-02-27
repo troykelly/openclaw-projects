@@ -134,12 +134,14 @@ describe('tmux-worker/grpc-server', () => {
     expect(err.message).toContain('EntryRecorder');
   });
 
-  it('remaining unimplemented RPCs still return UNIMPLEMENTED', async () => {
+  it('advanced RPCs are implemented (no longer UNIMPLEMENTED)', async () => {
+    // CreateTunnel is now implemented. Without a real DB it will fail with
+    // NOT_FOUND or INTERNAL, but NOT with UNIMPLEMENTED.
     expect(client).toBeDefined();
 
     const err = await new Promise<grpc.ServiceError>((resolve) => {
       client!.CreateTunnel(
-        { connection_id: 'test', namespace: 'default' },
+        { connection_id: 'test', namespace: 'default', direction: 'local', bind_host: '127.0.0.1', bind_port: 0 },
         (err: grpc.ServiceError | null) => {
           if (err) {
             resolve(err);
@@ -148,7 +150,7 @@ describe('tmux-worker/grpc-server', () => {
       );
     });
 
-    expect(err.code).toBe(grpc.status.UNIMPLEMENTED);
-    expect(err.message).toContain('CreateTunnel');
+    expect(err.code).not.toBe(grpc.status.UNIMPLEMENTED);
+    expect(err.message).not.toContain('is not yet implemented');
   });
 });

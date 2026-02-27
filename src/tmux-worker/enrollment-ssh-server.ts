@@ -16,6 +16,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type pg from 'pg';
 import type { TmuxWorkerConfig } from './config.ts';
+import { enrollmentEventBus } from './enrollment-stream.ts';
 
 /** Rate limiting: track failed auth attempts per IP. */
 const failedAuthAttempts = new Map<string, { count: number; lastAttempt: number }>();
@@ -268,6 +269,16 @@ export function createEnrollmentSSHServer(
             console.log(
               `SSH enrollment: ${clientAddress} enrolled via token "${token.label}" (connection ${connectionId})`,
             );
+
+            // Emit enrollment event to gRPC stream subscribers (#1855)
+            enrollmentEventBus.emitEnrollment({
+              connectionId,
+              host: clientAddress,
+              port: 22,
+              label: token.label,
+              tags,
+              enrolledAt: new Date(),
+            });
 
             // Store connection ID on the client for tunnel handling
             (client as unknown as Record<string, unknown>).__connectionId = connectionId;
