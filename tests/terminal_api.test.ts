@@ -349,6 +349,44 @@ Host db-server
         expect(res.statusCode).toBe(400);
       });
     });
+
+    describe('POST /api/terminal/connections/:id/test', () => {
+      it('returns 400 for invalid connection ID format', async () => {
+        const res = await app.inject({
+          method: 'POST',
+          url: '/api/terminal/connections/not-a-uuid/test',
+        });
+
+        expect(res.statusCode).toBe(400);
+        const body = res.json() as { error: string };
+        expect(body.error).toContain('Invalid');
+      });
+
+      it('returns 404 for non-existent connection', async () => {
+        const res = await app.inject({
+          method: 'POST',
+          url: '/api/terminal/connections/00000000-0000-0000-0000-000000000099/test',
+        });
+
+        expect(res.statusCode).toBe(404);
+      });
+
+      it('returns 502 when gRPC worker is unavailable', async () => {
+        const connId = '00000000-0000-0000-0000-000000000001';
+        await pool.query(
+          `INSERT INTO terminal_connection (id, namespace, name, host) VALUES ($1, 'default', 'test-conn', 'example.com')`,
+          [connId],
+        );
+
+        const res = await app.inject({
+          method: 'POST',
+          url: `/api/terminal/connections/${connId}/test`,
+        });
+
+        // Worker is not running in tests — gRPC call fails with 502
+        expect(res.statusCode).toBe(502);
+      });
+    });
   });
 
   // ================================================================
@@ -766,6 +804,53 @@ Host db-server
         const body = res.json() as { notes: string; tags: string[] };
         expect(body.notes).toBe('Updated notes');
         expect(body.tags).toEqual(['important']);
+      });
+    });
+
+    describe('DELETE /api/terminal/sessions/:id', () => {
+      it('returns 400 for invalid session ID format', async () => {
+        const res = await app.inject({
+          method: 'DELETE',
+          url: '/api/terminal/sessions/not-a-uuid',
+        });
+
+        expect(res.statusCode).toBe(400);
+        const body = res.json() as { error: string };
+        expect(body.error).toContain('Invalid session ID');
+      });
+
+      it('returns 404 for non-existent session', async () => {
+        const res = await app.inject({
+          method: 'DELETE',
+          url: '/api/terminal/sessions/00000000-0000-0000-0000-000000000099',
+        });
+
+        expect(res.statusCode).toBe(404);
+      });
+
+      it('returns 502 when gRPC worker is unavailable', async () => {
+        const connId = '00000000-0000-0000-0000-000000000001';
+        const sessId = '00000000-0000-0000-0000-000000000010';
+
+        await pool.query(
+          `INSERT INTO terminal_connection (id, namespace, name, host) VALUES ($1, 'default', 'test', 'example.com')`,
+          [connId],
+        );
+        await pool.query(
+          `INSERT INTO terminal_session (id, namespace, connection_id, tmux_session_name, status)
+           VALUES ($1, 'default', $2, 'test-sess', 'active')`,
+          [sessId, connId],
+        );
+
+        const res = await app.inject({
+          method: 'DELETE',
+          url: `/api/terminal/sessions/${sessId}`,
+        });
+
+        // Worker is not running in tests — gRPC call fails with 502
+        expect(res.statusCode).toBe(502);
+        const body = res.json() as { error: string };
+        expect(body.error).toContain('Failed to terminate');
       });
     });
 
