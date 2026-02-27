@@ -19459,8 +19459,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const { ensureUserSetting } = await import('./geolocation/service.ts');
       await ensureUserSetting(client, email);
 
-      // Enforce provider limit (inside transaction for atomicity)
-      const countResult = await client.query('SELECT COUNT(*)::int AS cnt FROM geo_provider WHERE owner_email = $1 AND deleted_at IS NULL FOR UPDATE', [email]);
+      // Serialize concurrent provider creates for same user via advisory lock
+      await client.query('SELECT pg_advisory_xact_lock(hashtext($1 || \'geo_provider_limit\'))', [email]);
+
+      // Enforce provider limit (inside transaction + advisory lock for atomicity)
+      const countResult = await client.query('SELECT COUNT(*)::int AS cnt FROM geo_provider WHERE owner_email = $1 AND deleted_at IS NULL', [email]);
       if (countResult.rows[0].cnt >= GEO_MAX_PROVIDERS_PER_USER) {
         await client.query('ROLLBACK');
         return reply.code(429).send({ error: `Maximum of ${GEO_MAX_PROVIDERS_PER_USER} providers allowed` });
@@ -19791,19 +19794,19 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
-  // GET /api/geolocation/providers/ha/authorize — Initiate HA OAuth flow (Issue #1808)
-  app.get('/api/geolocation/providers/ha/authorize', async (req, reply) => {
+  // POST /api/geolocation/providers/ha/authorize — Initiate HA OAuth flow (Issue #1808)
+  app.post('/api/geolocation/providers/ha/authorize', async (req, reply) => {
     const email = await getSessionEmail(req);
     if (!email) return reply.code(401).send({ error: 'Unauthorized' });
 
-    const query = req.query as { instance_url?: string; label?: string };
-    if (!query.instance_url || !query.label) {
+    const body = req.body as { instance_url?: string; label?: string };
+    if (!body.instance_url || !body.label) {
       return reply.code(400).send({ error: 'instance_url and label are required' });
     }
 
     // Validate instance URL (SSRF guard — includes DNS rebinding check, Issue #1820)
     const { resolveAndValidateOutboundUrl } = await import('./geolocation/network-guard.ts');
-    const urlResult = await resolveAndValidateOutboundUrl(query.instance_url);
+    const urlResult = await resolveAndValidateOutboundUrl(body.instance_url);
     if (!urlResult.ok) {
       return reply.code(400).send({ error: urlResult.error });
     }
@@ -19817,8 +19820,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const { ensureUserSetting: ensureUserSettingOAuth } = await import('./geolocation/service.ts');
       await ensureUserSettingOAuth(client, email);
 
-      // Enforce provider limit
-      const countResult = await client.query('SELECT COUNT(*)::int AS cnt FROM geo_provider WHERE owner_email = $1 AND deleted_at IS NULL FOR UPDATE', [email]);
+      // Serialize concurrent provider creates for same user via advisory lock
+      await client.query('SELECT pg_advisory_xact_lock(hashtext($1 || \'geo_provider_limit\'))', [email]);
+
+      // Enforce provider limit (inside transaction + advisory lock for atomicity)
+      const countResult = await client.query('SELECT COUNT(*)::int AS cnt FROM geo_provider WHERE owner_email = $1 AND deleted_at IS NULL', [email]);
       if (countResult.rows[0].cnt >= GEO_MAX_PROVIDERS_PER_USER) {
         await client.query('ROLLBACK');
         return reply.code(429).send({ error: `Maximum of ${GEO_MAX_PROVIDERS_PER_USER} providers allowed` });
@@ -19830,8 +19836,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         owner_email: email,
         provider_type: 'home_assistant',
         auth_type: 'oauth2',
-        label: query.label,
-        config: { url: query.instance_url },
+        label: body.label,
+        config: { url: body.instance_url },
         credentials: null,
       });
 
@@ -19852,13 +19858,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const redirectUri = `${clientId}/api/oauth/callback`;
 
       const { buildAuthorizationUrl } = await import('./oauth/home-assistant.ts');
-      const { url } = buildAuthorizationUrl(query.instance_url, clientId, redirectUri, state);
+      const { url } = buildAuthorizationUrl(body.instance_url, clientId, redirectUri, state);
 
       // Persist state (no code_verifier — HA uses IndieAuth, not PKCE)
       await client.query(
         `INSERT INTO oauth_state (state, provider, code_verifier, scopes, user_email, geo_provider_id, instance_url)
          VALUES ($1, 'home_assistant', NULL, '{}', $2, $3, $4)`,
-        [state, email, provider.id, query.instance_url],
+        [state, email, provider.id, body.instance_url],
       );
 
       await client.query('COMMIT');

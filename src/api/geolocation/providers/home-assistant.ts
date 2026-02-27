@@ -352,8 +352,9 @@ function connectWs(
         ctx.ws = null;
         scheduleReconnect();
       });
-      ws.on('error', () => {
+      ws.on('error', (err: Error) => {
         ctx.connected = false;
+        console.error('[HA-WS] Reconnect socket error:', err.message);
       });
     }, delay);
   }
@@ -457,7 +458,7 @@ function connectWs(
     ws.on('close', () => {
       ctx.connected = false;
       ctx.ws = null;
-      if (!ctx.disconnecting && ctx.attempt > 0) {
+      if (!ctx.disconnecting) {
         scheduleReconnect();
       }
     });
@@ -572,8 +573,9 @@ export const homeAssistantPlugin: GeoProviderPlugin = {
           // Dynamic import to avoid circular deps at module level
           const { refreshAccessToken } = await import('../../oauth/home-assistant.ts');
           const baseUrl = (config.url as string).replace(/\/+$/, '');
-          // clientId is the origin of the HA instance
-          const clientId = new URL(baseUrl).origin;
+          // clientId must match the one used during initial authorization (PUBLIC_BASE_URL)
+          const rawPublicBase = process.env.PUBLIC_BASE_URL || 'http://localhost:3000';
+          const clientId = rawPublicBase.replace(/\/+$/, '');
           const tokens = await refreshAccessToken(baseUrl, creds.refreshToken!, clientId);
           return tokens.access_token;
         }

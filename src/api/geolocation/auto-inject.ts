@@ -38,16 +38,28 @@ export function geoAutoInjectHook(createPool: () => Pool) {
     const pool = createPool();
     try {
       // Check user's geo_auto_inject setting
-      const settingResult = await pool.query(
-        `SELECT geo_auto_inject FROM user_setting WHERE user_email = $1`,
-        [email],
-      );
+      let settingResult;
+      try {
+        settingResult = await pool.query(
+          `SELECT geo_auto_inject FROM user_setting WHERE email = $1`,
+          [email],
+        );
+      } catch (err) {
+        console.warn('[geo-auto-inject] Setting query failed:', (err as Error).message);
+        return;
+      }
       const autoInject = settingResult.rows[0]?.geo_auto_inject;
       if (!autoInject) return;
 
       // Get current location
-      const { getCurrentLocation } = await import('./service.ts');
-      const location = await getCurrentLocation(pool, email);
+      let location;
+      try {
+        const { getCurrentLocation } = await import('./service.ts');
+        location = await getCurrentLocation(pool, email);
+      } catch (err) {
+        console.warn('[geo-auto-inject] Location fetch failed:', (err as Error).message);
+        return;
+      }
       if (!location) return;
 
       // Inject location into body

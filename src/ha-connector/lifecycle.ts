@@ -11,6 +11,7 @@
  * Issue #1636, parent #1603.
  */
 
+import { createHash } from 'crypto';
 import type { Pool } from 'pg';
 import type { Connection, GeoProviderType, LocationUpdate } from '../api/geolocation/types.ts';
 import { getProvider } from '../api/geolocation/registry.ts';
@@ -37,6 +38,16 @@ interface ManagedProvider {
   row: ProviderRow;
   connection: Connection | null;
   error?: string;
+  fingerprint: string;
+}
+
+function providerFingerprint(row: ProviderRow): string {
+  const data = JSON.stringify({
+    config: row.config,
+    credentials: row.credentials?.toString('utf8') ?? '',
+    status: row.status,
+  });
+  return createHash('sha256').update(data).digest('hex');
 }
 
 export interface LifecycleHealth {
@@ -121,10 +132,19 @@ export class ProviderLifecycleManager {
       }
     }
 
-    // Add new providers
+    // Add new providers OR reconnect changed ones
     for (const row of rows) {
       if (!managedIds.has(row.id)) {
         await this.addProvider(row);
+      } else {
+        // Check for config/credential changes
+        const existing = this.managed.get(row.id)!;
+        const newFingerprint = providerFingerprint(row);
+        if (existing.fingerprint !== newFingerprint) {
+          console.log(`[Lifecycle] Config changed for ${row.id} (${row.label}), reconnecting`);
+          await this.removeProvider(row.id);
+          await this.addProvider(row);
+        }
       }
     }
   }
@@ -162,7 +182,7 @@ export class ProviderLifecycleManager {
   }
 
   private async addProvider(row: ProviderRow): Promise<void> {
-    const mp: ManagedProvider = { row, connection: null };
+    const mp: ManagedProvider = { row, connection: null, fingerprint: providerFingerprint(row) };
     this.managed.set(row.id, mp);
 
     try {
@@ -227,7 +247,7 @@ export class ProviderLifecycleManager {
         last_updated: new Date().toISOString(),
         context: { id: '', parent_id: null, user_id: null },
       };
-      void this.router.dispatch(stateChange, row.owner_email);
+      void this.router.dispatch(stateChange, `${row.id}:${row.owner_email}`);
     };
 
     return plugin.connect(row.config, credentials, onUpdate);

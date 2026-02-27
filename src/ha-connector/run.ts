@@ -21,6 +21,7 @@ import { HomeObserverProcessor } from '../api/geolocation/processors/home-observ
 import { EntityTierResolver } from '../api/geolocation/ha-entity-tiers.ts';
 import { NotifyListener } from '../worker/listener.ts';
 import { ProviderLifecycleManager } from './lifecycle.ts';
+import { ServiceCallHandler } from './service-calls.ts';
 import { startConnectorHealthServer } from './health.ts';
 import type { ConnectorHealthStatus } from './health.ts';
 
@@ -61,10 +62,7 @@ async function main(): Promise<void> {
   // 4. Create event router + register processors
   const router = new HaEventRouter();
 
-  const geoProcessor = new GeoIngestorProcessor((update) => {
-    // GeoIngestorProcessor handles location inserts via its own DB logic
-    // The update callback is invoked per-location; we log but the processor
-    // writes directly to geo_location via its internal pool reference.
+  const geoProcessor = new GeoIngestorProcessor(pool, (update) => {
     console.debug('[HA-Connector] Location update:', update.entity_id, update.lat, update.lng);
   });
   router.register(geoProcessor);
@@ -83,13 +81,19 @@ async function main(): Promise<void> {
   console.log('[HA-Connector] Lifecycle manager started');
 
   // 6. NOTIFY listener for config changes and service calls
+  const serviceCallHandler = new ServiceCallHandler(lifecycle);
   let listenerConnected = false;
   const listener = new NotifyListener({
     connectionConfig: {},
     channels: NOTIFY_CHANNELS,
-    onNotification: () => {
-      // Reconcile on any config change notification
-      if (!shuttingDown) {
+    onNotification: (channel: string, payload: string) => {
+      if (shuttingDown) return;
+
+      if (channel === 'ha_service_call' && payload) {
+        void serviceCallHandler.handleNotification(payload).catch((err) => {
+          console.error('[HA-Connector] Service call error:', (err as Error).message);
+        });
+      } else {
         void lifecycle.reconcile();
       }
     },

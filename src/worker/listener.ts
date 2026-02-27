@@ -9,7 +9,7 @@ import type { ClientConfig } from 'pg';
 interface NotifyListenerOptions {
   connectionConfig: ClientConfig;
   channels: string[];
-  onNotification: () => void;
+  onNotification: (channel: string, payload: string) => void;
   onReconnect?: () => void;
 }
 
@@ -20,7 +20,7 @@ interface NotifyListenerOptions {
 export class NotifyListener {
   private readonly config: ClientConfig;
   private readonly channels: string[];
-  private readonly onNotification: () => void;
+  private readonly onNotification: (channel: string, payload: string) => void;
   private readonly onReconnect?: () => void;
 
   private client: Client | null = null;
@@ -89,8 +89,8 @@ export class NotifyListener {
       }
     });
 
-    client.on('notification', () => {
-      this.debouncedNotify();
+    client.on('notification', (msg) => {
+      this.debouncedNotify(msg.channel, msg.payload ?? '');
     });
 
     try {
@@ -144,14 +144,24 @@ export class NotifyListener {
     }, delayMs);
   }
 
-  /** Debounce notification callbacks (100 ms). */
-  private debouncedNotify(): void {
+  /**
+   * Queue and micro-batch notification delivery.
+   * Notifications are queued and flushed after 100ms of quiet.
+   * Each unique (channel, payload) pair is delivered — no data loss.
+   */
+  private pendingNotifications: Array<{ channel: string; payload: string }> = [];
+
+  private debouncedNotify(channel: string, payload: string): void {
+    this.pendingNotifications.push({ channel, payload });
     if (this.debounceTimer) {
       clearTimeout(this.debounceTimer);
     }
     this.debounceTimer = setTimeout(() => {
       this.debounceTimer = null;
-      this.onNotification();
+      const batch = this.pendingNotifications.splice(0);
+      for (const n of batch) {
+        this.onNotification(n.channel, n.payload);
+      }
     }, 100);
   }
 }

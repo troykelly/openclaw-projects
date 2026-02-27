@@ -183,7 +183,11 @@ describe('HA OAuth UI — OAuth initiation', () => {
       if (path === '/api/geolocation/current') {
         return Promise.resolve({ location: null });
       }
-      if (typeof path === 'string' && path.startsWith('/api/geolocation/providers/ha/authorize')) {
+      return Promise.resolve({});
+    });
+
+    mockedApiClient.post.mockImplementation((path: string) => {
+      if (path === '/api/geolocation/providers/ha/authorize') {
         return Promise.resolve({
           url: 'https://ha.example.com/auth/authorize?client_id=test',
           provider_id: 'test-provider-id',
@@ -214,14 +218,13 @@ describe('HA OAuth UI — OAuth initiation', () => {
     fireEvent.click(submitBtn);
 
     await waitFor(() => {
-      // Should have called the authorize endpoint
-      const getCalls = mockedApiClient.get.mock.calls;
-      const authCall = getCalls.find(
-        (call) => typeof call[0] === 'string' && call[0].includes('/api/geolocation/providers/ha/authorize'),
+      // Should have called the authorize endpoint via POST
+      const postCalls = mockedApiClient.post.mock.calls;
+      const authCall = postCalls.find(
+        (call) => typeof call[0] === 'string' && call[0] === '/api/geolocation/providers/ha/authorize',
       );
       expect(authCall).toBeDefined();
-      expect(authCall![0]).toContain('instance_url=https%3A%2F%2Fha.example.com');
-      expect(authCall![0]).toContain('label=My%20HA');
+      expect(authCall![1]).toEqual({ instance_url: 'https://ha.example.com', label: 'My HA' });
     });
 
     // Restore

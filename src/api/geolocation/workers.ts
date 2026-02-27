@@ -19,55 +19,72 @@ const NOMINATIM_USER_AGENT = 'openclaw-projects/1.0';
  * @returns Number of successfully geocoded records.
  */
 export async function processGeoGeocode(pool: Pool, batch_size: number = DEFAULT_BATCH_SIZE): Promise<number> {
-  const result = await pool.query(
-    `SELECT time, user_email, provider_id, entity_id, lat, lng
-     FROM geo_location
-     WHERE address IS NULL AND lat IS NOT NULL
-     ORDER BY time DESC
-     LIMIT $1`,
-    [batch_size],
-  );
+  // Use a pinned client so FOR UPDATE SKIP LOCKED holds locks until commit
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
 
-  if (result.rows.length === 0) return 0;
+    const result = await client.query(
+      `SELECT time, user_email, provider_id, entity_id, lat, lng
+       FROM geo_location
+       WHERE address IS NULL AND lat IS NOT NULL
+       ORDER BY time DESC
+       LIMIT $1
+       FOR UPDATE SKIP LOCKED`,
+      [batch_size],
+    );
 
-  let processed = 0;
+    if (result.rows.length === 0) {
+      await client.query('COMMIT');
+      return 0;
+    }
 
-  for (const row of result.rows) {
-    try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?lat=${encodeURIComponent(row.lat)}&lon=${encodeURIComponent(row.lng)}&format=jsonv2`,
-        {
-          headers: {
-            'User-Agent': NOMINATIM_USER_AGENT,
-            'Accept': 'application/json',
+    let processed = 0;
+
+    for (const row of result.rows) {
+      try {
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?lat=${encodeURIComponent(row.lat)}&lon=${encodeURIComponent(row.lng)}&format=jsonv2`,
+          {
+            headers: {
+              'User-Agent': NOMINATIM_USER_AGENT,
+              'Accept': 'application/json',
+            },
+            signal: AbortSignal.timeout(10_000),
           },
-        },
-      );
+        );
 
-      if (!response.ok) {
-        console.error(`[geo-geocode] Nominatim returned ${response.status} for (${row.lat}, ${row.lng})`);
+        if (!response.ok) {
+          console.error(`[geo-geocode] Nominatim returned ${response.status} for (${row.lat}, ${row.lng})`);
+          continue;
+        }
+
+        const data = await response.json() as { display_name?: string; name?: string };
+        const address = data.display_name ?? null;
+        const place_label = data.name ?? null;
+
+        await client.query(
+          `UPDATE geo_location
+           SET address = $1, place_label = $2
+           WHERE time = $3 AND user_email = $4 AND provider_id = $5 AND entity_id IS NOT DISTINCT FROM $6`,
+          [address, place_label, row.time, row.user_email, row.provider_id, row.entity_id],
+        );
+
+        processed++;
+      } catch (err) {
+        console.error(`[geo-geocode] Failed to geocode (${row.lat}, ${row.lng}):`, err);
         continue;
       }
-
-      const data = await response.json() as { display_name?: string; name?: string };
-      const address = data.display_name ?? null;
-      const place_label = data.name ?? null;
-
-      await pool.query(
-        `UPDATE geo_location
-         SET address = $1, place_label = $2
-         WHERE time = $3 AND user_email = $4 AND provider_id = $5 AND entity_id IS NOT DISTINCT FROM $6`,
-        [address, place_label, row.time, row.user_email, row.provider_id, row.entity_id],
-      );
-
-      processed++;
-    } catch (err) {
-      console.error(`[geo-geocode] Failed to geocode (${row.lat}, ${row.lng}):`, err);
-      continue;
     }
-  }
 
-  return processed;
+    await client.query('COMMIT');
+    return processed;
+  } catch (err) {
+    try { await client.query('ROLLBACK'); } catch { /* connection may be dead */ }
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 /**
@@ -80,52 +97,43 @@ export async function processGeoGeocode(pool: Pool, batch_size: number = DEFAULT
  * @returns Number of processed records (including skipped).
  */
 export async function processGeoEmbeddings(pool: Pool, batch_size: number = DEFAULT_BATCH_SIZE): Promise<number> {
-  const result = await pool.query(
-    `SELECT time, user_email, provider_id, entity_id, address
-     FROM geo_location
-     WHERE embedding_status = 'pending' AND address IS NOT NULL
-     ORDER BY time DESC
-     LIMIT $1`,
-    [batch_size],
-  );
+  // Use a pinned client so FOR UPDATE SKIP LOCKED holds locks until commit
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
 
-  if (result.rows.length === 0) return 0;
-
-  let processed = 0;
-
-  for (const row of result.rows) {
-    // Check if a previous record has the same address for this user+entity
-    const dupCheck = await pool.query(
-      `SELECT address FROM geo_location
-       WHERE user_email = $1 AND entity_id IS NOT DISTINCT FROM $2
-         AND address = $3
-         AND embedding_status IN ('complete', 'skipped')
-         AND time < $4
-       LIMIT 1`,
-      [row.user_email, row.entity_id, row.address, row.time],
+    const result = await client.query(
+      `SELECT time, user_email, provider_id, entity_id, address
+       FROM geo_location
+       WHERE embedding_status = 'pending' AND address IS NOT NULL
+       ORDER BY time DESC
+       LIMIT $1
+       FOR UPDATE SKIP LOCKED`,
+      [batch_size],
     );
 
-    if (dupCheck.rows.length > 0) {
-      // Same address already embedded/skipped — mark as skipped
-      await pool.query(
-        `UPDATE geo_location
-         SET embedding_status = 'skipped'
-         WHERE time = $1 AND user_email = $2 AND provider_id = $3 AND entity_id IS NOT DISTINCT FROM $4`,
-        [row.time, row.user_email, row.provider_id, row.entity_id],
-      );
-      processed++;
-      continue;
+    if (result.rows.length === 0) {
+      await client.query('COMMIT');
+      return 0;
     }
 
-    // Generate embedding for this address
-    try {
-      // Dynamic import to avoid hard dependency at module level
-      const { createEmbeddingService } = await import('../embeddings/service.ts');
-      const embeddingService = createEmbeddingService();
+    let processed = 0;
 
-      if (!embeddingService.isConfigured()) {
-        // No embedding provider configured — skip
-        await pool.query(
+    for (const row of result.rows) {
+      // Check if a previous record has the same address for this user+entity
+      const dupCheck = await client.query(
+        `SELECT address FROM geo_location
+         WHERE user_email = $1 AND entity_id IS NOT DISTINCT FROM $2
+           AND address = $3
+           AND embedding_status IN ('complete', 'skipped')
+           AND time < $4
+         LIMIT 1`,
+        [row.user_email, row.entity_id, row.address, row.time],
+      );
+
+      if (dupCheck.rows.length > 0) {
+        // Same address already embedded/skipped — mark as skipped
+        await client.query(
           `UPDATE geo_location
            SET embedding_status = 'skipped'
            WHERE time = $1 AND user_email = $2 AND provider_id = $3 AND entity_id IS NOT DISTINCT FROM $4`,
@@ -135,29 +143,54 @@ export async function processGeoEmbeddings(pool: Pool, batch_size: number = DEFA
         continue;
       }
 
-      const embResult = await embeddingService.embed(row.address as string);
+      // Generate embedding for this address
+      try {
+        // Dynamic import to avoid hard dependency at module level
+        const { createEmbeddingService } = await import('../embeddings/service.ts');
+        const embeddingService = createEmbeddingService();
 
-      if (embResult) {
-        await pool.query(
-          `UPDATE geo_location
-           SET location_embedding = $1, embedding_status = 'complete'
-           WHERE time = $2 AND user_email = $3 AND provider_id = $4 AND entity_id IS NOT DISTINCT FROM $5`,
-          [JSON.stringify(embResult.embedding), row.time, row.user_email, row.provider_id, row.entity_id],
-        );
-      } else {
-        await pool.query(
-          `UPDATE geo_location
-           SET embedding_status = 'skipped'
-           WHERE time = $1 AND user_email = $2 AND provider_id = $3 AND entity_id IS NOT DISTINCT FROM $4`,
-          [row.time, row.user_email, row.provider_id, row.entity_id],
-        );
+        if (!embeddingService.isConfigured()) {
+          // No embedding provider configured — skip
+          await client.query(
+            `UPDATE geo_location
+             SET embedding_status = 'skipped'
+             WHERE time = $1 AND user_email = $2 AND provider_id = $3 AND entity_id IS NOT DISTINCT FROM $4`,
+            [row.time, row.user_email, row.provider_id, row.entity_id],
+          );
+          processed++;
+          continue;
+        }
+
+        const embResult = await embeddingService.embed(row.address as string);
+
+        if (embResult) {
+          await client.query(
+            `UPDATE geo_location
+             SET location_embedding = $1, embedding_status = 'complete'
+             WHERE time = $2 AND user_email = $3 AND provider_id = $4 AND entity_id IS NOT DISTINCT FROM $5`,
+            [JSON.stringify(embResult.embedding), row.time, row.user_email, row.provider_id, row.entity_id],
+          );
+        } else {
+          await client.query(
+            `UPDATE geo_location
+             SET embedding_status = 'skipped'
+             WHERE time = $1 AND user_email = $2 AND provider_id = $3 AND entity_id IS NOT DISTINCT FROM $4`,
+            [row.time, row.user_email, row.provider_id, row.entity_id],
+          );
+        }
+        processed++;
+      } catch (err) {
+        console.error(`[geo-embeddings] Failed to generate embedding for address "${row.address}":`, err);
+        continue;
       }
-      processed++;
-    } catch (err) {
-      console.error(`[geo-embeddings] Failed to generate embedding for address "${row.address}":`, err);
-      continue;
     }
-  }
 
-  return processed;
+    await client.query('COMMIT');
+    return processed;
+  } catch (err) {
+    try { await client.query('ROLLBACK'); } catch { /* connection may be dead */ }
+    throw err;
+  } finally {
+    client.release();
+  }
 }
