@@ -227,7 +227,7 @@ export class ProviderLifecycleManager {
         last_updated: new Date().toISOString(),
         context: { id: '', parent_id: null, user_id: null },
       };
-      void this.router.dispatch(stateChange, row.owner_email);
+      void this.router.dispatch(stateChange, `${row.id}:${row.owner_email}`);
     };
 
     return plugin.connect(row.config, credentials, onUpdate);

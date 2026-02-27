@@ -61,10 +61,7 @@ async function main(): Promise<void> {
   // 4. Create event router + register processors
   const router = new HaEventRouter();
 
-  const geoProcessor = new GeoIngestorProcessor((update) => {
-    // GeoIngestorProcessor handles location inserts via its own DB logic
-    // The update callback is invoked per-location; we log but the processor
-    // writes directly to geo_location via its internal pool reference.
+  const geoProcessor = new GeoIngestorProcessor(pool, (update) => {
     console.debug('[HA-Connector] Location update:', update.entity_id, update.lat, update.lng);
   });
   router.register(geoProcessor);
