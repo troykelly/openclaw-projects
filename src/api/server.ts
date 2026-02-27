@@ -6423,7 +6423,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
     if (!uuidRe.test(rawTargetId)) {
-      return reply.code(400).send({ error: 'depends_on_work_item_id must be a UUID' });
+      return reply.code(400).send({ error: 'target_id must be a UUID' });
     }
 
     if (rawTargetId === params.id) {
@@ -6435,6 +6435,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     if (!(await verifyWriteScope(pool, 'work_item', params.id, req))) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+
+    // When direction='blocks', we write a dependency row on the target item,
+    // so verify write scope on it too to prevent unauthorized cross-item writes.
+    if (body.direction === 'blocks' && !(await verifyWriteScope(pool, 'work_item', rawTargetId, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
