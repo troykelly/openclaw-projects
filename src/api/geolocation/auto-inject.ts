@@ -44,8 +44,8 @@ export function geoAutoInjectHook(createPool: () => Pool) {
           `SELECT geo_auto_inject FROM user_setting WHERE email = $1`,
           [email],
         );
-      } catch {
-        // DB error during auto-inject — skip injection silently
+      } catch (err) {
+        console.warn('[geo-auto-inject] Setting query failed:', (err as Error).message);
         return;
       }
       const autoInject = settingResult.rows[0]?.geo_auto_inject;
@@ -56,7 +56,8 @@ export function geoAutoInjectHook(createPool: () => Pool) {
       try {
         const { getCurrentLocation } = await import('./service.ts');
         location = await getCurrentLocation(pool, email);
-      } catch {
+      } catch (err) {
+        console.warn('[geo-auto-inject] Location fetch failed:', (err as Error).message);
         return;
       }
       if (!location) return;

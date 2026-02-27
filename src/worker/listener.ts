@@ -144,19 +144,24 @@ export class NotifyListener {
     }, delayMs);
   }
 
-  /** Debounce notification callbacks (100 ms). */
-  private lastChannel = '';
-  private lastPayload = '';
+  /**
+   * Queue and micro-batch notification delivery.
+   * Notifications are queued and flushed after 100ms of quiet.
+   * Each unique (channel, payload) pair is delivered — no data loss.
+   */
+  private pendingNotifications: Array<{ channel: string; payload: string }> = [];
 
   private debouncedNotify(channel: string, payload: string): void {
-    this.lastChannel = channel;
-    this.lastPayload = payload;
+    this.pendingNotifications.push({ channel, payload });
     if (this.debounceTimer) {
       clearTimeout(this.debounceTimer);
     }
     this.debounceTimer = setTimeout(() => {
       this.debounceTimer = null;
-      this.onNotification(this.lastChannel, this.lastPayload);
+      const batch = this.pendingNotifications.splice(0);
+      for (const n of batch) {
+        this.onNotification(n.channel, n.payload);
+      }
     }, 100);
   }
 }
