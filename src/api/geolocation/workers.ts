@@ -24,7 +24,8 @@ export async function processGeoGeocode(pool: Pool, batch_size: number = DEFAULT
      FROM geo_location
      WHERE address IS NULL AND lat IS NOT NULL
      ORDER BY time DESC
-     LIMIT $1`,
+     LIMIT $1
+     FOR UPDATE SKIP LOCKED`,
     [batch_size],
   );
 
@@ -41,6 +42,7 @@ export async function processGeoGeocode(pool: Pool, batch_size: number = DEFAULT
             'User-Agent': NOMINATIM_USER_AGENT,
             'Accept': 'application/json',
           },
+          signal: AbortSignal.timeout(10_000),
         },
       );
 
@@ -85,7 +87,8 @@ export async function processGeoEmbeddings(pool: Pool, batch_size: number = DEFA
      FROM geo_location
      WHERE embedding_status = 'pending' AND address IS NOT NULL
      ORDER BY time DESC
-     LIMIT $1`,
+     LIMIT $1
+     FOR UPDATE SKIP LOCKED`,
     [batch_size],
   );
 

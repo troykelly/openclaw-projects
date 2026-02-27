@@ -192,8 +192,8 @@ export class HaEventRouter {
 
     try {
       await processor.onStateChangeBatch(changes, namespace);
-    } catch {
-      // Error isolation — batch flush failure is logged but does not propagate
+    } catch (err) {
+      console.error(`[HaEventRouter] Batch flush failed for ${processorId}:`, (err as Error).message);
     }
   }
 

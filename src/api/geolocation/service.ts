@@ -63,9 +63,28 @@ export interface GeoLocation {
 
 // ─── Row mappers ─────────────────────────────────────────────────────────────
 
+interface GeoProviderRow {
+  id: string;
+  owner_email: string;
+  provider_type: GeoProviderType;
+  auth_type: GeoAuthType;
+  label: string;
+  config: Record<string, unknown>;
+  credentials: string | Buffer | null;
+  status: GeoProviderStatus;
+  status_message: string | null;
+  is_shared: boolean;
+  poll_interval_seconds: number | null;
+  max_age_seconds: number;
+  last_seen_at: Date | null;
+  created_at: Date;
+  updated_at: Date;
+  deleted_at: Date | null;
+}
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-export function rowToProvider(row: any): GeoProvider {
+export function rowToProvider(row: GeoProviderRow): GeoProvider {
   return {
     id: row.id,
     owner_email: row.owner_email,
@@ -293,7 +312,7 @@ export interface CanDeleteProviderResult {
  */
 export async function canDeleteProvider(pool: Queryable, providerId: string): Promise<CanDeleteProviderResult> {
   const providerResult = await pool.query(
-    `SELECT owner_email, is_shared FROM geo_provider WHERE id = $1 AND deleted_at IS NULL FOR UPDATE`,
+    `SELECT owner_email, is_shared FROM geo_provider WHERE id = $1 AND deleted_at IS NULL`,
     [providerId],
   );
 

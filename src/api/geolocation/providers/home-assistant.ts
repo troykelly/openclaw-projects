@@ -352,8 +352,9 @@ function connectWs(
         ctx.ws = null;
         scheduleReconnect();
       });
-      ws.on('error', () => {
+      ws.on('error', (err: Error) => {
         ctx.connected = false;
+        console.error('[HA-WS] Reconnect socket error:', err.message);
       });
     }, delay);
   }
