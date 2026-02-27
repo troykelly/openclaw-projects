@@ -105,6 +105,9 @@ describe('buildServerCredentials', () => {
   });
 
   it.skipIf(!testCerts)('creates mTLS credentials with valid cert files', async () => {
+    // Spy on createSsl to verify mTLS path is taken (not insecure fallback)
+    const createSslSpy = vi.spyOn(grpc.ServerCredentials, 'createSsl');
+
     const { buildServerCredentials } = await import('./grpc-server.ts');
     const config = {
       grpcPort: 50051,
@@ -121,7 +124,13 @@ describe('buildServerCredentials', () => {
     const creds = buildServerCredentials(config);
     expect(creds).toBeDefined();
     expect(creds).toBeInstanceOf(grpc.ServerCredentials);
-    // mTLS credentials are NOT the same as insecure ones
-    expect(creds).not.toBe(grpc.ServerCredentials.createInsecure());
+    // Verify createSsl was called (not createInsecure fallback)
+    expect(createSslSpy).toHaveBeenCalledOnce();
+    // Verify requireClientCert=true was passed
+    expect(createSslSpy).toHaveBeenCalledWith(
+      expect.any(Buffer),
+      expect.arrayContaining([expect.objectContaining({ cert_chain: expect.any(Buffer) })]),
+      true,
+    );
   });
 });

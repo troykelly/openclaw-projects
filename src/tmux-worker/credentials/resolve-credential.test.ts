@@ -9,7 +9,16 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { encryptCredential, parseEncryptionKey } from './envelope.ts';
+
+// Mock the command provider so we can test the 'command' credential path
+// without spawning a real subprocess
+vi.mock('./command-provider.ts', () => ({
+  resolveCommandCredential: vi.fn(),
+  clearCredentialCache: vi.fn(),
+}));
+
 import { resolveCredential } from './index.ts';
+import { resolveCommandCredential } from './command-provider.ts';
 
 const TEST_KEY_HEX = 'a'.repeat(64);
 const masterKey = parseEncryptionKey(TEST_KEY_HEX);
@@ -139,5 +148,38 @@ describe('resolveCredential', () => {
     await expect(
       resolveCredential(pool, credId, TEST_KEY_HEX),
     ).rejects.toThrow('has no command configured');
+  });
+
+  it('resolves command credential via external command', async () => {
+    const credId = '550e8400-e29b-41d4-a716-446655440006';
+    const commandOutput = 'secret-from-1password';
+
+    vi.mocked(resolveCommandCredential).mockResolvedValue(commandOutput);
+
+    const pool = createMockPool([{
+      id: credId,
+      kind: 'command',
+      encrypted_value: null,
+      command: 'op read op://vault/key',
+      command_timeout_s: 15,
+      cache_ttl_s: 300,
+      fingerprint: 'SHA256:cmdkey',
+      public_key: 'ssh-rsa AAAA...',
+    }]);
+
+    const result = await resolveCredential(pool, credId, TEST_KEY_HEX);
+
+    expect(result.kind).toBe('command');
+    expect(result.value).toBe(commandOutput);
+    expect(result.fingerprint).toBe('SHA256:cmdkey');
+    expect(result.publicKey).toBe('ssh-rsa AAAA...');
+
+    // Verify timeout and cache args are passed correctly
+    expect(resolveCommandCredential).toHaveBeenCalledWith(
+      credId,
+      'op read op://vault/key',
+      15000, // command_timeout_s * 1000
+      300,   // cache_ttl_s
+    );
   });
 });

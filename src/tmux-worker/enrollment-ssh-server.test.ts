@@ -90,8 +90,10 @@ describe('loadOrGenerateHostKey', () => {
     expect(key).toBeInstanceOf(Buffer);
     expect(key.toString()).toContain('PRIVATE KEY');
 
-    // File should now exist
+    // File should now exist with restrictive permissions (0600)
     expect(fs.existsSync(keyPath)).toBe(true);
+    const mode = fs.statSync(keyPath).mode & 0o777;
+    expect(mode).toBe(0o600);
   });
 
   it('loads existing key from disk', () => {
