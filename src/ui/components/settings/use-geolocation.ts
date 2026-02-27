@@ -296,8 +296,9 @@ export function useGeoMutations() {
     async (instanceUrl: string, label: string): Promise<{ url: string; provider_id: string }> => {
       setIsSubmitting(true);
       try {
-        const res = await apiClient.get<{ url: string; provider_id: string }>(
-          `/api/geolocation/providers/ha/authorize?instance_url=${encodeURIComponent(instanceUrl)}&label=${encodeURIComponent(label)}`,
+        const res = await apiClient.post<{ url: string; provider_id: string }>(
+          '/api/geolocation/providers/ha/authorize',
+          { instance_url: instanceUrl, label },
         );
         return res;
       } finally {

@@ -413,6 +413,50 @@ export function geolocationPaths(): OpenApiDomainModule {
           },
         },
       },
+      '/api/geolocation/providers/ha/authorize': {
+        post: {
+          operationId: 'authorizeHaProvider',
+          summary: 'Initiate Home Assistant OAuth flow',
+          description: 'Creates a geo_provider in connecting state, generates OAuth state, and returns the HA authorization URL. Uses POST to prevent CSRF.',
+          tags: ['Geolocation'],
+          requestBody: jsonBody({
+            type: 'object',
+            required: ['instance_url', 'label'],
+            properties: {
+              instance_url: {
+                type: 'string',
+                description: 'Base URL of the Home Assistant instance',
+                example: 'https://ha.example.com',
+              },
+              label: {
+                type: 'string',
+                description: 'Human-readable label for the provider',
+                example: 'Home Assistant - Home',
+              },
+            },
+          }),
+          responses: {
+            '200': jsonResponse('OAuth authorization URL and provider ID', {
+              type: 'object',
+              required: ['url', 'provider_id'],
+              properties: {
+                url: {
+                  type: 'string',
+                  description: 'HA OAuth authorization URL to redirect the user to',
+                  example: 'https://ha.example.com/auth/authorize?client_id=...',
+                },
+                provider_id: {
+                  type: 'string',
+                  format: 'uuid',
+                  description: 'ID of the newly created geo_provider',
+                  example: 'd290f1ee-6c54-4b01-90e6-d701748f0851',
+                },
+              },
+            }),
+            ...errorResponses(400, 401, 409, 429, 500),
+          },
+        },
+      },
       '/api/geolocation/providers/{id}/entities': {
         get: {
           operationId: 'discoverGeoEntities',
