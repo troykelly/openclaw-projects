@@ -41,6 +41,7 @@ export async function processGeoGeocode(pool: Pool, batch_size: number = DEFAULT
             'User-Agent': NOMINATIM_USER_AGENT,
             'Accept': 'application/json',
           },
+          signal: AbortSignal.timeout(10_000),
         },
       );
 
