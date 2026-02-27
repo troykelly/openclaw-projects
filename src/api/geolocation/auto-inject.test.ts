@@ -158,7 +158,54 @@ describe('geoAutoInjectHook', () => {
     const req = makeReq({ body: { content: 'Test' } });
     const hook = geoAutoInjectHook(createPool);
 
-    await expect(hook(req, noopReply)).rejects.toThrow('DB error');
+    // With error handling, should NOT throw — returns silently
+    await hook(req, noopReply);
     expect(mockEnd).toHaveBeenCalled();
+  });
+
+  it('queries user_setting by email column', async () => {
+    mockQuery.mockResolvedValueOnce({ rows: [{ geo_auto_inject: true }] });
+    mockGetCurrentLocation.mockResolvedValueOnce({
+      lat: -33.8688, lng: 151.2093, address: 'Test', place_label: 'Test',
+    });
+
+    const req = makeReq({ body: { content: 'Test' } });
+    const hook = geoAutoInjectHook(createPool);
+    await hook(req, noopReply);
+
+    // Assert the first query uses "email" column, not "user_email"
+    expect(mockQuery).toHaveBeenCalledWith(
+      expect.stringContaining('WHERE email = $1'),
+      ['user@example.com'],
+    );
+  });
+
+  it('returns silently when DB query throws', async () => {
+    mockQuery.mockRejectedValueOnce(new Error('connection refused'));
+
+    const req = makeReq({ body: { content: 'Test' } });
+    const hook = geoAutoInjectHook(createPool);
+
+    // Should NOT throw
+    await hook(req, noopReply);
+
+    const body = req.body as Record<string, unknown>;
+    expect(body.lat).toBeUndefined();
+    expect(body.lng).toBeUndefined();
+  });
+
+  it('returns silently when getCurrentLocation throws', async () => {
+    mockQuery.mockResolvedValueOnce({ rows: [{ geo_auto_inject: true }] });
+    mockGetCurrentLocation.mockRejectedValueOnce(new Error('location service down'));
+
+    const req = makeReq({ body: { content: 'Test' } });
+    const hook = geoAutoInjectHook(createPool);
+
+    // Should NOT throw
+    await hook(req, noopReply);
+
+    const body = req.body as Record<string, unknown>;
+    expect(body.lat).toBeUndefined();
+    expect(body.lng).toBeUndefined();
   });
 });
