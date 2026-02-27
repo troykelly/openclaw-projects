@@ -66,12 +66,12 @@ export interface GeoLocation {
 interface GeoProviderRow {
   id: string;
   owner_email: string;
-  provider_type: string;
-  auth_type: string;
+  provider_type: GeoProviderType;
+  auth_type: GeoAuthType;
   label: string;
   config: Record<string, unknown>;
   credentials: string | Buffer | null;
-  status: string;
+  status: GeoProviderStatus;
   status_message: string | null;
   is_shared: boolean;
   poll_interval_seconds: number | null;
