@@ -76,6 +76,21 @@ export default defineProject({
       'src/api/geolocation/registry.test.ts',
       'src/api/geolocation/crypto.test.ts',
       'src/worker/**/*.test.ts',
+      // tmux-worker unit tests (run by the unit project)
+      'src/tmux-worker/**/*.test.ts',
+      // Auth unit tests
+      'src/api/auth/**/*.test.ts',
+      // Geolocation unit tests
+      'src/api/geolocation/bootstrap.test.ts',
+      // Memory unit tests
+      'src/api/memory/namespace-priority.test.ts',
+      // File-storage unit tests
+      'tests/file-storage/s3-presigned-external-endpoint.test.ts',
+      'tests/file-storage/sharing-presigned-url.test.ts',
+      // HA-connector unit tests
+      'tests/ha-connector/**/*.test.ts',
+      // Grouped unit test directories
+      'tests/unit/**/*.test.ts',
 
       // ── E2E / Playwright / external ────────────────────────────────
       'tests/e2e-playwright/**',

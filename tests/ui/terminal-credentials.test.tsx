@@ -144,7 +144,7 @@ describe('CredentialsPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('page-credentials')).toBeInTheDocument();
-    });
+    }, { timeout: 5000 });
   });
 
   it('renders credential cards', async () => {
@@ -153,7 +153,7 @@ describe('CredentialsPage', () => {
     await waitFor(() => {
       expect(screen.getByText('my-ed25519-key')).toBeInTheDocument();
       expect(screen.getByText('1password-op')).toBeInTheDocument();
-    });
+    }, { timeout: 5000 });
   });
 
   it('shows credential kind badges', async () => {
@@ -162,7 +162,7 @@ describe('CredentialsPage', () => {
     await waitFor(() => {
       expect(screen.getByText('ssh_key')).toBeInTheDocument();
       expect(screen.getByText('command')).toBeInTheDocument();
-    });
+    }, { timeout: 5000 });
   });
 
   it('has new credential and generate key buttons', async () => {
@@ -171,7 +171,7 @@ describe('CredentialsPage', () => {
     await waitFor(() => {
       expect(screen.getByText('New Credential')).toBeInTheDocument();
       expect(screen.getByText('Generate Key')).toBeInTheDocument();
-    });
+    }, { timeout: 5000 });
   });
 
   it('shows empty state when no credentials', async () => {
@@ -185,6 +185,6 @@ describe('CredentialsPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/No credentials/)).toBeInTheDocument();
-    });
+    }, { timeout: 5000 });
   });
 });

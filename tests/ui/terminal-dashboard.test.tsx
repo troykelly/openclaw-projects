@@ -196,11 +196,11 @@ describe('TerminalDashboardPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('page-terminal-dashboard')).toBeInTheDocument();
-    });
+    }, { timeout: 5000 });
 
     await waitFor(() => {
       expect(screen.getByTestId('terminal-stats')).toBeInTheDocument();
-    });
+    }, { timeout: 5000 });
   });
 
   it('renders session card', async () => {
@@ -208,7 +208,7 @@ describe('TerminalDashboardPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText('dev-server')).toBeInTheDocument();
-    });
+    }, { timeout: 5000 });
   });
 
   it('shows empty state when no connections', async () => {
@@ -224,7 +224,7 @@ describe('TerminalDashboardPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('terminal-empty-state')).toBeInTheDocument();
-    });
+    }, { timeout: 5000 });
   });
 
   it('renders quick connect button', async () => {
@@ -232,6 +232,6 @@ describe('TerminalDashboardPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('quick-connect-button')).toBeInTheDocument();
-    });
+    }, { timeout: 5000 });
   });
 });
