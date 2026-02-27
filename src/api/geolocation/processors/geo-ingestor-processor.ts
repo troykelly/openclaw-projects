@@ -11,12 +11,14 @@
  * Issue #1445.
  */
 
+import type { Pool } from 'pg';
 import type {
   HaEventProcessor,
   HaEventProcessorConfig,
   HaStateChange,
 } from '../ha-event-processor.ts';
 import type { LocationUpdate, LocationUpdateHandler } from '../types.ts';
+import { ingestLocationUpdate } from '../ingestion.ts';
 
 const BERMUDA_PREFIX = 'sensor.bermuda_';
 
@@ -65,12 +67,25 @@ function stateChangeToLocationUpdate(change: HaStateChange): LocationUpdate | nu
  *
  * Filters for device_tracker, person, and bermuda sensor entities,
  * extracts lat/lng/accuracy/etc., and forwards as LocationUpdate objects.
+ *
+ * When constructed with a Pool, persists location updates to the database
+ * via `ingestLocationUpdate`. The namespace must be "providerId:ownerEmail"
+ * format for DB ingestion to occur.
  */
 export class GeoIngestorProcessor implements HaEventProcessor {
-  private readonly updateHandler: LocationUpdateHandler;
+  private readonly pool: Pool | null;
+  private readonly onUpdateLog?: LocationUpdateHandler;
 
-  constructor(onUpdate: LocationUpdateHandler) {
-    this.updateHandler = onUpdate;
+  constructor(pool: Pool, onUpdateLog?: LocationUpdateHandler);
+  constructor(onUpdate: LocationUpdateHandler);
+  constructor(poolOrHandler: Pool | LocationUpdateHandler, onUpdateLog?: LocationUpdateHandler) {
+    if (typeof poolOrHandler === 'function') {
+      this.pool = null;
+      this.onUpdateLog = poolOrHandler;
+    } else {
+      this.pool = poolOrHandler;
+      this.onUpdateLog = onUpdateLog;
+    }
   }
 
   getConfig(): HaEventProcessorConfig {
@@ -93,11 +108,25 @@ export class GeoIngestorProcessor implements HaEventProcessor {
     // No-op for geo ingestor
   }
 
-  async onStateChange(change: HaStateChange, _namespace: string): Promise<void> {
+  async onStateChange(change: HaStateChange, namespace: string): Promise<void> {
     const update = stateChangeToLocationUpdate(change);
-    if (update) {
-      this.updateHandler(update);
+    if (!update) return;
+
+    // namespace format: "providerId:ownerEmail" (set by lifecycle.ts)
+    const sepIdx = namespace.indexOf(':');
+    if (sepIdx === -1 || !this.pool) {
+      this.onUpdateLog?.(update);
+      return;
     }
+    const providerId = namespace.slice(0, sepIdx);
+
+    try {
+      await ingestLocationUpdate(this.pool, providerId, update);
+    } catch (err) {
+      console.error('[GeoIngestor] Ingestion failed:', (err as Error).message);
+    }
+
+    this.onUpdateLog?.(update);
   }
 
   async healthCheck(): Promise<boolean> {
