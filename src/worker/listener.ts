@@ -9,7 +9,7 @@ import type { ClientConfig } from 'pg';
 interface NotifyListenerOptions {
   connectionConfig: ClientConfig;
   channels: string[];
-  onNotification: () => void;
+  onNotification: (channel: string, payload: string) => void;
   onReconnect?: () => void;
 }
 
@@ -20,7 +20,7 @@ interface NotifyListenerOptions {
 export class NotifyListener {
   private readonly config: ClientConfig;
   private readonly channels: string[];
-  private readonly onNotification: () => void;
+  private readonly onNotification: (channel: string, payload: string) => void;
   private readonly onReconnect?: () => void;
 
   private client: Client | null = null;
@@ -89,8 +89,8 @@ export class NotifyListener {
       }
     });
 
-    client.on('notification', () => {
-      this.debouncedNotify();
+    client.on('notification', (msg) => {
+      this.debouncedNotify(msg.channel, msg.payload ?? '');
     });
 
     try {
@@ -145,13 +145,18 @@ export class NotifyListener {
   }
 
   /** Debounce notification callbacks (100 ms). */
-  private debouncedNotify(): void {
+  private lastChannel = '';
+  private lastPayload = '';
+
+  private debouncedNotify(channel: string, payload: string): void {
+    this.lastChannel = channel;
+    this.lastPayload = payload;
     if (this.debounceTimer) {
       clearTimeout(this.debounceTimer);
     }
     this.debounceTimer = setTimeout(() => {
       this.debounceTimer = null;
-      this.onNotification();
+      this.onNotification(this.lastChannel, this.lastPayload);
     }, 100);
   }
 }

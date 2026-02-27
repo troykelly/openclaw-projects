@@ -90,7 +90,7 @@ async function main(): Promise<void> {
       database: process.env.PGDATABASE || 'openclaw',
     },
     channels: [...WORKER_CHANNELS],
-    onNotification: () => {
+    onNotification: (_channel: string, _payload: string) => {
       // Immediate tick on NOTIFY (debounced inside listener)
       scheduleTick(pool, breaker);
     },
