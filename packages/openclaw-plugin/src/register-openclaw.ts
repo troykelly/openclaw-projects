@@ -60,6 +60,12 @@ import {
   createTerminalTunnelCreateTool,
   createTerminalTunnelListTool,
   createTerminalTunnelCloseTool,
+  // Dev session tools (Issue #1896)
+  createDevSessionCreateTool,
+  createDevSessionListTool,
+  createDevSessionGetTool,
+  createDevSessionUpdateTool,
+  createDevSessionCompleteTool,
 } from './tools/index.js';
 import { zodToJsonSchema } from './utils/zod-to-json-schema.js';
 import type {
@@ -4765,6 +4771,32 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
   ] as const;
 
   for (const factory of terminalToolFactories) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- factory functions have heterogeneous option types that share the same shape
+    const tool = (factory as (opts: typeof termToolOpts) => { name: string; description: string; parameters: unknown; execute: (params: any) => Promise<any> })(termToolOpts);
+
+    tools.push({
+      name: tool.name,
+      description: tool.description,
+      parameters: zodToJsonSchema(tool.parameters as import('zod').ZodTypeAny),
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await tool.execute(params);
+        return toAgentToolResult(result);
+      },
+    });
+  }
+
+  // ── Dev session tools (Issue #1896) ────────────────────────────
+  // Reuses termToolOpts (same shape: client, logger, config, user_id getter).
+
+  const devSessionToolFactories = [
+    createDevSessionCreateTool,
+    createDevSessionListTool,
+    createDevSessionGetTool,
+    createDevSessionUpdateTool,
+    createDevSessionCompleteTool,
+  ] as const;
+
+  for (const factory of devSessionToolFactories) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- factory functions have heterogeneous option types that share the same shape
     const tool = (factory as (opts: typeof termToolOpts) => { name: string; description: string; parameters: unknown; execute: (params: any) => Promise<any> })(termToolOpts);
 
