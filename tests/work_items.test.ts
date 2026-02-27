@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import type { Pool } from 'pg';
 import { runMigrate } from './helpers/migrate.ts';
 import { createTestPool, truncateAllTables } from './helpers/db.ts';
+import { buildServer } from '../src/api/server.ts';
 
 describe('Work items core model', () => {
   let pool: Pool;
@@ -79,5 +80,63 @@ describe('Work items core model', () => {
         [aId],
       ),
     ).rejects.toThrow(/work_item_dependency/);
+  });
+});
+
+describe('GET /api/work-items parent_work_item_id filter (#1882)', () => {
+  const app = buildServer();
+  let pool: Pool;
+
+  beforeAll(async () => {
+    await runMigrate('up');
+    pool = createTestPool();
+    await app.ready();
+  });
+
+  beforeEach(async () => {
+    await truncateAllTables(pool);
+  });
+
+  afterAll(async () => {
+    await app.close();
+    await pool.end();
+  });
+
+  it('filters work items by parent_work_item_id', async () => {
+    // Create a parent project
+    const parent = await pool.query(
+      `INSERT INTO work_item (title, kind) VALUES ('Project A', 'project') RETURNING id::text as id`,
+    );
+    const parentId = parent.rows[0].id;
+
+    // Create child task under the project
+    await pool.query(
+      `INSERT INTO work_item (title, kind, parent_id) VALUES ('Task under A', 'task', $1)`,
+      [parentId],
+    );
+
+    // Create unrelated task
+    await pool.query(
+      `INSERT INTO work_item (title, kind) VALUES ('Unrelated Task', 'task')`,
+    );
+
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/work-items?parent_work_item_id=${parentId}`,
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body);
+    expect(body.items).toHaveLength(1);
+    expect(body.items[0].title).toBe('Task under A');
+  });
+
+  it('rejects invalid UUID for parent_work_item_id', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/work-items?parent_work_item_id=not-a-uuid',
+    });
+
+    expect(res.statusCode).toBe(400);
   });
 });

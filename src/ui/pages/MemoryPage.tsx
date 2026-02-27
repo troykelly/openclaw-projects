@@ -329,8 +329,7 @@ export function MemoryPage(): React.JSX.Element {
       setIsSubmitting(true);
       try {
         await apiClient.patch('/api/memories/bulk', {
-          ids: Array.from(selectedIds),
-          updates: { type: newType },
+          updates: Array.from(selectedIds).map((id) => ({ id, memory_type: newType })),
         });
         setSelectedIds(new Set());
         refetch();

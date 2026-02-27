@@ -115,10 +115,10 @@ describe('MemoryDetailPage', () => {
         });
       }
       if (url.includes('/related')) {
-        return Promise.resolve({ memories: [] });
+        return Promise.resolve({ related: [] });
       }
       if (url.includes('/similar')) {
-        return Promise.resolve({ results: [], search_type: 'semantic' });
+        return Promise.resolve({ source_memory_id: '1', threshold: 0.7, similar: [] });
       }
       return Promise.resolve({});
     });

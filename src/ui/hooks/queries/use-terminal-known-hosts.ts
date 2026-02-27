@@ -21,7 +21,7 @@ export function useTerminalKnownHosts() {
 export function useApproveTerminalKnownHost() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: { host: string; port: number; key_type: string; public_key: string }) =>
+    mutationFn: (data: { session_id: string; host: string; port: number; key_type: string; fingerprint: string; public_key: string }) =>
       apiClient.post<TerminalKnownHost>('/api/terminal/known-hosts/approve', data),
     onSuccess: () => { void queryClient.invalidateQueries({ queryKey: terminalKnownHostKeys.all }); },
   });
@@ -31,6 +31,16 @@ export function useDeleteTerminalKnownHost() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => apiClient.delete(`/api/terminal/known-hosts/${id}`),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: terminalKnownHostKeys.all }); },
+  });
+}
+
+/** Reject a pending host key verification. */
+export function useRejectTerminalKnownHost() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { session_id: string }) =>
+      apiClient.post<{ rejected: boolean; session_id: string }>('/api/terminal/known-hosts/reject', data),
     onSuccess: () => { void queryClient.invalidateQueries({ queryKey: terminalKnownHostKeys.all }); },
   });
 }

@@ -624,6 +624,88 @@ describe('Relationship Service (Epic #486, Issue #491)', () => {
     });
   });
 
+  describe('resolveContact cross-namespace (#1830)', () => {
+    it('resolves contact by UUID when in a different namespace', async () => {
+      // Create contact in "other" namespace
+      const result = await pool.query(
+        `INSERT INTO contact (display_name, namespace) VALUES ($1, $2) RETURNING id::text as id`,
+        ['Cross NS Contact', 'other'],
+      );
+      const contactId = result.rows[0].id;
+
+      // relationshipSet with queryNamespaces=['test'] should still find the contact by UUID
+      // because UUID lookup should fall back to un-scoped when namespace-scoped fails
+      const contact_b_id = await createContact(pool, 'Local Contact');
+      const result2 = await relationshipSet(pool, {
+        contact_a: contactId,
+        contact_b: contact_b_id,
+        relationship_type: 'colleague_of',
+        queryNamespaces: ['test'],
+        namespace: 'test',
+      });
+      expect(result2.contact_a.id).toBe(contactId);
+    });
+
+    it('resolves contact by display name when in a different namespace', async () => {
+      // Create contact in "other" namespace
+      await pool.query(
+        `INSERT INTO contact (display_name, namespace) VALUES ($1, $2)`,
+        ['Unique Person', 'other'],
+      );
+
+      const contact_b_id = await createContact(pool, 'Local Person');
+      const result = await relationshipSet(pool, {
+        contact_a: 'Unique Person',
+        contact_b: contact_b_id,
+        relationship_type: 'colleague_of',
+        queryNamespaces: ['test'],
+        namespace: 'test',
+      });
+      expect(result.contact_a.display_name).toBe('Unique Person');
+    });
+
+    it('resolves contact by given_name + family_name when in different namespace', async () => {
+      await pool.query(
+        `INSERT INTO contact (given_name, family_name, namespace) VALUES ($1, $2, $3)`,
+        ['Alice', 'Wonderland', 'other'],
+      );
+
+      const contact_b_id = await createContact(pool, 'Bob');
+      const result = await relationshipSet(pool, {
+        contact_a: 'Alice Wonderland',
+        contact_b: contact_b_id,
+        relationship_type: 'colleague_of',
+        queryNamespaces: ['test'],
+        namespace: 'test',
+      });
+      expect(result.contact_a.display_name).toBe('Alice Wonderland');
+    });
+
+    it('prefers namespace-scoped match over cross-namespace match', async () => {
+      // Create same-name contact in both namespaces
+      await pool.query(
+        `INSERT INTO contact (display_name, namespace) VALUES ($1, $2)`,
+        ['Duplicate Name', 'other'],
+      );
+      const localResult = await pool.query(
+        `INSERT INTO contact (display_name, namespace) VALUES ($1, $2) RETURNING id::text as id`,
+        ['Duplicate Name', 'default'],
+      );
+      const localId = localResult.rows[0].id;
+
+      const contact_b_id = await createContact(pool, 'Someone');
+      const result = await relationshipSet(pool, {
+        contact_a: 'Duplicate Name',
+        contact_b: contact_b_id,
+        relationship_type: 'colleague_of',
+        queryNamespaces: ['default'],
+        namespace: 'default',
+      });
+      // Should prefer the local namespace match
+      expect(result.contact_a.id).toBe(localId);
+    });
+  });
+
   describe('Cascade behavior', () => {
     it('deletes relationships when contact A is deleted', async () => {
       const alice = await createContact(pool, 'Alice');

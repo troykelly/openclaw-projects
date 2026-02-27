@@ -34,6 +34,13 @@ import {
 import { parseSSHConfig } from './ssh-config-parser.ts';
 import * as grpcClient from './grpc-client.ts';
 import { recordActivity } from './activity.ts';
+import {
+  shouldUseSemantic,
+  buildSemanticSearchQuery,
+  buildIlikeSearchQuery,
+  type SearchFilters,
+} from './semantic-search.ts';
+import { createEmbeddingService } from '../embeddings/service.ts';
 
 // ── Constants ────────────────────────────────────────────────
 
@@ -2630,6 +2637,7 @@ export async function terminalRoutesPlugin(
   // ================================================================
 
   // POST /api/terminal/search — Semantic search across entries
+  // Issue #1862: pgvector cosine similarity with ILIKE fallback
   app.post('/api/terminal/search', async (req, reply) => {
     const body = req.body as {
       query?: string;
@@ -2657,92 +2665,95 @@ export async function terminalRoutesPlugin(
     const limit = Math.min(Math.max(body.limit ?? 20, 1), MAX_LIMIT);
     const offset = Math.max(body.offset ?? 0, 0);
 
-    const conditions: string[] = [
-      'e.namespace = ANY($1::text[])',
-      'e.embedded_at IS NOT NULL',
-    ];
-    const qParams: unknown[] = [namespaces];
-    let idx = 2;
+    const queryText = body.query.trim();
 
-    if (body.connection_id && UUID_REGEX.test(body.connection_id)) {
-      conditions.push(`s.connection_id = $${idx}`);
-      qParams.push(body.connection_id);
-      idx++;
+    // Input length bounds
+    if (queryText.length > 1000) {
+      return reply.code(400).send({ error: 'query too long (max 1000 characters)' });
     }
 
-    if (body.session_id && UUID_REGEX.test(body.session_id)) {
-      conditions.push(`e.session_id = $${idx}`);
-      qParams.push(body.session_id);
-      idx++;
-    }
-
+    // Validate optional kind filters
+    let validKinds: string[] | undefined;
     if (body.kind && Array.isArray(body.kind) && body.kind.length > 0) {
-      const validKinds = body.kind.filter((k) => VALID_ENTRY_KINDS.includes(k as typeof VALID_ENTRY_KINDS[number]));
-      if (validKinds.length > 0) {
-        conditions.push(`e.kind = ANY($${idx}::text[])`);
-        qParams.push(validKinds);
-        idx++;
+      validKinds = body.kind.filter((k) => VALID_ENTRY_KINDS.includes(k as typeof VALID_ENTRY_KINDS[number]));
+      if (validKinds.length === 0) validKinds = undefined;
+    }
+
+    const baseFilters = {
+      namespaces,
+      connectionId: body.connection_id && UUID_REGEX.test(body.connection_id) ? body.connection_id : undefined,
+      sessionId: body.session_id && UUID_REGEX.test(body.session_id) ? body.session_id : undefined,
+      kinds: validKinds,
+      tags: body.tags && Array.isArray(body.tags) && body.tags.length > 0 ? body.tags : undefined,
+      host: body.host?.trim() || undefined,
+      sessionName: body.session_name?.trim() || undefined,
+      dateFrom: body.date_from?.trim() || undefined,
+      dateTo: body.date_to?.trim() || undefined,
+      limit,
+      offset,
+    };
+
+    // Decide: pgvector semantic or ILIKE fallback
+    let useSemantic = false;
+    let searchMode: 'semantic' | 'text' = 'text';
+    let queryPlan: { sql: string; params: unknown[] };
+
+    const embeddingService = createEmbeddingService();
+    if (embeddingService.isConfigured() && await shouldUseSemantic(pool, namespaces)) {
+      try {
+        const embResult = await embeddingService.embed(queryText);
+        if (embResult) {
+          useSemantic = true;
+          searchMode = 'semantic';
+          queryPlan = buildSemanticSearchQuery({
+            ...baseFilters,
+            queryEmbedding: embResult.embedding,
+          } as SearchFilters);
+        } else {
+          queryPlan = buildIlikeSearchQuery({ ...baseFilters, queryText });
+        }
+      } catch {
+        // Embedding failed — fall back to ILIKE
+        queryPlan = buildIlikeSearchQuery({ ...baseFilters, queryText });
+      }
+    } else {
+      queryPlan = buildIlikeSearchQuery({ ...baseFilters, queryText });
+    }
+
+    let searchResult;
+    try {
+      searchResult = await pool.query(queryPlan.sql, queryPlan.params);
+    } catch (err) {
+      console.error('[terminal-search] Query failed:', (err as Error).message);
+      return reply.code(500).send({ error: 'Search query failed' });
+    }
+
+    // For semantic search, total is capped by result count (no exact total for vector search)
+    // For ILIKE, we compute the exact count
+    let total: number;
+    if (!useSemantic) {
+      try {
+        // Build a count query by replacing the SELECT...ORDER BY...LIMIT with COUNT(*)
+        const countSql = queryPlan.sql
+          .replace(/SELECT[\s\S]+?FROM/, 'SELECT COUNT(*) as total FROM')
+          .replace(/ORDER BY[\s\S]+$/, '');
+        // Remove limit/offset params (last two)
+        const countParams = queryPlan.params.slice(0, -2);
+        const countResult = await pool.query(countSql, countParams);
+        total = parseInt((countResult.rows[0] as { total: string }).total, 10);
+      } catch {
+        total = searchResult.rows.length;
+      }
+    } else {
+      // For semantic search, estimate total as offset + result count
+      total = offset + searchResult.rows.length;
+      if (searchResult.rows.length === limit) {
+        // There may be more — indicate by adding 1
+        total += 1;
       }
     }
 
-    if (body.tags && Array.isArray(body.tags) && body.tags.length > 0) {
-      conditions.push(`s.tags && $${idx}::text[]`);
-      qParams.push(body.tags);
-      idx++;
-    }
-
-    if (body.host?.trim()) {
-      conditions.push(`c.host ILIKE $${idx}`);
-      qParams.push(`%${body.host.trim()}%`);
-      idx++;
-    }
-
-    if (body.session_name?.trim()) {
-      conditions.push(`s.tmux_session_name ILIKE $${idx}`);
-      qParams.push(`%${body.session_name.trim()}%`);
-      idx++;
-    }
-
-    if (body.date_from?.trim()) {
-      conditions.push(`e.captured_at >= $${idx}::timestamptz`);
-      qParams.push(body.date_from.trim());
-      idx++;
-    }
-
-    if (body.date_to?.trim()) {
-      conditions.push(`e.captured_at <= $${idx}::timestamptz`);
-      qParams.push(body.date_to.trim());
-      idx++;
-    }
-
-    const where = conditions.join(' AND ');
-
-    const searchResult = await pool.query(
-      `SELECT e.id, e.session_id, e.pane_id, e.kind, e.content,
-              e.captured_at, e.metadata, e.sequence,
-              s.tmux_session_name as session_name,
-              c.name as connection_name, c.host as connection_host
-       FROM terminal_session_entry e
-       JOIN terminal_session s ON e.session_id = s.id
-       JOIN terminal_connection c ON s.connection_id = c.id
-       WHERE ${where}
-         AND e.content ILIKE $${idx}
-       ORDER BY e.captured_at DESC
-       LIMIT $${idx + 1} OFFSET $${idx + 2}`,
-      [...qParams, `%${body.query.trim()}%`, limit, offset],
-    );
-
-    const countResult = await pool.query(
-      `SELECT COUNT(*) as total
-       FROM terminal_session_entry e
-       JOIN terminal_session s ON e.session_id = s.id
-       JOIN terminal_connection c ON s.connection_id = c.id
-       WHERE ${where}
-         AND e.content ILIKE $${idx}`,
-      [...qParams, `%${body.query.trim()}%`],
-    );
-    const total = parseInt((countResult.rows[0] as { total: string }).total, 10);
-
+    // Build result items with context
     const items = [];
     for (const row of searchResult.rows as Array<Record<string, unknown>>) {
       const sequence = row.sequence as number;
@@ -2782,13 +2793,102 @@ export async function terminalRoutesPlugin(
         kind: row.kind,
         content: row.content,
         captured_at: row.captured_at,
-        similarity: 1.0,
+        similarity: row.similarity ?? 1.0,
         context: { before, after },
         metadata: row.metadata,
       });
     }
 
-    return reply.send({ items, total, limit, offset });
+    return reply.send({ items, total, limit, offset, search_mode: searchMode });
+  });
+
+  // ================================================================
+  // Issue #1863 — Dashboard Stats
+  // ================================================================
+
+  // GET /api/terminal/stats — Aggregate stats for dashboard
+  app.get('/api/terminal/stats', async (req, reply) => {
+    const namespaces = getEffectiveNamespaces(req);
+    if (namespaces.length === 0) {
+      return reply.code(403).send({ error: 'No namespace access' });
+    }
+
+    const nsPlaceholder = '$1::text[]';
+
+    const [sessionsResult, connectionsResult, tunnelsResult, errorsResult] = await Promise.all([
+      pool.query(
+        `SELECT COUNT(*) as count FROM terminal_session
+         WHERE namespace = ANY(${nsPlaceholder}) AND status IN ('active', 'idle')`,
+        [namespaces],
+      ),
+      pool.query(
+        `SELECT COUNT(*) as count FROM terminal_connection
+         WHERE namespace = ANY(${nsPlaceholder}) AND deleted_at IS NULL`,
+        [namespaces],
+      ),
+      pool.query(
+        `SELECT COUNT(*) as count FROM terminal_tunnel
+         WHERE namespace = ANY(${nsPlaceholder}) AND status = 'active'`,
+        [namespaces],
+      ),
+      pool.query(
+        `SELECT COUNT(*) as count FROM terminal_activity
+         WHERE namespace = ANY(${nsPlaceholder}) AND action LIKE '%.error' AND created_at > NOW() - interval '24 hours'`,
+        [namespaces],
+      ),
+    ]);
+
+    return reply.send({
+      active_sessions: parseInt((sessionsResult.rows[0] as { count: string }).count, 10),
+      total_connections: parseInt((connectionsResult.rows[0] as { count: string }).count, 10),
+      active_tunnels: parseInt((tunnelsResult.rows[0] as { count: string }).count, 10),
+      recent_errors: parseInt((errorsResult.rows[0] as { count: string }).count, 10),
+    });
+  });
+
+  // ================================================================
+  // Issue #1867 — Reject Host Key
+  // ================================================================
+
+  // POST /api/terminal/known-hosts/reject — Reject pending host key verification
+  app.post('/api/terminal/known-hosts/reject', async (req, reply) => {
+    const body = req.body as {
+      session_id?: string;
+    };
+
+    if (!body?.session_id || !UUID_REGEX.test(body.session_id)) {
+      return reply.code(400).send({ error: 'Valid session_id is required' });
+    }
+
+    if (!(await verifyWriteScope(pool, 'terminal_session', body.session_id, req))) {
+      return reply.code(404).send({ error: 'Session not found' });
+    }
+
+    // Update session status to error since host key was rejected
+    await pool.query(
+      `UPDATE terminal_session SET status = 'error', error_message = 'Host key rejected by user', updated_at = NOW()
+       WHERE id = $1`,
+      [body.session_id],
+    );
+
+    const actor = await getActor(req);
+
+    try {
+      await grpcClient.rejectHostKey({ session_id: body.session_id });
+
+      recordActivity(pool, {
+        namespace: getStoreNamespace(req),
+        session_id: body.session_id,
+        actor,
+        action: 'known_host.reject',
+        detail: { session_id: body.session_id },
+      });
+
+      return reply.send({ rejected: true, session_id: body.session_id });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown gRPC error';
+      return reply.code(502).send({ error: 'Failed to notify worker', details: message });
+    }
   });
 
   // ================================================================

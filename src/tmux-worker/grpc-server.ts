@@ -5,13 +5,11 @@
  * - GetWorkerStatus (health)
  * - TestConnection (SSH connectivity verification)
  * - Session lifecycle (Create, Terminate, List, Get, Resize)
+ * - Terminal I/O (AttachSession, SendCommand, SendKeys, CapturePane)
  * - Window/pane management (CreateWindow, CloseWindow, SplitPane, ClosePane)
  * - SSH tunnels (CreateTunnel, CloseTunnel, ListTunnels)
  * - Host key verification (ApproveHostKey, RejectHostKey)
  * - Enrollment stream (GetEnrollmentListener)
- *
- * AttachSession, SendCommand, SendKeys, CapturePane remain UNIMPLEMENTED
- * (implemented in the terminal I/O phase).
  *
  * Supports mTLS when GRPC_TLS_CERT, GRPC_TLS_KEY, and GRPC_TLS_CA are configured.
  * Falls back to insecure channel with a warning when certs are not found.
@@ -47,9 +45,17 @@ import type {
   ApproveHostKeyRequest,
   RejectHostKeyRequest,
   EnrollmentEvent,
+  SendCommandRequest,
+  SendCommandResponse,
+  SendKeysRequest,
+  CapturePaneRequest,
+  CapturePaneResponse,
+  TerminalInput,
+  TerminalOutput,
 } from './types.ts';
 import { TmuxManager } from './tmux/manager.ts';
 import { SSHConnectionManager } from './ssh/client.ts';
+import type { EntryRecorder } from './entry-recorder.ts';
 import {
   handleCreateSession,
   handleTerminateSession,
@@ -57,6 +63,12 @@ import {
   handleGetSession,
   handleResizeSession,
 } from './session-lifecycle.ts';
+import {
+  handleSendCommand,
+  handleSendKeys,
+  handleCapturePane,
+  handleAttachSession,
+} from './terminal-io.ts';
 import {
   handleCreateWindow,
   handleCloseWindow,
@@ -85,6 +97,7 @@ const startTime = Date.now();
 export function createGrpcServer(
   config: TmuxWorkerConfig,
   pool: pg.Pool,
+  entryRecorder?: EntryRecorder,
 ): grpc.Server {
   const server = new grpc.Server({
     'grpc.max_send_message_length': 4 * 1024 * 1024, // 4MB
@@ -92,7 +105,7 @@ export function createGrpcServer(
   });
 
   const serviceDefinition = getTerminalServiceDefinition();
-  const handlers = buildHandlers(config, pool);
+  const handlers = buildHandlers(config, pool, entryRecorder);
 
   server.addService(serviceDefinition, handlers);
 
@@ -191,20 +204,19 @@ function mapErrorToGrpcStatus(err: unknown): { code: grpc.status; message: strin
 /**
  * Build the handler map for all TerminalService RPCs.
  *
- * Fully implemented:
+ * All RPCs are fully implemented:
  * - GetWorkerStatus, TestConnection
  * - CreateSession, TerminateSession, ListSessions, GetSession, ResizeSession
+ * - AttachSession, SendCommand, SendKeys, CapturePane
  * - CreateWindow, CloseWindow, SplitPane, ClosePane
  * - CreateTunnel, CloseTunnel, ListTunnels
  * - ApproveHostKey, RejectHostKey
  * - GetEnrollmentListener
- *
- * Remaining UNIMPLEMENTED (terminal I/O phase):
- * - AttachSession, SendCommand, SendKeys, CapturePane
  */
 function buildHandlers(
   config: TmuxWorkerConfig,
   pool: pg.Pool,
+  entryRecorder?: EntryRecorder,
 ): grpc.UntypedServiceImplementation {
   const tmuxManager = new TmuxManager();
   const sshManager = new SSHConnectionManager(pool, config.encryptionKeyHex);
@@ -306,6 +318,64 @@ function buildHandlers(
         });
     },
 
+    // ── Terminal I/O (#1848, #1849, #1850) ──────────────────
+    AttachSession: (
+      call: grpc.ServerDuplexStream<TerminalInput, TerminalOutput>,
+    ) => {
+      if (!entryRecorder) {
+        call.emit('error', {
+          code: grpc.status.INTERNAL,
+          message: 'EntryRecorder not available',
+        });
+        return;
+      }
+      handleAttachSession(call, pool, tmuxManager, entryRecorder);
+    },
+
+    SendCommand: (
+      call: grpc.ServerUnaryCall<SendCommandRequest, SendCommandResponse>,
+      callback: grpc.sendUnaryData<SendCommandResponse>,
+    ) => {
+      if (!entryRecorder) {
+        callback({ code: grpc.status.INTERNAL, message: 'EntryRecorder not available' });
+        return;
+      }
+      const req = call.request;
+      handleSendCommand(req, pool, tmuxManager, entryRecorder)
+        .then((result) => callback(null, result))
+        .catch((err) => {
+          callback(mapErrorToGrpcStatus(err));
+        });
+    },
+
+    SendKeys: (
+      call: grpc.ServerUnaryCall<SendKeysRequest, Record<string, never>>,
+      callback: grpc.sendUnaryData<Record<string, never>>,
+    ) => {
+      const req = call.request;
+      handleSendKeys(req, pool, tmuxManager)
+        .then(() => callback(null, {}))
+        .catch((err) => {
+          callback(mapErrorToGrpcStatus(err));
+        });
+    },
+
+    CapturePane: (
+      call: grpc.ServerUnaryCall<CapturePaneRequest, CapturePaneResponse>,
+      callback: grpc.sendUnaryData<CapturePaneResponse>,
+    ) => {
+      if (!entryRecorder) {
+        callback({ code: grpc.status.INTERNAL, message: 'EntryRecorder not available' });
+        return;
+      }
+      const req = call.request;
+      handleCapturePane(req, pool, tmuxManager, entryRecorder)
+        .then((result) => callback(null, result))
+        .catch((err) => {
+          callback(mapErrorToGrpcStatus(err));
+        });
+    },
+
     // ── Window/Pane management (#1851) ──────────────────────
     CreateWindow: (
       call: grpc.ServerUnaryCall<CreateWindowRequest, WindowInfo>,
@@ -354,12 +424,6 @@ function buildHandlers(
           callback(mapErrorToGrpcStatus(err));
         });
     },
-
-    // ── Terminal I/O (UNIMPLEMENTED — terminal I/O phase) ────
-    AttachSession: unimplementedStream('AttachSession'),
-    SendCommand: unimplemented('SendCommand'),
-    SendKeys: unimplemented('SendKeys'),
-    CapturePane: unimplemented('CapturePane'),
 
     // ── SSH tunnel management (#1852) ───────────────────────
     CreateTunnel: (
@@ -469,6 +533,20 @@ function unimplementedStream(
   name: string,
 ): grpc.handleBidiStreamingCall<unknown, unknown> {
   return (call: grpc.ServerDuplexStream<unknown, unknown>) => {
+    call.emit('error', {
+      code: grpc.status.UNIMPLEMENTED,
+      message: `${name} is not yet implemented`,
+    });
+  };
+}
+
+/**
+ * Create an unimplemented handler for a server-streaming RPC.
+ */
+function unimplementedServerStream(
+  name: string,
+): grpc.handleServerStreamingCall<unknown, unknown> {
+  return (call: grpc.ServerWritableStream<unknown, unknown>) => {
     call.emit('error', {
       code: grpc.status.UNIMPLEMENTED,
       message: `${name} is not yet implemented`,

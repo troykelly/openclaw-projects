@@ -2,7 +2,10 @@
  * TMux worker entry point.
  *
  * Starts the gRPC server, health check endpoint, and connects to the database.
- * Handles graceful shutdown on SIGTERM/SIGINT.
+ * Wires EntryRecorder for session I/O recording, session recovery on startup,
+ * and graceful shutdown on SIGTERM/SIGINT.
+ *
+ * Issues #1848, #1849, #1850 — Terminal I/O, command execution, worker wiring.
  */
 
 import fs from 'node:fs';
@@ -15,6 +18,8 @@ import {
   startEnrollmentSSHServer,
   stopEnrollmentSSHServer,
 } from './enrollment-ssh-server.ts';
+import { EntryRecorder } from './entry-recorder.ts';
+import { recoverSessions, gracefulShutdown } from './session-recovery.ts';
 
 async function main(): Promise<void> {
   console.log('TMux worker starting...');
@@ -58,11 +63,41 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
+  // Initialize EntryRecorder for session I/O recording (#1850)
+  const entryRecorder = new EntryRecorder(pool);
+  entryRecorder.start();
+  console.log('EntryRecorder started');
+
+  // Recover sessions from previous worker instance (#1850)
+  try {
+    const recoveryResults = await recoverSessions(pool, {
+      workerId: config.workerId,
+    });
+    if (recoveryResults.length > 0) {
+      console.log(
+        `Session recovery: ${recoveryResults.length} sessions processed`,
+      );
+      for (const r of recoveryResults) {
+        console.log(
+          `  Session ${r.sessionId}: ${r.previousStatus} → ${r.newStatus}${r.error ? ` (${r.error})` : ''}`,
+        );
+      }
+    } else {
+      console.log('Session recovery: no sessions to recover');
+    }
+  } catch (err) {
+    console.error(
+      'Session recovery failed:',
+      (err as Error).message,
+    );
+    // Non-fatal: continue startup even if recovery fails
+  }
+
   // Start health check server
   startHealthServer(config.healthPort);
 
-  // Start gRPC server (mTLS if certs configured)
-  const grpcServer = createGrpcServer(config, pool);
+  // Start gRPC server with EntryRecorder (mTLS if certs configured)
+  const grpcServer = createGrpcServer(config, pool, entryRecorder);
   await startGrpcServer(grpcServer, config.grpcPort, config);
 
   // Start SSH enrollment server
@@ -72,10 +107,21 @@ async function main(): Promise<void> {
   setHealthy(true);
   console.log('TMux worker ready');
 
-  // Graceful shutdown
+  // Graceful shutdown (#1850)
   const shutdown = async (signal: string) => {
     console.log(`Received ${signal}, shutting down...`);
     setHealthy(false);
+
+    // Flush entries and mark sessions as disconnected BEFORE closing DB
+    try {
+      await gracefulShutdown(pool, config.workerId, entryRecorder);
+      console.log('Graceful shutdown: entries flushed, sessions marked disconnected');
+    } catch (err) {
+      console.error(
+        'Graceful shutdown error:',
+        (err as Error).message,
+      );
+    }
 
     await stopEnrollmentSSHServer(sshServer);
     await stopGrpcServer(grpcServer);

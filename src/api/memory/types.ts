@@ -76,6 +76,8 @@ export interface UpdateMemoryInput {
   superseded_by?: string | null;
   /** Freeform text tags for categorical filtering */
   tags?: string[];
+  /** Source URL for external references */
+  source_url?: string | null;
 }
 
 /** A memory entry from the database */
@@ -100,6 +102,8 @@ export interface MemoryEntry {
   expires_at: Date | null;
   superseded_by: string | null;
   embedding_status: 'pending' | 'complete' | 'failed';
+  /** Whether this memory is currently active */
+  is_active: boolean;
   /** WGS84 latitude */
   lat: number | null;
   /** WGS84 longitude */

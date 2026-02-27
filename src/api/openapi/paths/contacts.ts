@@ -133,6 +133,19 @@ export function contactsPaths(): OpenApiDomainModule {
           contact_kind: { type: 'string', enum: ['person', 'organisation', 'group', 'agent'], default: 'person' },
           custom_fields: { type: 'array', description: 'Max 50 entries', items: { type: 'object', required: ['key', 'value'], properties: { key: { type: 'string' }, value: { type: 'string' } } } },
           tags: { type: 'array', items: { type: 'string' }, description: 'Tags to assign (max 100 chars each)' },
+          endpoints: {
+            type: 'array',
+            description: 'Contact endpoints (email, phone, etc.) to create atomically with the contact',
+            items: {
+              type: 'object',
+              required: ['type', 'value'],
+              properties: {
+                type: { type: 'string', description: 'Endpoint type (email, phone, telegram, slack, github, etc.)' },
+                value: { type: 'string', description: 'Endpoint value (email address, phone number, username, etc.)' },
+                metadata: { type: 'object', description: 'Optional metadata for the endpoint', additionalProperties: true },
+              },
+            },
+          },
           preferred_channel: { type: 'string', nullable: true },
           quiet_hours_start: { type: 'string', nullable: true },
           quiet_hours_end: { type: 'string', nullable: true },

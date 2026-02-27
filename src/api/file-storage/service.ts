@@ -113,6 +113,7 @@ export async function getFileMetadata(pool: Pool, fileId: string): Promise<FileA
       size_bytes,
       checksum_sha256,
       uploaded_by,
+      namespace,
       created_at
     FROM file_attachment
     WHERE id = $1`,
@@ -132,6 +133,7 @@ export async function getFileMetadata(pool: Pool, fileId: string): Promise<FileA
     size_bytes: parseInt(row.size_bytes, 10),
     checksum_sha256: row.checksum_sha256,
     uploaded_by: row.uploaded_by,
+    namespace: row.namespace,
     created_at: row.created_at,
   };
 }
