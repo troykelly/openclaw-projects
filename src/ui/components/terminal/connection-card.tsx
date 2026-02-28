@@ -1,23 +1,25 @@
 /**
  * Connection card for connections list (Epic #1667, #1692).
  */
-import * as React from 'react';
+
+import { Loader2, Play, Server, Settings2, Trash2 } from 'lucide-react';
+import type * as React from 'react';
 import { Link } from 'react-router';
 import { Badge } from '@/ui/components/ui/badge';
 import { Button } from '@/ui/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/ui/components/ui/card';
-import { Server, Play, Settings2, Trash2, Loader2 } from 'lucide-react';
-import { ConnectionStatusIndicator } from './connection-status-indicator';
 import type { TerminalConnection } from '@/ui/lib/api-types';
+import { ConnectionStatusIndicator } from './connection-status-indicator';
 
 interface ConnectionCardProps {
   connection: TerminalConnection;
   onTest?: (id: string) => void;
   onDelete?: (id: string) => void;
   isTesting?: boolean;
+  workerAvailable?: boolean;
 }
 
-export function ConnectionCard({ connection, onTest, onDelete, isTesting }: ConnectionCardProps): React.JSX.Element {
+export function ConnectionCard({ connection, onTest, onDelete, isTesting, workerAvailable = true }: ConnectionCardProps): React.JSX.Element {
   return (
     <Card data-testid="connection-card">
       <CardHeader className="flex flex-row items-start justify-between pb-2">
@@ -39,7 +41,9 @@ export function ConnectionCard({ connection, onTest, onDelete, isTesting }: Conn
           {connection.tags.length > 0 && (
             <div className="flex flex-wrap gap-1">
               {connection.tags.map((tag) => (
-                <Badge key={tag} variant="outline" className="text-xs">{tag}</Badge>
+                <Badge key={tag} variant="outline" className="text-xs">
+                  {tag}
+                </Badge>
               ))}
             </div>
           )}
@@ -49,7 +53,7 @@ export function ConnectionCard({ connection, onTest, onDelete, isTesting }: Conn
             </p>
           )}
           <div className="flex items-center gap-2 pt-2">
-            <Button size="sm" variant="outline" onClick={() => onTest?.(connection.id)} disabled={isTesting}>
+            <Button size="sm" variant="outline" onClick={() => onTest?.(connection.id)} disabled={isTesting || !workerAvailable}>
               {isTesting ? <Loader2 className="mr-1 size-3 animate-spin" /> : <Play className="mr-1 size-3" />}
               Test
             </Button>

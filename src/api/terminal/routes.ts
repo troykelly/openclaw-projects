@@ -180,7 +180,8 @@ export async function terminalRoutesPlugin(
         });
       });
       return reply.send({ status: 'ok' });
-    } catch {
+    } catch (err) {
+      app.log.warn({ err }, 'Terminal worker health check failed');
       return reply.code(503).send({ status: 'unavailable' });
     }
   });

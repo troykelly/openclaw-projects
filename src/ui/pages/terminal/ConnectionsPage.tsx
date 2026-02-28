@@ -99,7 +99,14 @@ export function ConnectionsPage(): React.JSX.Element {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {connections.map((conn) => (
-            <ConnectionCard key={conn.id} connection={conn} onTest={handleTest} onDelete={handleDelete} isTesting={testingId === conn.id} />
+            <ConnectionCard
+              key={conn.id}
+              connection={conn}
+              onTest={handleTest}
+              onDelete={handleDelete}
+              isTesting={testingId === conn.id}
+              workerAvailable={workerAvailable}
+            />
           ))}
         </div>
       )}
