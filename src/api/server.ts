@@ -3313,9 +3313,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     // Filter by status (#1900)
+    // 'active' is a meta-status meaning "not completed/closed/done/cancelled"
     if (query.status) {
-      params.push(query.status);
-      conditions.push(`status = $${params.length}`);
+      if (query.status === 'active') {
+        conditions.push(`status NOT IN ('completed', 'closed', 'done', 'cancelled')`);
+      } else {
+        params.push(query.status);
+        conditions.push(`status = $${params.length}`);
+      }
     }
 
     // Namespace scoping (Epic #1418, Phase 4)
@@ -14231,8 +14236,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.redirect(redirectUrl);
     } catch (error) {
       if (error instanceof OAuthError) {
+        // Log full error for diagnostics; return sanitized message to client
+        // to avoid leaking HA response body details (#1836)
+        req.log.error({ err: error, code: error.code, provider: error.provider }, 'OAuth callback failed');
+        const providerLabel = error.provider ? ` (${error.provider})` : '';
         return reply.code(error.status_code).send({
-          error: error.message,
+          error: `OAuth authorization failed${providerLabel}`,
           code: error.code,
         });
       }

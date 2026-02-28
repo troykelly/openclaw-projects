@@ -99,6 +99,29 @@ describe('Omnibus HA bug fixes', () => {
       }
     });
 
+    it('treats status=active as meta-status (excludes completed/closed/done/cancelled)', async () => {
+      const id1 = await createWorkItem('Active item');
+      const id2 = await createWorkItem('Done item');
+      const id3 = await createWorkItem('In progress item');
+
+      await setStatus(id2, 'completed');
+      await setStatus(id3, 'in_progress');
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/work-items?status=active',
+      });
+
+      expect(res.statusCode).toBe(200);
+      const body = res.json() as { items: Array<{ id: string; status: string }> };
+      // Should return the open item and in_progress item, not the completed one
+      expect(body.items.length).toBe(2);
+      const ids = body.items.map((i) => i.id);
+      expect(ids).toContain(id1);
+      expect(ids).toContain(id3);
+      expect(ids).not.toContain(id2);
+    });
+
     it('returns all items when no status param is provided', async () => {
       await createWorkItem('Item A');
       const id2 = await createWorkItem('Item B');
@@ -427,7 +450,7 @@ describe('Omnibus HA bug fixes', () => {
 
       expect(res.statusCode).toBe(400);
       const body = res.json() as { error: string; code?: string };
-      expect(body.error).toBeDefined();
+      expect(body.error).toContain('Invalid or expired OAuth state');
       expect(body.code).toBe('INVALID_STATE');
     });
 
