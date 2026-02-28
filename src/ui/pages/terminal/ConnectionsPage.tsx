@@ -1,22 +1,25 @@
 /**
  * Connections Management Page (Epic #1667, #1692).
  */
-import * as React from 'react';
+
+import { Plus, Search, Server, Upload } from 'lucide-react';
+import type * as React from 'react';
 import { useState } from 'react';
-import { Button } from '@/ui/components/ui/button';
-import { Input } from '@/ui/components/ui/input';
-import { Plus, Upload, Search, Server } from 'lucide-react';
+import { ErrorBanner } from '@/ui/components/feedback/error-state';
 import { ConnectionCard } from '@/ui/components/terminal/connection-card';
 import { ConnectionForm } from '@/ui/components/terminal/connection-form';
 import { SshConfigImportDialog } from '@/ui/components/terminal/ssh-config-import-dialog';
+import { Button } from '@/ui/components/ui/button';
+import { Input } from '@/ui/components/ui/input';
 import {
-  useTerminalConnections,
   useCreateTerminalConnection,
   useDeleteTerminalConnection,
-  useTestTerminalConnection,
   useImportSshConfig,
+  useTerminalConnections,
+  useTestTerminalConnection,
 } from '@/ui/hooks/queries/use-terminal-connections';
 import { useTerminalCredentials } from '@/ui/hooks/queries/use-terminal-credentials';
+import { useTerminalHealth } from '@/ui/hooks/queries/use-terminal-health';
 import type { TerminalConnection } from '@/ui/lib/api-types';
 
 export function ConnectionsPage(): React.JSX.Element {
@@ -31,11 +34,11 @@ export function ConnectionsPage(): React.JSX.Element {
   const deleteConnection = useDeleteTerminalConnection();
   const testConnection = useTestTerminalConnection();
   const importSshConfig = useImportSshConfig();
+  const healthQuery = useTerminalHealth();
+  const workerAvailable = healthQuery.data?.status === 'ok';
 
   const connections = Array.isArray(connectionsQuery.data?.connections) ? connectionsQuery.data.connections : [];
-  const credentials = Array.isArray(credentialsQuery.data?.credentials)
-    ? credentialsQuery.data.credentials.map((c) => ({ id: c.id, name: c.name }))
-    : [];
+  const credentials = Array.isArray(credentialsQuery.data?.credentials) ? credentialsQuery.data.credentials.map((c) => ({ id: c.id, name: c.name })) : [];
 
   const handleCreate = (data: Partial<TerminalConnection>) => {
     createConnection.mutate(data, {
@@ -81,49 +84,29 @@ export function ConnectionsPage(): React.JSX.Element {
 
       <div className="relative max-w-sm">
         <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
-        <Input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search connections..."
-          className="pl-9"
-        />
+        <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search connections..." className="pl-9" />
       </div>
+
+      {!workerAvailable && !healthQuery.isLoading && (
+        <ErrorBanner message="Terminal worker is not available. Connection testing is disabled." onRetry={() => healthQuery.refetch()} />
+      )}
 
       {connections.length === 0 ? (
         <div className="py-12 text-center">
           <Server className="mx-auto size-10 text-muted-foreground/30" />
-          <p className="mt-3 text-sm text-muted-foreground">
-            {search ? 'No connections match your search.' : 'No connections yet.'}
-          </p>
+          <p className="mt-3 text-sm text-muted-foreground">{search ? 'No connections match your search.' : 'No connections yet.'}</p>
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {connections.map((conn) => (
-            <ConnectionCard
-              key={conn.id}
-              connection={conn}
-              onTest={handleTest}
-              onDelete={handleDelete}
-              isTesting={testingId === conn.id}
-            />
+            <ConnectionCard key={conn.id} connection={conn} onTest={handleTest} onDelete={handleDelete} isTesting={testingId === conn.id} />
           ))}
         </div>
       )}
 
-      <ConnectionForm
-        open={createOpen}
-        onOpenChange={setCreateOpen}
-        onSubmit={handleCreate}
-        isPending={createConnection.isPending}
-        credentials={credentials}
-      />
+      <ConnectionForm open={createOpen} onOpenChange={setCreateOpen} onSubmit={handleCreate} isPending={createConnection.isPending} credentials={credentials} />
 
-      <SshConfigImportDialog
-        open={importOpen}
-        onOpenChange={setImportOpen}
-        onImport={handleImport}
-        isPending={importSshConfig.isPending}
-      />
+      <SshConfigImportDialog open={importOpen} onOpenChange={setImportOpen} onImport={handleImport} isPending={importSshConfig.isPending} />
     </div>
   );
 }
