@@ -1017,31 +1017,72 @@ To use external S3 instead of SeaweedFS:
 
 ---
 
-## Optional Services
+## Service Architecture
 
-Some services are resource-intensive and not required for all deployments. These are controlled via [Docker Compose profiles](https://docs.docker.com/compose/how-tos/profiles/) and only start when explicitly enabled.
+All services start by default with `docker compose up -d`. No profile flags are needed.
 
-| Profile | Service | Purpose | Resource Impact |
-|---------|---------|---------|-----------------|
-| `geo` | Nominatim | Reverse geocoding for geo-contextual search | ~1GB download, 4-5GB disk after import |
-| `ml` | PromptGuard | ML-based prompt injection detection | ~500MB model download, 1.5GB RAM |
+| Service | Purpose | Resource Impact | Graceful Degradation |
+|---------|---------|-----------------|----------------------|
+| tmux-worker | Terminal session management (gRPC) | 512MB RAM, 1 CPU | UI disables session/test buttons, shows banner |
+| tmux-certs | mTLS certificate generation (runs once) | Minimal (init container) | Required by tmux-worker |
+| nominatim | Reverse geocoding (OpenStreetMap) | ~1GB download, 4GB RAM | Geo features silently disabled |
+| prompt-guard | ML prompt injection detection | ~500MB model, 1.5GB RAM | Falls back to regex detection |
 
-### Enabling Optional Services
+### Disabling Services
 
-```bash
-# Enable geocoding
-docker compose -f docker-compose.traefik.yml --profile geo up -d
+To skip services you don't need, create a `docker-compose.override.yml` in the project root:
 
-# Enable ML-based injection detection
-docker compose -f docker-compose.traefik.yml --profile ml up -d
+```yaml
+# docker-compose.override.yml
+# Disable services by adding profiles: ["disabled"]
+# Docker Compose only starts profiled services when --profile is passed.
+services:
+  # --- Disable terminal features ---
+  # These must be disabled together.
+  tmux-certs:
+    profiles: ["disabled"]
+  tmux-worker:
+    profiles: ["disabled"]
 
-# Enable both
-docker compose -f docker-compose.traefik.yml --profile geo --profile ml up -d
+  # --- Disable reverse geocoding ---
+  nominatim:
+    profiles: ["disabled"]
+
+  # --- Disable ML prompt injection detection ---
+  prompt-guard:
+    profiles: ["disabled"]
 ```
+
+**Common override examples:**
+
+Lightweight deployment (no ML or geocoding):
+```yaml
+services:
+  nominatim:
+    profiles: ["disabled"]
+  prompt-guard:
+    profiles: ["disabled"]
+```
+
+Minimal deployment (only core services):
+```yaml
+services:
+  tmux-certs:
+    profiles: ["disabled"]
+  tmux-worker:
+    profiles: ["disabled"]
+  nominatim:
+    profiles: ["disabled"]
+  prompt-guard:
+    profiles: ["disabled"]
+```
+
+> **Note:** `docker-compose.override.yml` is automatically loaded by Docker Compose.
+> Do not commit this file — it is deployment-specific.
 
 ### Nominatim (Reverse Geocoding)
 
-Nominatim provides reverse geocoding for geo-contextual memory search. When enabled, the plugin can enrich memories with location context. When disabled, geo features silently degrade — no errors, just no location enrichment.
+Nominatim provides reverse geocoding for geo-contextual memory search. It enriches memories with location context. When disabled (or not running), geo features silently degrade — no errors, just no location enrichment.
 
 **First start** downloads and imports an OpenStreetMap PBF extract (10+ minutes depending on region size). Subsequent starts use the cached import.
 

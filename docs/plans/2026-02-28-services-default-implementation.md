@@ -1,0 +1,772 @@
+# Enable All Services by Default — Implementation Plan
+
+> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+
+**Goal:** Remove opt-in profiles from all services so they start by default; add tmux-worker to Traefik compose; add terminal health endpoint and UI graceful degradation.
+
+**Architecture:** Remove Docker Compose `profiles:` keys from optional services (terminal, geo, ml). Add missing tmux-worker/tmux-certs definitions to traefik and full compose files. Add `GET /api/terminal/health` endpoint that pings the gRPC client. UI queries this endpoint to disable action buttons and show a banner when the worker is unavailable.
+
+**Tech Stack:** Docker Compose, Fastify, gRPC (@grpc/grpc-js), React, TanStack Query, Vitest, shell tests
+
+---
+
+### Task 1: Remove profiles from docker-compose.yml
+
+**Files:**
+- Modify: `docker-compose.yml:322` (tmux-certs profiles line)
+- Modify: `docker-compose.yml:342` (tmux-worker profiles line)
+- Modify: `docker-compose.yml:450` (nominatim profiles line)
+- Modify: `docker-compose.yml:538` (prompt-guard profiles line)
+
+**Step 1: Remove all four profiles lines**
+
+Delete these exact lines from `docker-compose.yml`:
+- Line 322: `    profiles: ["terminal"]`
+- Line 342: `    profiles: ["terminal"]`
+- Line 450: `    profiles: ["geo"]`
+- Line 538: `    profiles: ["ml"]`
+
+**Step 2: Verify the file parses correctly**
+
+Run: `docker compose -f docker-compose.yml config --services 2>&1 | sort`
+Expected: Output includes `tmux-certs`, `tmux-worker`, `nominatim`, `prompt-guard` alongside all other services (no `--profile` flag needed).
+
+**Step 3: Commit**
+
+```bash
+git add docker-compose.yml
+git commit -m "[#1908] Remove opt-in profiles from all services in basic compose"
+```
+
+---
+
+### Task 2: Remove profiles from docker-compose.traefik.yml and add tmux services
+
+**Files:**
+- Modify: `docker-compose.traefik.yml:577` (nominatim profiles line)
+- Modify: `docker-compose.traefik.yml:671` (prompt-guard profiles line)
+- Modify: `docker-compose.traefik.yml` (add tmux-certs + tmux-worker services before nominatim)
+- Modify: `docker-compose.traefik.yml` (add tmux env vars + volume to api service)
+- Modify: `docker-compose.traefik.yml:700-714` (add tmux volumes)
+
+**Step 1: Remove profiles from nominatim and prompt-guard**
+
+Delete these lines:
+- Line 577: `    profiles: ["geo"]`
+- Line 671: `    profiles: ["ml"]`
+
+**Step 2: Add TMUX env vars and volume to the API service**
+
+After the `CORS_HANDLED_BY_PROXY` line (391) in the api service environment, add:
+
+```yaml
+      # TMux worker gRPC connection
+      TMUX_WORKER_GRPC_URL: ${TMUX_WORKER_GRPC_URL:-tmux-worker:50051}
+      # mTLS certificates for tmux worker connection
+      TMUX_WORKER_MTLS_CERT: /certs/api-client.pem
+      TMUX_WORKER_MTLS_KEY: /certs/api-client-key.pem
+      TMUX_WORKER_MTLS_CA: /certs/ca.pem
+```
+
+Add a `volumes:` section to the api service (it doesn't currently have one):
+
+```yaml
+    volumes:
+      - tmux_certs:/certs:ro
+```
+
+**Step 3: Add tmux-certs and tmux-worker services**
+
+Insert before the nominatim service block (before line 568). Use the same definitions as `docker-compose.yml` but adapt ports for host networking pattern (matching other traefik services):
+
+```yaml
+  # =============================================================================
+  # TMux mTLS Certificate Generation (runs once, generates CA + client/server certs)
+  # =============================================================================
+  tmux-certs:
+    image: node:22-slim
+    container_name: openclaw-tmux-certs
+    restart: "no"
+    command: ["node", "/app/scripts/generate-certs.cjs"]
+    environment:
+      CERT_OUTPUT_DIR: /certs
+    volumes:
+      - tmux_certs:/certs
+      - ./scripts/generate-certs.cjs:/app/scripts/generate-certs.cjs:ro
+    # Container hardening
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+  # =============================================================================
+  # TMux Worker (terminal session management via gRPC)
+  # =============================================================================
+  tmux-worker:
+    image: ghcr.io/troykelly/openclaw-projects-tmux-worker:latest
+    container_name: openclaw-tmux-worker
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      tmux-certs:
+        condition: service_completed_successfully
+    environment:
+      NODE_ENV: production
+      PGHOST: db
+      PGPORT: 5432
+      PGUSER: ${POSTGRES_USER:-openclaw}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      PGDATABASE: ${POSTGRES_DB:-openclaw}
+      GRPC_PORT: 50051
+      ENROLLMENT_SSH_PORT: 2222
+      TMUX_WORKER_HEALTH_PORT: 9002
+      WORKER_ID: tmux-worker-1
+      OAUTH_TOKEN_ENCRYPTION_KEY: ${OAUTH_TOKEN_ENCRYPTION_KEY:-}
+      # mTLS certificates (generated by tmux-certs init service)
+      GRPC_TLS_CERT: /certs/worker.pem
+      GRPC_TLS_KEY: /certs/worker-key.pem
+      GRPC_TLS_CA: /certs/ca.pem
+      # Persistent SSH host key (Issue #1857)
+      ENROLLMENT_SSH_HOST_KEY_PATH: /data/ssh_host_key
+    ports:
+      - "[::1]:${TMUX_GRPC_HOST_PORT:-50051}:50051"       # gRPC (internal)
+      - "127.0.0.1:${TMUX_GRPC_HOST_PORT:-50051}:50051"
+      - "[::1]:${TMUX_SSH_HOST_PORT:-2222}:2222"           # Enrollment SSH
+      - "127.0.0.1:${TMUX_SSH_HOST_PORT:-2222}:2222"
+    volumes:
+      - tmux_certs:/certs:ro
+      - tmux_data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9002/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    # Container hardening
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 128M
+```
+
+**Step 4: Add tmux volumes**
+
+In the `volumes:` section (line 700), add:
+
+```yaml
+  tmux_certs:
+  tmux_data:
+```
+
+**Step 5: Verify the file parses correctly**
+
+Run: `docker compose -f docker-compose.traefik.yml config --services 2>&1 | sort`
+Expected: Output includes `tmux-certs`, `tmux-worker` alongside all other services.
+
+**Step 6: Commit**
+
+```bash
+git add docker-compose.traefik.yml
+git commit -m "[#1908] Add tmux services and remove profiles from traefik compose"
+```
+
+---
+
+### Task 3: Remove profiles from docker-compose.full.yml and add tmux services
+
+**Files:**
+- Modify: `docker-compose.full.yml`
+
+**Step 1: Apply same changes as Task 2**
+
+- Remove `profiles: ["geo"]` from nominatim
+- Remove `profiles: ["ml"]` from prompt-guard
+- Add `tmux-certs` and `tmux-worker` service definitions (same as traefik compose)
+- Add TMUX env vars and volume to the api service
+- Add `tmux_certs` and `tmux_data` to volumes
+
+**Step 2: Verify**
+
+Run: `docker compose -f docker-compose.full.yml config --services 2>&1 | sort`
+Expected: Includes `tmux-certs`, `tmux-worker`, `nominatim`, `prompt-guard`, `openclaw-gateway`.
+
+**Step 3: Commit**
+
+```bash
+git add docker-compose.full.yml
+git commit -m "[#1908] Add tmux services and remove profiles from full compose"
+```
+
+---
+
+### Task 4: Add terminal health API endpoint
+
+**Files:**
+- Modify: `src/api/terminal/routes.ts:162-166` (add health endpoint inside plugin)
+- Test: `src/api/terminal/terminal-health.test.ts` (new file)
+
+**Step 1: Write the failing test**
+
+Create `src/api/terminal/terminal-health.test.ts`:
+
+```typescript
+/**
+ * Tests for GET /api/terminal/health endpoint.
+ * Issue #1908.
+ */
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import Fastify from 'fastify';
+import { terminalRoutesPlugin } from './routes.ts';
+
+// Mock the grpc-client module
+vi.mock('./grpc-client.ts', () => ({
+  getGrpcClient: vi.fn(),
+  closeGrpcClient: vi.fn(),
+  testConnection: vi.fn(),
+  createSession: vi.fn(),
+  terminateSession: vi.fn(),
+  listSessions: vi.fn(),
+  getSession: vi.fn(),
+  resizeSession: vi.fn(),
+  sendCommand: vi.fn(),
+  sendKeys: vi.fn(),
+  capturePane: vi.fn(),
+  attachSession: vi.fn(),
+  createWindow: vi.fn(),
+  closeWindow: vi.fn(),
+  splitPane: vi.fn(),
+  closePane: vi.fn(),
+  createTunnel: vi.fn(),
+  closeTunnel: vi.fn(),
+  listTunnels: vi.fn(),
+  approveHostKey: vi.fn(),
+  rejectHostKey: vi.fn(),
+}));
+
+// Mock auth modules to bypass authentication
+vi.mock('../auth/middleware.ts', () => ({
+  getAuthIdentity: vi.fn().mockResolvedValue({
+    userId: 'test-user',
+    namespaces: ['default'],
+    scopes: { terminal: { read: true, write: true } },
+  }),
+}));
+
+vi.mock('../auth/jwt.ts', () => ({
+  isAuthDisabled: vi.fn().mockReturnValue(true),
+  verifyAccessToken: vi.fn().mockResolvedValue({
+    userId: 'test-user',
+    namespaces: ['default'],
+    scopes: { terminal: { read: true, write: true } },
+  }),
+}));
+
+vi.mock('../embeddings/service.ts', () => ({
+  createEmbeddingService: vi.fn().mockReturnValue(null),
+}));
+
+import * as grpcClient from './grpc-client.ts';
+
+describe('GET /api/terminal/health (Issue #1908)', () => {
+  let app: ReturnType<typeof Fastify>;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    app = Fastify();
+
+    // Create a minimal mock pool
+    const mockPool = {
+      query: vi.fn(),
+      connect: vi.fn(),
+      end: vi.fn(),
+      on: vi.fn(),
+      totalCount: 0,
+      idleCount: 0,
+      waitingCount: 0,
+    } as unknown as import('pg').Pool;
+
+    await app.register(terminalRoutesPlugin, { pool: mockPool });
+    await app.ready();
+  });
+
+  it('returns 200 when worker is reachable', async () => {
+    const mockClient = {
+      waitForReady: vi.fn((_deadline: Date, cb: (err?: Error) => void) => cb()),
+    };
+    vi.mocked(grpcClient.getGrpcClient).mockReturnValue(mockClient as unknown as import('@grpc/grpc-js').Client);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/terminal/health',
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ status: 'ok' });
+  });
+
+  it('returns 503 when worker is unreachable', async () => {
+    const mockClient = {
+      waitForReady: vi.fn((_deadline: Date, cb: (err?: Error) => void) => cb(new Error('Connection refused'))),
+    };
+    vi.mocked(grpcClient.getGrpcClient).mockReturnValue(mockClient as unknown as import('@grpc/grpc-js').Client);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/terminal/health',
+    });
+
+    expect(res.statusCode).toBe(503);
+    expect(res.json()).toEqual({ status: 'unavailable' });
+  });
+});
+```
+
+**Step 2: Run test to verify it fails**
+
+Run: `pnpm exec vitest run src/api/terminal/terminal-health.test.ts`
+Expected: FAIL — endpoint `/api/terminal/health` does not exist yet (404).
+
+**Step 3: Implement the health endpoint**
+
+In `src/api/terminal/routes.ts`, add inside the `terminalRoutesPlugin` function, right after `const { pool } = opts;` (line 166) and before the first route:
+
+```typescript
+  // ================================================================
+  // Issue #1908 — Terminal worker health check
+  // ================================================================
+
+  // GET /api/terminal/health — Check if tmux worker is reachable
+  app.get('/api/terminal/health', async (_req, reply) => {
+    try {
+      const client = grpcClient.getGrpcClient();
+      await new Promise<void>((resolve, reject) => {
+        client.waitForReady(new Date(Date.now() + 5000), (err?: Error) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+      return reply.send({ status: 'ok' });
+    } catch {
+      return reply.code(503).send({ status: 'unavailable' });
+    }
+  });
+```
+
+**Step 4: Run test to verify it passes**
+
+Run: `pnpm exec vitest run src/api/terminal/terminal-health.test.ts`
+Expected: PASS (2 tests)
+
+**Step 5: Run typecheck**
+
+Run: `pnpm run build`
+Expected: No type errors.
+
+**Step 6: Commit**
+
+```bash
+git add src/api/terminal/routes.ts src/api/terminal/terminal-health.test.ts
+git commit -m "[#1908] Add GET /api/terminal/health endpoint"
+```
+
+---
+
+### Task 5: Add useTerminalHealth hook
+
+**Files:**
+- Create: `src/ui/hooks/queries/use-terminal-health.ts`
+
+**Step 1: Create the hook**
+
+Create `src/ui/hooks/queries/use-terminal-health.ts`:
+
+```typescript
+/**
+ * Hook for checking terminal worker health.
+ * Issue #1908.
+ */
+import { useQuery } from '@tanstack/react-query';
+import { apiClient } from '@/ui/lib/api-client';
+
+interface TerminalHealthResponse {
+  status: 'ok' | 'unavailable';
+}
+
+export function useTerminalHealth() {
+  return useQuery({
+    queryKey: ['terminal', 'health'],
+    queryFn: () => apiClient.get<TerminalHealthResponse>('/api/terminal/health'),
+    refetchInterval: 30_000,
+    retry: false,
+  });
+}
+```
+
+**Step 2: Run typecheck**
+
+Run: `pnpm run build`
+Expected: No type errors.
+
+**Step 3: Commit**
+
+```bash
+git add src/ui/hooks/queries/use-terminal-health.ts
+git commit -m "[#1908] Add useTerminalHealth hook"
+```
+
+---
+
+### Task 6: Add graceful degradation to ConnectionDetailPage
+
+**Files:**
+- Modify: `src/ui/pages/terminal/ConnectionDetailPage.tsx`
+
+**Step 1: Import the hook and add worker status logic**
+
+Add import:
+
+```typescript
+import { useTerminalHealth } from '@/ui/hooks/queries/use-terminal-health';
+```
+
+Inside the component, after the existing hooks (after `const [sessionError, setSessionError]`), add:
+
+```typescript
+  const healthQuery = useTerminalHealth();
+  const workerAvailable = healthQuery.data?.status === 'ok';
+```
+
+**Step 2: Add the banner**
+
+After the `{sessionError && ...}` block, add:
+
+```typescript
+      {!workerAvailable && !healthQuery.isLoading && (
+        <ErrorBanner
+          message="Terminal worker is not available. Session and connection test features are disabled."
+          onDismiss={() => {}}
+          onRetry={() => healthQuery.refetch()}
+        />
+      )}
+```
+
+**Step 3: Disable action buttons when worker is down**
+
+In the "Test" button, change `disabled={testConnection.isPending}` to:
+
+```typescript
+disabled={testConnection.isPending || !workerAvailable}
+```
+
+In the "Start Session" button, change `disabled={createSession.isPending}` to:
+
+```typescript
+disabled={createSession.isPending || !workerAvailable}
+```
+
+**Step 4: Run typecheck and lint**
+
+Run: `pnpm run build && pnpm exec biome check src/ui/pages/terminal/ConnectionDetailPage.tsx`
+Expected: No errors.
+
+**Step 5: Commit**
+
+```bash
+git add src/ui/pages/terminal/ConnectionDetailPage.tsx
+git commit -m "[#1908] Add worker health check and graceful degradation to ConnectionDetailPage"
+```
+
+---
+
+### Task 7: Add graceful degradation to ConnectionsPage
+
+**Files:**
+- Modify: `src/ui/pages/terminal/ConnectionsPage.tsx`
+
+**Step 1: Import and use the health hook**
+
+Add import:
+
+```typescript
+import { useTerminalHealth } from '@/ui/hooks/queries/use-terminal-health';
+import { ErrorBanner } from '@/ui/components/feedback/error-state';
+```
+
+Inside the component, add:
+
+```typescript
+  const healthQuery = useTerminalHealth();
+  const workerAvailable = healthQuery.data?.status === 'ok';
+```
+
+**Step 2: Add banner at the top of the page content**
+
+After the page header area, add the same banner pattern:
+
+```typescript
+      {!workerAvailable && !healthQuery.isLoading && (
+        <ErrorBanner
+          message="Terminal worker is not available. Session and connection test features are disabled."
+          onDismiss={() => {}}
+          onRetry={() => healthQuery.refetch()}
+        />
+      )}
+```
+
+**Step 3: Run typecheck and lint**
+
+Run: `pnpm run build && pnpm exec biome check src/ui/pages/terminal/ConnectionsPage.tsx`
+Expected: No errors.
+
+**Step 4: Commit**
+
+```bash
+git add src/ui/pages/terminal/ConnectionsPage.tsx
+git commit -m "[#1908] Add worker health banner to ConnectionsPage"
+```
+
+---
+
+### Task 8: Add graceful degradation to SessionDetailPage
+
+**Files:**
+- Modify: `src/ui/pages/terminal/SessionDetailPage.tsx`
+
+**Step 1: Import and use the health hook**
+
+Same pattern as Task 7 — import `useTerminalHealth` and `ErrorBanner`, query worker health, show banner when unavailable.
+
+**Step 2: Run typecheck and lint**
+
+Run: `pnpm run build && pnpm exec biome check src/ui/pages/terminal/SessionDetailPage.tsx`
+Expected: No errors.
+
+**Step 3: Commit**
+
+```bash
+git add src/ui/pages/terminal/SessionDetailPage.tsx
+git commit -m "[#1908] Add worker health banner to SessionDetailPage"
+```
+
+---
+
+### Task 9: Update .env.example with terminal worker variables
+
+**Files:**
+- Modify: `.env.example`
+
+**Step 1: Add terminal worker section**
+
+After the "Worker" section (line 574), add:
+
+```bash
+# =============================================================================
+# Terminal Worker (TMux Session Management)
+# =============================================================================
+
+# gRPC port for terminal worker (default: 50051)
+# For basic compose: TMUX_GRPC_PORT=50051
+# For traefik/full compose: TMUX_GRPC_HOST_PORT=50051
+# TMUX_GRPC_PORT=50051
+
+# SSH enrollment port for reverse tunnel self-registration (default: 2222)
+# For basic compose: TMUX_SSH_PORT=2222
+# For traefik/full compose: TMUX_SSH_HOST_PORT=2222
+# TMUX_SSH_PORT=2222
+
+# Override gRPC URL (only needed for non-standard setups)
+# TMUX_WORKER_GRPC_URL=tmux-worker:50051
+```
+
+**Step 2: Commit**
+
+```bash
+git add .env.example
+git commit -m "[#1908] Add terminal worker variables to .env.example"
+```
+
+---
+
+### Task 10: Update deployment documentation
+
+**Files:**
+- Modify: `docs/deployment.md:1018-1059`
+
+**Step 1: Rewrite the Optional Services section**
+
+Replace lines 1018-1059 with:
+
+```markdown
+## Service Architecture
+
+All services start by default with `docker compose up -d`. No profile flags are needed.
+
+| Service | Purpose | Resource Impact | Graceful Degradation |
+|---------|---------|-----------------|----------------------|
+| tmux-worker | Terminal session management (gRPC) | 512MB RAM, 1 CPU | UI disables session/test buttons, shows banner |
+| tmux-certs | mTLS certificate generation (runs once) | Minimal (init container) | Required by tmux-worker |
+| nominatim | Reverse geocoding (OpenStreetMap) | ~1GB download, 4GB RAM | Geo features silently disabled |
+| prompt-guard | ML prompt injection detection | ~500MB model, 1.5GB RAM | Falls back to regex detection |
+
+### Disabling Services
+
+To skip services you don't need, create a `docker-compose.override.yml` in the project root:
+
+```yaml
+# docker-compose.override.yml
+# Disable services by adding profiles: ["disabled"]
+# Docker Compose only starts profiled services when --profile is passed.
+services:
+  # --- Disable terminal features ---
+  # These must be disabled together.
+  tmux-certs:
+    profiles: ["disabled"]
+  tmux-worker:
+    profiles: ["disabled"]
+
+  # --- Disable reverse geocoding ---
+  nominatim:
+    profiles: ["disabled"]
+
+  # --- Disable ML prompt injection detection ---
+  prompt-guard:
+    profiles: ["disabled"]
+```
+
+**Common override examples:**
+
+Lightweight deployment (no ML or geocoding):
+```yaml
+services:
+  nominatim:
+    profiles: ["disabled"]
+  prompt-guard:
+    profiles: ["disabled"]
+```
+
+Minimal deployment (only core services):
+```yaml
+services:
+  tmux-certs:
+    profiles: ["disabled"]
+  tmux-worker:
+    profiles: ["disabled"]
+  nominatim:
+    profiles: ["disabled"]
+  prompt-guard:
+    profiles: ["disabled"]
+```
+
+> **Note:** `docker-compose.override.yml` is automatically loaded by Docker Compose.
+> Do not commit this file — it is deployment-specific.
+```
+
+**Step 2: Commit**
+
+```bash
+git add docs/deployment.md
+git commit -m "[#1908] Rewrite deployment docs: services on by default, override to disable"
+```
+
+---
+
+### Task 11: Add Traefik compose shell tests
+
+**Files:**
+- Modify: `docker/traefik/tests/test-entrypoint.sh`
+
+**Step 1: Add tests for service presence**
+
+Append tests to the existing test file:
+
+```bash
+# Test 35: tmux-worker service exists in traefik compose
+run_test
+if docker compose -f "${SCRIPT_DIR}/../../../docker-compose.traefik.yml" config --services 2>/dev/null | grep -q 'tmux-worker'; then
+    pass "tmux-worker service exists in traefik compose"
+else
+    fail "tmux-worker service missing from traefik compose"
+fi
+
+# Test 36: tmux-certs service exists in traefik compose
+run_test
+if docker compose -f "${SCRIPT_DIR}/../../../docker-compose.traefik.yml" config --services 2>/dev/null | grep -q 'tmux-certs'; then
+    pass "tmux-certs service exists in traefik compose"
+else
+    fail "tmux-certs service missing from traefik compose"
+fi
+
+# Test 37: No profiles on optional services (all start by default)
+run_test
+COMPOSE_CONFIG=$(docker compose -f "${SCRIPT_DIR}/../../../docker-compose.traefik.yml" config 2>/dev/null)
+if echo "$COMPOSE_CONFIG" | grep -A2 'nominatim:' | grep -q 'profiles:'; then
+    fail "nominatim should not have profiles (should start by default)"
+elif echo "$COMPOSE_CONFIG" | grep -A2 'prompt-guard:' | grep -q 'profiles:'; then
+    fail "prompt-guard should not have profiles (should start by default)"
+else
+    pass "No profiles on optional services — all start by default"
+fi
+```
+
+**Step 2: Run the test suite**
+
+Run: `bash docker/traefik/tests/test-entrypoint.sh`
+Expected: All tests pass including new ones.
+
+**Step 3: Commit**
+
+```bash
+git add docker/traefik/tests/test-entrypoint.sh
+git commit -m "[#1908] Add shell tests for service presence and no-profiles"
+```
+
+---
+
+### Task 12: Final verification and push
+
+**Step 1: Run full typecheck**
+
+Run: `pnpm run build`
+Expected: No errors.
+
+**Step 2: Run all unit tests**
+
+Run: `pnpm exec vitest run`
+Expected: All tests pass.
+
+**Step 3: Run lint**
+
+Run: `pnpm exec biome check src/`
+Expected: No errors.
+
+**Step 4: Push and create PR**
+
+```bash
+git push -u origin issue/1906-services-default
+```
+
+Create PR with:
+- Title: `[#1908] Enable all services by default, override to disable`
+- Body references `Closes #1908`, lists all changes
+- Uses `GITHUB_TOKEN_TROY` for approval
+
+**Step 5: Wait for CI to go green, approve, merge**
+
+Per CODING-RUNBOOK.md Steps 7-9.
+
+**Step 6: Clean up worktree**
+
+```bash
+cd /workspaces/openclaw-projects
+git worktree remove /tmp/worktree-issue-1906-services-default
+git branch -d issue/1906-services-default
+```

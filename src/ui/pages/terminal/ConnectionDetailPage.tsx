@@ -21,6 +21,7 @@ import {
   useUpdateTerminalConnection,
 } from '@/ui/hooks/queries/use-terminal-connections';
 import { useTerminalCredentials } from '@/ui/hooks/queries/use-terminal-credentials';
+import { useTerminalHealth } from '@/ui/hooks/queries/use-terminal-health';
 import { useCreateTerminalSession } from '@/ui/hooks/queries/use-terminal-sessions';
 import { ApiRequestError } from '@/ui/lib/api-client';
 import type { TerminalConnection } from '@/ui/lib/api-types';
@@ -51,6 +52,8 @@ export function ConnectionDetailPage(): React.JSX.Element {
   const deleteConnection = useDeleteTerminalConnection();
   const testConnection = useTestTerminalConnection();
   const createSession = useCreateTerminalSession();
+  const healthQuery = useTerminalHealth();
+  const workerAvailable = healthQuery.data?.status === 'ok';
 
   const [testError, setTestError] = useState<string | null>(null);
   const [sessionError, setSessionError] = useState<string | null>(null);
@@ -128,7 +131,7 @@ export function ConnectionDetailPage(): React.JSX.Element {
                 onError: (err) => setTestError(formatMutationError(err, 'Connection test failed')),
               });
             }}
-            disabled={testConnection.isPending}
+            disabled={testConnection.isPending || !workerAvailable}
           >
             {testConnection.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Play className="mr-2 size-4" />}
             Test
@@ -138,7 +141,7 @@ export function ConnectionDetailPage(): React.JSX.Element {
               setSessionError(null);
               handleStartSession();
             }}
-            disabled={createSession.isPending}
+            disabled={createSession.isPending || !workerAvailable}
           >
             {createSession.isPending && <Loader2 className="mr-2 size-4 animate-spin" />}
             Start Session
@@ -166,6 +169,10 @@ export function ConnectionDetailPage(): React.JSX.Element {
       )}
 
       {sessionError && <ErrorBanner message={sessionError} onDismiss={() => setSessionError(null)} onRetry={handleStartSession} />}
+
+      {!workerAvailable && !healthQuery.isLoading && (
+        <ErrorBanner message="Terminal worker is not available. Session and connection test features are disabled." onRetry={() => healthQuery.refetch()} />
+      )}
 
       {connection.proxy_jump_id && <ProxyChainDiagram connection={connection} allConnections={allConnections} />}
 

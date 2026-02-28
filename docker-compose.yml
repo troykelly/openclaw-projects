@@ -319,7 +319,6 @@ services:
   tmux-certs:
     image: node:22-slim
     container_name: openclaw-tmux-certs
-    profiles: ["terminal"]
     restart: "no"
     command: ["node", "/app/scripts/generate-certs.cjs"]
     environment:
@@ -339,7 +338,6 @@ services:
   tmux-worker:
     image: ghcr.io/troykelly/openclaw-projects-tmux-worker:latest
     container_name: openclaw-tmux-worker
-    profiles: ["terminal"]
     restart: unless-stopped
     depends_on:
       db:
@@ -447,7 +445,6 @@ services:
   # If Nominatim is unavailable, geo features silently degrade.
   nominatim:
     image: mediagis/nominatim:4.4
-    profiles: ["geo"]
     container_name: openclaw-nominatim
     restart: unless-stopped
     environment:
@@ -535,7 +532,6 @@ services:
   # If PromptGuard is unavailable, injection detection falls back to regex.
   prompt-guard:
     image: ghcr.io/troykelly/openclaw-projects-prompt-guard:latest
-    profiles: ["ml"]
     container_name: openclaw-prompt-guard
     restart: unless-stopped
     environment:
