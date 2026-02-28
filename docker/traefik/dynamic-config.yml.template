@@ -55,6 +55,30 @@ http:
           # the per-request nonce-based CSP set by the backend on HTML responses.
           # Each backend (API server, nginx) sets its own appropriate CSP.
 
+    # CORS headers middleware for API routes
+    # Ensures CORS headers are present even on Traefik-generated error responses
+    # (e.g. 502 Bad Gateway when the backend is down). Without this, browsers
+    # block the error response and the UI cannot read the status code.
+    # These values mirror what @fastify/cors sets in src/api/cors.ts.
+    api-cors:
+      headers:
+        accessControlAllowOriginList:
+          - "https://${DOMAIN}"
+        accessControlAllowMethods:
+          - GET
+          - POST
+          - PUT
+          - PATCH
+          - DELETE
+          - OPTIONS
+        accessControlAllowHeaders:
+          - Authorization
+          - Content-Type
+          - Accept
+        accessControlAllowCredentials: true
+        accessControlMaxAge: 86400
+        addVaryHeader: true
+
     # Rate limiting middleware
     rate-limit:
       rateLimit:
@@ -94,6 +118,7 @@ http:
       entryPoints:
         - websecure
       middlewares:
+        - api-cors
         - security-headers
         - rate-limit
       tls:

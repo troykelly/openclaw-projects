@@ -2,12 +2,13 @@
  * Connection Detail Page (Epic #1667, #1692).
  */
 import * as React from 'react';
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import { Button } from '@/ui/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/ui/components/ui/card';
 import { Badge } from '@/ui/components/ui/badge';
 import { ArrowLeft, Play, Trash2, Loader2 } from 'lucide-react';
+import { ErrorBanner } from '@/ui/components/feedback/error-state';
 import { ConnectionStatusIndicator } from '@/ui/components/terminal/connection-status-indicator';
 import { ConnectionForm } from '@/ui/components/terminal/connection-form';
 import { ProxyChainDiagram } from '@/ui/components/terminal/proxy-chain-diagram';
@@ -21,6 +22,17 @@ import {
 import { useTerminalCredentials } from '@/ui/hooks/queries/use-terminal-credentials';
 import { useCreateTerminalSession } from '@/ui/hooks/queries/use-terminal-sessions';
 import type { TerminalConnection } from '@/ui/lib/api-types';
+import { ApiRequestError } from '@/ui/lib/api-client';
+
+/** Extract a user-friendly error message from a mutation error. */
+function formatMutationError(error: unknown, fallback: string): string {
+  if (error instanceof ApiRequestError) {
+    if (error.status === 502) return 'Terminal worker unavailable. The backend service may be down or restarting.';
+    return error.message;
+  }
+  if (error instanceof Error) return error.message;
+  return fallback;
+}
 
 export function ConnectionDetailPage(): React.JSX.Element {
   const { id } = useParams<{ id: string }>();
@@ -34,6 +46,9 @@ export function ConnectionDetailPage(): React.JSX.Element {
   const deleteConnection = useDeleteTerminalConnection();
   const testConnection = useTestTerminalConnection();
   const createSession = useCreateTerminalSession();
+
+  const [testError, setTestError] = useState<string | null>(null);
+  const [sessionError, setSessionError] = useState<string | null>(null);
 
   const connection = connectionQuery.data;
   const allConnections = Array.isArray(allConnectionsQuery.data?.connections) ? allConnectionsQuery.data.connections : [];
@@ -69,11 +84,13 @@ export function ConnectionDetailPage(): React.JSX.Element {
     });
   };
 
-  const handleStartSession = () => {
+  const handleStartSession = useCallback(() => {
+    setSessionError(null);
     createSession.mutate({ connection_id: connection.id }, {
       onSuccess: (session) => navigate(`/terminal/sessions/${session.id}`),
+      onError: (err) => setSessionError(formatMutationError(err, 'Failed to start session')),
     });
-  };
+  }, [connection.id, createSession, navigate]);
 
   return (
     <div data-testid="page-connection-detail" className="p-6 space-y-6">
@@ -94,11 +111,26 @@ export function ConnectionDetailPage(): React.JSX.Element {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => testConnection.mutate(connection.id)} disabled={testConnection.isPending}>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setTestError(null);
+              testConnection.mutate(connection.id, {
+                onError: (err) => setTestError(formatMutationError(err, 'Connection test failed')),
+              });
+            }}
+            disabled={testConnection.isPending}
+          >
             {testConnection.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Play className="mr-2 size-4" />}
             Test
           </Button>
-          <Button onClick={handleStartSession} disabled={createSession.isPending}>
+          <Button
+            onClick={() => {
+              setSessionError(null);
+              handleStartSession();
+            }}
+            disabled={createSession.isPending}
+          >
             {createSession.isPending && <Loader2 className="mr-2 size-4 animate-spin" />}
             Start Session
           </Button>
@@ -108,6 +140,27 @@ export function ConnectionDetailPage(): React.JSX.Element {
           </Button>
         </div>
       </div>
+
+      {testError && (
+        <ErrorBanner
+          message={testError}
+          onDismiss={() => setTestError(null)}
+          onRetry={() => {
+            setTestError(null);
+            testConnection.mutate(connection.id, {
+              onError: (err) => setTestError(formatMutationError(err, 'Connection test failed')),
+            });
+          }}
+        />
+      )}
+
+      {sessionError && (
+        <ErrorBanner
+          message={sessionError}
+          onDismiss={() => setSessionError(null)}
+          onRetry={handleStartSession}
+        />
+      )}
 
       {connection.proxy_jump_id && (
         <ProxyChainDiagram connection={connection} allConnections={allConnections} />

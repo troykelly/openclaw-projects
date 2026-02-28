@@ -755,6 +755,54 @@ test_empty_cf_api_key_unset() {
     cleanup_test_env "${test_dir}"
 }
 
+# Test 30: API CORS middleware should be present with domain origin
+test_api_cors_middleware() {
+    run_test
+    local test_dir
+    test_dir=$(setup_test_env)
+
+    export DOMAIN="example.com"
+    export ACME_EMAIL="test@example.com"
+
+    "${test_dir}/entrypoint-test.sh" >/dev/null 2>&1
+
+    local config_file="${test_dir}/etc/traefik/dynamic/system/config.yml"
+
+    if grep -q "api-cors:" "${config_file}" && \
+       grep -q "https://example.com" "${config_file}" && \
+       grep -q "accessControlAllowCredentials: true" "${config_file}" && \
+       grep -q "accessControlMaxAge: 86400" "${config_file}"; then
+        pass "API CORS middleware is present with correct domain origin"
+    else
+        fail "API CORS middleware should be present with domain origin"
+    fi
+
+    cleanup_test_env "${test_dir}"
+}
+
+# Test 31: API router should include api-cors middleware
+test_api_router_has_cors() {
+    run_test
+    local test_dir
+    test_dir=$(setup_test_env)
+
+    export DOMAIN="example.com"
+    export ACME_EMAIL="test@example.com"
+
+    "${test_dir}/entrypoint-test.sh" >/dev/null 2>&1
+
+    local config_file="${test_dir}/etc/traefik/dynamic/system/config.yml"
+
+    # Check that api-cors appears in the middlewares list for api-router
+    if grep -A 10 "api-router:" "${config_file}" | grep -q "api-cors"; then
+        pass "API router includes api-cors middleware"
+    else
+        fail "API router should include api-cors middleware"
+    fi
+
+    cleanup_test_env "${test_dir}"
+}
+
 # Run all tests
 echo "======================================"
 echo "Traefik Entrypoint Script Test Suite"
@@ -790,6 +838,8 @@ test_empty_cf_dns_api_token_unset
 test_nonempty_cf_dns_api_token_preserved
 test_whitespace_cf_dns_api_token_unset
 test_empty_cf_api_key_unset
+test_api_cors_middleware
+test_api_router_has_cors
 
 echo ""
 echo "======================================"
