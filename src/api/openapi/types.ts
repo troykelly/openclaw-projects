@@ -37,17 +37,24 @@ export interface ParameterObject {
   description?: string;
   schema: SchemaObject;
   example?: unknown;
+  deprecated?: boolean;
 }
 
 export interface RequestBodyObject {
   required?: boolean;
   description?: string;
-  content: Record<string, { schema: SchemaObject; example?: unknown }>;
+  content: Record<string, MediaTypeObject>;
+}
+
+export interface MediaTypeObject {
+  schema: SchemaObject;
+  example?: unknown;
+  examples?: Record<string, { summary?: string; value: unknown }>;
 }
 
 export interface ResponseObject {
   description: string;
-  content?: Record<string, { schema: SchemaObject; example?: unknown }>;
+  content?: Record<string, MediaTypeObject>;
   headers?: Record<string, { schema: SchemaObject; description?: string }>;
 }
 
