@@ -1,28 +1,29 @@
 /**
  * Connection Detail Page (Epic #1667, #1692).
  */
-import * as React from 'react';
-import { useState, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router';
+
+import { ArrowLeft, Loader2, Play, Trash2 } from 'lucide-react';
+import type * as React from 'react';
+import { useState } from 'react';
+import { useNavigate, useParams } from 'react-router';
+import { ErrorBanner } from '@/ui/components/feedback/error-state';
+import { ConnectionForm } from '@/ui/components/terminal/connection-form';
+import { ConnectionStatusIndicator } from '@/ui/components/terminal/connection-status-indicator';
+import { ProxyChainDiagram } from '@/ui/components/terminal/proxy-chain-diagram';
+import { Badge } from '@/ui/components/ui/badge';
 import { Button } from '@/ui/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/ui/components/ui/card';
-import { Badge } from '@/ui/components/ui/badge';
-import { ArrowLeft, Play, Trash2, Loader2 } from 'lucide-react';
-import { ErrorBanner } from '@/ui/components/feedback/error-state';
-import { ConnectionStatusIndicator } from '@/ui/components/terminal/connection-status-indicator';
-import { ConnectionForm } from '@/ui/components/terminal/connection-form';
-import { ProxyChainDiagram } from '@/ui/components/terminal/proxy-chain-diagram';
 import {
+  useDeleteTerminalConnection,
   useTerminalConnection,
   useTerminalConnections,
-  useUpdateTerminalConnection,
-  useDeleteTerminalConnection,
   useTestTerminalConnection,
+  useUpdateTerminalConnection,
 } from '@/ui/hooks/queries/use-terminal-connections';
 import { useTerminalCredentials } from '@/ui/hooks/queries/use-terminal-credentials';
 import { useCreateTerminalSession } from '@/ui/hooks/queries/use-terminal-sessions';
-import type { TerminalConnection } from '@/ui/lib/api-types';
 import { ApiRequestError } from '@/ui/lib/api-client';
+import type { TerminalConnection } from '@/ui/lib/api-types';
 
 /** Extract a user-friendly error message from a mutation error. */
 function formatMutationError(error: unknown, fallback: string): string {
@@ -56,9 +57,7 @@ export function ConnectionDetailPage(): React.JSX.Element {
 
   const connection = connectionQuery.data;
   const allConnections = Array.isArray(allConnectionsQuery.data?.connections) ? allConnectionsQuery.data.connections : [];
-  const credentials = Array.isArray(credentialsQuery.data?.credentials)
-    ? credentialsQuery.data.credentials.map((c) => ({ id: c.id, name: c.name }))
-    : [];
+  const credentials = Array.isArray(credentialsQuery.data?.credentials) ? credentialsQuery.data.credentials.map((c) => ({ id: c.id, name: c.name })) : [];
 
   if (connectionQuery.isLoading) {
     return (
@@ -77,9 +76,12 @@ export function ConnectionDetailPage(): React.JSX.Element {
   }
 
   const handleUpdate = (data: Partial<TerminalConnection>) => {
-    updateConnection.mutate({ id: connection.id, ...data }, {
-      onSuccess: () => setEditOpen(false),
-    });
+    updateConnection.mutate(
+      { id: connection.id, ...data },
+      {
+        onSuccess: () => setEditOpen(false),
+      },
+    );
   };
 
   const handleDelete = () => {
@@ -88,13 +90,16 @@ export function ConnectionDetailPage(): React.JSX.Element {
     });
   };
 
-  const handleStartSession = useCallback(() => {
+  const handleStartSession = () => {
     setSessionError(null);
-    createSession.mutate({ connection_id: connection.id }, {
-      onSuccess: (session) => navigate(`/terminal/sessions/${session.id}`),
-      onError: (err) => setSessionError(formatMutationError(err, 'Failed to start session')),
-    });
-  }, [connection.id, createSession, navigate]);
+    createSession.mutate(
+      { connection_id: connection.id },
+      {
+        onSuccess: (session) => navigate(`/terminal/sessions/${session.id}`),
+        onError: (err) => setSessionError(formatMutationError(err, 'Failed to start session')),
+      },
+    );
+  };
 
   return (
     <div data-testid="page-connection-detail" className="p-6 space-y-6">
@@ -138,7 +143,9 @@ export function ConnectionDetailPage(): React.JSX.Element {
             {createSession.isPending && <Loader2 className="mr-2 size-4 animate-spin" />}
             Start Session
           </Button>
-          <Button variant="outline" onClick={() => setEditOpen(true)}>Edit</Button>
+          <Button variant="outline" onClick={() => setEditOpen(true)}>
+            Edit
+          </Button>
           <Button variant="ghost" className="text-red-500" onClick={handleDelete}>
             <Trash2 className="size-4" />
           </Button>
@@ -158,21 +165,15 @@ export function ConnectionDetailPage(): React.JSX.Element {
         />
       )}
 
-      {sessionError && (
-        <ErrorBanner
-          message={sessionError}
-          onDismiss={() => setSessionError(null)}
-          onRetry={handleStartSession}
-        />
-      )}
+      {sessionError && <ErrorBanner message={sessionError} onDismiss={() => setSessionError(null)} onRetry={handleStartSession} />}
 
-      {connection.proxy_jump_id && (
-        <ProxyChainDiagram connection={connection} allConnections={allConnections} />
-      )}
+      {connection.proxy_jump_id && <ProxyChainDiagram connection={connection} allConnections={allConnections} />}
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Card>
-          <CardHeader><CardTitle className="text-sm">Details</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle className="text-sm">Details</CardTitle>
+          </CardHeader>
           <CardContent className="space-y-2 text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Auth Method</span>
@@ -200,12 +201,16 @@ export function ConnectionDetailPage(): React.JSX.Element {
         </Card>
 
         <Card>
-          <CardHeader><CardTitle className="text-sm">Metadata</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle className="text-sm">Metadata</CardTitle>
+          </CardHeader>
           <CardContent className="space-y-2 text-sm">
             {connection.tags.length > 0 && (
               <div className="flex flex-wrap gap-1">
                 {connection.tags.map((tag) => (
-                  <Badge key={tag} variant="outline" className="text-xs">{tag}</Badge>
+                  <Badge key={tag} variant="outline" className="text-xs">
+                    {tag}
+                  </Badge>
                 ))}
               </div>
             )}
