@@ -27,10 +27,14 @@ import { ApiRequestError } from '@/ui/lib/api-client';
 /** Extract a user-friendly error message from a mutation error. */
 function formatMutationError(error: unknown, fallback: string): string {
   if (error instanceof ApiRequestError) {
-    if (error.status === 502) return 'Terminal worker unavailable. The backend service may be down or restarting.';
-    return error.message;
+    if (error.status === 502 || error.status === 503 || error.status === 504) {
+      return 'Terminal worker unavailable. The backend service may be down or restarting.';
+    }
+    if (error.status >= 500) return fallback;
+    if (error.status === 400) return 'Invalid request. Please check the connection configuration.';
+    if (error.status === 404) return 'Connection not found.';
+    return fallback;
   }
-  if (error instanceof Error) return error.message;
   return fallback;
 }
 

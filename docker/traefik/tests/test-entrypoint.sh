@@ -803,6 +803,80 @@ test_api_router_has_cors() {
     cleanup_test_env "${test_dir}"
 }
 
+# Test 32: API CORS middleware should include all required method verbs
+test_api_cors_methods() {
+    run_test
+    local test_dir
+    test_dir=$(setup_test_env)
+
+    export DOMAIN="example.com"
+    export ACME_EMAIL="test@example.com"
+
+    "${test_dir}/entrypoint-test.sh" >/dev/null 2>&1
+
+    local config_file="${test_dir}/etc/traefik/dynamic/system/config.yml"
+
+    local missing=""
+    for method in GET POST PUT PATCH DELETE OPTIONS; do
+        if ! grep -A 30 "api-cors:" "${config_file}" | grep -q "${method}"; then
+            missing="${missing} ${method}"
+        fi
+    done
+
+    if [ -z "${missing}" ]; then
+        pass "API CORS middleware includes all required HTTP methods"
+    else
+        fail "API CORS middleware missing methods:${missing}"
+    fi
+
+    cleanup_test_env "${test_dir}"
+}
+
+# Test 33: API CORS middleware should include addVaryHeader
+test_api_cors_vary_header() {
+    run_test
+    local test_dir
+    test_dir=$(setup_test_env)
+
+    export DOMAIN="example.com"
+    export ACME_EMAIL="test@example.com"
+
+    "${test_dir}/entrypoint-test.sh" >/dev/null 2>&1
+
+    local config_file="${test_dir}/etc/traefik/dynamic/system/config.yml"
+
+    if grep -A 30 "api-cors:" "${config_file}" | grep -q "addVaryHeader: true"; then
+        pass "API CORS middleware includes addVaryHeader: true"
+    else
+        fail "API CORS middleware should include addVaryHeader: true (prevents cache poisoning)"
+    fi
+
+    cleanup_test_env "${test_dir}"
+}
+
+# Test 34: API CORS should NOT include wildcard origin
+test_api_cors_no_wildcard() {
+    run_test
+    local test_dir
+    test_dir=$(setup_test_env)
+
+    export DOMAIN="example.com"
+    export ACME_EMAIL="test@example.com"
+
+    "${test_dir}/entrypoint-test.sh" >/dev/null 2>&1
+
+    local config_file="${test_dir}/etc/traefik/dynamic/system/config.yml"
+
+    # Verify no wildcard (*) in the origin list — wildcards break credentialed CORS
+    if grep -A 5 "accessControlAllowOriginList:" "${config_file}" | grep -qF '"*"'; then
+        fail "API CORS must NOT use wildcard origin with credentials"
+    else
+        pass "API CORS correctly avoids wildcard origin"
+    fi
+
+    cleanup_test_env "${test_dir}"
+}
+
 # Run all tests
 echo "======================================"
 echo "Traefik Entrypoint Script Test Suite"
@@ -840,6 +914,9 @@ test_whitespace_cf_dns_api_token_unset
 test_empty_cf_api_key_unset
 test_api_cors_middleware
 test_api_router_has_cors
+test_api_cors_methods
+test_api_cors_vary_header
+test_api_cors_no_wildcard
 
 echo ""
 echo "======================================"

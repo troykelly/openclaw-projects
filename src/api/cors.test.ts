@@ -261,7 +261,7 @@ describe('CORS configuration (Issue #1327)', () => {
   });
 
   describe('CORS_HANDLED_BY_PROXY bypass', () => {
-    it('does not register @fastify/cors when CORS_HANDLED_BY_PROXY is set', async () => {
+    it('does not register @fastify/cors when CORS_HANDLED_BY_PROXY is "true"', async () => {
       process.env.CORS_HANDLED_BY_PROXY = 'true';
       process.env.PUBLIC_BASE_URL = 'https://app.example.com';
       const app = await buildCorsApp();
@@ -276,6 +276,23 @@ describe('CORS configuration (Issue #1327)', () => {
       // No CORS plugin registered — no ACAO header
       expect(res.headers['access-control-allow-origin']).toBeUndefined();
       expect(res.headers['access-control-allow-credentials']).toBeUndefined();
+
+      await app.close();
+    });
+
+    it('still registers @fastify/cors when CORS_HANDLED_BY_PROXY is "false"', async () => {
+      process.env.CORS_HANDLED_BY_PROXY = 'false';
+      process.env.PUBLIC_BASE_URL = 'https://app.example.com';
+      const app = await buildCorsApp();
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/test',
+        headers: { origin: 'https://app.example.com' },
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.headers['access-control-allow-origin']).toBe('https://app.example.com');
 
       await app.close();
     });
