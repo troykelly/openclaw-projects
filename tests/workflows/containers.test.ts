@@ -109,10 +109,10 @@ describe('containers.yml workflow', () => {
     });
 
     describe('matrix strategy', () => {
-      it('should define matrix strategy for all 7 images', () => {
+      it('should define matrix strategy for all 8 images', () => {
         const matrix = workflow.jobs.build.strategy?.matrix;
         expect(matrix).toBeDefined();
-        expect(matrix?.image).toHaveLength(7);
+        expect(matrix?.image).toHaveLength(8);
       });
 
       it('should include db image with correct dockerfile path', () => {
@@ -162,6 +162,13 @@ describe('containers.yml workflow', () => {
         const promptGuard = matrix?.image.find((i) => i.name === 'prompt-guard');
         expect(promptGuard).toBeDefined();
         expect(promptGuard?.dockerfile).toBe('docker/prompt-guard/Dockerfile');
+      });
+
+      it('should include tmux-worker image with correct dockerfile path', () => {
+        const matrix = workflow.jobs.build.strategy?.matrix;
+        const tmuxWorker = matrix?.image.find((i) => i.name === 'tmux-worker');
+        expect(tmuxWorker).toBeDefined();
+        expect(tmuxWorker?.dockerfile).toBe('docker/tmux-worker/Dockerfile');
       });
 
       it('should not use fail-fast (allow other images to build if one fails)', () => {
