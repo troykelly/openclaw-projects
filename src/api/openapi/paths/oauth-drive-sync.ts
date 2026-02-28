@@ -337,7 +337,28 @@ export function oauthDriveSyncPaths(): OpenApiDomainModule {
           ],
           responses: {
             '302': { description: 'Redirect to SPA with auth code' },
-            ...errorResponses(400, 401, 500, 502, 503),
+            '400': {
+              description: 'Bad request — authorization denied, missing parameters, or invalid state',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      error: { type: 'string', description: 'Human-readable error message' },
+                      code: { type: 'string', description: 'Machine-readable error code', enum: ['INVALID_STATE', 'MISSING_STATE', 'MISSING_CODE'] },
+                      details: { type: 'string', description: 'Provider error code when authorization was denied (e.g. access_denied)' },
+                    },
+                    required: ['error'],
+                  },
+                  examples: {
+                    invalidState: { summary: 'Invalid or expired state', value: { error: 'Invalid or expired OAuth state', code: 'INVALID_STATE' } },
+                    missingState: { summary: 'Missing state parameter', value: { error: 'Missing OAuth state parameter' } },
+                    denied: { summary: 'Authorization denied', value: { error: 'OAuth authorization failed', details: 'access_denied' } },
+                  },
+                },
+              },
+            },
+            ...errorResponses(401, 500, 502, 503),
           },
         },
       },
