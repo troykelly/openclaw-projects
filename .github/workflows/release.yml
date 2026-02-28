@@ -524,6 +524,9 @@ jobs:
           - name: prompt-guard
             context: docker/prompt-guard
             dockerfile: docker/prompt-guard/Dockerfile
+          - name: tmux-worker
+            context: .
+            dockerfile: docker/tmux-worker/Dockerfile
 
     steps:
       - name: Checkout repository
@@ -709,6 +712,7 @@ jobs:
           | worker | \`docker pull ghcr.io/troykelly/openclaw-projects-worker:${RELEASE_VERSION}\` |
           | ha-connector | \`docker pull ghcr.io/troykelly/openclaw-projects-ha-connector:${RELEASE_VERSION}\` |
           | prompt-guard | \`docker pull ghcr.io/troykelly/openclaw-projects-prompt-guard:${RELEASE_VERSION}\` |
+          | tmux-worker | \`docker pull ghcr.io/troykelly/openclaw-projects-tmux-worker:${RELEASE_VERSION}\` |
           BODYEOF
 
       - name: Create GitHub Release (draft)
