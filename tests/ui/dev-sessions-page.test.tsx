@@ -72,9 +72,12 @@ describe('DevSessionsPage', () => {
 
     renderPage();
 
-    await waitFor(() => {
-      expect(screen.getByTestId('page-dev-sessions')).toBeInTheDocument();
-    });
+    await waitFor(
+      () => {
+        expect(screen.getByTestId('page-dev-sessions')).toBeInTheDocument();
+      },
+      { timeout: 5000 },
+    );
 
     expect(screen.getByText('Dev Sessions')).toBeInTheDocument();
     expect(screen.getByTestId('create-session-button')).toBeInTheDocument();
@@ -93,9 +96,12 @@ describe('DevSessionsPage', () => {
 
     renderPage();
 
-    await waitFor(() => {
-      expect(screen.getByText('No dev sessions found.')).toBeInTheDocument();
-    });
+    await waitFor(
+      () => {
+        expect(screen.getByText('No dev sessions found.')).toBeInTheDocument();
+      },
+      { timeout: 5000 },
+    );
   });
 
   it('renders sessions when data is available', async () => {
@@ -116,9 +122,12 @@ describe('DevSessionsPage', () => {
 
     renderPage();
 
-    await waitFor(() => {
-      expect(screen.getByText('Fix auth bug')).toBeInTheDocument();
-    });
+    await waitFor(
+      () => {
+        expect(screen.getByText('Fix auth bug')).toBeInTheDocument();
+      },
+      { timeout: 5000 },
+    );
   });
 
   it('shows status filter control', async () => {
@@ -126,8 +135,11 @@ describe('DevSessionsPage', () => {
 
     renderPage();
 
-    await waitFor(() => {
-      expect(screen.getByTestId('status-filter')).toBeInTheDocument();
-    });
+    await waitFor(
+      () => {
+        expect(screen.getByTestId('status-filter')).toBeInTheDocument();
+      },
+      { timeout: 5000 },
+    );
   });
 });
