@@ -9,24 +9,23 @@
  * Host-key dialog wired per Issue #1866:
  *   - Shows HostKeyDialog when session status is pending_host_verification
  */
-import * as React from 'react';
-import { useState, useCallback } from 'react';
-import { useParams, Link, useNavigate } from 'react-router';
+
+import { ArrowLeft, History, Loader2 } from 'lucide-react';
+import type * as React from 'react';
+import { useCallback, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router';
+import { ErrorBanner } from '@/ui/components/feedback/error-state';
+import { HostKeyDialog } from '@/ui/components/terminal/host-key-dialog';
+import { SessionInfoSidebar } from '@/ui/components/terminal/session-info-sidebar';
+import { SessionStatusOverlay } from '@/ui/components/terminal/session-status-overlay';
+import { TerminalEmulator } from '@/ui/components/terminal/terminal-emulator';
+import { TerminalToolbar } from '@/ui/components/terminal/terminal-toolbar';
 import { Button } from '@/ui/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/ui/components/ui/dialog';
 import { Textarea } from '@/ui/components/ui/textarea';
-import { ArrowLeft, History, Loader2 } from 'lucide-react';
-import { TerminalEmulator } from '@/ui/components/terminal/terminal-emulator';
-import { TerminalToolbar } from '@/ui/components/terminal/terminal-toolbar';
-import { SessionInfoSidebar } from '@/ui/components/terminal/session-info-sidebar';
-import { SessionStatusOverlay } from '@/ui/components/terminal/session-status-overlay';
-import { HostKeyDialog } from '@/ui/components/terminal/host-key-dialog';
-import {
-  useTerminalSession,
-  useAnnotateTerminalSession,
-  useUpdateTerminalSession,
-} from '@/ui/hooks/queries/use-terminal-sessions';
+import { useTerminalHealth } from '@/ui/hooks/queries/use-terminal-health';
 import { useApproveTerminalKnownHost, useRejectTerminalKnownHost } from '@/ui/hooks/queries/use-terminal-known-hosts';
+import { useAnnotateTerminalSession, useTerminalSession } from '@/ui/hooks/queries/use-terminal-sessions';
 import type { TerminalWsStatus } from '@/ui/hooks/use-terminal-websocket';
 
 export function SessionDetailPage(): React.JSX.Element {
@@ -40,6 +39,8 @@ export function SessionDetailPage(): React.JSX.Element {
 
   const sessionQuery = useTerminalSession(id ?? '');
   const session = sessionQuery.data;
+  const healthQuery = useTerminalHealth();
+  const workerAvailable = healthQuery.data?.status === 'ok';
   const annotateSession = useAnnotateTerminalSession();
   const approveHostKey = useApproveTerminalKnownHost();
   const rejectHostKey = useRejectTerminalKnownHost();
@@ -92,10 +93,7 @@ export function SessionDetailPage(): React.JSX.Element {
 
   const handleRejectHostKey = useCallback(() => {
     if (!session) return;
-    rejectHostKey.mutate(
-      { session_id: session.id },
-      { onSuccess: () => void sessionQuery.refetch() },
-    );
+    rejectHostKey.mutate({ session_id: session.id }, { onSuccess: () => void sessionQuery.refetch() });
   }, [session, rejectHostKey, sessionQuery]);
 
   if (sessionQuery.isLoading) {
@@ -122,7 +120,9 @@ export function SessionDetailPage(): React.JSX.Element {
       {/* Header bar */}
       <div className="flex items-center gap-2 border-b border-border px-4 py-2 shrink-0">
         <Button variant="ghost" size="sm" asChild>
-          <Link to="/terminal"><ArrowLeft className="mr-1 size-4" /> Terminal</Link>
+          <Link to="/terminal">
+            <ArrowLeft className="mr-1 size-4" /> Terminal
+          </Link>
         </Button>
         <span className="text-sm font-medium">{session.tmux_session_name}</span>
         <div className="flex-1" />
@@ -135,6 +135,10 @@ export function SessionDetailPage(): React.JSX.Element {
           {showSidebar ? 'Hide Info' : 'Show Info'}
         </Button>
       </div>
+
+      {!workerAvailable && !healthQuery.isLoading && (
+        <ErrorBanner message="Terminal worker is not available. Session features may be limited." onRetry={() => healthQuery.refetch()} />
+      )}
 
       {/* Toolbar */}
       <TerminalToolbar
@@ -150,12 +154,7 @@ export function SessionDetailPage(): React.JSX.Element {
       <div className="flex flex-1 min-h-0">
         {/* Terminal */}
         <div className="relative flex-1 min-w-0">
-          {!isTerminated && !isPendingHostVerification && (
-            <TerminalEmulator
-              sessionId={session.id}
-              onStatusChange={handleStatusChange}
-            />
-          )}
+          {!isTerminated && !isPendingHostVerification && <TerminalEmulator sessionId={session.id} onStatusChange={handleStatusChange} />}
           <SessionStatusOverlay status={isTerminated ? 'terminated' : wsStatus} />
         </div>
 
@@ -168,9 +167,7 @@ export function SessionDetailPage(): React.JSX.Element {
         <DialogContent data-testid="annotation-dialog">
           <DialogHeader>
             <DialogTitle>Add Annotation</DialogTitle>
-            <DialogDescription>
-              Add a note to this session. Annotations are saved as session entries.
-            </DialogDescription>
+            <DialogDescription>Add a note to this session. Annotations are saved as session entries.</DialogDescription>
           </DialogHeader>
           <Textarea
             placeholder="Type your annotation..."
@@ -180,11 +177,10 @@ export function SessionDetailPage(): React.JSX.Element {
             data-testid="annotation-input"
           />
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAnnotateOpen(false)}>Cancel</Button>
-            <Button
-              onClick={handleAnnotateSubmit}
-              disabled={!annotateText.trim() || annotateSession.isPending}
-            >
+            <Button variant="outline" onClick={() => setAnnotateOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleAnnotateSubmit} disabled={!annotateText.trim() || annotateSession.isPending}>
               {annotateSession.isPending && <Loader2 className="mr-2 size-4 animate-spin" />}
               Save
             </Button>
@@ -196,7 +192,9 @@ export function SessionDetailPage(): React.JSX.Element {
       {isPendingHostVerification && (
         <HostKeyDialog
           open={isPendingHostVerification}
-          onOpenChange={() => {/* controlled by session status */}}
+          onOpenChange={() => {
+            /* controlled by session status */
+          }}
           host={session.connection?.host ?? 'unknown'}
           port={session.connection?.port ?? 22}
           keyType={session.error_message?.includes('ssh-rsa') ? 'ssh-rsa' : 'ssh-ed25519'}
