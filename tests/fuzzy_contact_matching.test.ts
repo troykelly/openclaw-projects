@@ -295,18 +295,33 @@ describe('Fuzzy Contact Matching (Issue #1270)', () => {
       expect(body.matches).toEqual([]);
     });
 
-    it('respects user_email scoping', async () => {
+    it('respects namespace scoping', async () => {
+      // Create a contact in a different namespace
+      const otherResult = await pool.query(
+        `INSERT INTO contact (display_name, namespace)
+         VALUES ('Fuzzy Test Alice Other NS', 'isolated-ns')
+         RETURNING id::text as id`,
+      );
+      const otherContactId = otherResult.rows[0].id;
+
+      // Query from default namespace — should NOT see the isolated-ns contact
       const res = await app.inject({
         method: 'GET',
-        url: '/api/contacts/suggest-match?name=Alice&user_email=' + encodeURIComponent('other-user@example.com'),
-        headers: { 'x-user-email': 'other-user@example.com' },
+        url: '/api/contacts/suggest-match?name=Alice',
+        headers: { 'x-user-email': TEST_EMAIL },
       });
 
       expect(res.statusCode).toBe(200);
       const body = res.json();
-      // Our test contacts have user_email set to TEST_EMAIL, so other user should not see them
+      // Alice from default namespace should be found
       const aliceMatch = body.matches.find((m: { contact_id: string }) => m.contact_id === contactAliceId);
-      expect(aliceMatch).toBeUndefined();
+      expect(aliceMatch).toBeDefined();
+      // Alice from isolated-ns should NOT be found
+      const otherMatch = body.matches.find((m: { contact_id: string }) => m.contact_id === otherContactId);
+      expect(otherMatch).toBeUndefined();
+
+      // Clean up
+      await pool.query(`DELETE FROM contact WHERE id = $1`, [otherContactId]);
     });
   });
 
