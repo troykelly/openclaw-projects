@@ -59,6 +59,9 @@ jobs:
           - name: prompt-guard
             context: docker/prompt-guard
             dockerfile: docker/prompt-guard/Dockerfile
+          - name: tmux-worker
+            context: .
+            dockerfile: docker/tmux-worker/Dockerfile
 
     steps:
       - name: Checkout repository
