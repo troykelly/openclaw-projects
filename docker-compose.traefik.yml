@@ -386,6 +386,9 @@ services:
       # Port 3001 (not 3000) to avoid conflicts with Traefik service labels.
       # ModSecurity and nginx proxy both use this port.
       PORT: 3001
+      # Traefik handles CORS headers (including on proxy-generated 502s).
+      # Prevents duplicate Access-Control-Allow-Origin from both Traefik and Fastify.
+      CORS_HANDLED_BY_PROXY: "true"
       # PUBLIC_BASE_URL is the app/root domain where the SPA is served, NOT the
       # API subdomain. The API URL is derived automatically as api.${DOMAIN} by
       # deriveApiUrl() in server.ts. Magic links, share URLs, CORS, and CSP all

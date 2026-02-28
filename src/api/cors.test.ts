@@ -25,11 +25,12 @@ describe('CORS configuration (Issue #1327)', () => {
     // Reset env to known state
     delete process.env.CORS_ALLOWED_ORIGINS;
     delete process.env.PUBLIC_BASE_URL;
+    delete process.env.CORS_HANDLED_BY_PROXY;
   });
 
   afterEach(() => {
     // Restore only touched keys instead of replacing the entire env object
-    for (const key of ['CORS_ALLOWED_ORIGINS', 'PUBLIC_BASE_URL']) {
+    for (const key of ['CORS_ALLOWED_ORIGINS', 'PUBLIC_BASE_URL', 'CORS_HANDLED_BY_PROXY']) {
       if (key in originalEnv) {
         process.env[key] = originalEnv[key];
       } else {
@@ -196,6 +197,49 @@ describe('CORS configuration (Issue #1327)', () => {
     });
   });
 
+  describe('error responses (502, 500) include CORS headers', () => {
+    it('returns CORS headers on 502 Bad Gateway responses', async () => {
+      process.env.PUBLIC_BASE_URL = 'https://app.example.com';
+      const app = Fastify();
+      registerCors(app);
+      app.post('/api/fail', async (_req, reply) => reply.code(502).send({ error: 'Bad Gateway' }));
+      await app.ready();
+
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/fail',
+        headers: { origin: 'https://app.example.com' },
+        payload: {},
+      });
+
+      expect(res.statusCode).toBe(502);
+      expect(res.headers['access-control-allow-origin']).toBe('https://app.example.com');
+      expect(res.headers['access-control-allow-credentials']).toBe('true');
+
+      await app.close();
+    });
+
+    it('returns CORS headers on 500 Internal Server Error responses', async () => {
+      process.env.PUBLIC_BASE_URL = 'https://app.example.com';
+      const app = Fastify();
+      registerCors(app);
+      app.get('/api/error', async (_req, reply) => reply.code(500).send({ error: 'Internal Server Error' }));
+      await app.ready();
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/error',
+        headers: { origin: 'https://app.example.com' },
+      });
+
+      expect(res.statusCode).toBe(500);
+      expect(res.headers['access-control-allow-origin']).toBe('https://app.example.com');
+      expect(res.headers['access-control-allow-credentials']).toBe('true');
+
+      await app.close();
+    });
+  });
+
   describe('Vary header', () => {
     it('includes Vary: Origin for requests with origin header', async () => {
       process.env.PUBLIC_BASE_URL = 'https://app.example.com';
@@ -211,6 +255,61 @@ describe('CORS configuration (Issue #1327)', () => {
       const vary = res.headers.vary;
       expect(vary).toBeDefined();
       expect(String(vary).toLowerCase()).toContain('origin');
+
+      await app.close();
+    });
+  });
+
+  describe('CORS_HANDLED_BY_PROXY bypass', () => {
+    it('does not register @fastify/cors when CORS_HANDLED_BY_PROXY is "true"', async () => {
+      process.env.CORS_HANDLED_BY_PROXY = 'true';
+      process.env.PUBLIC_BASE_URL = 'https://app.example.com';
+      const app = await buildCorsApp();
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/test',
+        headers: { origin: 'https://app.example.com' },
+      });
+
+      expect(res.statusCode).toBe(200);
+      // No CORS plugin registered — no ACAO header
+      expect(res.headers['access-control-allow-origin']).toBeUndefined();
+      expect(res.headers['access-control-allow-credentials']).toBeUndefined();
+
+      await app.close();
+    });
+
+    it('still registers @fastify/cors when CORS_HANDLED_BY_PROXY is "false"', async () => {
+      process.env.CORS_HANDLED_BY_PROXY = 'false';
+      process.env.PUBLIC_BASE_URL = 'https://app.example.com';
+      const app = await buildCorsApp();
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/test',
+        headers: { origin: 'https://app.example.com' },
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.headers['access-control-allow-origin']).toBe('https://app.example.com');
+
+      await app.close();
+    });
+
+    it('still registers @fastify/cors when CORS_HANDLED_BY_PROXY is not set', async () => {
+      delete process.env.CORS_HANDLED_BY_PROXY;
+      process.env.PUBLIC_BASE_URL = 'https://app.example.com';
+      const app = await buildCorsApp();
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/test',
+        headers: { origin: 'https://app.example.com' },
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.headers['access-control-allow-origin']).toBe('https://app.example.com');
 
       await app.close();
     });

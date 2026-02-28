@@ -8,6 +8,12 @@
  *   3. http://localhost:3000  (safe default)
  *
  * Requests without an Origin header (server-to-server, curl) are always allowed.
+ *
+ * When `CORS_HANDLED_BY_PROXY` is set to `"true"` (exact string) the
+ * @fastify/cors plugin is NOT registered. In Traefik deployments the reverse
+ * proxy already injects CORS headers (including on proxy-generated 502s).
+ * Letting both Traefik AND Fastify set CORS headers produces duplicate
+ * `Access-Control-Allow-Origin` values which browsers reject.
  */
 import cors from '@fastify/cors';
 import type { FastifyInstance } from 'fastify';
@@ -29,8 +35,20 @@ function getAllowedOrigins(): string[] {
     .filter(Boolean);
 }
 
-/** Register @fastify/cors on the given Fastify instance. */
+/**
+ * Register @fastify/cors on the given Fastify instance.
+ *
+ * Skipped when `CORS_HANDLED_BY_PROXY` is exactly `"true"` (e.g. Traefik
+ * deployments where the proxy already sets CORS headers). Values like
+ * `"false"` or `"0"` are NOT treated as truthy — only the exact string
+ * `"true"` disables application-level CORS.
+ */
 export function registerCors(app: FastifyInstance): void {
+  if (process.env.CORS_HANDLED_BY_PROXY === 'true') {
+    app.log.info('CORS_HANDLED_BY_PROXY is set — skipping @fastify/cors registration');
+    return;
+  }
+
   app.register(cors, {
     origin: (origin, callback) => {
       // Allow requests with no Origin header (server-to-server, curl, etc.)
