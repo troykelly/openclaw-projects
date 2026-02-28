@@ -4,10 +4,10 @@
  * Issue #1908 — Terminal worker health check.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import Fastify from 'fastify';
 import type { FastifyInstance } from 'fastify';
+import Fastify from 'fastify';
 import type { Pool } from 'pg';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock grpc-client before importing routes
 vi.mock('./grpc-client.ts', () => ({
