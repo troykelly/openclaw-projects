@@ -2057,7 +2057,7 @@ function createToolHandlers(state: PluginState) {
       const { status = 'active', limit = 10 } = params as { status?: string; limit?: number };
 
       try {
-        const queryParams = new URLSearchParams({ item_type: 'project', limit: String(limit) });
+        const queryParams = new URLSearchParams({ kind: 'project', limit: String(limit) });
         if (status !== 'all') queryParams.set('status', status);
         queryParams.set('user_email', state.agentId); // Issue #1172: scope by user
         // Namespace scoping (Issue #1428)
@@ -2124,7 +2124,7 @@ function createToolHandlers(state: PluginState) {
       try {
         const response = await apiClient.post<{ id: string }>(
           '/api/work-items',
-          { title: name, description, item_type: 'project', status, user_email: state.agentId, namespace: getStoreNamespace(params) },
+          { title: name, description, kind: 'project', status, user_email: state.agentId, namespace: getStoreNamespace(params) },
           reqOpts(),
         );
 
@@ -2160,12 +2160,12 @@ function createToolHandlers(state: PluginState) {
 
       try {
         const queryParams = new URLSearchParams({
-          item_type: 'task',
+          kind: 'task',
           limit: String(limit),
           offset: String(offset),
           user_email: state.agentId, // Issue #1172: scope by user
         });
-        if (project_id) queryParams.set('parent_work_item_id', project_id);
+        if (project_id) queryParams.set('parent_id', project_id);
         if (completed !== undefined) {
           queryParams.set('status', completed ? 'completed' : 'active');
         }
@@ -2226,8 +2226,8 @@ function createToolHandlers(state: PluginState) {
       };
 
       try {
-        const body: Record<string, unknown> = { title, description, item_type: 'task', priority, user_email: state.agentId, namespace: getStoreNamespace(params) };
-        if (project_id) body.parent_work_item_id = project_id;
+        const body: Record<string, unknown> = { title, description, kind: 'task', priority, user_email: state.agentId, namespace: getStoreNamespace(params) };
+        if (project_id) body.parent_id = project_id;
         if (dueDate) body.not_after = dueDate;
 
         const response = await apiClient.post<{ id: string }>('/api/work-items', body, reqOpts());

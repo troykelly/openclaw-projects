@@ -3274,7 +3274,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // GET /api/work-items - List work items (excludes soft-deleted, Issue #225)
   app.get('/api/work-items', async (req, reply) => {
-    const query = req.query as { include_deleted?: string; item_type?: string; parent_work_item_id?: string };
+    const query = req.query as {
+      include_deleted?: string;
+      item_type?: string;
+      kind?: string;
+      parent_work_item_id?: string;
+      parent_id?: string;
+      status?: string;
+      limit?: string;
+    };
     const pool = createPool();
 
     // Build WHERE clause
@@ -3286,20 +3294,28 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       conditions.push('deleted_at IS NULL');
     }
 
-    // Filter by item_type if provided
-    if (query.item_type) {
-      params.push(query.item_type);
+    // Filter by kind (accepts both `kind` and legacy `item_type`) (#1901)
+    const kindFilter = query.kind || query.item_type;
+    if (kindFilter) {
+      params.push(kindFilter);
       conditions.push(`kind = $${params.length}`);
     }
 
-    // Filter by parent_work_item_id (#1882)
-    if (query.parent_work_item_id) {
-      if (!isValidUUID(query.parent_work_item_id)) {
+    // Filter by parent (accepts both `parent_id` and legacy `parent_work_item_id`) (#1882)
+    const parentFilter = query.parent_id || query.parent_work_item_id;
+    if (parentFilter) {
+      if (!isValidUUID(parentFilter)) {
         await pool.end();
-        return reply.code(400).send({ error: 'Invalid parent_work_item_id format' });
+        return reply.code(400).send({ error: 'Invalid parent_id format' });
       }
-      params.push(query.parent_work_item_id);
+      params.push(parentFilter);
       conditions.push(`parent_id = $${params.length}`);
+    }
+
+    // Filter by status (#1900)
+    if (query.status) {
+      params.push(query.status);
+      conditions.push(`status = $${params.length}`);
     }
 
     // Namespace scoping (Epic #1418, Phase 4)
@@ -3323,7 +3339,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          FROM work_item
          ${whereClause}
         ORDER BY created_at DESC
-        LIMIT 50`,
+        LIMIT ${Math.min(Math.max(parseInt(query.limit || '50', 10) || 50, 1), 200)}`,
       params,
     );
     await pool.end();
@@ -6933,13 +6949,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     try {
-      // Epic #1418: resolve user's namespaces for scoping
-      const userEmail = (req.headers['x-user-email'] as string) || '';
-      const nsResult = await pool.query(
-        `SELECT namespace FROM namespace_grant WHERE email = $1`,
-        [userEmail],
-      );
-      const userNamespaces = nsResult.rows.map((r: { namespace: string }) => r.namespace);
+      // Epic #1418: use pre-resolved namespace context (fixes #1902 — manual
+      // email-based lookup failed for M2M tokens from the plugin)
+      const userNamespaces = req.namespaceContext?.queryNamespaces ?? ['default'];
 
       // Build a scored union of matches from different signals
       const matchScores = new Map<string, { confidence: number; reasons: string[] }>();
@@ -14108,8 +14120,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         const rawBase = process.env.PUBLIC_BASE_URL || 'http://localhost:3000';
         const clientId = rawBase.replace(/\/+$/, '');
 
+        // Exchange code for tokens — throws OAuthError on failure
         const { exchangeCodeForTokens: haExchange } = await import('./oauth/home-assistant.ts');
-        const tokens = await haExchange(stateData.instance_url, query.code!, clientId);
+        let tokens;
+        try {
+          tokens = await haExchange(stateData.instance_url, query.code!, clientId);
+        } catch (err) {
+          req.log.error({ err, geo_provider_id: stateData.geo_provider_id }, 'HA OAuth token exchange failed');
+          throw err;
+        }
 
         // Encrypt and store credentials as JSON in geo_provider
         const credentialsJson = JSON.stringify({
@@ -14120,13 +14139,31 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         });
 
         const { encryptCredentials } = await import('./geolocation/crypto.ts');
-        const encrypted = encryptCredentials(credentialsJson, stateData.geo_provider_id);
+        let encrypted: string;
+        try {
+          encrypted = encryptCredentials(credentialsJson, stateData.geo_provider_id);
+        } catch (err) {
+          req.log.error({ err, geo_provider_id: stateData.geo_provider_id }, 'HA credential encryption failed');
+          return reply.code(500).send({ error: 'Failed to encrypt HA credentials' });
+        }
 
         const { updateProvider: updateGeoProvider } = await import('./geolocation/service.ts');
-        await updateGeoProvider(pool, stateData.geo_provider_id, {
+        const updated = await updateGeoProvider(pool, stateData.geo_provider_id, {
           credentials: encrypted,
           status: 'active',
         });
+
+        if (!updated) {
+          req.log.warn({ geo_provider_id: stateData.geo_provider_id }, 'HA provider not found during callback — may have been deleted');
+          return reply.code(410).send({ error: 'Provider was deleted during OAuth flow' });
+        }
+
+        // Notify HA connector to pick up the new credentials
+        try {
+          await pool.query(`SELECT pg_notify('geo_provider_config_changed', $1)`, [stateData.geo_provider_id]);
+        } catch (notifyErr) {
+          req.log.warn({ err: notifyErr, geo_provider_id: stateData.geo_provider_id }, 'Failed to send config_changed notify');
+        }
 
         // Redirect to settings with success indicator
         let parsedBase: URL;
