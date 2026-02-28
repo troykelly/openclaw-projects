@@ -931,8 +931,8 @@ describe('OpenClaw 2026 API Registration', () => {
 
         // Should NOT contain status=pending (the old buggy default)
         expect(url).not.toContain('status=pending');
-        // Should contain item_type=task
-        expect(url).toContain('item_type=task');
+        // Should contain kind=task (renamed from item_type per #1901)
+        expect(url).toContain('kind=task');
       } finally {
         globalThis.fetch = originalFetch;
       }

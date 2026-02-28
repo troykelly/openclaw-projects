@@ -13,6 +13,10 @@
  * Ref: https://developers.home-assistant.io/docs/auth_api/
  */
 
+import { OAuthError } from './types.ts';
+
+const HA_FETCH_TIMEOUT_MS = 15_000;
+
 export interface HaOAuthTokens {
   access_token: string;
   refresh_token?: string;
@@ -41,6 +45,8 @@ export function buildAuthorizationUrl(
 /**
  * Exchange an authorization code for tokens.
  * POST <instanceUrl>/auth/token with application/x-www-form-urlencoded.
+ *
+ * @throws {OAuthError} on any failure (network, non-2xx, invalid response)
  */
 export async function exchangeCodeForTokens(
   instanceUrl: string,
@@ -54,36 +60,70 @@ export async function exchangeCodeForTokens(
     client_id: clientId,
   });
 
-  const resp = await fetch(`${base}/auth/token`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: body.toString(),
-  });
-
-  if (!resp.ok) {
-    throw new Error(`HA token exchange failed: ${resp.status} ${resp.statusText}`);
+  let resp: Response;
+  try {
+    resp = await fetch(`${base}/auth/token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body.toString(),
+      signal: AbortSignal.timeout(HA_FETCH_TIMEOUT_MS),
+    });
+  } catch (err) {
+    throw new OAuthError(
+      `HA token exchange network error: ${(err as Error).message}`,
+      'HA_TOKEN_EXCHANGE_FAILED',
+      'home_assistant',
+      502,
+    );
   }
 
-  const data = await resp.json() as {
-    access_token: string;
-    refresh_token?: string;
-    expires_in?: number;
-    token_type: string;
-  };
+  if (!resp.ok) {
+    let detail = '';
+    try { detail = await resp.text(); } catch { /* ignore */ }
+    throw new OAuthError(
+      `HA token exchange failed: ${resp.status} ${resp.statusText}${detail ? ` — ${detail}` : ''}`,
+      'HA_TOKEN_EXCHANGE_FAILED',
+      'home_assistant',
+      502,
+    );
+  }
+
+  let data: Record<string, unknown>;
+  try {
+    data = await resp.json() as Record<string, unknown>;
+  } catch {
+    throw new OAuthError(
+      'HA token exchange returned invalid JSON',
+      'HA_TOKEN_EXCHANGE_FAILED',
+      'home_assistant',
+      502,
+    );
+  }
+
+  if (typeof data.access_token !== 'string' || !data.access_token) {
+    throw new OAuthError(
+      'HA token exchange response missing access_token',
+      'HA_TOKEN_EXCHANGE_FAILED',
+      'home_assistant',
+      502,
+    );
+  }
 
   return {
     access_token: data.access_token,
-    refresh_token: data.refresh_token,
-    expires_at: data.expires_in
-      ? new Date(Date.now() + data.expires_in * 1000)
+    refresh_token: typeof data.refresh_token === 'string' ? data.refresh_token : undefined,
+    expires_at: typeof data.expires_in === 'number'
+      ? new Date(Date.now() + (data.expires_in as number) * 1000)
       : undefined,
-    token_type: data.token_type ?? 'Bearer',
+    token_type: typeof data.token_type === 'string' ? (data.token_type as string) : 'Bearer',
   };
 }
 
 /**
  * Refresh an expired access token.
  * POST <instanceUrl>/auth/token with grant_type=refresh_token.
+ *
+ * @throws {OAuthError} on any failure
  */
 export async function refreshAccessToken(
   instanceUrl: string,
@@ -97,27 +137,60 @@ export async function refreshAccessToken(
     client_id: clientId,
   });
 
-  const resp = await fetch(`${base}/auth/token`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: body.toString(),
-  });
-
-  if (!resp.ok) {
-    throw new Error(`HA token refresh failed: ${resp.status} ${resp.statusText}`);
+  let resp: Response;
+  try {
+    resp = await fetch(`${base}/auth/token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body.toString(),
+      signal: AbortSignal.timeout(HA_FETCH_TIMEOUT_MS),
+    });
+  } catch (err) {
+    throw new OAuthError(
+      `HA token refresh network error: ${(err as Error).message}`,
+      'HA_TOKEN_REFRESH_FAILED',
+      'home_assistant',
+      502,
+    );
   }
 
-  const data = await resp.json() as {
-    access_token: string;
-    expires_in?: number;
-    token_type: string;
-  };
+  if (!resp.ok) {
+    let detail = '';
+    try { detail = await resp.text(); } catch { /* ignore */ }
+    throw new OAuthError(
+      `HA token refresh failed: ${resp.status} ${resp.statusText}${detail ? ` — ${detail}` : ''}`,
+      'HA_TOKEN_REFRESH_FAILED',
+      'home_assistant',
+      502,
+    );
+  }
+
+  let data: Record<string, unknown>;
+  try {
+    data = await resp.json() as Record<string, unknown>;
+  } catch {
+    throw new OAuthError(
+      'HA token refresh returned invalid JSON',
+      'HA_TOKEN_REFRESH_FAILED',
+      'home_assistant',
+      502,
+    );
+  }
+
+  if (typeof data.access_token !== 'string' || !data.access_token) {
+    throw new OAuthError(
+      'HA token refresh response missing access_token',
+      'HA_TOKEN_REFRESH_FAILED',
+      'home_assistant',
+      502,
+    );
+  }
 
   return {
     access_token: data.access_token,
-    expires_at: data.expires_in
-      ? new Date(Date.now() + data.expires_in * 1000)
+    expires_at: typeof data.expires_in === 'number'
+      ? new Date(Date.now() + (data.expires_in as number) * 1000)
       : undefined,
-    token_type: data.token_type ?? 'Bearer',
+    token_type: typeof data.token_type === 'string' ? (data.token_type as string) : 'Bearer',
   };
 }
