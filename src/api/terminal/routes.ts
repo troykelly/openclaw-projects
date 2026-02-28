@@ -166,6 +166,26 @@ export async function terminalRoutesPlugin(
   const { pool } = opts;
 
   // ================================================================
+  // Issue #1908 — Terminal worker health check
+  // ================================================================
+
+  // GET /api/terminal/health — Check if tmux worker is reachable
+  app.get('/api/terminal/health', async (_req, reply) => {
+    try {
+      const client = grpcClient.getGrpcClient();
+      await new Promise<void>((resolve, reject) => {
+        client.waitForReady(new Date(Date.now() + 5000), (err?: Error) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+      return reply.send({ status: 'ok' });
+    } catch {
+      return reply.code(503).send({ status: 'unavailable' });
+    }
+  });
+
+  // ================================================================
   // Issue #1672 — Connection CRUD API
   // ================================================================
 
