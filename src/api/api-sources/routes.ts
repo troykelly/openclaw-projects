@@ -127,7 +127,7 @@ export async function apiSourceRoutesPlugin(
   // POST /api/api-sources — create a new API source (with optional onboarding)
   // Rate limited: onboarding parses specs + generates embeddings (expensive).
   // 10 requests per hour covers both simple create and onboard.
-  app.post('/api/api-sources', {
+  app.post('/api-sources', {
     config: {
       rateLimit: {
         max: 10,
@@ -194,7 +194,7 @@ export async function apiSourceRoutesPlugin(
   });
 
   // GET /api/api-sources — list API sources
-  app.get('/api/api-sources', async (req: FastifyRequest, reply: FastifyReply) => {
+  app.get('/api-sources', async (req: FastifyRequest, reply: FastifyReply) => {
     const namespaces = getQueryNamespaces(req);
     if (!namespaces) return reply.code(403).send({ error: 'Namespace access denied' });
 
@@ -213,7 +213,7 @@ export async function apiSourceRoutesPlugin(
   });
 
   // GET /api/api-sources/:id — get a single API source
-  app.get('/api/api-sources/:id', async (req: FastifyRequest, reply: FastifyReply) => {
+  app.get('/api-sources/:id', async (req: FastifyRequest, reply: FastifyReply) => {
     const { id } = req.params as IdParams;
     if (!isValidUUID(id)) {
       return reply.code(400).send({ error: 'Invalid API source ID' });
@@ -232,7 +232,7 @@ export async function apiSourceRoutesPlugin(
   });
 
   // PATCH /api/api-sources/:id — update an API source
-  app.patch('/api/api-sources/:id', async (req: FastifyRequest, reply: FastifyReply) => {
+  app.patch('/api-sources/:id', async (req: FastifyRequest, reply: FastifyReply) => {
     const { id } = req.params as IdParams;
     if (!isValidUUID(id)) {
       return reply.code(400).send({ error: 'Invalid API source ID' });
@@ -259,7 +259,7 @@ export async function apiSourceRoutesPlugin(
   });
 
   // DELETE /api/api-sources/:id — soft delete an API source
-  app.delete('/api/api-sources/:id', async (req: FastifyRequest, reply: FastifyReply) => {
+  app.delete('/api-sources/:id', async (req: FastifyRequest, reply: FastifyReply) => {
     const { id } = req.params as IdParams;
     if (!isValidUUID(id)) {
       return reply.code(400).send({ error: 'Invalid API source ID' });
@@ -277,7 +277,7 @@ export async function apiSourceRoutesPlugin(
   });
 
   // POST /api/api-sources/:id/restore — restore a soft-deleted API source
-  app.post('/api/api-sources/:id/restore', async (req: FastifyRequest, reply: FastifyReply) => {
+  app.post('/api-sources/:id/restore', async (req: FastifyRequest, reply: FastifyReply) => {
     const { id } = req.params as IdParams;
     if (!isValidUUID(id)) {
       return reply.code(400).send({ error: 'Invalid API source ID' });
@@ -295,7 +295,7 @@ export async function apiSourceRoutesPlugin(
   });
 
   // POST /api/api-sources/:id/refresh — re-fetch spec and diff memories
-  app.post('/api/api-sources/:id/refresh', async (req: FastifyRequest, reply: FastifyReply) => {
+  app.post('/api-sources/:id/refresh', async (req: FastifyRequest, reply: FastifyReply) => {
     const { id } = req.params as IdParams;
     if (!isValidUUID(id)) {
       return reply.code(400).send({ error: 'Invalid API source ID' });
@@ -327,7 +327,7 @@ export async function apiSourceRoutesPlugin(
   // ============================================================
 
   // POST /api/api-sources/:id/credentials — add credential
-  app.post('/api/api-sources/:id/credentials', async (req: FastifyRequest, reply: FastifyReply) => {
+  app.post('/api-sources/:id/credentials', async (req: FastifyRequest, reply: FastifyReply) => {
     const { id: apiSourceId } = req.params as IdParams;
     if (!isValidUUID(apiSourceId)) {
       return reply.code(400).send({ error: 'Invalid API source ID' });
@@ -371,7 +371,7 @@ export async function apiSourceRoutesPlugin(
 
   // GET /api/api-sources/:id/credentials — list credentials
   // decrypt=true requires write scope (sensitive secret access); read scope returns masked values only.
-  app.get('/api/api-sources/:id/credentials', async (req: FastifyRequest, reply: FastifyReply) => {
+  app.get('/api-sources/:id/credentials', async (req: FastifyRequest, reply: FastifyReply) => {
     const { id: apiSourceId } = req.params as IdParams;
     if (!isValidUUID(apiSourceId)) {
       return reply.code(400).send({ error: 'Invalid API source ID' });
@@ -405,7 +405,7 @@ export async function apiSourceRoutesPlugin(
 
   // GET /api/api-sources/:id/credentials/:cred_id — get a single credential
   // decrypt=true requires write scope (sensitive secret access); read scope returns masked values only.
-  app.get('/api/api-sources/:id/credentials/:cred_id', async (req: FastifyRequest, reply: FastifyReply) => {
+  app.get('/api-sources/:id/credentials/:cred_id', async (req: FastifyRequest, reply: FastifyReply) => {
     const { id: apiSourceId, cred_id: credId } = req.params as CredentialParams;
     if (!isValidUUID(apiSourceId) || !isValidUUID(credId)) {
       return reply.code(400).send({ error: 'Invalid ID format' });
@@ -440,7 +440,7 @@ export async function apiSourceRoutesPlugin(
   });
 
   // PATCH /api/api-sources/:id/credentials/:cred_id — update credential
-  app.patch('/api/api-sources/:id/credentials/:cred_id', async (req: FastifyRequest, reply: FastifyReply) => {
+  app.patch('/api-sources/:id/credentials/:cred_id', async (req: FastifyRequest, reply: FastifyReply) => {
     const { id: apiSourceId, cred_id: credId } = req.params as CredentialParams;
     if (!isValidUUID(apiSourceId) || !isValidUUID(credId)) {
       return reply.code(400).send({ error: 'Invalid ID format' });
@@ -476,7 +476,7 @@ export async function apiSourceRoutesPlugin(
   });
 
   // DELETE /api/api-sources/:id/credentials/:cred_id — delete credential
-  app.delete('/api/api-sources/:id/credentials/:cred_id', async (req: FastifyRequest, reply: FastifyReply) => {
+  app.delete('/api-sources/:id/credentials/:cred_id', async (req: FastifyRequest, reply: FastifyReply) => {
     const { id: apiSourceId, cred_id: credId } = req.params as CredentialParams;
     if (!isValidUUID(apiSourceId) || !isValidUUID(credId)) {
       return reply.code(400).send({ error: 'Invalid ID format' });
@@ -503,7 +503,7 @@ export async function apiSourceRoutesPlugin(
   // ============================================================
 
   // GET /api/api-memories/search — hybrid search across API memories
-  app.get('/api/api-memories/search', async (req: FastifyRequest, reply: FastifyReply) => {
+  app.get('/api-memories/search', async (req: FastifyRequest, reply: FastifyReply) => {
     const namespaces = getQueryNamespaces(req);
     if (!namespaces) return reply.code(403).send({ error: 'Namespace access denied' });
 
@@ -541,7 +541,7 @@ export async function apiSourceRoutesPlugin(
   });
 
   // GET /api/api-sources/:id/memories — list all memories for a source
-  app.get('/api/api-sources/:id/memories', async (req: FastifyRequest, reply: FastifyReply) => {
+  app.get('/api-sources/:id/memories', async (req: FastifyRequest, reply: FastifyReply) => {
     const { id } = req.params as IdParams;
     if (!isValidUUID(id)) {
       return reply.code(400).send({ error: 'Invalid API source ID' });
@@ -577,7 +577,7 @@ export async function apiSourceRoutesPlugin(
   // ============================================================
 
   // POST /api/api-sources/:id/links — link API source to a work item
-  app.post('/api/api-sources/:id/links', async (req: FastifyRequest, reply: FastifyReply) => {
+  app.post('/api-sources/:id/links', async (req: FastifyRequest, reply: FastifyReply) => {
     const { id } = req.params as IdParams;
     if (!isValidUUID(id)) {
       return reply.code(400).send({ error: 'Invalid API source ID' });
@@ -608,7 +608,7 @@ export async function apiSourceRoutesPlugin(
   });
 
   // DELETE /api/api-sources/:id/links/:work_item_id — unlink
-  app.delete('/api/api-sources/:id/links/:work_item_id', async (req: FastifyRequest, reply: FastifyReply) => {
+  app.delete('/api-sources/:id/links/:work_item_id', async (req: FastifyRequest, reply: FastifyReply) => {
     const { id, work_item_id: workItemId } = req.params as LinkParams;
     if (!isValidUUID(id) || !isValidUUID(workItemId)) {
       return reply.code(400).send({ error: 'Invalid ID format' });
@@ -631,7 +631,7 @@ export async function apiSourceRoutesPlugin(
   });
 
   // GET /api/api-sources/:id/links — list links for a source
-  app.get('/api/api-sources/:id/links', async (req: FastifyRequest, reply: FastifyReply) => {
+  app.get('/api-sources/:id/links', async (req: FastifyRequest, reply: FastifyReply) => {
     const { id } = req.params as IdParams;
     if (!isValidUUID(id)) {
       return reply.code(400).send({ error: 'Invalid API source ID' });

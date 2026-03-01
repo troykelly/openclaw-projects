@@ -130,7 +130,7 @@ export async function haRoutesPlugin(
   // ============================================================
 
   // GET /api/ha/routines — list routines
-  app.get('/api/ha/routines', async (req: FastifyRequest, reply: FastifyReply) => {
+  app.get('/ha/routines', async (req: FastifyRequest, reply: FastifyReply) => {
     const query = req.query as RoutineListQuery;
     const namespaces = getQueryNamespaces(req);
     if (!namespaces) return reply.code(403).send({ error: 'Namespace access denied' });
@@ -183,7 +183,7 @@ export async function haRoutesPlugin(
   });
 
   // GET /api/ha/routines/:id — get routine detail
-  app.get('/api/ha/routines/:id', async (req: FastifyRequest, reply: FastifyReply) => {
+  app.get('/ha/routines/:id', async (req: FastifyRequest, reply: FastifyReply) => {
     const { id } = req.params as IdParams;
     if (!isValidUUID(id)) {
       return reply.code(400).send({ error: 'Invalid routine ID' });
@@ -204,7 +204,7 @@ export async function haRoutesPlugin(
   });
 
   // PATCH /api/ha/routines/:id — update routine
-  app.patch('/api/ha/routines/:id', async (req: FastifyRequest, reply: FastifyReply) => {
+  app.patch('/ha/routines/:id', async (req: FastifyRequest, reply: FastifyReply) => {
     const { id } = req.params as IdParams;
     if (!isValidUUID(id)) {
       return reply.code(400).send({ error: 'Invalid routine ID' });
@@ -262,7 +262,7 @@ export async function haRoutesPlugin(
   });
 
   // DELETE /api/ha/routines/:id — soft delete (status → archived)
-  app.delete('/api/ha/routines/:id', async (req: FastifyRequest, reply: FastifyReply) => {
+  app.delete('/ha/routines/:id', async (req: FastifyRequest, reply: FastifyReply) => {
     const { id } = req.params as IdParams;
     if (!isValidUUID(id)) {
       return reply.code(400).send({ error: 'Invalid routine ID' });
@@ -293,7 +293,7 @@ export async function haRoutesPlugin(
   });
 
   // POST /api/ha/routines/:id/confirm — confirm routine
-  app.post('/api/ha/routines/:id/confirm', async (req: FastifyRequest, reply: FastifyReply) => {
+  app.post('/ha/routines/:id/confirm', async (req: FastifyRequest, reply: FastifyReply) => {
     const { id } = req.params as IdParams;
     if (!isValidUUID(id)) {
       return reply.code(400).send({ error: 'Invalid routine ID' });
@@ -324,7 +324,7 @@ export async function haRoutesPlugin(
   });
 
   // POST /api/ha/routines/:id/reject — reject routine
-  app.post('/api/ha/routines/:id/reject', async (req: FastifyRequest, reply: FastifyReply) => {
+  app.post('/ha/routines/:id/reject', async (req: FastifyRequest, reply: FastifyReply) => {
     const { id } = req.params as IdParams;
     if (!isValidUUID(id)) {
       return reply.code(400).send({ error: 'Invalid routine ID' });
@@ -355,7 +355,7 @@ export async function haRoutesPlugin(
   });
 
   // GET /api/ha/routines/:id/observations — observations matching routine
-  app.get('/api/ha/routines/:id/observations', async (req: FastifyRequest, reply: FastifyReply) => {
+  app.get('/ha/routines/:id/observations', async (req: FastifyRequest, reply: FastifyReply) => {
     const { id } = req.params as IdParams;
     if (!isValidUUID(id)) {
       return reply.code(400).send({ error: 'Invalid routine ID' });
@@ -414,7 +414,7 @@ export async function haRoutesPlugin(
   // ============================================================
 
   // GET /api/ha/anomalies — list anomalies
-  app.get('/api/ha/anomalies', async (req: FastifyRequest, reply: FastifyReply) => {
+  app.get('/ha/anomalies', async (req: FastifyRequest, reply: FastifyReply) => {
     const query = req.query as AnomalyListQuery;
     const namespaces = getQueryNamespaces(req);
     if (!namespaces) return reply.code(403).send({ error: 'Namespace access denied' });
@@ -468,7 +468,7 @@ export async function haRoutesPlugin(
   });
 
   // PATCH /api/ha/anomalies/:id — update anomaly (resolve, notes)
-  app.patch('/api/ha/anomalies/:id', async (req: FastifyRequest, reply: FastifyReply) => {
+  app.patch('/ha/anomalies/:id', async (req: FastifyRequest, reply: FastifyReply) => {
     const { id } = req.params as IdParams;
     if (!isValidUUID(id)) {
       return reply.code(400).send({ error: 'Invalid anomaly ID' });
@@ -535,7 +535,7 @@ export async function haRoutesPlugin(
   // ============================================================
 
   // GET /api/ha/observations — query observations
-  app.get('/api/ha/observations', async (req: FastifyRequest, reply: FastifyReply) => {
+  app.get('/ha/observations', async (req: FastifyRequest, reply: FastifyReply) => {
     const query = req.query as ObservationListQuery;
     const namespaces = getQueryNamespaces(req);
     if (!namespaces) return reply.code(403).send({ error: 'Namespace access denied' });
