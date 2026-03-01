@@ -12,18 +12,18 @@ args:
 
 Set up a new terminal connection to "{{host}}" and verify it works:
 
-1. **Create the Connection**
-   - Use `terminal_connection_create` with the host "{{host}}"
-   - Set the label to "{{label}}" if provided, otherwise use the hostname
+1. **Create Credentials First**
+   - Ask the user for their preferred auth method (password, SSH key, or key file)
+   - Use `terminal_credential_create` to store the credential securely
+   - Note the returned credential ID for the next step
+
+2. **Create the Connection**
+   - Use `terminal_connection_create` with the host "{{host}}" and the `credential_id` from step 1
+   - Set the name to "{{label}}" if provided, otherwise use the hostname
    - Configure the connection type (SSH is the default)
 
-2. **Add Credentials**
-   - Use `terminal_credential_create` to attach authentication to the connection
-   - Ask the user for their preferred auth method (password, SSH key, or key file)
-   - Associate the credential with the connection created in step 1
-
 3. **Test the Connection**
-   - Use `terminal_connection_test` to verify the connection works
+   - Use `terminal_connection_test` with the connection ID to verify it works
    - If the test fails, report the error details clearly
    - Suggest common fixes (wrong port, firewall, credential issues)
 

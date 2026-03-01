@@ -22,9 +22,9 @@ Create comprehensive meeting notes for "{{title}}":
 
 3. **Extract Action Items**
    - For each action item identified during the meeting:
-     - Use `todo_create` to create a task with the action description
-     - Set the assignee and due date if provided
-     - Reference the meeting note in the task description
+     - Use `todo_create` to create a task with a clear title (include assignee name in the title if known)
+     - Set the due date if provided
+     - Prefix the title with the responsible person's name for easy filtering
 
 4. **Link Everything Together**
    - Use `links_set` to link the meeting note to:
@@ -36,7 +36,7 @@ Create comprehensive meeting notes for "{{title}}":
 5. **Summary**
    - Present the completed meeting note with:
      - Attendee list with contact links
-     - Numbered action items with assignees and due dates
+     - Numbered action items with owners and due dates
      - Links to related projects or work items
    - Confirm all items are correctly captured
 

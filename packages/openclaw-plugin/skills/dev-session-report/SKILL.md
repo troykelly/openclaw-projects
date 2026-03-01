@@ -2,15 +2,16 @@
 name: dev-session-report
 description: Generate a summary report for a completed dev session
 args:
-  - name: session
-    description: Dev session ID or name to report on
+  - name: session_id
+    description: Dev session UUID (use dev_session_list to find sessions)
     required: true
 ---
 
-Generate a summary report for dev session "{{session}}":
+Generate a summary report for dev session "{{session_id}}":
 
 1. **Retrieve Session Details**
-   - Use `dev_session_get` with the session identifier "{{session}}"
+   - If the user provided a name instead of a UUID, use `dev_session_list` to find matching sessions first
+   - Use `dev_session_get` with the session UUID "{{session_id}}"
    - Show session name, start time, duration, and current status
    - If the session is still active, ask whether to complete it first
 
