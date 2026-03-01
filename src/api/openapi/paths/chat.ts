@@ -261,6 +261,126 @@ export function chatPaths(): OpenApiDomainModule {
           },
         },
       },
+
+      // ── Agent message endpoint (Issue #1954) ──────────────────────────
+      '/api/chat/sessions/{id}/agent-message': {
+        post: {
+          operationId: 'chatAgentSendMessage',
+          summary: 'Agent sends message to user in session',
+          description: 'M2M endpoint for agents to send messages to users in active chat sessions. Authenticated via X-Stream-Secret header.',
+          tags: ['Chat'],
+          parameters: [uuidParam('id', 'Chat session ID')],
+          requestBody: jsonBody({
+            type: 'object',
+            required: ['content'],
+            properties: {
+              content: { type: 'string', description: 'Message content (max 64KB)' },
+              content_type: {
+                type: 'string',
+                enum: ['text/plain', 'text/markdown', 'application/vnd.openclaw.rich-card'],
+                default: 'text/markdown',
+                description: 'Content type',
+              },
+              urgency: {
+                type: 'string',
+                enum: ['low', 'normal', 'high', 'urgent'],
+                default: 'normal',
+                description: 'Notification urgency for escalation',
+              },
+              agent_id: { type: 'string', description: 'Agent identifier (optional override)' },
+            },
+          }),
+          responses: {
+            '201': jsonResponse('Message sent', {
+              type: 'object',
+              properties: {
+                ok: { type: 'boolean' },
+                message_id: { type: 'string', format: 'uuid' },
+              },
+            }),
+            ...errorResponses(400, 401, 403, 404, 409, 429, 500),
+          },
+        },
+      },
+
+      // ── Agent notification endpoint (Issue #1954) ─────────────────────
+      '/api/notifications/agent': {
+        post: {
+          operationId: 'chatAgentAttractAttention',
+          summary: 'Agent sends notification with escalation',
+          description: 'M2M endpoint for agents to send notifications with urgency-based escalation. Deduplicates by reason_key within 15-minute window.',
+          tags: ['Chat'],
+          requestBody: jsonBody({
+            type: 'object',
+            required: ['message', 'urgency', 'reason_key'],
+            properties: {
+              message: { type: 'string', description: 'Notification message (max 500 chars)' },
+              urgency: {
+                type: 'string',
+                enum: ['low', 'normal', 'high', 'urgent'],
+                description: 'Urgency level controlling escalation channels',
+              },
+              reason_key: { type: 'string', description: 'Dedup key (max 100 chars)' },
+              session_id: { type: 'string', format: 'uuid', description: 'Optional: link to chat session' },
+              action_url: { type: 'string', format: 'uri', description: 'Optional: URL for notification click' },
+              agent_id: { type: 'string', description: 'Agent identifier' },
+            },
+          }),
+          responses: {
+            '200': jsonResponse('Notification processed', {
+              type: 'object',
+              properties: {
+                ok: { type: 'boolean' },
+                notification_id: { type: 'string', format: 'uuid' },
+                deduplicated: { type: 'boolean', description: 'True if notification was deduplicated' },
+              },
+            }),
+            ...errorResponses(400, 401, 429, 500),
+          },
+        },
+      },
+
+      // ── Push subscription endpoint (Issue #1956) ──────────────────────
+      '/api/push/subscribe': {
+        post: {
+          operationId: 'pushSubscribe',
+          summary: 'Subscribe to browser push notifications',
+          description: 'Store a Web Push subscription for the authenticated user. Max 5 subscriptions per user.',
+          tags: ['Chat'],
+          requestBody: jsonBody({
+            type: 'object',
+            properties: {
+              subscription: {
+                type: 'object',
+                description: 'Web Push subscription from PushManager.subscribe()',
+                properties: {
+                  endpoint: { type: 'string', format: 'uri' },
+                  keys: {
+                    type: 'object',
+                    properties: {
+                      p256dh: { type: 'string' },
+                      auth: { type: 'string' },
+                    },
+                  },
+                },
+              },
+              action: {
+                type: 'string',
+                enum: ['subscribe', 'unsubscribe'],
+                default: 'subscribe',
+              },
+              endpoint: { type: 'string', description: 'Endpoint URL for unsubscribe action' },
+            },
+          }),
+          responses: {
+            '200': jsonResponse('Subscription updated', {
+              type: 'object',
+              properties: { ok: { type: 'boolean' } },
+            }),
+            ...errorResponses(400, 401, 500),
+          },
+        },
+      },
     },
   };
 }

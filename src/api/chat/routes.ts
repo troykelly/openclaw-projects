@@ -33,6 +33,17 @@ import {
 } from './stream-manager.ts';
 import { getRealtimeHub } from '../realtime/hub.ts';
 import type { ChatEventType } from '../realtime/types.ts';
+import {
+  executeChatSendMessage,
+  executeChatAttractAttention,
+  type ChatSendMessageParams,
+  type ChatAttractAttentionParams,
+} from './tools.ts';
+import {
+  addPushSubscription,
+  removePushSubscription,
+  validatePushSubscription,
+} from './push-subscription.ts';
 
 // ── Constants ────────────────────────────────────────────────────
 
@@ -1110,6 +1121,234 @@ export async function chatRoutesPlugin(
       default:
         return reply.code(400).send({ error: `Unknown stream type: ${messageType}` });
     }
+  });
+
+  // ================================================================
+  // Issue #1956 — Push subscription management
+  // ================================================================
+
+  // POST /api/push/subscribe — Store browser push subscription
+  app.post('/api/push/subscribe', async (req, reply) => {
+    const userEmail = await getUserEmail(req);
+    if (!userEmail) {
+      return reply.code(401).send({ error: 'Authentication required' });
+    }
+
+    const body = req.body as { subscription?: unknown; action?: string; endpoint?: string };
+    const action = body.action ?? 'subscribe';
+
+    if (action === 'unsubscribe') {
+      if (!body.endpoint || typeof body.endpoint !== 'string') {
+        return reply.code(400).send({ error: 'endpoint is required for unsubscribe' });
+      }
+      await removePushSubscription(pool, userEmail, body.endpoint);
+      return reply.code(200).send({ ok: true });
+    }
+
+    // Subscribe
+    if (!validatePushSubscription(body.subscription)) {
+      return reply.code(400).send({ error: 'Invalid push subscription: must include endpoint and keys (p256dh, auth)' });
+    }
+
+    const result = await addPushSubscription(pool, userEmail, body.subscription);
+    if (!result.ok) {
+      return reply.code(400).send({ error: result.error });
+    }
+
+    return reply.code(200).send({ ok: true });
+  });
+
+  // ================================================================
+  // Issue #1954 — Agent M2M endpoints
+  // ================================================================
+  registerAgentEndpoints(app, pool);
+}
+
+// ── M2M Agent Endpoints (Issue #1954) ─────────────────────────────
+
+/**
+ * Register M2M endpoints for agent-initiated actions.
+ */
+function registerAgentEndpoints(app: FastifyInstance, pool: Pool): void {
+  // Rate limit state: session_id -> { count, windowStart }
+  const sendMessageRateLimits = new Map<string, { count: number; windowStart: number }>();
+  // Rate limit state: user_email -> { hourly: {count, windowStart}, daily: {count, windowStart} }
+  const attractAttentionRateLimits = new Map<string, {
+    hourly: { count: number; windowStart: number };
+    daily: { count: number; windowStart: number };
+  }>();
+
+  /**
+   * POST /api/chat/sessions/:id/agent-message
+   * M2M endpoint: agent sends a message to a user in an active session.
+   * Auth: Bearer M2M token + X-Stream-Secret header.
+   * Rate limit: 10/min per session.
+   */
+  app.post('/api/chat/sessions/:id/agent-message', async (req, reply) => {
+    const params = req.params as { id: string };
+    const body = req.body as ChatSendMessageParams & { agent_id?: string };
+
+    if (!isValidUUID(params.id)) {
+      return reply.code(400).send({ error: 'Invalid session ID' });
+    }
+
+    // Validate stream secret
+    const streamSecret = req.headers['x-stream-secret'] as string | undefined;
+    if (!streamSecret) {
+      return reply.code(401).send({ error: 'Missing X-Stream-Secret header' });
+    }
+
+    // Look up session
+    const sessionResult = await pool.query(
+      `SELECT id, thread_id, user_email, agent_id, namespace, status, stream_secret
+       FROM chat_session WHERE id = $1`,
+      [params.id],
+    );
+
+    if (sessionResult.rows.length === 0) {
+      return reply.code(404).send({ error: 'Session not found' });
+    }
+
+    const session = sessionResult.rows[0] as {
+      id: string;
+      thread_id: string;
+      user_email: string;
+      agent_id: string;
+      namespace: string;
+      status: string;
+      stream_secret: string;
+    };
+
+    // Timing-safe secret comparison
+    const expected = Buffer.from(session.stream_secret, 'utf8');
+    const provided = Buffer.from(streamSecret, 'utf8');
+    if (expected.length !== provided.length || !timingSafeEqual(expected, provided)) {
+      return reply.code(403).send({ error: 'Invalid stream secret' });
+    }
+
+    if (session.status !== 'active') {
+      return reply.code(409).send({ error: 'Session is not active' });
+    }
+
+    // Rate limit: 10/min per session
+    const now = Date.now();
+    const windowMs = 60_000;
+    let rl = sendMessageRateLimits.get(params.id);
+    if (!rl || now - rl.windowStart >= windowMs) {
+      rl = { count: 0, windowStart: now };
+      sendMessageRateLimits.set(params.id, rl);
+    }
+    if (rl.count >= 10) {
+      return reply.code(429).send({ error: 'Rate limit: max 10 messages/min per session' });
+    }
+
+    // Validate content before charging rate limit
+    if (!body || typeof body !== 'object' || !body.content || typeof body.content !== 'string') {
+      return reply.code(400).send({ error: 'content is required' });
+    }
+
+    // Charge rate limit only after validation passes
+    rl.count++;
+
+    const result = await executeChatSendMessage(
+      pool,
+      { ...body, session_id: params.id },
+      body.agent_id ?? session.agent_id,
+      session.user_email,
+      session.namespace,
+    );
+
+    if (!result.ok) {
+      return reply.code(400).send({ error: result.error });
+    }
+
+    return reply.code(201).send({ ok: true, message_id: result.message_id });
+  });
+
+  /**
+   * POST /api/notifications/agent
+   * M2M endpoint: agent sends a notification with urgency escalation.
+   * Auth: Bearer M2M token (x-user-email identifies target user).
+   * Rate limit: 3/hour, 10/day per user.
+   */
+  app.post('/api/notifications/agent', async (req, reply) => {
+    const body = req.body as ChatAttractAttentionParams & { agent_id?: string; user_email?: string };
+
+    // Get target user email
+    const userEmail = (req.headers['x-user-email'] as string | undefined) ?? body.user_email;
+    if (!userEmail) {
+      return reply.code(400).send({ error: 'user_email is required' });
+    }
+
+    // Validate required fields
+    if (!body.message || typeof body.message !== 'string') {
+      return reply.code(400).send({ error: 'message is required' });
+    }
+    if (!body.urgency || !['low', 'normal', 'high', 'urgent'].includes(body.urgency)) {
+      return reply.code(400).send({ error: 'urgency must be one of: low, normal, high, urgent' });
+    }
+    if (!body.reason_key || typeof body.reason_key !== 'string') {
+      return reply.code(400).send({ error: 'reason_key is required' });
+    }
+
+    // Rate limit: 3/hour, 10/day per user
+    const now = Date.now();
+    let rl = attractAttentionRateLimits.get(userEmail);
+    if (!rl) {
+      rl = {
+        hourly: { count: 0, windowStart: now },
+        daily: { count: 0, windowStart: now },
+      };
+      attractAttentionRateLimits.set(userEmail, rl);
+    }
+    // Reset windows if expired
+    if (now - rl.hourly.windowStart >= 3_600_000) {
+      rl.hourly = { count: 0, windowStart: now };
+    }
+    if (now - rl.daily.windowStart >= 86_400_000) {
+      rl.daily = { count: 0, windowStart: now };
+    }
+    if (rl.hourly.count >= 3) {
+      return reply.code(429).send({ error: 'Rate limit: max 3 notifications/hour per user' });
+    }
+    if (rl.daily.count >= 10) {
+      return reply.code(429).send({ error: 'Rate limit: max 10 notifications/day per user' });
+    }
+
+    // Resolve namespace
+    const nsResult = await pool.query(
+      `SELECT namespace FROM user_setting
+       JOIN namespace_grant ON namespace_grant.email = user_setting.email
+       WHERE user_setting.email = $1 LIMIT 1`,
+      [userEmail],
+    );
+    const namespace = nsResult.rows.length > 0
+      ? (nsResult.rows[0] as { namespace: string }).namespace
+      : 'default';
+
+    const result = await executeChatAttractAttention(
+      pool,
+      body,
+      body.agent_id ?? 'unknown',
+      userEmail,
+      namespace,
+    );
+
+    if (!result.ok) {
+      return reply.code(400).send({ error: result.error });
+    }
+
+    // Charge rate limit only after successful, non-deduplicated delivery
+    if (!result.deduplicated) {
+      rl.hourly.count++;
+      rl.daily.count++;
+    }
+
+    return reply.code(200).send({
+      ok: true,
+      notification_id: result.notification_id,
+      deduplicated: result.deduplicated ?? false,
+    });
   });
 }
 
