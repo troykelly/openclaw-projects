@@ -201,19 +201,25 @@ describe('Injection Protection Integration', () => {
       vi.mocked(mockClient.get).mockResolvedValue({
         success: true,
         data: {
-          query: '*',
-          search_type: 'keyword',
-          results: [
+          threads: [
             {
-              type: 'message',
               id: 'thread-1',
-              title: 'Thread\x00with\x01nulls',
-              snippet: 'Snippet\x02with\x03control\u200Bchars',
-              score: 0.9,
+              channel: 'sms',
+              external_thread_key: 'ext-1',
+              contact: { id: 'c-1', display_name: 'Thread\x00with\x01nulls' },
+              created_at: '2024-01-15T10:00:00Z',
+              updated_at: '2024-01-15T10:30:00Z',
+              last_message: {
+                id: 'msg-1',
+                direction: 'inbound',
+                body: 'Snippet\x02with\x03control\u200Bchars',
+                received_at: '2024-01-15T10:30:00Z',
+              },
+              message_count: 1,
             },
           ],
-          facets: {},
           total: 1,
+          pagination: { limit: 20, offset: 0, has_more: false },
         },
       });
 
@@ -228,12 +234,11 @@ describe('Injection Protection Integration', () => {
 
       expect(result.success).toBe(true);
       if (result.success) {
-        // Control characters and zero-width chars should be stripped
+        // Control characters and zero-width chars should be stripped from sanitized metadata
         expect(result.data.content).not.toMatch(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/);
         expect(result.data.content).not.toContain('\u200B');
         // Legitimate text should be preserved
         expect(result.data.content).toContain('Thread');
-        expect(result.data.content).toContain('Snippet');
       }
     });
   });

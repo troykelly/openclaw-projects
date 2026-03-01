@@ -145,10 +145,22 @@ async function searchWorkItemsSemantic(
 async function searchWorkItemsRecent(
   pool: Pool,
   query: string,
-  options: { limit: number; queryNamespaces?: string[] },
+  options: { limit: number; queryNamespaces?: string[]; date_from?: Date; date_to?: Date },
 ): Promise<EntitySearchResult[]> {
   const likePattern = `%${query.replace(/[%_\\]/g, '\\$&')}%`;
   const nsScope = options.queryNamespaces ?? ['default'];
+  const params: unknown[] = [nsScope, likePattern, options.limit];
+  const dateFilters: string[] = [];
+
+  if (options.date_from) {
+    params.push(options.date_from);
+    dateFilters.push(`created_at >= $${params.length}`);
+  }
+  if (options.date_to) {
+    params.push(options.date_to);
+    dateFilters.push(`created_at <= $${params.length}`);
+  }
+  const dateClause = dateFilters.length > 0 ? `AND ${dateFilters.join(' AND ')}` : '';
 
   const result = await pool.query(
     `SELECT
@@ -163,9 +175,10 @@ async function searchWorkItemsRecent(
        AND created_at > NOW() - INTERVAL '5 minutes'
        AND namespace = ANY($1::text[])
        AND (title ILIKE $2 OR description ILIKE $2)
+       ${dateClause}
      ORDER BY created_at DESC
      LIMIT $3`,
-    [nsScope, likePattern, options.limit],
+    params,
   );
 
   return result.rows.map((row) => ({
@@ -553,7 +566,7 @@ export async function unifiedSearch(pool: Pool, options: SearchOptions): Promise
     // These items may be missed by both text search (query doesn't match tsvector) and
     // semantic search (embedding not ready), so we fall back to simple ILIKE matching
     // for items created in the last 5 minutes.
-    const recentResults = await searchWorkItemsRecent(pool, query, { limit: effectiveLimit, queryNamespaces });
+    const recentResults = await searchWorkItemsRecent(pool, query, { limit: effectiveLimit, queryNamespaces, date_from, date_to });
     const existingIds = new Set(workItemResults.map((r) => r.id));
     for (const recent of recentResults) {
       if (!existingIds.has(recent.id)) {

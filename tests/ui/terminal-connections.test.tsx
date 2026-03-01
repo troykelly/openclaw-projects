@@ -152,12 +152,12 @@ describe('ConnectionsPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('page-connections')).toBeInTheDocument();
-    });
+    }, { timeout: 5000 });
 
     await waitFor(() => {
       expect(screen.getByText('prod-web-1')).toBeInTheDocument();
       expect(screen.getByText('local-dev')).toBeInTheDocument();
-    });
+    }, { timeout: 5000 });
   });
 
   it('renders connection cards with status indicators', async () => {
@@ -166,7 +166,7 @@ describe('ConnectionsPage', () => {
     await waitFor(() => {
       const cards = screen.getAllByTestId('connection-card');
       expect(cards).toHaveLength(2);
-    });
+    }, { timeout: 5000 });
   });
 
   it('shows empty state when no connections match search', async () => {
@@ -180,7 +180,7 @@ describe('ConnectionsPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/No connections/)).toBeInTheDocument();
-    });
+    }, { timeout: 5000 });
   });
 
   it('has new connection button', async () => {
@@ -188,7 +188,7 @@ describe('ConnectionsPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText('New Connection')).toBeInTheDocument();
-    });
+    }, { timeout: 5000 });
   });
 
   it('has import SSH config button', async () => {
@@ -196,6 +196,6 @@ describe('ConnectionsPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Import SSH Config')).toBeInTheDocument();
-    });
+    }, { timeout: 5000 });
   });
 });

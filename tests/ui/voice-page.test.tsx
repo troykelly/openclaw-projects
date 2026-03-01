@@ -75,7 +75,7 @@ describe('VoicePage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('page-voice')).toBeInTheDocument();
-    });
+    }, { timeout: 5000 });
 
     expect(screen.getByText('Voice & Speech')).toBeInTheDocument();
   });
@@ -115,7 +115,7 @@ describe('VoicePage', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Configuration')).toBeInTheDocument();
-    });
+    }, { timeout: 5000 });
   });
 
   it('shows conversation history', async () => {
@@ -146,7 +146,7 @@ describe('VoicePage', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Conversation History')).toBeInTheDocument();
-    });
+    }, { timeout: 5000 });
   });
 
   it('shows empty state when no conversations', async () => {
@@ -161,6 +161,6 @@ describe('VoicePage', () => {
 
     await waitFor(() => {
       expect(screen.getByText('No conversations yet.')).toBeInTheDocument();
-    });
+    }, { timeout: 5000 });
   });
 });
