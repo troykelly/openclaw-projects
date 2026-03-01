@@ -2818,6 +2818,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       theme?: 'light' | 'dark' | 'system';
       default_view?: 'activity' | 'projects' | 'timeline' | 'contacts';
       default_project_id?: string | null;
+      default_agent_id?: string | null;
       sidebar_collapsed?: boolean;
       show_completed_items?: boolean;
       items_per_page?: number;
@@ -2835,6 +2836,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       'theme',
       'default_view',
       'default_project_id',
+      'default_agent_id',
       'sidebar_collapsed',
       'show_completed_items',
       'items_per_page',

@@ -101,11 +101,15 @@ const REGISTERED_API_FILES = new Set([
   'use-embedding-settings.ts',
   'use-connected-accounts.ts',
   'use-settings.ts',
+  'use-default-agent.ts',
   'connected-accounts-section.tsx',
   'connection-manage-panel.tsx',
   'inbound-routing-section.tsx',
   'notification-preferences-section.tsx',
   'webhook-management-section.tsx',
+  'chat-settings-section.tsx',
+  'chat-notification-prefs-section.tsx',
+  'use-chat-notification-prefs.ts',
 ]);
 
 const SETTINGS_DIR = path.resolve(
@@ -236,6 +240,68 @@ describe('Settings hooks survive empty API responses ({})', () => {
     expect(() => render(<Test />)).not.toThrow();
     await waitFor(() =>
       expect(document.body.textContent).toContain('No webhooks configured'),
+    );
+  });
+
+  it('useDefaultAgent does not crash', async () => {
+    mockedApiClient.get.mockResolvedValue({});
+    const { useDefaultAgent } = await import(
+      '@/ui/components/settings/use-default-agent'
+    );
+
+    function Test() {
+      const { defaultAgentId, isLoading } = useDefaultAgent();
+      return <div>{isLoading ? 'loading' : `agent:${defaultAgentId ?? 'none'}`}</div>;
+    }
+
+    expect(() => render(<Test />)).not.toThrow();
+    await waitFor(() => expect(document.body.textContent).toContain('agent:'));
+  });
+
+  it('useChatNotificationPrefs does not crash', async () => {
+    mockedApiClient.get.mockResolvedValue({});
+    const { useChatNotificationPrefs } = await import(
+      '@/ui/components/settings/use-chat-notification-prefs'
+    );
+
+    function Test() {
+      const { prefs, isLoading } = useChatNotificationPrefs();
+      return <div>{isLoading ? 'loading' : `sound:${prefs?.sound_enabled ?? 'default'}`}</div>;
+    }
+
+    expect(() => render(<Test />)).not.toThrow();
+    await waitFor(() => expect(document.body.textContent).toContain('sound:'));
+  });
+
+  it('ChatNotificationPrefsSection does not crash', async () => {
+    mockedApiClient.get.mockResolvedValue({});
+    const { ChatNotificationPrefsSection } = await import(
+      '@/ui/components/settings/chat-notification-prefs-section'
+    );
+
+    function Test() {
+      return <ChatNotificationPrefsSection />;
+    }
+
+    expect(() => render(<Test />)).not.toThrow();
+    await waitFor(() =>
+      expect(document.body.textContent).toContain('Chat Notifications'),
+    );
+  });
+
+  it('ChatSettingsSection does not crash', async () => {
+    mockedApiClient.get.mockResolvedValue({});
+    const { ChatSettingsSection } = await import(
+      '@/ui/components/settings/chat-settings-section'
+    );
+
+    function Test() {
+      return <ChatSettingsSection />;
+    }
+
+    expect(() => render(<Test />)).not.toThrow();
+    await waitFor(() =>
+      expect(document.body.textContent).toContain('No agents available'),
     );
   });
 

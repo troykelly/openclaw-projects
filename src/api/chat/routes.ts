@@ -473,6 +473,72 @@ export async function chatRoutesPlugin(
   });
 
   // ================================================================
+  // Issue #1959 — Multi-device Chat Sync (Read Cursor REST)
+  // ================================================================
+
+  // POST /api/chat/sessions/:id/read — Update read cursor (forward-only)
+  app.post('/api/chat/sessions/:id/read', async (req, reply) => {
+    const userEmail = await getUserEmail(req);
+    if (!userEmail) {
+      return reply.code(401).send({ error: 'Authentication required' });
+    }
+
+    const params = req.params as { id: string };
+    if (!isValidUUID(params.id)) {
+      return reply.code(400).send({ error: 'Invalid session ID format' });
+    }
+
+    // Verify session access (authz check — prevents IDOR)
+    const namespaces = getEffectiveNamespaces(req);
+    const session = await verifySessionAccess(pool, params.id, userEmail, namespaces);
+    if (!session) {
+      return reply.code(404).send({ error: 'Session not found' });
+    }
+
+    const body = req.body as { last_read_message_id?: string };
+    if (!body.last_read_message_id || typeof body.last_read_message_id !== 'string' || !isValidUUID(body.last_read_message_id)) {
+      return reply.code(400).send({ error: 'Invalid last_read_message_id' });
+    }
+
+    // Validate message belongs to this session's thread
+    const msgCheck = await pool.query(
+      `SELECT id FROM external_message WHERE id = $1 AND thread_id = $2`,
+      [body.last_read_message_id, session.thread_id],
+    );
+    if (msgCheck.rows.length === 0) {
+      return reply.code(400).send({ error: 'Message does not belong to this session' });
+    }
+
+    try {
+      // Upsert read cursor — the cursor always moves to the specified message.
+      // Forward-only semantics are enforced by the client (debounce + dedup).
+      const result = await pool.query(
+        `INSERT INTO chat_read_cursor (user_email, session_id, last_read_message_id, last_read_at)
+         VALUES ($1, $2, $3, NOW())
+         ON CONFLICT (user_email, session_id)
+         DO UPDATE SET last_read_message_id = $3, last_read_at = NOW()
+         RETURNING last_read_message_id, last_read_at`,
+        [userEmail, params.id, body.last_read_message_id],
+      );
+
+      // Emit read cursor event for multi-device sync
+      getRealtimeHub().emit(
+        'chat:read_cursor_updated' as ChatEventType,
+        {
+          session_id: params.id,
+          last_read_message_id: body.last_read_message_id,
+        },
+        userEmail,
+      ).catch((err: unknown) => { console.error('[Chat] Fire-and-forget error:', err instanceof Error ? err.message : err); });
+
+      return reply.send(result.rows[0]);
+    } catch (err) {
+      req.log.error({ err }, '[Chat] Read cursor update failed');
+      return reply.code(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // ================================================================
   // Issue #1943 — Chat Message Send and Retrieve API
   // ================================================================
 
@@ -1120,6 +1186,113 @@ export async function chatRoutesPlugin(
 
       default:
         return reply.code(400).send({ error: `Unknown stream type: ${messageType}` });
+    }
+  });
+
+  // ================================================================
+  // Issue #1958 — Chat Notification Preferences
+  // ================================================================
+
+  // GET /api/chat/preferences — Get chat notification preferences
+  app.get('/api/chat/preferences', async (req, reply) => {
+    const userEmail = await getUserEmail(req);
+    if (!userEmail) {
+      return reply.code(401).send({ error: 'Authentication required' });
+    }
+
+    try {
+      const result = await pool.query(
+        `SELECT chat_notification_prefs FROM user_setting WHERE email = $1`,
+        [userEmail],
+      );
+
+      if (result.rows.length === 0 || !result.rows[0].chat_notification_prefs) {
+        // Return defaults if no preferences set
+        return reply.send({
+          sound_enabled: true,
+          auto_open_on_message: true,
+          quiet_hours: null,
+          escalation: {
+            low: ['in_app'],
+            normal: ['in_app', 'push'],
+            high: ['in_app', 'push', 'email'],
+            urgent: ['in_app', 'push', 'sms', 'email'],
+          },
+        });
+      }
+
+      return reply.send(result.rows[0].chat_notification_prefs);
+    } catch (err) {
+      req.log.error({ err }, '[Chat] Failed to fetch preferences');
+      return reply.code(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // PATCH /api/chat/preferences — Update chat notification preferences
+  app.patch('/api/chat/preferences', async (req, reply) => {
+    const userEmail = await getUserEmail(req);
+    if (!userEmail) {
+      return reply.code(401).send({ error: 'Authentication required' });
+    }
+
+    const body = req.body as Record<string, unknown> | null | undefined;
+    if (!body || typeof body !== 'object') {
+      return reply.code(400).send({ error: 'Request body must be a JSON object' });
+    }
+
+    // Validate known fields
+    const validFields = ['sound_enabled', 'auto_open_on_message', 'quiet_hours', 'escalation'];
+    const unknownFields = Object.keys(body).filter((k) => !validFields.includes(k));
+    if (unknownFields.length > 0) {
+      return reply.code(400).send({ error: `Unknown fields: ${unknownFields.join(', ')}` });
+    }
+
+    // Validate quiet_hours format if provided
+    if (body.quiet_hours !== undefined && body.quiet_hours !== null) {
+      const qh = body.quiet_hours as Record<string, unknown>;
+      if (typeof qh.start !== 'string' || typeof qh.end !== 'string' || typeof qh.timezone !== 'string') {
+        return reply.code(400).send({ error: 'quiet_hours must have start, end, and timezone strings' });
+      }
+    }
+
+    // Validate escalation if provided
+    if (body.escalation !== undefined) {
+      const validChannels = ['in_app', 'push', 'sms', 'email'];
+      const validLevels = ['low', 'normal', 'high', 'urgent'];
+      const esc = body.escalation as Record<string, unknown>;
+      for (const level of Object.keys(esc)) {
+        if (!validLevels.includes(level)) {
+          return reply.code(400).send({ error: `Invalid escalation level: ${level}` });
+        }
+        const channels = esc[level];
+        if (!Array.isArray(channels) || !channels.every((c) => validChannels.includes(c as string))) {
+          return reply.code(400).send({ error: `Invalid channels for ${level}` });
+        }
+      }
+    }
+
+    try {
+      // Merge with existing preferences
+      const existing = await pool.query(
+        `SELECT chat_notification_prefs FROM user_setting WHERE email = $1`,
+        [userEmail],
+      );
+
+      const currentPrefs = (existing.rows[0]?.chat_notification_prefs as Record<string, unknown>) ?? {};
+      const merged = { ...currentPrefs, ...body };
+
+      const result = await pool.query(
+        `INSERT INTO user_setting (email, chat_notification_prefs)
+         VALUES ($1, $2)
+         ON CONFLICT (email) DO UPDATE SET chat_notification_prefs = $2
+         RETURNING chat_notification_prefs`,
+        [userEmail, JSON.stringify(merged)],
+      );
+
+      return reply.send(result.rows[0].chat_notification_prefs);
+    } catch (err) {
+      req.log.error({ err }, '[Chat] Failed to update preferences');
+      return reply.code(500).send({ error: 'Internal server error' });
     }
   });
 
