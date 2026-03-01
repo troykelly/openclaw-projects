@@ -26,7 +26,18 @@ export const TodoListParamsSchema = z.object({
 });
 export type TodoListParams = z.infer<typeof TodoListParamsSchema>;
 
-/** Todo item from API */
+/** Raw work item shape returned by the API */
+interface WorkItemRow {
+  id: string;
+  title: string;
+  status?: string;
+  parent_id?: string;
+  not_after?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+/** Todo item (normalised from API response) */
 export interface Todo {
   id: string;
   title: string;
@@ -145,7 +156,7 @@ export function createTodoListTool(options: TodoToolOptions): TodoListTool {
           queryParams.set('status', completed ? 'completed' : 'active');
         }
 
-        const response = await client.get<{ items?: Todo[]; total?: number }>(`/api/work-items?${queryParams.toString()}`, { user_id });
+        const response = await client.get<{ items?: WorkItemRow[]; total?: number }>(`/api/work-items?${queryParams.toString()}`, { user_id });
 
         if (!response.success) {
           logger.error('todo_list API error', {
@@ -159,8 +170,20 @@ export function createTodoListTool(options: TodoToolOptions): TodoListTool {
           };
         }
 
-        const todos = response.data.items ?? [];
-        const total = response.data.total ?? todos.length;
+        const rawItems = response.data.items ?? [];
+        const total = response.data.total ?? rawItems.length;
+
+        // Map API work-item rows to Todo objects.
+        // The API returns `status` (string) — derive the boolean `completed` flag from it.
+        const todos: Todo[] = rawItems.map((item) => ({
+          id: item.id,
+          title: item.title,
+          completed: item.status === 'completed' || item.status === 'done' || item.status === 'closed',
+          project_id: item.parent_id,
+          dueDate: item.not_after,
+          created_at: item.created_at,
+          updated_at: item.updated_at,
+        }));
 
         if (todos.length === 0) {
           return {
