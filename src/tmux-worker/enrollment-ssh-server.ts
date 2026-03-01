@@ -9,8 +9,11 @@
  * Epic #1667 — TMux Session Management
  */
 
-import { Server as SSHServer, utils as sshUtils } from 'ssh2';
+import ssh2 from 'ssh2';
 import { generateKeyPairSync } from 'node:crypto';
+
+const { Server: SSHServer } = ssh2;
+type SSHServer = InstanceType<typeof SSHServer>;
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -103,13 +106,17 @@ function clearRateLimit(ip: string): void {
 }
 
 /**
- * Generate a fresh Ed25519 host key.
- * Returns the private key in PEM format.
+ * Generate a fresh RSA-2048 host key in PKCS#1 PEM format.
+ *
+ * ssh2's Server constructor cannot parse Ed25519 keys in PKCS#8 PEM format
+ * (the only format Node's crypto.generateKeyPairSync supports for Ed25519).
+ * RSA with PKCS#1 PEM is universally supported by ssh2. Issue #1966.
  */
 function generateHostKey(): Buffer {
-  const { privateKey } = generateKeyPairSync('ed25519', {
+  const { privateKey } = generateKeyPairSync('rsa', {
+    modulusLength: 2048,
     publicKeyEncoding: { type: 'spki', format: 'pem' },
-    privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
+    privateKeyEncoding: { type: 'pkcs1', format: 'pem' },
   });
   return Buffer.from(privateKey);
 }
