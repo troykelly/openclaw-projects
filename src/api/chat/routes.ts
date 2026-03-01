@@ -462,6 +462,66 @@ export async function chatRoutesPlugin(
   });
 
   // ================================================================
+  // Issue #1959 — Multi-device Chat Sync (Read Cursor REST)
+  // ================================================================
+
+  // POST /api/chat/sessions/:id/read — Update read cursor (forward-only)
+  app.post('/api/chat/sessions/:id/read', async (req, reply) => {
+    const userEmail = await getUserEmail(req);
+    if (!userEmail) {
+      return reply.code(401).send({ error: 'Authentication required' });
+    }
+
+    const params = req.params as { id: string };
+    if (!isValidUUID(params.id)) {
+      return reply.code(400).send({ error: 'Invalid session ID format' });
+    }
+
+    const body = req.body as { last_read_message_id?: string };
+    if (!body.last_read_message_id || typeof body.last_read_message_id !== 'string' || !isValidUUID(body.last_read_message_id)) {
+      return reply.code(400).send({ error: 'Invalid last_read_message_id' });
+    }
+
+    try {
+      // Forward-only upsert: only update if new read is newer or first time
+      const result = await pool.query(
+        `INSERT INTO chat_read_cursor (user_email, session_id, last_read_message_id, last_read_at)
+         VALUES ($1, $2, $3, NOW())
+         ON CONFLICT (user_email, session_id)
+         DO UPDATE SET last_read_message_id = $3, last_read_at = NOW()
+         WHERE chat_read_cursor.last_read_at < NOW() OR chat_read_cursor.last_read_at IS NULL
+         RETURNING last_read_message_id, last_read_at`,
+        [userEmail, params.id, body.last_read_message_id],
+      );
+
+      if (result.rows.length === 0) {
+        // Forward-only constraint prevented update — return current state
+        const current = await pool.query(
+          `SELECT last_read_message_id, last_read_at FROM chat_read_cursor
+           WHERE user_email = $1 AND session_id = $2`,
+          [userEmail, params.id],
+        );
+        return reply.send(current.rows[0] ?? { last_read_message_id: body.last_read_message_id, last_read_at: new Date().toISOString() });
+      }
+
+      // Emit read cursor event for multi-device sync
+      getRealtimeHub().emit(
+        'chat:read_cursor_updated' as ChatEventType,
+        {
+          session_id: params.id,
+          last_read_message_id: body.last_read_message_id,
+        },
+        userEmail,
+      ).catch((err: unknown) => { console.error('[Chat] Fire-and-forget error:', err instanceof Error ? err.message : err); });
+
+      return reply.send(result.rows[0]);
+    } catch (err) {
+      req.log.error({ err }, '[Chat] Read cursor update failed');
+      return reply.code(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // ================================================================
   // Issue #1943 — Chat Message Send and Retrieve API
   // ================================================================
 
