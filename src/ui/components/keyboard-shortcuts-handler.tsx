@@ -14,6 +14,7 @@ interface KeyboardShortcutsHandlerProps {
   onSelect?: () => void;
   onBack?: () => void;
   onOpenSelected?: () => void;
+  onToggleChat?: () => void;
 }
 
 export function KeyboardShortcutsHandler({
@@ -29,6 +30,7 @@ export function KeyboardShortcutsHandler({
   onSelect,
   onBack,
   onOpenSelected,
+  onToggleChat,
 }: KeyboardShortcutsHandlerProps) {
   // Navigation shortcuts (G then X)
   const goToActivity = useCallback(() => onNavigate?.('activity'), [onNavigate]);
@@ -36,12 +38,14 @@ export function KeyboardShortcutsHandler({
   const goToTimeline = useCallback(() => onNavigate?.('timeline'), [onNavigate]);
   const goToContacts = useCallback(() => onNavigate?.('people'), [onNavigate]);
   const goToSettings = useCallback(() => onNavigate?.('settings'), [onNavigate]);
+  const goToMessages = useCallback(() => onToggleChat?.(), [onToggleChat]);
 
   useSequentialHotkeys(['g', 'a'], goToActivity);
   useSequentialHotkeys(['g', 'p'], goToProjects);
   useSequentialHotkeys(['g', 't'], goToTimeline);
   useSequentialHotkeys(['g', 'c'], goToContacts);
   useSequentialHotkeys(['g', 's'], goToSettings);
+  useSequentialHotkeys(['g', 'm'], goToMessages);
 
   // Global shortcuts
   useHotkeys('meta+k', () => onSearch?.());

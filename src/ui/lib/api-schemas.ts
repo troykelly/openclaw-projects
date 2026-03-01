@@ -145,3 +145,56 @@ export const notificationsResponseSchema = z.object({
 export const unreadCountResponseSchema = z.object({
   count: z.number(),
 }).passthrough();
+
+// ---------------------------------------------------------------------------
+// Chat (Epic #1940)
+// ---------------------------------------------------------------------------
+
+export const chatSessionSchema = z.object({
+  id: z.string(),
+  thread_id: z.string(),
+  user_email: z.string(),
+  agent_id: z.string(),
+  namespace: z.string(),
+  status: z.enum(['active', 'ended', 'expired']),
+  title: z.string().nullable(),
+  version: z.number(),
+  started_at: z.string(),
+  ended_at: z.string().nullable(),
+  last_activity_at: z.string(),
+  metadata: z.record(z.unknown()),
+}).passthrough();
+
+export const chatSessionsResponseSchema = z.object({
+  sessions: z.array(chatSessionSchema),
+}).passthrough();
+
+export const chatMessageSchema = z.object({
+  id: z.string(),
+  thread_id: z.string(),
+  direction: z.enum(['inbound', 'outbound']),
+  body: z.string().nullable(),
+  status: z.enum(['pending', 'streaming', 'delivered', 'failed']),
+  content_type: z.enum(['text/plain', 'text/markdown', 'application/vnd.openclaw.rich-card']),
+  idempotency_key: z.string().nullable(),
+  agent_run_id: z.string().nullable(),
+  received_at: z.string(),
+  updated_at: z.string().nullable(),
+}).passthrough();
+
+export const chatMessagesResponseSchema = z.object({
+  messages: z.array(chatMessageSchema),
+  cursor: z.string().nullable(),
+  has_more: z.boolean(),
+}).passthrough();
+
+export const chatAgentSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  display_name: z.string().nullable(),
+  avatar_url: z.string().nullable(),
+}).passthrough();
+
+export const chatAgentsResponseSchema = z.object({
+  agents: z.array(chatAgentSchema),
+}).passthrough();
