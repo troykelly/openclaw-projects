@@ -4,7 +4,7 @@
  */
 
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { createAutoRecallHook, createAutoCaptureHook, createHealthCheck, extractTextContent } from '../src/hooks.js';
+import { createAutoRecallHook, createAutoCaptureHook, createGraphAwareRecallHook, createHealthCheck, extractTextContent } from '../src/hooks.js';
 import type { ApiClient } from '../src/api-client.js';
 import type { Logger } from '../src/logger.js';
 import type { PluginConfig } from '../src/config.js';
@@ -225,6 +225,144 @@ describe('lifecycle hooks', () => {
         expect(result).toBeNull();
         expect(mockLogger.warn).toHaveBeenCalledWith(expect.stringContaining('timeout'), expect.any(Object));
       }, 1000);
+    });
+
+    describe('minRecallScore filtering (#1926)', () => {
+      it('should filter out memories below minRecallScore threshold', async () => {
+        const mockGet = vi.fn().mockResolvedValue({
+          success: true,
+          data: {
+            memories: [
+              { id: '1', content: 'High relevance memory', category: 'fact', score: 0.9 },
+              { id: '2', content: 'Low relevance memory', category: 'fact', score: 0.5 },
+              { id: '3', content: 'Very low relevance memory', category: 'fact', score: 0.3 },
+            ],
+          },
+        });
+        const client = { ...mockApiClient, get: mockGet };
+
+        const hook = createAutoRecallHook({
+          client: client as unknown as ApiClient,
+          logger: mockLogger,
+          config: { ...mockConfig, minRecallScore: 0.7 },
+          getAgentId: () => 'agent-1',
+        });
+
+        const result = await hook({ prompt: 'Tell me something' });
+
+        expect(result).not.toBeNull();
+        expect(result?.prependContext).toContain('High relevance memory');
+        expect(result?.prependContext).not.toContain('Low relevance memory');
+        expect(result?.prependContext).not.toContain('Very low relevance memory');
+      });
+
+      it('should keep at least 1 memory even if all are below threshold (graceful degradation)', async () => {
+        const mockGet = vi.fn().mockResolvedValue({
+          success: true,
+          data: {
+            memories: [
+              { id: '1', content: 'Best of the low', category: 'fact', score: 0.5 },
+              { id: '2', content: 'Worst memory', category: 'fact', score: 0.2 },
+            ],
+          },
+        });
+        const client = { ...mockApiClient, get: mockGet };
+
+        const hook = createAutoRecallHook({
+          client: client as unknown as ApiClient,
+          logger: mockLogger,
+          config: { ...mockConfig, minRecallScore: 0.7 },
+          getAgentId: () => 'agent-1',
+        });
+
+        const result = await hook({ prompt: 'Tell me something' });
+
+        // Should return the highest-scoring memory as graceful degradation
+        expect(result).not.toBeNull();
+        expect(result?.prependContext).toContain('Best of the low');
+        expect(result?.prependContext).not.toContain('Worst memory');
+      });
+
+      it('should treat memories without a score as 0', async () => {
+        const mockGet = vi.fn().mockResolvedValue({
+          success: true,
+          data: {
+            memories: [
+              { id: '1', content: 'Scored memory', category: 'fact', score: 0.9 },
+              { id: '2', content: 'Unscored memory', category: 'fact' },
+            ],
+          },
+        });
+        const client = { ...mockApiClient, get: mockGet };
+
+        const hook = createAutoRecallHook({
+          client: client as unknown as ApiClient,
+          logger: mockLogger,
+          config: { ...mockConfig, minRecallScore: 0.7 },
+          getAgentId: () => 'agent-1',
+        });
+
+        const result = await hook({ prompt: 'Tell me something' });
+
+        expect(result).not.toBeNull();
+        expect(result?.prependContext).toContain('Scored memory');
+        expect(result?.prependContext).not.toContain('Unscored memory');
+      });
+    });
+
+    describe('provenance markers (#1926)', () => {
+      it('should include memory_type and relevance percentage in recalled context', async () => {
+        const mockGet = vi.fn().mockResolvedValue({
+          success: true,
+          data: {
+            memories: [
+              { id: '1', content: 'User prefers dark mode.', category: 'preference', score: 0.95 },
+            ],
+          },
+        });
+        const client = { ...mockApiClient, get: mockGet };
+
+        const hook = createAutoRecallHook({
+          client: client as unknown as ApiClient,
+          logger: mockLogger,
+          config: mockConfig,
+          getAgentId: () => 'agent-1',
+        });
+
+        const result = await hook({ prompt: 'Tell me about my preferences' });
+
+        expect(result).not.toBeNull();
+        // Should contain provenance: [memory_type] (relevance: XX%)
+        expect(result?.prependContext).toMatch(/\[preference\]/);
+        expect(result?.prependContext).toMatch(/relevance:\s*95%/);
+      });
+
+      it('should include context handling guidance note', async () => {
+        const mockGet = vi.fn().mockResolvedValue({
+          success: true,
+          data: {
+            memories: [
+              { id: '1', content: 'Some fact', category: 'fact', score: 0.9 },
+            ],
+          },
+        });
+        const client = { ...mockApiClient, get: mockGet };
+
+        const hook = createAutoRecallHook({
+          client: client as unknown as ApiClient,
+          logger: mockLogger,
+          config: mockConfig,
+          getAgentId: () => 'agent-1',
+        });
+
+        const result = await hook({ prompt: 'What do you know?' });
+
+        expect(result).not.toBeNull();
+        expect(result?.prependContext).toContain('Recalled from long-term memory');
+        expect(result?.prependContext).toContain('memory_recall');
+        expect(result?.prependContext).toContain('context_search');
+        expect(result?.prependContext).toContain('tool_guide');
+      });
     });
 
     describe('logging', () => {
@@ -543,6 +681,169 @@ describe('lifecycle hooks', () => {
 
         expect(mockLogger.warn).toHaveBeenCalledWith(expect.stringContaining('timeout'), expect.any(Object));
       }, 1000);
+    });
+  });
+
+  describe('graph-aware recall hook (#1926)', () => {
+    describe('minRecallScore filtering', () => {
+      it('should filter graph-aware memories below minRecallScore by combinedRelevance', async () => {
+        const mockPost = vi.fn().mockResolvedValue({
+          success: true,
+          data: {
+            context: null, // We'll test per-memory formatting
+            memories: [
+              {
+                id: '1', title: 'High', content: 'High relevance', memory_type: 'fact',
+                similarity: 0.95, importance: 0.8, confidence: 0.9, combinedRelevance: 0.88,
+                scopeType: 'personal', scopeLabel: 'me',
+              },
+              {
+                id: '2', title: 'Low', content: 'Low relevance', memory_type: 'fact',
+                similarity: 0.4, importance: 0.3, confidence: 0.5, combinedRelevance: 0.4,
+                scopeType: 'personal', scopeLabel: 'me',
+              },
+            ],
+            metadata: { queryTimeMs: 50, scopeCount: 1, totalMemoriesFound: 2, search_type: 'graph', maxDepth: 1 },
+          },
+        });
+        // Graph endpoint returns memories but no pre-formatted context
+        // so the fallback to fetchContext kicks in; we need to simulate the graph endpoint
+        // returning a pre-formatted context string
+        const mockPostWithContext = vi.fn().mockResolvedValue({
+          success: true,
+          data: {
+            context: 'some context',
+            memories: [
+              {
+                id: '1', title: 'High', content: 'High relevance', memory_type: 'fact',
+                similarity: 0.95, importance: 0.8, confidence: 0.9, combinedRelevance: 0.88,
+                scopeType: 'personal', scopeLabel: 'me',
+              },
+              {
+                id: '2', title: 'Low', content: 'Low relevance', memory_type: 'fact',
+                similarity: 0.4, importance: 0.3, confidence: 0.5, combinedRelevance: 0.4,
+                scopeType: 'personal', scopeLabel: 'me',
+              },
+            ],
+            metadata: { queryTimeMs: 50, scopeCount: 1, totalMemoriesFound: 2, search_type: 'graph', maxDepth: 1 },
+          },
+        });
+        const client = { ...mockApiClient, post: mockPostWithContext };
+
+        const hook = createGraphAwareRecallHook({
+          client: client as unknown as ApiClient,
+          logger: mockLogger,
+          config: { ...mockConfig, minRecallScore: 0.7 },
+          getAgentId: () => 'agent-1',
+        });
+
+        const result = await hook({ prompt: 'Tell me something' });
+
+        expect(result).not.toBeNull();
+        // The high-relevance memory should be included
+        expect(result?.prependContext).toContain('High relevance');
+        // The low-relevance memory should be filtered out
+        expect(result?.prependContext).not.toContain('Low relevance');
+      });
+
+      it('should keep at least 1 graph-aware memory even if all below threshold', async () => {
+        const mockPost = vi.fn().mockResolvedValue({
+          success: true,
+          data: {
+            context: 'some context',
+            memories: [
+              {
+                id: '1', title: 'Best', content: 'Best memory', memory_type: 'decision',
+                similarity: 0.5, importance: 0.4, confidence: 0.6, combinedRelevance: 0.5,
+                scopeType: 'personal', scopeLabel: 'me',
+              },
+              {
+                id: '2', title: 'Worst', content: 'Worst memory', memory_type: 'fact',
+                similarity: 0.2, importance: 0.1, confidence: 0.3, combinedRelevance: 0.2,
+                scopeType: 'personal', scopeLabel: 'me',
+              },
+            ],
+            metadata: { queryTimeMs: 50, scopeCount: 1, totalMemoriesFound: 2, search_type: 'graph', maxDepth: 1 },
+          },
+        });
+        const client = { ...mockApiClient, post: mockPost };
+
+        const hook = createGraphAwareRecallHook({
+          client: client as unknown as ApiClient,
+          logger: mockLogger,
+          config: { ...mockConfig, minRecallScore: 0.7 },
+          getAgentId: () => 'agent-1',
+        });
+
+        const result = await hook({ prompt: 'Tell me something' });
+
+        // Should return at least the best memory as graceful degradation
+        expect(result).not.toBeNull();
+        expect(result?.prependContext).toContain('Best memory');
+        expect(result?.prependContext).not.toContain('Worst memory');
+      });
+
+      it('should include provenance markers in graph-aware recalled context', async () => {
+        const mockPost = vi.fn().mockResolvedValue({
+          success: true,
+          data: {
+            context: 'some context',
+            memories: [
+              {
+                id: '1', title: 'Important fact', content: 'User prefers dark mode', memory_type: 'preference',
+                similarity: 0.95, importance: 0.9, confidence: 0.95, combinedRelevance: 0.93,
+                scopeType: 'personal', scopeLabel: 'me',
+              },
+            ],
+            metadata: { queryTimeMs: 50, scopeCount: 1, totalMemoriesFound: 1, search_type: 'graph', maxDepth: 1 },
+          },
+        });
+        const client = { ...mockApiClient, post: mockPost };
+
+        const hook = createGraphAwareRecallHook({
+          client: client as unknown as ApiClient,
+          logger: mockLogger,
+          config: mockConfig,
+          getAgentId: () => 'agent-1',
+        });
+
+        const result = await hook({ prompt: 'Preferences' });
+
+        expect(result).not.toBeNull();
+        expect(result?.prependContext).toMatch(/\[preference\]/);
+        expect(result?.prependContext).toMatch(/relevance:\s*93%/);
+      });
+
+      it('should include context handling guidance note for graph-aware recall', async () => {
+        const mockPost = vi.fn().mockResolvedValue({
+          success: true,
+          data: {
+            context: 'some context',
+            memories: [
+              {
+                id: '1', title: 'Fact', content: 'Something', memory_type: 'fact',
+                similarity: 0.9, importance: 0.8, confidence: 0.9, combinedRelevance: 0.87,
+                scopeType: 'personal', scopeLabel: 'me',
+              },
+            ],
+            metadata: { queryTimeMs: 50, scopeCount: 1, totalMemoriesFound: 1, search_type: 'graph', maxDepth: 1 },
+          },
+        });
+        const client = { ...mockApiClient, post: mockPost };
+
+        const hook = createGraphAwareRecallHook({
+          client: client as unknown as ApiClient,
+          logger: mockLogger,
+          config: mockConfig,
+          getAgentId: () => 'agent-1',
+        });
+
+        const result = await hook({ prompt: 'Tell me facts' });
+
+        expect(result).not.toBeNull();
+        expect(result?.prependContext).toContain('Recalled from long-term memory');
+        expect(result?.prependContext).toContain('memory_recall');
+      });
     });
   });
 
