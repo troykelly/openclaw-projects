@@ -683,6 +683,10 @@ Matching memories are injected via `prependContext` so they appear at the start 
 
 When `autoCapture` is enabled (default), the plugin automatically analyzes completed conversations and stores important information (preferences, facts, decisions) as memories for future recall. Sensitive content is filtered before storage.
 
+### `message_received` (Auto-Link)
+
+When an inbound SMS or email arrives, the plugin automatically links the message thread to matching contacts (by sender email or phone) and related projects or todos (by semantic content matching). Failures are logged but never interrupt inbound message processing.
+
 ## Security
 
 ### Secret Management
