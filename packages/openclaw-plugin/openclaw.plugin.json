@@ -2,7 +2,7 @@
   "id": "openclaw-projects",
   "version": "0.0.35",
   "name": "OpenClaw Projects Plugin",
-  "description": "Memory provider with projects, todos, and contacts integration",
+  "description": "Full-lifecycle agent backend: memory, projects, todos, contacts, terminal management, API integration, dev sessions, notes, communication, and namespace scoping",
   "kind": "memory",
   "skills": [
     "skills"

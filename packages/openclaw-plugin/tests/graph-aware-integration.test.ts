@@ -406,10 +406,15 @@ describe('Graph-Aware Integration', () => {
 
         expect(result).toBeDefined();
         if (result) {
-          expect(result.prependContext).toContain('Personal Preferences');
+          // After #1926: graph-aware path now formats individual memories with
+          // provenance markers instead of using the API's pre-formatted context string
+          expect(result.prependContext).toContain('Recalled from long-term memory');
+          expect(result.prependContext).toContain('[preference]');
           expect(result.prependContext).toContain('sushi');
-          expect(result.prependContext).toContain('Relationship Context');
+          expect(result.prependContext).toContain('[fact]');
           expect(result.prependContext).toContain('anniversary');
+          expect(result.prependContext).toMatch(/relevance:\s*72%/);
+          expect(result.prependContext).toMatch(/relevance:\s*77%/);
         }
       } finally {
         globalThis.fetch = originalFetch;

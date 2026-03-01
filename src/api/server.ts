@@ -14148,8 +14148,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         try {
           encrypted = encryptCredentials(credentialsJson, stateData.geo_provider_id);
         } catch (err) {
+          const reason = err instanceof Error ? err.message : String(err);
           req.log.error({ err, geo_provider_id: stateData.geo_provider_id }, 'HA credential encryption failed');
-          return reply.code(500).send({ error: 'Failed to encrypt HA credentials' });
+          return reply.code(500).send({ error: `Failed to encrypt HA credentials: ${reason}` });
         }
 
         const { updateProvider: updateGeoProvider } = await import('./geolocation/service.ts');
