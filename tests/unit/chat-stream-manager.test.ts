@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { StreamManager, resetStreamManager } from '../../src/api/chat/stream-manager.ts';
+import { StreamManager, resetStreamManager, getTerminatedSize } from '../../src/api/chat/stream-manager.ts';
 
 describe('Chat Stream Manager (#1945)', () => {
   let manager: StreamManager;
@@ -191,6 +191,78 @@ describe('Chat Stream Manager (#1945)', () => {
       expect(info).not.toBeNull();
       expect(info!.state).toBe('streaming');
       expect(info!.chunkCount).toBe(1);
+    });
+  });
+
+  // ================================================================
+  // Issue #1973 — Terminated map pruning
+  // ================================================================
+
+  describe('terminated map pruning (#1973)', () => {
+    it('prunes expired entries from the map after 5 minutes', () => {
+      // Create a stream, then fail it (adds to terminated map)
+      manager.handleChunk('session-1', { content: 'hello', seq: 0 });
+      manager.handleFailed('session-1', { error: 'oops' });
+
+      // Verify terminated map has the entry
+      expect(getTerminatedSize(manager)).toBe(1);
+
+      // Verify terminated map protects against resurrection
+      const result1 = manager.handleCompleted('session-1', { content: 'hello' });
+      expect(result1.ok).toBe(false);
+      expect(result1.status).toBe(409);
+
+      // Advance past 5-minute expiry + pruning interval (60s)
+      vi.advanceTimersByTime(360_000); // 6 minutes
+
+      // After pruning, the terminated entry should be removed from the map
+      expect(getTerminatedSize(manager)).toBe(0);
+
+      // And resurrection should now be allowed
+      const result2 = manager.handleCompleted('session-1', { content: 'hello' });
+      expect(result2.ok).toBe(true);
+    });
+
+    it('does not prune entries within 5-minute window', () => {
+      manager.handleChunk('session-1', { content: 'hello', seq: 0 });
+      manager.handleFailed('session-1', { error: 'oops' });
+
+      // Advance 3 minutes + trigger a pruning cycle (60s intervals)
+      vi.advanceTimersByTime(180_000);
+
+      // Entry should still be in terminated map
+      expect(getTerminatedSize(manager)).toBe(1);
+      const result = manager.handleCompleted('session-1', { content: 'hello' });
+      expect(result.ok).toBe(false);
+      expect(result.status).toBe(409);
+    });
+
+    it('prunes multiple stale entries while keeping fresh ones', () => {
+      // Fail session-1
+      manager.handleChunk('session-1', { content: 'a', seq: 0 });
+      manager.handleFailed('session-1', { error: 'oops' });
+
+      // Advance 4 minutes
+      vi.advanceTimersByTime(240_000);
+
+      // Fail session-2 (newer)
+      manager.handleChunk('session-2', { content: 'b', seq: 0 });
+      manager.handleFailed('session-2', { error: 'oops' });
+
+      expect(getTerminatedSize(manager)).toBe(2);
+
+      // Advance 2 more minutes — session-1 is 6min old, session-2 is 2min old
+      vi.advanceTimersByTime(120_000);
+
+      // Only session-1 should have been pruned
+      expect(getTerminatedSize(manager)).toBe(1);
+    });
+
+    it('cleans up pruning interval on shutdown', () => {
+      const clearIntervalSpy = vi.spyOn(globalThis, 'clearInterval');
+      manager.shutdown();
+      expect(clearIntervalSpy).toHaveBeenCalled();
+      clearIntervalSpy.mockRestore();
     });
   });
 });
