@@ -54,6 +54,7 @@ import {
   checkAttractAttention,
   chargeAttractAttention,
 } from './rate-limits.ts';
+import { isSessionExpired, expireSessionIfIdle } from './session-expiry.ts';
 
 // ── Constants ────────────────────────────────────────────────────
 
@@ -137,7 +138,16 @@ async function verifySessionAccess(
     [sessionId, userEmail, namespaces],
   );
   if (result.rows.length === 0) return null;
-  return result.rows[0] as Record<string, unknown>;
+  const session = result.rows[0] as Record<string, unknown>;
+
+  // Eagerly expire idle sessions (#1961)
+  if (session.status === 'active' && isSessionExpired(session.last_activity_at as string)) {
+    await expireSessionIfIdle(pool, sessionId, session.last_activity_at as string);
+    session.status = 'expired';
+    session.ended_at = new Date().toISOString();
+  }
+
+  return session;
 }
 
 // ── Route Plugin ─────────────────────────────────────────────────
