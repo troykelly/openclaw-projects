@@ -10,7 +10,7 @@
  * Ciphertext format (base64-encoded): IV (12 bytes) || ciphertext || auth tag (16 bytes)
  */
 
-import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
+import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from 'node:crypto';
 
 const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 12; // 96 bits, recommended for GCM
@@ -55,7 +55,6 @@ function getMasterKey(): Buffer {
  * Derives a per-provider encryption key from the master key and provider UUID.
  */
 function deriveKeySync(masterKey: Buffer, providerId: string): Buffer {
-  const { hkdfSync } = require('node:crypto') as typeof import('node:crypto');
   const derived = hkdfSync(
     HKDF_HASH,
     masterKey,
