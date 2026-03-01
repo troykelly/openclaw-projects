@@ -13,12 +13,14 @@ import type React from 'react';
 import { useCallback, useMemo, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router';
 import { LoginForm } from '@/ui/components/auth/login-form';
+import { ChatBubble, ChatPanel } from '@/ui/components/chat';
 import { CommandPalette, type SearchResult } from '@/ui/components/command-palette';
 import { KeyboardShortcutsHandler } from '@/ui/components/keyboard-shortcuts-handler';
 import { AppShell } from '@/ui/components/layout/app-shell';
 import type { BreadcrumbItem } from '@/ui/components/layout/breadcrumb';
 import { NotificationBell } from '@/ui/components/notifications';
 import { type CreatedWorkItem, QuickAddDialog, WorkItemCreateDialog } from '@/ui/components/work-item-create';
+import { ChatProvider, useChatSafe } from '@/ui/contexts/chat-context';
 import { useUser } from '@/ui/contexts/user-context';
 import { useNotebooks } from '@/ui/hooks/queries/use-notebooks';
 import { useNotes } from '@/ui/hooks/queries/use-notes';
@@ -337,8 +339,8 @@ function AuthenticatedLayout(): React.JSX.Element {
   }, [currentWorkItemId]);
 
   return (
-    <>
-      <KeyboardShortcutsHandler onNavigate={handleNavigate} onSearch={handleOpenSearch} onNewItem={handleNewItem} onNewItemFullForm={handleOpenCreateDialog} />
+    <ChatProvider>
+      <ChatKeyboardBridge onNavigate={handleNavigate} onSearch={handleOpenSearch} onNewItem={handleNewItem} onNewItemFullForm={handleOpenCreateDialog} />
       <QuickAddDialog open={quickAddOpen} onOpenChange={setQuickAddOpen} onCreated={handleWorkItemCreated} defaultParentId={createContextParentId} />
       <WorkItemCreateDialog
         open={createDialogOpen}
@@ -356,6 +358,29 @@ function AuthenticatedLayout(): React.JSX.Element {
       >
         <Outlet />
       </AppShell>
-    </>
+      <ChatBubble />
+      <ChatPanel />
+    </ChatProvider>
+  );
+}
+
+/**
+ * Bridge component that connects the KeyboardShortcutsHandler to the ChatContext.
+ * Needs to be a child of ChatProvider so it can access useChat().
+ */
+function ChatKeyboardBridge(props: {
+  onNavigate?: (section: string) => void;
+  onSearch?: () => void;
+  onNewItem?: () => void;
+  onNewItemFullForm?: () => void;
+}) {
+  const { togglePanel } = useChatSafe() ?? {};
+  const handleToggleChat = useCallback(() => togglePanel?.(), [togglePanel]);
+
+  return (
+    <KeyboardShortcutsHandler
+      {...props}
+      onToggleChat={handleToggleChat}
+    />
   );
 }

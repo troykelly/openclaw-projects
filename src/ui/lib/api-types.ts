@@ -1779,3 +1779,88 @@ export interface TerminalDashboardStats {
   active_tunnels: number;
   recent_errors: number;
 }
+
+// ---------------------------------------------------------------------------
+// Chat (Epic #1940)
+// ---------------------------------------------------------------------------
+
+/** Chat session status. */
+export type ChatSessionStatus = 'active' | 'ended' | 'expired';
+
+/** Chat message status. */
+export type ChatMessageStatus = 'pending' | 'streaming' | 'delivered' | 'failed';
+
+/** Chat message content type. */
+export type ChatContentType = 'text/plain' | 'text/markdown' | 'application/vnd.openclaw.rich-card';
+
+/** Chat session from GET /api/chat/sessions */
+export interface ChatSession {
+  id: string;
+  thread_id: string;
+  user_email: string;
+  agent_id: string;
+  namespace: string;
+  status: ChatSessionStatus;
+  title: string | null;
+  version: number;
+  started_at: string;
+  ended_at: string | null;
+  last_activity_at: string;
+  metadata: Record<string, unknown>;
+}
+
+/** Response from GET /api/chat/sessions */
+export interface ChatSessionsResponse {
+  sessions: ChatSession[];
+}
+
+/** Chat message from GET /api/chat/sessions/:id/messages */
+export interface ChatMessage {
+  id: string;
+  thread_id: string;
+  direction: 'inbound' | 'outbound';
+  body: string | null;
+  status: ChatMessageStatus;
+  content_type: ChatContentType;
+  idempotency_key: string | null;
+  agent_run_id: string | null;
+  received_at: string;
+  updated_at: string | null;
+}
+
+/** Response from GET /api/chat/sessions/:id/messages (cursor-paginated) */
+export interface ChatMessagesResponse {
+  messages: ChatMessage[];
+  cursor: string | null;
+  has_more: boolean;
+}
+
+/** Available agent for chat. */
+export interface ChatAgent {
+  id: string;
+  name: string;
+  display_name: string | null;
+  avatar_url: string | null;
+}
+
+/** Response from GET /api/chat/agents */
+export interface ChatAgentsResponse {
+  agents: ChatAgent[];
+}
+
+/** Body for POST /api/chat/sessions */
+export interface CreateChatSessionBody {
+  agent_id?: string;
+  title?: string;
+}
+
+/** Body for POST /api/chat/sessions/:id/messages */
+export interface SendChatMessageBody {
+  content: string;
+  idempotency_key: string;
+}
+
+/** Body for PATCH /api/chat/sessions/:id */
+export interface UpdateChatSessionBody {
+  title?: string;
+}
