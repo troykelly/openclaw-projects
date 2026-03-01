@@ -282,7 +282,7 @@ export function createDevSessionListTool(options: DevSessionToolOptions): DevSes
 
         const response = await client.get<{ sessions?: DevSession[]; items?: DevSession[]; total?: number }>(
           `/api/dev-sessions?${queryParams.toString()}`,
-          { user_id },
+          { user_id, user_email: user_id },
         );
 
         if (!response.success) {
@@ -391,7 +391,7 @@ export function createDevSessionGetTool(options: DevSessionToolOptions): DevSess
       logger.info('dev_session_get invoked', { user_id, sessionId: session_id });
 
       try {
-        const response = await client.get<DevSession>(`/api/dev-sessions/${session_id}`, { user_id });
+        const response = await client.get<DevSession>(`/api/dev-sessions/${session_id}`, { user_id, user_email: user_id });
 
         if (!response.success) {
           if (response.error.code === 'NOT_FOUND') {

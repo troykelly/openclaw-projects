@@ -13,7 +13,6 @@ import {
   detectInjectionPatternsAsync,
   sanitizeMessageForContext,
   sanitizeMetadataField,
-  wrapExternalMessage,
 } from '../utils/injection-protection.js';
 
 /** Channel type enum */
@@ -37,33 +36,23 @@ export const ThreadListParamsSchema = z.object({
 });
 export type ThreadListParams = z.infer<typeof ThreadListParamsSchema>;
 
-/** Search result item from unified search API */
-interface SearchResultItem {
-  type: string;
-  id: string;
-  title: string;
-  snippet: string;
-  score: number;
-  url?: string;
-  metadata?: Record<string, unknown>;
-}
-
-/** API response for unified search */
-interface SearchApiResponse {
-  query: string;
-  search_type: string;
-  results: SearchResultItem[];
-  facets: Record<string, number>;
-  total: number;
-}
-
-/** Thread in list response (mapped from search results) */
+/** Thread item from the threads API */
 interface ThreadListItem {
   id: string;
-  title: string;
-  snippet: string;
-  score: number;
-  metadata?: Record<string, unknown>;
+  channel: string;
+  contact_id: string | null;
+  contact_name: string | null;
+  last_message_at: string;
+  message_count: number;
+  created_at: string;
+}
+
+/** API response for GET /api/threads */
+interface ThreadListApiResponse {
+  threads: ThreadListItem[];
+  total: number;
+  limit: number;
+  offset: number;
 }
 
 /** Successful tool result */
@@ -132,21 +121,18 @@ export function createThreadListTool(options: ThreadToolOptions): ThreadListTool
       });
 
       try {
-        // Build query parameters — use unified search with types=message
+        // Build query parameters for the threads endpoint
         const queryParams = new URLSearchParams();
-        queryParams.set('types', 'message');
         queryParams.set('limit', String(limit));
 
         if (channel) {
-          queryParams.set('q', channel);
-        } else {
-          queryParams.set('q', '*');
+          queryParams.set('channel', channel);
         }
         if (contact_id) {
           queryParams.set('contact_id', contact_id);
         }
 
-        const response = await client.get<SearchApiResponse>(`/api/search?${queryParams}`, { user_id });
+        const response = await client.get<ThreadListApiResponse>(`/api/threads?${queryParams}`, { user_id });
 
         if (!response.success) {
           logger.error('thread_list API error', {
@@ -160,34 +146,26 @@ export function createThreadListTool(options: ThreadToolOptions): ThreadListTool
           };
         }
 
-        const { results, total } = response.data;
-
-        // Map search results to thread list items
-        const threadItems: ThreadListItem[] = results.map((r) => ({
-          id: r.id,
-          title: r.title,
-          snippet: r.snippet,
-          score: r.score,
-          metadata: r.metadata,
-        }));
+        const { threads, total } = response.data;
 
         logger.debug('thread_list completed', {
           user_id,
-          resultCount: threadItems.length,
+          resultCount: threads.length,
           total,
         });
 
         // Format content for display with injection protection.
-        // Sanitize snippet/title since they may contain external message content.
+        // Sanitize contact names since they may contain external content.
         // Generate a per-invocation nonce for boundary markers (#1255)
         const { nonce } = createBoundaryMarkers();
         const content =
-          threadItems.length > 0
-            ? threadItems
+          threads.length > 0
+            ? threads
                 .map((t) => {
-                  const safeTitle = sanitizeMetadataField(t.title, nonce);
-                  const wrappedSnippet = wrapExternalMessage(t.snippet, { nonce });
-                  return `${safeTitle}: ${wrappedSnippet}`;
+                  const safeName = sanitizeMetadataField(t.contact_name || 'Unknown', nonce);
+                  const safeChannel = sanitizeMetadataField(t.channel, nonce);
+                  const lastMsg = t.last_message_at ? new Date(t.last_message_at).toLocaleString() : 'N/A';
+                  return `${safeName} [${safeChannel}] — ${t.message_count} messages, last: ${lastMsg} (ID: ${t.id})`;
                 })
                 .join('\n')
             : 'No threads found.';
@@ -196,7 +174,7 @@ export function createThreadListTool(options: ThreadToolOptions): ThreadListTool
           success: true,
           data: {
             content,
-            details: { results: threadItems, total, user_id },
+            details: { results: threads, total, user_id },
           },
         };
       } catch (error) {
