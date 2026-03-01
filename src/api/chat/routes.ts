@@ -1318,7 +1318,7 @@ function registerAgentEndpoints(app: FastifyInstance, pool: Pool): void {
     // Resolve namespace
     const nsResult = await pool.query(
       `SELECT namespace FROM user_setting
-       JOIN namespace_member ON namespace_member.email = user_setting.email
+       JOIN namespace_grant ON namespace_grant.email = user_setting.email
        WHERE user_setting.email = $1 LIMIT 1`,
       [userEmail],
     );

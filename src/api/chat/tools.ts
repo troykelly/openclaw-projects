@@ -164,11 +164,12 @@ export async function executeChatSendMessage(
   // Insert message
   const messageId = randomUUID();
   const contentType = params.content_type ?? 'text/markdown';
+  const messageKey = `agent:${agentId}:${Date.now()}`;
 
   await pool.query(
-    `INSERT INTO external_message (id, thread_id, direction, body, status, content_type, agent_run_id)
-     VALUES ($1, $2, 'inbound', $3, 'delivered', $4, $5)`,
-    [messageId, session.thread_id, params.content, contentType, agentId],
+    `INSERT INTO external_message (id, thread_id, external_message_key, direction, body, status, content_type, agent_run_id)
+     VALUES ($1, $2, $3, 'inbound', $4, 'delivered', $5, $6)`,
+    [messageId, session.thread_id, messageKey, params.content, contentType, agentId],
   );
 
   // Update session activity
