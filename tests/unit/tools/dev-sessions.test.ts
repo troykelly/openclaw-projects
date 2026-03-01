@@ -385,7 +385,7 @@ describe('dev_session_get', () => {
 
     expect(client.get).toHaveBeenCalledWith(
       `/api/dev-sessions/${TEST_SESSION_ID}`,
-      { user_id: TEST_USER_ID },
+      { user_id: TEST_USER_ID, user_email: TEST_USER_ID },
     );
   });
 
