@@ -110,6 +110,9 @@ const APPLICATION_TABLES = [
   'api_credential',
   'api_source_link',
   'api_source',
+  // Chat (Epic #1940) — FK children first
+  'chat_read_cursor',
+  'chat_session',
   // Inbound routing (Epic #1497) — FK children before prompt_template
   'channel_default',
   'inbound_destination',
