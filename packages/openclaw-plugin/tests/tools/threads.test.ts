@@ -134,26 +134,40 @@ describe('thread tools', () => {
         vi.mocked(mockClient.get).mockResolvedValue({
           success: true,
           data: {
-            query: '*',
-            search_type: 'text',
-            results: [
+            threads: [
               {
-                type: 'message',
                 id: 'thread-1',
-                title: 'SMS with John Smith',
-                snippet: 'Hello there',
-                score: 0.95,
+                channel: 'sms',
+                external_thread_key: 'ext-1',
+                contact: { id: 'c-1', display_name: 'John Smith' },
+                created_at: '2024-01-15T10:00:00Z',
+                updated_at: '2024-01-15T10:30:00Z',
+                last_message: {
+                  id: 'msg-1',
+                  direction: 'inbound',
+                  body: 'Hello there',
+                  received_at: '2024-01-15T10:30:00Z',
+                },
+                message_count: 5,
               },
               {
-                type: 'message',
                 id: 'thread-2',
-                title: 'Email with Jane Doe',
-                snippet: 'Invoice attached',
-                score: 0.87,
+                channel: 'email',
+                external_thread_key: 'ext-2',
+                contact: { id: 'c-2', display_name: 'Jane Doe' },
+                created_at: '2024-01-14T09:00:00Z',
+                updated_at: '2024-01-15T10:31:00Z',
+                last_message: {
+                  id: 'msg-2',
+                  direction: 'outbound',
+                  body: 'Invoice attached',
+                  received_at: '2024-01-15T10:31:00Z',
+                },
+                message_count: 3,
               },
             ],
-            facets: { message: 2 },
             total: 2,
+            pagination: { limit: 20, offset: 0, has_more: false },
           },
         });
 
@@ -174,7 +188,7 @@ describe('thread tools', () => {
       it('should call API with correct parameters', async () => {
         vi.mocked(mockClient.get).mockResolvedValue({
           success: true,
-          data: { query: 'sms', search_type: 'text', results: [], facets: { message: 0 }, total: 0 },
+          data: { threads: [], total: 0, pagination: { limit: 30, offset: 0, has_more: false } },
         });
 
         const tool = createThreadListTool({
@@ -190,9 +204,9 @@ describe('thread tools', () => {
           limit: 30,
         });
 
-        expect(mockClient.get).toHaveBeenCalledWith(expect.stringContaining('/api/search'), { user_id });
+        expect(mockClient.get).toHaveBeenCalledWith(expect.stringContaining('/api/threads'), { user_id });
         const callUrl = (mockClient.get as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
-        expect(callUrl).toContain('types=message');
+        expect(callUrl).toContain('channel=sms');
         expect(callUrl).toContain('contact_id=123e4567-e89b-12d3-a456-426614174000');
         expect(callUrl).toContain('limit=30');
       });
@@ -223,7 +237,7 @@ describe('thread tools', () => {
       it('should return empty results gracefully', async () => {
         vi.mocked(mockClient.get).mockResolvedValue({
           success: true,
-          data: { query: '*', search_type: 'text', results: [], facets: { message: 0 }, total: 0 },
+          data: { threads: [], total: 0, pagination: { limit: 20, offset: 0, has_more: false } },
         });
 
         const tool = createThreadListTool({
