@@ -1,7 +1,17 @@
 /**
  * Real-time event types and interfaces.
- * Part of Issues #213, #634 (note presence)
+ * Part of Issues #213, #634 (note presence), #1946 (chat events)
  */
+
+/**
+ * Chat-specific event types (#1946).
+ */
+export type ChatEventType =
+  | 'chat:message_received'
+  | 'chat:session_created'
+  | 'chat:session_ended'
+  | 'chat:typing'
+  | 'chat:read_cursor_updated';
 
 /**
  * Available real-time event types
@@ -25,7 +35,9 @@ export type RealtimeEventType =
   | 'note:presence_joined'
   | 'note:presence_left'
   | 'note:presence_list'
-  | 'note:presence_cursor';
+  | 'note:presence_cursor'
+  // Chat events (#1946)
+  | ChatEventType;
 
 /**
  * Real-time event message structure
@@ -154,4 +166,49 @@ export interface WebSocketClient {
   socket: unknown;
   connected_at: Date;
   last_ping: Date;
+}
+
+// ============================================================================
+// Chat Event Data Types (#1946)
+// ============================================================================
+
+/**
+ * Chat message received event data
+ */
+export interface ChatMessageReceivedEventData {
+  session_id: string;
+  message_id: string;
+}
+
+/**
+ * Chat session created event data
+ */
+export interface ChatSessionCreatedEventData {
+  session_id: string;
+}
+
+/**
+ * Chat session ended event data
+ */
+export interface ChatSessionEndedEventData {
+  session_id: string;
+}
+
+/**
+ * Chat typing indicator event data
+ */
+export interface ChatTypingEventData {
+  session_id: string;
+  agent_id: string | null;
+  is_typing: boolean;
+  /** Connection ID of the originating device (for echo filtering). */
+  source_connection_id?: string;
+}
+
+/**
+ * Chat read cursor updated event data
+ */
+export interface ChatReadCursorEventData {
+  session_id: string;
+  last_read_message_id: string;
 }

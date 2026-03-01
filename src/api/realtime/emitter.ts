@@ -1,6 +1,6 @@
 /**
  * Event emitter helpers for easy event publishing from API handlers.
- * Part of Issues #213, #634 (note presence)
+ * Part of Issues #213, #634 (note presence), #1946 (chat events)
  */
 
 import { getRealtimeHub } from './hub.ts';
@@ -13,6 +13,11 @@ import type {
   NotePresenceEventData,
   NotePresenceListEventData,
   NoteCursorEventData,
+  ChatMessageReceivedEventData,
+  ChatSessionCreatedEventData,
+  ChatSessionEndedEventData,
+  ChatTypingEventData,
+  ChatReadCursorEventData,
 } from './types.ts';
 
 /**
@@ -124,4 +129,45 @@ export async function emitNotePresenceList(data: NotePresenceListEventData, user
  */
 export async function emitNoteCursorUpdate(data: NoteCursorEventData): Promise<void> {
   await getRealtimeHub().emit('note:presence_cursor', data);
+}
+
+// ============================================================================
+// Chat Events (#1946)
+// ============================================================================
+
+/**
+ * Emit chat message received event (new message in a session).
+ * Payloads contain only IDs — no message body (respects 8KB NOTIFY limit).
+ */
+export async function emitChatMessageReceived(data: ChatMessageReceivedEventData, user_id: string): Promise<void> {
+  await getRealtimeHub().emit('chat:message_received', data, user_id);
+}
+
+/**
+ * Emit chat session created event.
+ */
+export async function emitChatSessionCreated(data: ChatSessionCreatedEventData, user_id: string): Promise<void> {
+  await getRealtimeHub().emit('chat:session_created', data, user_id);
+}
+
+/**
+ * Emit chat session ended event.
+ */
+export async function emitChatSessionEnded(data: ChatSessionEndedEventData, user_id: string): Promise<void> {
+  await getRealtimeHub().emit('chat:session_ended', data, user_id);
+}
+
+/**
+ * Emit chat typing indicator event.
+ * Typing events include source_connection_id for echo filtering (don't echo to originating device).
+ */
+export async function emitChatTyping(data: ChatTypingEventData, user_id: string): Promise<void> {
+  await getRealtimeHub().emit('chat:typing', data, user_id);
+}
+
+/**
+ * Emit chat read cursor updated event.
+ */
+export async function emitChatReadCursorUpdated(data: ChatReadCursorEventData, user_id: string): Promise<void> {
+  await getRealtimeHub().emit('chat:read_cursor_updated', data, user_id);
 }
