@@ -36,23 +36,36 @@ export const ThreadListParamsSchema = z.object({
 });
 export type ThreadListParams = z.infer<typeof ThreadListParamsSchema>;
 
-/** Thread item from the threads API */
+/** Thread item from the threads API (matches backend ThreadListItem) */
 interface ThreadListItem {
   id: string;
   channel: string;
-  contact_id: string | null;
-  contact_name: string | null;
-  last_message_at: string;
-  message_count: number;
+  external_thread_key: string;
+  contact: {
+    id: string;
+    display_name: string;
+  };
   created_at: string;
+  updated_at: string;
+  last_message?: {
+    id: string;
+    direction: 'inbound' | 'outbound';
+    body: string | null;
+    subject?: string;
+    received_at: string;
+  };
+  message_count: number;
 }
 
-/** API response for GET /api/threads */
+/** API response for GET /api/threads (matches backend ThreadListResponse) */
 interface ThreadListApiResponse {
   threads: ThreadListItem[];
   total: number;
-  limit: number;
-  offset: number;
+  pagination: {
+    limit: number;
+    offset: number;
+    has_more: boolean;
+  };
 }
 
 /** Successful tool result */
@@ -162,9 +175,9 @@ export function createThreadListTool(options: ThreadToolOptions): ThreadListTool
           threads.length > 0
             ? threads
                 .map((t) => {
-                  const safeName = sanitizeMetadataField(t.contact_name || 'Unknown', nonce);
+                  const safeName = sanitizeMetadataField(t.contact?.display_name || 'Unknown', nonce);
                   const safeChannel = sanitizeMetadataField(t.channel, nonce);
-                  const lastMsg = t.last_message_at ? new Date(t.last_message_at).toLocaleString() : 'N/A';
+                  const lastMsg = t.last_message?.received_at ? new Date(t.last_message.received_at).toLocaleString() : 'N/A';
                   return `${safeName} [${safeChannel}] — ${t.message_count} messages, last: ${lastMsg} (ID: ${t.id})`;
                 })
                 .join('\n')

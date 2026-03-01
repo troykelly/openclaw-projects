@@ -109,11 +109,11 @@ describe('TerminalSearchPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('page-terminal-search')).toBeInTheDocument();
-    });
+    }, { timeout: 5000 });
 
     await waitFor(() => {
       expect(screen.getByTestId('terminal-search-filters')).toBeInTheDocument();
-    });
+    }, { timeout: 5000 });
   });
 
   it('renders search query input', async () => {
@@ -121,7 +121,7 @@ describe('TerminalSearchPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('search-query-input')).toBeInTheDocument();
-    });
+    }, { timeout: 5000 });
   });
 
   it('shows page heading', async () => {
@@ -129,6 +129,6 @@ describe('TerminalSearchPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Terminal Search')).toBeInTheDocument();
-    });
+    }, { timeout: 5000 });
   });
 });

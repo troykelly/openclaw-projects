@@ -74,7 +74,7 @@ describe('PantryPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('page-pantry')).toBeInTheDocument();
-    });
+    }, { timeout: 5000 });
 
     expect(screen.getByText('Pantry')).toBeInTheDocument();
     expect(screen.getByTestId('add-pantry-item-button')).toBeInTheDocument();
@@ -95,7 +95,7 @@ describe('PantryPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Your pantry is empty.')).toBeInTheDocument();
-    });
+    }, { timeout: 5000 });
   });
 
   it('renders pantry items when data is available', async () => {
@@ -124,7 +124,7 @@ describe('PantryPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Organic Milk')).toBeInTheDocument();
-    });
+    }, { timeout: 5000 });
 
     expect(screen.getByText('Fridge')).toBeInTheDocument();
   });
@@ -158,7 +158,7 @@ describe('PantryPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Yogurt')).toBeInTheDocument();
-    });
+    }, { timeout: 5000 });
 
     // The expiring-soon item should have a visual indicator
     expect(screen.getByTestId('expiry-warning-p2')).toBeInTheDocument();

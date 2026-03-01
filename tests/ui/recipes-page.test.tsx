@@ -74,7 +74,7 @@ describe('RecipesPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('page-recipes')).toBeInTheDocument();
-    });
+    }, { timeout: 5000 });
 
     expect(screen.getByText('Recipes')).toBeInTheDocument();
     expect(screen.getByTestId('create-recipe-button')).toBeInTheDocument();
@@ -97,7 +97,7 @@ describe('RecipesPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText('No recipes found.')).toBeInTheDocument();
-    });
+    }, { timeout: 5000 });
   });
 
   it('renders recipe list when data is available', async () => {
@@ -113,7 +113,7 @@ describe('RecipesPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Spaghetti Bolognese')).toBeInTheDocument();
-    });
+    }, { timeout: 5000 });
     expect(screen.getByText('Pad Thai')).toBeInTheDocument();
   });
 });

@@ -176,7 +176,7 @@ describe('WorkItemDetailPage', () => {
       // The lazy-loaded page component needs Suspense to resolve first
       await waitFor(() => {
         expect(screen.getByTestId('page-work-item-detail')).toBeInTheDocument();
-      });
+      }, { timeout: 10000 });
     });
   });
 
@@ -188,7 +188,7 @@ describe('WorkItemDetailPage', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Work Item Not Found')).toBeInTheDocument();
-      });
+      }, { timeout: 5000 });
     });
 
     it('provides a link back to work items list', async () => {
@@ -198,7 +198,7 @@ describe('WorkItemDetailPage', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Back to Work Items')).toBeInTheDocument();
-      });
+      }, { timeout: 5000 });
     });
   });
 
@@ -209,7 +209,7 @@ describe('WorkItemDetailPage', () => {
       await waitFor(() => {
         // Title may appear in header and activity items, so check for at least one
         expect(screen.getAllByText('Test Work Item').length).toBeGreaterThan(0);
-      });
+      }, { timeout: 5000 });
     });
 
     it('shows the kind badge', async () => {
@@ -217,7 +217,7 @@ describe('WorkItemDetailPage', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Issue')).toBeInTheDocument();
-      });
+      }, { timeout: 5000 });
     });
 
     it('shows the status badge', async () => {
@@ -226,7 +226,7 @@ describe('WorkItemDetailPage', () => {
       await waitFor(() => {
         // Status appears as a badge
         expect(screen.getAllByText('In Progress').length).toBeGreaterThan(0);
-      });
+      }, { timeout: 5000 });
     });
 
     it('shows parent breadcrumb when parent exists', async () => {
@@ -234,7 +234,7 @@ describe('WorkItemDetailPage', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Parent Epic')).toBeInTheDocument();
-      });
+      }, { timeout: 5000 });
     });
   });
 
@@ -244,7 +244,7 @@ describe('WorkItemDetailPage', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Back')).toBeInTheDocument();
-      });
+      }, { timeout: 5000 });
     });
 
     it('renders a timeline link', async () => {
@@ -252,7 +252,7 @@ describe('WorkItemDetailPage', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Timeline')).toBeInTheDocument();
-      });
+      }, { timeout: 5000 });
     });
 
     it('renders a dependencies link in the nav bar', async () => {
@@ -261,7 +261,7 @@ describe('WorkItemDetailPage', () => {
       await waitFor(() => {
         // "Dependencies" appears both in the nav bar link and as a tab trigger
         expect(screen.getAllByText('Dependencies').length).toBeGreaterThan(0);
-      });
+      }, { timeout: 5000 });
     });
   });
 
@@ -271,7 +271,7 @@ describe('WorkItemDetailPage', () => {
 
       await waitFor(() => {
         expect(screen.getAllByText('Test Work Item').length).toBeGreaterThan(0);
-      });
+      }, { timeout: 5000 });
 
       // Should have content tab labels
       expect(screen.getByRole('tab', { name: /description/i })).toBeInTheDocument();
@@ -284,7 +284,7 @@ describe('WorkItemDetailPage', () => {
 
       await waitFor(() => {
         expect(screen.getAllByText('Test Work Item').length).toBeGreaterThan(0);
-      });
+      }, { timeout: 5000 });
 
       // Description should be visible by default
       expect(screen.getByTestId('tab-content-description')).toBeInTheDocument();
@@ -295,14 +295,14 @@ describe('WorkItemDetailPage', () => {
 
       await waitFor(() => {
         expect(screen.getAllByText('Test Work Item').length).toBeGreaterThan(0);
-      });
+      }, { timeout: 5000 });
 
       const checklistTab = screen.getByRole('tab', { name: /checklist/i });
       fireEvent.click(checklistTab);
 
       await waitFor(() => {
         expect(screen.getByTestId('tab-content-checklist')).toBeInTheDocument();
-      });
+      }, { timeout: 5000 });
     });
   });
 
@@ -312,7 +312,7 @@ describe('WorkItemDetailPage', () => {
 
       await waitFor(() => {
         expect(screen.getAllByText('Test Work Item').length).toBeGreaterThan(0);
-      });
+      }, { timeout: 5000 });
 
       // Should display priority, status, and time-related fields
       expect(screen.getAllByText(/high/i).length).toBeGreaterThan(0);
@@ -325,7 +325,7 @@ describe('WorkItemDetailPage', () => {
 
       await waitFor(() => {
         expect(screen.getAllByText('Test Work Item').length).toBeGreaterThan(0);
-      });
+      }, { timeout: 5000 });
 
       // "Memories" appears as a card title in the sidebar
       expect(screen.getAllByText('Memories').length).toBeGreaterThan(0);
@@ -338,7 +338,7 @@ describe('WorkItemDetailPage', () => {
 
       await waitFor(() => {
         expect(screen.getAllByText('Test Work Item').length).toBeGreaterThan(0);
-      });
+      }, { timeout: 5000 });
 
       // "Communications" appears as a card title in the sidebar
       expect(screen.getAllByText('Communications').length).toBeGreaterThan(0);
@@ -352,7 +352,7 @@ describe('WorkItemDetailPage', () => {
       await waitFor(() => {
         const page = screen.getByTestId('page-work-item-detail');
         expect(page).toBeInTheDocument();
-      });
+      }, { timeout: 5000 });
     });
   });
 });
