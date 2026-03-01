@@ -386,6 +386,39 @@ describe('useChatWebSocket', () => {
     expect(apiClient.post).toHaveBeenCalledTimes(1);
   });
 
+  it('should not reconnect on fatal close codes (4400-4499)', async () => {
+    const onEvent = vi.fn();
+
+    const { result } = renderHook(() =>
+      useChatWebSocket({ sessionId, onEvent }),
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    const ws = mockWsInstances[0];
+    act(() => {
+      simulateOpen(ws);
+      simulateMessage(ws, { type: 'connection:established', connection_id: 'c1', session_id: sessionId });
+    });
+
+    // Simulate auth failure close (4401)
+    act(() => {
+      simulateClose(ws, 4401, 'Invalid or expired ticket');
+    });
+
+    expect(result.current.status).toBe('error');
+
+    // Should NOT schedule reconnect
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000);
+    });
+
+    // No new ticket request
+    expect(apiClient.post).toHaveBeenCalledTimes(1);
+  });
+
   it('should handle manual disconnect', async () => {
     const onEvent = vi.fn();
 

@@ -165,9 +165,16 @@ export function useChatWebSocket({
           return;
         }
 
+        // Fatal close codes from server — do not reconnect
+        // 4400 = bad request, 4401 = auth failure, 4403 = origin rejected, 4429 = too many connections
+        if (event.code >= 4400 && event.code < 4500) {
+          updateStatus('error');
+          return;
+        }
+
         updateStatus('disconnected');
 
-        // Schedule reconnection with exponential backoff
+        // Schedule reconnection with exponential backoff (transient failures only)
         const delay = reconnectDelayRef.current;
         reconnectDelayRef.current = Math.min(delay * 2, MAX_RECONNECT_DELAY);
         reconnectTimeoutRef.current = setTimeout(() => {
