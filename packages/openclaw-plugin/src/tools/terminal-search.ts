@@ -128,7 +128,7 @@ export function createTerminalSearchTool(options: TerminalSearchToolOptions): Te
 
   return {
     name: 'terminal_search',
-    description: 'Semantic search across terminal session entries. Find past commands, output, and annotations by meaning. Filter by connection, session, kind, tags, host, or date range.',
+    description: 'Searches terminal session entries semantically. Finds past commands, output, and annotations by meaning. For cross-entity search including non-terminal data, prefer context_search. Read-only.',
     parameters: TerminalSearchParamsSchema,
 
     async execute(params: TerminalSearchParams): Promise<TerminalSearchResult> {
@@ -280,7 +280,7 @@ export function createTerminalAnnotateTool(options: TerminalSearchToolOptions): 
 
   return {
     name: 'terminal_annotate',
-    description: 'Add an annotation to a terminal session. Annotations are always embedded for semantic search and exempt from retention cleanup.',
+    description: 'Adds an annotation to a terminal session. Annotations are always embedded for semantic search and exempt from retention cleanup. Creates a persistent, searchable note on the session. Requires an active session ID.',
     parameters: TerminalAnnotateParamsSchema,
 
     async execute(params: TerminalAnnotateParams): Promise<TerminalAnnotateResult> {
