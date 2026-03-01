@@ -74,6 +74,12 @@ export interface StreamFailedPayload {
  */
 export class StreamManager {
   private streams = new Map<string, StreamSession>();
+  /**
+   * Recently-terminated sessions (failed/aborted). Prevents resurrection
+   * via a late "completed" after the stream was cleaned up.
+   * Entries auto-expire after 5 minutes.
+   */
+  private terminated = new Map<string, { state: StreamState; at: number }>();
 
   /** Callback for when a stream is aborted by timeout. */
   onStreamAbort?: (sessionId: string, messageId: string) => void;
@@ -150,9 +156,13 @@ export class StreamManager {
   handleCompleted(sessionId: string, payload: StreamCompletedPayload): StreamResult {
     const stream = this.streams.get(sessionId);
 
-    // Allow completion even without prior chunks (single-message response)
     if (!stream) {
-      // No active stream — create a synthetic one and complete it
+      // Check if session was recently terminated (prevents resurrection)
+      const term = this.terminated.get(sessionId);
+      if (term && Date.now() - term.at < 300_000) {
+        return { ok: false, status: 409, error: `Stream already ${term.state}` };
+      }
+      // No active or recently-terminated stream — allow single-message response
       return { ok: true, status: 200, messageId: payload.message_id ?? randomUUID() };
     }
 
@@ -165,6 +175,8 @@ export class StreamManager {
     stream.state = 'completed';
     const messageId = stream.messageId;
     this.streams.delete(sessionId);
+    // Don't mark completed in terminated — completed is a valid end state
+    // and doesn't need protection from resurrection
 
     return { ok: true, status: 200, messageId };
   }
@@ -176,6 +188,11 @@ export class StreamManager {
     const stream = this.streams.get(sessionId);
 
     if (!stream) {
+      // Check if session was recently terminated
+      const term = this.terminated.get(sessionId);
+      if (term && Date.now() - term.at < 300_000) {
+        return { ok: false, status: 409, error: `Stream already ${term.state}` };
+      }
       return { ok: true, status: 200, messageId: payload.message_id };
     }
 
@@ -188,6 +205,7 @@ export class StreamManager {
     stream.state = 'failed';
     const messageId = stream.messageId;
     this.streams.delete(sessionId);
+    this.terminated.set(sessionId, { state: 'failed', at: Date.now() });
 
     return { ok: true, status: 200, messageId };
   }
@@ -209,6 +227,7 @@ export class StreamManager {
       this.clearTimeout(stream);
     }
     this.streams.clear();
+    this.terminated.clear();
   }
 
   /** Reset the timeout watchdog for a stream. */
@@ -218,6 +237,7 @@ export class StreamManager {
       stream.state = 'aborted';
       const messageId = stream.messageId;
       this.streams.delete(sessionId);
+      this.terminated.set(sessionId, { state: 'aborted', at: Date.now() });
       if (stream.onAbort) {
         stream.onAbort(sessionId, messageId);
       }

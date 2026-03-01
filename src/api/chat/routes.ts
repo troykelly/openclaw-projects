@@ -9,7 +9,7 @@
  * Epic #1940 — Agent Chat.
  */
 
-import { randomBytes } from 'node:crypto';
+import { randomBytes, timingSafeEqual } from 'node:crypto';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { Pool, PoolClient } from 'pg';
 import type { WebSocket } from 'ws';
@@ -211,7 +211,7 @@ export async function chatRoutesPlugin(
         'chat:session_created' as ChatEventType,
         { session_id: session.id as string },
         userEmail,
-      ).catch(() => { /* fire-and-forget */ });
+      ).catch((err: unknown) => { console.error('[Chat] Fire-and-forget error:', err instanceof Error ? err.message : err); });
 
       return reply.code(201).send({
         id: session.id,
@@ -450,7 +450,7 @@ export async function chatRoutesPlugin(
         'chat:session_ended' as ChatEventType,
         { session_id: params.id },
         userEmail,
-      ).catch(() => { /* fire-and-forget */ });
+      ).catch((err: unknown) => { console.error('[Chat] Fire-and-forget error:', err instanceof Error ? err.message : err); });
 
       return reply.send(result.rows[0]);
     } catch (err) {
@@ -589,7 +589,7 @@ export async function chatRoutesPlugin(
         'chat:message_received' as ChatEventType,
         { session_id: session.id as string, message_id: message.id as string },
         userEmail,
-      ).catch(() => { /* fire-and-forget */ });
+      ).catch((err: unknown) => { console.error('[Chat] Fire-and-forget error:', err instanceof Error ? err.message : err); });
 
       return reply.code(201).send(message);
     } catch (err) {
@@ -808,7 +808,7 @@ export async function chatRoutesPlugin(
                 source_connection_id: connectionId,
               },
               ticketData.userEmail,
-            ).catch(() => { /* fire-and-forget */ });
+            ).catch((err: unknown) => { console.error('[Chat] Fire-and-forget error:', err instanceof Error ? err.message : err); });
             break;
           }
 
@@ -825,7 +825,7 @@ export async function chatRoutesPlugin(
                ON CONFLICT (user_email, session_id)
                DO UPDATE SET last_read_message_id = $3, last_read_at = NOW()`,
               [ticketData.userEmail, sessionId, lastReadMessageId],
-            ).catch(() => { /* fire-and-forget */ });
+            ).catch((err: unknown) => { console.error('[Chat] Fire-and-forget error:', err instanceof Error ? err.message : err); });
 
             // Emit read cursor event
             getRealtimeHub().emit(
@@ -835,7 +835,7 @@ export async function chatRoutesPlugin(
                 last_read_message_id: lastReadMessageId,
               },
               ticketData.userEmail,
-            ).catch(() => { /* fire-and-forget */ });
+            ).catch((err: unknown) => { console.error('[Chat] Fire-and-forget error:', err instanceof Error ? err.message : err); });
             break;
           }
 
@@ -926,8 +926,10 @@ export async function chatRoutesPlugin(
       namespace: string;
     };
 
-    // Validate stream_secret
-    if (session.stream_secret !== streamSecret) {
+    // Validate stream_secret (timing-safe comparison)
+    const expected = Buffer.from(session.stream_secret, 'utf8');
+    const provided = Buffer.from(streamSecret, 'utf8');
+    if (expected.length !== provided.length || !timingSafeEqual(expected, provided)) {
       return reply.code(403).send({ error: 'Invalid stream secret' });
     }
 
@@ -1056,7 +1058,7 @@ export async function chatRoutesPlugin(
           'chat:message_received' as ChatEventType,
           { session_id: params.id, message_id: messageId },
           session.user_email,
-        ).catch(() => { /* fire-and-forget */ });
+        ).catch((err: unknown) => { console.error('[Chat] Fire-and-forget error:', err instanceof Error ? err.message : err); });
 
         return reply.code(200).send({ ok: true, message_id: messageId });
       }
@@ -1080,17 +1082,20 @@ export async function chatRoutesPlugin(
             `UPDATE external_message SET status = 'failed', updated_at = NOW()
              WHERE id = $1`,
             [result.messageId],
-          ).catch(() => { /* best effort */ });
+          ).catch((err: unknown) => { console.error('[Chat] Failed to update message status:', err instanceof Error ? err.message : err); });
         }
 
-        // Notify WS clients
+        // Notify WS clients — sanitize error text to avoid leaking internals
+        const sanitisedError = typeof error === 'string' && error.length > 0
+          ? error.slice(0, 200)
+          : 'Agent error';
         const wsClients3 = sessionClients.get(params.id);
         if (wsClients3) {
           const wsMessage = JSON.stringify({
             type: 'stream:failed',
             session_id: params.id,
             message_id: result.messageId,
-            error,
+            error: sanitisedError,
           });
           for (const ws of wsClients3) {
             if (ws.readyState === 1) {

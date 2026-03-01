@@ -111,12 +111,13 @@ describe('Chat Stream Manager (#1945)', () => {
       expect(result.ok).toBe(true);
     });
 
-    it('rejects completion after failure', () => {
+    it('rejects completion after failure (terminal-state protection)', () => {
       manager.handleChunk('session-1', { content: 'hello', seq: 0 });
       manager.handleFailed('session-1', { error: 'oops' });
-      // Stream was cleaned up
+      // Stream was terminated — completed must be rejected to prevent resurrection
       const result = manager.handleCompleted('session-1', { content: 'hello' });
-      expect(result.ok).toBe(true); // No active stream, synthetic OK
+      expect(result.ok).toBe(false);
+      expect(result.status).toBe(409);
     });
   });
 
