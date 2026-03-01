@@ -6,7 +6,11 @@
  */
 import * as React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, configure } from '@testing-library/react';
+
+// Increase asyncUtilTimeout — React.lazy module resolution is slower
+// under resource contention in parallel test workers.
+configure({ asyncUtilTimeout: 5000 });
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 

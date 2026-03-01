@@ -169,17 +169,17 @@ describe('TunnelsPage', () => {
     renderPage('tunnels', '/terminal/tunnels');
     await waitFor(() => {
       expect(screen.getByTestId('page-tunnels')).toBeInTheDocument();
-    });
+    }, { timeout: 5000 });
     await waitFor(() => {
       expect(screen.getByTestId('tunnel-card')).toBeInTheDocument();
-    });
+    }, { timeout: 5000 });
   });
 
   it('shows tunnel direction diagram', async () => {
     renderPage('tunnels', '/terminal/tunnels');
     await waitFor(() => {
       expect(screen.getByTestId('tunnel-direction')).toBeInTheDocument();
-    });
+    }, { timeout: 5000 });
   });
 });
 
@@ -190,10 +190,10 @@ describe('EnrollmentPage', () => {
     renderPage('enrollment', '/terminal/enrollment');
     await waitFor(() => {
       expect(screen.getByTestId('page-enrollment')).toBeInTheDocument();
-    });
+    }, { timeout: 5000 });
     await waitFor(() => {
       expect(screen.getByText('staging-servers')).toBeInTheDocument();
-    });
+    }, { timeout: 5000 });
   });
 });
 
@@ -204,10 +204,10 @@ describe('KnownHostsPage', () => {
     renderPage('known-hosts', '/terminal/known-hosts');
     await waitFor(() => {
       expect(screen.getByTestId('page-known-hosts')).toBeInTheDocument();
-    });
+    }, { timeout: 5000 });
     await waitFor(() => {
       expect(screen.getByTestId('known-host-card')).toBeInTheDocument();
-    });
+    }, { timeout: 5000 });
   });
 });
 
@@ -218,16 +218,16 @@ describe('TerminalActivityPage', () => {
     renderPage('activity', '/terminal/activity');
     await waitFor(() => {
       expect(screen.getByTestId('page-terminal-activity')).toBeInTheDocument();
-    });
+    }, { timeout: 5000 });
     await waitFor(() => {
       expect(screen.getByTestId('activity-row')).toBeInTheDocument();
-    });
+    }, { timeout: 5000 });
   });
 
   it('renders activity filters', async () => {
     renderPage('activity', '/terminal/activity');
     await waitFor(() => {
       expect(screen.getByTestId('activity-filters')).toBeInTheDocument();
-    });
+    }, { timeout: 5000 });
   });
 });

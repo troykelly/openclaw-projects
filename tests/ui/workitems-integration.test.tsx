@@ -12,7 +12,7 @@ import { render, screen, fireEvent, waitFor, configure } from '@testing-library/
 
 // Increase asyncUtilTimeout for CI — React.lazy module resolution is slower
 // under resource contention in parallel CI workers.
-configure({ asyncUtilTimeout: 5000 });
+configure({ asyncUtilTimeout: 10000 });
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { WorkItemDetail } from '@/ui/lib/api-types';

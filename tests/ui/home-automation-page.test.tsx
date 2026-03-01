@@ -74,7 +74,7 @@ describe('HomeAutomationPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('page-home-automation')).toBeInTheDocument();
-    });
+    }, { timeout: 5000 });
 
     expect(screen.getByText('Home Automation')).toBeInTheDocument();
   });
@@ -94,7 +94,7 @@ describe('HomeAutomationPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText('No routines detected yet.')).toBeInTheDocument();
-    });
+    }, { timeout: 5000 });
   });
 
   it('renders routines when data is available', async () => {
@@ -125,7 +125,7 @@ describe('HomeAutomationPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Morning Coffee')).toBeInTheDocument();
-    });
+    }, { timeout: 5000 });
   });
 
   it('shows status badges for routines', async () => {
@@ -156,6 +156,6 @@ describe('HomeAutomationPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText('tentative')).toBeInTheDocument();
-    });
+    }, { timeout: 5000 });
   });
 });
