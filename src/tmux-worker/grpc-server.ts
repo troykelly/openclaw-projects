@@ -243,7 +243,7 @@ function buildHandlers(
     ) => {
       const req = call.request;
       sshManager
-        .testConnection(req.connection_id)
+        .testConnection(req.connection_id, req.trust_host_key ?? false)
         .then((result) => {
           callback(null, {
             success: result.success,

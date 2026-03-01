@@ -114,7 +114,13 @@ export function terminalConnectionsPaths(): OpenApiDomainModule {
         type: 'object',
         properties: {
           success: { type: 'boolean', description: 'Whether the connection test succeeded' },
+          message: { type: 'string', description: 'Human-readable result message' },
           latency_ms: { type: 'number', description: 'Connection latency in milliseconds' },
+          host_key_fingerprint: {
+            type: 'string',
+            description: 'SHA-256 fingerprint of the SSH host key offered during the handshake. '
+              + 'Returned even on failure so the caller can inspect or trust it.',
+          },
           error: { type: 'string', nullable: true, description: 'Error message if test failed' },
         },
       },
@@ -230,9 +236,28 @@ export function terminalConnectionsPaths(): OpenApiDomainModule {
         post: {
           operationId: 'testTerminalConnection',
           summary: 'Test connection connectivity',
-          description: 'Tests SSH connectivity to the host via the gRPC worker.',
+          description: 'Tests SSH connectivity to the host via the gRPC worker. '
+            + 'Pass `trust_host_key: true` in the body to auto-accept and store unknown SSH host keys (TOFU). '
+            + 'The offered host key fingerprint is always returned in the response.',
           tags: ['Terminal Connections'],
           parameters: [namespaceParam()],
+          requestBody: {
+            required: false,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    trust_host_key: {
+                      type: 'boolean',
+                      description: 'When true, auto-accept and store unknown host keys (TOFU behaviour). '
+                        + 'Requires write scope on the connection.',
+                    },
+                  },
+                },
+              },
+            },
+          },
           responses: {
             '200': jsonResponse('Test result', ref('TerminalConnectionTestResult')),
             ...errorResponses(400, 401, 403, 404, 502),
