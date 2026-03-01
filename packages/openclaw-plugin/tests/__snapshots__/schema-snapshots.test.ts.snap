@@ -243,7 +243,7 @@ exports[`Schema Snapshots > Manifest configSchema > configSchema should match sn
 
 exports[`Schema Snapshots > Manifest configSchema > full manifest structure (excluding configSchema) should match snapshot 1`] = `
 {
-  "description": "Memory provider with projects, todos, and contacts integration",
+  "description": "Full-lifecycle agent backend: memory, projects, todos, contacts, terminal management, API integration, dev sessions, notes, communication, and namespace scoping",
   "id": "openclaw-projects",
   "kind": "memory",
   "name": "OpenClaw Projects Plugin",
