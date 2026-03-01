@@ -9,9 +9,9 @@ import { TOOL_CATALOG, GROUP_CATALOG, type ToolGuidance, type GroupGuidance } fr
 
 /** Parameters for tool_guide tool */
 export const ToolGuideParamsSchema = z.object({
-  group: z.string().optional().describe('Tool group name (e.g., "memory", "contacts", "projects")'),
-  tool: z.string().optional().describe('Specific tool name (e.g., "memory_recall", "todo_create")'),
-  task: z.string().optional().describe('Natural language task description to find matching tools (e.g., "send a text message")'),
+  group: z.string().max(100).optional().describe('Tool group name (e.g., "memory", "contacts", "projects")'),
+  tool: z.string().max(100).optional().describe('Specific tool name (e.g., "memory_recall", "todo_create")'),
+  task: z.string().max(500).optional().describe('Natural language task description to find matching tools (e.g., "send a text message")'),
 });
 export type ToolGuideParams = z.infer<typeof ToolGuideParamsSchema>;
 

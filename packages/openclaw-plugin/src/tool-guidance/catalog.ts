@@ -97,7 +97,7 @@ export const TOOL_CATALOG: Record<string, ToolGuidance> = {
     side_effects: ['Creates a new project work item.'],
     prerequisites: [],
     example_calls: [
-      { description: 'Create a home renovation project', params: { title: 'Kitchen Renovation', description: 'Track all kitchen renovation tasks' } },
+      { description: 'Create a home renovation project', params: { name: 'Kitchen Renovation', description: 'Track all kitchen renovation tasks' } },
     ],
   },
   project_search: {
@@ -144,7 +144,7 @@ export const TOOL_CATALOG: Record<string, ToolGuidance> = {
     side_effects: ['Marks the todo as completed.'],
     prerequisites: ['Need a valid todo ID.'],
     example_calls: [
-      { description: 'Complete a task', params: { todo_id: '550e8400-e29b-41d4-a716-446655440000' } },
+      { description: 'Complete a task', params: { id: '550e8400-e29b-41d4-a716-446655440000' } },
     ],
   },
   todo_search: {
@@ -226,7 +226,7 @@ export const TOOL_CATALOG: Record<string, ToolGuidance> = {
     side_effects: ['Merges two contacts — the secondary contact is absorbed into the primary.'],
     prerequisites: ['Need two valid contact IDs. Confirm with user before merging.'],
     example_calls: [
-      { description: 'Merge duplicate contacts', params: { primary_id: '550e8400-0001', secondary_id: '550e8400-0002' } },
+      { description: 'Merge duplicate contacts', params: { survivor_id: '550e8400-0001', loser_id: '550e8400-0002' } },
     ],
   },
   contact_tag_add: {
