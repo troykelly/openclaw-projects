@@ -11,6 +11,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { Pool } from 'pg';
 import { runMigrate } from './helpers/migrate.ts';
 import { createTestPool, truncateAllTables, ensureTestNamespace } from './helpers/db.ts';
+import { resetAllRateLimits } from '../src/api/chat/rate-limits.ts';
 import { buildServer } from '../src/api/server.ts';
 
 const TEST_EMAIL = 'stream-test@example.com';
@@ -26,6 +27,7 @@ describe('Agent Streaming Callback API (#1945)', () => {
   });
 
   beforeEach(async () => {
+    resetAllRateLimits();
     await truncateAllTables(pool);
     await ensureTestNamespace(pool, TEST_EMAIL);
   });

@@ -44,6 +44,19 @@ import {
   removePushSubscription,
   validatePushSubscription,
 } from './push-subscription.ts';
+import {
+  checkSessionCreation,
+  checkMessageSend,
+  checkAgentMessageSend,
+  checkStreamChunk,
+  clearStreamState,
+  checkTyping,
+  checkAttractAttention,
+  chargeAttractAttention,
+} from './rate-limits.ts';
+import { isSessionExpired, expireSessionIfIdle } from './session-expiry.ts';
+import { recordChatActivity } from './audit.ts';
+import { deleteAllChatDataForUser, deleteChatSession } from './data-retention.ts';
 
 // ── Constants ────────────────────────────────────────────────────
 
@@ -127,7 +140,16 @@ async function verifySessionAccess(
     [sessionId, userEmail, namespaces],
   );
   if (result.rows.length === 0) return null;
-  return result.rows[0] as Record<string, unknown>;
+  const session = result.rows[0] as Record<string, unknown>;
+
+  // Eagerly expire idle sessions (#1961)
+  if (session.status === 'active' && isSessionExpired(session.last_activity_at as string)) {
+    await expireSessionIfIdle(pool, sessionId, session.last_activity_at as string);
+    session.status = 'expired';
+    session.ended_at = new Date().toISOString();
+  }
+
+  return session;
 }
 
 // ── Route Plugin ─────────────────────────────────────────────────
@@ -150,6 +172,13 @@ export async function chatRoutesPlugin(
     const userEmail = await getUserEmail(req);
     if (!userEmail) {
       return reply.code(401).send({ error: 'Authentication required' });
+    }
+
+    // Rate limit: session creation (#1960)
+    const rl = checkSessionCreation(userEmail);
+    if (!rl.allowed) {
+      void reply.header('Retry-After', String(rl.retryAfterSec ?? 60));
+      return reply.code(429).send({ error: 'Rate limit: too many session creations' });
     }
 
     const namespace = getStoreNamespace(req);
@@ -223,6 +252,15 @@ export async function chatRoutesPlugin(
         { session_id: session.id as string },
         userEmail,
       ).catch((err: unknown) => { console.error('[Chat] Fire-and-forget error:', err instanceof Error ? err.message : err); });
+
+      // Audit log (#1962)
+      recordChatActivity(pool, {
+        namespace,
+        session_id: session.id as string,
+        user_email: userEmail,
+        agent_id: agentId,
+        action: 'session_created',
+      });
 
       return reply.code(201).send({
         id: session.id,
@@ -463,6 +501,14 @@ export async function chatRoutesPlugin(
         userEmail,
       ).catch((err: unknown) => { console.error('[Chat] Fire-and-forget error:', err instanceof Error ? err.message : err); });
 
+      // Audit log (#1962)
+      recordChatActivity(pool, {
+        namespace: getStoreNamespace(req),
+        session_id: params.id,
+        user_email: userEmail,
+        action: 'session_ended',
+      });
+
       return reply.send(result.rows[0]);
     } catch (err) {
       await client.query('ROLLBACK');
@@ -547,6 +593,13 @@ export async function chatRoutesPlugin(
     const userEmail = await getUserEmail(req);
     if (!userEmail) {
       return reply.code(401).send({ error: 'Authentication required' });
+    }
+
+    // Rate limit: message send (#1960)
+    const rl = checkMessageSend(userEmail);
+    if (!rl.allowed) {
+      void reply.header('Retry-After', String(rl.retryAfterSec ?? 60));
+      return reply.code(429).send({ error: 'Rate limit: too many messages' });
     }
 
     const params = req.params as { id: string };
@@ -667,6 +720,15 @@ export async function chatRoutesPlugin(
         { session_id: session.id as string, message_id: message.id as string },
         userEmail,
       ).catch((err: unknown) => { console.error('[Chat] Fire-and-forget error:', err instanceof Error ? err.message : err); });
+
+      // Audit log (#1962)
+      recordChatActivity(pool, {
+        namespace: getStoreNamespace(req),
+        session_id: params.id,
+        user_email: userEmail,
+        action: 'message_sent',
+        detail: { message_id: message.id as string, content_type: contentType },
+      });
 
       return reply.code(201).send(message);
     } catch (err) {
@@ -852,9 +914,14 @@ export async function chatRoutesPlugin(
       session_id: sessionId,
     });
 
-    // Typing indicator rate limiting (2/sec per connection)
-    let lastTypingAt = 0;
-    const TYPING_RATE_LIMIT_MS = 500; // 2 per second
+    // Audit log: WS connected (#1962)
+    recordChatActivity(pool, {
+      namespace: 'default',
+      session_id: sessionId,
+      user_email: ticketData.userEmail,
+      action: 'ws_connected',
+      detail: { connection_id: connectionId },
+    });
 
     // Handle incoming messages
     socket.on('message', (data: Buffer | string) => {
@@ -868,11 +935,10 @@ export async function chatRoutesPlugin(
             break;
 
           case 'typing': {
-            const now = Date.now();
-            if (now - lastTypingAt < TYPING_RATE_LIMIT_MS) {
+            // Rate limit: typing events (#1960)
+            if (!checkTyping(connectionId).allowed) {
               break; // Rate limited — drop silently
             }
-            lastTypingAt = now;
 
             // Broadcast typing indicator via RealtimeHub (except to sender)
             const isTyping = message.is_typing === true;
@@ -943,6 +1009,14 @@ export async function chatRoutesPlugin(
           sessionClients.delete(sessionId);
         }
       }
+      // Audit log: WS disconnected (#1962)
+      recordChatActivity(pool, {
+        namespace: 'default',
+        session_id: sessionId,
+        user_email: ticketData.userEmail,
+        action: 'ws_disconnected',
+        detail: { connection_id: connectionId },
+      });
     });
 
     socket.on('error', () => {
@@ -1039,8 +1113,16 @@ export async function chatRoutesPlugin(
         if (typeof seq !== 'number' || !Number.isInteger(seq) || seq < 0) {
           return reply.code(400).send({ error: 'seq must be a non-negative integer' });
         }
-        if (Buffer.byteLength(content, 'utf8') > 4096) {
+        const chunkBytes = Buffer.byteLength(content, 'utf8');
+        if (chunkBytes > 4096) {
           return reply.code(400).send({ error: 'Chunk exceeds 4KB limit' });
+        }
+
+        // Rate limit: stream chunks (#1960)
+        const streamRl = checkStreamChunk(params.id, chunkBytes);
+        if (!streamRl.allowed) {
+          void reply.header('Retry-After', String(streamRl.retryAfterSec ?? 1));
+          return reply.code(429).send({ error: 'Rate limit: stream chunk limit exceeded' });
         }
 
         const payload: StreamChunkPayload = {
@@ -1137,6 +1219,19 @@ export async function chatRoutesPlugin(
           session.user_email,
         ).catch((err: unknown) => { console.error('[Chat] Fire-and-forget error:', err instanceof Error ? err.message : err); });
 
+        // Clear stream rate limit state (#1960)
+        clearStreamState(params.id);
+
+        // Audit log (#1962)
+        recordChatActivity(pool, {
+          namespace: session.namespace,
+          session_id: params.id,
+          agent_id: session.agent_id,
+          user_email: session.user_email,
+          action: 'stream_completed',
+          detail: { message_id: messageId },
+        });
+
         return reply.code(200).send({ ok: true, message_id: messageId });
       }
 
@@ -1180,6 +1275,19 @@ export async function chatRoutesPlugin(
             }
           }
         }
+
+        // Clear stream rate limit state (#1960)
+        clearStreamState(params.id);
+
+        // Audit log (#1962)
+        recordChatActivity(pool, {
+          namespace: session.namespace,
+          session_id: params.id,
+          agent_id: session.agent_id,
+          user_email: session.user_email,
+          action: 'stream_failed',
+          detail: { error: sanitisedError },
+        });
 
         return reply.code(200).send({ ok: true });
       }
@@ -1332,6 +1440,63 @@ export async function chatRoutesPlugin(
   });
 
   // ================================================================
+  // Issue #1964 — Data retention / GDPR deletion
+  // ================================================================
+
+  // DELETE /api/chat/data — Delete all chat data for the authenticated user (GDPR)
+  app.delete('/api/chat/data', async (req, reply) => {
+    const userEmail = await getUserEmail(req);
+    if (!userEmail) {
+      return reply.code(401).send({ error: 'Authentication required' });
+    }
+
+    const result = await deleteAllChatDataForUser(pool, userEmail);
+
+    // Audit log (#1962)
+    recordChatActivity(pool, {
+      namespace: getStoreNamespace(req),
+      user_email: userEmail,
+      action: 'gdpr_data_deleted',
+      detail: result as unknown as Record<string, unknown>,
+    });
+
+    return reply.code(200).send({
+      ok: true,
+      sessions_deleted: result.sessions_deleted,
+      messages_deleted: result.messages_deleted,
+      activity_deleted: result.activity_deleted,
+    });
+  });
+
+  // DELETE /api/chat/sessions/:id — Delete a specific session and all related data
+  app.delete('/api/chat/sessions/:id', async (req, reply) => {
+    const userEmail = await getUserEmail(req);
+    if (!userEmail) {
+      return reply.code(401).send({ error: 'Authentication required' });
+    }
+
+    const params = req.params as { id: string };
+    if (!isValidUUID(params.id)) {
+      return reply.code(400).send({ error: 'Invalid session ID format' });
+    }
+
+    const deleted = await deleteChatSession(pool, params.id, userEmail);
+    if (!deleted) {
+      return reply.code(404).send({ error: 'Session not found' });
+    }
+
+    // Audit log (#1962)
+    recordChatActivity(pool, {
+      namespace: getStoreNamespace(req),
+      session_id: params.id,
+      user_email: userEmail,
+      action: 'session_deleted',
+    });
+
+    return reply.code(200).send({ ok: true });
+  });
+
+  // ================================================================
   // Issue #1954 — Agent M2M endpoints
   // ================================================================
   registerAgentEndpoints(app, pool);
@@ -1343,14 +1508,6 @@ export async function chatRoutesPlugin(
  * Register M2M endpoints for agent-initiated actions.
  */
 function registerAgentEndpoints(app: FastifyInstance, pool: Pool): void {
-  // Rate limit state: session_id -> { count, windowStart }
-  const sendMessageRateLimits = new Map<string, { count: number; windowStart: number }>();
-  // Rate limit state: user_email -> { hourly: {count, windowStart}, daily: {count, windowStart} }
-  const attractAttentionRateLimits = new Map<string, {
-    hourly: { count: number; windowStart: number };
-    daily: { count: number; windowStart: number };
-  }>();
-
   /**
    * POST /api/chat/sessions/:id/agent-message
    * M2M endpoint: agent sends a message to a user in an active session.
@@ -1403,25 +1560,17 @@ function registerAgentEndpoints(app: FastifyInstance, pool: Pool): void {
       return reply.code(409).send({ error: 'Session is not active' });
     }
 
-    // Rate limit: 10/min per session
-    const now = Date.now();
-    const windowMs = 60_000;
-    let rl = sendMessageRateLimits.get(params.id);
-    if (!rl || now - rl.windowStart >= windowMs) {
-      rl = { count: 0, windowStart: now };
-      sendMessageRateLimits.set(params.id, rl);
-    }
-    if (rl.count >= 10) {
-      return reply.code(429).send({ error: 'Rate limit: max 10 messages/min per session' });
-    }
-
-    // Validate content before charging rate limit
+    // Validate content before rate limit check
     if (!body || typeof body !== 'object' || !body.content || typeof body.content !== 'string') {
       return reply.code(400).send({ error: 'content is required' });
     }
 
-    // Charge rate limit only after validation passes
-    rl.count++;
+    // Rate limit: 10/min per session (#1960)
+    const rl = checkAgentMessageSend(params.id);
+    if (!rl.allowed) {
+      void reply.header('Retry-After', String(rl.retryAfterSec ?? 60));
+      return reply.code(429).send({ error: 'Rate limit: max 10 messages/min per session' });
+    }
 
     const result = await executeChatSendMessage(
       pool,
@@ -1434,6 +1583,16 @@ function registerAgentEndpoints(app: FastifyInstance, pool: Pool): void {
     if (!result.ok) {
       return reply.code(400).send({ error: result.error });
     }
+
+    // Audit log (#1962)
+    recordChatActivity(pool, {
+      namespace: session.namespace,
+      session_id: params.id,
+      agent_id: body.agent_id ?? session.agent_id,
+      user_email: session.user_email,
+      action: 'message_sent_agent',
+      detail: { message_id: result.message_id },
+    });
 
     return reply.code(201).send({ ok: true, message_id: result.message_id });
   });
@@ -1464,28 +1623,11 @@ function registerAgentEndpoints(app: FastifyInstance, pool: Pool): void {
       return reply.code(400).send({ error: 'reason_key is required' });
     }
 
-    // Rate limit: 3/hour, 10/day per user
-    const now = Date.now();
-    let rl = attractAttentionRateLimits.get(userEmail);
-    if (!rl) {
-      rl = {
-        hourly: { count: 0, windowStart: now },
-        daily: { count: 0, windowStart: now },
-      };
-      attractAttentionRateLimits.set(userEmail, rl);
-    }
-    // Reset windows if expired
-    if (now - rl.hourly.windowStart >= 3_600_000) {
-      rl.hourly = { count: 0, windowStart: now };
-    }
-    if (now - rl.daily.windowStart >= 86_400_000) {
-      rl.daily = { count: 0, windowStart: now };
-    }
-    if (rl.hourly.count >= 3) {
-      return reply.code(429).send({ error: 'Rate limit: max 3 notifications/hour per user' });
-    }
-    if (rl.daily.count >= 10) {
-      return reply.code(429).send({ error: 'Rate limit: max 10 notifications/day per user' });
+    // Rate limit: 3/hour, 10/day per user (#1960)
+    const rl = checkAttractAttention(userEmail);
+    if (!rl.allowed) {
+      void reply.header('Retry-After', String(rl.retryAfterSec ?? 60));
+      return reply.code(429).send({ error: 'Rate limit: too many notifications' });
     }
 
     // Resolve namespace
@@ -1513,8 +1655,18 @@ function registerAgentEndpoints(app: FastifyInstance, pool: Pool): void {
 
     // Charge rate limit only after successful, non-deduplicated delivery
     if (!result.deduplicated) {
-      rl.hourly.count++;
-      rl.daily.count++;
+      chargeAttractAttention(userEmail);
+    }
+
+    // Audit log (#1962)
+    if (!result.deduplicated) {
+      recordChatActivity(pool, {
+        namespace,
+        user_email: userEmail,
+        agent_id: body.agent_id ?? 'unknown',
+        action: 'notification_sent',
+        detail: { notification_id: result.notification_id, urgency: body.urgency },
+      });
     }
 
     return reply.code(200).send({
