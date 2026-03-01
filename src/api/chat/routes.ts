@@ -477,32 +477,38 @@ export async function chatRoutesPlugin(
       return reply.code(400).send({ error: 'Invalid session ID format' });
     }
 
+    // Verify session access (authz check — prevents IDOR)
+    const namespaces = getEffectiveNamespaces(req);
+    const session = await verifySessionAccess(pool, params.id, userEmail, namespaces);
+    if (!session) {
+      return reply.code(404).send({ error: 'Session not found' });
+    }
+
     const body = req.body as { last_read_message_id?: string };
     if (!body.last_read_message_id || typeof body.last_read_message_id !== 'string' || !isValidUUID(body.last_read_message_id)) {
       return reply.code(400).send({ error: 'Invalid last_read_message_id' });
     }
 
+    // Validate message belongs to this session's thread
+    const msgCheck = await pool.query(
+      `SELECT id FROM external_message WHERE id = $1 AND thread_id = $2`,
+      [body.last_read_message_id, session.thread_id],
+    );
+    if (msgCheck.rows.length === 0) {
+      return reply.code(400).send({ error: 'Message does not belong to this session' });
+    }
+
     try {
-      // Forward-only upsert: only update if new read is newer or first time
+      // Upsert read cursor — the cursor always moves to the specified message.
+      // Forward-only semantics are enforced by the client (debounce + dedup).
       const result = await pool.query(
         `INSERT INTO chat_read_cursor (user_email, session_id, last_read_message_id, last_read_at)
          VALUES ($1, $2, $3, NOW())
          ON CONFLICT (user_email, session_id)
          DO UPDATE SET last_read_message_id = $3, last_read_at = NOW()
-         WHERE chat_read_cursor.last_read_at < NOW() OR chat_read_cursor.last_read_at IS NULL
          RETURNING last_read_message_id, last_read_at`,
         [userEmail, params.id, body.last_read_message_id],
       );
-
-      if (result.rows.length === 0) {
-        // Forward-only constraint prevented update — return current state
-        const current = await pool.query(
-          `SELECT last_read_message_id, last_read_at FROM chat_read_cursor
-           WHERE user_email = $1 AND session_id = $2`,
-          [userEmail, params.id],
-        );
-        return reply.send(current.rows[0] ?? { last_read_message_id: body.last_read_message_id, last_read_at: new Date().toISOString() });
-      }
 
       // Emit read cursor event for multi-device sync
       getRealtimeHub().emit(
@@ -1218,7 +1224,10 @@ export async function chatRoutesPlugin(
       return reply.code(401).send({ error: 'Authentication required' });
     }
 
-    const body = req.body as Record<string, unknown>;
+    const body = req.body as Record<string, unknown> | null | undefined;
+    if (!body || typeof body !== 'object') {
+      return reply.code(400).send({ error: 'Request body must be a JSON object' });
+    }
 
     // Validate known fields
     const validFields = ['sound_enabled', 'auto_open_on_message', 'quiet_hours', 'escalation'];
