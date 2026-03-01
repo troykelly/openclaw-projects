@@ -1171,6 +1171,110 @@ export async function chatRoutesPlugin(
         return reply.code(400).send({ error: `Unknown stream type: ${messageType}` });
     }
   });
+
+  // ================================================================
+  // Issue #1958 — Chat Notification Preferences
+  // ================================================================
+
+  // GET /api/chat/preferences — Get chat notification preferences
+  app.get('/api/chat/preferences', async (req, reply) => {
+    const userEmail = await getUserEmail(req);
+    if (!userEmail) {
+      return reply.code(401).send({ error: 'Authentication required' });
+    }
+
+    try {
+      const result = await pool.query(
+        `SELECT chat_notification_prefs FROM user_setting WHERE email = $1`,
+        [userEmail],
+      );
+
+      if (result.rows.length === 0 || !result.rows[0].chat_notification_prefs) {
+        // Return defaults if no preferences set
+        return reply.send({
+          sound_enabled: true,
+          auto_open_on_message: true,
+          quiet_hours: null,
+          escalation: {
+            low: ['in_app'],
+            normal: ['in_app', 'push'],
+            high: ['in_app', 'push', 'email'],
+            urgent: ['in_app', 'push', 'sms', 'email'],
+          },
+        });
+      }
+
+      return reply.send(result.rows[0].chat_notification_prefs);
+    } catch (err) {
+      req.log.error({ err }, '[Chat] Failed to fetch preferences');
+      return reply.code(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // PATCH /api/chat/preferences — Update chat notification preferences
+  app.patch('/api/chat/preferences', async (req, reply) => {
+    const userEmail = await getUserEmail(req);
+    if (!userEmail) {
+      return reply.code(401).send({ error: 'Authentication required' });
+    }
+
+    const body = req.body as Record<string, unknown>;
+
+    // Validate known fields
+    const validFields = ['sound_enabled', 'auto_open_on_message', 'quiet_hours', 'escalation'];
+    const unknownFields = Object.keys(body).filter((k) => !validFields.includes(k));
+    if (unknownFields.length > 0) {
+      return reply.code(400).send({ error: `Unknown fields: ${unknownFields.join(', ')}` });
+    }
+
+    // Validate quiet_hours format if provided
+    if (body.quiet_hours !== undefined && body.quiet_hours !== null) {
+      const qh = body.quiet_hours as Record<string, unknown>;
+      if (typeof qh.start !== 'string' || typeof qh.end !== 'string' || typeof qh.timezone !== 'string') {
+        return reply.code(400).send({ error: 'quiet_hours must have start, end, and timezone strings' });
+      }
+    }
+
+    // Validate escalation if provided
+    if (body.escalation !== undefined) {
+      const validChannels = ['in_app', 'push', 'sms', 'email'];
+      const validLevels = ['low', 'normal', 'high', 'urgent'];
+      const esc = body.escalation as Record<string, unknown>;
+      for (const level of Object.keys(esc)) {
+        if (!validLevels.includes(level)) {
+          return reply.code(400).send({ error: `Invalid escalation level: ${level}` });
+        }
+        const channels = esc[level];
+        if (!Array.isArray(channels) || !channels.every((c) => validChannels.includes(c as string))) {
+          return reply.code(400).send({ error: `Invalid channels for ${level}` });
+        }
+      }
+    }
+
+    try {
+      // Merge with existing preferences
+      const existing = await pool.query(
+        `SELECT chat_notification_prefs FROM user_setting WHERE email = $1`,
+        [userEmail],
+      );
+
+      const currentPrefs = (existing.rows[0]?.chat_notification_prefs as Record<string, unknown>) ?? {};
+      const merged = { ...currentPrefs, ...body };
+
+      const result = await pool.query(
+        `INSERT INTO user_setting (email, chat_notification_prefs)
+         VALUES ($1, $2)
+         ON CONFLICT (email) DO UPDATE SET chat_notification_prefs = $2
+         RETURNING chat_notification_prefs`,
+        [userEmail, JSON.stringify(merged)],
+      );
+
+      return reply.send(result.rows[0].chat_notification_prefs);
+    } catch (err) {
+      req.log.error({ err }, '[Chat] Failed to update preferences');
+      return reply.code(500).send({ error: 'Internal server error' });
+    }
+  });
 }
 
 /** Safely send a JSON message to a WebSocket. */

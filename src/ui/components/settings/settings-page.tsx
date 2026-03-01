@@ -24,6 +24,7 @@ import { LocationSection } from './location-section';
 import { NotificationPreferencesSection } from './notification-preferences-section';
 import { WebhookManagementSection } from './webhook-management-section';
 import { ChatSettingsSection } from './chat-settings-section';
+import { ChatNotificationPrefsSection } from './chat-notification-prefs-section';
 import type { DefaultView, EmailDigestFrequency, Theme } from './types';
 import { useSettings } from './use-settings';
 
@@ -686,6 +687,7 @@ export function SettingsPage() {
               }}
             >
               <ChatSettingsSection />
+              <ChatNotificationPrefsSection />
             </div>
 
             {/* Connected Accounts */}
