@@ -175,8 +175,8 @@ describe('todo tools', () => {
           success: true,
           data: {
             items: [
-              { id: 't1', title: 'Buy groceries', completed: false },
-              { id: 't2', title: 'Call mom', completed: true, dueDate: '2024-01-15' },
+              { id: 't1', title: 'Buy groceries', status: 'active' },
+              { id: 't2', title: 'Call mom', status: 'completed', not_after: '2024-01-15' },
             ],
             total: 2,
           },
@@ -228,7 +228,7 @@ describe('todo tools', () => {
         const mockGet = vi.fn().mockResolvedValue({
           success: true,
           data: {
-            items: [{ id: 't1', title: 'Submit report', completed: false, dueDate: '2024-02-01' }],
+            items: [{ id: 't1', title: 'Submit report', status: 'active', not_after: '2024-02-01' }],
             total: 1,
           },
         });
