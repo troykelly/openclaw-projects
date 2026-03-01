@@ -1241,12 +1241,14 @@ function registerAgentEndpoints(app: FastifyInstance, pool: Pool): void {
     if (rl.count >= 10) {
       return reply.code(429).send({ error: 'Rate limit: max 10 messages/min per session' });
     }
-    rl.count++;
 
-    // Validate content
-    if (!body.content || typeof body.content !== 'string') {
+    // Validate content before charging rate limit
+    if (!body || typeof body !== 'object' || !body.content || typeof body.content !== 'string') {
       return reply.code(400).send({ error: 'content is required' });
     }
+
+    // Charge rate limit only after validation passes
+    rl.count++;
 
     const result = await executeChatSendMessage(
       pool,
@@ -1312,8 +1314,6 @@ function registerAgentEndpoints(app: FastifyInstance, pool: Pool): void {
     if (rl.daily.count >= 10) {
       return reply.code(429).send({ error: 'Rate limit: max 10 notifications/day per user' });
     }
-    rl.hourly.count++;
-    rl.daily.count++;
 
     // Resolve namespace
     const nsResult = await pool.query(
@@ -1336,6 +1336,12 @@ function registerAgentEndpoints(app: FastifyInstance, pool: Pool): void {
 
     if (!result.ok) {
       return reply.code(400).send({ error: result.error });
+    }
+
+    // Charge rate limit only after successful, non-deduplicated delivery
+    if (!result.deduplicated) {
+      rl.hourly.count++;
+      rl.daily.count++;
     }
 
     return reply.code(200).send({

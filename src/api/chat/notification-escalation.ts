@@ -136,30 +136,30 @@ export function resolveChannels(
 }
 
 /**
- * Check deduplication for a (user_email, reason_key) pair.
- * Returns true if a notification with the same reason_key was sent
- * within the last 15 minutes.
+ * Atomically check and record dedup for a (user_email, reason_key) pair.
+ *
+ * Uses a single INSERT ... WHERE NOT EXISTS to avoid race conditions.
+ * Returns true if a duplicate exists (notification was NOT inserted).
  */
-async function isDuplicate(pool: Pool, userEmail: string, reasonKey: string): Promise<boolean> {
+async function tryDedup(
+  pool: Pool,
+  userEmail: string,
+  reasonKey: string,
+  notificationId: string,
+): Promise<boolean> {
   const cutoff = new Date(Date.now() - DEDUP_WINDOW_MS).toISOString();
   const result = await pool.query(
-    `SELECT 1 FROM notification_dedup
-     WHERE user_email = $1 AND reason_key = $2 AND created_at > $3
-     LIMIT 1`,
-    [userEmail, reasonKey, cutoff],
-  );
-  return result.rows.length > 0;
-}
-
-/**
- * Record a dedup entry.
- */
-async function recordDedup(pool: Pool, userEmail: string, reasonKey: string, notificationId: string): Promise<void> {
-  await pool.query(
     `INSERT INTO notification_dedup (user_email, reason_key, notification_id)
-     VALUES ($1, $2, $3)`,
-    [userEmail, reasonKey, notificationId],
+     SELECT $1, $2, $3
+     WHERE NOT EXISTS (
+       SELECT 1 FROM notification_dedup
+       WHERE user_email = $1 AND reason_key = $2 AND created_at > $4
+     )
+     RETURNING id`,
+    [userEmail, reasonKey, notificationId, cutoff],
   );
+  // If no row was inserted, a duplicate exists
+  return result.rows.length === 0;
 }
 
 /**
@@ -245,12 +245,18 @@ export async function escalateNotification(
   pool: Pool,
   req: EscalateRequest,
 ): Promise<EscalateResult> {
-  // Step 1: Dedup check
-  if (await isDuplicate(pool, req.userEmail, req.reasonKey)) {
+  // Step 1: Create in-app notification (needed for dedup FK reference)
+  const notificationId = await createNotification(pool, req);
+
+  // Step 2: Atomic dedup check — INSERT ... WHERE NOT EXISTS
+  const isDuplicated = await tryDedup(pool, req.userEmail, req.reasonKey, notificationId);
+  if (isDuplicated) {
+    // Delete the notification we just created since it's a duplicate
+    await pool.query(`DELETE FROM notification WHERE id = $1`, [notificationId]);
     return { ok: true, channels: [], deduplicated: true };
   }
 
-  // Step 2: Load user preferences
+  // Step 3: Load user preferences
   const prefsResult = await pool.query(
     `SELECT chat_notification_prefs FROM user_setting WHERE email = $1`,
     [req.userEmail],
@@ -259,15 +265,9 @@ export async function escalateNotification(
     ? (prefsResult.rows[0] as { chat_notification_prefs: ChatNotificationPrefs }).chat_notification_prefs
     : {};
 
-  // Step 3: Resolve channels
+  // Step 4: Resolve channels
   const quietHours = isInQuietHours(prefs);
   const channels = resolveChannels(req.urgency, prefs, quietHours);
-
-  // Step 4: Create in-app notification
-  const notificationId = await createNotification(pool, req);
-
-  // Record dedup
-  await recordDedup(pool, req.userEmail, req.reasonKey, notificationId);
 
   // Step 5: Dispatch to external channels
   const rateLimited: string[] = [];
