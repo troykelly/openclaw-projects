@@ -68,10 +68,10 @@ describe('OpenClaw 2026 API Registration', () => {
   });
 
   describe('registration', () => {
-    it('should register all 96 tools', () => {
+    it('should register all 97 tools', () => {
       registerOpenClaw(mockApi);
 
-      expect(registeredTools).toHaveLength(96);
+      expect(registeredTools).toHaveLength(97);
       const toolNames = registeredTools.map((t) => t.name);
       expect(toolNames).toContain('memory_recall');
       expect(toolNames).toContain('memory_store');
@@ -122,6 +122,8 @@ describe('OpenClaw 2026 API Registration', () => {
       expect(toolNames).toContain('notebook_list');
       expect(toolNames).toContain('notebook_create');
       expect(toolNames).toContain('notebook_get');
+      // Issue #1923: Tool guide meta-tool
+      expect(toolNames).toContain('tool_guide');
     });
 
     it('should mark 61 tools as optional', () => {
@@ -197,7 +199,7 @@ describe('OpenClaw 2026 API Registration', () => {
       expect(mockApi.logger.info).toHaveBeenCalledWith(
         'OpenClaw Projects plugin registered',
         expect.objectContaining({
-          toolCount: 96,
+          toolCount: 97,
         }),
       );
     });
@@ -767,7 +769,7 @@ describe('OpenClaw 2026 API Registration', () => {
     it('should register all tools synchronously during register() call', () => {
       registerOpenClaw(mockApi);
       // All tools must be registered by the time register() returns
-      expect(registeredTools).toHaveLength(96);
+      expect(registeredTools).toHaveLength(97);
     });
 
     it('should register hooks synchronously during register() call', () => {
@@ -800,7 +802,7 @@ describe('OpenClaw 2026 API Registration', () => {
       registerOpenClaw(mockApi);
 
       // Should succeed — reads pluginConfig, not the full gateway config
-      expect(registeredTools).toHaveLength(96);
+      expect(registeredTools).toHaveLength(97);
     });
 
     it('should fall back to api.config when api.pluginConfig is undefined', () => {
@@ -817,7 +819,7 @@ describe('OpenClaw 2026 API Registration', () => {
       registerOpenClaw(mockApi);
 
       // Should succeed via fallback
-      expect(registeredTools).toHaveLength(96);
+      expect(registeredTools).toHaveLength(97);
     });
   });
 

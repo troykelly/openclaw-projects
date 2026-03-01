@@ -76,6 +76,8 @@ import {
   createNotebookListTool,
   createNotebookCreateTool,
   createNotebookGetTool,
+  // Tool guide meta-tool (Issue #1923)
+  createToolGuideTool,
 } from './tools/index.js';
 import { zodToJsonSchema } from './utils/zod-to-json-schema.js';
 import type {
@@ -4856,6 +4858,21 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
       parameters: zodToJsonSchema(tool.parameters as import('zod').ZodTypeAny),
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await tool.execute(params);
+        return toAgentToolResult(result);
+      },
+    });
+  }
+
+  // ── Tool guide meta-tool (Issue #1923) ───────────────────────
+  // Pure static guidance — no API client or user_id needed.
+  {
+    const guideTool = createToolGuideTool();
+    tools.push({
+      name: guideTool.name,
+      description: guideTool.description,
+      parameters: zodToJsonSchema(guideTool.parameters as import('zod').ZodTypeAny),
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await guideTool.execute(params as import('./tools/tool-guide.js').ToolGuideParams);
         return toAgentToolResult(result);
       },
     });
