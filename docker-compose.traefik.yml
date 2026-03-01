@@ -179,6 +179,9 @@ services:
       # Anomaly scoring thresholds
       ANOMALY_INBOUND: ${MODSEC_ANOMALY_INBOUND:-5}
       ANOMALY_OUTBOUND: ${MODSEC_ANOMALY_OUTBOUND:-4}
+      # Allowed HTTP methods (CRS rule 911100 blocks unlisted methods)
+      # Default CRS only allows GET HEAD POST OPTIONS — our API also needs PUT PATCH DELETE
+      ALLOWED_METHODS: ${MODSEC_ALLOWED_METHODS:-GET HEAD POST OPTIONS PUT PATCH DELETE}
       # Backend proxy target (required for forwardAuth validation)
       BACKEND: http://api:3001
       # Upstream connection timeout

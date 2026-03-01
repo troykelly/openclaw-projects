@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { resolve } from 'path';
 import { execFileSync } from 'child_process';
-import { writeFileSync, mkdtempSync } from 'fs';
+import { writeFileSync, mkdtempSync, readFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { parse as parseYaml } from 'yaml';
@@ -221,5 +221,40 @@ describe('Traefik dynamic config: api-redirect-router', () => {
     expect(config.http.routers).toHaveProperty('root-redirect-router');
     expect(config.http.routers).toHaveProperty('app-router');
     expect(config.http.routers).toHaveProperty('api-router');
+  });
+});
+
+describe('ModSecurity ALLOWED_METHODS in compose files (Issue #1917)', () => {
+  const COMPOSE_FILES = ['docker-compose.traefik.yml', 'docker-compose.full.yml'];
+
+  interface ComposeService {
+    environment?: Record<string, string>;
+    [key: string]: unknown;
+  }
+
+  interface ComposeFile {
+    services: Record<string, ComposeService>;
+  }
+
+  function loadCompose(filename: string): ComposeFile {
+    const content = readFileSync(resolve(ROOT_DIR, filename), 'utf-8');
+    return parseYaml(content) as ComposeFile;
+  }
+
+  it.each(COMPOSE_FILES)('%s modsecurity service has ALLOWED_METHODS env var', (filename) => {
+    const compose = loadCompose(filename);
+    const modsec = compose.services.modsecurity;
+    expect(modsec).toBeDefined();
+    const env = modsec.environment;
+    expect(env).toBeDefined();
+    expect(env!.ALLOWED_METHODS).toBeDefined();
+  });
+
+  it.each(COMPOSE_FILES)('%s ALLOWED_METHODS includes PUT, PATCH, and DELETE', (filename) => {
+    const compose = loadCompose(filename);
+    const methods = compose.services.modsecurity.environment!.ALLOWED_METHODS;
+    for (const method of ['GET', 'HEAD', 'POST', 'OPTIONS', 'PUT', 'PATCH', 'DELETE']) {
+      expect(methods).toContain(method);
+    }
   });
 });
