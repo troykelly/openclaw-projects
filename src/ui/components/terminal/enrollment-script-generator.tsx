@@ -25,7 +25,7 @@ export function EnrollmentScriptGenerator({ token, apiBaseUrl }: EnrollmentScrip
 # Token expires: ${token.expires_at ? new Date(token.expires_at).toLocaleString() : 'Never'}
 # Max uses: ${token.max_uses ?? 'Unlimited'}
 
-curl -X POST ${apiBaseUrl}/api/terminal/enroll \\
+curl -X POST ${apiBaseUrl}/terminal/enroll \\
   -H "Content-Type: application/json" \\
   -d '{
     "token": "${token.token}",

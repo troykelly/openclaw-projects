@@ -205,7 +205,7 @@ function ChannelDefaultsSection() {
 
   const fetchDefaults = useCallback(async () => {
     try {
-      const data = await apiClient.get<ChannelDefault[]>('/api/channel-defaults');
+      const data = await apiClient.get<ChannelDefault[]>('/channel-defaults');
       const items = Array.isArray(data) ? data : [];
       setDefaults(items);
       const values: Record<string, { agent_id: string }> = {};
@@ -229,7 +229,7 @@ function ChannelDefaultsSection() {
     setSaving(channelType);
     setError(null);
     try {
-      await apiClient.put<ChannelDefault>(`/api/channel-defaults/${channelType}`, {
+      await apiClient.put<ChannelDefault>(`/channel-defaults/${channelType}`, {
         agent_id: val.agent_id.trim(),
       });
       await fetchDefaults();
@@ -339,7 +339,7 @@ function InboundDestinationsSection() {
   const fetchDestinations = useCallback(async () => {
     try {
       const data = await apiClient.get<{ items: InboundDestination[]; total: number }>(
-        '/api/inbound-destinations?limit=100&include_inactive=true',
+        '/inbound-destinations?limit=100&include_inactive=true',
       );
       setDestinations(Array.isArray(data.items) ? data.items : []);
       setError(null);
@@ -361,7 +361,7 @@ function InboundDestinationsSection() {
     setSaving(true);
     setError(null);
     try {
-      await apiClient.put<InboundDestination>(`/api/inbound-destinations/${id}`, {
+      await apiClient.put<InboundDestination>(`/inbound-destinations/${id}`, {
         agent_id: editAgent.trim() || null,
       });
       setEditingId(null);
@@ -494,7 +494,7 @@ function PromptTemplatesSection() {
   const fetchTemplates = useCallback(async () => {
     try {
       const data = await apiClient.get<{ items: PromptTemplate[]; total: number }>(
-        '/api/prompt-templates?limit=100&include_inactive=true',
+        '/prompt-templates?limit=100&include_inactive=true',
       );
       setTemplates(Array.isArray(data.items) ? data.items : []);
       setError(null);
@@ -536,14 +536,14 @@ function PromptTemplatesSection() {
     setError(null);
     try {
       if (editing) {
-        await apiClient.patch(`/api/prompt-templates/${editing.id}`, {
+        await apiClient.patch(`/prompt-templates/${editing.id}`, {
           label: formLabel.trim(),
           content: formContent,
           channel_type: formChannel,
           is_default: formIsDefault,
         });
       } else {
-        await apiClient.post('/api/prompt-templates', {
+        await apiClient.post('/prompt-templates', {
           label: formLabel.trim(),
           content: formContent,
           channel_type: formChannel,
@@ -562,7 +562,7 @@ function PromptTemplatesSection() {
   const handleDelete = useCallback(async (id: string) => {
     setError(null);
     try {
-      await apiClient.delete(`/api/prompt-templates/${id}`);
+      await apiClient.delete(`/prompt-templates/${id}`);
       await fetchTemplates();
     } catch {
       setError('Failed to delete prompt template');

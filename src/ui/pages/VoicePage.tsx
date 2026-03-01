@@ -91,20 +91,20 @@ export function VoicePage(): React.JSX.Element {
   // Fetch voice config
   const configQuery = useQuery({
     queryKey: ['voice-config'],
-    queryFn: () => apiClient.get<{ data: VoiceConfig | null }>('/api/voice/config'),
+    queryFn: () => apiClient.get<{ data: VoiceConfig | null }>('/voice/config'),
   });
 
   // Fetch conversations
   const conversationsQuery = useQuery({
     queryKey: ['voice-conversations'],
-    queryFn: () => apiClient.get<ConversationsResponse>('/api/voice/conversations'),
+    queryFn: () => apiClient.get<ConversationsResponse>('/voice/conversations'),
   });
 
   // Fetch single conversation detail
   const conversationDetailQuery = useQuery({
     queryKey: ['voice-conversation', viewingConversation],
     queryFn: () =>
-      apiClient.get<{ data: ConversationDetail }>(`/api/voice/conversations/${viewingConversation}`),
+      apiClient.get<{ data: ConversationDetail }>(`/voice/conversations/${viewingConversation}`),
     enabled: viewingConversation !== null,
   });
 
@@ -115,7 +115,7 @@ export function VoicePage(): React.JSX.Element {
       idle_timeout_s: number;
       retention_days: number;
       service_allowlist: string[];
-    }) => apiClient.put<{ data: VoiceConfig }>('/api/voice/config', body),
+    }) => apiClient.put<{ data: VoiceConfig }>('/voice/config', body),
     onSuccess: () => {
       setConfigEditing(false);
       void queryClient.invalidateQueries({ queryKey: ['voice-config'] });
@@ -124,7 +124,7 @@ export function VoicePage(): React.JSX.Element {
 
   // Delete conversation
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => apiClient.delete(`/api/voice/conversations/${id}`),
+    mutationFn: (id: string) => apiClient.delete(`/voice/conversations/${id}`),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['voice-conversations'] });
     },

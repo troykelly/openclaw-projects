@@ -27,7 +27,7 @@ export function ChatSettingsSection(): React.JSX.Element {
 
     async function fetchAgents() {
       try {
-        const data = await apiClient.get<ChatAgentsResponse>('/api/chat/agents');
+        const data = await apiClient.get<ChatAgentsResponse>('/chat/agents');
         if (!alive) return;
         setAgents(Array.isArray(data.agents) ? data.agents : []);
       } catch (err) {

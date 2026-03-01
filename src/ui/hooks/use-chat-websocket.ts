@@ -2,8 +2,8 @@
  * WebSocket hook for chat streaming (Epic #1940, Issue #1951).
  *
  * Manages the dedicated chat WebSocket lifecycle:
- * 1. Obtain a one-time ticket via POST /api/chat/ws/ticket
- * 2. Connect to /api/chat/ws with ticket + session_id
+ * 1. Obtain a one-time ticket via POST /chat/ws/ticket
+ * 2. Connect to /chat/ws with ticket + session_id
  * 3. Receive stream events (chunk, completed, failed, started)
  * 4. Reconnect with exponential backoff on abnormal close
  * 5. Send typing indicators and read cursors
@@ -100,7 +100,7 @@ export function useChatWebSocket({
     try {
       // Step 1: Obtain a one-time ticket
       const ticketResponse = await apiClient.post<{ ticket: string; expires_in: number }>(
-        '/api/chat/ws/ticket',
+        '/chat/ws/ticket',
         { session_id: sessionId },
       );
 
@@ -112,7 +112,7 @@ export function useChatWebSocket({
 
       // Step 2: Build WebSocket URL
       const wsBase = getWsBaseUrl();
-      const wsUrl = `${wsBase}/api/chat/ws?ticket=${encodeURIComponent(ticketResponse.ticket)}&session_id=${encodeURIComponent(sessionId)}`;
+      const wsUrl = `${wsBase}/chat/ws?ticket=${encodeURIComponent(ticketResponse.ticket)}&session_id=${encodeURIComponent(sessionId)}`;
 
       // Step 3: Connect
       const ws = new WebSocket(wsUrl);

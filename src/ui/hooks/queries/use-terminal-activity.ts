@@ -21,6 +21,6 @@ export function useTerminalActivity(filters?: { session_id?: string; connection_
 
   return useQuery({
     queryKey: terminalActivityKeys.list(filters as Record<string, string>),
-    queryFn: ({ signal }) => apiClient.get<TerminalActivityResponse>(`/api/terminal/activity${qs ? `?${qs}` : ''}`, { signal }),
+    queryFn: ({ signal }) => apiClient.get<TerminalActivityResponse>(`/terminal/activity${qs ? `?${qs}` : ''}`, { signal }),
   });
 }

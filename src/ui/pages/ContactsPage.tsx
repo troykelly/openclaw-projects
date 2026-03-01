@@ -167,7 +167,7 @@ export function ContactsPage(): React.JSX.Element {
   const handleDeleteContact = useCallback(
     async (contact: Contact) => {
       try {
-        await apiClient.delete(`/api/contacts/${contact.id}`);
+        await apiClient.delete(`/contacts/${contact.id}`);
         setDetailOpen(false);
         setSelectedContact(null);
         refetch();
@@ -217,7 +217,7 @@ export function ContactsPage(): React.JSX.Element {
   // #1711: Export handler
   const handleExport = useCallback(async (format: 'csv' | 'json') => {
     try {
-      const response = await fetch(`/api/contacts/export?format=${format}`, {
+      const response = await fetch(`/contacts/export?format=${format}`, {
         credentials: 'include',
       });
       if (!response.ok) throw new Error('Export failed');

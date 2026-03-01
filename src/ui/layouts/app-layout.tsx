@@ -265,7 +265,7 @@ function AuthenticatedLayout(): React.JSX.Element {
   // Search handler for the command palette
   const handleSearch = useCallback(async (query: string): Promise<SearchResult[]> => {
     try {
-      const data = await apiClient.get<SearchResponse>(`/api/search?q=${encodeURIComponent(query)}&limit=10`);
+      const data = await apiClient.get<SearchResponse>(`/search?q=${encodeURIComponent(query)}&limit=10`);
       return data.results.map((r) => ({
         id: r.id,
         type: r.type === 'work_item' ? 'issue' : r.type === 'contact' ? 'contact' : 'issue',

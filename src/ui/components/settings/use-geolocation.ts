@@ -2,7 +2,7 @@
  * Hooks for geolocation provider management and current location display.
  *
  * Provides data fetching, polling, and mutation helpers for the
- * /api/geolocation/* endpoints used by the Location settings section.
+ * /geolocation/* endpoints used by the Location settings section.
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -51,22 +51,22 @@ export interface VerifyResult {
   entities: Array<{ id: string; name: string; type?: string }>;
 }
 
-/** Shape returned by POST /api/geolocation/providers on creation. */
+/** Shape returned by POST /geolocation/providers on creation. */
 interface CreateProviderResponse {
   provider: GeoProvider;
 }
 
-/** Shape returned by GET /api/geolocation/providers. */
+/** Shape returned by GET /geolocation/providers. */
 interface ProvidersListResponse {
   providers: GeoProvider[];
 }
 
-/** Shape returned by GET /api/geolocation/current. */
+/** Shape returned by GET /geolocation/current. */
 interface CurrentLocationResponse {
   location: GeoLocation | null;
 }
 
-/** Shape returned by POST /api/geolocation/providers/:id/verify. */
+/** Shape returned by POST /geolocation/providers/:id/verify. */
 interface VerifyProviderResponse {
   result: VerifyResult;
 }
@@ -90,7 +90,7 @@ export function useGeoProviders() {
 
   const fetchProviders = useCallback(async (signal?: AbortSignal) => {
     const res = await apiClient.get<ProvidersListResponse>(
-      '/api/geolocation/providers',
+      '/geolocation/providers',
       { signal },
     );
     return Array.isArray(res?.providers) ? res.providers : [];
@@ -163,7 +163,7 @@ export function useCurrentLocation() {
 
   const fetchLocation = useCallback(async (signal?: AbortSignal) => {
     const res = await apiClient.get<CurrentLocationResponse>(
-      '/api/geolocation/current',
+      '/geolocation/current',
       { signal },
     );
     return res?.location ?? null;
@@ -230,7 +230,7 @@ const AUTH_TYPE_MAP: Record<GeoProviderType, string> = {
   webhook: 'webhook_token',
 };
 
-/** Payload accepted by POST /api/geolocation/providers. */
+/** Payload accepted by POST /geolocation/providers. */
 export interface CreateProviderPayload {
   providerType: GeoProviderType;
   label: string;
@@ -250,7 +250,7 @@ export function useGeoMutations() {
       setIsSubmitting(true);
       try {
         const res = await apiClient.post<CreateProviderResponse>(
-          '/api/geolocation/providers',
+          '/geolocation/providers',
           {
             ...payload,
             authType: AUTH_TYPE_MAP[payload.providerType],
@@ -267,7 +267,7 @@ export function useGeoMutations() {
   const deleteProvider = useCallback(async (id: string): Promise<boolean> => {
     setIsSubmitting(true);
     try {
-      await apiClient.delete(`/api/geolocation/providers/${id}`);
+      await apiClient.delete(`/geolocation/providers/${id}`);
       return true;
     } catch {
       return false;
@@ -281,7 +281,7 @@ export function useGeoMutations() {
       setIsSubmitting(true);
       try {
         const res = await apiClient.post<VerifyProviderResponse>(
-          `/api/geolocation/providers/${id}/verify`,
+          `/geolocation/providers/${id}/verify`,
           {},
         );
         return res.result;
@@ -297,7 +297,7 @@ export function useGeoMutations() {
       setIsSubmitting(true);
       try {
         const res = await apiClient.post<{ url: string; provider_id: string }>(
-          '/api/geolocation/providers/ha/authorize',
+          '/geolocation/providers/ha/authorize',
           { instance_url: instanceUrl, label },
         );
         return res;

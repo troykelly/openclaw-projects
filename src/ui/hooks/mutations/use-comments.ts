@@ -13,7 +13,7 @@ export function useAddComment(workItemId: string) {
 
   return useMutation({
     mutationFn: (body: { content: string; parent_id?: string }) =>
-      apiClient.post(`/api/work-items/${workItemId}/comments`, body),
+      apiClient.post(`/work-items/${workItemId}/comments`, body),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: commentKeys.forWorkItem(workItemId) });
     },
@@ -26,7 +26,7 @@ export function useEditComment(workItemId: string) {
 
   return useMutation({
     mutationFn: ({ commentId, content }: { commentId: string; content: string }) =>
-      apiClient.put(`/api/work-items/${workItemId}/comments/${commentId}`, { content }),
+      apiClient.put(`/work-items/${workItemId}/comments/${commentId}`, { content }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: commentKeys.forWorkItem(workItemId) });
     },
@@ -39,7 +39,7 @@ export function useDeleteComment(workItemId: string) {
 
   return useMutation({
     mutationFn: (commentId: string) =>
-      apiClient.delete(`/api/work-items/${workItemId}/comments/${commentId}`),
+      apiClient.delete(`/work-items/${workItemId}/comments/${commentId}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: commentKeys.forWorkItem(workItemId) });
     },
@@ -52,7 +52,7 @@ export function useAddReaction(workItemId: string) {
 
   return useMutation({
     mutationFn: ({ commentId, emoji }: { commentId: string; emoji: string }) =>
-      apiClient.post(`/api/work-items/${workItemId}/comments/${commentId}/reactions`, { emoji }),
+      apiClient.post(`/work-items/${workItemId}/comments/${commentId}/reactions`, { emoji }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: commentKeys.forWorkItem(workItemId) });
     },

@@ -127,13 +127,13 @@ export function PantryPage(): React.JSX.Element {
       const params = new URLSearchParams();
       if (categoryFilter !== 'all') params.set('category', categoryFilter);
       const qs = params.toString();
-      return apiClient.get<PantryListResponse>(`/api/pantry${qs ? `?${qs}` : ''}`);
+      return apiClient.get<PantryListResponse>(`/pantry${qs ? `?${qs}` : ''}`);
     },
   });
 
   // Create item
   const createMutation = useMutation({
-    mutationFn: (data: PantryFormData) => apiClient.post<PantryItem>('/api/pantry', data),
+    mutationFn: (data: PantryFormData) => apiClient.post<PantryItem>('/pantry', data),
     onSuccess: () => {
       setCreateOpen(false);
       setFormData(EMPTY_FORM);
@@ -144,7 +144,7 @@ export function PantryPage(): React.JSX.Element {
   // Update item
   const updateMutation = useMutation({
     mutationFn: ({ id, ...data }: PantryFormData & { id: string }) =>
-      apiClient.patch<PantryItem>(`/api/pantry/${id}`, data),
+      apiClient.patch<PantryItem>(`/pantry/${id}`, data),
     onSuccess: () => {
       setEditingItem(null);
       setFormData(EMPTY_FORM);
@@ -154,7 +154,7 @@ export function PantryPage(): React.JSX.Element {
 
   // Deplete item
   const depleteMutation = useMutation({
-    mutationFn: (id: string) => apiClient.post(`/api/pantry/${id}/deplete`, {}),
+    mutationFn: (id: string) => apiClient.post(`/pantry/${id}/deplete`, {}),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['pantry'] });
     },
@@ -162,7 +162,7 @@ export function PantryPage(): React.JSX.Element {
 
   // Delete item
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => apiClient.delete(`/api/pantry/${id}`),
+    mutationFn: (id: string) => apiClient.delete(`/pantry/${id}`),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['pantry'] });
     },

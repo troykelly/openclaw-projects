@@ -20,14 +20,14 @@ export function useRecipes(filters?: Record<string, string>) {
   const params = filters ? '?' + new URLSearchParams(filters).toString() : '';
   return useQuery({
     queryKey: recipeKeys.list(filters),
-    queryFn: ({ signal }) => apiClient.get<RecipesResponse>(`/api/recipes${params}`, { signal }),
+    queryFn: ({ signal }) => apiClient.get<RecipesResponse>(`/recipes${params}`, { signal }),
   });
 }
 
 export function useRecipeDetail(id: string) {
   return useQuery({
     queryKey: recipeKeys.detail(id),
-    queryFn: ({ signal }) => apiClient.get<RecipeWithDetails>(`/api/recipes/${id}`, { signal }),
+    queryFn: ({ signal }) => apiClient.get<RecipeWithDetails>(`/recipes/${id}`, { signal }),
     enabled: !!id,
   });
 }
@@ -35,7 +35,7 @@ export function useRecipeDetail(id: string) {
 export function useCreateRecipe() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (body: CreateRecipeBody) => apiClient.post<RecipeWithDetails>('/api/recipes', body),
+    mutationFn: (body: CreateRecipeBody) => apiClient.post<RecipeWithDetails>('/recipes', body),
     onSuccess: () => qc.invalidateQueries({ queryKey: recipeKeys.all }),
   });
 }
@@ -43,7 +43,7 @@ export function useCreateRecipe() {
 export function useUpdateRecipe(id: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (body: UpdateRecipeBody) => apiClient.patch<RecipeWithDetails>(`/api/recipes/${id}`, body),
+    mutationFn: (body: UpdateRecipeBody) => apiClient.patch<RecipeWithDetails>(`/recipes/${id}`, body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: recipeKeys.detail(id) });
       qc.invalidateQueries({ queryKey: recipeKeys.all });
@@ -54,7 +54,7 @@ export function useUpdateRecipe(id: string) {
 export function useDeleteRecipe() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => apiClient.delete(`/api/recipes/${id}`),
+    mutationFn: (id: string) => apiClient.delete(`/recipes/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: recipeKeys.all }),
   });
 }
@@ -62,6 +62,6 @@ export function useDeleteRecipe() {
 export function useRecipeToShoppingList(recipeId: string) {
   return useMutation({
     mutationFn: (list_id: string) =>
-      apiClient.post<{ added: number }>(`/api/recipes/${recipeId}/to-shopping-list`, { list_id: list_id }),
+      apiClient.post<{ added: number }>(`/recipes/${recipeId}/to-shopping-list`, { list_id: list_id }),
   });
 }

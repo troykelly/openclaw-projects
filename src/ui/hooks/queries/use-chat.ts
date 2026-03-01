@@ -44,7 +44,7 @@ export function useChatSessions(status?: string) {
     queryKey: chatKeys.sessionsList(status),
     queryFn: ({ signal }) =>
       apiClient.get<ChatSessionsResponse>(
-        `/api/chat/sessions${qs ? `?${qs}` : ''}`,
+        `/chat/sessions${qs ? `?${qs}` : ''}`,
         { signal, schema: chatSessionsResponseSchema },
       ),
   });
@@ -65,7 +65,7 @@ export function useChatMessages(sessionId: string, cursor?: string) {
     queryKey: chatKeys.messagesCursor(sessionId, cursor),
     queryFn: ({ signal }) =>
       apiClient.get<ChatMessagesResponse>(
-        `/api/chat/sessions/${encodeURIComponent(sessionId)}/messages${qs ? `?${qs}` : ''}`,
+        `/chat/sessions/${encodeURIComponent(sessionId)}/messages${qs ? `?${qs}` : ''}`,
         { signal, schema: chatMessagesResponseSchema },
       ),
     enabled: !!sessionId,
@@ -80,7 +80,7 @@ export function useAvailableAgents() {
     queryKey: chatKeys.agents(),
     queryFn: ({ signal }) =>
       apiClient.get<ChatAgentsResponse>(
-        '/api/chat/agents',
+        '/chat/agents',
         { signal, schema: chatAgentsResponseSchema },
       ),
     staleTime: 5 * 60 * 1000, // 5 minutes
@@ -96,7 +96,7 @@ export function useChatUnreadCount() {
     queryKey: chatKeys.unreadCount(),
     queryFn: ({ signal }) =>
       apiClient.get<{ count: number }>(
-        '/api/chat/sessions/unread-count',
+        '/chat/sessions/unread-count',
         { signal, schema: unreadCountResponseSchema },
       ),
     refetchInterval: 30_000,

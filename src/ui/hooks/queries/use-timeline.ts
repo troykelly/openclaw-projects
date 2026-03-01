@@ -23,7 +23,7 @@ export const timelineKeys = {
 export function useItemTimeline(id: string) {
   return useQuery({
     queryKey: timelineKeys.item(id),
-    queryFn: ({ signal }) => apiClient.get<TimelineResponse>(`/api/work-items/${id}/timeline`, { signal }),
+    queryFn: ({ signal }) => apiClient.get<TimelineResponse>(`/work-items/${id}/timeline`, { signal }),
     enabled: !!id,
   });
 }
@@ -39,6 +39,6 @@ export function useGlobalTimeline(kindFilter?: string[]) {
 
   return useQuery({
     queryKey: timelineKeys.global(kindFilter),
-    queryFn: ({ signal }) => apiClient.get<TimelineResponse>(`/api/timeline${params}`, { signal }),
+    queryFn: ({ signal }) => apiClient.get<TimelineResponse>(`/timeline${params}`, { signal }),
   });
 }

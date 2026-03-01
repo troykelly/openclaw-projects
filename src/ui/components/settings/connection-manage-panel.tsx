@@ -96,7 +96,7 @@ export function ConnectionManagePanel({
       setReAuthError(false);
       try {
         const res = await apiClient.patch<PatchResponse>(
-          `/api/oauth/connections/${connection.id}`,
+          `/oauth/connections/${connection.id}`,
           updates,
         );
 
@@ -173,7 +173,7 @@ export function ConnectionManagePanel({
         [feature]: { last_sync_at: prev[feature]?.last_sync_at ?? null, status: 'syncing' as const },
       }));
       try {
-        await apiClient.post(`/api/sync/${feature}`, { connection_id: connection.id });
+        await apiClient.post(`/sync/${feature}`, { connection_id: connection.id });
         setSyncStatus((prev) => ({
           ...prev,
           [feature]: { last_sync_at: new Date().toISOString(), status: 'idle' as const },

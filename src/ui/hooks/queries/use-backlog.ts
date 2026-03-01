@@ -1,7 +1,7 @@
 /**
  * TanStack Query hook for the backlog/kanban board data.
  *
- * Fetches backlog items from GET /api/backlog with optional filters.
+ * Fetches backlog items from GET /backlog with optional filters.
  */
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/ui/lib/api-client.ts';
@@ -27,6 +27,6 @@ export function useBacklog(filters?: { priority?: string[]; kind?: string[] }) {
 
   return useQuery({
     queryKey: backlogKeys.list(filters),
-    queryFn: ({ signal }) => apiClient.get<BacklogResponse>(`/api/backlog${queryString}`, { signal }),
+    queryFn: ({ signal }) => apiClient.get<BacklogResponse>(`/backlog${queryString}`, { signal }),
   });
 }

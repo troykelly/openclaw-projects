@@ -77,7 +77,7 @@ export function useOAuthCallback(): OAuthCallbackResult {
     const controller = new AbortController();
 
     apiClient
-      .get<CallbackResponse>(`/api/oauth/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`, {
+      .get<CallbackResponse>(`/oauth/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`, {
         signal: controller.signal,
       })
       .then((body) => {

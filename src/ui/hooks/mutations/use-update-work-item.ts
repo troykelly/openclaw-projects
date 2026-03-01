@@ -35,7 +35,7 @@ export function useUpdateWorkItem() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, body }: UpdateWorkItemVariables) => apiClient.put<WorkItemDetail>(`/api/work-items/${id}`, body),
+    mutationFn: ({ id, body }: UpdateWorkItemVariables) => apiClient.put<WorkItemDetail>(`/work-items/${id}`, body),
 
     onMutate: async ({ id, body }) => {
       // Cancel in-flight queries for this work item

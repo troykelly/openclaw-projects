@@ -4,11 +4,11 @@
  * Handles the final step of both magic link and OAuth login flows:
  *
  * 1. **Magic link** (`?token=<token>`): Sends the one-time token to
- *    `POST /api/auth/consume` to exchange it for a JWT access token.
+ *    `POST /auth/consume` to exchange it for a JWT access token.
  *
  * 2. **OAuth callback** (`?code=<code>`): After a successful OAuth provider
  *    callback, the API redirects here with a one-time authorization code.
- *    The code is exchanged for a JWT via `POST /api/auth/exchange`.
+ *    The code is exchanged for a JWT via `POST /auth/exchange`.
  *
  * Both flows store the JWT access token in memory and redirect to the app.
  * The API also sets an HttpOnly refresh cookie via the response.
@@ -61,18 +61,18 @@ function getReturnPath(): string {
  * Exchange a credential (magic link token or OAuth code) for a JWT.
  *
  * Calls the appropriate API endpoint based on the credential type:
- * - token -> POST /api/auth/consume
- * - code  -> POST /api/auth/exchange
+ * - token -> POST /auth/consume
+ * - code  -> POST /auth/exchange
  */
 async function exchangeCredential(token: string | null, code: string | null, signal: AbortSignal): Promise<{ access_token: string }> {
   let endpoint: string;
   let payload: Record<string, string>;
 
   if (token) {
-    endpoint = `${getApiBaseUrl()}/api/auth/consume`;
+    endpoint = `${getApiBaseUrl()}/auth/consume`;
     payload = { token };
   } else if (code) {
-    endpoint = `${getApiBaseUrl()}/api/auth/exchange`;
+    endpoint = `${getApiBaseUrl()}/auth/exchange`;
     payload = { code };
   } else {
     throw new Error('No credential provided');
@@ -145,7 +145,7 @@ export function AuthConsumePage(): React.JSX.Element {
 
         setAccessToken(access_token);
         // Signal the UserProvider that a token was acquired externally,
-        // resetting any bootstrap failure state and triggering /api/me fetch.
+        // resetting any bootstrap failure state and triggering /me fetch.
         signalAuthenticated();
         setState({ status: 'success', errorMessage: null });
 

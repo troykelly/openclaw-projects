@@ -1,7 +1,7 @@
 /**
  * Per-type notification preferences section for the Settings page.
  *
- * Fetches notification preferences from GET /api/notifications/preferences
+ * Fetches notification preferences from GET /notifications/preferences
  * and allows toggling in-app and email delivery per notification type.
  *
  * @see Issue #1729
@@ -49,7 +49,7 @@ export function NotificationPreferencesSection(): React.JSX.Element {
 
     async function load() {
       try {
-        const data = await apiClient.get<NotificationPreferences>('/api/notifications/preferences');
+        const data = await apiClient.get<NotificationPreferences>('/notifications/preferences');
         if (!alive) return;
         setPreferences(data);
       } catch (err) {
@@ -79,7 +79,7 @@ export function NotificationPreferencesSection(): React.JSX.Element {
       setIsSaving(true);
 
       try {
-        await apiClient.patch<NotificationPreferences>('/api/notifications/preferences', {
+        await apiClient.patch<NotificationPreferences>('/notifications/preferences', {
           [type]: { ...preferences[type], [channel]: value },
         });
       } catch {

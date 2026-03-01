@@ -99,7 +99,7 @@ export function KanbanPage(): React.JSX.Element {
     // Optimistic update
     setItems((prev) => prev.map((i) => (i.id === draggedItem ? { ...i, status: newStatus } : i)));
     try {
-      await apiClient.patch(`/api/work-items/${draggedItem}/status`, { status: newStatus });
+      await apiClient.patch(`/work-items/${draggedItem}/status`, { status: newStatus });
     } catch {
       setItems((prev) => prev.map((i) => (i.id === draggedItem ? { ...i, status: item.status } : i)));
     }
@@ -109,7 +109,7 @@ export function KanbanPage(): React.JSX.Element {
   const handleTitleChange = async (id: string, newTitle: string) => {
     setItems((prev) => prev.map((i) => (i.id === id ? { ...i, title: newTitle } : i)));
     try {
-      await apiClient.patch(`/api/work-items/${id}`, { title: newTitle });
+      await apiClient.patch(`/work-items/${id}`, { title: newTitle });
     } catch {
       refetch();
     }

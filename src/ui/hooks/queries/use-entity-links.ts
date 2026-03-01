@@ -20,7 +20,7 @@ export function useEntityLinksFromSource(sourceType: string, sourceId: string) {
   return useQuery({
     queryKey: entityLinkKeys.fromSource(sourceType, sourceId),
     queryFn: ({ signal }) =>
-      apiClient.get<EntityLinksResponse>(`/api/entity-links?source_type=${sourceType}&source_id=${sourceId}`, { signal }),
+      apiClient.get<EntityLinksResponse>(`/entity-links?source_type=${sourceType}&source_id=${sourceId}`, { signal }),
     enabled: !!sourceId,
   });
 }
@@ -30,7 +30,7 @@ export function useEntityLinksToTarget(targetType: string, targetId: string) {
   return useQuery({
     queryKey: entityLinkKeys.toTarget(targetType, targetId),
     queryFn: ({ signal }) =>
-      apiClient.get<EntityLinksResponse>(`/api/entity-links?target_type=${targetType}&target_id=${targetId}`, { signal }),
+      apiClient.get<EntityLinksResponse>(`/entity-links?target_type=${targetType}&target_id=${targetId}`, { signal }),
     enabled: !!targetId,
   });
 }

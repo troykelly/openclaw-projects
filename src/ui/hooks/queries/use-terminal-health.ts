@@ -14,7 +14,7 @@ interface TerminalHealthResponse {
 export function useTerminalHealth() {
   return useQuery({
     queryKey: ['terminal', 'health'],
-    queryFn: () => apiClient.get<TerminalHealthResponse>('/api/terminal/health'),
+    queryFn: () => apiClient.get<TerminalHealthResponse>('/terminal/health'),
     refetchInterval: 30_000,
     retry: false,
   });

@@ -1,8 +1,8 @@
 /**
  * Hook for managing the default chat agent preference (Issue #1957).
  *
- * Reads default_agent_id from GET /api/settings and provides a mutation
- * to update it via PATCH /api/settings. Uses optimistic updates with
+ * Reads default_agent_id from GET /settings and provides a mutation
+ * to update it via PATCH /settings. Uses optimistic updates with
  * rollback on failure.
  */
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -39,7 +39,7 @@ export function useDefaultAgent(): UseDefaultAgentReturn {
 
     async function fetch() {
       try {
-        const data = await apiClient.get<SettingsWithAgent>('/api/settings');
+        const data = await apiClient.get<SettingsWithAgent>('/settings');
         if (!alive) return;
         setDefaultAgentId(data.default_agent_id);
       } catch (err) {
@@ -64,7 +64,7 @@ export function useDefaultAgent(): UseDefaultAgentReturn {
       setIsSaving(true);
 
       try {
-        const data = await apiClient.patch<SettingsWithAgent>('/api/settings', {
+        const data = await apiClient.patch<SettingsWithAgent>('/settings', {
           default_agent_id: agentId,
         });
         if (!mountedRef.current) return true;

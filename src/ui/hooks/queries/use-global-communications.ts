@@ -22,7 +22,7 @@ export const globalCommunicationsKeys = {
 export function useEmails() {
   return useQuery({
     queryKey: globalCommunicationsKeys.emails(),
-    queryFn: ({ signal }) => apiClient.get<EmailsResponse>('/api/emails', { signal }),
+    queryFn: ({ signal }) => apiClient.get<EmailsResponse>('/emails', { signal }),
   });
 }
 
@@ -34,6 +34,6 @@ export function useEmails() {
 export function useCalendarEvents() {
   return useQuery({
     queryKey: globalCommunicationsKeys.calendarEvents(),
-    queryFn: ({ signal }) => apiClient.get<CalendarEventsResponse>('/api/calendar/events', { signal }),
+    queryFn: ({ signal }) => apiClient.get<CalendarEventsResponse>('/calendar/events', { signal }),
   });
 }

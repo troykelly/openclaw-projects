@@ -22,14 +22,14 @@ export function useMealLog(filters?: Record<string, string>) {
   const params = filters ? '?' + new URLSearchParams(filters).toString() : '';
   return useQuery({
     queryKey: mealLogKeys.list(filters),
-    queryFn: ({ signal }) => apiClient.get<MealLogResponse>(`/api/meal-log${params}`, { signal }),
+    queryFn: ({ signal }) => apiClient.get<MealLogResponse>(`/meal-log${params}`, { signal }),
   });
 }
 
 export function useMealLogDetail(id: string) {
   return useQuery({
     queryKey: mealLogKeys.detail(id),
-    queryFn: ({ signal }) => apiClient.get<MealLogEntry>(`/api/meal-log/${id}`, { signal }),
+    queryFn: ({ signal }) => apiClient.get<MealLogEntry>(`/meal-log/${id}`, { signal }),
     enabled: !!id,
   });
 }
@@ -38,14 +38,14 @@ export function useMealLogStats(days?: number) {
   const params = days ? `?days=${days}` : '';
   return useQuery({
     queryKey: mealLogKeys.stats(days),
-    queryFn: ({ signal }) => apiClient.get<MealLogStats>(`/api/meal-log/stats${params}`, { signal }),
+    queryFn: ({ signal }) => apiClient.get<MealLogStats>(`/meal-log/stats${params}`, { signal }),
   });
 }
 
 export function useCreateMealLog() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (body: CreateMealLogBody) => apiClient.post<MealLogEntry>('/api/meal-log', body),
+    mutationFn: (body: CreateMealLogBody) => apiClient.post<MealLogEntry>('/meal-log', body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: mealLogKeys.all });
     },
@@ -55,7 +55,7 @@ export function useCreateMealLog() {
 export function useUpdateMealLog(id: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (body: UpdateMealLogBody) => apiClient.patch<MealLogEntry>(`/api/meal-log/${id}`, body),
+    mutationFn: (body: UpdateMealLogBody) => apiClient.patch<MealLogEntry>(`/meal-log/${id}`, body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: mealLogKeys.detail(id) });
       qc.invalidateQueries({ queryKey: mealLogKeys.all });
@@ -66,7 +66,7 @@ export function useUpdateMealLog(id: string) {
 export function useDeleteMealLog() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => apiClient.delete(`/api/meal-log/${id}`),
+    mutationFn: (id: string) => apiClient.delete(`/meal-log/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: mealLogKeys.all }),
   });
 }

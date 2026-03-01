@@ -20,7 +20,7 @@ import { contactKeys } from '@/ui/hooks/queries/use-contacts.ts';
 export function useCreateContact() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (body: CreateContactBody) => apiClient.post<Contact>('/api/contacts', body),
+    mutationFn: (body: CreateContactBody) => apiClient.post<Contact>('/contacts', body),
     onSuccess: () => qc.invalidateQueries({ queryKey: contactKeys.all }),
   });
 }
@@ -33,7 +33,7 @@ export interface UpdateContactVariables {
 export function useUpdateContact() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, body }: UpdateContactVariables) => apiClient.patch<Contact>(`/api/contacts/${id}`, body),
+    mutationFn: ({ id, body }: UpdateContactVariables) => apiClient.patch<Contact>(`/contacts/${id}`, body),
     onSuccess: () => qc.invalidateQueries({ queryKey: contactKeys.all }),
   });
 }
@@ -46,7 +46,7 @@ export function useAddContactAddress() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ contactId, ...body }: { contactId: string } & Partial<ContactAddress>) =>
-      apiClient.post<ContactAddress>(`/api/contacts/${contactId}/addresses`, body),
+      apiClient.post<ContactAddress>(`/contacts/${contactId}/addresses`, body),
     onSuccess: () => qc.invalidateQueries({ queryKey: contactKeys.all }),
   });
 }
@@ -55,7 +55,7 @@ export function useUpdateContactAddress() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ contactId, addressId, ...body }: { contactId: string; addressId: string } & Partial<ContactAddress>) =>
-      apiClient.patch<ContactAddress>(`/api/contacts/${contactId}/addresses/${addressId}`, body),
+      apiClient.patch<ContactAddress>(`/contacts/${contactId}/addresses/${addressId}`, body),
     onSuccess: () => qc.invalidateQueries({ queryKey: contactKeys.all }),
   });
 }
@@ -64,7 +64,7 @@ export function useDeleteContactAddress() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ contactId, addressId }: { contactId: string; addressId: string }) =>
-      apiClient.delete(`/api/contacts/${contactId}/addresses/${addressId}`),
+      apiClient.delete(`/contacts/${contactId}/addresses/${addressId}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: contactKeys.all }),
   });
 }
@@ -77,7 +77,7 @@ export function useAddContactDate() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ contactId, ...body }: { contactId: string; date_type?: string; label?: string; date_value: string }) =>
-      apiClient.post<ContactDate>(`/api/contacts/${contactId}/dates`, body),
+      apiClient.post<ContactDate>(`/contacts/${contactId}/dates`, body),
     onSuccess: () => qc.invalidateQueries({ queryKey: contactKeys.all }),
   });
 }
@@ -86,7 +86,7 @@ export function useUpdateContactDate() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ contactId, dateId, ...body }: { contactId: string; dateId: string } & Partial<ContactDate>) =>
-      apiClient.patch<ContactDate>(`/api/contacts/${contactId}/dates/${dateId}`, body),
+      apiClient.patch<ContactDate>(`/contacts/${contactId}/dates/${dateId}`, body),
     onSuccess: () => qc.invalidateQueries({ queryKey: contactKeys.all }),
   });
 }
@@ -95,7 +95,7 @@ export function useDeleteContactDate() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ contactId, dateId }: { contactId: string; dateId: string }) =>
-      apiClient.delete(`/api/contacts/${contactId}/dates/${dateId}`),
+      apiClient.delete(`/contacts/${contactId}/dates/${dateId}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: contactKeys.all }),
   });
 }
@@ -108,7 +108,7 @@ export function useAddContactEndpoint() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ contactId, ...body }: { contactId: string; type: string; value: string; label?: string | null; is_primary?: boolean }) =>
-      apiClient.post<ContactEndpoint>(`/api/contacts/${contactId}/endpoints`, body),
+      apiClient.post<ContactEndpoint>(`/contacts/${contactId}/endpoints`, body),
     onSuccess: () => qc.invalidateQueries({ queryKey: contactKeys.all }),
   });
 }
@@ -117,7 +117,7 @@ export function useUpdateContactEndpoint() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ contactId, endpointId, ...body }: { contactId: string; endpointId: string; label?: string | null; is_primary?: boolean; metadata?: Record<string, unknown> }) =>
-      apiClient.patch<ContactEndpoint>(`/api/contacts/${contactId}/endpoints/${endpointId}`, body),
+      apiClient.patch<ContactEndpoint>(`/contacts/${contactId}/endpoints/${endpointId}`, body),
     onSuccess: () => qc.invalidateQueries({ queryKey: contactKeys.all }),
   });
 }
@@ -126,7 +126,7 @@ export function useDeleteContactEndpoint() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ contactId, endpointId }: { contactId: string; endpointId: string }) =>
-      apiClient.delete(`/api/contacts/${contactId}/endpoints/${endpointId}`),
+      apiClient.delete(`/contacts/${contactId}/endpoints/${endpointId}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: contactKeys.all }),
   });
 }
@@ -139,7 +139,7 @@ export function useAddContactTags() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ contactId, tags }: { contactId: string; tags: string[] }) =>
-      apiClient.post(`/api/contacts/${contactId}/tags`, { tags }),
+      apiClient.post(`/contacts/${contactId}/tags`, { tags }),
     onSuccess: () => qc.invalidateQueries({ queryKey: contactKeys.all }),
   });
 }
@@ -148,7 +148,7 @@ export function useRemoveContactTag() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ contactId, tag }: { contactId: string; tag: string }) =>
-      apiClient.delete(`/api/contacts/${contactId}/tags/${encodeURIComponent(tag)}`),
+      apiClient.delete(`/contacts/${contactId}/tags/${encodeURIComponent(tag)}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: contactKeys.all }),
   });
 }
@@ -163,7 +163,7 @@ export function useUploadContactPhoto() {
     mutationFn: async ({ contactId, file }: { contactId: string; file: File }) => {
       const formData = new FormData();
       formData.append('file', file);
-      const response = await fetch(`/api/contacts/${contactId}/photo`, {
+      const response = await fetch(`/contacts/${contactId}/photo`, {
         method: 'POST',
         body: formData,
       });
@@ -178,7 +178,7 @@ export function useDeleteContactPhoto() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ contactId }: { contactId: string }) =>
-      apiClient.delete(`/api/contacts/${contactId}/photo`),
+      apiClient.delete(`/contacts/${contactId}/photo`),
     onSuccess: () => qc.invalidateQueries({ queryKey: contactKeys.all }),
   });
 }
@@ -191,7 +191,7 @@ export function useMergeContacts() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (body: { survivor_id: string; loser_id: string }) =>
-      apiClient.post<MergeResult>('/api/contacts/merge', body),
+      apiClient.post<MergeResult>('/contacts/merge', body),
     onSuccess: () => qc.invalidateQueries({ queryKey: contactKeys.all }),
   });
 }
@@ -204,7 +204,7 @@ export function useImportContacts() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (body: { contacts: Array<Record<string, unknown>>; duplicate_handling?: string }) =>
-      apiClient.post<ImportResult>('/api/contacts/import', body),
+      apiClient.post<ImportResult>('/contacts/import', body),
     onSuccess: () => qc.invalidateQueries({ queryKey: contactKeys.all }),
   });
 }

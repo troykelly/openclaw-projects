@@ -46,7 +46,7 @@ export function QuickAddDialog({ open, onOpenChange, onCreated, defaultParentId,
     };
 
     try {
-      const createdItem = await apiClient.post<CreatedWorkItem>('/api/work-items', payload);
+      const createdItem = await apiClient.post<CreatedWorkItem>('/work-items', payload);
       onCreated?.(createdItem);
       resetForm();
       onOpenChange(false);

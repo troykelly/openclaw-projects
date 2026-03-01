@@ -166,7 +166,7 @@ export function useCreateNote(): UseMutationResult<Note, ApiRequestError, Create
         summary: body.summary,
         is_pinned: body.is_pinned,
       };
-      return apiClient.post<Note>('/api/notes', apiBody);
+      return apiClient.post<Note>('/notes', apiBody);
     },
 
     onSuccess: (note) => {
@@ -249,7 +249,7 @@ export function useUpdateNote(): UseMutationResult<Note, ApiRequestError, Update
         is_pinned: body.is_pinned,
         sort_order: body.sort_order,
       };
-      return apiClient.put<Note>(`/api/notes/${encodeURIComponent(id)}`, apiBody);
+      return apiClient.put<Note>(`/notes/${encodeURIComponent(id)}`, apiBody);
     },
 
     onMutate: async ({ id, body }) => {
@@ -360,7 +360,7 @@ export function useDeleteNote(): UseMutationResult<void, ApiRequestError, string
       if (!user_email) {
         return Promise.reject(new Error('User not authenticated'));
       }
-      return apiClient.delete(`/api/notes/${encodeURIComponent(id)}?user_email=${encodeURIComponent(user_email)}`);
+      return apiClient.delete(`/notes/${encodeURIComponent(id)}?user_email=${encodeURIComponent(user_email)}`);
     },
 
     onMutate: async (id) => {
@@ -458,7 +458,7 @@ export function useRestoreNote(): UseMutationResult<Note, ApiRequestError, strin
       if (!user_email) {
         return Promise.reject(new Error('User not authenticated'));
       }
-      return apiClient.post<Note>(`/api/notes/${encodeURIComponent(id)}/restore`, {
+      return apiClient.post<Note>(`/notes/${encodeURIComponent(id)}/restore`, {
         user_email: user_email,
       });
     },
@@ -534,7 +534,7 @@ export function useRestoreNoteVersion(): UseMutationResult<RestoreVersionRespons
         return Promise.reject(new Error('User not authenticated'));
       }
       return apiClient.post<RestoreVersionResponse>(
-        `/api/notes/${encodeURIComponent(id)}/versions/${versionNumber}/restore?user_email=${encodeURIComponent(user_email)}`,
+        `/notes/${encodeURIComponent(id)}/versions/${versionNumber}/restore?user_email=${encodeURIComponent(user_email)}`,
         {},
       );
     },

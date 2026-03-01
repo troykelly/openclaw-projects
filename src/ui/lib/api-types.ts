@@ -22,12 +22,12 @@ export interface WorkItemSummary {
   namespace?: string;
 }
 
-/** Response from GET /api/work-items */
+/** Response from GET /work-items */
 export interface WorkItemsResponse {
   items: WorkItemSummary[];
 }
 
-/** Full detail returned from GET /api/work-items/:id */
+/** Full detail returned from GET /work-items/:id */
 export interface WorkItemDetail {
   id: string;
   title: string;
@@ -47,7 +47,7 @@ export interface WorkItemDetail {
   dependencies?: Array<{ id: string; title: string; kind: string; status: string; direction: 'blocks' | 'blocked_by' }>;
 }
 
-/** Tree node from GET /api/work-items/tree */
+/** Tree node from GET /work-items/tree */
 export interface WorkItemTreeNode {
   id: string;
   title: string;
@@ -59,12 +59,12 @@ export interface WorkItemTreeNode {
   children: WorkItemTreeNode[];
 }
 
-/** Response from GET /api/work-items/tree */
+/** Response from GET /work-items/tree */
 export interface WorkItemTreeResponse {
   items: WorkItemTreeNode[];
 }
 
-/** Body for POST /api/work-items */
+/** Body for POST /work-items */
 export interface CreateWorkItemBody {
   title: string;
   kind?: string;
@@ -77,7 +77,7 @@ export interface CreateWorkItemBody {
   estimate_minutes?: number | null;
 }
 
-/** Body for PUT /api/work-items/:id */
+/** Body for PUT /work-items/:id */
 export interface UpdateWorkItemBody {
   title?: string;
   description?: string | null;
@@ -95,7 +95,7 @@ export interface UpdateWorkItemBody {
 // Activity
 // ---------------------------------------------------------------------------
 
-/** Single activity entry from GET /api/activity */
+/** Single activity entry from GET /activity */
 export interface ActivityItem {
   id: string;
   type: string;
@@ -106,7 +106,7 @@ export interface ActivityItem {
   created_at: string;
 }
 
-/** Response from GET /api/activity */
+/** Response from GET /activity */
 export interface ActivityResponse {
   items: ActivityItem[];
 }
@@ -121,7 +121,7 @@ export type EndpointType =
   | 'discord' | 'linkedin' | 'twitter' | 'mastodon'
   | 'instagram' | 'facebook' | 'website' | 'sip' | 'imessage';
 
-/** Contact endpoint from GET /api/contacts/:id?include=endpoints */
+/** Contact endpoint from GET /contacts/:id?include=endpoints */
 export interface ContactEndpoint {
   id?: string;
   type: string;
@@ -177,7 +177,7 @@ export type ContactKind = 'person' | 'organisation' | 'group' | 'agent';
 /** Valid communication channel types (issue #1269). */
 export type CommChannel = 'telegram' | 'email' | 'sms' | 'voice' | 'whatsapp' | 'signal' | 'discord';
 
-/** Single contact from GET /api/contacts (#1582 expanded). */
+/** Single contact from GET /contacts (#1582 expanded). */
 export interface Contact {
   id: string;
   display_name: string | null;
@@ -224,13 +224,13 @@ export interface ContactRelationship {
   related_display_name?: string;
 }
 
-/** Response from GET /api/contacts */
+/** Response from GET /contacts */
 export interface ContactsResponse {
   contacts: Contact[];
   total: number;
 }
 
-/** Body for POST /api/contacts (#1582 expanded). */
+/** Body for POST /contacts (#1582 expanded). */
 export interface CreateContactBody {
   display_name?: string;
   given_name?: string | null;
@@ -254,7 +254,7 @@ export interface CreateContactBody {
   notification_notes?: string | null;
 }
 
-/** Body for PATCH /api/contacts/:id (#1582 expanded). */
+/** Body for PATCH /contacts/:id (#1582 expanded). */
 export interface UpdateContactBody extends Partial<CreateContactBody> {}
 
 /**
@@ -263,13 +263,13 @@ export interface UpdateContactBody extends Partial<CreateContactBody> {}
  */
 export type ContactBody = CreateContactBody;
 
-/** Tag with contact count from GET /api/tags. */
+/** Tag with contact count from GET /tags. */
 export interface TagCount {
   tag: string;
   contact_count: number;
 }
 
-/** Import result from POST /api/contacts/import. */
+/** Import result from POST /contacts/import. */
 export interface ImportResult {
   created: number;
   updated: number;
@@ -278,7 +278,7 @@ export interface ImportResult {
   errors: Array<{ index: number; error: string }>;
 }
 
-/** Merge result from POST /api/contacts/merge. */
+/** Merge result from POST /contacts/merge. */
 export interface MergeResult {
   merged: Contact;
   loser_id: string;
@@ -294,7 +294,7 @@ export type MemoryType = 'preference' | 'fact' | 'note' | 'decision' | 'context'
 /** Embedding status for memories. */
 export type MemoryEmbeddingStatus = 'pending' | 'complete' | 'failed';
 
-/** Single memory from GET /api/work-items/:id/memories or GET /api/memory */
+/** Single memory from GET /work-items/:id/memories or GET /memory */
 export interface Memory {
   id: string;
   title: string;
@@ -348,7 +348,7 @@ export interface MemorySearchResult extends Memory {
   namespace_priority?: number;
 }
 
-/** Response from GET /api/memories/search */
+/** Response from GET /memories/search */
 export interface MemorySearchResponse {
   results: MemorySearchResult[];
   search_type: 'semantic' | 'text';
@@ -356,36 +356,36 @@ export interface MemorySearchResponse {
   embedding_provider?: string;
 }
 
-/** Response from GET /api/memories/:id/similar */
+/** Response from GET /memories/:id/similar */
 export interface SimilarMemoriesResponse {
   source_memory_id: string;
   threshold: number;
   similar: Array<Memory & { similarity: number }>;
 }
 
-/** Response from GET /api/work-items/:id/memories */
+/** Response from GET /work-items/:id/memories */
 export interface WorkItemMemoriesResponse {
   memories: Memory[];
 }
 
-/** Response from GET /api/memory — backend returns `items`, not `memories`. */
+/** Response from GET /memory — backend returns `items`, not `memories`. */
 export interface MemoryListResponse {
   items: Memory[];
   total: number;
 }
 
-/** Response from GET /api/projects/:id/memories */
+/** Response from GET /projects/:id/memories */
 export interface ProjectMemoriesResponse {
   memories: Memory[];
   total: number;
 }
 
-/** Response from GET /api/contacts/:id/memories */
+/** Response from GET /contacts/:id/memories */
 export interface ContactMemoriesResponse {
   memories: Memory[];
 }
 
-/** Body for POST /api/memory or POST /api/work-items/:id/memories */
+/** Body for POST /memory or POST /work-items/:id/memories */
 export interface CreateMemoryBody {
   title: string;
   content: string;
@@ -406,7 +406,7 @@ export interface CreateMemoryBody {
   place_label?: string | null;
 }
 
-/** Body for PATCH /api/memories/:id */
+/** Body for PATCH /memories/:id */
 export interface UpdateMemoryBody {
   title?: string;
   content?: string;
@@ -426,12 +426,12 @@ export interface MemoryLinkedContact {
   linked_at: string;
 }
 
-/** Response from GET /api/memories/:id/contacts */
+/** Response from GET /memories/:id/contacts */
 export interface MemoryLinkedContactsResponse {
   contacts: MemoryLinkedContact[];
 }
 
-/** Related memory entry from GET /api/memories/:id/related */
+/** Related memory entry from GET /memories/:id/related */
 export interface RelatedMemory {
   /** Relationship row ID */
   relationship_id: string;
@@ -457,7 +457,7 @@ export interface RelatedMemory {
   updated_at: string;
 }
 
-/** Response from GET /api/memories/:id/related */
+/** Response from GET /memories/:id/related */
 export interface RelatedMemoriesResponse {
   related: RelatedMemory[];
 }
@@ -466,7 +466,7 @@ export interface RelatedMemoriesResponse {
 // Notifications
 // ---------------------------------------------------------------------------
 
-/** Single notification from GET /api/notifications */
+/** Single notification from GET /notifications */
 export interface Notification {
   id: string;
   type: string;
@@ -477,13 +477,13 @@ export interface Notification {
   created_at: string;
 }
 
-/** Response from GET /api/notifications */
+/** Response from GET /notifications */
 export interface NotificationsResponse {
   notifications: Notification[];
   total: number;
 }
 
-/** Response from GET /api/notifications/unread-count */
+/** Response from GET /notifications/unread-count */
 export interface UnreadCountResponse {
   count: number;
 }
@@ -492,7 +492,7 @@ export interface UnreadCountResponse {
 // Projects (alias for work items filtered by kind)
 // ---------------------------------------------------------------------------
 
-/** Response from GET /api/work-items?kind=project (same shape as WorkItemsResponse) */
+/** Response from GET /work-items?kind=project (same shape as WorkItemsResponse) */
 export type ProjectsResponse = WorkItemsResponse;
 
 // ---------------------------------------------------------------------------
@@ -523,7 +523,7 @@ export interface TimelineDependency {
   kind: string;
 }
 
-/** Response from GET /api/work-items/:id/timeline or GET /api/timeline */
+/** Response from GET /work-items/:id/timeline or GET /timeline */
 export interface TimelineResponse {
   items: TimelineItem[];
   dependencies: TimelineDependency[];
@@ -560,7 +560,7 @@ export interface CriticalPathItem {
   estimate_minutes: number | null;
 }
 
-/** Response from GET /api/work-items/:id/dependency-graph */
+/** Response from GET /work-items/:id/dependency-graph */
 export interface DependencyGraphResponse {
   nodes: GraphNode[];
   edges: GraphEdge[];
@@ -584,7 +584,7 @@ export interface BacklogItem {
   created_at: string;
 }
 
-/** Response from GET /api/backlog */
+/** Response from GET /backlog */
 export interface BacklogResponse {
   items: BacklogItem[];
 }
@@ -593,7 +593,7 @@ export interface BacklogResponse {
 // Search
 // ---------------------------------------------------------------------------
 
-/** A single search result from GET /api/search */
+/** A single search result from GET /search */
 export interface SearchResultItem {
   type: string;
   id: string;
@@ -602,7 +602,7 @@ export interface SearchResultItem {
   url: string;
 }
 
-/** Response from GET /api/search */
+/** Response from GET /search */
 export interface SearchResponse {
   results: SearchResultItem[];
 }
@@ -611,7 +611,7 @@ export interface SearchResponse {
 // Communications
 // ---------------------------------------------------------------------------
 
-/** External message from GET /api/work-items/:id/communications */
+/** External message from GET /work-items/:id/communications */
 export interface ApiCommunication {
   id: string;
   thread_id: string;
@@ -621,18 +621,18 @@ export interface ApiCommunication {
   raw: unknown;
 }
 
-/** Response from GET /api/work-items/:id/communications */
+/** Response from GET /work-items/:id/communications */
 export interface CommunicationsResponse {
   emails: ApiCommunication[];
   calendar_events: ApiCommunication[];
 }
 
-/** Response from GET /api/emails */
+/** Response from GET /emails */
 export interface EmailsResponse {
   emails: ApiCommunication[];
 }
 
-/** Response from GET /api/calendar/events */
+/** Response from GET /calendar/events */
 export interface CalendarEventsResponse {
   events: ApiCommunication[];
 }
@@ -641,7 +641,7 @@ export interface CalendarEventsResponse {
 // Contact Suggest-Match (Issue #1270)
 // ---------------------------------------------------------------------------
 
-/** Single match from GET /api/contacts/suggest-match */
+/** Single match from GET /contacts/suggest-match */
 export interface ContactMatch {
   contact_id: string;
   display_name: string;
@@ -650,12 +650,12 @@ export interface ContactMatch {
   endpoints: Array<{ type: string; value: string }>;
 }
 
-/** Response from GET /api/contacts/suggest-match */
+/** Response from GET /contacts/suggest-match */
 export interface ContactSuggestMatchResponse {
   matches: ContactMatch[];
 }
 
-/** Response from POST /api/messages/:id/link-contact */
+/** Response from POST /messages/:id/link-contact */
 export interface MessageLinkContactResponse {
   message_id: string;
   contact_id: string;
@@ -676,7 +676,7 @@ export type EntityLinkTargetType = 'project' | 'contact' | 'todo' | 'memory';
 /** Relationship kind for entity links. */
 export type EntityLinkRelType = 'related' | 'caused_by' | 'resulted_in' | 'about';
 
-/** Single entity link from GET /api/entity-links. */
+/** Single entity link from GET /entity-links. */
 export interface EntityLink {
   id: string;
   source_type: EntityLinkSourceType;
@@ -688,12 +688,12 @@ export interface EntityLink {
   created_at: string;
 }
 
-/** Response from GET /api/entity-links. */
+/** Response from GET /entity-links. */
 export interface EntityLinksResponse {
   links: EntityLink[];
 }
 
-/** Body for POST /api/entity-links. */
+/** Body for POST /entity-links. */
 export interface CreateEntityLinkBody {
   source_type: EntityLinkSourceType;
   source_id: string;
@@ -718,7 +718,7 @@ export interface MemoryAttachment {
   attached_by?: string | null;
 }
 
-/** Response from GET /api/memories/:id/attachments */
+/** Response from GET /memories/:id/attachments */
 export interface MemoryAttachmentsResponse {
   attachments: MemoryAttachment[];
 }
@@ -755,12 +755,12 @@ export interface DevSession {
   updated_at: string;
 }
 
-/** Response from GET /api/dev-sessions */
+/** Response from GET /dev-sessions */
 export interface DevSessionsResponse {
   sessions: DevSession[];
 }
 
-/** Body for POST /api/dev-sessions */
+/** Body for POST /dev-sessions */
 export interface CreateDevSessionBody {
   session_name: string;
   node: string;
@@ -776,7 +776,7 @@ export interface CreateDevSessionBody {
   linked_prs?: string[];
 }
 
-/** Body for PATCH /api/dev-sessions/:id */
+/** Body for PATCH /dev-sessions/:id */
 export interface UpdateDevSessionBody {
   status?: string;
   task_summary?: string;
@@ -950,7 +950,7 @@ export type NoteVisibility = 'private' | 'shared' | 'public';
 /** Embedding status for notes */
 export type NoteEmbeddingStatus = 'pending' | 'complete' | 'failed' | 'skipped';
 
-/** Single note from GET /api/notes or GET /api/notes/:id */
+/** Single note from GET /notes or GET /notes/:id */
 export interface Note {
   id: string;
   notebook_id: string | null;
@@ -971,7 +971,7 @@ export interface Note {
   version_count?: number;
 }
 
-/** Response from GET /api/notes */
+/** Response from GET /notes */
 export interface NotesResponse {
   notes: Note[];
   total: number;
@@ -979,7 +979,7 @@ export interface NotesResponse {
   offset: number;
 }
 
-/** Query params for GET /api/notes */
+/** Query params for GET /notes */
 export interface ListNotesParams {
   notebook_id?: string;
   tags?: string[];
@@ -993,7 +993,7 @@ export interface ListNotesParams {
   sort_order?: 'asc' | 'desc';
 }
 
-/** Body for POST /api/notes */
+/** Body for POST /notes */
 export interface CreateNoteBody {
   title: string;
   content?: string;
@@ -1005,7 +1005,7 @@ export interface CreateNoteBody {
   is_pinned?: boolean;
 }
 
-/** Body for PUT /api/notes/:id */
+/** Body for PUT /notes/:id */
 export interface UpdateNoteBody {
   title?: string;
   content?: string;
@@ -1047,7 +1047,7 @@ export interface NoteVersion {
   created_at: string;
 }
 
-/** Response from GET /api/notes/:id/versions */
+/** Response from GET /notes/:id/versions */
 export interface NoteVersionsResponse {
   note_id: string;
   current_version: number;
@@ -1071,7 +1071,7 @@ export interface DiffResult {
   stats: DiffStats;
 }
 
-/** Response from GET /api/notes/:id/versions/compare */
+/** Response from GET /notes/:id/versions/compare */
 export interface CompareVersionsResponse {
   note_id: string;
   from: {
@@ -1087,7 +1087,7 @@ export interface CompareVersionsResponse {
   diff: DiffResult;
 }
 
-/** Response from POST /api/notes/:id/versions/:versionNumber/restore */
+/** Response from POST /notes/:id/versions/:versionNumber/restore */
 export interface RestoreVersionResponse {
   note_id: string;
   restored_from_version: number;
@@ -1132,20 +1132,20 @@ export interface NoteLinkShare extends BaseNoteShare {
 /** Union of share types */
 export type NoteShare = NoteUserShare | NoteLinkShare;
 
-/** Response from GET /api/notes/:id/shares */
+/** Response from GET /notes/:id/shares */
 export interface NoteSharesResponse {
   note_id: string;
   shares: NoteShare[];
 }
 
-/** Body for POST /api/notes/:id/share (user share) */
+/** Body for POST /notes/:id/share (user share) */
 export interface CreateUserShareBody {
   email: string;
   permission?: SharePermission;
   expires_at?: string | null;
 }
 
-/** Body for POST /api/notes/:id/share/link */
+/** Body for POST /notes/:id/share/link */
 export interface CreateLinkShareBody {
   permission?: SharePermission;
   is_single_view?: boolean;
@@ -1153,12 +1153,12 @@ export interface CreateLinkShareBody {
   expires_at?: string | null;
 }
 
-/** Response from POST /api/notes/:id/share/link */
+/** Response from POST /notes/:id/share/link */
 export interface CreateLinkShareResponse extends NoteLinkShare {
   url: string;
 }
 
-/** Body for PUT /api/notes/:id/shares/:shareId */
+/** Body for PUT /notes/:id/shares/:shareId */
 export interface UpdateShareBody {
   permission?: SharePermission;
   expires_at?: string | null;
@@ -1173,7 +1173,7 @@ export interface SharedWithMeEntry {
   shared_at: string;
 }
 
-/** Response from GET /api/notes/shared-with-me */
+/** Response from GET /notes/shared-with-me */
 export interface SharedWithMeResponse {
   notes: SharedWithMeEntry[];
 }
@@ -1189,7 +1189,7 @@ export interface NotebookNote {
   updated_at: string;
 }
 
-/** Notebook from GET /api/notebooks or GET /api/notebooks/:id */
+/** Notebook from GET /notebooks or GET /notebooks/:id */
 export interface Notebook {
   id: string;
   user_email: string;
@@ -1210,13 +1210,13 @@ export interface Notebook {
   notes?: NotebookNote[];
 }
 
-/** Response from GET /api/notebooks */
+/** Response from GET /notebooks */
 export interface NotebooksResponse {
   notebooks: Notebook[];
   total: number;
 }
 
-/** Query params for GET /api/notebooks */
+/** Query params for GET /notebooks */
 export interface ListNotebooksParams {
   parent_id?: string | null;
   include_archived?: boolean;
@@ -1236,12 +1236,12 @@ export interface NotebookTreeNode {
   children: NotebookTreeNode[];
 }
 
-/** Response from GET /api/notebooks/tree */
+/** Response from GET /notebooks/tree */
 export interface NotebookTreeResponse {
   notebooks: NotebookTreeNode[];
 }
 
-/** Body for POST /api/notebooks */
+/** Body for POST /notebooks */
 export interface CreateNotebookBody {
   name: string;
   description?: string;
@@ -1250,7 +1250,7 @@ export interface CreateNotebookBody {
   parent_notebook_id?: string;
 }
 
-/** Body for PUT /api/notebooks/:id */
+/** Body for PUT /notebooks/:id */
 export interface UpdateNotebookBody {
   name?: string;
   description?: string | null;
@@ -1260,13 +1260,13 @@ export interface UpdateNotebookBody {
   sort_order?: number;
 }
 
-/** Body for POST /api/notebooks/:id/notes (move/copy notes) */
+/** Body for POST /notebooks/:id/notes (move/copy notes) */
 export interface MoveNotesBody {
   note_ids: string[];
   action: 'move' | 'copy';
 }
 
-/** Response from POST /api/notebooks/:id/notes */
+/** Response from POST /notebooks/:id/notes */
 export interface MoveNotesResponse {
   moved: string[];
   failed: string[];
@@ -1302,31 +1302,31 @@ export interface NotebookLinkShare extends BaseNotebookShare {
 /** Union of notebook share types */
 export type NotebookShare = NotebookUserShare | NotebookLinkShare;
 
-/** Response from GET /api/notebooks/:id/shares */
+/** Response from GET /notebooks/:id/shares */
 export interface NotebookSharesResponse {
   notebook_id: string;
   shares: NotebookShare[];
 }
 
-/** Body for POST /api/notebooks/:id/share (user share) */
+/** Body for POST /notebooks/:id/share (user share) */
 export interface CreateNotebookUserShareBody {
   email: string;
   permission?: SharePermission;
   expires_at?: string | null;
 }
 
-/** Body for POST /api/notebooks/:id/share/link */
+/** Body for POST /notebooks/:id/share/link */
 export interface CreateNotebookLinkShareBody {
   permission?: SharePermission;
   expires_at?: string | null;
 }
 
-/** Response from POST /api/notebooks/:id/share/link */
+/** Response from POST /notebooks/:id/share/link */
 export interface CreateNotebookLinkShareResponse extends NotebookLinkShare {
   url: string;
 }
 
-/** Body for PUT /api/notebooks/:id/shares/:shareId */
+/** Body for PUT /notebooks/:id/shares/:shareId */
 export interface UpdateNotebookShareBody {
   permission?: SharePermission;
   expires_at?: string | null;
@@ -1341,7 +1341,7 @@ export interface NotebookSharedWithMeEntry {
   shared_at: string;
 }
 
-/** Response from GET /api/notebooks/shared-with-me */
+/** Response from GET /notebooks/shared-with-me */
 export interface NotebooksSharedWithMeResponse {
   notebooks: NotebookSharedWithMeEntry[];
 }
@@ -1382,14 +1382,14 @@ export interface SkillStoreItem {
   updated_at: string;
 }
 
-/** Response from GET /api/skill-store/items */
+/** Response from GET /skill-store/items */
 export interface SkillStoreItemsResponse {
   items: SkillStoreItem[];
   total: number;
   has_more: boolean;
 }
 
-/** Skill summary from GET /api/admin/skill-store/skills */
+/** Skill summary from GET /admin/skill-store/skills */
 export interface SkillStoreSummary {
   skill_id: string;
   item_count: number;
@@ -1397,24 +1397,24 @@ export interface SkillStoreSummary {
   last_activity: string;
 }
 
-/** Response from GET /api/admin/skill-store/skills */
+/** Response from GET /admin/skill-store/skills */
 export interface SkillStoreSkillsResponse {
   skills: SkillStoreSummary[];
 }
 
-/** Collection summary from GET /api/skill-store/collections */
+/** Collection summary from GET /skill-store/collections */
 export interface SkillStoreCollection {
   collection: string;
   count: number;
   latest_at: string | null;
 }
 
-/** Response from GET /api/skill-store/collections */
+/** Response from GET /skill-store/collections */
 export interface SkillStoreCollectionsResponse {
   collections: SkillStoreCollection[];
 }
 
-/** Schedule from GET /api/skill-store/schedules */
+/** Schedule from GET /skill-store/schedules */
 export interface SkillStoreSchedule {
   id: string;
   skill_id: string;
@@ -1433,13 +1433,13 @@ export interface SkillStoreSchedule {
   updated_at: string;
 }
 
-/** Response from GET /api/skill-store/schedules */
+/** Response from GET /skill-store/schedules */
 export interface SkillStoreSchedulesResponse {
   schedules: SkillStoreSchedule[];
   total: number;
 }
 
-/** Body for POST /api/skill-store/search */
+/** Body for POST /skill-store/search */
 export interface SkillStoreSearchBody {
   skill_id: string;
   query: string;
@@ -1447,7 +1447,7 @@ export interface SkillStoreSearchBody {
   limit?: number;
 }
 
-/** Response from POST /api/skill-store/search */
+/** Response from POST /skill-store/search */
 export interface SkillStoreSearchResponse {
   items: SkillStoreItem[];
   total: number;
@@ -1491,12 +1491,12 @@ export interface AgentIdentityHistoryEntry {
   created_at: string;
 }
 
-/** Response from GET /api/identity/history */
+/** Response from GET /identity/history */
 export interface AgentIdentityHistoryResponse {
   history: AgentIdentityHistoryEntry[];
 }
 
-/** Body for PUT /api/identity */
+/** Body for PUT /identity */
 export interface CreateAgentIdentityBody {
   name: string;
   display_name?: string;
@@ -1506,7 +1506,7 @@ export interface CreateAgentIdentityBody {
   quirks?: string[];
 }
 
-/** Body for POST /api/identity/proposals */
+/** Body for POST /identity/proposals */
 export interface ProposeIdentityChangeBody {
   name: string;
   field: string;
@@ -1568,7 +1568,7 @@ export interface TerminalConnection {
   updated_at: string;
 }
 
-/** Response from GET /api/terminal/connections */
+/** Response from GET /terminal/connections */
 export interface TerminalConnectionsResponse {
   connections: TerminalConnection[];
 }
@@ -1589,12 +1589,12 @@ export interface TerminalCredential {
   updated_at: string;
 }
 
-/** Response from GET /api/terminal/credentials */
+/** Response from GET /terminal/credentials */
 export interface TerminalCredentialsResponse {
   credentials: TerminalCredential[];
 }
 
-/** Response from POST /api/terminal/credentials/generate */
+/** Response from POST /terminal/credentials/generate */
 export interface TerminalKeyPairResponse {
   credential: TerminalCredential;
   public_key: string;
@@ -1627,7 +1627,7 @@ export interface TerminalSession {
   windows?: TerminalSessionWindow[];
 }
 
-/** Response from GET /api/terminal/sessions */
+/** Response from GET /terminal/sessions */
 export interface TerminalSessionsResponse {
   sessions: TerminalSession[];
 }
@@ -1673,7 +1673,7 @@ export interface TerminalSessionEntry {
   created_at: string;
 }
 
-/** Response from GET /api/terminal/sessions/:id/entries */
+/** Response from GET /terminal/sessions/:id/entries */
 export interface TerminalEntriesResponse {
   entries: TerminalSessionEntry[];
   total: number;
@@ -1697,7 +1697,7 @@ export interface TerminalTunnel {
   connection?: TerminalConnection;
 }
 
-/** Response from GET /api/terminal/tunnels */
+/** Response from GET /terminal/tunnels */
 export interface TerminalTunnelsResponse {
   tunnels: TerminalTunnel[];
 }
@@ -1717,7 +1717,7 @@ export interface TerminalEnrollmentToken {
   token?: string;
 }
 
-/** Response from GET /api/terminal/enrollment-tokens */
+/** Response from GET /terminal/enrollment-tokens */
 export interface TerminalEnrollmentTokensResponse {
   tokens: TerminalEnrollmentToken[];
 }
@@ -1737,7 +1737,7 @@ export interface TerminalKnownHost {
   created_at: string;
 }
 
-/** Response from GET /api/terminal/known-hosts */
+/** Response from GET /terminal/known-hosts */
 export interface TerminalKnownHostsResponse {
   known_hosts: TerminalKnownHost[];
 }
@@ -1754,7 +1754,7 @@ export interface TerminalActivityItem {
   created_at: string;
 }
 
-/** Response from GET /api/terminal/activity */
+/** Response from GET /terminal/activity */
 export interface TerminalActivityResponse {
   items: TerminalActivityItem[];
 }
@@ -1766,7 +1766,7 @@ export interface TerminalSearchResult {
   context: TerminalSessionEntry[];
 }
 
-/** Response from POST /api/terminal/search */
+/** Response from POST /terminal/search */
 export interface TerminalSearchResponse {
   results: TerminalSearchResult[];
   total: number;
@@ -1793,7 +1793,7 @@ export type ChatMessageStatus = 'pending' | 'streaming' | 'delivered' | 'failed'
 /** Chat message content type. */
 export type ChatContentType = 'text/plain' | 'text/markdown' | 'application/vnd.openclaw.rich-card';
 
-/** Chat session from GET /api/chat/sessions */
+/** Chat session from GET /chat/sessions */
 export interface ChatSession {
   id: string;
   thread_id: string;
@@ -1809,12 +1809,12 @@ export interface ChatSession {
   metadata: Record<string, unknown>;
 }
 
-/** Response from GET /api/chat/sessions */
+/** Response from GET /chat/sessions */
 export interface ChatSessionsResponse {
   sessions: ChatSession[];
 }
 
-/** Chat message from GET /api/chat/sessions/:id/messages */
+/** Chat message from GET /chat/sessions/:id/messages */
 export interface ChatMessage {
   id: string;
   thread_id: string;
@@ -1828,7 +1828,7 @@ export interface ChatMessage {
   updated_at: string | null;
 }
 
-/** Response from GET /api/chat/sessions/:id/messages (cursor-paginated) */
+/** Response from GET /chat/sessions/:id/messages (cursor-paginated) */
 export interface ChatMessagesResponse {
   messages: ChatMessage[];
   cursor: string | null;
@@ -1843,24 +1843,24 @@ export interface ChatAgent {
   avatar_url: string | null;
 }
 
-/** Response from GET /api/chat/agents */
+/** Response from GET /chat/agents */
 export interface ChatAgentsResponse {
   agents: ChatAgent[];
 }
 
-/** Body for POST /api/chat/sessions */
+/** Body for POST /chat/sessions */
 export interface CreateChatSessionBody {
   agent_id?: string;
   title?: string;
 }
 
-/** Body for POST /api/chat/sessions/:id/messages */
+/** Body for POST /chat/sessions/:id/messages */
 export interface SendChatMessageBody {
   content: string;
   idempotency_key: string;
 }
 
-/** Body for PATCH /api/chat/sessions/:id */
+/** Body for PATCH /chat/sessions/:id */
 export interface UpdateChatSessionBody {
   title?: string;
 }

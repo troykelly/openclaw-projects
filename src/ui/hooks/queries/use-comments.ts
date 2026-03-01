@@ -27,7 +27,7 @@ export function useWorkItemComments(workItemId: string) {
   return useQuery({
     queryKey: commentKeys.forWorkItem(workItemId),
     queryFn: ({ signal }) =>
-      apiClient.get<CommentsResponse>(`/api/work-items/${workItemId}/comments`, { signal }),
+      apiClient.get<CommentsResponse>(`/work-items/${workItemId}/comments`, { signal }),
     enabled: !!workItemId,
   });
 }
