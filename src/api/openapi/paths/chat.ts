@@ -3,7 +3,9 @@
  *
  * Routes: POST/GET /api/chat/sessions, GET/PATCH /api/chat/sessions/:id,
  *         POST /api/chat/sessions/:id/end,
- *         POST/GET /api/chat/sessions/:id/messages
+ *         POST/GET /api/chat/sessions/:id/messages,
+ *         POST /api/chat/ws/ticket, GET /api/chat/ws,
+ *         POST /api/chat/sessions/:id/stream
  *
  * Epic #1940 — Agent Chat.
  */
@@ -186,6 +188,76 @@ export function chatPaths(): OpenApiDomainModule {
               },
             }),
             ...errorResponses(400, 401, 404, 500),
+          },
+        },
+      },
+
+      // ── WebSocket ticket endpoint (Issue #1944) ────────────────────
+      '/api/chat/ws/ticket': {
+        post: {
+          operationId: 'createChatWsTicket',
+          summary: 'Generate one-time WebSocket ticket',
+          description: 'Creates a one-time ticket (30s TTL) for authenticating a WebSocket connection. Avoids sending JWTs in query strings.',
+          tags: ['Chat'],
+          requestBody: jsonBody({
+            type: 'object',
+            required: ['session_id'],
+            properties: {
+              session_id: { type: 'string', format: 'uuid', description: 'Chat session to connect to' },
+            },
+          }),
+          responses: {
+            '200': jsonResponse('Ticket generated', {
+              type: 'object',
+              properties: {
+                ticket: { type: 'string', description: 'One-time ticket string (64 hex chars)' },
+                expires_in: { type: 'integer', description: 'TTL in seconds', example: 30 },
+              },
+            }),
+            ...errorResponses(400, 401, 404, 409, 500),
+          },
+        },
+      },
+
+      // ── Streaming callback endpoint (Issue #1945) ──────────────────
+      '/api/chat/sessions/{id}/stream': {
+        post: {
+          operationId: 'chatStreamCallback',
+          summary: 'Agent streams response tokens',
+          description: 'M2M endpoint for agents to stream response chunks, signal completion, or report failure. Authenticated via Bearer M2M token + X-Stream-Secret header.',
+          tags: ['Chat'],
+          parameters: [uuidParam('id', 'Chat session ID')],
+          requestBody: jsonBody({
+            type: 'object',
+            required: ['type'],
+            properties: {
+              type: {
+                type: 'string',
+                enum: ['chunk', 'completed', 'failed'],
+                description: 'Stream message type',
+              },
+              content: { type: 'string', description: 'Chunk content (max 4KB) or final content (max 256KB)' },
+              seq: { type: 'integer', description: 'Monotonic sequence number (required for chunk type)' },
+              message_id: { type: 'string', format: 'uuid', description: 'Optional message ID' },
+              agent_run_id: { type: 'string', description: 'Agent run identifier' },
+              error: { type: 'string', description: 'Error message (for failed type)' },
+              content_type: {
+                type: 'string',
+                enum: ['text/plain', 'text/markdown', 'application/vnd.openclaw.rich-card'],
+                default: 'text/plain',
+                description: 'Content type (for completed type)',
+              },
+            },
+          }),
+          responses: {
+            '200': jsonResponse('Stream event processed', {
+              type: 'object',
+              properties: {
+                ok: { type: 'boolean' },
+                message_id: { type: 'string', format: 'uuid', description: 'Message ID for the stream' },
+              },
+            }),
+            ...errorResponses(400, 401, 403, 404, 409, 429, 500),
           },
         },
       },

@@ -739,6 +739,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     '/ws/conversation',
     // OAuth callback comes from external provider redirect
     '/api/oauth/callback',
+    // Chat WebSocket uses one-time ticket auth (Issue #1944)
+    '/api/chat/ws',
   ]);
 
   // JWT authentication hook for API routes

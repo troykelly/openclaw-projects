@@ -4,18 +4,35 @@
  * Registers all /api/chat/* endpoints:
  * - Session CRUD (Issue #1942)
  * - Message send and retrieve (Issue #1943)
+ * - WebSocket ticket + streaming (Issue #1944, #1945)
  *
  * Epic #1940 — Agent Chat.
  */
 
-import { randomBytes } from 'node:crypto';
+import { randomBytes, timingSafeEqual } from 'node:crypto';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { Pool, PoolClient } from 'pg';
+import type { WebSocket } from 'ws';
 
 import { getAuthIdentity } from '../auth/middleware.ts';
 import { isAuthDisabled } from '../auth/jwt.ts';
 import { isValidUUID } from '../utils/validation.ts';
 import { enqueueWebhook } from '../webhooks/dispatcher.ts';
+import {
+  createTicket,
+  consumeTicket,
+  addConnection,
+  removeConnection,
+  cleanExpiredTickets,
+} from './ws-ticket-store.ts';
+import {
+  getStreamManager,
+  type StreamChunkPayload,
+  type StreamCompletedPayload,
+  type StreamFailedPayload,
+} from './stream-manager.ts';
+import { getRealtimeHub } from '../realtime/hub.ts';
+import type { ChatEventType } from '../realtime/types.ts';
 
 // ── Constants ────────────────────────────────────────────────────
 
@@ -188,6 +205,13 @@ export async function chatRoutesPlugin(
       const session = sessionResult.rows[0] as Record<string, unknown>;
 
       await client.query('COMMIT');
+
+      // Emit chat:session_created event (#1946)
+      getRealtimeHub().emit(
+        'chat:session_created' as ChatEventType,
+        { session_id: session.id as string },
+        userEmail,
+      ).catch((err: unknown) => { console.error('[Chat] Fire-and-forget error:', err instanceof Error ? err.message : err); });
 
       return reply.code(201).send({
         id: session.id,
@@ -421,6 +445,13 @@ export async function chatRoutesPlugin(
 
       await client.query('COMMIT');
 
+      // Emit chat:session_ended event (#1946)
+      getRealtimeHub().emit(
+        'chat:session_ended' as ChatEventType,
+        { session_id: params.id },
+        userEmail,
+      ).catch((err: unknown) => { console.error('[Chat] Fire-and-forget error:', err instanceof Error ? err.message : err); });
+
       return reply.send(result.rows[0]);
     } catch (err) {
       await client.query('ROLLBACK');
@@ -553,6 +584,13 @@ export async function chatRoutesPlugin(
         });
       }
 
+      // Emit chat:message_received event (#1946)
+      getRealtimeHub().emit(
+        'chat:message_received' as ChatEventType,
+        { session_id: session.id as string, message_id: message.id as string },
+        userEmail,
+      ).catch((err: unknown) => { console.error('[Chat] Fire-and-forget error:', err instanceof Error ? err.message : err); });
+
       return reply.code(201).send(message);
     } catch (err) {
       await client.query('ROLLBACK');
@@ -628,4 +666,460 @@ export async function chatRoutesPlugin(
 
     return reply.send({ messages, next_cursor: nextCursor });
   });
+
+  // ================================================================
+  // Issue #1944 — Chat WebSocket with one-time ticket authentication
+  // ================================================================
+
+  // Periodic cleanup of expired tickets (every 60s)
+  const ticketCleanupInterval = setInterval(cleanExpiredTickets, 60_000);
+  app.addHook('onClose', () => clearInterval(ticketCleanupInterval));
+
+  // POST /api/chat/ws/ticket — Generate a one-time WebSocket ticket
+  app.post('/api/chat/ws/ticket', async (req, reply) => {
+    const userEmail = await getUserEmail(req);
+    if (!userEmail) {
+      return reply.code(401).send({ error: 'Authentication required' });
+    }
+
+    const body = req.body as Record<string, unknown> | null | undefined;
+    const sessionId = (body?.session_id as string | undefined)?.trim();
+
+    if (!sessionId || !isValidUUID(sessionId)) {
+      return reply.code(400).send({ error: 'session_id is required and must be a valid UUID' });
+    }
+
+    const namespaces = getEffectiveNamespaces(req);
+    const session = await verifySessionAccess(pool, sessionId, userEmail, namespaces);
+    if (!session) {
+      return reply.code(404).send({ error: 'Session not found' });
+    }
+
+    if (session.status !== 'active') {
+      return reply.code(409).send({ error: `Cannot connect to ${session.status} session` });
+    }
+
+    const ticket = createTicket(userEmail, sessionId);
+
+    return reply.send({ ticket, expires_in: 30 });
+  });
+
+  // Per-session WS client tracking for streaming delivery
+  const sessionClients = new Map<string, Set<WebSocket>>();
+
+  /**
+   * Get the session clients map (for stream manager delivery).
+   */
+  function getSessionClients(): Map<string, Set<WebSocket>> {
+    return sessionClients;
+  }
+
+  // GET /api/chat/ws — WebSocket upgrade with ticket authentication
+  app.get('/api/chat/ws', { websocket: true }, async (socket: WebSocket, req: FastifyRequest) => {
+    const query = req.query as { ticket?: string; session_id?: string };
+    const ticket = query.ticket;
+    const sessionId = query.session_id;
+
+    if (!ticket || !sessionId) {
+      socket.close(4400, 'ticket and session_id query parameters required');
+      return;
+    }
+
+    if (!isValidUUID(sessionId)) {
+      socket.close(4400, 'Invalid session_id format');
+      return;
+    }
+
+    // Origin validation (CSWSH protection)
+    const origin = req.headers.origin;
+    const allowedOrigins = process.env.ALLOWED_WS_ORIGINS?.split(',').map(o => o.trim());
+    if (allowedOrigins && allowedOrigins.length > 0 && origin) {
+      if (!allowedOrigins.includes(origin)) {
+        socket.close(4403, 'Origin not allowed');
+        return;
+      }
+    }
+
+    // Consume the one-time ticket
+    const ticketData = consumeTicket(ticket);
+    if (!ticketData) {
+      socket.close(4401, 'Invalid or expired ticket');
+      return;
+    }
+
+    // Verify session_id matches the ticket
+    if (ticketData.sessionId !== sessionId) {
+      socket.close(4401, 'Session mismatch');
+      return;
+    }
+
+    // Check connection limit
+    const connectionId = addConnection(ticketData.userEmail);
+    if (!connectionId) {
+      socket.close(4429, 'Too many connections');
+      return;
+    }
+
+    // Add to session clients for streaming delivery
+    let clients = sessionClients.get(sessionId);
+    if (!clients) {
+      clients = new Set();
+      sessionClients.set(sessionId, clients);
+    }
+    clients.add(socket);
+
+    // Send connection established
+    safeSend(socket, {
+      type: 'connection:established',
+      connection_id: connectionId,
+      session_id: sessionId,
+    });
+
+    // Typing indicator rate limiting (2/sec per connection)
+    let lastTypingAt = 0;
+    const TYPING_RATE_LIMIT_MS = 500; // 2 per second
+
+    // Handle incoming messages
+    socket.on('message', (data: Buffer | string) => {
+      try {
+        const raw = typeof data === 'string' ? data : data.toString('utf8');
+        const message = JSON.parse(raw) as Record<string, unknown>;
+
+        switch (message.type) {
+          case 'ping':
+            safeSend(socket, { type: 'pong' });
+            break;
+
+          case 'typing': {
+            const now = Date.now();
+            if (now - lastTypingAt < TYPING_RATE_LIMIT_MS) {
+              break; // Rate limited — drop silently
+            }
+            lastTypingAt = now;
+
+            // Broadcast typing indicator via RealtimeHub (except to sender)
+            const isTyping = message.is_typing === true;
+            getRealtimeHub().emit(
+              'chat:typing' as ChatEventType,
+              {
+                session_id: sessionId,
+                agent_id: null,
+                is_typing: isTyping,
+                source_connection_id: connectionId,
+              },
+              ticketData.userEmail,
+            ).catch((err: unknown) => { console.error('[Chat] Fire-and-forget error:', err instanceof Error ? err.message : err); });
+            break;
+          }
+
+          case 'read_cursor': {
+            const lastReadMessageId = message.last_read_message_id;
+            if (typeof lastReadMessageId !== 'string' || !isValidUUID(lastReadMessageId)) {
+              break; // Invalid — drop silently
+            }
+
+            // Update read cursor in DB (fire-and-forget)
+            pool.query(
+              `INSERT INTO chat_read_cursor (user_email, session_id, last_read_message_id, last_read_at)
+               VALUES ($1, $2, $3, NOW())
+               ON CONFLICT (user_email, session_id)
+               DO UPDATE SET last_read_message_id = $3, last_read_at = NOW()`,
+              [ticketData.userEmail, sessionId, lastReadMessageId],
+            ).catch((err: unknown) => { console.error('[Chat] Fire-and-forget error:', err instanceof Error ? err.message : err); });
+
+            // Emit read cursor event
+            getRealtimeHub().emit(
+              'chat:read_cursor_updated' as ChatEventType,
+              {
+                session_id: sessionId,
+                last_read_message_id: lastReadMessageId,
+              },
+              ticketData.userEmail,
+            ).catch((err: unknown) => { console.error('[Chat] Fire-and-forget error:', err instanceof Error ? err.message : err); });
+            break;
+          }
+
+          default:
+            // Unknown message type — ignore
+            break;
+        }
+      } catch {
+        // Malformed JSON — ignore
+      }
+    });
+
+    // Heartbeat: 30-second ping
+    const heartbeatInterval = setInterval(() => {
+      if (socket.readyState === 1) {
+        safeSend(socket, { type: 'ping' });
+      }
+    }, 30_000);
+
+    // Handle disconnect
+    socket.on('close', () => {
+      clearInterval(heartbeatInterval);
+      removeConnection(ticketData.userEmail, connectionId);
+      const sessClients = sessionClients.get(sessionId);
+      if (sessClients) {
+        sessClients.delete(socket);
+        if (sessClients.size === 0) {
+          sessionClients.delete(sessionId);
+        }
+      }
+    });
+
+    socket.on('error', () => {
+      clearInterval(heartbeatInterval);
+      removeConnection(ticketData.userEmail, connectionId);
+      const sessClients = sessionClients.get(sessionId);
+      if (sessClients) {
+        sessClients.delete(socket);
+        if (sessClients.size === 0) {
+          sessionClients.delete(sessionId);
+        }
+      }
+    });
+  });
+
+  // ================================================================
+  // Issue #1945 — Agent streaming callback endpoint
+  // ================================================================
+
+  const streamManager = getStreamManager();
+
+  // POST /api/chat/sessions/:id/stream — Agent streams response tokens
+  app.post('/api/chat/sessions/:id/stream', async (req, reply) => {
+    const params = req.params as { id: string };
+    if (!isValidUUID(params.id)) {
+      return reply.code(400).send({ error: 'Invalid session ID format' });
+    }
+
+    // M2M authentication: agent must provide Bearer token + X-Stream-Secret
+    const identity = await getAuthIdentity(req);
+    // In auth-disabled mode, allow; otherwise require M2M identity
+    if (!isAuthDisabled() && (!identity || identity.type !== 'm2m')) {
+      return reply.code(401).send({ error: 'M2M authentication required' });
+    }
+
+    const streamSecret = req.headers['x-stream-secret'];
+    if (!streamSecret || typeof streamSecret !== 'string') {
+      return reply.code(401).send({ error: 'X-Stream-Secret header required' });
+    }
+
+    // Look up session by ID (no user_email filter — this is M2M)
+    const sessionResult = await pool.query(
+      `SELECT id, thread_id, user_email, agent_id, stream_secret, status, namespace
+       FROM chat_session WHERE id = $1`,
+      [params.id],
+    );
+    if (sessionResult.rows.length === 0) {
+      return reply.code(404).send({ error: 'Session not found' });
+    }
+
+    const session = sessionResult.rows[0] as {
+      id: string;
+      thread_id: string;
+      user_email: string;
+      agent_id: string;
+      stream_secret: string;
+      status: string;
+      namespace: string;
+    };
+
+    // Validate stream_secret (timing-safe comparison)
+    const expected = Buffer.from(session.stream_secret, 'utf8');
+    const provided = Buffer.from(streamSecret, 'utf8');
+    if (expected.length !== provided.length || !timingSafeEqual(expected, provided)) {
+      return reply.code(403).send({ error: 'Invalid stream secret' });
+    }
+
+    // Validate session status
+    if (session.status !== 'active') {
+      return reply.code(409).send({ error: `Session is ${session.status}` });
+    }
+
+    // Validate agent_id if M2M identity provides it
+    const requestAgentId = req.headers['x-agent-id'] as string | undefined;
+    if (requestAgentId && requestAgentId !== session.agent_id) {
+      return reply.code(403).send({ error: 'Agent ID mismatch' });
+    }
+
+    const body = req.body as Record<string, unknown> | null;
+    if (!body || !body.type) {
+      return reply.code(400).send({ error: 'Request body with type field is required' });
+    }
+
+    const messageType = body.type as string;
+
+    switch (messageType) {
+      case 'chunk': {
+        const content = body.content as string | undefined;
+        const seq = body.seq as number | undefined;
+
+        if (typeof content !== 'string') {
+          return reply.code(400).send({ error: 'content is required for chunk type' });
+        }
+        if (typeof seq !== 'number' || !Number.isInteger(seq) || seq < 0) {
+          return reply.code(400).send({ error: 'seq must be a non-negative integer' });
+        }
+        if (Buffer.byteLength(content, 'utf8') > 4096) {
+          return reply.code(400).send({ error: 'Chunk exceeds 4KB limit' });
+        }
+
+        const payload: StreamChunkPayload = {
+          content,
+          seq,
+          message_id: body.message_id as string | undefined,
+          agent_run_id: body.agent_run_id as string | undefined,
+        };
+
+        const result = streamManager.handleChunk(params.id, payload);
+        if (!result.ok) {
+          return reply.code(result.status).send({ error: result.error });
+        }
+
+        // Forward to connected WS clients
+        const wsClients = sessionClients.get(params.id);
+        if (wsClients) {
+          const wsMessage = JSON.stringify({
+            type: 'stream:chunk',
+            session_id: params.id,
+            message_id: result.messageId,
+            chunk: content,
+            seq,
+          });
+          for (const ws of wsClients) {
+            if (ws.readyState === 1) {
+              ws.send(wsMessage);
+            }
+          }
+        }
+
+        return reply.code(200).send({ ok: true, message_id: result.messageId });
+      }
+
+      case 'completed': {
+        const fullContent = body.content as string | undefined;
+        if (typeof fullContent !== 'string') {
+          return reply.code(400).send({ error: 'content is required for completed type' });
+        }
+
+        if (Buffer.byteLength(fullContent, 'utf8') > 262144) {
+          return reply.code(400).send({ error: 'Content exceeds 256KB limit' });
+        }
+
+        const payload: StreamCompletedPayload = {
+          content: fullContent,
+          message_id: body.message_id as string | undefined,
+          agent_run_id: body.agent_run_id as string | undefined,
+          content_type: (body.content_type as string | undefined) ?? 'text/plain',
+        };
+
+        const result = streamManager.handleCompleted(params.id, payload);
+        if (!result.ok) {
+          return reply.code(result.status).send({ error: result.error });
+        }
+
+        // Store final message as external_message
+        const messageKey = `agent:${session.agent_id}:${Date.now()}`;
+        const insertResult = await pool.query(
+          `INSERT INTO external_message
+           (thread_id, external_message_key, direction, body, status, agent_run_id, content_type)
+           VALUES ($1, $2, 'inbound', $3, 'delivered', $4, $5)
+           RETURNING id`,
+          [session.thread_id, messageKey, fullContent, payload.agent_run_id ?? null, payload.content_type],
+        );
+        const messageId = (insertResult.rows[0] as { id: string }).id;
+
+        // Update session activity
+        await pool.query(
+          `UPDATE chat_session SET last_activity_at = NOW() WHERE id = $1`,
+          [params.id],
+        );
+
+        // Notify WS clients
+        const wsClients2 = sessionClients.get(params.id);
+        if (wsClients2) {
+          const wsMessage = JSON.stringify({
+            type: 'stream:completed',
+            session_id: params.id,
+            message_id: messageId,
+            full_content: fullContent,
+          });
+          for (const ws of wsClients2) {
+            if (ws.readyState === 1) {
+              ws.send(wsMessage);
+            }
+          }
+        }
+
+        // Emit realtime event
+        getRealtimeHub().emit(
+          'chat:message_received' as ChatEventType,
+          { session_id: params.id, message_id: messageId },
+          session.user_email,
+        ).catch((err: unknown) => { console.error('[Chat] Fire-and-forget error:', err instanceof Error ? err.message : err); });
+
+        return reply.code(200).send({ ok: true, message_id: messageId });
+      }
+
+      case 'failed': {
+        const error = (body.error as string | undefined) ?? 'Unknown error';
+
+        const failPayload: StreamFailedPayload = {
+          error,
+          message_id: body.message_id as string | undefined,
+        };
+
+        const result = streamManager.handleFailed(params.id, failPayload);
+        if (!result.ok) {
+          return reply.code(result.status).send({ error: result.error });
+        }
+
+        // If there's a pending message, update its status to failed
+        if (result.messageId) {
+          await pool.query(
+            `UPDATE external_message SET status = 'failed', updated_at = NOW()
+             WHERE id = $1`,
+            [result.messageId],
+          ).catch((err: unknown) => { console.error('[Chat] Failed to update message status:', err instanceof Error ? err.message : err); });
+        }
+
+        // Notify WS clients — sanitize error text to avoid leaking internals
+        const sanitisedError = typeof error === 'string' && error.length > 0
+          ? error.slice(0, 200)
+          : 'Agent error';
+        const wsClients3 = sessionClients.get(params.id);
+        if (wsClients3) {
+          const wsMessage = JSON.stringify({
+            type: 'stream:failed',
+            session_id: params.id,
+            message_id: result.messageId,
+            error: sanitisedError,
+          });
+          for (const ws of wsClients3) {
+            if (ws.readyState === 1) {
+              ws.send(wsMessage);
+            }
+          }
+        }
+
+        return reply.code(200).send({ ok: true });
+      }
+
+      default:
+        return reply.code(400).send({ error: `Unknown stream type: ${messageType}` });
+    }
+  });
+}
+
+/** Safely send a JSON message to a WebSocket. */
+function safeSend(socket: WebSocket, data: Record<string, unknown>): void {
+  try {
+    if (socket.readyState === 1) {
+      socket.send(JSON.stringify(data));
+    }
+  } catch {
+    // Socket error — ignore
+  }
 }
