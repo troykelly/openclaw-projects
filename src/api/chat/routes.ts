@@ -44,6 +44,16 @@ import {
   removePushSubscription,
   validatePushSubscription,
 } from './push-subscription.ts';
+import {
+  checkSessionCreation,
+  checkMessageSend,
+  checkAgentMessageSend,
+  checkStreamChunk,
+  clearStreamState,
+  checkTyping,
+  checkAttractAttention,
+  chargeAttractAttention,
+} from './rate-limits.ts';
 
 // ── Constants ────────────────────────────────────────────────────
 
@@ -150,6 +160,13 @@ export async function chatRoutesPlugin(
     const userEmail = await getUserEmail(req);
     if (!userEmail) {
       return reply.code(401).send({ error: 'Authentication required' });
+    }
+
+    // Rate limit: session creation (#1960)
+    const rl = checkSessionCreation(userEmail);
+    if (!rl.allowed) {
+      void reply.header('Retry-After', String(rl.retryAfterSec ?? 60));
+      return reply.code(429).send({ error: 'Rate limit: too many session creations' });
     }
 
     const namespace = getStoreNamespace(req);
@@ -483,6 +500,13 @@ export async function chatRoutesPlugin(
       return reply.code(401).send({ error: 'Authentication required' });
     }
 
+    // Rate limit: message send (#1960)
+    const rl = checkMessageSend(userEmail);
+    if (!rl.allowed) {
+      void reply.header('Retry-After', String(rl.retryAfterSec ?? 60));
+      return reply.code(429).send({ error: 'Rate limit: too many messages' });
+    }
+
     const params = req.params as { id: string };
     if (!isValidUUID(params.id)) {
       return reply.code(400).send({ error: 'Invalid session ID format' });
@@ -786,10 +810,6 @@ export async function chatRoutesPlugin(
       session_id: sessionId,
     });
 
-    // Typing indicator rate limiting (2/sec per connection)
-    let lastTypingAt = 0;
-    const TYPING_RATE_LIMIT_MS = 500; // 2 per second
-
     // Handle incoming messages
     socket.on('message', (data: Buffer | string) => {
       try {
@@ -802,11 +822,10 @@ export async function chatRoutesPlugin(
             break;
 
           case 'typing': {
-            const now = Date.now();
-            if (now - lastTypingAt < TYPING_RATE_LIMIT_MS) {
+            // Rate limit: typing events (#1960)
+            if (!checkTyping(connectionId).allowed) {
               break; // Rate limited — drop silently
             }
-            lastTypingAt = now;
 
             // Broadcast typing indicator via RealtimeHub (except to sender)
             const isTyping = message.is_typing === true;
@@ -973,8 +992,16 @@ export async function chatRoutesPlugin(
         if (typeof seq !== 'number' || !Number.isInteger(seq) || seq < 0) {
           return reply.code(400).send({ error: 'seq must be a non-negative integer' });
         }
-        if (Buffer.byteLength(content, 'utf8') > 4096) {
+        const chunkBytes = Buffer.byteLength(content, 'utf8');
+        if (chunkBytes > 4096) {
           return reply.code(400).send({ error: 'Chunk exceeds 4KB limit' });
+        }
+
+        // Rate limit: stream chunks (#1960)
+        const streamRl = checkStreamChunk(params.id, chunkBytes);
+        if (!streamRl.allowed) {
+          void reply.header('Retry-After', String(streamRl.retryAfterSec ?? 1));
+          return reply.code(429).send({ error: 'Rate limit: stream chunk limit exceeded' });
         }
 
         const payload: StreamChunkPayload = {
@@ -1071,6 +1098,9 @@ export async function chatRoutesPlugin(
           session.user_email,
         ).catch((err: unknown) => { console.error('[Chat] Fire-and-forget error:', err instanceof Error ? err.message : err); });
 
+        // Clear stream rate limit state (#1960)
+        clearStreamState(params.id);
+
         return reply.code(200).send({ ok: true, message_id: messageId });
       }
 
@@ -1114,6 +1144,9 @@ export async function chatRoutesPlugin(
             }
           }
         }
+
+        // Clear stream rate limit state (#1960)
+        clearStreamState(params.id);
 
         return reply.code(200).send({ ok: true });
       }
@@ -1170,14 +1203,6 @@ export async function chatRoutesPlugin(
  * Register M2M endpoints for agent-initiated actions.
  */
 function registerAgentEndpoints(app: FastifyInstance, pool: Pool): void {
-  // Rate limit state: session_id -> { count, windowStart }
-  const sendMessageRateLimits = new Map<string, { count: number; windowStart: number }>();
-  // Rate limit state: user_email -> { hourly: {count, windowStart}, daily: {count, windowStart} }
-  const attractAttentionRateLimits = new Map<string, {
-    hourly: { count: number; windowStart: number };
-    daily: { count: number; windowStart: number };
-  }>();
-
   /**
    * POST /api/chat/sessions/:id/agent-message
    * M2M endpoint: agent sends a message to a user in an active session.
@@ -1230,25 +1255,17 @@ function registerAgentEndpoints(app: FastifyInstance, pool: Pool): void {
       return reply.code(409).send({ error: 'Session is not active' });
     }
 
-    // Rate limit: 10/min per session
-    const now = Date.now();
-    const windowMs = 60_000;
-    let rl = sendMessageRateLimits.get(params.id);
-    if (!rl || now - rl.windowStart >= windowMs) {
-      rl = { count: 0, windowStart: now };
-      sendMessageRateLimits.set(params.id, rl);
-    }
-    if (rl.count >= 10) {
-      return reply.code(429).send({ error: 'Rate limit: max 10 messages/min per session' });
-    }
-
-    // Validate content before charging rate limit
+    // Validate content before rate limit check
     if (!body || typeof body !== 'object' || !body.content || typeof body.content !== 'string') {
       return reply.code(400).send({ error: 'content is required' });
     }
 
-    // Charge rate limit only after validation passes
-    rl.count++;
+    // Rate limit: 10/min per session (#1960)
+    const rl = checkAgentMessageSend(params.id);
+    if (!rl.allowed) {
+      void reply.header('Retry-After', String(rl.retryAfterSec ?? 60));
+      return reply.code(429).send({ error: 'Rate limit: max 10 messages/min per session' });
+    }
 
     const result = await executeChatSendMessage(
       pool,
@@ -1291,28 +1308,11 @@ function registerAgentEndpoints(app: FastifyInstance, pool: Pool): void {
       return reply.code(400).send({ error: 'reason_key is required' });
     }
 
-    // Rate limit: 3/hour, 10/day per user
-    const now = Date.now();
-    let rl = attractAttentionRateLimits.get(userEmail);
-    if (!rl) {
-      rl = {
-        hourly: { count: 0, windowStart: now },
-        daily: { count: 0, windowStart: now },
-      };
-      attractAttentionRateLimits.set(userEmail, rl);
-    }
-    // Reset windows if expired
-    if (now - rl.hourly.windowStart >= 3_600_000) {
-      rl.hourly = { count: 0, windowStart: now };
-    }
-    if (now - rl.daily.windowStart >= 86_400_000) {
-      rl.daily = { count: 0, windowStart: now };
-    }
-    if (rl.hourly.count >= 3) {
-      return reply.code(429).send({ error: 'Rate limit: max 3 notifications/hour per user' });
-    }
-    if (rl.daily.count >= 10) {
-      return reply.code(429).send({ error: 'Rate limit: max 10 notifications/day per user' });
+    // Rate limit: 3/hour, 10/day per user (#1960)
+    const rl = checkAttractAttention(userEmail);
+    if (!rl.allowed) {
+      void reply.header('Retry-After', String(rl.retryAfterSec ?? 60));
+      return reply.code(429).send({ error: 'Rate limit: too many notifications' });
     }
 
     // Resolve namespace
@@ -1340,8 +1340,7 @@ function registerAgentEndpoints(app: FastifyInstance, pool: Pool): void {
 
     // Charge rate limit only after successful, non-deduplicated delivery
     if (!result.deduplicated) {
-      rl.hourly.count++;
-      rl.daily.count++;
+      chargeAttractAttention(userEmail);
     }
 
     return reply.code(200).send({
