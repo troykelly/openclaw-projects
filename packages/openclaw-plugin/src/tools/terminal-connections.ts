@@ -116,7 +116,7 @@ export function createTerminalConnectionListTool(options: TerminalConnectionTool
 
   return {
     name: 'terminal_connection_list',
-    description: 'List saved terminal connections. Optionally filter by tags, search term, or local/remote.',
+    description: 'Lists saved terminal connections with optional filtering by tags, search term, or local/remote. Use to discover available hosts before starting a session. Read-only.',
     parameters: TerminalConnectionListParamsSchema,
 
     async execute(params: TerminalConnectionListParams): Promise<TerminalConnectionListResult> {
@@ -241,7 +241,7 @@ export function createTerminalConnectionCreateTool(options: TerminalConnectionTo
 
   return {
     name: 'terminal_connection_create',
-    description: 'Create a new terminal connection definition. Specify host/port/username for SSH connections, or set is_local=true for local tmux.',
+    description: 'Creates a new terminal connection definition. Specify host/port/username for SSH, or is_local=true for local tmux. Persists the connection for reuse across sessions. Use terminal_connection_test to verify connectivity after creation.',
     parameters: TerminalConnectionCreateParamsSchema,
 
     async execute(params: TerminalConnectionCreateParams): Promise<TerminalConnectionCreateResult> {
@@ -356,7 +356,7 @@ export function createTerminalConnectionUpdateTool(options: TerminalConnectionTo
 
   return {
     name: 'terminal_connection_update',
-    description: 'Update an existing terminal connection. Only provided fields will be changed.',
+    description: 'Updates an existing terminal connection definition. Only provided fields are modified. Use to change host, credentials, or tags on a saved connection. Does not affect active sessions using this connection.',
     parameters: TerminalConnectionUpdateParamsSchema,
 
     async execute(params: TerminalConnectionUpdateParams): Promise<TerminalConnectionUpdateResult> {
@@ -461,7 +461,7 @@ export function createTerminalConnectionDeleteTool(options: TerminalConnectionTo
 
   return {
     name: 'terminal_connection_delete',
-    description: 'Soft-delete a terminal connection. The connection will be marked as deleted but retained for history.',
+    description: 'Soft-deletes a terminal connection. The connection is marked as deleted but retained for history. Active sessions on this connection are not terminated. Requires the connection ID.',
     parameters: TerminalConnectionDeleteParamsSchema,
 
     async execute(params: TerminalConnectionDeleteParams): Promise<TerminalConnectionDeleteResult> {
@@ -564,7 +564,7 @@ export function createTerminalConnectionTestTool(options: TerminalConnectionTool
 
   return {
     name: 'terminal_connection_test',
-    description: 'Test SSH connectivity to a saved connection. Returns latency and host key fingerprint on success.',
+    description: 'Tests SSH connectivity to a saved connection. Returns latency and host key fingerprint on success. Use after creating or updating a connection to verify it works. Requires an existing connection ID.',
     parameters: TerminalConnectionTestParamsSchema,
 
     async execute(params: TerminalConnectionTestParams): Promise<TerminalConnectionTestResult> {
@@ -683,7 +683,7 @@ export function createTerminalCredentialCreateTool(options: TerminalConnectionTo
 
   return {
     name: 'terminal_credential_create',
-    description: 'Create a terminal credential. Upload an SSH key, set a password, or configure a command-based credential provider.',
+    description: 'Creates a terminal credential (SSH key, password, or command-based provider). Persists the credential for use with terminal connections. Secrets are stored server-side and never returned in responses.',
     parameters: TerminalCredentialCreateParamsSchema,
 
     async execute(params: TerminalCredentialCreateParams): Promise<TerminalCredentialCreateResult> {
@@ -792,7 +792,7 @@ export function createTerminalCredentialListTool(options: TerminalConnectionTool
 
   return {
     name: 'terminal_credential_list',
-    description: 'List terminal credentials (metadata only, no secrets). Optionally filter by kind.',
+    description: 'Lists terminal credentials with metadata only (no secrets exposed). Optionally filter by kind (ssh_key, password, command). Use to find credential IDs for assigning to connections. Read-only.',
     parameters: TerminalCredentialListParamsSchema,
 
     async execute(params: TerminalCredentialListParams): Promise<TerminalCredentialListResult> {
@@ -901,7 +901,7 @@ export function createTerminalCredentialDeleteTool(options: TerminalConnectionTo
 
   return {
     name: 'terminal_credential_delete',
-    description: 'Delete a terminal credential. The credential will be removed and can no longer be used by connections.',
+    description: 'Permanently deletes a terminal credential. The credential is removed and can no longer be used by connections. Connections referencing this credential will fail to authenticate until reassigned.',
     parameters: TerminalCredentialDeleteParamsSchema,
 
     async execute(params: TerminalCredentialDeleteParams): Promise<TerminalCredentialDeleteResult> {

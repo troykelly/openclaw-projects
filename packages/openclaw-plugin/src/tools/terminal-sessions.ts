@@ -130,7 +130,7 @@ export function createTerminalSessionStartTool(options: TerminalSessionToolOptio
 
   return {
     name: 'terminal_session_start',
-    description: 'Start a new tmux session on a connection. Returns session ID for use with send_command and other tools.',
+    description: 'Starts a new tmux session on a saved connection. Returns a session ID for use with terminal_send_command and other session tools. Requires a saved connection ID. Optionally runs an initial command on start.',
     parameters: TerminalSessionStartParamsSchema,
 
     async execute(params: TerminalSessionStartParams): Promise<TerminalSessionStartResult> {
@@ -248,7 +248,7 @@ export function createTerminalSessionListTool(options: TerminalSessionToolOption
 
   return {
     name: 'terminal_session_list',
-    description: 'List terminal sessions. Optionally filter by connection or status (active, terminated, etc.).',
+    description: 'Lists terminal sessions with optional filtering by connection or status (active, terminated). Use to find active session IDs before sending commands. Read-only. No prerequisites.',
     parameters: TerminalSessionListParamsSchema,
 
     async execute(params: TerminalSessionListParams): Promise<TerminalSessionListResult> {
@@ -366,7 +366,7 @@ export function createTerminalSessionTerminateTool(options: TerminalSessionToolO
 
   return {
     name: 'terminal_session_terminate',
-    description: 'Terminate a running terminal session. The session history is preserved.',
+    description: 'Terminates a running terminal session. The session history is preserved but no new commands can be sent. Requires an active session ID. Use terminal_session_list to find sessions.',
     parameters: TerminalSessionTerminateParamsSchema,
 
     async execute(params: TerminalSessionTerminateParams): Promise<TerminalSessionTerminateResult> {
@@ -457,7 +457,7 @@ export function createTerminalSessionInfoTool(options: TerminalSessionToolOption
 
   return {
     name: 'terminal_session_info',
-    description: 'Get detailed information about a terminal session including windows, panes, and connection details.',
+    description: 'Gets detailed information about a terminal session including windows, panes, and connection details. Use to inspect session state before sending commands. Read-only. Requires an active session ID.',
     parameters: TerminalSessionInfoParamsSchema,
 
     async execute(params: TerminalSessionInfoParams): Promise<TerminalSessionInfoResult> {
@@ -585,7 +585,7 @@ export function createTerminalSendCommandTool(options: TerminalSessionToolOption
 
   return {
     name: 'terminal_send_command',
-    description: 'Send a shell command to a terminal session and wait for output. Returns the command output, exit code, and execution duration.',
+    description: 'Executes a shell command on the remote host via a terminal session. Returns output, exit code, and duration. Default 30s timeout. Requires an active session ID. For raw keystrokes, use terminal_send_keys instead.',
     parameters: TerminalSendCommandParamsSchema,
 
     async execute(params: TerminalSendCommandParams): Promise<TerminalSendCommandResult> {
@@ -724,7 +724,7 @@ export function createTerminalSendKeysTool(options: TerminalSessionToolOptions):
 
   return {
     name: 'terminal_send_keys',
-    description: 'Send raw keystrokes to a terminal session. Supports special keys: Enter, Tab, Escape, C-c, C-d, C-z, Up, Down, Left, Right.',
+    description: 'Sends raw keystrokes to a terminal session. May trigger interactive prompts or signal handling. Not for running commands (use terminal_send_command). Requires an active session ID.',
     parameters: TerminalSendKeysParamsSchema,
 
     async execute(params: TerminalSendKeysParams): Promise<TerminalSendKeysResult> {
@@ -843,7 +843,7 @@ export function createTerminalCapturePaneTool(options: TerminalSessionToolOption
 
   return {
     name: 'terminal_capture_pane',
-    description: 'Capture and read the current visible content of a terminal pane. Optionally specify number of scrollback lines.',
+    description: 'Captures the current visible content of a terminal pane. Optionally include scrollback lines. Use to read output after terminal_send_keys. Read-only. Requires an active session ID.',
     parameters: TerminalCapturePaneParamsSchema,
 
     async execute(params: TerminalCapturePaneParams): Promise<TerminalCapturePaneResult> {

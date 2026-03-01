@@ -94,7 +94,7 @@ export function createNoteCreateTool(options: NoteToolOptions): NoteCreateTool {
   return {
     name: 'note_create',
     description:
-      'Create a new note with markdown content. Use for meeting notes, documentation, ' + 'research, or any information worth preserving as a document.',
+      'Creates a new note with markdown content. Use for long-form documents such as meeting notes, documentation, or research. For discrete facts or preferences, use memory_store instead. Persists the note with optional notebook assignment.',
     parameters: NoteCreateParamsSchema,
 
     async execute(params: NoteCreateParams): Promise<NoteCreateResult> {
@@ -229,7 +229,7 @@ export function createNoteGetTool(options: NoteToolOptions): NoteGetTool {
 
   return {
     name: 'note_get',
-    description: 'Get a note by its ID. Returns the full content and metadata of the note. ' + 'Only accessible if you have permission to view the note.',
+    description: 'Gets a note by its ID. Returns the full content, metadata, and optional version history. Only accessible if you have permission to view the note. Read-only.',
     parameters: NoteGetParamsSchema,
 
     async execute(params: NoteGetParams): Promise<NoteGetResult> {
@@ -357,8 +357,7 @@ export function createNoteUpdateTool(options: NoteToolOptions): NoteUpdateTool {
   return {
     name: 'note_update',
     description:
-      'Update an existing note. Can update title, content, tags, visibility, or move to a different notebook. ' +
-      'Creates a version in history when content changes.',
+      'Updates an existing note. Can modify title, content, tags, visibility, or move to a different notebook. Creates a version in history when content changes. Only the note owner can update.',
     parameters: NoteUpdateParamsSchema,
 
     async execute(params: NoteUpdateParams): Promise<NoteUpdateResult> {
@@ -518,7 +517,7 @@ export function createNoteDeleteTool(options: NoteToolOptions): NoteDeleteTool {
 
   return {
     name: 'note_delete',
-    description: 'Delete a note. This soft-deletes the note, which can be restored later. ' + 'Only the note owner can delete a note.',
+    description: 'Soft-deletes a note. The note can be restored later. Only the note owner can delete. Use note_search or note_get to find the note ID first.',
     parameters: NoteDeleteParamsSchema,
 
     async execute(params: NoteDeleteParams): Promise<NoteDeleteResult> {
@@ -648,8 +647,7 @@ export function createNoteSearchTool(options: NoteToolOptions): NoteSearchTool {
   return {
     name: 'note_search',
     description:
-      'Search notes using text search, semantic search, or hybrid (combines both). ' +
-      'Respects privacy settings - private notes are only visible to their owner.',
+      'Searches notes using text, semantic, or hybrid search. Searches notes only. For cross-entity search, prefer context_search. Respects privacy settings; private notes are only visible to their owner.',
     parameters: NoteSearchParamsSchema,
 
     async execute(params: NoteSearchParams): Promise<NoteSearchToolResult> {

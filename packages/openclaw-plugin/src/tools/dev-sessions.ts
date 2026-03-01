@@ -124,7 +124,7 @@ export function createDevSessionCreateTool(options: DevSessionToolOptions): DevS
 
   return {
     name: 'dev_session_create',
-    description: 'Create a new developer coding session. Tracks what you are working on, which machine, branch, and linked issues.',
+    description: 'Creates a session tracking record for developer coding activity. Use to track coding context across agent turns. Persists machine, branch, and linked issues. Call dev_session_complete when work finishes.',
     parameters: DevSessionCreateParamsSchema,
 
     async execute(params: DevSessionCreateParams): Promise<DevSessionCreateResult> {
@@ -253,7 +253,7 @@ export function createDevSessionListTool(options: DevSessionToolOptions): DevSes
 
   return {
     name: 'dev_session_list',
-    description: 'List dev sessions. Optionally filter by status (active, completed, abandoned), node, or project.',
+    description: 'Lists dev sessions with optional filtering by status (active, completed, abandoned), node, or project. Use to find active sessions or review past work. Read-only.',
     parameters: DevSessionListParamsSchema,
 
     async execute(params: DevSessionListParams): Promise<DevSessionListResult> {
@@ -372,7 +372,7 @@ export function createDevSessionGetTool(options: DevSessionToolOptions): DevSess
 
   return {
     name: 'dev_session_get',
-    description: 'Get detailed information about a specific dev session including task, branch, context usage, and linked issues.',
+    description: 'Gets detailed information about a specific dev session including task summary, branch, context percentage, and linked issues/PRs. Use to resume or review a session. Read-only.',
     parameters: DevSessionGetParamsSchema,
 
     async execute(params: DevSessionGetParams): Promise<DevSessionGetResult> {
@@ -492,7 +492,7 @@ export function createDevSessionUpdateTool(options: DevSessionToolOptions): DevS
 
   return {
     name: 'dev_session_update',
-    description: 'Update a dev session. Use this to change status, update task summary, record context percentage, or save a context capture.',
+    description: 'Updates a dev session with new status, task summary, context percentage, or capture data. Only provided fields are modified. Use to track progress during ongoing work. Does not complete the session (use dev_session_complete).',
     parameters: DevSessionUpdateParamsSchema,
 
     async execute(params: DevSessionUpdateParams): Promise<DevSessionUpdateResult> {
@@ -615,7 +615,7 @@ export function createDevSessionCompleteTool(options: DevSessionToolOptions): De
 
   return {
     name: 'dev_session_complete',
-    description: 'Mark a dev session as completed. Optionally include a summary of what was accomplished.',
+    description: 'Marks a dev session as completed and records the completion timestamp. Optionally include a summary of what was accomplished. Use dev_session_update for incremental progress updates instead.',
     parameters: DevSessionCompleteParamsSchema,
 
     async execute(params: DevSessionCompleteParams): Promise<DevSessionCompleteResult> {
