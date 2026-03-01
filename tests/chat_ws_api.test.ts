@@ -126,15 +126,14 @@ describe('Chat WebSocket API (#1944)', () => {
       expect(res.statusCode).toBe(404);
     });
 
-    it('rejects oversized WS messages with close code 1009', async () => {
-      // This tests the server-side maxPayload enforcement.
-      // The chat WS should close connections that send messages > 32KB.
-      // Since we can't easily open a real WS connection via inject,
-      // this is tested via the integration test structure (ticket + session creation).
-      // The actual enforcement is verified in the route code via a size check.
+    it('issues ticket for session (WS maxPayload enforced at message handler level, #1973)', async () => {
+      // The chat WS enforces a 32KB per-message limit in the message handler
+      // (defence-in-depth on top of the global 1MB @fastify/websocket maxPayload).
+      // Full WS frame-level testing requires a real WebSocket client, which is
+      // covered by e2e tests. Here we verify the prerequisite: a valid ticket
+      // can be obtained for an active session.
       const sessionId = await createSession();
 
-      // Get a ticket
       const ticketRes = await app.inject({
         method: 'POST',
         url: '/api/chat/ws/ticket',
@@ -142,8 +141,8 @@ describe('Chat WebSocket API (#1944)', () => {
         payload: { session_id: sessionId },
       });
       expect(ticketRes.statusCode).toBe(200);
-      // The maxPayload limit will be enforced at the WS protocol level.
-      // We verify the constant is exported for visibility.
+      const body = ticketRes.json() as { ticket: string };
+      expect(body.ticket).toBeTruthy();
     });
 
     it('rejects ticket for ended session', async () => {

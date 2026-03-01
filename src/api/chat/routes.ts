@@ -929,7 +929,11 @@ export async function chatRoutesPlugin(
 
     // Handle incoming messages
     socket.on('message', (data: Buffer | string) => {
-      // Enforce per-route payload limit (#1973)
+      // Enforce per-route payload limit (#1973).
+      // Note: @fastify/websocket does not support per-route maxPayload, so the
+      // global WS config (1MB in server.ts) handles protocol-level enforcement.
+      // This application-level check provides defence-in-depth for chat messages,
+      // closing the connection when a message exceeds 32KB.
       const byteLength = typeof data === 'string'
         ? Buffer.byteLength(data, 'utf8')
         : data.length;
@@ -1050,6 +1054,8 @@ export async function chatRoutesPlugin(
   // ================================================================
 
   const streamManager = getStreamManager();
+  // Clean up stream manager on server shutdown (#1973)
+  app.addHook('onClose', () => streamManager.shutdown());
 
   // POST /api/chat/sessions/:id/stream — Agent streams response tokens
   app.post('/api/chat/sessions/:id/stream', async (req, reply) => {

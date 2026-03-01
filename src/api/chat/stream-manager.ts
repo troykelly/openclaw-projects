@@ -171,7 +171,7 @@ export class StreamManager {
     if (!stream) {
       // Check if session was recently terminated (prevents resurrection)
       const term = this.terminated.get(sessionId);
-      if (term && Date.now() - term.at < 300_000) {
+      if (term && Date.now() - term.at < TERMINATED_TTL_MS) {
         return { ok: false, status: 409, error: `Stream already ${term.state}` };
       }
       // No active or recently-terminated stream — allow single-message response
@@ -202,7 +202,7 @@ export class StreamManager {
     if (!stream) {
       // Check if session was recently terminated
       const term = this.terminated.get(sessionId);
-      if (term && Date.now() - term.at < 300_000) {
+      if (term && Date.now() - term.at < TERMINATED_TTL_MS) {
         return { ok: false, status: 409, error: `Stream already ${term.state}` };
       }
       return { ok: true, status: 200, messageId: payload.message_id };
