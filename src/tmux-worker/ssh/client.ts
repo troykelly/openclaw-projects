@@ -10,12 +10,15 @@
  * - Keepalive and timeout from connection config
  */
 
-import { Client as SSH2Client } from 'ssh2';
+import ssh2 from 'ssh2';
 import type { ConnectConfig, ClientChannel } from 'ssh2';
 import type { Readable } from 'node:stream';
 import { createHash } from 'node:crypto';
 import type pg from 'pg';
 import { resolveCredential, type ResolvedCredential } from '../credentials/index.ts';
+
+const { Client: SSH2Client } = ssh2;
+type SSH2Client = InstanceType<typeof SSH2Client>;
 
 /** Maximum proxy jump chain depth to prevent infinite loops. */
 const MAX_PROXY_CHAIN_DEPTH = 10;

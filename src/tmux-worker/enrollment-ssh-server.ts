@@ -9,8 +9,11 @@
  * Epic #1667 — TMux Session Management
  */
 
-import { Server as SSHServer, utils as sshUtils } from 'ssh2';
+import ssh2 from 'ssh2';
 import { generateKeyPairSync } from 'node:crypto';
+
+const { Server: SSHServer } = ssh2;
+type SSHServer = InstanceType<typeof SSHServer>;
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
