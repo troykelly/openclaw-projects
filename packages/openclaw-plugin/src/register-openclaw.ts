@@ -3331,24 +3331,30 @@ function createToolHandlers(state: PluginState) {
       });
 
       try {
+        // Issue #1912: pass recall namespaces so server-side resolveContact
+        // can search across all accessible namespaces when resolving by name.
+        const recallNs = getRecallNamespaces(params);
         const body: Record<string, unknown> = {
           contact_a,
           contact_b,
           relationship_type: relationship,
           user_email: state.agentId, // Issue #1172: scope by user
           namespace: getStoreNamespace(params), // Issue #1428
+          namespaces: recallNs, // Issue #1912: multi-namespace contact resolution
         };
         if (notes) {
           body.notes = notes;
         }
 
+        // Use user_id + user_email but omit single namespace header so that
+        // body.namespaces (multi) is picked up by the middleware instead.
         const response = await apiClient.post<{
           relationship: { id: string };
           contact_a: { id: string; display_name: string };
           contact_b: { id: string; display_name: string };
           relationship_type: { id: string; name: string; label: string };
           created: boolean;
-        }>('/api/relationships/set', body, reqOpts());
+        }>('/api/relationships/set', body, { user_id: state.agentId, user_email: state.agentEmail });
 
         if (!response.success) {
           return { success: false, error: response.error.message };
@@ -3407,10 +3413,14 @@ function createToolHandlers(state: PluginState) {
           contact_id = contact;
         } else {
           // Search for contact by name (Issue #1172: scope by user_email)
+          // Issue #1912: pass recall namespaces so the search can find
+          // contacts across all accessible namespaces, matching contact_search.
+          const contactSearchNs = getRecallNamespaces(params);
           const searchParams = new URLSearchParams({ search: contact, limit: '1', user_email: state.agentId });
+          if (contactSearchNs.length > 0) searchParams.set('namespaces', contactSearchNs.join(','));
           const searchResponse = await apiClient.get<{
             contacts: Array<{ id: string; display_name: string }>;
-          }>(`/api/contacts?${searchParams}`, reqOpts());
+          }>(`/api/contacts?${searchParams}`, { user_id: state.agentId });
 
           if (!searchResponse.success) {
             return { success: false, error: searchResponse.error.message };
@@ -3762,15 +3772,19 @@ function createToolHandlers(state: PluginState) {
         offset?: number;
       };
       try {
+        // Issue #1914: pass recall namespaces so the query finds destinations
+        // across all accessible namespaces, not just the default one.
+        const recallNs = getRecallNamespaces(params);
         const queryParams = new URLSearchParams();
         if (channel_type) queryParams.set('channel_type', channel_type);
         if (search) queryParams.set('search', search);
         if (limit !== undefined) queryParams.set('limit', String(limit));
         if (offset !== undefined) queryParams.set('offset', String(offset));
+        if (recallNs.length > 0) queryParams.set('namespaces', recallNs.join(','));
 
         const response = await apiClient.get<{ items: Array<{ id: string; address: string; channel_type: string; display_name?: string; agent_id?: string }>; total: number }>(
           `/api/inbound-destinations?${queryParams.toString()}`,
-          reqOpts(),
+          { user_id: state.agentId, user_email: state.agentEmail },
         );
         if (!response.success) {
           return { success: false, error: response.error.message || 'Failed to list inbound destinations' };

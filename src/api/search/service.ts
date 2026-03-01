@@ -30,7 +30,7 @@ async function searchWorkItemsText(
   query: string,
   options: { limit: number; offset: number; date_from?: Date; date_to?: Date; queryNamespaces?: string[] },
 ): Promise<EntitySearchResult[]> {
-  const conditions: string[] = ["search_vector @@ plainto_tsquery('english', $1)"];
+  const conditions: string[] = ["search_vector @@ plainto_tsquery('english', $1)", 'deleted_at IS NULL'];
   const params: (string | number | Date | string[])[] = [query];
   let paramIndex = 2;
 
@@ -132,6 +132,47 @@ async function searchWorkItemsSemantic(
     snippet: generateSnippet(row.description || ''),
     text_score: 0,
     semantic_score: Number.parseFloat(row.similarity) || 0,
+    metadata: { kind: row.kind, status: row.status },
+  }));
+}
+
+/**
+ * Fallback search for recently created work items whose embeddings are not yet complete.
+ * Uses simple text matching (ILIKE) on title and description so that items created
+ * moments ago are still discoverable before their embeddings finish generating.
+ * Issue #1918.
+ */
+async function searchWorkItemsRecent(
+  pool: Pool,
+  query: string,
+  options: { limit: number; queryNamespaces?: string[] },
+): Promise<EntitySearchResult[]> {
+  const likePattern = `%${query.replace(/[%_\\]/g, '\\$&')}%`;
+  const nsScope = options.queryNamespaces ?? ['default'];
+
+  const result = await pool.query(
+    `SELECT
+       id::text as id,
+       title,
+       description,
+       kind::text as kind,
+       status::text as status
+     FROM work_item
+     WHERE deleted_at IS NULL
+       AND embedding_status != 'complete'
+       AND created_at > NOW() - INTERVAL '5 minutes'
+       AND namespace = ANY($1::text[])
+       AND (title ILIKE $2 OR description ILIKE $2)
+     ORDER BY created_at DESC
+     LIMIT $3`,
+    [nsScope, likePattern, options.limit],
+  );
+
+  return result.rows.map((row) => ({
+    id: row.id,
+    title: row.title,
+    snippet: generateSnippet(row.description || ''),
+    text_score: 0.1, // Small baseline score for recent fallback matches
     metadata: { kind: row.kind, status: row.status },
   }));
 }
@@ -506,6 +547,18 @@ export async function unifiedSearch(pool: Pool, options: SearchOptions): Promise
       workItemResults = combineResults(textResults, semanticResults, semantic_weight);
     } else {
       workItemResults = textResults;
+    }
+
+    // Issue #1918: Include recently created items whose embeddings are not yet complete.
+    // These items may be missed by both text search (query doesn't match tsvector) and
+    // semantic search (embedding not ready), so we fall back to simple ILIKE matching
+    // for items created in the last 5 minutes.
+    const recentResults = await searchWorkItemsRecent(pool, query, { limit: effectiveLimit, queryNamespaces });
+    const existingIds = new Set(workItemResults.map((r) => r.id));
+    for (const recent of recentResults) {
+      if (!existingIds.has(recent.id)) {
+        workItemResults.push(recent);
+      }
     }
 
     facets.work_item = workItemResults.length;

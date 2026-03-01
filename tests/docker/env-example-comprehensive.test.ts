@@ -198,6 +198,10 @@ describe('.env.example comprehensive documentation (Issue #536)', () => {
     it('documents paranoia levels (1-4)', () => {
       expect(envContent).toMatch(/paranoia.*level.*1.*4|1.*low.*4.*maximum/i);
     });
+
+    it('documents MODSEC_ALLOWED_METHODS', () => {
+      expect(envContent).toContain('MODSEC_ALLOWED_METHODS');
+    });
   });
 
   describe('OpenClaw integration variables', () => {
