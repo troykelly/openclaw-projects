@@ -488,7 +488,14 @@ async function fetchGraphAwareContext(client: ApiClient, user_id: string, prompt
     { user_id },
   );
 
-  if (graphResponse.success && graphResponse.data.memories.length > 0) {
+  // Use graph-aware formatting when the response contains properly-shaped memories
+  // (with combinedRelevance). Falls back to basic search if the endpoint returns
+  // a different shape (e.g., from a generic mock or older API version).
+  const hasGraphMemories = graphResponse.success &&
+    graphResponse.data.memories.length > 0 &&
+    typeof graphResponse.data.memories[0].combinedRelevance === 'number';
+
+  if (hasGraphMemories) {
     logger.debug('graph-aware context retrieved', {
       user_id,
       memoryCount: graphResponse.data.memories.length,
