@@ -9,6 +9,7 @@ import { randomUUID } from 'node:crypto';
 import { Pool } from 'pg';
 import { runMigrate } from './helpers/migrate.ts';
 import { createTestPool, truncateAllTables, ensureTestNamespace } from './helpers/db.ts';
+import { resetAllRateLimits } from '../src/api/chat/rate-limits.ts';
 import { buildServer } from '../src/api/server.ts';
 
 describe('Chat Message API (#1943)', () => {
@@ -22,6 +23,7 @@ describe('Chat Message API (#1943)', () => {
   });
 
   beforeEach(async () => {
+    resetAllRateLimits();
     await truncateAllTables(pool);
     await ensureTestNamespace(pool, 'msg-user@example.com');
   });

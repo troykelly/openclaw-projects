@@ -8,6 +8,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { Pool } from 'pg';
 import { runMigrate } from './helpers/migrate.ts';
 import { createTestPool, truncateAllTables, ensureTestNamespace } from './helpers/db.ts';
+import { resetAllRateLimits } from '../src/api/chat/rate-limits.ts';
 import { buildServer } from '../src/api/server.ts';
 
 describe('Chat Session CRUD API (#1942)', () => {
@@ -21,6 +22,7 @@ describe('Chat Session CRUD API (#1942)', () => {
   });
 
   beforeEach(async () => {
+    resetAllRateLimits();
     await truncateAllTables(pool);
     await ensureTestNamespace(pool, 'chat-user@example.com');
   });

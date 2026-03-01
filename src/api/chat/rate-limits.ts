@@ -242,6 +242,16 @@ export function chargeAttractAttention(userEmail: string): void {
   }
 }
 
+/** Reset all rate limit state (for testing). */
+export function resetAllRateLimits(): void {
+  sessionCreationLimits.clear();
+  messageSendLimits.clear();
+  wsConnectionCounts.clear();
+  streamRateLimits.clear();
+  typingLimits.clear();
+  attractLimits.clear();
+}
+
 // ── Extend per-user.ts categories ────────────────────────────────
 
 /**
