@@ -5,7 +5,18 @@
  *         POST /api/chat/sessions/:id/end,
  *         POST/GET /api/chat/sessions/:id/messages,
  *         POST /api/chat/ws/ticket, GET /api/chat/ws,
- *         POST /api/chat/sessions/:id/stream
+ *         POST /api/chat/sessions/:id/stream,
+ *         POST /api/chat/sessions/:id/agent-message,
+ *         POST /api/notifications/agent,
+ *         POST /api/push/subscribe
+ *
+ * Rate limits (#1960):
+ * - Session creation: 5/min per user
+ * - Messages: 10/min per user
+ * - Stream chunks: 100/sec + 256KB total per session
+ * - Typing: 2/sec per connection
+ * - attract_attention: 3/hour + 10/day per user
+ * - 429 responses include Retry-After header
  *
  * Epic #1940 — Agent Chat.
  */
@@ -224,9 +235,13 @@ export function chatPaths(): OpenApiDomainModule {
         post: {
           operationId: 'chatStreamCallback',
           summary: 'Agent streams response tokens',
-          description: 'M2M endpoint for agents to stream response chunks, signal completion, or report failure. Authenticated via Bearer M2M token + X-Stream-Secret header.',
+          description: 'M2M endpoint for agents to stream response chunks, signal completion, or report failure. Authenticated via Bearer M2M token + X-Stream-Secret header. Rate limited to 100 chunks/sec and 256KB total per session.',
           tags: ['Chat'],
-          parameters: [uuidParam('id', 'Chat session ID')],
+          parameters: [
+            uuidParam('id', 'Chat session ID'),
+            { name: 'X-Stream-Secret', in: 'header', required: true, description: 'Timing-safe stream secret for session authentication', schema: { type: 'string' } },
+            { name: 'X-Agent-Id', in: 'header', required: false, description: 'Optional agent ID for verification', schema: { type: 'string' } },
+          ],
           requestBody: jsonBody({
             type: 'object',
             required: ['type'],
@@ -267,9 +282,12 @@ export function chatPaths(): OpenApiDomainModule {
         post: {
           operationId: 'chatAgentSendMessage',
           summary: 'Agent sends message to user in session',
-          description: 'M2M endpoint for agents to send messages to users in active chat sessions. Authenticated via X-Stream-Secret header.',
+          description: 'M2M endpoint for agents to send messages to users in active chat sessions. Authenticated via X-Stream-Secret header. Rate limited to 10 messages/min per session.',
           tags: ['Chat'],
-          parameters: [uuidParam('id', 'Chat session ID')],
+          parameters: [
+            uuidParam('id', 'Chat session ID'),
+            { name: 'X-Stream-Secret', in: 'header', required: true, description: 'Timing-safe stream secret for session authentication', schema: { type: 'string' } },
+          ],
           requestBody: jsonBody({
             type: 'object',
             required: ['content'],
@@ -308,12 +326,16 @@ export function chatPaths(): OpenApiDomainModule {
         post: {
           operationId: 'chatAgentAttractAttention',
           summary: 'Agent sends notification with escalation',
-          description: 'M2M endpoint for agents to send notifications with urgency-based escalation. Deduplicates by reason_key within 15-minute window.',
+          description: 'M2M endpoint for agents to send notifications with urgency-based escalation. Deduplicates by reason_key within 15-minute window. Rate limited to 3/hour and 10/day per user.',
           tags: ['Chat'],
+          parameters: [
+            { name: 'X-User-Email', in: 'header', required: false, description: 'Target user email (alternative to user_email in body)', schema: { type: 'string', format: 'email' } },
+          ],
           requestBody: jsonBody({
             type: 'object',
             required: ['message', 'urgency', 'reason_key'],
             properties: {
+              user_email: { type: 'string', format: 'email', description: 'Target user email (alternative to X-User-Email header)' },
               message: { type: 'string', description: 'Notification message (max 500 chars)' },
               urgency: {
                 type: 'string',
