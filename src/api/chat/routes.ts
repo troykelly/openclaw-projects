@@ -55,6 +55,7 @@ import {
   chargeAttractAttention,
 } from './rate-limits.ts';
 import { isSessionExpired, expireSessionIfIdle } from './session-expiry.ts';
+import { recordChatActivity } from './audit.ts';
 
 // ── Constants ────────────────────────────────────────────────────
 
@@ -250,6 +251,15 @@ export async function chatRoutesPlugin(
         { session_id: session.id as string },
         userEmail,
       ).catch((err: unknown) => { console.error('[Chat] Fire-and-forget error:', err instanceof Error ? err.message : err); });
+
+      // Audit log (#1962)
+      recordChatActivity(pool, {
+        namespace,
+        session_id: session.id as string,
+        user_email: userEmail,
+        agent_id: agentId,
+        action: 'session_created',
+      });
 
       return reply.code(201).send({
         id: session.id,
@@ -490,6 +500,14 @@ export async function chatRoutesPlugin(
         userEmail,
       ).catch((err: unknown) => { console.error('[Chat] Fire-and-forget error:', err instanceof Error ? err.message : err); });
 
+      // Audit log (#1962)
+      recordChatActivity(pool, {
+        namespace: getStoreNamespace(req),
+        session_id: params.id,
+        user_email: userEmail,
+        action: 'session_ended',
+      });
+
       return reply.send(result.rows[0]);
     } catch (err) {
       await client.query('ROLLBACK');
@@ -635,6 +653,15 @@ export async function chatRoutesPlugin(
         { session_id: session.id as string, message_id: message.id as string },
         userEmail,
       ).catch((err: unknown) => { console.error('[Chat] Fire-and-forget error:', err instanceof Error ? err.message : err); });
+
+      // Audit log (#1962)
+      recordChatActivity(pool, {
+        namespace: getStoreNamespace(req),
+        session_id: params.id,
+        user_email: userEmail,
+        action: 'message_sent',
+        detail: { message_id: message.id as string, content_type: contentType },
+      });
 
       return reply.code(201).send(message);
     } catch (err) {
@@ -820,6 +847,15 @@ export async function chatRoutesPlugin(
       session_id: sessionId,
     });
 
+    // Audit log: WS connected (#1962)
+    recordChatActivity(pool, {
+      namespace: 'default',
+      session_id: sessionId,
+      user_email: ticketData.userEmail,
+      action: 'ws_connected',
+      detail: { connection_id: connectionId },
+    });
+
     // Handle incoming messages
     socket.on('message', (data: Buffer | string) => {
       try {
@@ -906,6 +942,14 @@ export async function chatRoutesPlugin(
           sessionClients.delete(sessionId);
         }
       }
+      // Audit log: WS disconnected (#1962)
+      recordChatActivity(pool, {
+        namespace: 'default',
+        session_id: sessionId,
+        user_email: ticketData.userEmail,
+        action: 'ws_disconnected',
+        detail: { connection_id: connectionId },
+      });
     });
 
     socket.on('error', () => {
@@ -1111,6 +1155,16 @@ export async function chatRoutesPlugin(
         // Clear stream rate limit state (#1960)
         clearStreamState(params.id);
 
+        // Audit log (#1962)
+        recordChatActivity(pool, {
+          namespace: session.namespace,
+          session_id: params.id,
+          agent_id: session.agent_id,
+          user_email: session.user_email,
+          action: 'stream_completed',
+          detail: { message_id: messageId },
+        });
+
         return reply.code(200).send({ ok: true, message_id: messageId });
       }
 
@@ -1157,6 +1211,16 @@ export async function chatRoutesPlugin(
 
         // Clear stream rate limit state (#1960)
         clearStreamState(params.id);
+
+        // Audit log (#1962)
+        recordChatActivity(pool, {
+          namespace: session.namespace,
+          session_id: params.id,
+          agent_id: session.agent_id,
+          user_email: session.user_email,
+          action: 'stream_failed',
+          detail: { error: sanitisedError },
+        });
 
         return reply.code(200).send({ ok: true });
       }
@@ -1289,6 +1353,16 @@ function registerAgentEndpoints(app: FastifyInstance, pool: Pool): void {
       return reply.code(400).send({ error: result.error });
     }
 
+    // Audit log (#1962)
+    recordChatActivity(pool, {
+      namespace: session.namespace,
+      session_id: params.id,
+      agent_id: body.agent_id ?? session.agent_id,
+      user_email: session.user_email,
+      action: 'message_sent_agent',
+      detail: { message_id: result.message_id },
+    });
+
     return reply.code(201).send({ ok: true, message_id: result.message_id });
   });
 
@@ -1351,6 +1425,17 @@ function registerAgentEndpoints(app: FastifyInstance, pool: Pool): void {
     // Charge rate limit only after successful, non-deduplicated delivery
     if (!result.deduplicated) {
       chargeAttractAttention(userEmail);
+    }
+
+    // Audit log (#1962)
+    if (!result.deduplicated) {
+      recordChatActivity(pool, {
+        namespace,
+        user_email: userEmail,
+        agent_id: body.agent_id ?? 'unknown',
+        action: 'notification_sent',
+        detail: { notification_id: result.notification_id, urgency: body.urgency },
+      });
     }
 
     return reply.code(200).send({
