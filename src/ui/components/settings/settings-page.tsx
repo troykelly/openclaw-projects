@@ -6,7 +6,7 @@
  * vertical list. Changes save immediately with visual confirmation.
  */
 
-import { Bell, CheckCircle, Clock, Eye, Info, Keyboard, Layout, Link2, MapPin, Monitor, Moon, Radio, Smartphone, Sun, User, Webhook } from 'lucide-react';
+import { Bell, CheckCircle, Clock, Eye, Info, Keyboard, Layout, Link2, MapPin, MessageSquare, Monitor, Moon, Radio, Smartphone, Sun, User, Webhook } from 'lucide-react';
 import * as React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Skeleton } from '@/ui/components/feedback';
@@ -23,6 +23,8 @@ import { InboundRoutingSection } from './inbound-routing-section';
 import { LocationSection } from './location-section';
 import { NotificationPreferencesSection } from './notification-preferences-section';
 import { WebhookManagementSection } from './webhook-management-section';
+import { ChatSettingsSection } from './chat-settings-section';
+import { ChatNotificationPrefsSection } from './chat-notification-prefs-section';
 import type { DefaultView, EmailDigestFrequency, Theme } from './types';
 import { useSettings } from './use-settings';
 
@@ -53,6 +55,7 @@ const ITEMS_PER_PAGE_OPTIONS = [10, 25, 50, 75, 100];
 /** Navigation sections for the settings sidebar. */
 const SECTIONS = [
   { id: 'profile', label: 'Profile', icon: User },
+  { id: 'chat', label: 'Chat', icon: MessageSquare },
   { id: 'accounts', label: 'Connected Accounts', icon: Link2 },
   { id: 'location', label: 'Location', icon: MapPin },
   { id: 'appearance', label: 'Appearance', icon: Sun },
@@ -498,6 +501,7 @@ export function SettingsPage() {
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sectionRefs = useRef<Record<SectionId, HTMLDivElement | null>>({
     profile: null,
+    chat: null,
     accounts: null,
     location: null,
     appearance: null,
@@ -674,6 +678,16 @@ export function SettingsPage() {
               }}
             >
               <ProfileSection email={settings.email} id={settings.id} />
+            </div>
+
+            {/* Chat (#1957) */}
+            <div
+              ref={(el) => {
+                sectionRefs.current.chat = el;
+              }}
+            >
+              <ChatSettingsSection />
+              <ChatNotificationPrefsSection />
             </div>
 
             {/* Connected Accounts */}
