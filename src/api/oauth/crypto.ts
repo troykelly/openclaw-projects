@@ -9,7 +9,7 @@
  * Ciphertext format (base64-encoded): IV (12 bytes) || ciphertext || auth tag (16 bytes)
  */
 
-import { createCipheriv, createDecipheriv, randomBytes, hkdf } from 'node:crypto';
+import { createCipheriv, createDecipheriv, hkdf, hkdfSync, randomBytes } from 'node:crypto';
 
 const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 12; // 96 bits, recommended for GCM
@@ -75,7 +75,6 @@ function deriveKey(masterKey: Buffer, rowId: string): Promise<Buffer> {
  * Uses HKDF via the synchronous crypto API.
  */
 function deriveKeySync(masterKey: Buffer, rowId: string): Buffer {
-  const { hkdfSync } = require('node:crypto') as typeof import('node:crypto');
   const derived = hkdfSync(
     HKDF_HASH,
     masterKey,

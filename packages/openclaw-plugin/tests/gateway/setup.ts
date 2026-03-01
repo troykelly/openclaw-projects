@@ -99,7 +99,7 @@ export function findPlugin(registry: { plugins: Array<{ id: string }> }, id: str
 }
 
 /**
- * Expected tool names (all 33 tools) in alphabetical order.
+ * Expected tool names (all 41 tools) in alphabetical order.
  * These match the tools registered by register-openclaw.ts via api.registerTool().
  */
 export const EXPECTED_TOOLS = [
@@ -116,6 +116,14 @@ export const EXPECTED_TOOLS = [
   'memory_recall',
   'memory_store',
   'message_search',
+  'note_create',
+  'note_delete',
+  'note_get',
+  'note_search',
+  'note_update',
+  'notebook_create',
+  'notebook_get',
+  'notebook_list',
   'project_create',
   'project_get',
   'project_list',

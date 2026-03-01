@@ -109,6 +109,10 @@ export interface ToolDefinition {
   parameters: JSONSchema;
   /** Tool execution function (OpenClaw Gateway signature) */
   execute: AgentToolExecute;
+  /** When true, tool requires explicit opt-in and is not loaded by default */
+  optional?: boolean;
+  /** Logical group for tool discovery (e.g. "terminal_connections", "notes") */
+  group?: string;
 }
 
 // ── OpenClaw Hook Contract Types ─────────────────────────────────────────────

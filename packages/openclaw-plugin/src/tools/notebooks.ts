@@ -86,8 +86,7 @@ export function createNotebookListTool(options: NotebookToolOptions): NotebookLi
   return {
     name: 'notebook_list',
     description:
-      'List available notebooks for the user. Notebooks are used to organize notes ' +
-      'into collections. Returns notebook IDs that can be used with note_create.',
+      'Lists available notebooks for the user. Use to find notebook IDs before creating or organizing notes. Returns notebook names, descriptions, and note counts. Read-only.',
     parameters: NotebookListParamsSchema,
 
     async execute(params: NotebookListParams): Promise<NotebookListResult> {
@@ -212,8 +211,7 @@ export function createNotebookCreateTool(options: NotebookToolOptions): Notebook
   return {
     name: 'notebook_create',
     description:
-      'Create a new notebook to organize notes. Use notebooks to group related notes ' +
-      'together (e.g., "Meeting Notes", "Project Documentation", "Research").',
+      'Creates a new notebook to organize notes into collections. Use for grouping related notes (e.g., "Meeting Notes", "Research"). Persists the notebook. Use notebook_list to check for existing notebooks first.',
     parameters: NotebookCreateParamsSchema,
 
     async execute(params: NotebookCreateParams): Promise<NotebookCreateResult> {
@@ -345,7 +343,7 @@ export function createNotebookGetTool(options: NotebookToolOptions): NotebookGet
   return {
     name: 'notebook_get',
     description:
-      'Get a notebook by its ID. Optionally include a list of notes in the notebook. ' + 'Only accessible if you own the notebook or have shared access.',
+      'Gets a notebook by its ID with optional expansion to include contained notes. Only accessible if you own the notebook or have shared access. Read-only.',
     parameters: NotebookGetParamsSchema,
 
     async execute(params: NotebookGetParams): Promise<NotebookGetResult> {
