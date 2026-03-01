@@ -387,7 +387,7 @@ services:
       NODE_ENV: production
       HOST: "::"
       # Port 3001 (not 3000) to avoid conflicts with Traefik service labels.
-      # ModSecurity and nginx proxy both use this port.
+      # ModSecurity proxies to this port.
       PORT: 3001
       # Traefik handles CORS headers (including on proxy-generated 502s).
       # Prevents duplicate Access-Control-Allow-Origin from both Traefik and Fastify.
@@ -447,7 +447,7 @@ services:
       # OAuth integration (Microsoft 365 / Google)
       # Required for contacts, email, drive/files, calendar features
       # See docs/guides/oauth-setup.md for credential setup
-      # Set OAUTH_REDIRECT_URI=https://api.${DOMAIN}/api/oauth/callback
+      # Set OAUTH_REDIRECT_URI=https://api.${DOMAIN}/oauth/callback
       MS365_CLIENT_ID: ${MS365_CLIENT_ID:-}
       MS365_CLIENT_SECRET: ${MS365_CLIENT_SECRET:-}
       AZURE_TENANT_ID: ${AZURE_TENANT_ID:-}
@@ -706,9 +706,8 @@ services:
       api:
         condition: service_healthy
     environment:
-      # API proxy configuration for nginx
-      # Nginx proxies /api/* requests to the API container
-      # Note: In Traefik mode, API runs on port 3001
+      # Note: Nginx no longer proxies API requests. The frontend calls
+      # api.DOMAIN directly. These vars are kept for envsubst compatibility.
       API_HOST: api
       API_PORT: "3001"
     # Publish to localhost for Traefik (host networking mode)

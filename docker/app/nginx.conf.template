@@ -1,10 +1,6 @@
 # Nginx configuration for OpenClaw Projects Frontend
 # Environment variable substitution handled by envsubst at startup
 #
-# Required environment variables:
-#   API_HOST - API backend hostname (default: api)
-#   API_PORT - API backend port (default: 3000)
-#
 # The official nginx Docker image processes .template files in /etc/nginx/templates/
 # with envsubst on container startup, outputting to /etc/nginx/conf.d/
 
@@ -43,34 +39,8 @@ server {
     # assets (JS, CSS, images, fonts) served directly from the nginx root.
     add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" always;
 
-    # ==========================================================================
-    # API Proxy - Route /api/* requests to the backend API server
-    # ==========================================================================
-    # This enables the frontend to make relative API calls (e.g., /api/work-items)
-    # which nginx proxies to the API container. Required for Docker deployments
-    # where frontend and API run in separate containers.
-
-    location /api/ {
-        proxy_pass http://${API_HOST}:${API_PORT};
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header X-Forwarded-Host $host;
-
-        # WebSocket support (for potential future use)
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-
-        # Timeouts for long-running API requests
-        proxy_connect_timeout 60s;
-        proxy_send_timeout 60s;
-        proxy_read_timeout 60s;
-
-        # Don't buffer responses - stream them to client
-        proxy_buffering off;
-    }
+    # API requests go directly to api.{domain} subdomain in production.
+    # For local Docker development, the UI dev server proxies to the API port.
 
     # Hashed assets (immutable cache) - Vite generates files with content hashes
     # Docker build uses VITE_BASE=/ so assets are at /assets/ matching nginx root.
