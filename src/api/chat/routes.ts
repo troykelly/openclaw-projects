@@ -244,8 +244,12 @@ export async function chatRoutesPlugin(
     }
 
     if (cursor) {
-      // Cursor is the last_activity_at timestamp of the last item
-      params.push(cursor);
+      // Validate cursor is a parseable timestamp before using in SQL
+      const cursorDate = new Date(cursor);
+      if (Number.isNaN(cursorDate.getTime())) {
+        return reply.code(400).send({ error: 'Invalid cursor format' });
+      }
+      params.push(cursorDate.toISOString());
       where += ` AND last_activity_at < $${params.length}::timestamptz`;
     }
 
@@ -343,15 +347,16 @@ export async function chatRoutesPlugin(
       return reply.code(404).send({ error: 'Session not found' });
     }
 
+    // Include user_email + namespace in WHERE for defense-in-depth (TOCTOU hardening)
     const result = await pool.query(
       `UPDATE chat_session
        SET title = $1,
            version = version + 1,
            last_activity_at = now()
-       WHERE id = $2 AND version = $3
+       WHERE id = $2 AND version = $3 AND user_email = $4 AND namespace = ANY($5::text[])
        RETURNING id, thread_id, user_email, agent_id, namespace, status, title, version,
                  started_at, ended_at, last_activity_at, metadata`,
-      [title === undefined ? session.title : (title === null ? null : (title as string).trim()), params.id, version],
+      [title === undefined ? session.title : (title === null ? null : (title as string).trim()), params.id, version, userEmail, namespaces],
     );
 
     if (result.rows.length === 0) {
@@ -484,30 +489,40 @@ export async function chatRoutesPlugin(
     try {
       await client.query('BEGIN');
 
-      // Insert message (idempotent via ON CONFLICT for idempotency_key)
-      let messageResult;
+      // Insert message — race-safe idempotency via INSERT ON CONFLICT
+      let message: Record<string, unknown>;
+
       if (idempotencyKey) {
-        // Check for existing message with this idempotency key
-        const existing = await client.query(
-          `SELECT * FROM external_message
-           WHERE thread_id = $1 AND idempotency_key = $2`,
-          [session.thread_id, idempotencyKey],
+        // Use ON CONFLICT to atomically handle duplicate idempotency keys
+        const insertResult = await client.query(
+          `INSERT INTO external_message (thread_id, external_message_key, direction, body, status, idempotency_key, content_type)
+           VALUES ($1, $2, 'outbound', $3, 'delivered', $4, $5)
+           ON CONFLICT (thread_id, idempotency_key) WHERE idempotency_key IS NOT NULL
+           DO NOTHING
+           RETURNING *`,
+          [session.thread_id, messageKey, content, idempotencyKey, contentType],
         );
 
-        if (existing.rows.length > 0) {
+        if (insertResult.rows.length === 0) {
+          // Idempotency key already exists — return the existing message
+          const existing = await client.query(
+            `SELECT * FROM external_message WHERE thread_id = $1 AND idempotency_key = $2`,
+            [session.thread_id, idempotencyKey],
+          );
           await client.query('ROLLBACK');
           return reply.code(200).send(existing.rows[0]);
         }
+
+        message = insertResult.rows[0] as Record<string, unknown>;
+      } else {
+        const insertResult = await client.query(
+          `INSERT INTO external_message (thread_id, external_message_key, direction, body, status, content_type)
+           VALUES ($1, $2, 'outbound', $3, 'delivered', $4)
+           RETURNING *`,
+          [session.thread_id, messageKey, content, contentType],
+        );
+        message = insertResult.rows[0] as Record<string, unknown>;
       }
-
-      messageResult = await client.query(
-        `INSERT INTO external_message (thread_id, external_message_key, direction, body, status, idempotency_key, content_type)
-         VALUES ($1, $2, 'outbound', $3, 'delivered', $4, $5)
-         RETURNING *`,
-        [session.thread_id, messageKey, content, idempotencyKey ?? null, contentType],
-      );
-
-      const message = messageResult.rows[0] as Record<string, unknown>;
 
       // Update session last_activity_at
       await client.query(
