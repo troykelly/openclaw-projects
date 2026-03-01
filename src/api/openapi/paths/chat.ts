@@ -139,6 +139,20 @@ export function chatPaths(): OpenApiDomainModule {
             ...errorResponses(400, 401, 404, 409, 500),
           },
         },
+        delete: {
+          operationId: 'deleteChatSession',
+          summary: 'Delete a chat session (GDPR)',
+          description: 'Permanently deletes a specific chat session and all associated data (messages, read cursors, activity). Irreversible.',
+          tags: ['Chat'],
+          parameters: [uuidParam('id', 'Chat session ID')],
+          responses: {
+            '200': jsonResponse('Session deleted', {
+              type: 'object',
+              properties: { ok: { type: 'boolean' } },
+            }),
+            ...errorResponses(400, 401, 404, 500),
+          },
+        },
       },
       '/api/chat/sessions/{id}/end': {
         post: {
@@ -358,6 +372,28 @@ export function chatPaths(): OpenApiDomainModule {
               },
             }),
             ...errorResponses(400, 401, 429, 500),
+          },
+        },
+      },
+
+      // ── GDPR data deletion endpoint (Issue #1964) ─────────────────────
+      '/api/chat/data': {
+        delete: {
+          operationId: 'deleteAllChatData',
+          summary: 'Delete all chat data for user (GDPR)',
+          description: 'Permanently deletes all chat sessions, messages, activity logs, and notification tracking for the authenticated user. This operation is irreversible.',
+          tags: ['Chat'],
+          responses: {
+            '200': jsonResponse('Data deleted', {
+              type: 'object',
+              properties: {
+                ok: { type: 'boolean' },
+                sessions_deleted: { type: 'integer', description: 'Number of sessions deleted' },
+                messages_deleted: { type: 'integer', description: 'Number of messages deleted' },
+                activity_deleted: { type: 'integer', description: 'Number of activity log entries deleted' },
+              },
+            }),
+            ...errorResponses(401, 500),
           },
         },
       },

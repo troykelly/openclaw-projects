@@ -37,6 +37,7 @@ describe('Chat OpenAPI Specification (#1963)', () => {
         '/api/chat/sessions/{id}/agent-message',
         '/api/notifications/agent',
         '/api/push/subscribe',
+        '/api/chat/data',
       ];
       for (const path of expected) {
         expect(paths, `Missing path: ${path}`).toContain(path);
@@ -80,6 +81,18 @@ describe('Chat OpenAPI Specification (#1963)', () => {
         (p: { name: string }) => p.name === 'X-User-Email',
       );
       expect(headers).toHaveLength(1);
+    });
+
+    it('DELETE /api/chat/data is documented', () => {
+      const del = spec.paths['/api/chat/data']?.delete;
+      expect(del).toBeDefined();
+      expect(del.operationId).toBe('deleteAllChatData');
+    });
+
+    it('DELETE /api/chat/sessions/{id} is documented', () => {
+      const del = spec.paths['/api/chat/sessions/{id}']?.delete;
+      expect(del).toBeDefined();
+      expect(del.operationId).toBe('deleteChatSession');
     });
 
     it('all endpoints have operationId', () => {

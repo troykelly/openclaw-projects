@@ -56,6 +56,7 @@ import {
 } from './rate-limits.ts';
 import { isSessionExpired, expireSessionIfIdle } from './session-expiry.ts';
 import { recordChatActivity } from './audit.ts';
+import { deleteAllChatDataForUser, deleteChatSession } from './data-retention.ts';
 
 // ── Constants ────────────────────────────────────────────────────
 
@@ -1261,6 +1262,63 @@ export async function chatRoutesPlugin(
     if (!result.ok) {
       return reply.code(400).send({ error: result.error });
     }
+
+    return reply.code(200).send({ ok: true });
+  });
+
+  // ================================================================
+  // Issue #1964 — Data retention / GDPR deletion
+  // ================================================================
+
+  // DELETE /api/chat/data — Delete all chat data for the authenticated user (GDPR)
+  app.delete('/api/chat/data', async (req, reply) => {
+    const userEmail = await getUserEmail(req);
+    if (!userEmail) {
+      return reply.code(401).send({ error: 'Authentication required' });
+    }
+
+    const result = await deleteAllChatDataForUser(pool, userEmail);
+
+    // Audit log (#1962)
+    recordChatActivity(pool, {
+      namespace: getStoreNamespace(req),
+      user_email: userEmail,
+      action: 'gdpr_data_deleted',
+      detail: result as unknown as Record<string, unknown>,
+    });
+
+    return reply.code(200).send({
+      ok: true,
+      sessions_deleted: result.sessions_deleted,
+      messages_deleted: result.messages_deleted,
+      activity_deleted: result.activity_deleted,
+    });
+  });
+
+  // DELETE /api/chat/sessions/:id — Delete a specific session and all related data
+  app.delete('/api/chat/sessions/:id', async (req, reply) => {
+    const userEmail = await getUserEmail(req);
+    if (!userEmail) {
+      return reply.code(401).send({ error: 'Authentication required' });
+    }
+
+    const params = req.params as { id: string };
+    if (!isValidUUID(params.id)) {
+      return reply.code(400).send({ error: 'Invalid session ID format' });
+    }
+
+    const deleted = await deleteChatSession(pool, params.id, userEmail);
+    if (!deleted) {
+      return reply.code(404).send({ error: 'Session not found' });
+    }
+
+    // Audit log (#1962)
+    recordChatActivity(pool, {
+      namespace: getStoreNamespace(req),
+      session_id: params.id,
+      user_email: userEmail,
+      action: 'session_deleted',
+    });
 
     return reply.code(200).send({ ok: true });
   });
