@@ -231,9 +231,10 @@ async function fetchContext(client: ApiClient, user_id: string, prompt: string, 
   // Include provenance markers with memory_type and relevance % (#1926).
   const context = filtered
     .map((m) => {
-      const wrapped = wrapExternalMessage(m.content, { channel: `memory:${m.category}`, nonce });
-      const relevancePct = Math.round((m.score ?? 0) * 100);
-      return `- [${m.category}] (relevance: ${relevancePct}%) ${wrapped}`;
+      const label = sanitizeLabel(m.category);
+      const wrapped = wrapExternalMessage(m.content, { channel: `memory:${label}`, nonce });
+      const relevancePct = Math.round(safeScore(m.score) * 100);
+      return `- [${label}] (relevance: ${relevancePct}%) ${wrapped}`;
     })
     .join('\n');
 
@@ -243,17 +244,36 @@ async function fetchContext(client: ApiClient, user_id: string, prompt: string, 
 }
 
 /**
+ * Normalize a score to a finite number, treating NaN/Infinity/undefined as 0.
+ */
+function safeScore(score: number | undefined): number {
+  return Number.isFinite(score) ? score as number : 0;
+}
+
+/**
+ * Sanitize a provenance label (category/memory_type) to prevent injection
+ * of instruction-like text outside boundary wrappers.
+ * Only allows alphanumeric, hyphens, underscores, and dots.
+ */
+function sanitizeLabel(label: string): string {
+  return label.replace(/[^a-zA-Z0-9_.-]/g, '_');
+}
+
+/**
  * Filter items by a minimum score threshold with graceful degradation.
  * If no items meet the threshold, the single highest-scoring item is kept (#1926).
+ * Scores are normalized with safeScore to handle NaN/Infinity.
  */
 function filterByScore<T>(items: T[], minScore: number, getScore: (item: T) => number): T[] {
-  const passing = items.filter((item) => getScore(item) >= minScore);
+  if (items.length === 0) return [];
+
+  const passing = items.filter((item) => safeScore(getScore(item)) >= minScore);
   if (passing.length > 0) return passing;
 
   // Graceful degradation: keep the best single item
   let best = items[0];
   for (let i = 1; i < items.length; i++) {
-    if (getScore(items[i]) > getScore(best)) {
+    if (safeScore(getScore(items[i])) > safeScore(getScore(best))) {
       best = items[i];
     }
   }
@@ -487,9 +507,10 @@ async function fetchGraphAwareContext(client: ApiClient, user_id: string, prompt
     // Memory content may originate from external messages (indirect injection path).
     const context = filtered
       .map((m) => {
-        const wrapped = wrapExternalMessage(m.content, { channel: `memory:${m.memory_type}`, nonce });
-        const relevancePct = Math.round(m.combinedRelevance * 100);
-        return `- [${m.memory_type}] (relevance: ${relevancePct}%) ${wrapped}`;
+        const label = sanitizeLabel(m.memory_type);
+        const wrapped = wrapExternalMessage(m.content, { channel: `memory:${label}`, nonce });
+        const relevancePct = Math.round(safeScore(m.combinedRelevance) * 100);
+        return `- [${label}] (relevance: ${relevancePct}%) ${wrapped}`;
       })
       .join('\n');
 
