@@ -99,7 +99,6 @@ export function ChatSessionList(): React.JSX.Element {
             <button
               key={session.id}
               type="button"
-              role="listitem"
               className={cn(
                 'flex w-full items-start gap-3 border-b border-border p-3 text-left transition-colors',
                 'hover:bg-accent focus-visible:bg-accent focus-visible:outline-hidden',

@@ -230,7 +230,7 @@ describe('ChatSessionList', () => {
     render(<ChatSessionList />, { wrapper: createWrapper() });
 
     // Second session should appear first (more recent)
-    const items = screen.getAllByRole('listitem');
+    const items = screen.getAllByTestId(/^chat-session-item-/);
     expect(items).toHaveLength(2);
     expect(items[0]).toHaveTextContent('Second Session');
     expect(items[1]).toHaveTextContent('First Session');

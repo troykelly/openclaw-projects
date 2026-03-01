@@ -267,9 +267,9 @@ describe('ChatConversation', () => {
       isLoading: false,
     } as unknown as ReturnType<typeof useChatMessages>);
 
-    render(<ChatConversation />, { wrapper: createWrapper() });
-    // Both messages should have date separators
-    const separators = screen.getAllByRole('separator');
+    const { container } = render(<ChatConversation />, { wrapper: createWrapper() });
+    // Both messages should have date separators (rendered as <hr> inside aria-hidden divs)
+    const separators = container.querySelectorAll('hr');
     expect(separators.length).toBeGreaterThanOrEqual(2);
   });
 

@@ -122,12 +122,12 @@ export function ChatConversation(): React.JSX.Element {
           return (
             <React.Fragment key={msg.id}>
               {showDateSeparator && (
-                <div className="flex items-center gap-2 py-2" role="separator">
-                  <div className="flex-1 border-t border-border" />
+                <div className="flex items-center gap-2 py-2" aria-hidden="true">
+                  <hr className="flex-1 border-t border-border" />
                   <span className="text-[10px] font-medium text-muted-foreground">
                     {formatDateSeparator(msg.received_at)}
                   </span>
-                  <div className="flex-1 border-t border-border" />
+                  <hr className="flex-1 border-t border-border" />
                 </div>
               )}
               <ChatMessageBubble message={msg} />
