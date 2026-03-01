@@ -23,6 +23,8 @@ export interface TmuxWorkerConfig {
   grpcTlsCa: string;
   /** Path to persist the SSH enrollment host key. Empty = ephemeral. */
   enrollmentSshHostKeyPath: string;
+  /** SSH host key type to generate: ed25519 (default), ecdsa, or rsa. */
+  enrollmentSshHostKeyType: string;
 }
 
 /**
@@ -51,6 +53,7 @@ export function loadConfig(): TmuxWorkerConfig {
   const grpcTlsKey = process.env.GRPC_TLS_KEY ?? '';
   const grpcTlsCa = process.env.GRPC_TLS_CA ?? '';
   const enrollmentSshHostKeyPath = process.env.ENROLLMENT_SSH_HOST_KEY_PATH ?? '';
+  const enrollmentSshHostKeyType = process.env.ENROLLMENT_SSH_HOST_KEY_TYPE ?? 'ed25519';
 
   return {
     grpcPort,
@@ -63,6 +66,7 @@ export function loadConfig(): TmuxWorkerConfig {
     grpcTlsKey,
     grpcTlsCa,
     enrollmentSshHostKeyPath,
+    enrollmentSshHostKeyType,
   };
 }
 

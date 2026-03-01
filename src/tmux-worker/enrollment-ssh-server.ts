@@ -10,12 +10,14 @@
  */
 
 import ssh2 from 'ssh2';
+import { execFileSync } from 'node:child_process';
 import { generateKeyPairSync } from 'node:crypto';
 
 const { Server: SSHServer } = ssh2;
 type SSHServer = InstanceType<typeof SSHServer>;
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import type pg from 'pg';
 import type { TmuxWorkerConfig } from './config.ts';
@@ -105,16 +107,48 @@ function clearRateLimit(ip: string): void {
   failedAuthAttempts.delete(ip);
 }
 
+/** Valid key types for ssh-keygen. */
+const VALID_KEY_TYPES = ['ed25519', 'ecdsa', 'rsa'] as const;
+type SshKeyType = (typeof VALID_KEY_TYPES)[number];
+
 /**
- * Generate a fresh RSA-2048 host key in PKCS#1 PEM format.
+ * Generate an SSH host key using ssh-keygen (OpenSSH format).
  *
- * ssh2's Server constructor cannot parse Ed25519 keys in PKCS#8 PEM format
- * (the only format Node's crypto.generateKeyPairSync supports for Ed25519).
- * RSA with PKCS#1 PEM is universally supported by ssh2. Issue #1966.
+ * ssh-keygen outputs OpenSSH format (`-----BEGIN OPENSSH PRIVATE KEY-----`)
+ * which ssh2 v1.17+ can parse for all key types including Ed25519.
+ *
+ * Node's crypto.generateKeyPairSync only outputs PKCS#8 PEM for Ed25519,
+ * which ssh2 cannot parse. Using ssh-keygen avoids this limitation and
+ * supports all current and future key types. Issue #1974.
  */
-function generateHostKey(): Buffer {
+function generateHostKeyWithSshKeygen(keyType: SshKeyType, targetPath: string): Buffer {
+  const args = ['-t', keyType, '-f', targetPath, '-N', '', '-q'];
+  if (keyType === 'rsa') {
+    args.push('-b', '4096');
+  }
+  execFileSync('ssh-keygen', args, { stdio: 'pipe' });
+
+  const key = fs.readFileSync(targetPath);
+
+  // ssh-keygen creates a .pub alongside — clean it up
+  try { fs.unlinkSync(`${targetPath}.pub`); } catch { /* ignore */ }
+
+  return key;
+}
+
+/**
+ * Fallback: generate an RSA key via Node crypto when ssh-keygen is unavailable.
+ *
+ * Uses PKCS#1 PEM format which ssh2 can parse. Only RSA is supported via
+ * this path — Ed25519/ECDSA require ssh-keygen for OpenSSH format output.
+ */
+function generateHostKeyFallback(): Buffer {
+  console.warn(
+    'ssh-keygen not found — falling back to RSA-4096 via Node crypto. ' +
+    'Install openssh-client for Ed25519/ECDSA support.',
+  );
   const { privateKey } = generateKeyPairSync('rsa', {
-    modulusLength: 2048,
+    modulusLength: 4096,
     publicKeyEncoding: { type: 'spki', format: 'pem' },
     privateKeyEncoding: { type: 'pkcs1', format: 'pem' },
   });
@@ -125,31 +159,46 @@ function generateHostKey(): Buffer {
  * Load a persisted SSH host key from disk, or generate and save a new one.
  *
  * If keyPath is empty or falsy, generates an ephemeral key (no persistence).
- * If keyPath points to an existing file, loads it.
+ * If keyPath points to an existing file, loads it (any format ssh2 supports).
  * Otherwise, generates a new key and saves it to keyPath with 0600 permissions.
  *
+ * Uses ssh-keygen for generation so all key types (Ed25519, ECDSA, RSA) are
+ * supported. Falls back to RSA via Node crypto if ssh-keygen is unavailable.
+ *
  * Issue #1857 — Persist enrollment SSH host key across worker restarts
+ * Issue #1974 — Support all valid SSH key types
  */
-export function loadOrGenerateHostKey(keyPath: string): Buffer {
-  if (!keyPath) {
-    return generateHostKey();
-  }
-
-  // Load existing key
-  if (fs.existsSync(keyPath)) {
+export function loadOrGenerateHostKey(keyPath: string, keyType: SshKeyType = 'ed25519'): Buffer {
+  // Load existing key (any format ssh2 supports)
+  if (keyPath && fs.existsSync(keyPath)) {
     console.log(`Loading SSH enrollment host key from ${keyPath}`);
     return fs.readFileSync(keyPath);
   }
 
-  // Generate and save
-  console.log(`Generating new SSH enrollment host key at ${keyPath}`);
-  const key = generateHostKey();
+  // Generate a new key
+  const targetPath = keyPath || path.join(os.tmpdir(), `ssh-host-key-${process.pid}-${Date.now()}`);
 
   // Ensure parent directory exists
-  const dir = path.dirname(keyPath);
-  fs.mkdirSync(dir, { recursive: true });
+  fs.mkdirSync(path.dirname(targetPath), { recursive: true });
 
-  fs.writeFileSync(keyPath, key, { mode: 0o600 });
+  let key: Buffer;
+  try {
+    key = generateHostKeyWithSshKeygen(keyType, targetPath);
+    console.log(`Generated ${keyType} SSH enrollment host key${keyPath ? ` at ${keyPath}` : ' (ephemeral)'}`);
+  } catch {
+    key = generateHostKeyFallback();
+    if (keyPath) {
+      fs.writeFileSync(keyPath, key, { mode: 0o600 });
+    }
+  }
+
+  if (keyPath) {
+    fs.chmodSync(keyPath, 0o600);
+  } else {
+    // Ephemeral — clean up the temp file
+    try { fs.unlinkSync(targetPath); } catch { /* ignore */ }
+  }
+
   return key;
 }
 
@@ -192,7 +241,10 @@ export function createEnrollmentSSHServer(
   config: TmuxWorkerConfig,
   pool: pg.Pool,
 ): SSHServer {
-  const hostKey = loadOrGenerateHostKey(config.enrollmentSshHostKeyPath);
+  const keyType = VALID_KEY_TYPES.includes(config.enrollmentSshHostKeyType as SshKeyType)
+    ? (config.enrollmentSshHostKeyType as SshKeyType)
+    : 'ed25519';
+  const hostKey = loadOrGenerateHostKey(config.enrollmentSshHostKeyPath, keyType);
 
   const server = new SSHServer(
     { hostKeys: [hostKey] },
@@ -433,3 +485,5 @@ export function stopEnrollmentSSHServer(server: SSHServer): Promise<void> {
 
 // Export for testing
 export { isRateLimited, recordFailedAttempt, clearRateLimit, failedAuthAttempts };
+export { VALID_KEY_TYPES, generateHostKeyWithSshKeygen, generateHostKeyFallback };
+export type { SshKeyType };
