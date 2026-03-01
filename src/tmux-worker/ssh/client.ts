@@ -229,34 +229,39 @@ async function verifyHostKey(
       return 'accept';
 
     case 'tofu': {
-      // Trust On First Use: accept and store if new, reject if changed
+      // Trust On First Use: accept and store if new, reject if changed.
+      // Uses INSERT ... ON CONFLICT DO NOTHING to avoid race conditions
+      // when concurrent connections both try to trust the same host.
+      const insertResult = await pool.query<{ id: string }>(
+        `INSERT INTO terminal_known_host
+           (id, namespace, connection_id, host, port, key_type, key_fingerprint, public_key, trusted_by)
+         VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, 'tofu')
+         ON CONFLICT (namespace, host, port, key_type) DO NOTHING
+         RETURNING id`,
+        [conn.namespace, conn.id, conn.host, conn.port, keyType, fingerprint, publicKey],
+      );
+
+      if (insertResult.rows.length > 0) {
+        // Successfully inserted — first connection, trusted
+        return 'accept';
+      }
+
+      // Key already exists — compare fingerprints
       const existing = await pool.query<KnownHostRow>(
-        `SELECT id, key_fingerprint, public_key
+        `SELECT key_fingerprint
          FROM terminal_known_host
          WHERE namespace = $1 AND host = $2 AND port = $3 AND key_type = $4`,
         [conn.namespace, conn.host, conn.port, keyType],
       );
 
-      if (existing.rows.length === 0) {
-        // First connection — trust and store
-        await pool.query(
-          `INSERT INTO terminal_known_host
-           (id, namespace, connection_id, host, port, key_type, key_fingerprint, public_key, trusted_by)
-           VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, 'tofu')`,
-          [conn.namespace, conn.id, conn.host, conn.port, keyType, fingerprint, publicKey],
-        );
-        return 'accept';
-      }
-
-      // Key exists — compare fingerprints
-      if (existing.rows[0].key_fingerprint === fingerprint) {
+      if (existing.rows.length > 0 && existing.rows[0].key_fingerprint === fingerprint) {
         return 'accept';
       }
 
       // Key mismatch — possible MITM
       console.error(
         `HOST KEY MISMATCH for ${conn.host}:${conn.port}! ` +
-        `Expected ${existing.rows[0].key_fingerprint}, got ${fingerprint}`,
+        `Expected ${existing.rows[0]?.key_fingerprint ?? 'none'}, got ${fingerprint}`,
       );
       return 'reject';
     }
