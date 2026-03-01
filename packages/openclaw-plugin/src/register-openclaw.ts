@@ -4179,7 +4179,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     },
     {
       name: 'memory_store',
-      description: 'Store a new memory for future reference. Use when the user shares important preferences, facts, or decisions worth preserving. Creates a memory record with optional category, tags, and geo-location.',
+      description: 'Store a new memory for future reference. Use when the user shares important preferences, facts, or decisions worth preserving. Side effect: creates a memory record with optional category, tags, and geo-location.',
       parameters: withNamespace(memoryStoreSchema),
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.memory_store(params);
@@ -4215,7 +4215,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     },
     {
       name: 'project_create',
-      description: 'Create a new project with a name and optional description. Creates a work_item record. Use when the user wants to start tracking a new initiative or goal.',
+      description: 'Create a new project with a name and optional description. Use when the user wants to start tracking a new initiative or goal. Side effect: creates a work_item record.',
       parameters: withNamespace(projectCreateSchema),
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.project_create(params);
@@ -4233,7 +4233,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     },
     {
       name: 'todo_create',
-      description: 'Create a todo with title and optional project, due date, and priority. Creates a work_item record. Use when the user asks to track, remember, or schedule a specific task.',
+      description: 'Create a todo with title and optional project, due date, and priority. Use when the user asks to track, remember, or schedule a specific task. Side effect: creates a work_item record.',
       parameters: withNamespace(todoCreateSchema),
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.todo_create(params);
@@ -4242,7 +4242,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     },
     {
       name: 'todo_complete',
-      description: 'Mark a todo as completed by ID. Idempotent — safe to call multiple times. Cannot be undone. Use when the user confirms a task is done.',
+      description: 'Mark a todo as completed by ID. Use when the user confirms a task is done. Side effect: sets status to completed — cannot be undone. Idempotent — safe to call multiple times.',
       parameters: withNamespaces(todoCompleteSchema),
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.todo_complete(params);
@@ -4299,7 +4299,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     },
     {
       name: 'contact_create',
-      description: 'Create a new contact record. Supports structured names (given_name, family_name) or display_name. Optionally include email, phone, notes, and tags. Use contact_search first to avoid duplicates.',
+      description: 'Create a new contact record. Supports structured names (given_name, family_name) or display_name. Optionally include email, phone, notes, and tags. Side effect: creates a contact row. Use contact_search first to avoid duplicates.',
       parameters: withNamespace(contactCreateSchema),
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.contact_create(params);
@@ -4308,7 +4308,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     },
     {
       name: 'contact_update',
-      description: 'Update an existing contact by ID. Partial update — only provided fields change. Can modify name, notes, tags, and endpoints.',
+      description: 'Update an existing contact by ID. Partial update — only provided fields change. Can modify name, notes, tags, and endpoints. Side effect: modifies the contact record.',
       parameters: withNamespace(contactUpdateSchema),
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.contact_update(params);
@@ -4335,7 +4335,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     },
     {
       name: 'contact_tag_remove',
-      description: 'Remove a tag from a contact. The tag must exist on the contact. Use to clean up incorrect or outdated categorization.',
+      description: 'Remove a tag from a contact. Use to clean up incorrect or outdated categorization. Side effect: deletes the tag association — the tag must exist on the contact.',
       parameters: withNamespace(contactTagRemoveSchema),
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.contact_tag_remove(params);
@@ -4421,7 +4421,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     {
       name: 'file_share',
       description:
-        'Generate a shareable download link for a file attachment. Use when you need to share a file with someone outside the system. Creates a time-limited URL with configurable expiry and optional download limit.',
+        'Generate a shareable download link for a file attachment. Use when you need to share a file with someone outside the system. Side effect: creates a time-limited URL with configurable expiry and optional download limit.',
       parameters: fileShareSchema,
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.file_share(params);
@@ -4431,7 +4431,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     {
       name: 'skill_store_put',
       description:
-        'Store or update data in the skill store. Use for persisting skill state, configuration, cached results, or any structured data. Creates or updates a record — when a key is provided, existing items with the same (skill_id, collection, key) are upserted.',
+        'Store or update data in the skill store. Use for persisting skill state, configuration, cached results, or any structured data. Side effect: creates or upserts a record — when a key is provided, existing items with the same (skill_id, collection, key) are overwritten.',
       parameters: skillStorePutSchema,
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.skill_store_put(params);
@@ -4460,7 +4460,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     },
     {
       name: 'skill_store_delete',
-      description: 'Delete an item from the skill store by ID or by composite key (skill_id + collection + key). Soft-delete by default — can be restored.',
+      description: 'Delete an item from the skill store by ID or by composite key (skill_id + collection + key). Side effect: soft-deletes the record by default — can be restored.',
       parameters: skillStoreDeleteSchema,
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.skill_store_delete(params);
@@ -4547,7 +4547,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     },
     {
       name: 'prompt_template_create',
-      description: 'Create a new prompt template for inbound message triage. Creates a template record with label, content, and channel type. Requires agentadmin access.',
+      description: 'Create a new prompt template for inbound message triage. Side effect: creates a template record with label, content, and channel type. Requires agentadmin access.',
       parameters: promptTemplateCreateSchema,
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.prompt_template_create(params);
@@ -4556,7 +4556,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     },
     {
       name: 'prompt_template_update',
-      description: 'Update an existing prompt template. Partial update — only provided fields change. Can modify label, content, channel type, or set as default. Requires agentadmin access.',
+      description: 'Update an existing prompt template. Partial update — only provided fields change. Can modify label, content, channel type, or set as default. Side effect: modifies the template record. Requires agentadmin access.',
       parameters: promptTemplateUpdateSchema,
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.prompt_template_update(params);
@@ -4565,7 +4565,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     },
     {
       name: 'prompt_template_delete',
-      description: 'Soft-delete a prompt template (sets is_active to false). Template can still be viewed but will not be used for routing. Requires agentadmin access.',
+      description: 'Soft-delete a prompt template. Side effect: sets is_active to false — template can still be viewed but will not be used for routing. Requires agentadmin access.',
       parameters: promptTemplateDeleteSchema,
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.prompt_template_delete(params);
@@ -4593,7 +4593,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     },
     {
       name: 'inbound_destination_update',
-      description: 'Update routing overrides for an inbound destination. Partial update — set agent, prompt template, or context for message routing. Requires agentadmin access.',
+      description: 'Update routing overrides for an inbound destination. Partial update — set agent, prompt template, or context for message routing. Side effect: changes how future inbound messages on this destination are routed. Requires agentadmin access.',
       parameters: inboundDestinationUpdateSchema,
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.inbound_destination_update(params);
@@ -4715,7 +4715,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     },
     {
       name: 'api_update',
-      description: 'Update metadata for an onboarded API source. Change its name, description, tags, or status (active/disabled). Side effect: modifies the api_source record. Does not re-parse the spec — use api_refresh to re-fetch and update operations.',
+      description: 'Update metadata for an onboarded API source. Change its name, description, tags, or status (active/error/disabled). Side effect: modifies the api_source record. Does not re-parse the spec — use api_refresh to re-fetch and update operations.',
       parameters: apiUpdateSchema,
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.api_update(params);
