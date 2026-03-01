@@ -4170,7 +4170,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
   const tools: ToolDefinition[] = [
     {
       name: 'memory_recall',
-      description: 'Search through long-term memories. Use when you need context about user preferences, past decisions, or previously discussed topics.',
+      description: 'Search long-term memories by semantic or keyword query. Use when you need context about user preferences, past decisions, or previously discussed topics. For cross-entity search including todos and projects, prefer context_search. Read-only.',
       parameters: withNamespaces(memoryRecallSchema),
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.memory_recall(params);
@@ -4179,7 +4179,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     },
     {
       name: 'memory_store',
-      description: 'Store a new memory for future reference. Use when the user shares important preferences, facts, or decisions.',
+      description: 'Store a new memory for future recall. Use when the user shares important preferences, facts, or decisions worth persisting. Creates a memory record with an embedding for semantic search.',
       parameters: withNamespace(memoryStoreSchema),
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.memory_store(params);
@@ -4188,7 +4188,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     },
     {
       name: 'memory_forget',
-      description: 'Remove a memory by ID or search query. Use when information is outdated or the user requests deletion.',
+      description: 'Remove a memory by ID or search query. Use when information is outdated or the user requests deletion. Permanently deletes the memory and its embedding.',
       parameters: withNamespaces(memoryForgetSchema),
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.memory_forget(params);
@@ -4197,7 +4197,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     },
     {
       name: 'project_list',
-      description: 'List projects for the user. Use to see what projects exist or filter by status.',
+      description: 'List all projects, optionally filtered by status (active/completed/archived). Use when browsing projects by status. For natural-language project searches, prefer project_search. Read-only.',
       parameters: withNamespaces(projectListSchema),
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.project_list(params);
@@ -4206,7 +4206,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     },
     {
       name: 'project_get',
-      description: 'Get details about a specific project. Use when you need full project information.',
+      description: 'Get full details of a project by ID including description, status, and linked items. Use after finding a project via project_list or project_search. Read-only.',
       parameters: withNamespaces(projectGetSchema),
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.project_get(params);
@@ -4215,7 +4215,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     },
     {
       name: 'project_create',
-      description: 'Create a new project. Use when the user wants to start tracking a new initiative.',
+      description: 'Create a new project with a name and optional description. Creates a work_item record. Use when the user wants to start tracking a new initiative or goal.',
       parameters: withNamespace(projectCreateSchema),
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.project_create(params);
@@ -4224,7 +4224,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     },
     {
       name: 'todo_list',
-      description: 'List todos, optionally filtered by project or status. Use to see pending tasks.',
+      description: 'List todos filtered by project, status, or due date. Use for structured browsing. For natural-language task searches, prefer todo_search. For broad cross-entity context, prefer context_search. Read-only.',
       parameters: withNamespaces(todoListSchema),
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.todo_list(params);
@@ -4233,7 +4233,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     },
     {
       name: 'todo_create',
-      description: 'Create a new todo item. Use when the user wants to track a task.',
+      description: 'Create a todo with title and optional project, due date, and priority. Creates a work_item record. Use when the user asks to track, remember, or schedule a specific task.',
       parameters: withNamespace(todoCreateSchema),
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.todo_create(params);
@@ -4242,7 +4242,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     },
     {
       name: 'todo_complete',
-      description: 'Mark a todo as complete. Use when a task is done.',
+      description: 'Mark a todo as completed by ID. Idempotent — safe to call multiple times. Cannot be undone. Use when the user confirms a task is done.',
       parameters: withNamespaces(todoCompleteSchema),
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.todo_complete(params);
@@ -4252,7 +4252,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     {
       name: 'todo_search',
       description:
-        'Search todos and work items by natural language query. Uses semantic and text search to find relevant items. Optionally filter by kind or status.',
+        'Search todos and work items by natural language query. Uses semantic and text search to find relevant items. For broad cross-entity context, prefer context_search. Read-only.',
       parameters: withNamespaces(todoSearchSchema),
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.todo_search(params);
@@ -4262,7 +4262,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     {
       name: 'project_search',
       description:
-        'Search projects by natural language query. Uses semantic and text search to find relevant projects. Optionally filter by status (active, completed, archived).',
+        'Search projects by natural language query. Uses semantic and text search to find relevant projects. For broad cross-entity context, prefer context_search. Read-only.',
       parameters: withNamespaces(projectSearchSchema),
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.project_search(params);
@@ -4281,7 +4281,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     },
     {
       name: 'contact_search',
-      description: 'Search contacts by name, email, or other fields. Use to find people.',
+      description: 'Search contacts by name, email, phone, or tag. Use to find existing contacts before creating new ones. For resolving an inbound sender identity, prefer contact_resolve. Read-only.',
       parameters: withNamespaces(contactSearchSchema),
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.contact_search(params);
@@ -4290,7 +4290,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     },
     {
       name: 'contact_get',
-      description: 'Get details about a specific contact. Use when you need full contact information.',
+      description: 'Get full details of a contact by ID including endpoints, tags, notes, and relationships. Use after finding a contact via contact_search or contact_resolve. Read-only.',
       parameters: withNamespaces(contactGetSchema),
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.contact_get(params);
@@ -4299,7 +4299,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     },
     {
       name: 'contact_create',
-      description: 'Create a new contact. Supports structured names (given_name, family_name) or display_name. Optionally include email, phone, tags.',
+      description: 'Create a new contact record. Supports structured names (given_name, family_name) or display_name. Optionally include email, phone, and tags. Use contact_search first to avoid duplicates.',
       parameters: withNamespace(contactCreateSchema),
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.contact_create(params);
@@ -4308,7 +4308,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     },
     {
       name: 'contact_update',
-      description: 'Update an existing contact. Can change name, notes, tags, and other fields.',
+      description: 'Update an existing contact by ID. Partial update — only provided fields change. Can modify name, notes, tags, and endpoint information.',
       parameters: withNamespace(contactUpdateSchema),
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.contact_update(params);
@@ -4317,7 +4317,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     },
     {
       name: 'contact_merge',
-      description: 'Merge two contacts into one. The survivor keeps all data; the loser is soft-deleted. Use when duplicate contacts are detected.',
+      description: 'Merge two contacts into one. Irreversible — the loser contact is soft-deleted and all data moves to the survivor. Use when duplicate contacts are detected.',
       parameters: withNamespace(contactMergeSchema),
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.contact_merge(params);
@@ -4326,7 +4326,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     },
     {
       name: 'contact_tag_add',
-      description: 'Add tags to a contact for categorization.',
+      description: 'Add one or more tags to a contact for categorization and filtering. Tags are used by contact_search for structured filtering. Idempotent for existing tags.',
       parameters: withNamespace(contactTagAddSchema),
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.contact_tag_add(params);
@@ -4335,7 +4335,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     },
     {
       name: 'contact_tag_remove',
-      description: 'Remove a tag from a contact.',
+      description: 'Remove a tag from a contact. The tag must exist on the contact. Use to clean up incorrect or outdated categorization.',
       parameters: withNamespace(contactTagRemoveSchema),
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.contact_tag_remove(params);
@@ -4354,7 +4354,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     {
       name: 'sms_send',
       description:
-        'Send an SMS message to a phone number. Use when you need to notify someone via text message. Requires the recipient phone number in E.164 format (e.g., +15551234567).',
+        'Send an actual SMS message via Twilio. Use when you need to notify someone via text message. Requires Twilio configuration and recipient phone in E.164 format. Irreversible — the message is sent immediately.',
       parameters: smsSendSchema,
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.sms_send(params);
@@ -4363,7 +4363,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     },
     {
       name: 'email_send',
-      description: 'Send an email message. Use when you need to communicate via email. Requires the recipient email address, subject, and body.',
+      description: 'Send an actual email via Postmark. Use when you need to communicate via email. Requires Postmark configuration and recipient email address. Irreversible — the email is sent immediately.',
       parameters: emailSendSchema,
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.email_send(params);
@@ -4373,7 +4373,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     {
       name: 'message_search',
       description:
-        'Search message history semantically. Use when you need to find past conversations, messages about specific topics, or communications with contacts. Supports filtering by channel (SMS/email) and contact.',
+        'Search message history by semantic or keyword query. Use when you need to find past conversations or messages about specific topics. Supports filtering by channel and contact. For cross-entity search, prefer context_search. Read-only.',
       parameters: withNamespaces(messageSearchSchema),
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.message_search(params);
@@ -4382,7 +4382,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     },
     {
       name: 'thread_list',
-      description: 'List message threads (conversations). Use to see recent conversations with contacts. Can filter by channel (SMS/email) or contact.',
+      description: 'List message threads (conversations) with pagination. Use to see recent conversations with contacts. Can filter by channel (SMS/email) or contact. Read-only.',
       parameters: withNamespaces(threadListSchema),
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.thread_list(params);
@@ -4391,7 +4391,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     },
     {
       name: 'thread_get',
-      description: 'Get a thread with its message history. Use to view the full conversation in a thread.',
+      description: 'Get a thread with its full message history. Use to view the complete conversation in a thread including all inbound and outbound messages. Read-only.',
       parameters: withNamespaces(threadGetSchema),
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.thread_get(params);
@@ -4401,7 +4401,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     {
       name: 'relationship_set',
       description:
-        "Record a relationship between two people, groups, or organisations. Examples: 'Troy is Alex\\'s partner', 'Sam is a member of The Kelly Household', 'Troy works for Acme Corp'. The system handles directionality and type matching automatically.",
+        "Record a relationship between two contacts, groups, or organisations. Use when the user mentions a connection between people. The system handles directionality and type matching automatically. Creates a bidirectional link.",
       parameters: withNamespace(relationshipSetSchema),
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.relationship_set(params);
@@ -4411,7 +4411,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     {
       name: 'relationship_query',
       description:
-        "Query a contact's relationships. Returns all relationships including family, partners, group memberships, professional connections, etc. Handles directional relationships automatically.",
+        "Query a contact's relationships by contact ID. Returns all relationships including family, partners, group memberships, and professional connections. Handles directional relationships automatically. Read-only.",
       parameters: withNamespaces(relationshipQuerySchema),
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.relationship_query(params);
@@ -4421,7 +4421,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     {
       name: 'file_share',
       description:
-        'Generate a shareable download link for a file. Use when you need to share a file with someone outside the system. The link is time-limited and can be configured with an expiry time and optional download limit.',
+        'Generate a time-limited shareable download link for a file. Use when you need to share a file with someone outside the system. Supports configurable expiry and optional download limit. Creates a file_share record.',
       parameters: fileShareSchema,
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.file_share(params);
@@ -4431,7 +4431,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     {
       name: 'skill_store_put',
       description:
-        'Store or update data in the skill store. Use for persisting skill state, configuration, cached results, or any structured data. When a key is provided, existing items with the same (skill_id, collection, key) are updated.',
+        'Store or update data in the skill store. Use for persisting skill state, configuration, or cached results. Upserts when the same (skill_id, collection, key) composite key exists. Creates or updates a skill_store record.',
       parameters: skillStorePutSchema,
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.skill_store_put(params);
@@ -4441,7 +4441,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     {
       name: 'skill_store_get',
       description:
-        'Retrieve an item from the skill store by ID or by composite key (skill_id + collection + key). Returns the full item including data payload.',
+        'Retrieve an item from the skill store by ID or composite key (skill_id + collection + key). Returns the full item including data payload and metadata. Read-only.',
       parameters: skillStoreGetSchema,
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.skill_store_get(params);
@@ -4451,7 +4451,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     {
       name: 'skill_store_list',
       description:
-        'List items in the skill store with filtering and pagination. Requires skill_id. Can filter by collection, status, tags, date range, and user email.',
+        'List items in the skill store with filtering and pagination. Requires skill_id. Can filter by collection, status, tags, date range, and user email. Read-only.',
       parameters: skillStoreListSchema,
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.skill_store_list(params);
@@ -4460,7 +4460,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     },
     {
       name: 'skill_store_delete',
-      description: 'Delete an item from the skill store by ID or by composite key (skill_id + collection + key). Performs a soft delete by default.',
+      description: 'Delete an item from the skill store by ID or composite key (skill_id + collection + key). Soft-delete by default — sets status to deleted but data remains recoverable.',
       parameters: skillStoreDeleteSchema,
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.skill_store_delete(params);
@@ -4470,7 +4470,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     {
       name: 'skill_store_search',
       description:
-        'Search skill store items by text or semantic similarity. Use when looking for stored data, notes, or content by topic. Supports full-text search (default) and optional semantic/vector search with graceful fallback to text when embeddings are not available.',
+        'Search skill store items by text or semantic similarity. Use when looking for stored data or content by topic. Supports full-text (default) and semantic search with graceful fallback when embeddings are unavailable. Read-only.',
       parameters: skillStoreSearchSchema,
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.skill_store_search(params);
@@ -4479,7 +4479,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     },
     {
       name: 'skill_store_collections',
-      description: 'List all collections for a skill with item counts. Use to discover what data categories exist and how many items each collection contains.',
+      description: 'List all collections for a skill with item counts. Use to discover what data categories exist before querying with skill_store_list or skill_store_search. Read-only.',
       parameters: skillStoreCollectionsSchema,
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.skill_store_collections(params);
@@ -4489,7 +4489,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     {
       name: 'skill_store_aggregate',
       description:
-        'Run simple aggregations on skill store items. Useful for understanding data volume, distribution, and boundaries. Operations: count, count_by_tag, count_by_status, latest, oldest.',
+        'Run aggregations on skill store items for data volume and distribution insights. Supported operations: count, count_by_tag, count_by_status, latest, oldest. Read-only.',
       parameters: skillStoreAggregateSchema,
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.skill_store_aggregate(params);
@@ -4499,7 +4499,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     {
       name: 'links_set',
       description:
-        'Create a link between two entities (memory, todo, project, contact, GitHub issue, or URL). Links are bidirectional and can be traversed from either end. Use to connect related items for cross-reference and context discovery.',
+        'Create a bidirectional link between two entities (memory, todo, project, contact, GitHub issue, or URL). Use to connect related items for cross-reference and context discovery. Creates an entity_link record.',
       parameters: withNamespace(linksSetSchema),
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.links_set(params);
@@ -4509,7 +4509,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     {
       name: 'links_query',
       description:
-        'Query all links for an entity (memory, todo, project, or contact). Returns connected entities including other items, GitHub issues, and URLs. Optionally filter by link target types.',
+        'Query all links for an entity (memory, todo, project, or contact). Returns connected entities including other items, GitHub issues, and URLs. Optionally filter by target type. Read-only.',
       parameters: withNamespaces(linksQuerySchema),
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.links_query(params);
@@ -4519,7 +4519,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     {
       name: 'links_remove',
       description:
-        'Remove a link between two entities. Deletes both directions of the link. Use when a connection is no longer relevant or was created in error.',
+        'Remove a bidirectional link between two entities. Permanently deletes both directions of the link. Use when a connection is no longer relevant or was created in error.',
       parameters: withNamespaces(linksRemoveSchema),
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.links_remove(params);
@@ -4529,7 +4529,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     // Prompt template tools (Epic #1497, Issue #1499)
     {
       name: 'prompt_template_list',
-      description: 'List prompt templates used for inbound message triage. Filter by channel type (sms, email, ha_observation, general).',
+      description: 'List prompt templates used for inbound message triage. Filter by channel type (sms, email, ha_observation, general). Use to discover available templates before routing configuration. Read-only.',
       parameters: promptTemplateListSchema,
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.prompt_template_list(params);
@@ -4538,7 +4538,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     },
     {
       name: 'prompt_template_get',
-      description: 'Get a prompt template by ID. Returns the full template including prompt content.',
+      description: 'Get a prompt template by ID. Returns the full template including prompt content, channel type, and default status. Read-only.',
       parameters: promptTemplateGetSchema,
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.prompt_template_get(params);
@@ -4547,7 +4547,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     },
     {
       name: 'prompt_template_create',
-      description: 'Create a new prompt template for inbound message triage. Requires agentadmin access.',
+      description: 'Create a new prompt template for inbound message triage. Specify label, channel type, and prompt content. Requires agentadmin access. Creates a prompt_template record.',
       parameters: promptTemplateCreateSchema,
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.prompt_template_create(params);
@@ -4556,7 +4556,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     },
     {
       name: 'prompt_template_update',
-      description: 'Update an existing prompt template. Can change label, content, channel type, or set as default.',
+      description: 'Update an existing prompt template by ID. Partial update — only provided fields change. Can modify label, content, channel type, or default status. Requires agentadmin access.',
       parameters: promptTemplateUpdateSchema,
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.prompt_template_update(params);
@@ -4565,7 +4565,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     },
     {
       name: 'prompt_template_delete',
-      description: 'Soft-delete a prompt template (sets is_active to false). Template can still be viewed but will not be used for routing.',
+      description: 'Soft-delete a prompt template by setting is_active to false. The template can still be viewed but will not be used for routing. Requires agentadmin access.',
       parameters: promptTemplateDeleteSchema,
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.prompt_template_delete(params);
@@ -4575,7 +4575,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     // ── Inbound Destination tools (Issue #1500) ──────────────
     {
       name: 'inbound_destination_list',
-      description: 'List discovered inbound destinations (phone numbers and email addresses). Auto-created when messages arrive.',
+      description: 'List discovered inbound destinations (phone numbers and email addresses). Auto-created when messages arrive. Use to see which endpoints are configured for routing. Read-only.',
       parameters: inboundDestinationListSchema,
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.inbound_destination_list(params);
@@ -4584,7 +4584,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     },
     {
       name: 'inbound_destination_get',
-      description: 'Get an inbound destination by ID. Returns routing config (agent, prompt template, context).',
+      description: 'Get an inbound destination by ID. Returns the full routing configuration including assigned agent, prompt template, and context overrides. Read-only.',
       parameters: inboundDestinationGetSchema,
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.inbound_destination_get(params);
@@ -4593,7 +4593,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     },
     {
       name: 'inbound_destination_update',
-      description: 'Update routing overrides for an inbound destination. Set agent, prompt template, or context for routing.',
+      description: 'Update routing overrides for an inbound destination by ID. Partial update — only provided fields change. Set agent, prompt template, or context for message routing.',
       parameters: inboundDestinationUpdateSchema,
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.inbound_destination_update(params);
@@ -4603,7 +4603,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     // ── Channel Default tools (Issue #1501) ──────────────────
     {
       name: 'channel_default_list',
-      description: 'List all channel defaults (per-channel routing config). Shows which agent handles each channel type.',
+      description: 'List all channel defaults showing per-channel routing configuration. Shows which agent handles each channel type (sms, email, ha_observation). Read-only.',
       parameters: channelDefaultListSchema,
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.channel_default_list();
@@ -4612,7 +4612,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     },
     {
       name: 'channel_default_get',
-      description: 'Get the default routing config for a specific channel type (sms, email, ha_observation).',
+      description: 'Get the default routing configuration for a specific channel type (sms, email, ha_observation). Returns assigned agent, prompt template, and context. Read-only.',
       parameters: channelDefaultGetSchema,
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.channel_default_get(params);
@@ -4621,7 +4621,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     },
     {
       name: 'channel_default_set',
-      description: 'Set or update the default routing config for a channel type. Requires agentadmin access.',
+      description: 'Set or update the default routing configuration for a channel type. Assign agent, prompt template, and context for all messages on that channel. Requires agentadmin access.',
       parameters: channelDefaultSetSchema,
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.channel_default_set(params);
@@ -4631,7 +4631,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     // ── Namespace management tools (Issue #1536) ─────────────────
     {
       name: 'namespace_list',
-      description: 'List all namespaces accessible to the current user or agent. Shows role, priority, and default status.',
+      description: 'List all namespaces accessible to the current user or agent. Shows role, priority, and default status for each namespace. Use to discover available data scopes. Read-only.',
       parameters: namespaceListSchema,
       execute: async (_toolCallId: string, _params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.namespace_list();
@@ -4640,7 +4640,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     },
     {
       name: 'namespace_create',
-      description: 'Create a new namespace. The creating user becomes the owner automatically.',
+      description: 'Create a new namespace for data isolation and sharing. The creating user becomes the owner automatically. Use when a user needs a separate scope for data.',
       parameters: namespaceCreateSchema,
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.namespace_create(params);
@@ -4649,7 +4649,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     },
     {
       name: 'namespace_grant',
-      description: 'Grant a user access to a namespace with a specific role. Use to share data between users.',
+      description: 'Grant a user access to a namespace with a specific role (reader, writer, admin). Use to share data between users. Requires owner or admin role on the namespace.',
       parameters: namespaceGrantSchema,
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.namespace_grant(params);
@@ -4658,7 +4658,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     },
     {
       name: 'namespace_members',
-      description: 'List all members of a namespace with their roles and default status.',
+      description: 'List all members of a namespace with their roles and default status. Use to audit who has access to a namespace. Read-only.',
       parameters: namespaceMembersSchema,
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.namespace_members(params);
@@ -4667,7 +4667,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     },
     {
       name: 'namespace_revoke',
-      description: 'Revoke a user\'s access to a namespace by grant ID. Requires owner or admin role.',
+      description: "Revoke a user's access to a namespace by grant ID. Permanently removes the access grant. Requires owner or admin role on the namespace.",
       parameters: namespaceRevokeSchema,
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.namespace_revoke(params);
@@ -4679,7 +4679,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
 
     {
       name: 'api_onboard',
-      description: 'Onboard a new API by providing its OpenAPI spec URL or inline content. Parses the spec into searchable memories and optionally stores credentials.',
+      description: 'Onboard a new API by providing its OpenAPI spec URL or inline content. Parses the spec into searchable memories and optionally stores credentials. Creates an api_source record.',
       parameters: withNamespace(apiOnboardSchema),
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.api_onboard(params);
@@ -4688,7 +4688,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     },
     {
       name: 'api_recall',
-      description: 'Search onboarded API memories to find endpoints, operations, and capabilities. Returns operation details including method, path, parameters, and credentials.',
+      description: 'Search onboarded API memories to find endpoints, operations, and capabilities. Returns operation details including method, path, and parameters. Use api_onboard first to index an API. Read-only.',
       parameters: withNamespaces(apiRecallSchema),
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.api_recall(params);
@@ -4697,7 +4697,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     },
     {
       name: 'api_get',
-      description: 'Get details about a specific onboarded API source including its status, spec version, and tags.',
+      description: 'Get details about a specific onboarded API source by ID. Returns status, spec version, tags, and credential configuration. Read-only.',
       parameters: apiGetSchema,
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.api_get(params);
@@ -4706,7 +4706,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     },
     {
       name: 'api_list',
-      description: 'List all onboarded API sources. Optionally filter by status (active, error, disabled).',
+      description: 'List all onboarded API sources with optional filtering by status (active, error, disabled). Use to discover available APIs before searching with api_recall. Read-only.',
       parameters: apiListSchema,
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.api_list(params);
@@ -4715,7 +4715,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     },
     {
       name: 'api_update',
-      description: 'Update an onboarded API source. Change its name, description, tags, or status.',
+      description: 'Update an onboarded API source by ID. Partial update — only provided fields change. Can modify name, description, tags, or status.',
       parameters: apiUpdateSchema,
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.api_update(params);
@@ -4724,7 +4724,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     },
     {
       name: 'api_credential_manage',
-      description: 'Manage credentials for an onboarded API source: add, update, or remove authentication headers.',
+      description: 'Manage credentials for an onboarded API source. Add, update, or remove authentication headers used when calling the API. Credentials are stored encrypted.',
       parameters: apiCredentialManageSchema,
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.api_credential_manage(params);
@@ -4733,7 +4733,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     },
     {
       name: 'api_refresh',
-      description: 'Refresh an API source by re-fetching its OpenAPI spec and updating memories. Returns a diff summary.',
+      description: 'Refresh an API source by re-fetching its OpenAPI spec and updating stored memories. Use after the upstream API has changed. Returns a diff summary of added, removed, and modified operations.',
       parameters: apiRefreshSchema,
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.api_refresh(params);
@@ -4742,7 +4742,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     },
     {
       name: 'api_remove',
-      description: 'Soft-delete an onboarded API source. Can be restored later with api_restore.',
+      description: 'Soft-delete an onboarded API source by ID. The source and its memories are deactivated but can be restored later with api_restore.',
       parameters: apiRemoveSchema,
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.api_remove(params);
@@ -4751,7 +4751,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     },
     {
       name: 'api_restore',
-      description: 'Restore a previously soft-deleted API source.',
+      description: 'Restore a previously soft-deleted API source by ID. Reactivates the source and its associated memories. Use after api_remove to undo a deletion.',
       parameters: apiRestoreSchema,
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.api_restore(params);
