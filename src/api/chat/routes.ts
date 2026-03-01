@@ -64,9 +64,13 @@ const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 100;
 const MAX_MESSAGE_BYTES = 65536; // 64KB
 const STREAM_SECRET_BYTES = 32;
+/** Maximum WebSocket frame size for chat connections (#1973). */
+const CHAT_WS_MAX_PAYLOAD = 32768; // 32KB
 
 const VALID_SESSION_STATUSES = ['active', 'ended', 'expired'] as const;
 const VALID_CONTENT_TYPES = ['text/plain', 'text/markdown', 'application/vnd.openclaw.rich-card'] as const;
+/** Allowlist for content_type on stream completion (#1972). */
+const ALLOWED_CONTENT_TYPES: ReadonlySet<string> = new Set(VALID_CONTENT_TYPES);
 
 // ── Plugin options ───────────────────────────────────────────────
 
@@ -925,6 +929,15 @@ export async function chatRoutesPlugin(
 
     // Handle incoming messages
     socket.on('message', (data: Buffer | string) => {
+      // Enforce per-route payload limit (#1973)
+      const byteLength = typeof data === 'string'
+        ? Buffer.byteLength(data, 'utf8')
+        : data.length;
+      if (byteLength > CHAT_WS_MAX_PAYLOAD) {
+        socket.close(1009, 'Message exceeds 32KB limit');
+        return;
+      }
+
       try {
         const raw = typeof data === 'string' ? data : data.toString('utf8');
         const message = JSON.parse(raw) as Record<string, unknown>;
@@ -1167,11 +1180,19 @@ export async function chatRoutesPlugin(
           return reply.code(400).send({ error: 'Content exceeds 256KB limit' });
         }
 
+        // Validate content_type against allowlist (#1972)
+        const rawContentType = (body.content_type as string | undefined) ?? 'text/plain';
+        if (!ALLOWED_CONTENT_TYPES.has(rawContentType)) {
+          return reply.code(400).send({
+            error: `Invalid content_type: must be one of ${[...ALLOWED_CONTENT_TYPES].join(', ')}`,
+          });
+        }
+
         const payload: StreamCompletedPayload = {
           content: fullContent,
           message_id: body.message_id as string | undefined,
           agent_run_id: body.agent_run_id as string | undefined,
-          content_type: (body.content_type as string | undefined) ?? 'text/plain',
+          content_type: rawContentType,
         };
 
         const result = streamManager.handleCompleted(params.id, payload);

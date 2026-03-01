@@ -226,6 +226,144 @@ describe('Agent Streaming Callback API (#1945)', () => {
   });
 
   // ================================================================
+  // Issue #1972 — content_type validation on stream completion
+  // ================================================================
+
+  describe('content_type validation (#1972)', () => {
+    it('accepts text/plain content_type', async () => {
+      const { id, stream_secret } = await createSessionWithSecret();
+
+      const res = await app.inject({
+        method: 'POST',
+        url: `/api/chat/sessions/${id}/stream`,
+        headers: { 'x-user-email': TEST_EMAIL, 'x-stream-secret': stream_secret },
+        payload: {
+          type: 'completed',
+          content: 'Hello world',
+          content_type: 'text/plain',
+        },
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect((res.json() as { ok: boolean }).ok).toBe(true);
+    });
+
+    it('accepts text/markdown content_type', async () => {
+      const { id, stream_secret } = await createSessionWithSecret();
+
+      const res = await app.inject({
+        method: 'POST',
+        url: `/api/chat/sessions/${id}/stream`,
+        headers: { 'x-user-email': TEST_EMAIL, 'x-stream-secret': stream_secret },
+        payload: {
+          type: 'completed',
+          content: '# Hello',
+          content_type: 'text/markdown',
+        },
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect((res.json() as { ok: boolean }).ok).toBe(true);
+    });
+
+    it('accepts application/vnd.openclaw.rich-card content_type', async () => {
+      const { id, stream_secret } = await createSessionWithSecret();
+
+      const res = await app.inject({
+        method: 'POST',
+        url: `/api/chat/sessions/${id}/stream`,
+        headers: { 'x-user-email': TEST_EMAIL, 'x-stream-secret': stream_secret },
+        payload: {
+          type: 'completed',
+          content: '{"card":"data"}',
+          content_type: 'application/vnd.openclaw.rich-card',
+        },
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect((res.json() as { ok: boolean }).ok).toBe(true);
+    });
+
+    it('defaults to text/plain when content_type is omitted', async () => {
+      const { id, thread_id, stream_secret } = await createSessionWithSecret();
+
+      const res = await app.inject({
+        method: 'POST',
+        url: `/api/chat/sessions/${id}/stream`,
+        headers: { 'x-user-email': TEST_EMAIL, 'x-stream-secret': stream_secret },
+        payload: {
+          type: 'completed',
+          content: 'Hello',
+        },
+      });
+
+      expect(res.statusCode).toBe(200);
+      const body = res.json() as { ok: boolean; message_id: string };
+
+      // Verify DB record uses text/plain default
+      const msgResult = await pool.query(
+        `SELECT content_type FROM external_message WHERE id = $1`,
+        [body.message_id],
+      );
+      expect(msgResult.rows.length).toBe(1);
+      expect((msgResult.rows[0] as { content_type: string }).content_type).toBe('text/plain');
+    });
+
+    it('rejects arbitrary content_type with 400', async () => {
+      const { id, stream_secret } = await createSessionWithSecret();
+
+      const res = await app.inject({
+        method: 'POST',
+        url: `/api/chat/sessions/${id}/stream`,
+        headers: { 'x-user-email': TEST_EMAIL, 'x-stream-secret': stream_secret },
+        payload: {
+          type: 'completed',
+          content: 'Hello',
+          content_type: 'application/x-evil-payload',
+        },
+      });
+
+      expect(res.statusCode).toBe(400);
+      const body = res.json() as { error: string };
+      expect(body.error).toContain('content_type');
+    });
+
+    it('rejects XSS-bearing content_type', async () => {
+      const { id, stream_secret } = await createSessionWithSecret();
+
+      const res = await app.inject({
+        method: 'POST',
+        url: `/api/chat/sessions/${id}/stream`,
+        headers: { 'x-user-email': TEST_EMAIL, 'x-stream-secret': stream_secret },
+        payload: {
+          type: 'completed',
+          content: 'Hello',
+          content_type: 'text/html',
+        },
+      });
+
+      expect(res.statusCode).toBe(400);
+    });
+
+    it('rejects content_type with injection characters', async () => {
+      const { id, stream_secret } = await createSessionWithSecret();
+
+      const res = await app.inject({
+        method: 'POST',
+        url: `/api/chat/sessions/${id}/stream`,
+        headers: { 'x-user-email': TEST_EMAIL, 'x-stream-secret': stream_secret },
+        payload: {
+          type: 'completed',
+          content: 'Hello',
+          content_type: 'text/plain; charset=utf-8\r\nX-Injected: true',
+        },
+      });
+
+      expect(res.statusCode).toBe(400);
+    });
+  });
+
+  // ================================================================
   // POST /api/chat/sessions/:id/stream — failed type
   // ================================================================
 
