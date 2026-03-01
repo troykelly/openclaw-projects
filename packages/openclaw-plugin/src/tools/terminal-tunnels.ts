@@ -102,7 +102,7 @@ export function createTerminalTunnelCreateTool(options: TerminalTunnelToolOption
 
   return {
     name: 'terminal_tunnel_create',
-    description: 'Creates an SSH tunnel (local/forward, remote/reverse, or dynamic/SOCKS). For local/remote tunnels, target_host and target_port are required. Persists until explicitly closed. Requires an active terminal connection.',
+    description: 'Creates an SSH tunnel (local/forward, remote/reverse, or dynamic/SOCKS). For local/remote tunnels, target_host and target_port are required. Persists until explicitly closed. Requires a saved connection ID.',
     parameters: TerminalTunnelCreateParamsSchema,
 
     async execute(params: TerminalTunnelCreateParams): Promise<TerminalTunnelCreateResult> {
@@ -238,7 +238,7 @@ export function createTerminalTunnelListTool(options: TerminalTunnelToolOptions)
 
   return {
     name: 'terminal_tunnel_list',
-    description: 'Lists active SSH tunnels with optional filtering by connection or status. Use to find tunnel IDs for management or to verify port bindings. Read-only. Requires an active terminal connection.',
+    description: 'Lists active SSH tunnels with optional filtering by connection or status. Use to find tunnel IDs for management or to verify port bindings. Read-only. No prerequisites.',
     parameters: TerminalTunnelListParamsSchema,
 
     async execute(params: TerminalTunnelListParams): Promise<TerminalTunnelListResult> {

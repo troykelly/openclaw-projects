@@ -130,7 +130,7 @@ export function createTerminalSessionStartTool(options: TerminalSessionToolOptio
 
   return {
     name: 'terminal_session_start',
-    description: 'Starts a new tmux session on a saved connection. Returns a session ID for use with terminal_send_command and other session tools. Requires an active terminal connection. Optionally runs an initial command on start.',
+    description: 'Starts a new tmux session on a saved connection. Returns a session ID for use with terminal_send_command and other session tools. Requires a saved connection ID. Optionally runs an initial command on start.',
     parameters: TerminalSessionStartParamsSchema,
 
     async execute(params: TerminalSessionStartParams): Promise<TerminalSessionStartResult> {
@@ -248,7 +248,7 @@ export function createTerminalSessionListTool(options: TerminalSessionToolOption
 
   return {
     name: 'terminal_session_list',
-    description: 'Lists terminal sessions with optional filtering by connection or status (active, terminated). Use to find active session IDs before sending commands. Read-only. Requires an active terminal connection.',
+    description: 'Lists terminal sessions with optional filtering by connection or status (active, terminated). Use to find active session IDs before sending commands. Read-only. No prerequisites.',
     parameters: TerminalSessionListParamsSchema,
 
     async execute(params: TerminalSessionListParams): Promise<TerminalSessionListResult> {

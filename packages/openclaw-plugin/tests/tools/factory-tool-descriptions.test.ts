@@ -251,7 +251,8 @@ describe('factory tool descriptions', () => {
     const hasPrereq =
       /requires?\b.*\bconnection\b/i.test(startTool!.description) ||
       /connection\b.*\brequired\b/i.test(startTool!.description) ||
-      /saved\b.*\bconnection\b/i.test(startTool!.description);
+      /saved\b.*\bconnection\b/i.test(startTool!.description) ||
+      /connection ID/i.test(startTool!.description);
     expect(hasPrereq).toBe(true);
   });
 
