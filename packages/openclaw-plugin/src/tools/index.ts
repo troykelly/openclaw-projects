@@ -543,5 +543,14 @@ export {
   type DevSessionToolOptions,
 } from './dev-sessions.js';
 
+// Tool guide meta-tool (Issue #1923)
+export {
+  createToolGuideTool,
+  ToolGuideParamsSchema,
+  type ToolGuideParams,
+  type ToolGuideTool,
+  type ToolGuideResult,
+} from './tool-guide.js';
+
 /** Tool factory types */
 export type ToolFactoryOptions = Record<string, never>;
