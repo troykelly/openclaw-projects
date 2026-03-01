@@ -39,7 +39,7 @@ export function terminalActivityPaths(): OpenApiDomainModule {
     },
 
     paths: {
-      '/api/terminal/activity': {
+      '/terminal/activity': {
         get: {
           operationId: 'listTerminalActivity',
           summary: 'Query terminal audit trail',

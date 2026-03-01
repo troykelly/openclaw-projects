@@ -61,7 +61,7 @@ export function terminalTunnelsPaths(): OpenApiDomainModule {
     },
 
     paths: {
-      '/api/terminal/tunnels': {
+      '/terminal/tunnels': {
         get: {
           operationId: 'listTerminalTunnels',
           summary: 'List SSH tunnels',
@@ -114,7 +114,7 @@ export function terminalTunnelsPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/terminal/tunnels/{id}': {
+      '/terminal/tunnels/{id}': {
         parameters: [uuidParam('id', 'Tunnel UUID')],
         delete: {
           operationId: 'closeTerminalTunnel',

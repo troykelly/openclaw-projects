@@ -62,7 +62,7 @@ export function terminalCommandsPaths(): OpenApiDomainModule {
     },
 
     paths: {
-      '/api/terminal/sessions/{id}/send-command': {
+      '/terminal/sessions/{id}/send-command': {
         parameters: [uuidParam('id', 'Session UUID')],
         post: {
           operationId: 'sendTerminalCommand',
@@ -80,7 +80,7 @@ export function terminalCommandsPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/terminal/sessions/{id}/send-keys': {
+      '/terminal/sessions/{id}/send-keys': {
         parameters: [uuidParam('id', 'Session UUID')],
         post: {
           operationId: 'sendTerminalKeys',
@@ -99,7 +99,7 @@ export function terminalCommandsPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/terminal/sessions/{id}/capture': {
+      '/terminal/sessions/{id}/capture': {
         parameters: [uuidParam('id', 'Session UUID')],
         get: {
           operationId: 'captureTerminalPane',

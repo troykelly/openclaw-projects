@@ -1,9 +1,9 @@
 /**
  * OpenAPI path definitions for inbound destination and channel default endpoints.
- * Routes: GET /api/inbound-destinations, GET /api/inbound-destinations/:id,
- *         PUT /api/inbound-destinations/:id, DELETE /api/inbound-destinations/:id,
- *         GET /api/channel-defaults, GET /api/channel-defaults/:channelType,
- *         PUT /api/channel-defaults/:channelType
+ * Routes: GET /inbound-destinations, GET /inbound-destinations/:id,
+ *         PUT /inbound-destinations/:id, DELETE /inbound-destinations/:id,
+ *         GET /channel-defaults, GET /channel-defaults/:channelType,
+ *         PUT /channel-defaults/:channelType
  */
 import type { OpenApiDomainModule } from '../types.ts';
 import { errorResponses, jsonBody, jsonResponse, paginationParams, searchParam, uuidParam } from '../helpers.ts';
@@ -141,7 +141,7 @@ export function inboundChannelsPaths(): OpenApiDomainModule {
       },
     },
     paths: {
-      '/api/inbound-destinations': {
+      '/inbound-destinations': {
         get: {
           operationId: 'listInboundDestinations',
           summary: 'List inbound destinations',
@@ -195,7 +195,7 @@ export function inboundChannelsPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/inbound-destinations/{id}': {
+      '/inbound-destinations/{id}': {
         get: {
           operationId: 'getInboundDestination',
           summary: 'Get an inbound destination',
@@ -265,7 +265,7 @@ export function inboundChannelsPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/channel-defaults': {
+      '/channel-defaults': {
         get: {
           operationId: 'listChannelDefaults',
           summary: 'List all channel defaults',
@@ -286,7 +286,7 @@ export function inboundChannelsPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/channel-defaults/{channelType}': {
+      '/channel-defaults/{channelType}': {
         get: {
           operationId: 'getChannelDefault',
           summary: 'Get default for a channel type',

@@ -1,8 +1,8 @@
 /**
  * OpenAPI path definitions for activity feed and global search endpoints.
- * Routes: GET /api/activity, POST /api/activity/read-all,
- *         GET /api/activity/stream, POST /api/activity/:id/read,
- *         GET /api/search
+ * Routes: GET /activity, POST /activity/read-all,
+ *         GET /activity/stream, POST /activity/:id/read,
+ *         GET /search
  */
 import type { OpenApiDomainModule } from '../types.ts';
 import { errorResponses, jsonResponse, uuidParam } from '../helpers.ts';
@@ -66,7 +66,7 @@ export function activityPaths(): OpenApiDomainModule {
       },
     },
     paths: {
-      '/api/activity': {
+      '/activity': {
         get: {
           operationId: 'listActivity',
           summary: 'List activity feed',
@@ -104,7 +104,7 @@ export function activityPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/activity/read-all': {
+      '/activity/read-all': {
         post: {
           operationId: 'markAllActivityRead',
           summary: 'Mark all activity as read',
@@ -122,7 +122,7 @@ export function activityPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/activity/stream': {
+      '/activity/stream': {
         get: {
           operationId: 'streamActivity',
           summary: 'Real-time activity stream (SSE)',
@@ -147,7 +147,7 @@ export function activityPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/activity/{id}/read': {
+      '/activity/{id}/read': {
         post: {
           operationId: 'markActivityRead',
           summary: 'Mark a single activity as read',
@@ -160,7 +160,7 @@ export function activityPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/search': {
+      '/search': {
         get: {
           operationId: 'globalSearch',
           summary: 'Unified search',

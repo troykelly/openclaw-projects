@@ -103,7 +103,7 @@ export function terminalSearchPaths(): OpenApiDomainModule {
     },
 
     paths: {
-      '/api/terminal/search': {
+      '/terminal/search': {
         post: {
           operationId: 'searchTerminalEntries',
           summary: 'Semantic search across terminal entries',

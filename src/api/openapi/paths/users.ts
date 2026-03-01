@@ -1,8 +1,8 @@
 /**
  * OpenAPI path definitions for user provisioning and management.
- * Routes: POST /api/users, GET /api/users, GET /api/users/{email},
- *         PATCH /api/users/{email}, DELETE /api/users/{email},
- *         GET /api/users/search
+ * Routes: POST /users, GET /users, GET /users/{email},
+ *         PATCH /users/{email}, DELETE /users/{email},
+ *         GET /users/search
  */
 import type { OpenApiDomainModule, ParameterObject } from '../types.ts';
 import { ref, errorResponses, jsonBody, jsonResponse } from '../helpers.ts';
@@ -345,7 +345,7 @@ export function usersPaths(): OpenApiDomainModule {
       },
     },
     paths: {
-      '/api/users': {
+      '/users': {
         post: {
           operationId: 'createUser',
           summary: 'Create a user',
@@ -371,7 +371,7 @@ export function usersPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/users/search': {
+      '/users/search': {
         get: {
           operationId: 'searchUsers',
           summary: 'Search users by email',
@@ -400,7 +400,7 @@ export function usersPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/users/{email}': {
+      '/users/{email}': {
         get: {
           operationId: 'getUser',
           summary: 'Get user details',

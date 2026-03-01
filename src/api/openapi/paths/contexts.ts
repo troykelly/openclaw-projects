@@ -1,10 +1,10 @@
 /**
  * OpenAPI path definitions for context endpoints.
- * Routes: POST /api/contexts, GET /api/contexts, GET /api/contexts/:id,
- *         PATCH /api/contexts/:id, DELETE /api/contexts/:id,
- *         POST /api/contexts/:id/links, GET /api/contexts/:id/links,
- *         DELETE /api/contexts/:id/links/:link_id,
- *         GET /api/entity-contexts
+ * Routes: POST /contexts, GET /contexts, GET /contexts/:id,
+ *         PATCH /contexts/:id, DELETE /contexts/:id,
+ *         POST /contexts/:id/links, GET /contexts/:id/links,
+ *         DELETE /contexts/:id/links/:link_id,
+ *         GET /entity-contexts
  */
 import type { OpenApiDomainModule } from '../types.ts';
 import { errorResponses, jsonBody, jsonResponse, paginationParams, searchParam, uuidParam } from '../helpers.ts';
@@ -156,7 +156,7 @@ export function contextsPaths(): OpenApiDomainModule {
       },
     },
     paths: {
-      '/api/contexts': {
+      '/contexts': {
         post: {
           operationId: 'createContext',
           summary: 'Create a context',
@@ -236,7 +236,7 @@ export function contextsPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/contexts/{id}': {
+      '/contexts/{id}': {
         get: {
           operationId: 'getContext',
           summary: 'Get a context',
@@ -296,7 +296,7 @@ export function contextsPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/contexts/{id}/links': {
+      '/contexts/{id}/links': {
         post: {
           operationId: 'createContextLink',
           summary: 'Link a context to a target entity',
@@ -353,7 +353,7 @@ export function contextsPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/contexts/{id}/links/{link_id}': {
+      '/contexts/{id}/links/{link_id}': {
         delete: {
           operationId: 'deleteContextLink',
           summary: 'Remove a context link',
@@ -369,7 +369,7 @@ export function contextsPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/entity-contexts': {
+      '/entity-contexts': {
         get: {
           operationId: 'getEntityContexts',
           summary: 'Find contexts linked to an entity',

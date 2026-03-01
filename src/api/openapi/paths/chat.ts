@@ -1,14 +1,15 @@
 /**
  * OpenAPI path definitions for Agent Chat endpoints.
  *
- * Routes: POST/GET /api/chat/sessions, GET/PATCH /api/chat/sessions/:id,
- *         POST /api/chat/sessions/:id/end,
- *         POST/GET /api/chat/sessions/:id/messages,
- *         POST /api/chat/ws/ticket, GET /api/chat/ws,
- *         POST /api/chat/sessions/:id/stream,
- *         POST /api/chat/sessions/:id/agent-message,
- *         POST /api/notifications/agent,
- *         POST /api/push/subscribe
+ * Routes: POST/GET /chat/sessions, GET/PATCH /chat/sessions/:id,
+ *         POST /chat/sessions/:id/end,
+ *         POST/GET /chat/sessions/:id/messages,
+ *         GET /chat/agents,
+ *         POST /chat/ws/ticket, GET /chat/ws,
+ *         POST /chat/sessions/:id/stream,
+ *         POST /chat/sessions/:id/agent-message,
+ *         POST /notifications/agent,
+ *         POST /push/subscribe
  *
  * Rate limits (#1960):
  * - Session creation: 5/min per user
@@ -67,7 +68,7 @@ export function chatPaths(): OpenApiDomainModule {
       },
     },
     paths: {
-      '/api/chat/sessions': {
+      '/chat/sessions': {
         post: {
           operationId: 'createChatSession',
           summary: 'Create a new chat session',
@@ -108,7 +109,36 @@ export function chatPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/chat/sessions/{id}': {
+      '/chat/agents': {
+        get: {
+          operationId: 'listChatAgents',
+          summary: 'List available chat agents',
+          description: 'Returns distinct agents from existing chat sessions in the namespace.',
+          tags: ['Chat'],
+          responses: {
+            '200': jsonResponse('Available agents', {
+              type: 'object',
+              properties: {
+                agents: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    required: ['id', 'name'],
+                    properties: {
+                      id: { type: 'string', description: 'Agent identifier' },
+                      name: { type: 'string', description: 'Agent name' },
+                      display_name: { type: 'string', nullable: true, description: 'Human-friendly name' },
+                      avatar_url: { type: 'string', nullable: true, description: 'Agent avatar URL' },
+                    },
+                  },
+                },
+              },
+            }),
+            ...errorResponses(401, 500),
+          },
+        },
+      },
+      '/chat/sessions/{id}': {
         get: {
           operationId: 'getChatSession',
           summary: 'Get chat session details',
@@ -154,7 +184,7 @@ export function chatPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/chat/sessions/{id}/end': {
+      '/chat/sessions/{id}/end': {
         post: {
           operationId: 'endChatSession',
           summary: 'End a chat session',
@@ -167,7 +197,7 @@ export function chatPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/chat/sessions/{id}/messages': {
+      '/chat/sessions/{id}/messages': {
         post: {
           operationId: 'sendChatMessage',
           summary: 'Send a chat message',
@@ -218,7 +248,7 @@ export function chatPaths(): OpenApiDomainModule {
       },
 
       // ── WebSocket ticket endpoint (Issue #1944) ────────────────────
-      '/api/chat/ws/ticket': {
+      '/chat/ws/ticket': {
         post: {
           operationId: 'createChatWsTicket',
           summary: 'Generate one-time WebSocket ticket',
@@ -245,7 +275,7 @@ export function chatPaths(): OpenApiDomainModule {
       },
 
       // ── Streaming callback endpoint (Issue #1945) ──────────────────
-      '/api/chat/sessions/{id}/stream': {
+      '/chat/sessions/{id}/stream': {
         post: {
           operationId: 'chatStreamCallback',
           summary: 'Agent streams response tokens',
@@ -292,7 +322,7 @@ export function chatPaths(): OpenApiDomainModule {
       },
 
       // ── Agent message endpoint (Issue #1954) ──────────────────────────
-      '/api/chat/sessions/{id}/agent-message': {
+      '/chat/sessions/{id}/agent-message': {
         post: {
           operationId: 'chatAgentSendMessage',
           summary: 'Agent sends message to user in session',
@@ -336,7 +366,7 @@ export function chatPaths(): OpenApiDomainModule {
       },
 
       // ── Agent notification endpoint (Issue #1954) ─────────────────────
-      '/api/notifications/agent': {
+      '/notifications/agent': {
         post: {
           operationId: 'chatAgentAttractAttention',
           summary: 'Agent sends notification with escalation',
@@ -377,7 +407,7 @@ export function chatPaths(): OpenApiDomainModule {
       },
 
       // ── GDPR data deletion endpoint (Issue #1964) ─────────────────────
-      '/api/chat/data': {
+      '/chat/data': {
         delete: {
           operationId: 'deleteAllChatData',
           summary: 'Delete all chat data for user (GDPR)',
@@ -399,7 +429,7 @@ export function chatPaths(): OpenApiDomainModule {
       },
 
       // ── Push subscription endpoint (Issue #1956) ──────────────────────
-      '/api/push/subscribe': {
+      '/push/subscribe': {
         post: {
           operationId: 'pushSubscribe',
           summary: 'Subscribe to browser push notifications',

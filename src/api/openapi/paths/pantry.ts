@@ -1,8 +1,8 @@
 /**
  * OpenAPI path definitions for pantry inventory endpoints.
- * Routes: POST /api/pantry, GET /api/pantry, GET /api/pantry/expiring,
- *         GET /api/pantry/:id, PATCH /api/pantry/:id,
- *         POST /api/pantry/:id/deplete, DELETE /api/pantry/:id
+ * Routes: POST /pantry, GET /pantry, GET /pantry/expiring,
+ *         GET /pantry/:id, PATCH /pantry/:id,
+ *         POST /pantry/:id/deplete, DELETE /pantry/:id
  */
 import type { OpenApiDomainModule } from '../types.ts';
 import { errorResponses, jsonBody, jsonResponse, paginationParams, uuidParam } from '../helpers.ts';
@@ -121,7 +121,7 @@ export function pantryPaths(): OpenApiDomainModule {
       },
     },
     paths: {
-      '/api/pantry': {
+      '/pantry': {
         post: {
           operationId: 'createPantryItem',
           summary: 'Add a pantry item',
@@ -261,7 +261,7 @@ export function pantryPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/pantry/expiring': {
+      '/pantry/expiring': {
         get: {
           operationId: 'getExpiringPantryItems',
           summary: 'Get items expiring soon',
@@ -297,7 +297,7 @@ export function pantryPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/pantry/{id}': {
+      '/pantry/{id}': {
         get: {
           operationId: 'getPantryItem',
           summary: 'Get a pantry item',
@@ -394,7 +394,7 @@ export function pantryPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/pantry/{id}/deplete': {
+      '/pantry/{id}/deplete': {
         post: {
           operationId: 'depletePantryItem',
           summary: 'Mark a pantry item as depleted',

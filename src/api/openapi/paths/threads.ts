@@ -1,7 +1,7 @@
 /**
  * OpenAPI path definitions for message threads and message linking.
- * Routes: GET /api/threads, GET /api/threads/{id}/history,
- *         POST /api/messages/{id}/link-contact
+ * Routes: GET /threads, GET /threads/{id}/history,
+ *         POST /messages/{id}/link-contact
  */
 import type { OpenApiDomainModule } from '../types.ts';
 import { ref, uuidParam, paginationParams, namespaceParam, errorResponses, jsonBody, jsonResponse } from '../helpers.ts';
@@ -229,7 +229,7 @@ export function threadsPaths(): OpenApiDomainModule {
       },
     },
     paths: {
-      '/api/threads': {
+      '/threads': {
         get: {
           operationId: 'listThreads',
           summary: 'List conversation threads',
@@ -259,7 +259,7 @@ export function threadsPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/threads/{id}/history': {
+      '/threads/{id}/history': {
         get: {
           operationId: 'getThreadHistory',
           summary: 'Get thread conversation history',
@@ -309,7 +309,7 @@ export function threadsPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/messages/{id}/link-contact': {
+      '/messages/{id}/link-contact': {
         post: {
           operationId: 'linkMessageToContact',
           summary: 'Link message sender to contact',

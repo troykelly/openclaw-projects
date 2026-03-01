@@ -58,7 +58,7 @@ export function terminalSettingsPaths(): OpenApiDomainModule {
     },
 
     paths: {
-      '/api/terminal/settings': {
+      '/terminal/settings': {
         get: {
           operationId: 'getTerminalSettings',
           summary: 'Get terminal settings',
@@ -105,7 +105,7 @@ export function terminalSettingsPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/terminal/worker/status': {
+      '/terminal/worker/status': {
         get: {
           operationId: 'getTerminalWorkerStatus',
           summary: 'Get worker health status',

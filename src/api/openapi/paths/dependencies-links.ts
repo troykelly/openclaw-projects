@@ -1,9 +1,9 @@
 /**
  * OpenAPI path definitions for dependencies, external links, and participants.
- * Routes: GET/POST/DELETE /api/work-items/{id}/dependencies,
- *         GET /api/work-items/{id}/dependency-graph,
- *         GET/POST/DELETE /api/work-items/{id}/links,
- *         GET/POST/DELETE /api/work-items/{id}/participants
+ * Routes: GET/POST/DELETE /work-items/{id}/dependencies,
+ *         GET /work-items/{id}/dependency-graph,
+ *         GET/POST/DELETE /work-items/{id}/links,
+ *         GET/POST/DELETE /work-items/{id}/participants
  */
 import type { OpenApiDomainModule } from '../types.ts';
 import { ref, uuidParam, errorResponses, jsonBody, jsonResponse } from '../helpers.ts';
@@ -145,7 +145,7 @@ export function dependenciesLinksPaths(): OpenApiDomainModule {
 
     paths: {
       // ==================== Dependencies ====================
-      '/api/work-items/{id}/dependencies': {
+      '/work-items/{id}/dependencies': {
         parameters: [workItemIdParam],
         get: {
           operationId: 'listWorkItemDependencies',
@@ -175,7 +175,7 @@ export function dependenciesLinksPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/work-items/{id}/dependencies/{dependency_id}': {
+      '/work-items/{id}/dependencies/{dependency_id}': {
         parameters: [
           workItemIdParam,
           uuidParam('dependency_id', 'Dependency UUID'),
@@ -192,7 +192,7 @@ export function dependenciesLinksPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/work-items/{id}/dependency-graph': {
+      '/work-items/{id}/dependency-graph': {
         parameters: [workItemIdParam],
         get: {
           operationId: 'getWorkItemDependencyGraph',
@@ -207,7 +207,7 @@ export function dependenciesLinksPaths(): OpenApiDomainModule {
       },
 
       // ==================== External Links ====================
-      '/api/work-items/{id}/links': {
+      '/work-items/{id}/links': {
         parameters: [workItemIdParam],
         get: {
           operationId: 'listWorkItemLinks',
@@ -237,7 +237,7 @@ export function dependenciesLinksPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/work-items/{id}/links/{link_id}': {
+      '/work-items/{id}/links/{link_id}': {
         parameters: [
           workItemIdParam,
           uuidParam('link_id', 'External link UUID'),
@@ -255,7 +255,7 @@ export function dependenciesLinksPaths(): OpenApiDomainModule {
       },
 
       // ==================== Participants ====================
-      '/api/work-items/{id}/participants': {
+      '/work-items/{id}/participants': {
         parameters: [workItemIdParam],
         get: {
           operationId: 'listWorkItemParticipants',
@@ -285,7 +285,7 @@ export function dependenciesLinksPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/work-items/{id}/participants/{participant_id}': {
+      '/work-items/{id}/participants/{participant_id}': {
         parameters: [
           workItemIdParam,
           uuidParam('participant_id', 'Participant UUID'),

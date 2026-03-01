@@ -1,9 +1,9 @@
 /**
  * OpenAPI path definitions for agent identity endpoints.
- * Routes: GET /api/identity, PUT /api/identity, PATCH /api/identity,
- *         POST /api/identity/proposals, POST /api/identity/proposals/:id/approve,
- *         POST /api/identity/proposals/:id/reject,
- *         GET /api/identity/history, POST /api/identity/rollback
+ * Routes: GET /identity, PUT /identity, PATCH /identity,
+ *         POST /identity/proposals, POST /identity/proposals/:id/approve,
+ *         POST /identity/proposals/:id/reject,
+ *         GET /identity/history, POST /identity/rollback
  */
 import type { OpenApiDomainModule } from '../types.ts';
 import { errorResponses, jsonBody, jsonResponse, uuidParam } from '../helpers.ts';
@@ -226,7 +226,7 @@ export function identityPaths(): OpenApiDomainModule {
       },
     },
     paths: {
-      '/api/identity': {
+      '/identity': {
         get: {
           operationId: 'getIdentity',
           summary: 'Get the active agent identity',
@@ -416,7 +416,7 @@ export function identityPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/identity/proposals': {
+      '/identity/proposals': {
         post: {
           operationId: 'proposeIdentityChange',
           summary: 'Propose an identity change',
@@ -461,7 +461,7 @@ export function identityPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/identity/proposals/{id}/approve': {
+      '/identity/proposals/{id}/approve': {
         post: {
           operationId: 'approveIdentityProposal',
           summary: 'Approve a proposed identity change',
@@ -474,7 +474,7 @@ export function identityPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/identity/proposals/{id}/reject': {
+      '/identity/proposals/{id}/reject': {
         post: {
           operationId: 'rejectIdentityProposal',
           summary: 'Reject a proposed identity change',
@@ -498,7 +498,7 @@ export function identityPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/identity/history': {
+      '/identity/history': {
         get: {
           operationId: 'getIdentityHistory',
           summary: 'Get identity version history',
@@ -537,7 +537,7 @@ export function identityPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/identity/rollback': {
+      '/identity/rollback': {
         post: {
           operationId: 'rollbackIdentity',
           summary: 'Rollback identity to a previous version',

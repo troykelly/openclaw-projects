@@ -1,8 +1,8 @@
 /**
  * OpenAPI path definitions for prompt template endpoints.
- * Routes: POST /api/prompt-templates, GET /api/prompt-templates,
- *         GET /api/prompt-templates/:id, PUT /api/prompt-templates/:id,
- *         DELETE /api/prompt-templates/:id
+ * Routes: POST /prompt-templates, GET /prompt-templates,
+ *         GET /prompt-templates/:id, PUT /prompt-templates/:id,
+ *         DELETE /prompt-templates/:id
  */
 import type { OpenApiDomainModule } from '../types.ts';
 import { errorResponses, jsonBody, jsonResponse, paginationParams, searchParam, uuidParam } from '../helpers.ts';
@@ -70,7 +70,7 @@ export function promptTemplatesPaths(): OpenApiDomainModule {
       },
     },
     paths: {
-      '/api/prompt-templates': {
+      '/prompt-templates': {
         post: {
           operationId: 'createPromptTemplate',
           summary: 'Create a prompt template',
@@ -162,7 +162,7 @@ export function promptTemplatesPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/prompt-templates/{id}': {
+      '/prompt-templates/{id}': {
         get: {
           operationId: 'getPromptTemplate',
           summary: 'Get a prompt template',

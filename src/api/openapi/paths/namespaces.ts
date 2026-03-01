@@ -1,9 +1,9 @@
 /**
  * OpenAPI path definitions for namespace management.
- * Routes: GET /api/namespaces, POST /api/namespaces,
- *         GET /api/namespaces/{ns}, GET /api/namespaces/{ns}/grants,
- *         POST /api/namespaces/{ns}/grants, PATCH /api/namespaces/{ns}/grants/{id},
- *         DELETE /api/namespaces/{ns}/grants/{id}
+ * Routes: GET /namespaces, POST /namespaces,
+ *         GET /namespaces/{ns}, GET /namespaces/{ns}/grants,
+ *         POST /namespaces/{ns}/grants, PATCH /namespaces/{ns}/grants/{id},
+ *         DELETE /namespaces/{ns}/grants/{id}
  */
 import type { OpenApiDomainModule, ParameterObject } from '../types.ts';
 import { ref, errorResponses, jsonBody, jsonResponse } from '../helpers.ts';
@@ -228,7 +228,7 @@ export function namespacesPaths(): OpenApiDomainModule {
       },
     },
     paths: {
-      '/api/namespaces': {
+      '/namespaces': {
         get: {
           operationId: 'listNamespaces',
           summary: 'List namespaces',
@@ -259,7 +259,7 @@ export function namespacesPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/namespaces/{ns}': {
+      '/namespaces/{ns}': {
         get: {
           operationId: 'getNamespace',
           summary: 'Get namespace details',
@@ -272,7 +272,7 @@ export function namespacesPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/namespaces/{ns}/grants': {
+      '/namespaces/{ns}/grants': {
         get: {
           operationId: 'listNamespaceGrants',
           summary: 'List grants for a namespace',
@@ -300,7 +300,7 @@ export function namespacesPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/namespaces/{ns}/grants/{id}': {
+      '/namespaces/{ns}/grants/{id}': {
         patch: {
           operationId: 'updateNamespaceGrant',
           summary: 'Update a grant',

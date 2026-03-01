@@ -1,9 +1,9 @@
 /**
  * OpenAPI path definitions for calendar endpoints.
- * Routes: POST /api/sync/calendar,
- *         GET /api/calendar/events/live, GET /api/calendar/events,
- *         POST /api/calendar/events, POST /api/calendar/events/from-work-item,
- *         DELETE /api/calendar/events/:id
+ * Routes: POST /sync/calendar,
+ *         GET /calendar/events/live, GET /calendar/events,
+ *         POST /calendar/events, POST /calendar/events/from-work-item,
+ *         DELETE /calendar/events/:id
  */
 import type { OpenApiDomainModule } from '../types.ts';
 import { errorResponses, jsonBody, jsonResponse, uuidParam } from '../helpers.ts';
@@ -158,7 +158,7 @@ export function calendarPaths(): OpenApiDomainModule {
       },
     },
     paths: {
-      '/api/sync/calendar': {
+      '/sync/calendar': {
         post: {
           operationId: 'syncCalendar',
           summary: 'Sync calendar events from provider',
@@ -199,7 +199,7 @@ export function calendarPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/calendar/events/live': {
+      '/calendar/events/live': {
         get: {
           operationId: 'listLiveCalendarEvents',
           summary: 'List events directly from provider',
@@ -269,7 +269,7 @@ export function calendarPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/calendar/events': {
+      '/calendar/events': {
         get: {
           operationId: 'listCalendarEvents',
           summary: 'List locally stored calendar events',
@@ -411,7 +411,7 @@ export function calendarPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/calendar/events/from-work-item': {
+      '/calendar/events/from-work-item': {
         post: {
           operationId: 'createCalendarEventFromWorkItem',
           summary: 'Create calendar event from work item deadline',
@@ -458,7 +458,7 @@ export function calendarPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/calendar/events/{id}': {
+      '/calendar/events/{id}': {
         delete: {
           operationId: 'deleteCalendarEvent',
           summary: 'Delete a calendar event',

@@ -1,11 +1,11 @@
 /**
  * OpenAPI path definitions for home automation endpoints.
- * Routes: GET /api/ha/routines, GET /api/ha/routines/:id,
- *         PATCH /api/ha/routines/:id, DELETE /api/ha/routines/:id,
- *         POST /api/ha/routines/:id/confirm, POST /api/ha/routines/:id/reject,
- *         GET /api/ha/routines/:id/observations,
- *         GET /api/ha/anomalies, PATCH /api/ha/anomalies/:id,
- *         GET /api/ha/observations
+ * Routes: GET /ha/routines, GET /ha/routines/:id,
+ *         PATCH /ha/routines/:id, DELETE /ha/routines/:id,
+ *         POST /ha/routines/:id/confirm, POST /ha/routines/:id/reject,
+ *         GET /ha/routines/:id/observations,
+ *         GET /ha/anomalies, PATCH /ha/anomalies/:id,
+ *         GET /ha/observations
  */
 import type { OpenApiDomainModule } from '../types.ts';
 import { errorResponses, jsonBody, jsonResponse, paginationParams, uuidParam, dataEnvelope } from '../helpers.ts';
@@ -291,7 +291,7 @@ export function homeAutomationPaths(): OpenApiDomainModule {
       },
     },
     paths: {
-      '/api/ha/routines': {
+      '/ha/routines': {
         get: {
           operationId: 'listHaRoutines',
           summary: 'List detected routines',
@@ -345,7 +345,7 @@ export function homeAutomationPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/ha/routines/{id}': {
+      '/ha/routines/{id}': {
         get: {
           operationId: 'getHaRoutine',
           summary: 'Get a routine',
@@ -395,7 +395,7 @@ export function homeAutomationPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/ha/routines/{id}/confirm': {
+      '/ha/routines/{id}/confirm': {
         post: {
           operationId: 'confirmHaRoutine',
           summary: 'Confirm a routine',
@@ -408,7 +408,7 @@ export function homeAutomationPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/ha/routines/{id}/reject': {
+      '/ha/routines/{id}/reject': {
         post: {
           operationId: 'rejectHaRoutine',
           summary: 'Reject a routine',
@@ -421,7 +421,7 @@ export function homeAutomationPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/ha/routines/{id}/observations': {
+      '/ha/routines/{id}/observations': {
         get: {
           operationId: 'getRoutineObservations',
           summary: 'Get observations matching a routine',
@@ -462,7 +462,7 @@ export function homeAutomationPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/ha/anomalies': {
+      '/ha/anomalies': {
         get: {
           operationId: 'listHaAnomalies',
           summary: 'List anomalies',
@@ -516,7 +516,7 @@ export function homeAutomationPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/ha/anomalies/{id}': {
+      '/ha/anomalies/{id}': {
         patch: {
           operationId: 'updateHaAnomaly',
           summary: 'Update an anomaly',
@@ -544,7 +544,7 @@ export function homeAutomationPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/ha/observations': {
+      '/ha/observations': {
         get: {
           operationId: 'listHaObservations',
           summary: 'Query observations',
