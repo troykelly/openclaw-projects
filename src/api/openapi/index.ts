@@ -47,6 +47,7 @@ import { entityLinksPaths } from './paths/entity-links.ts';
 import { activityPaths } from './paths/activity.ts';
 import { namespaceMovesPaths } from './paths/namespace-moves.ts';
 import { terminalPaths } from './paths/terminal.ts';
+import { chatPaths } from './paths/chat.ts';
 
 /** Derive the API server URL from PUBLIC_BASE_URL */
 function deriveApiUrl(publicBaseUrl: string): string {
@@ -111,6 +112,8 @@ function allDomainModules(): OpenApiDomainModule[] {
     namespaceMovesPaths(),
     // Terminal management (Epic #1667)
     terminalPaths(),
+    // Agent Chat (Epic #1940)
+    chatPaths(),
   ];
 }
 
