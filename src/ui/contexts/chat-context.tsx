@@ -42,9 +42,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }): React
   const [isPanelOpen, setIsPanelOpen] = React.useState(false);
 
   // Handle deep link: ?chat=<session_id>
+  // Validate as UUID to prevent path injection via crafted deep links
   React.useEffect(() => {
     const chatParam = searchParams.get('chat');
-    if (chatParam) {
+    if (chatParam && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(chatParam)) {
       setActiveSessionIdState(chatParam);
       setIsPanelOpen(true);
       // Remove the query param after consuming it

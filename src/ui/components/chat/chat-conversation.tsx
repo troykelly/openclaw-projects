@@ -76,12 +76,13 @@ export function ChatConversation(): React.JSX.Element {
     prevMessageCountRef.current = messages.length;
   }, [messages.length, isAtBottom]);
 
-  // Scroll to bottom on initial load
+  // Scroll to bottom on initial load or session change
+  const hasMessages = messages.length > 0;
   React.useEffect(() => {
-    if (!isLoading && messages.length > 0) {
+    if (!isLoading && hasMessages) {
       scrollAnchorRef.current?.scrollIntoView();
     }
-  }, [isLoading, messages.length > 0]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isLoading, hasMessages, activeSessionId]);
 
   const handleScrollToBottom = React.useCallback(() => {
     scrollAnchorRef.current?.scrollIntoView({ behavior: 'smooth' });

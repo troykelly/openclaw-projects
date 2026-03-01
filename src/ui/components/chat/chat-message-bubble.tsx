@@ -14,6 +14,7 @@ import { ChatMessageStatus } from './chat-message-status';
 
 interface ChatMessageBubbleProps {
   message: ChatMessage;
+  onRetry?: () => void;
 }
 
 /** Format a timestamp to a short time string. */
@@ -24,7 +25,7 @@ function formatTime(dateStr: string): string {
   });
 }
 
-export function ChatMessageBubble({ message }: ChatMessageBubbleProps): React.JSX.Element {
+export function ChatMessageBubble({ message, onRetry }: ChatMessageBubbleProps): React.JSX.Element {
   const isUser = message.direction === 'outbound';
   const body = message.body ?? '';
 
@@ -66,7 +67,7 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps): React.JS
           )}
         >
           <span>{formatTime(message.received_at)}</span>
-          {isUser && <ChatMessageStatus status={message.status} />}
+          {isUser && <ChatMessageStatus status={message.status} onRetry={onRetry} />}
         </div>
       </div>
     </div>

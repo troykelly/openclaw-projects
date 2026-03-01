@@ -198,3 +198,7 @@ export const chatAgentSchema = z.object({
 export const chatAgentsResponseSchema = z.object({
   agents: z.array(chatAgentSchema),
 }).passthrough();
+
+export const unreadCountResponseSchema = z.object({
+  count: z.number(),
+}).passthrough();

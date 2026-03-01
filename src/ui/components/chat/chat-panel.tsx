@@ -104,6 +104,7 @@ export function ChatPanel(): React.JSX.Element | null {
       data-testid="chat-panel"
       role="dialog"
       aria-label="Chat"
+      aria-modal="true"
       tabIndex={-1}
       className={cn(
         'fixed bottom-6 right-6 z-50 flex h-[600px] w-[400px] flex-col overflow-hidden rounded-lg border border-border bg-background shadow-xl',

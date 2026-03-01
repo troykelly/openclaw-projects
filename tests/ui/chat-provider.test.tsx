@@ -141,14 +141,24 @@ describe('ChatProvider', () => {
     expect(screen.getByTestId('draft').textContent).toBe('');
   });
 
-  it('handles deep link via ?chat= query param', () => {
+  it('handles deep link via ?chat= query param with valid UUID', () => {
     render(
       <ChatProvider><ChatConsumer /></ChatProvider>,
-      { wrapper: createWrapper('/?chat=deep-link-sess') },
+      { wrapper: createWrapper('/?chat=a1b2c3d4-e5f6-7890-abcd-ef1234567890') },
     );
 
-    expect(screen.getByTestId('active-session').textContent).toBe('deep-link-sess');
+    expect(screen.getByTestId('active-session').textContent).toBe('a1b2c3d4-e5f6-7890-abcd-ef1234567890');
     expect(screen.getByTestId('panel-open').textContent).toBe('true');
+  });
+
+  it('ignores deep link with non-UUID ?chat= param', () => {
+    render(
+      <ChatProvider><ChatConsumer /></ChatProvider>,
+      { wrapper: createWrapper('/?chat=../../malicious-path') },
+    );
+
+    expect(screen.getByTestId('active-session').textContent).toBe('none');
+    expect(screen.getByTestId('panel-open').textContent).toBe('false');
   });
 
   it('throws when useChat is used outside ChatProvider', () => {

@@ -35,7 +35,7 @@ export function useSendChatMessage(sessionId: string) {
   return useMutation({
     mutationFn: (body: SendChatMessageBody) =>
       apiClient.post<ChatMessage>(
-        `/api/chat/sessions/${sessionId}/messages`,
+        `/api/chat/sessions/${encodeURIComponent(sessionId)}/messages`,
         body,
       ),
     onSuccess: () => {
@@ -51,7 +51,7 @@ export function useEndChatSession() {
 
   return useMutation({
     mutationFn: (sessionId: string) =>
-      apiClient.post(`/api/chat/sessions/${sessionId}/end`, {}),
+      apiClient.post(`/api/chat/sessions/${encodeURIComponent(sessionId)}/end`, {}),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: chatKeys.sessions() });
     },
@@ -65,7 +65,7 @@ export function useUpdateChatSession(sessionId: string) {
   return useMutation({
     mutationFn: (body: UpdateChatSessionBody) =>
       apiClient.patch<ChatSession>(
-        `/api/chat/sessions/${sessionId}`,
+        `/api/chat/sessions/${encodeURIComponent(sessionId)}`,
         body,
       ),
     onSuccess: () => {

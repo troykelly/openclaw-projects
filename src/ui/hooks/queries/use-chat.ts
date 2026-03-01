@@ -10,6 +10,7 @@ import {
   chatSessionsResponseSchema,
   chatMessagesResponseSchema,
   chatAgentsResponseSchema,
+  unreadCountResponseSchema,
 } from '@/ui/lib/api-schemas.ts';
 import type {
   ChatSessionsResponse,
@@ -64,7 +65,7 @@ export function useChatMessages(sessionId: string, cursor?: string) {
     queryKey: chatKeys.messagesCursor(sessionId, cursor),
     queryFn: ({ signal }) =>
       apiClient.get<ChatMessagesResponse>(
-        `/api/chat/sessions/${sessionId}/messages${qs ? `?${qs}` : ''}`,
+        `/api/chat/sessions/${encodeURIComponent(sessionId)}/messages${qs ? `?${qs}` : ''}`,
         { signal, schema: chatMessagesResponseSchema },
       ),
     enabled: !!sessionId,
@@ -96,7 +97,7 @@ export function useChatUnreadCount() {
     queryFn: ({ signal }) =>
       apiClient.get<{ count: number }>(
         '/api/chat/sessions/unread-count',
-        { signal },
+        { signal, schema: unreadCountResponseSchema },
       ),
     refetchInterval: 30_000,
   });
