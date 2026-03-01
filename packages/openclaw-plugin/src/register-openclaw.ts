@@ -66,6 +66,16 @@ import {
   createDevSessionGetTool,
   createDevSessionUpdateTool,
   createDevSessionCompleteTool,
+  // Note tools (Issue #1921)
+  createNoteCreateTool,
+  createNoteGetTool,
+  createNoteUpdateTool,
+  createNoteDeleteTool,
+  createNoteSearchTool,
+  // Notebook tools (Issue #1921)
+  createNotebookListTool,
+  createNotebookCreateTool,
+  createNotebookGetTool,
 } from './tools/index.js';
 import { zodToJsonSchema } from './utils/zod-to-json-schema.js';
 import type {
@@ -4823,6 +4833,146 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
         return toAgentToolResult(result);
       },
     });
+  }
+
+  // ── Note tools (Issue #1921) ─────────────────────────────────
+  // Reuses termToolOpts (same shape: client, logger, config, user_id getter).
+
+  const noteToolFactories = [
+    createNoteCreateTool,
+    createNoteGetTool,
+    createNoteUpdateTool,
+    createNoteDeleteTool,
+    createNoteSearchTool,
+  ] as const;
+
+  for (const factory of noteToolFactories) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- factory functions have heterogeneous option types that share the same shape
+    const tool = (factory as (opts: typeof termToolOpts) => { name: string; description: string; parameters: unknown; execute: (params: any) => Promise<any> })(termToolOpts);
+
+    tools.push({
+      name: tool.name,
+      description: tool.description,
+      parameters: zodToJsonSchema(tool.parameters as import('zod').ZodTypeAny),
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await tool.execute(params);
+        return toAgentToolResult(result);
+      },
+    });
+  }
+
+  // ── Notebook tools (Issue #1921) ───────────────────────────────
+  // Reuses termToolOpts (same shape: client, logger, config, user_id getter).
+
+  const notebookToolFactories = [
+    createNotebookListTool,
+    createNotebookCreateTool,
+    createNotebookGetTool,
+  ] as const;
+
+  for (const factory of notebookToolFactories) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- factory functions have heterogeneous option types that share the same shape
+    const tool = (factory as (opts: typeof termToolOpts) => { name: string; description: string; parameters: unknown; execute: (params: any) => Promise<any> })(termToolOpts);
+
+    tools.push({
+      name: tool.name,
+      description: tool.description,
+      parameters: zodToJsonSchema(tool.parameters as import('zod').ZodTypeAny),
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await tool.execute(params);
+        return toAgentToolResult(result);
+      },
+    });
+  }
+
+  // ── Optional tool groups (Issue #1921) ─────────────────────────
+  // Mark 61 tools as optional with logical group names.
+  // Tools not in this map remain required (core tools like memory, project, todo, etc.)
+
+  const optionalGroups: Record<string, string> = {
+    // Terminal connections (8)
+    terminal_connection_list: 'terminal_connections',
+    terminal_connection_create: 'terminal_connections',
+    terminal_connection_update: 'terminal_connections',
+    terminal_connection_delete: 'terminal_connections',
+    terminal_connection_test: 'terminal_connections',
+    terminal_credential_create: 'terminal_connections',
+    terminal_credential_list: 'terminal_connections',
+    terminal_credential_delete: 'terminal_connections',
+    // Terminal sessions (7)
+    terminal_session_start: 'terminal_sessions',
+    terminal_session_list: 'terminal_sessions',
+    terminal_session_terminate: 'terminal_sessions',
+    terminal_session_info: 'terminal_sessions',
+    terminal_send_command: 'terminal_sessions',
+    terminal_send_keys: 'terminal_sessions',
+    terminal_capture_pane: 'terminal_sessions',
+    // Terminal tunnels (3)
+    terminal_tunnel_create: 'terminal_tunnels',
+    terminal_tunnel_list: 'terminal_tunnels',
+    terminal_tunnel_close: 'terminal_tunnels',
+    // Terminal search (2)
+    terminal_search: 'terminal_search',
+    terminal_annotate: 'terminal_search',
+    // API management (9)
+    api_onboard: 'api_management',
+    api_recall: 'api_management',
+    api_get: 'api_management',
+    api_list: 'api_management',
+    api_update: 'api_management',
+    api_credential_manage: 'api_management',
+    api_refresh: 'api_management',
+    api_remove: 'api_management',
+    api_restore: 'api_management',
+    // Dev sessions (5)
+    dev_session_create: 'dev_sessions',
+    dev_session_list: 'dev_sessions',
+    dev_session_get: 'dev_sessions',
+    dev_session_update: 'dev_sessions',
+    dev_session_complete: 'dev_sessions',
+    // Outbound comms (2)
+    sms_send: 'outbound_comms',
+    email_send: 'outbound_comms',
+    // Prompt templates (5)
+    prompt_template_list: 'prompt_templates',
+    prompt_template_get: 'prompt_templates',
+    prompt_template_create: 'prompt_templates',
+    prompt_template_update: 'prompt_templates',
+    prompt_template_delete: 'prompt_templates',
+    // Inbound routing (3)
+    inbound_destination_list: 'inbound_routing',
+    inbound_destination_get: 'inbound_routing',
+    inbound_destination_update: 'inbound_routing',
+    // Channel defaults (3)
+    channel_default_list: 'channel_defaults',
+    channel_default_get: 'channel_defaults',
+    channel_default_set: 'channel_defaults',
+    // Namespaces (5)
+    namespace_list: 'namespaces',
+    namespace_create: 'namespaces',
+    namespace_grant: 'namespaces',
+    namespace_members: 'namespaces',
+    namespace_revoke: 'namespaces',
+    // Notes (5)
+    note_create: 'notes',
+    note_get: 'notes',
+    note_update: 'notes',
+    note_delete: 'notes',
+    note_search: 'notes',
+    // Notebooks (3)
+    notebook_list: 'notebooks',
+    notebook_create: 'notebooks',
+    notebook_get: 'notebooks',
+    // File share (1)
+    file_share: 'file_share',
+  };
+
+  for (const tool of tools) {
+    const group = optionalGroups[tool.name];
+    if (group) {
+      tool.optional = true;
+      tool.group = group;
+    }
   }
 
   for (const tool of tools) {

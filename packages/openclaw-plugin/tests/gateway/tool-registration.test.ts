@@ -33,7 +33,7 @@ describe('Gateway Tool Registration', () => {
     const pluginTools = registry.tools.filter((t) => t.pluginId === 'openclaw-projects');
     // Each tool registration may cover multiple names
     const allNames = pluginTools.flatMap((t) => t.names);
-    expect(allNames.length).toBe(33);
+    expect(allNames.length).toBe(41);
   });
 
   it('should include every expected tool name', () => {
