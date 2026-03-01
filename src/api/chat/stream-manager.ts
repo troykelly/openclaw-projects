@@ -21,6 +21,10 @@ const MAX_TOTAL_BYTES = 262144; // 256KB
 const MAX_CHUNKS_PER_SEC = 100;
 /** Stream timeout in milliseconds (no chunk received). */
 const STREAM_TIMEOUT_MS = 60_000;
+/** Terminated-entry TTL in milliseconds (5 minutes). */
+const TERMINATED_TTL_MS = 300_000;
+/** Pruning interval for the terminated map (60 seconds). */
+const PRUNE_INTERVAL_MS = 60_000;
 
 /** Stream states. */
 type StreamState = 'started' | 'streaming' | 'completed' | 'failed' | 'aborted';
@@ -77,12 +81,20 @@ export class StreamManager {
   /**
    * Recently-terminated sessions (failed/aborted). Prevents resurrection
    * via a late "completed" after the stream was cleaned up.
-   * Entries auto-expire after 5 minutes.
+   * Entries auto-expire after 5 minutes and are pruned by interval (#1973).
    */
   private terminated = new Map<string, { state: StreamState; at: number }>();
 
+  /** Periodic pruning interval for the terminated map (#1973). */
+  private pruneTimer: ReturnType<typeof setInterval> | null = null;
+
   /** Callback for when a stream is aborted by timeout. */
   onStreamAbort?: (sessionId: string, messageId: string) => void;
+
+  constructor() {
+    // Start periodic pruning of expired terminated entries (#1973)
+    this.pruneTimer = setInterval(() => this.pruneTerminated(), PRUNE_INTERVAL_MS);
+  }
 
   /**
    * Handle a chunk from the agent.
@@ -228,6 +240,24 @@ export class StreamManager {
     }
     this.streams.clear();
     this.terminated.clear();
+    // Clear the pruning interval (#1973)
+    if (this.pruneTimer) {
+      clearInterval(this.pruneTimer);
+      this.pruneTimer = null;
+    }
+  }
+
+  /**
+   * Prune expired entries from the terminated map (#1973).
+   * Removes entries older than TERMINATED_TTL_MS to prevent unbounded growth.
+   */
+  private pruneTerminated(): void {
+    const now = Date.now();
+    for (const [sessionId, entry] of this.terminated) {
+      if (now - entry.at >= TERMINATED_TTL_MS) {
+        this.terminated.delete(sessionId);
+      }
+    }
   }
 
   /** Reset the timeout watchdog for a stream. */
@@ -270,4 +300,11 @@ export function resetStreamManager(): void {
     managerInstance.shutdown();
     managerInstance = null;
   }
+}
+
+/** Get the size of the terminated map (for testing — verifies pruning). */
+export function getTerminatedSize(manager: StreamManager): number {
+  // Access the private terminated map size via the manager's internal state.
+  // This is intentionally exposed only for test verification of #1973 pruning.
+  return (manager as unknown as { terminated: Map<string, unknown> }).terminated.size;
 }
