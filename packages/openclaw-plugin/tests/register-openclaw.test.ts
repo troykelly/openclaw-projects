@@ -1034,6 +1034,76 @@ describe('OpenClaw 2026 API Registration', () => {
       expect(schemas.todoList.properties).not.toHaveProperty('status');
     });
 
+    it('todo_list should render [x] for items with status=completed (#1981)', async () => {
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = vi.fn().mockImplementation(async () => {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            items: [
+              { id: '1', title: 'Completed task', status: 'completed' },
+              { id: '2', title: 'Open task', status: 'open' },
+              { id: '3', title: 'Done task', status: 'done' },
+              { id: '4', title: 'Closed task', status: 'closed' },
+            ],
+            total: 4,
+          }),
+        };
+      }) as unknown as typeof fetch;
+
+      try {
+        registerOpenClaw(mockApi);
+
+        const todoList = registeredTools.find((t) => t.name === 'todo_list');
+        expect(todoList).toBeDefined();
+
+        const result = await todoList!.execute('test-id', {}, undefined, undefined);
+
+        // The result content should contain [x] for completed/done/closed items
+        const text = result.content[0].text;
+        expect(text).toContain('[x] Completed task');
+        expect(text).toContain('[ ] Open task');
+        expect(text).toContain('[x] Done task');
+        expect(text).toContain('[x] Closed task');
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+
+    it('todo_list should derive checkbox from status field, not completed boolean (#1981)', async () => {
+      const originalFetch = globalThis.fetch;
+      // API returns status:"completed" but does NOT include a completed boolean field
+      globalThis.fetch = vi.fn().mockImplementation(async () => {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            items: [
+              { id: '1', title: 'Finished task', status: 'completed' },
+            ],
+            total: 1,
+          }),
+        };
+      }) as unknown as typeof fetch;
+
+      try {
+        registerOpenClaw(mockApi);
+
+        const todoList = registeredTools.find((t) => t.name === 'todo_list');
+        expect(todoList).toBeDefined();
+
+        const result = await todoList!.execute('test-id', {}, undefined, undefined);
+
+        // Must render [x] based on status field alone (no completed boolean from API)
+        const text = result.content[0].text;
+        expect(text).toContain('[x] Finished task');
+        expect(text).not.toContain('[ ] Finished task');
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+
     it('relationship_query should use /api/contacts/:id/relationships endpoint (#1169)', async () => {
       const testUuid = '12345678-1234-1234-1234-123456789abc';
       const fetchCalls: { url: string }[] = [];
