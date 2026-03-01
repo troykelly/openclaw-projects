@@ -1,7 +1,7 @@
 /**
  * Integration tests: HA routes plugin registration in server.ts.
  *
- * Verifies that haRoutesPlugin is registered and the /api/ha/* endpoints
+ * Verifies that haRoutesPlugin is registered and the /ha/* endpoints
  * are reachable through the full server. Auth is enabled so unauthenticated
  * requests must receive 401 (not 404, which would mean the route is missing).
  *
@@ -34,45 +34,45 @@ describe('HA routes registration (Issue #1606)', () => {
   // If the plugin is not registered, Fastify returns 404. Auth middleware
   // intercepts first and returns 401 for unauthenticated requests.
 
-  it('GET /api/ha/routines returns 401 without auth (not 404)', async () => {
+  it('GET /ha/routines returns 401 without auth (not 404)', async () => {
     const res = await app.inject({
       method: 'GET',
-      url: '/api/ha/routines',
+      url: '/ha/routines',
     });
     expect(res.statusCode).toBe(401);
   });
 
-  it('GET /api/ha/anomalies returns 401 without auth (not 404)', async () => {
+  it('GET /ha/anomalies returns 401 without auth (not 404)', async () => {
     const res = await app.inject({
       method: 'GET',
-      url: '/api/ha/anomalies',
+      url: '/ha/anomalies',
     });
     expect(res.statusCode).toBe(401);
   });
 
-  it('GET /api/ha/observations returns 401 without auth (not 404)', async () => {
+  it('GET /ha/observations returns 401 without auth (not 404)', async () => {
     const res = await app.inject({
       method: 'GET',
-      url: '/api/ha/observations',
+      url: '/ha/observations',
     });
     expect(res.statusCode).toBe(401);
   });
 
   // ── Write endpoints also require auth ───────────────────────────
 
-  it('PATCH /api/ha/routines/:id returns 401 without auth', async () => {
+  it('PATCH /ha/routines/:id returns 401 without auth', async () => {
     const res = await app.inject({
       method: 'PATCH',
-      url: '/api/ha/routines/550e8400-e29b-41d4-a716-446655440001',
+      url: '/ha/routines/550e8400-e29b-41d4-a716-446655440001',
       payload: { title: 'Test' },
     });
     expect(res.statusCode).toBe(401);
   });
 
-  it('PATCH /api/ha/anomalies/:id returns 401 without auth', async () => {
+  it('PATCH /ha/anomalies/:id returns 401 without auth', async () => {
     const res = await app.inject({
       method: 'PATCH',
-      url: '/api/ha/anomalies/550e8400-e29b-41d4-a716-446655440001',
+      url: '/ha/anomalies/550e8400-e29b-41d4-a716-446655440001',
       payload: { resolved: true },
     });
     expect(res.statusCode).toBe(401);

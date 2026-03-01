@@ -36,11 +36,11 @@ describe('Terminal Security API', () => {
   // ================================================================
 
   describe('Enrollment Tokens (#1683)', () => {
-    describe('POST /api/terminal/enrollment-tokens', () => {
+    describe('POST /terminal/enrollment-tokens', () => {
       it('creates a token and returns plaintext once', async () => {
         const res = await app.inject({
           method: 'POST',
-          url: '/api/terminal/enrollment-tokens',
+          url: '/terminal/enrollment-tokens',
           payload: { label: 'homelab-servers', max_uses: 10 },
         });
 
@@ -57,7 +57,7 @@ describe('Terminal Security API', () => {
       it('stores token hash, not plaintext', async () => {
         const res = await app.inject({
           method: 'POST',
-          url: '/api/terminal/enrollment-tokens',
+          url: '/terminal/enrollment-tokens',
           payload: { label: 'test-token' },
         });
 
@@ -79,7 +79,7 @@ describe('Terminal Security API', () => {
       it('rejects missing label', async () => {
         const res = await app.inject({
           method: 'POST',
-          url: '/api/terminal/enrollment-tokens',
+          url: '/terminal/enrollment-tokens',
           payload: {},
         });
 
@@ -92,7 +92,7 @@ describe('Terminal Security API', () => {
         const expiresAt = new Date(Date.now() + 86400000).toISOString();
         const res = await app.inject({
           method: 'POST',
-          url: '/api/terminal/enrollment-tokens',
+          url: '/terminal/enrollment-tokens',
           payload: {
             label: 'expiring-token',
             max_uses: 5,
@@ -109,22 +109,22 @@ describe('Terminal Security API', () => {
       });
     });
 
-    describe('GET /api/terminal/enrollment-tokens', () => {
+    describe('GET /terminal/enrollment-tokens', () => {
       it('lists tokens without plaintext', async () => {
         await app.inject({
           method: 'POST',
-          url: '/api/terminal/enrollment-tokens',
+          url: '/terminal/enrollment-tokens',
           payload: { label: 'token-1' },
         });
         await app.inject({
           method: 'POST',
-          url: '/api/terminal/enrollment-tokens',
+          url: '/terminal/enrollment-tokens',
           payload: { label: 'token-2' },
         });
 
         const res = await app.inject({
           method: 'GET',
-          url: '/api/terminal/enrollment-tokens',
+          url: '/terminal/enrollment-tokens',
         });
 
         expect(res.statusCode).toBe(200);
@@ -138,25 +138,25 @@ describe('Terminal Security API', () => {
       });
     });
 
-    describe('DELETE /api/terminal/enrollment-tokens/:id', () => {
+    describe('DELETE /terminal/enrollment-tokens/:id', () => {
       it('revokes a token (hard delete)', async () => {
         const createRes = await app.inject({
           method: 'POST',
-          url: '/api/terminal/enrollment-tokens',
+          url: '/terminal/enrollment-tokens',
           payload: { label: 'to-revoke' },
         });
         const { id } = createRes.json() as { id: string };
 
         const deleteRes = await app.inject({
           method: 'DELETE',
-          url: `/api/terminal/enrollment-tokens/${id}`,
+          url: `/terminal/enrollment-tokens/${id}`,
         });
         expect(deleteRes.statusCode).toBe(204);
 
         // Verify it's gone
         const listRes = await app.inject({
           method: 'GET',
-          url: '/api/terminal/enrollment-tokens',
+          url: '/terminal/enrollment-tokens',
         });
         const body = listRes.json() as { total: number };
         expect(body.total).toBe(0);
@@ -165,17 +165,17 @@ describe('Terminal Security API', () => {
       it('returns 404 for non-existent token', async () => {
         const res = await app.inject({
           method: 'DELETE',
-          url: '/api/terminal/enrollment-tokens/00000000-0000-0000-0000-000000000000',
+          url: '/terminal/enrollment-tokens/00000000-0000-0000-0000-000000000000',
         });
         expect(res.statusCode).toBe(404);
       });
     });
 
-    describe('POST /api/terminal/enroll', () => {
+    describe('POST /terminal/enroll', () => {
       it('enrolls with valid token and creates connection', async () => {
         const createRes = await app.inject({
           method: 'POST',
-          url: '/api/terminal/enrollment-tokens',
+          url: '/terminal/enrollment-tokens',
           payload: {
             label: 'enroll-test',
             max_uses: 5,
@@ -187,7 +187,7 @@ describe('Terminal Security API', () => {
 
         const enrollRes = await app.inject({
           method: 'POST',
-          url: '/api/terminal/enroll',
+          url: '/terminal/enroll',
           payload: { token, hostname: 'my-server.local' },
         });
 
@@ -205,7 +205,7 @@ describe('Terminal Security API', () => {
       it('increments uses on enrollment', async () => {
         const createRes = await app.inject({
           method: 'POST',
-          url: '/api/terminal/enrollment-tokens',
+          url: '/terminal/enrollment-tokens',
           payload: { label: 'uses-test', max_uses: 2 },
         });
         const { token, id } = createRes.json() as { token: string; id: string };
@@ -213,7 +213,7 @@ describe('Terminal Security API', () => {
         // First enrollment
         await app.inject({
           method: 'POST',
-          url: '/api/terminal/enroll',
+          url: '/terminal/enroll',
           payload: { token, hostname: 'host-1' },
         });
 
@@ -228,7 +228,7 @@ describe('Terminal Security API', () => {
       it('rejects enrollment past max_uses', async () => {
         const createRes = await app.inject({
           method: 'POST',
-          url: '/api/terminal/enrollment-tokens',
+          url: '/terminal/enrollment-tokens',
           payload: { label: 'max-test', max_uses: 1 },
         });
         const { token } = createRes.json() as { token: string };
@@ -236,7 +236,7 @@ describe('Terminal Security API', () => {
         // First enrollment succeeds
         const res1 = await app.inject({
           method: 'POST',
-          url: '/api/terminal/enroll',
+          url: '/terminal/enroll',
           payload: { token, hostname: 'host-1' },
         });
         expect(res1.statusCode).toBe(201);
@@ -244,7 +244,7 @@ describe('Terminal Security API', () => {
         // Second enrollment fails
         const res2 = await app.inject({
           method: 'POST',
-          url: '/api/terminal/enroll',
+          url: '/terminal/enroll',
           payload: { token, hostname: 'host-2' },
         });
         expect(res2.statusCode).toBe(401);
@@ -254,7 +254,7 @@ describe('Terminal Security API', () => {
         // Create token, then expire it manually
         const createRes = await app.inject({
           method: 'POST',
-          url: '/api/terminal/enrollment-tokens',
+          url: '/terminal/enrollment-tokens',
           payload: { label: 'expired-test' },
         });
         const { token, id } = createRes.json() as { token: string; id: string };
@@ -267,7 +267,7 @@ describe('Terminal Security API', () => {
 
         const enrollRes = await app.inject({
           method: 'POST',
-          url: '/api/terminal/enroll',
+          url: '/terminal/enroll',
           payload: { token, hostname: 'host-1' },
         });
         expect(enrollRes.statusCode).toBe(401);
@@ -276,7 +276,7 @@ describe('Terminal Security API', () => {
       it('rejects invalid token', async () => {
         const res = await app.inject({
           method: 'POST',
-          url: '/api/terminal/enroll',
+          url: '/terminal/enroll',
           payload: { token: 'totally-invalid-token', hostname: 'host-1' },
         });
         expect(res.statusCode).toBe(401);
@@ -285,14 +285,14 @@ describe('Terminal Security API', () => {
       it('rejects missing hostname', async () => {
         const createRes = await app.inject({
           method: 'POST',
-          url: '/api/terminal/enrollment-tokens',
+          url: '/terminal/enrollment-tokens',
           payload: { label: 'missing-hostname' },
         });
         const { token } = createRes.json() as { token: string };
 
         const res = await app.inject({
           method: 'POST',
-          url: '/api/terminal/enroll',
+          url: '/terminal/enroll',
           payload: { token },
         });
         expect(res.statusCode).toBe(400);
@@ -301,7 +301,7 @@ describe('Terminal Security API', () => {
       it('revoked token cannot be used', async () => {
         const createRes = await app.inject({
           method: 'POST',
-          url: '/api/terminal/enrollment-tokens',
+          url: '/terminal/enrollment-tokens',
           payload: { label: 'revoke-test' },
         });
         const { token, id } = createRes.json() as { token: string; id: string };
@@ -309,13 +309,13 @@ describe('Terminal Security API', () => {
         // Revoke
         await app.inject({
           method: 'DELETE',
-          url: `/api/terminal/enrollment-tokens/${id}`,
+          url: `/terminal/enrollment-tokens/${id}`,
         });
 
         // Try to enroll
         const res = await app.inject({
           method: 'POST',
-          url: '/api/terminal/enroll',
+          url: '/terminal/enroll',
           payload: { token, hostname: 'host-1' },
         });
         expect(res.statusCode).toBe(401);
@@ -328,11 +328,11 @@ describe('Terminal Security API', () => {
   // ================================================================
 
   describe('Audit Trail (#1686)', () => {
-    describe('GET /api/terminal/activity', () => {
+    describe('GET /terminal/activity', () => {
       it('returns empty activity list', async () => {
         const res = await app.inject({
           method: 'GET',
-          url: '/api/terminal/activity',
+          url: '/terminal/activity',
         });
 
         expect(res.statusCode).toBe(200);
@@ -345,7 +345,7 @@ describe('Terminal Security API', () => {
         // Create a token (which should record activity)
         await app.inject({
           method: 'POST',
-          url: '/api/terminal/enrollment-tokens',
+          url: '/terminal/enrollment-tokens',
           payload: { label: 'activity-test' },
         });
 
@@ -354,7 +354,7 @@ describe('Terminal Security API', () => {
 
         const res = await app.inject({
           method: 'GET',
-          url: '/api/terminal/activity',
+          url: '/terminal/activity',
         });
 
         expect(res.statusCode).toBe(200);
@@ -369,14 +369,14 @@ describe('Terminal Security API', () => {
       it('records activity on enrollment', async () => {
         const createRes = await app.inject({
           method: 'POST',
-          url: '/api/terminal/enrollment-tokens',
+          url: '/terminal/enrollment-tokens',
           payload: { label: 'enroll-activity' },
         });
         const { token } = createRes.json() as { token: string };
 
         await app.inject({
           method: 'POST',
-          url: '/api/terminal/enroll',
+          url: '/terminal/enroll',
           payload: { token, hostname: 'activity-host' },
         });
 
@@ -384,7 +384,7 @@ describe('Terminal Security API', () => {
 
         const res = await app.inject({
           method: 'GET',
-          url: '/api/terminal/activity?action=enrollment.register',
+          url: '/terminal/activity?action=enrollment.register',
         });
 
         expect(res.statusCode).toBe(200);
@@ -417,7 +417,7 @@ describe('Terminal Security API', () => {
 
         const res = await app.inject({
           method: 'GET',
-          url: `/api/terminal/activity?session_id=${sessId}`,
+          url: `/terminal/activity?session_id=${sessId}`,
         });
 
         expect(res.statusCode).toBe(200);
@@ -436,7 +436,7 @@ describe('Terminal Security API', () => {
 
         const res = await app.inject({
           method: 'GET',
-          url: '/api/terminal/activity?action=command.send',
+          url: '/terminal/activity?action=command.send',
         });
 
         expect(res.statusCode).toBe(200);
@@ -457,7 +457,7 @@ describe('Terminal Security API', () => {
         const fromDate = new Date(Date.now() - 86400000).toISOString(); // 1 day ago
         const res = await app.inject({
           method: 'GET',
-          url: `/api/terminal/activity?from=${fromDate}`,
+          url: `/terminal/activity?from=${fromDate}`,
         });
 
         expect(res.statusCode).toBe(200);
@@ -473,7 +473,7 @@ describe('Terminal Security API', () => {
 
         const res = await app.inject({
           method: 'GET',
-          url: '/api/terminal/activity',
+          url: '/terminal/activity',
         });
 
         expect(res.statusCode).toBe(200);
@@ -488,11 +488,11 @@ describe('Terminal Security API', () => {
   // ================================================================
 
   describe('Entry Retention (#1687)', () => {
-    describe('GET /api/terminal/settings', () => {
+    describe('GET /terminal/settings', () => {
       it('returns default retention of 90 days', async () => {
         const res = await app.inject({
           method: 'GET',
-          url: '/api/terminal/settings',
+          url: '/terminal/settings',
         });
 
         expect(res.statusCode).toBe(200);
@@ -501,11 +501,11 @@ describe('Terminal Security API', () => {
       });
     });
 
-    describe('PATCH /api/terminal/settings', () => {
+    describe('PATCH /terminal/settings', () => {
       it('updates retention days', async () => {
         const res = await app.inject({
           method: 'PATCH',
-          url: '/api/terminal/settings',
+          url: '/terminal/settings',
           payload: { entry_retention_days: 30 },
         });
 
@@ -516,7 +516,7 @@ describe('Terminal Security API', () => {
         // Verify via GET
         const getRes = await app.inject({
           method: 'GET',
-          url: '/api/terminal/settings',
+          url: '/terminal/settings',
         });
         const getBody = getRes.json() as { entry_retention_days: number };
         expect(getBody.entry_retention_days).toBe(30);
@@ -525,7 +525,7 @@ describe('Terminal Security API', () => {
       it('rejects invalid retention days (too low)', async () => {
         const res = await app.inject({
           method: 'PATCH',
-          url: '/api/terminal/settings',
+          url: '/terminal/settings',
           payload: { entry_retention_days: 0 },
         });
 
@@ -535,7 +535,7 @@ describe('Terminal Security API', () => {
       it('rejects invalid retention days (too high)', async () => {
         const res = await app.inject({
           method: 'PATCH',
-          url: '/api/terminal/settings',
+          url: '/terminal/settings',
           payload: { entry_retention_days: 5000 },
         });
 
@@ -545,7 +545,7 @@ describe('Terminal Security API', () => {
       it('rejects missing entry_retention_days', async () => {
         const res = await app.inject({
           method: 'PATCH',
-          url: '/api/terminal/settings',
+          url: '/terminal/settings',
           payload: {},
         });
 
@@ -555,7 +555,7 @@ describe('Terminal Security API', () => {
       it('records activity on settings update', async () => {
         await app.inject({
           method: 'PATCH',
-          url: '/api/terminal/settings',
+          url: '/terminal/settings',
           payload: { entry_retention_days: 60 },
         });
 
@@ -563,7 +563,7 @@ describe('Terminal Security API', () => {
 
         const res = await app.inject({
           method: 'GET',
-          url: '/api/terminal/activity?action=settings.update',
+          url: '/terminal/activity?action=settings.update',
         });
 
         expect(res.statusCode).toBe(200);
@@ -651,7 +651,7 @@ describe('Terminal Security API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/terminal/enrollment-tokens',
+        url: '/terminal/enrollment-tokens',
       });
 
       const body = res.json() as { total: number };

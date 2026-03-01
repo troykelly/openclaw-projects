@@ -145,11 +145,11 @@ describe('Note Search API', () => {
     await app.close();
   });
 
-  describe('GET /api/notes/search', () => {
+  describe('GET /notes/search', () => {
     it('should require user_email', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/notes/search?q=test',
+        url: '/notes/search?q=test',
       });
 
       expect(response.statusCode).toBe(400);
@@ -159,7 +159,7 @@ describe('Note Search API', () => {
     it('should require search query', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/search?user_email=${ownerEmail}`,
+        url: `/notes/search?user_email=${ownerEmail}`,
       });
 
       expect(response.statusCode).toBe(400);
@@ -169,7 +169,7 @@ describe('Note Search API', () => {
     it('should search notes with text search', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/search?user_email=${ownerEmail}&q=TypeScript&search_type=text`,
+        url: `/notes/search?user_email=${ownerEmail}&q=TypeScript&search_type=text`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -187,7 +187,7 @@ describe('Note Search API', () => {
     it('should search notes with semantic search', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/search?user_email=${ownerEmail}&q=programming%20languages&search_type=semantic`,
+        url: `/notes/search?user_email=${ownerEmail}&q=programming%20languages&search_type=semantic`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -200,7 +200,7 @@ describe('Note Search API', () => {
     it('should search notes with hybrid search (default)', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/search?user_email=${ownerEmail}&q=programming`,
+        url: `/notes/search?user_email=${ownerEmail}&q=programming`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -213,7 +213,7 @@ describe('Note Search API', () => {
     it('should return search result fields', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/search?user_email=${ownerEmail}&q=TypeScript&search_type=text`,
+        url: `/notes/search?user_email=${ownerEmail}&q=TypeScript&search_type=text`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -240,7 +240,7 @@ describe('Note Search API', () => {
     it('should filter by notebook', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/search?user_email=${ownerEmail}&q=programming&notebook_id=${createdNotebookIds[0]}`,
+        url: `/notes/search?user_email=${ownerEmail}&q=programming&notebook_id=${createdNotebookIds[0]}`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -255,7 +255,7 @@ describe('Note Search API', () => {
     it('should filter by tags', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/search?user_email=${ownerEmail}&q=programming&tags=typescript`,
+        url: `/notes/search?user_email=${ownerEmail}&q=programming&tags=typescript`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -270,7 +270,7 @@ describe('Note Search API', () => {
     it('should filter by visibility', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/search?user_email=${ownerEmail}&q=*&visibility=public&search_type=text`,
+        url: `/notes/search?user_email=${ownerEmail}&q=*&visibility=public&search_type=text`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -285,7 +285,7 @@ describe('Note Search API', () => {
     it('should respect pagination', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/search?user_email=${ownerEmail}&q=programming&limit=2&offset=0`,
+        url: `/notes/search?user_email=${ownerEmail}&q=programming&limit=2&offset=0`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -299,7 +299,7 @@ describe('Note Search API', () => {
     it('should enforce max limit of 50', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/search?user_email=${ownerEmail}&q=programming&limit=100`,
+        url: `/notes/search?user_email=${ownerEmail}&q=programming&limit=100`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -313,7 +313,7 @@ describe('Note Search API', () => {
     it('should allow owner to see their private notes', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/search?user_email=${ownerEmail}&q=shopping&search_type=text`,
+        url: `/notes/search?user_email=${ownerEmail}&q=shopping&search_type=text`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -326,7 +326,7 @@ describe('Note Search API', () => {
     it('should not show private notes to other users', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/search?user_email=${otherUserEmail}&q=shopping&search_type=text`,
+        url: `/notes/search?user_email=${otherUserEmail}&q=shopping&search_type=text`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -339,7 +339,7 @@ describe('Note Search API', () => {
     it('should show public notes to any user', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/search?user_email=${otherUserEmail}&q=TypeScript&search_type=text`,
+        url: `/notes/search?user_email=${otherUserEmail}&q=TypeScript&search_type=text`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -352,7 +352,7 @@ describe('Note Search API', () => {
     it('should show shared notes to users with share access', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/search?user_email=${sharedUserEmail}&q=team&search_type=text`,
+        url: `/notes/search?user_email=${sharedUserEmail}&q=team&search_type=text`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -365,7 +365,7 @@ describe('Note Search API', () => {
     it('should not show shared notes to users without share access', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/search?user_email=${otherUserEmail}&q=team&search_type=text`,
+        url: `/notes/search?user_email=${otherUserEmail}&q=team&search_type=text`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -380,7 +380,7 @@ describe('Note Search API', () => {
     it('should hide private notes from agents', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/search?user_email=${ownerEmail}&q=shopping&search_type=text`,
+        url: `/notes/search?user_email=${ownerEmail}&q=shopping&search_type=text`,
         headers: {
           'X-OpenClaw-Agent': 'test-agent-123',
         },
@@ -397,7 +397,7 @@ describe('Note Search API', () => {
     it('should hide notes with hideFromAgents flag from agents', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/search?user_email=${ownerEmail}&q=private&search_type=text`,
+        url: `/notes/search?user_email=${ownerEmail}&q=private&search_type=text`,
         headers: {
           'X-OpenClaw-Agent': 'test-agent-123',
         },
@@ -413,7 +413,7 @@ describe('Note Search API', () => {
     it('should show public notes to agents', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/search?user_email=${ownerEmail}&q=TypeScript&search_type=text`,
+        url: `/notes/search?user_email=${ownerEmail}&q=TypeScript&search_type=text`,
         headers: {
           'X-OpenClaw-Agent': 'test-agent-123',
         },
@@ -429,7 +429,7 @@ describe('Note Search API', () => {
     it('should detect agent via authorization header', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/search?user_email=${ownerEmail}&q=shopping&search_type=text`,
+        url: `/notes/search?user_email=${ownerEmail}&q=shopping&search_type=text`,
         headers: {
           Authorization: 'Bearer agent:test-token',
         },
@@ -444,11 +444,11 @@ describe('Note Search API', () => {
     });
   });
 
-  describe('GET /api/notes/:id/similar', () => {
+  describe('GET /notes/:id/similar', () => {
     it('should require user_email', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/${createdNoteIds[0]}/similar`,
+        url: `/notes/${createdNoteIds[0]}/similar`,
       });
 
       expect(response.statusCode).toBe(400);
@@ -458,7 +458,7 @@ describe('Note Search API', () => {
     it('should return 404 for non-existent note', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/00000000-0000-0000-0000-000000000000/similar?user_email=${ownerEmail}`,
+        url: `/notes/00000000-0000-0000-0000-000000000000/similar?user_email=${ownerEmail}`,
       });
 
       expect(response.statusCode).toBe(404);
@@ -469,7 +469,7 @@ describe('Note Search API', () => {
       const privateNoteId = createdNoteIds[2]; // 'Private Shopping List'
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/${privateNoteId}/similar?user_email=${otherUserEmail}`,
+        url: `/notes/${privateNoteId}/similar?user_email=${otherUserEmail}`,
       });
 
       expect(response.statusCode).toBe(404);
@@ -479,7 +479,7 @@ describe('Note Search API', () => {
       const publicNoteId = createdNoteIds[0]; // 'TypeScript Programming Guide'
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/${publicNoteId}/similar?user_email=${ownerEmail}`,
+        url: `/notes/${publicNoteId}/similar?user_email=${ownerEmail}`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -496,7 +496,7 @@ describe('Note Search API', () => {
       const publicNoteId = createdNoteIds[0];
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/${publicNoteId}/similar?user_email=${ownerEmail}&limit=2`,
+        url: `/notes/${publicNoteId}/similar?user_email=${ownerEmail}&limit=2`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -509,7 +509,7 @@ describe('Note Search API', () => {
       const publicNoteId = createdNoteIds[0];
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/${publicNoteId}/similar?user_email=${ownerEmail}&limit=100`,
+        url: `/notes/${publicNoteId}/similar?user_email=${ownerEmail}&limit=100`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -520,7 +520,7 @@ describe('Note Search API', () => {
       const publicNoteId = createdNoteIds[0];
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/${publicNoteId}/similar?user_email=${ownerEmail}&min_similarity=0.9`,
+        url: `/notes/${publicNoteId}/similar?user_email=${ownerEmail}&min_similarity=0.9`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -536,7 +536,7 @@ describe('Note Search API', () => {
       const publicNoteId = createdNoteIds[0];
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/${publicNoteId}/similar?user_email=${ownerEmail}`,
+        url: `/notes/${publicNoteId}/similar?user_email=${ownerEmail}`,
         headers: {
           'X-OpenClaw-Agent': 'test-agent-123',
         },
@@ -556,7 +556,7 @@ describe('Note Search API', () => {
     it('should include highlighted snippets in text search', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/search?user_email=${ownerEmail}&q=TypeScript&search_type=text`,
+        url: `/notes/search?user_email=${ownerEmail}&q=TypeScript&search_type=text`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -578,7 +578,7 @@ describe('Note Search API', () => {
     it('should combine text and semantic results in hybrid search', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/search?user_email=${ownerEmail}&q=programming%20guide`,
+        url: `/notes/search?user_email=${ownerEmail}&q=programming%20guide`,
       });
 
       expect(response.statusCode).toBe(200);

@@ -82,11 +82,11 @@ describe('UUID Validation for File Share Endpoint', () => {
     await app.close();
   });
 
-  describe('POST /api/files/:id/share', () => {
+  describe('POST /files/:id/share', () => {
     it('returns 400 Bad Request for "not-a-uuid"', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: '/api/files/not-a-uuid/share',
+        url: '/files/not-a-uuid/share',
         payload: {},
       });
 
@@ -97,7 +97,7 @@ describe('UUID Validation for File Share Endpoint', () => {
     it('returns 400 Bad Request for "123"', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: '/api/files/123/share',
+        url: '/files/123/share',
         payload: {},
       });
 
@@ -108,7 +108,7 @@ describe('UUID Validation for File Share Endpoint', () => {
     it('returns 400 Bad Request for "abc"', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: '/api/files/abc/share',
+        url: '/files/abc/share',
         payload: {},
       });
 
@@ -117,11 +117,11 @@ describe('UUID Validation for File Share Endpoint', () => {
     });
 
     it('returns 400 Bad Request for empty string path', async () => {
-      // Note: Empty string in path would be /api/files//share which Fastify may handle differently
+      // Note: Empty string in path would be /files//share which Fastify may handle differently
       // This tests the closest equivalent
       const response = await app.inject({
         method: 'POST',
-        url: '/api/files/%20/share', // URL-encoded space
+        url: '/files/%20/share', // URL-encoded space
         payload: {},
       });
 
@@ -132,7 +132,7 @@ describe('UUID Validation for File Share Endpoint', () => {
     it('returns 400 Bad Request for partial UUID', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: '/api/files/12345678-1234-1234-1234/share', // Missing last segment
+        url: '/files/12345678-1234-1234-1234/share', // Missing last segment
         payload: {},
       });
 
@@ -143,7 +143,7 @@ describe('UUID Validation for File Share Endpoint', () => {
     it('returns 400 Bad Request for UUID with invalid characters', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: '/api/files/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/share',
+        url: '/files/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/share',
         payload: {},
       });
 
@@ -156,7 +156,7 @@ describe('UUID Validation for File Share Endpoint', () => {
       // and reach the database lookup (which returns 404 for non-existent files)
       const response = await app.inject({
         method: 'POST',
-        url: '/api/files/00000000-0000-0000-0000-000000000000/share',
+        url: '/files/00000000-0000-0000-0000-000000000000/share',
         payload: {},
       });
 
@@ -167,7 +167,7 @@ describe('UUID Validation for File Share Endpoint', () => {
     it('accepts valid UUID with uppercase letters', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: '/api/files/ABCDEF12-3456-7890-ABCD-EF1234567890/share',
+        url: '/files/ABCDEF12-3456-7890-ABCD-EF1234567890/share',
         payload: {},
       });
 

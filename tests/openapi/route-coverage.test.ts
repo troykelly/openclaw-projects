@@ -36,7 +36,7 @@ describe('OpenAPI Route Coverage', () => {
   /**
    * Normalise parameter names for comparison.
    * Replaces all `{param_name}` with `{_}` so that
-   * `/api/work-items/{id}` matches `/api/work-items/{work_item_id}`.
+   * `/work-items/{id}` matches `/work-items/{work_item_id}`.
    */
   function normaliseForComparison(route: string): string {
     return route.replace(/\{[^}]+\}/g, '{_}');
@@ -48,7 +48,7 @@ describe('OpenAPI Route Coverage', () => {
     /^\/api\/capabilities$/, // Discovery endpoint, not a CRUD API
     /^\/app/, // Frontend HTML routes
     /^\/$/, // Root redirect
-    /^\/health$/, // Legacy top-level health (documented as /api/health)
+    /^\/health$/, // Legacy top-level health (documented as /health)
     /^\/assets/, // Static assets
     /^\/favicon/, // Favicon
     /^\/manifest/, // PWA manifest
@@ -59,10 +59,10 @@ describe('OpenAPI Route Coverage', () => {
     /^\/api\/cloudflare\//, // Cloudflare email webhook (external integration)
   ];
 
-  it('GET /api/openapi.json returns the spec from assembleSpec()', async () => {
+  it('GET /openapi.json returns the spec from assembleSpec()', async () => {
     const res = await app.inject({
       method: 'GET',
-      url: '/api/openapi.json',
+      url: '/openapi.json',
     });
     expect(res.statusCode).toBe(200);
     const body = res.json();
@@ -129,11 +129,11 @@ describe('OpenAPI Route Coverage', () => {
     const registeredRoutes = parseRoutesFromTree(
       app.printRoutes({ commonPrefix: false }),
     );
-    // Keep only /api/ routes for coverage check
+    // Keep only / routes for coverage check
     const apiRoutes = new Set<string>();
     for (const route of registeredRoutes) {
       const path = route.split(':').slice(1).join(':');
-      if (path.startsWith('/api/')) {
+      if (path.startsWith('/')) {
         apiRoutes.add(route);
       }
     }

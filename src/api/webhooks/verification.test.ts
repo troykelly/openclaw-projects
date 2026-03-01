@@ -43,7 +43,7 @@ describe('webhook verification behind proxy', () => {
     // Dynamic import to get fresh module per test
     const { verifyTwilioSignature } = await import('./verification.js');
 
-    app.post('/api/twilio/sms', async (request, reply) => {
+    app.post('/twilio/sms', async (request, reply) => {
       const valid = verifyTwilioSignature(request);
       if (!valid) {
         return reply.status(401).send({ error: 'Invalid signature' });
@@ -80,7 +80,7 @@ describe('webhook verification behind proxy', () => {
     // But without trustProxy, Fastify sees protocol as 'http'
     const response = await app.inject({
       method: 'POST',
-      url: '/api/twilio/sms',
+      url: '/twilio/sms',
       headers: {
         host: 'api.execdesk.ai',
         'x-forwarded-proto': 'https',
@@ -105,7 +105,7 @@ describe('webhook verification behind proxy', () => {
 
     const response = await app.inject({
       method: 'POST',
-      url: '/api/twilio/sms',
+      url: '/twilio/sms',
       headers: {
         host: 'api.execdesk.ai',
         'x-forwarded-proto': 'https',
@@ -131,7 +131,7 @@ describe('webhook verification behind proxy', () => {
 
     const response = await app.inject({
       method: 'POST',
-      url: '/api/twilio/sms',
+      url: '/twilio/sms',
       headers: {
         'x-twilio-signature': signature,
         'content-type': 'application/x-www-form-urlencoded',
@@ -148,7 +148,7 @@ describe('webhook verification behind proxy', () => {
 
     const response = await app.inject({
       method: 'POST',
-      url: '/api/twilio/sms',
+      url: '/twilio/sms',
       headers: {
         host: 'api.execdesk.ai',
         'x-forwarded-proto': 'https',
@@ -166,7 +166,7 @@ describe('webhook verification behind proxy', () => {
 
     const response = await app.inject({
       method: 'POST',
-      url: '/api/twilio/sms',
+      url: '/twilio/sms',
       headers: {
         host: 'api.execdesk.ai',
         'x-forwarded-proto': 'https',

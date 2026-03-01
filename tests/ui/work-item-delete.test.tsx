@@ -201,7 +201,7 @@ describe('useWorkItemDelete hook', () => {
     fireEvent.click(screen.getByTestId('delete-btn'));
 
     await waitFor(() => {
-      expect(mockDelete).toHaveBeenCalledWith('/api/work-items/test-1');
+      expect(mockDelete).toHaveBeenCalledWith('/work-items/test-1');
     });
 
     await waitFor(() => {
@@ -224,7 +224,7 @@ describe('useWorkItemDelete hook', () => {
     fireEvent.click(screen.getByText('Undo'));
 
     await waitFor(() => {
-      expect(mockPost).toHaveBeenCalledWith('/api/work-items/test-1/restore', {});
+      expect(mockPost).toHaveBeenCalledWith('/work-items/test-1/restore', {});
     });
   });
 

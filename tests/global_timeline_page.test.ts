@@ -81,7 +81,7 @@ describe('Global Timeline Page', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/timeline',
+        url: '/timeline',
       });
 
       expect(res.statusCode).toBe(200);
@@ -104,7 +104,7 @@ describe('Global Timeline Page', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/timeline?kind=project,epic',
+        url: '/timeline?kind=project,epic',
       });
 
       expect(res.statusCode).toBe(200);
@@ -128,7 +128,7 @@ describe('Global Timeline Page', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/timeline?from=${now.toISOString()}`,
+        url: `/timeline?from=${now.toISOString()}`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -170,7 +170,7 @@ describe('Global Timeline Page', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/timeline',
+        url: '/timeline',
       });
 
       expect(res.statusCode).toBe(200);
@@ -211,7 +211,7 @@ describe('Global Timeline Page', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/timeline?parent_id=${project_id}`,
+        url: `/timeline?parent_id=${project_id}`,
       });
 
       expect(res.statusCode).toBe(200);

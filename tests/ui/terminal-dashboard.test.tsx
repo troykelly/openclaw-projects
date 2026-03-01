@@ -116,10 +116,10 @@ const mockTunnels: TerminalTunnelsResponse = {
 
 const mockApiClient = {
   get: vi.fn().mockImplementation((path: string) => {
-    if (path.includes('/api/terminal/stats')) return Promise.resolve(mockStats);
-    if (path.includes('/api/terminal/sessions')) return Promise.resolve(mockSessions);
-    if (path.includes('/api/terminal/connections')) return Promise.resolve(mockConnections);
-    if (path.includes('/api/terminal/tunnels')) return Promise.resolve(mockTunnels);
+    if (path.includes('/terminal/stats')) return Promise.resolve(mockStats);
+    if (path.includes('/terminal/sessions')) return Promise.resolve(mockSessions);
+    if (path.includes('/terminal/connections')) return Promise.resolve(mockConnections);
+    if (path.includes('/terminal/tunnels')) return Promise.resolve(mockTunnels);
     return Promise.reject(new Error(`Unknown endpoint: ${path}`));
   }),
   post: vi.fn().mockResolvedValue({}),
@@ -183,10 +183,10 @@ describe('TerminalDashboardPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockApiClient.get.mockImplementation((path: string) => {
-      if (path.includes('/api/terminal/stats')) return Promise.resolve(mockStats);
-      if (path.includes('/api/terminal/sessions')) return Promise.resolve(mockSessions);
-      if (path.includes('/api/terminal/connections')) return Promise.resolve(mockConnections);
-      if (path.includes('/api/terminal/tunnels')) return Promise.resolve(mockTunnels);
+      if (path.includes('/terminal/stats')) return Promise.resolve(mockStats);
+      if (path.includes('/terminal/sessions')) return Promise.resolve(mockSessions);
+      if (path.includes('/terminal/connections')) return Promise.resolve(mockConnections);
+      if (path.includes('/terminal/tunnels')) return Promise.resolve(mockTunnels);
       return Promise.reject(new Error(`Unknown endpoint: ${path}`));
     });
   });
@@ -213,10 +213,10 @@ describe('TerminalDashboardPage', () => {
 
   it('shows empty state when no connections', async () => {
     mockApiClient.get.mockImplementation((path: string) => {
-      if (path.includes('/api/terminal/stats')) return Promise.resolve({ active_sessions: 0, total_connections: 0, active_tunnels: 0, recent_errors: 0 });
-      if (path.includes('/api/terminal/sessions')) return Promise.resolve({ sessions: [] });
-      if (path.includes('/api/terminal/connections')) return Promise.resolve({ connections: [] });
-      if (path.includes('/api/terminal/tunnels')) return Promise.resolve({ tunnels: [] });
+      if (path.includes('/terminal/stats')) return Promise.resolve({ active_sessions: 0, total_connections: 0, active_tunnels: 0, recent_errors: 0 });
+      if (path.includes('/terminal/sessions')) return Promise.resolve({ sessions: [] });
+      if (path.includes('/terminal/connections')) return Promise.resolve({ connections: [] });
+      if (path.includes('/terminal/tunnels')) return Promise.resolve({ tunnels: [] });
       return Promise.reject(new Error(`Unknown endpoint: ${path}`));
     });
 

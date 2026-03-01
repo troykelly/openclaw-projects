@@ -51,7 +51,7 @@ describe('Rate Limiting', () => {
       // Verify the server starts and responds to requests
       const response = await app.inject({
         method: 'GET',
-        url: '/api/health',
+        url: '/health',
       });
 
       expect(response.statusCode).toBe(200);
@@ -64,7 +64,7 @@ describe('Rate Limiting', () => {
       for (let i = 0; i < 5; i++) {
         const response = await app.inject({
           method: 'GET',
-          url: '/api/health',
+          url: '/health',
         });
         responses.push(response);
       }
@@ -78,13 +78,13 @@ describe('Rate Limiting', () => {
       // Verify various endpoints work with rate limit plugin registered
       const healthResponse = await app.inject({
         method: 'GET',
-        url: '/api/health',
+        url: '/health',
       });
       expect(healthResponse.statusCode).toBe(200);
 
       const apiResponse = await app.inject({
         method: 'GET',
-        url: '/api/contacts',
+        url: '/contacts',
       });
       expect(apiResponse.statusCode).toBe(200);
     });
@@ -99,7 +99,7 @@ describe('Rate Limiting', () => {
       for (let i = 0; i < 10; i++) {
         const response = await app.inject({
           method: 'GET',
-          url: '/api/health',
+          url: '/health',
         });
         expect(response.statusCode).toBe(200);
       }
@@ -113,7 +113,7 @@ describe('Rate Limiting', () => {
       for (let i = 0; i < 10; i++) {
         const response = await app.inject({
           method: 'GET',
-          url: '/api/health',
+          url: '/health',
         });
         expect(response.statusCode).toBe(200);
       }
@@ -146,7 +146,7 @@ describe('Route-Specific Rate Limits', () => {
     // Test Twilio endpoint is accessible (would be rate limited at 60/min in production)
     const twilioResponse = await app.inject({
       method: 'POST',
-      url: '/api/twilio/sms',
+      url: '/twilio/sms',
       payload: { Body: 'test' },
     });
     // Should return 400 (missing required fields) not 404
@@ -155,7 +155,7 @@ describe('Route-Specific Rate Limits', () => {
     // Test Postmark endpoint is accessible
     const postmarkResponse = await app.inject({
       method: 'POST',
-      url: '/api/postmark/inbound',
+      url: '/postmark/inbound',
       payload: {},
     });
     expect(postmarkResponse.statusCode).toBe(400);
@@ -163,7 +163,7 @@ describe('Route-Specific Rate Limits', () => {
     // Test Cloudflare endpoint is accessible
     const cloudflareResponse = await app.inject({
       method: 'POST',
-      url: '/api/cloudflare/email',
+      url: '/cloudflare/email',
       payload: {},
     });
     expect(cloudflareResponse.statusCode).toBe(400);
@@ -173,14 +173,14 @@ describe('Route-Specific Rate Limits', () => {
     // Test unified search endpoint
     const searchResponse = await app.inject({
       method: 'GET',
-      url: '/api/search?q=test',
+      url: '/search?q=test',
     });
     expect(searchResponse.statusCode).toBe(200);
 
     // Test memory search endpoint
     const memorySearchResponse = await app.inject({
       method: 'GET',
-      url: '/api/memories/search?q=test',
+      url: '/memories/search?q=test',
     });
     expect(memorySearchResponse.statusCode).toBe(200);
   });

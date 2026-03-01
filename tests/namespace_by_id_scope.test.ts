@@ -41,7 +41,7 @@ describe('By-ID operations across namespaces (Issue #1796)', () => {
   });
 
   describe('work items', () => {
-    it('GET /api/work-items/:id returns item in non-default namespace without X-Namespace', async () => {
+    it('GET /work-items/:id returns item in non-default namespace without X-Namespace', async () => {
       // Create a work item in a non-default namespace
       const { rows } = await pool.query(
         `INSERT INTO work_item (title, kind, work_item_kind, namespace, status)
@@ -53,7 +53,7 @@ describe('By-ID operations across namespaces (Issue #1796)', () => {
       // Request without X-Namespace header — should still find the item
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${id}`,
+        url: `/work-items/${id}`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -62,7 +62,7 @@ describe('By-ID operations across namespaces (Issue #1796)', () => {
       expect(body.namespace).toBe(CUSTOM_NS);
     });
 
-    it('PATCH /api/work-items/:id/status works without X-Namespace for non-default namespace', async () => {
+    it('PATCH /work-items/:id/status works without X-Namespace for non-default namespace', async () => {
       const { rows } = await pool.query(
         `INSERT INTO work_item (title, kind, work_item_kind, namespace, status)
          VALUES ('Status Test', 'task', 'task', $1, 'open') RETURNING id::text as id`,
@@ -72,7 +72,7 @@ describe('By-ID operations across namespaces (Issue #1796)', () => {
 
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${id}/status`,
+        url: `/work-items/${id}/status`,
         headers: { 'content-type': 'application/json' },
         payload: { status: 'in_progress' },
       });
@@ -83,7 +83,7 @@ describe('By-ID operations across namespaces (Issue #1796)', () => {
   });
 
   describe('contacts', () => {
-    it('GET /api/contacts/:id returns contact in non-default namespace without X-Namespace', async () => {
+    it('GET /contacts/:id returns contact in non-default namespace without X-Namespace', async () => {
       const { rows } = await pool.query(
         `INSERT INTO contact (display_name, namespace)
          VALUES ('Test Contact', $1) RETURNING id::text as id`,
@@ -93,7 +93,7 @@ describe('By-ID operations across namespaces (Issue #1796)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/contacts/${id}`,
+        url: `/contacts/${id}`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -104,7 +104,7 @@ describe('By-ID operations across namespaces (Issue #1796)', () => {
   });
 
   describe('M2M tokens', () => {
-    it('GET /api/work-items/:id with M2M token finds item in non-default namespace', async () => {
+    it('GET /work-items/:id with M2M token finds item in non-default namespace', async () => {
       const { rows } = await pool.query(
         `INSERT INTO work_item (title, kind, work_item_kind, namespace, status)
          VALUES ('M2M Test', 'task', 'task', $1, 'open') RETURNING id::text as id`,
@@ -115,7 +115,7 @@ describe('By-ID operations across namespaces (Issue #1796)', () => {
       const headers = await getM2MHeaders();
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${id}`,
+        url: `/work-items/${id}`,
         headers,
       });
 
@@ -125,7 +125,7 @@ describe('By-ID operations across namespaces (Issue #1796)', () => {
       expect(body.namespace).toBe(CUSTOM_NS);
     });
 
-    it('GET /api/contacts/:id with M2M token finds contact in non-default namespace', async () => {
+    it('GET /contacts/:id with M2M token finds contact in non-default namespace', async () => {
       const { rows } = await pool.query(
         `INSERT INTO contact (display_name, namespace)
          VALUES ('M2M Contact', $1) RETURNING id::text as id`,
@@ -136,7 +136,7 @@ describe('By-ID operations across namespaces (Issue #1796)', () => {
       const headers = await getM2MHeaders();
       const res = await app.inject({
         method: 'GET',
-        url: `/api/contacts/${id}`,
+        url: `/contacts/${id}`,
         headers,
       });
 
@@ -159,7 +159,7 @@ describe('By-ID operations across namespaces (Issue #1796)', () => {
       const headers = await getM2MHeaders();
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${id}`,
+        url: `/work-items/${id}`,
         headers: { ...headers, 'x-namespace': 'wrong-namespace' },
       });
 

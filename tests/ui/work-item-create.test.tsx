@@ -167,7 +167,7 @@ describe('QuickAddDialog', () => {
 
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalledWith(
-        '/api/work-items',
+        '/work-items',
         expect.objectContaining({
           body: expect.stringContaining('"parent_id":"parent-123"'),
         }),

@@ -56,10 +56,10 @@ beforeEach(() => {
   vi.clearAllMocks();
   // Mock providers list (empty) and current location (null)
   mockedApiClient.get.mockImplementation((path: string) => {
-    if (path === '/api/geolocation/providers') {
+    if (path === '/geolocation/providers') {
       return Promise.resolve({ providers: [] });
     }
-    if (path === '/api/geolocation/current') {
+    if (path === '/geolocation/current') {
       return Promise.resolve({ location: null });
     }
     return Promise.resolve({});
@@ -177,17 +177,17 @@ describe('HA OAuth UI — auth method toggle', () => {
 describe('HA OAuth UI — OAuth initiation', () => {
   it('calls initiate HA OAuth API endpoint on submit with OAuth method', async () => {
     mockedApiClient.get.mockImplementation((path: string) => {
-      if (path === '/api/geolocation/providers') {
+      if (path === '/geolocation/providers') {
         return Promise.resolve({ providers: [] });
       }
-      if (path === '/api/geolocation/current') {
+      if (path === '/geolocation/current') {
         return Promise.resolve({ location: null });
       }
       return Promise.resolve({});
     });
 
     mockedApiClient.post.mockImplementation((path: string) => {
-      if (path === '/api/geolocation/providers/ha/authorize') {
+      if (path === '/geolocation/providers/ha/authorize') {
         return Promise.resolve({
           url: 'https://ha.example.com/auth/authorize?client_id=test',
           provider_id: 'test-provider-id',
@@ -221,7 +221,7 @@ describe('HA OAuth UI — OAuth initiation', () => {
       // Should have called the authorize endpoint via POST
       const postCalls = mockedApiClient.post.mock.calls;
       const authCall = postCalls.find(
-        (call) => typeof call[0] === 'string' && call[0] === '/api/geolocation/providers/ha/authorize',
+        (call) => typeof call[0] === 'string' && call[0] === '/geolocation/providers/ha/authorize',
       );
       expect(authCall).toBeDefined();
       expect(authCall![1]).toEqual({ instance_url: 'https://ha.example.com', label: 'My HA' });
@@ -310,7 +310,7 @@ describe('HA OAuth UI — OAuth initiation', () => {
 
     await waitFor(() => {
       expect(mockedApiClient.post).toHaveBeenCalledWith(
-        '/api/geolocation/providers',
+        '/geolocation/providers',
         expect.objectContaining({
           providerType: 'home_assistant',
           label: 'My HA',

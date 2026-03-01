@@ -215,7 +215,7 @@ describe('useWorkItemMove hook', () => {
     fireEvent.click(screen.getByTestId('move-btn'));
 
     await waitFor(() => {
-      expect(mockPatch).toHaveBeenCalledWith('/api/work-items/test-1', { parent_id: 'new-parent-id' });
+      expect(mockPatch).toHaveBeenCalledWith('/work-items/test-1', { parent_id: 'new-parent-id' });
     });
   });
 

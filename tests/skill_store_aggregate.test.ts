@@ -8,8 +8,8 @@ import { buildServer } from '../src/api/server.ts';
  * Tests for Skill Store Aggregate and Collections API (Issue #801).
  *
  * Covers:
- * - GET /api/skill-store/aggregate: count, count_by_tag, count_by_status, latest, oldest
- * - GET /api/skill-store/collections with user_email filter
+ * - GET /skill-store/aggregate: count, count_by_tag, count_by_status, latest, oldest
+ * - GET /skill-store/collections with user_email filter
  * - Filter parameters: collection, since, until, user_email
  * - Soft-deleted items excluded
  */
@@ -272,9 +272,9 @@ describe('Skill Store Aggregate & Collections (Issue #801)', () => {
 });
 
 // =============================================================================
-// Issue #831: HTTP-level tests for GET /api/skill-store/aggregate
+// Issue #831: HTTP-level tests for GET /skill-store/aggregate
 // =============================================================================
-describe('GET /api/skill-store/aggregate HTTP endpoint (Issue #831)', () => {
+describe('GET /skill-store/aggregate HTTP endpoint (Issue #831)', () => {
   const app = buildServer();
   let pool: Pool;
 
@@ -296,7 +296,7 @@ describe('GET /api/skill-store/aggregate HTTP endpoint (Issue #831)', () => {
   it('returns 400 when skill_id is missing', async () => {
     const res = await app.inject({
       method: 'GET',
-      url: '/api/skill-store/aggregate?operation=count',
+      url: '/skill-store/aggregate?operation=count',
     });
     expect(res.statusCode).toBe(400);
     expect(res.json().error).toContain('skill_id');
@@ -305,7 +305,7 @@ describe('GET /api/skill-store/aggregate HTTP endpoint (Issue #831)', () => {
   it('returns 400 when operation is missing', async () => {
     const res = await app.inject({
       method: 'GET',
-      url: '/api/skill-store/aggregate?skill_id=test',
+      url: '/skill-store/aggregate?skill_id=test',
     });
     expect(res.statusCode).toBe(400);
     expect(res.json().error).toContain('operation');
@@ -314,7 +314,7 @@ describe('GET /api/skill-store/aggregate HTTP endpoint (Issue #831)', () => {
   it('returns 400 for invalid operation', async () => {
     const res = await app.inject({
       method: 'GET',
-      url: '/api/skill-store/aggregate?skill_id=test&operation=invalid_op',
+      url: '/skill-store/aggregate?skill_id=test&operation=invalid_op',
     });
     expect(res.statusCode).toBe(400);
     expect(res.json().error).toContain('Invalid operation');
@@ -330,7 +330,7 @@ describe('GET /api/skill-store/aggregate HTTP endpoint (Issue #831)', () => {
 
     const res = await app.inject({
       method: 'GET',
-      url: '/api/skill-store/aggregate?skill_id=agg-skill&operation=count',
+      url: '/skill-store/aggregate?skill_id=agg-skill&operation=count',
     });
     expect(res.statusCode).toBe(200);
     expect(res.json().result.count).toBe(2);
@@ -346,7 +346,7 @@ describe('GET /api/skill-store/aggregate HTTP endpoint (Issue #831)', () => {
 
     const res = await app.inject({
       method: 'GET',
-      url: '/api/skill-store/aggregate?skill_id=agg-skill&operation=count_by_status',
+      url: '/skill-store/aggregate?skill_id=agg-skill&operation=count_by_status',
     });
     expect(res.statusCode).toBe(200);
     const body = res.json().result;
@@ -359,7 +359,7 @@ describe('GET /api/skill-store/aggregate HTTP endpoint (Issue #831)', () => {
     for (const op of validOps) {
       const res = await app.inject({
         method: 'GET',
-        url: `/api/skill-store/aggregate?skill_id=test&operation=${op}`,
+        url: `/skill-store/aggregate?skill_id=test&operation=${op}`,
       });
       expect(res.statusCode).toBe(200);
     }

@@ -47,7 +47,7 @@ test.describe('Notes Autosave E2E (Issue #785)', () => {
 
     // Now the note exists. Subsequent saves are UPDATEs that keep the note
     // prop stable, so "Saved" stays visible for the full 3 seconds.
-    const updateResponse = page.waitForResponse((resp) => resp.url().includes('/api/notes') && resp.request().method() === 'PUT' && resp.ok(), {
+    const updateResponse = page.waitForResponse((resp) => resp.url().includes('/notes') && resp.request().method() === 'PUT' && resp.ok(), {
       timeout: 10_000,
     });
 
@@ -125,8 +125,8 @@ test.describe('Notes Autosave E2E (Issue #785)', () => {
     await notes.goto();
     await notes.createNewNote();
 
-    // Intercept POST /api/notes to simulate server failure
-    await page.route('**/api/notes', (route) => {
+    // Intercept POST /notes to simulate server failure
+    await page.route('**/notes', (route) => {
       if (route.request().method() === 'POST') {
         return route.fulfill({
           status: 500,
@@ -144,7 +144,7 @@ test.describe('Notes Autosave E2E (Issue #785)', () => {
     await notes.saveStatusError.waitFor({ state: 'visible', timeout: 10_000 });
 
     // Remove the route interception to allow retry
-    await page.unroute('**/api/notes');
+    await page.unroute('**/notes');
 
     // Type more to trigger a retry via the autosave debounce
     await notes.typeInEditor(' - retry');

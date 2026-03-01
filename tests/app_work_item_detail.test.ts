@@ -38,14 +38,14 @@ describe('/app work item detail', () => {
   it('renders work item detail HTML containing title and a participant when authenticated', async () => {
     const created = await app.inject({
       method: 'POST',
-      url: '/api/work-items',
+      url: '/work-items',
       payload: { title: 'Detail Item' },
     });
     const { id } = created.json() as { id: string };
 
     await app.inject({
       method: 'POST',
-      url: `/api/work-items/${id}/participants`,
+      url: `/work-items/${id}/participants`,
       payload: { participant: 'troy@example.com', role: 'watcher' },
     });
 

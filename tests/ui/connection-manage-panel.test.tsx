@@ -73,7 +73,7 @@ function createFetchMock(overrides?: {
   postSyncResponse?: Record<string, unknown>;
 }) {
   return vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
-    if (opts?.method === 'PATCH' && typeof url === 'string' && url.includes('/api/oauth/connections/')) {
+    if (opts?.method === 'PATCH' && typeof url === 'string' && url.includes('/oauth/connections/')) {
       return Promise.resolve({
         ok: true,
         status: 200,
@@ -82,7 +82,7 @@ function createFetchMock(overrides?: {
         }),
       });
     }
-    if (opts?.method === 'POST' && typeof url === 'string' && url.includes('/api/sync/')) {
+    if (opts?.method === 'POST' && typeof url === 'string' && url.includes('/sync/')) {
       return Promise.resolve({
         ok: true,
         status: 200,
@@ -584,7 +584,7 @@ describe('ConnectionManagePanel', () => {
 
     await waitFor(() => {
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/oauth/connections/conn-1'),
+        expect.stringContaining('/oauth/connections/conn-1'),
         expect.objectContaining({ method: 'PATCH' }),
       );
     });
@@ -610,7 +610,7 @@ describe('ConnectionManagePanel', () => {
 
     await waitFor(() => {
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/oauth/connections/conn-1'),
+        expect.stringContaining('/oauth/connections/conn-1'),
         expect.objectContaining({ method: 'PATCH' }),
       );
     });

@@ -26,11 +26,11 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
     await pool.end();
   });
 
-  describe('POST /api/notebooks', () => {
+  describe('POST /notebooks', () => {
     it('creates a basic notebook', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/notebooks',
+        url: '/notebooks',
         payload: {
           user_email: testUserEmail,
           name: 'My Notebook',
@@ -49,7 +49,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
     it('creates a notebook with all optional fields', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/notebooks',
+        url: '/notebooks',
         payload: {
           user_email: testUserEmail,
           name: 'Full Notebook',
@@ -70,7 +70,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       // Create parent first
       const parentRes = await app.inject({
         method: 'POST',
-        url: '/api/notebooks',
+        url: '/notebooks',
         payload: {
           user_email: testUserEmail,
           name: 'Parent',
@@ -80,7 +80,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: '/api/notebooks',
+        url: '/notebooks',
         payload: {
           user_email: testUserEmail,
           name: 'Child',
@@ -95,7 +95,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
     it('returns 400 when user_email is missing', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/notebooks',
+        url: '/notebooks',
         payload: { name: 'Test' },
       });
 
@@ -106,7 +106,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
     it('returns 400 when name is missing', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/notebooks',
+        url: '/notebooks',
         payload: { user_email: testUserEmail },
       });
 
@@ -117,7 +117,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
     it('returns 400 when parent notebook does not exist', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/notebooks',
+        url: '/notebooks',
         payload: {
           user_email: testUserEmail,
           name: 'Test',
@@ -136,7 +136,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: '/api/notebooks',
+        url: '/notebooks',
         payload: {
           user_email: testUserEmail,
           name: 'Test',
@@ -148,7 +148,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
     });
   });
 
-  describe('GET /api/notebooks', () => {
+  describe('GET /notebooks', () => {
     beforeEach(async () => {
       // Create test notebooks
       await pool.query(
@@ -164,7 +164,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
     it('lists notebooks for a user', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/notebooks',
+        url: '/notebooks',
         query: { user_email: testUserEmail },
       });
 
@@ -177,7 +177,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
     it('returns 400 when user_email is missing', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/notebooks',
+        url: '/notebooks',
       });
 
       expect(res.statusCode).toBe(400);
@@ -186,7 +186,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
     it('includes archived notebooks when requested', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/notebooks',
+        url: '/notebooks',
         query: { user_email: testUserEmail, include_archived: 'true' },
       });
 
@@ -203,7 +203,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/notebooks',
+        url: '/notebooks',
         query: { user_email: testUserEmail, parent_id: 'null' },
       });
 
@@ -222,7 +222,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/notebooks',
+        url: '/notebooks',
         query: { user_email: testUserEmail },
       });
 
@@ -233,7 +233,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
     });
   });
 
-  describe('GET /api/notebooks/tree', () => {
+  describe('GET /notebooks/tree', () => {
     beforeEach(async () => {
       // Create hierarchical notebooks
       const rootResult = await pool.query(`INSERT INTO notebook (namespace, name) VALUES ($1, 'Root') RETURNING id::text as id`, ['default']);
@@ -249,7 +249,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
     it('returns notebooks as tree structure', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/notebooks/tree',
+        url: '/notebooks/tree',
         query: { user_email: testUserEmail },
       });
 
@@ -263,21 +263,21 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
     it('returns 400 when user_email is missing', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/notebooks/tree',
+        url: '/notebooks/tree',
       });
 
       expect(res.statusCode).toBe(400);
     });
   });
 
-  describe('GET /api/notebooks/:id', () => {
+  describe('GET /notebooks/:id', () => {
     it('returns a notebook by ID', async () => {
       const nbResult = await pool.query(`INSERT INTO notebook (namespace, name) VALUES ($1, 'Test') RETURNING id::text as id`, ['default']);
       const nbId = (nbResult.rows[0] as { id: string }).id;
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/notebooks/${nbId}`,
+        url: `/notebooks/${nbId}`,
         query: { user_email: testUserEmail },
       });
 
@@ -288,7 +288,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
     it('returns 400 when user_email is missing', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/notebooks/some-id',
+        url: '/notebooks/some-id',
       });
 
       expect(res.statusCode).toBe(400);
@@ -297,7 +297,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
     it('returns 404 for non-existent notebook', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/notebooks/00000000-0000-0000-0000-000000000000',
+        url: '/notebooks/00000000-0000-0000-0000-000000000000',
         query: { user_email: testUserEmail },
       });
 
@@ -310,7 +310,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/notebooks/${nbId}`,
+        url: `/notebooks/${nbId}`,
         query: { user_email: testUserEmail },
       });
 
@@ -325,7 +325,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/notebooks/${nbId}`,
+        url: `/notebooks/${nbId}`,
         query: { user_email: testUserEmail, include_notes: 'true' },
       });
 
@@ -341,7 +341,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/notebooks/${parent_id}`,
+        url: `/notebooks/${parent_id}`,
         query: { user_email: testUserEmail, include_children: 'true' },
       });
 
@@ -350,7 +350,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
     });
   });
 
-  describe('PUT /api/notebooks/:id', () => {
+  describe('PUT /notebooks/:id', () => {
     let notebook_id: string;
 
     beforeEach(async () => {
@@ -361,7 +361,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
     it('updates notebook fields', async () => {
       const res = await app.inject({
         method: 'PUT',
-        url: `/api/notebooks/${notebook_id}`,
+        url: `/notebooks/${notebook_id}`,
         payload: {
           user_email: testUserEmail,
           name: 'Updated',
@@ -382,7 +382,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
     it('returns 400 when user_email is missing', async () => {
       const res = await app.inject({
         method: 'PUT',
-        url: `/api/notebooks/${notebook_id}`,
+        url: `/notebooks/${notebook_id}`,
         payload: { name: 'New' },
       });
 
@@ -392,7 +392,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
     it('returns 404 for non-existent notebook', async () => {
       const res = await app.inject({
         method: 'PUT',
-        url: '/api/notebooks/00000000-0000-0000-0000-000000000000',
+        url: '/notebooks/00000000-0000-0000-0000-000000000000',
         payload: { user_email: testUserEmail, name: 'New' },
       });
 
@@ -405,7 +405,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
 
       const res = await app.inject({
         method: 'PUT',
-        url: `/api/notebooks/${otherId}`,
+        url: `/notebooks/${otherId}`,
         payload: { user_email: testUserEmail, name: 'Hacked' },
       });
 
@@ -423,7 +423,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       // Try to set parent's parent to child
       const res = await app.inject({
         method: 'PUT',
-        url: `/api/notebooks/${notebook_id}`,
+        url: `/notebooks/${notebook_id}`,
         payload: {
           user_email: testUserEmail,
           parent_notebook_id: childId,
@@ -440,7 +440,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
 
       const res = await app.inject({
         method: 'PUT',
-        url: `/api/notebooks/${notebook_id}`,
+        url: `/notebooks/${notebook_id}`,
         payload: {
           user_email: testUserEmail,
           parent_notebook_id: newParentId,
@@ -452,14 +452,14 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
     });
   });
 
-  describe('POST /api/notebooks/:id/archive', () => {
+  describe('POST /notebooks/:id/archive', () => {
     it('archives a notebook', async () => {
       const nbResult = await pool.query(`INSERT INTO notebook (namespace, name) VALUES ($1, 'Test') RETURNING id::text as id`, ['default']);
       const nbId = (nbResult.rows[0] as { id: string }).id;
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/notebooks/${nbId}/archive`,
+        url: `/notebooks/${nbId}/archive`,
         payload: { user_email: testUserEmail },
       });
 
@@ -470,7 +470,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
     it('returns 400 when user_email is missing', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/notebooks/some-id/archive',
+        url: '/notebooks/some-id/archive',
         payload: {},
       });
 
@@ -483,7 +483,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/notebooks/${nbId}/archive`,
+        url: `/notebooks/${nbId}/archive`,
         payload: { user_email: testUserEmail },
       });
 
@@ -491,7 +491,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
     });
   });
 
-  describe('POST /api/notebooks/:id/unarchive', () => {
+  describe('POST /notebooks/:id/unarchive', () => {
     it('unarchives a notebook', async () => {
       const nbResult = await pool.query(`INSERT INTO notebook (namespace, name, is_archived) VALUES ($1, 'Test', true) RETURNING id::text as id`, [
         'default',
@@ -500,7 +500,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/notebooks/${nbId}/unarchive`,
+        url: `/notebooks/${nbId}/unarchive`,
         payload: { user_email: testUserEmail },
       });
 
@@ -509,7 +509,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
     });
   });
 
-  describe('DELETE /api/notebooks/:id', () => {
+  describe('DELETE /notebooks/:id', () => {
     it('soft deletes a notebook and moves notes to root', async () => {
       const nbResult = await pool.query(`INSERT INTO notebook (namespace, name) VALUES ($1, 'Test') RETURNING id::text as id`, ['default']);
       const nbId = (nbResult.rows[0] as { id: string }).id;
@@ -519,7 +519,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
 
       const res = await app.inject({
         method: 'DELETE',
-        url: `/api/notebooks/${nbId}`,
+        url: `/notebooks/${nbId}`,
         query: { user_email: testUserEmail },
       });
 
@@ -542,7 +542,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
 
       const res = await app.inject({
         method: 'DELETE',
-        url: `/api/notebooks/${nbId}`,
+        url: `/notebooks/${nbId}`,
         query: { user_email: testUserEmail, delete_notes: 'true' },
       });
 
@@ -556,7 +556,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
     it('returns 400 when user_email is missing', async () => {
       const res = await app.inject({
         method: 'DELETE',
-        url: '/api/notebooks/some-id',
+        url: '/notebooks/some-id',
       });
 
       expect(res.statusCode).toBe(400);
@@ -565,7 +565,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
     it('returns 404 for non-existent notebook', async () => {
       const res = await app.inject({
         method: 'DELETE',
-        url: '/api/notebooks/00000000-0000-0000-0000-000000000000',
+        url: '/notebooks/00000000-0000-0000-0000-000000000000',
         query: { user_email: testUserEmail },
       });
 
@@ -578,7 +578,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
 
       const res = await app.inject({
         method: 'DELETE',
-        url: `/api/notebooks/${nbId}`,
+        url: `/notebooks/${nbId}`,
         query: { user_email: testUserEmail },
       });
 
@@ -601,7 +601,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       // Delete the child
       await app.inject({
         method: 'DELETE',
-        url: `/api/notebooks/${childId}`,
+        url: `/notebooks/${childId}`,
         query: { user_email: testUserEmail },
       });
 
@@ -611,7 +611,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
     });
   });
 
-  describe('POST /api/notebooks/:id/notes', () => {
+  describe('POST /notebooks/:id/notes', () => {
     let notebook_id: string;
     let noteId: string;
 
@@ -628,7 +628,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
     it('moves notes to notebook', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: `/api/notebooks/${notebook_id}/notes`,
+        url: `/notebooks/${notebook_id}/notes`,
         payload: {
           user_email: testUserEmail,
           note_ids: [noteId],
@@ -648,7 +648,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
     it('copies notes to notebook', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: `/api/notebooks/${notebook_id}/notes`,
+        url: `/notebooks/${notebook_id}/notes`,
         payload: {
           user_email: testUserEmail,
           note_ids: [noteId],
@@ -668,7 +668,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
     it('returns 400 when user_email is missing', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: `/api/notebooks/${notebook_id}/notes`,
+        url: `/notebooks/${notebook_id}/notes`,
         payload: { note_ids: [noteId], action: 'move' },
       });
 
@@ -678,7 +678,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
     it('returns 400 when note_ids is missing', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: `/api/notebooks/${notebook_id}/notes`,
+        url: `/notebooks/${notebook_id}/notes`,
         payload: { user_email: testUserEmail, action: 'move' },
       });
 
@@ -688,7 +688,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
     it('returns 400 for invalid action', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: `/api/notebooks/${notebook_id}/notes`,
+        url: `/notebooks/${notebook_id}/notes`,
         payload: {
           user_email: testUserEmail,
           note_ids: [noteId],
@@ -705,7 +705,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/notebooks/${otherNbId}/notes`,
+        url: `/notebooks/${otherNbId}/notes`,
         payload: {
           user_email: testUserEmail,
           note_ids: [noteId],
@@ -722,7 +722,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/notebooks/${notebook_id}/notes`,
+        url: `/notebooks/${notebook_id}/notes`,
         payload: {
           user_email: testUserEmail,
           note_ids: [otherNoteId],

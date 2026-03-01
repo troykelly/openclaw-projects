@@ -26,11 +26,11 @@ describe('Memory Items API', () => {
     await pool.end();
   });
 
-  describe('GET /api/work-items/:id/memories', () => {
+  describe('GET /work-items/:id/memories', () => {
     it('returns 404 for non-existent work item', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/work-items/00000000-0000-0000-0000-000000000000/memories',
+        url: '/work-items/00000000-0000-0000-0000-000000000000/memories',
       });
 
       expect(res.statusCode).toBe(404);
@@ -46,7 +46,7 @@ describe('Memory Items API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${item_id}/memories`,
+        url: `/work-items/${item_id}/memories`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -70,7 +70,7 @@ describe('Memory Items API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${item_id}/memories`,
+        url: `/work-items/${item_id}/memories`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -111,7 +111,7 @@ describe('Memory Items API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${item_id}/memories`,
+        url: `/work-items/${item_id}/memories`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -123,11 +123,11 @@ describe('Memory Items API', () => {
     });
   });
 
-  describe('POST /api/work-items/:id/memories', () => {
+  describe('POST /work-items/:id/memories', () => {
     it('returns 404 for non-existent work item', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/work-items/00000000-0000-0000-0000-000000000000/memories',
+        url: '/work-items/00000000-0000-0000-0000-000000000000/memories',
         payload: { title: 'Test', content: 'Content', type: 'note' },
       });
 
@@ -144,7 +144,7 @@ describe('Memory Items API', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/work-items/${item_id}/memories`,
+        url: `/work-items/${item_id}/memories`,
         payload: { title: 'New Memory', content: 'Memory content' },
       });
 
@@ -171,7 +171,7 @@ describe('Memory Items API', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/work-items/${item_id}/memories`,
+        url: `/work-items/${item_id}/memories`,
         payload: { title: 'Decision', content: 'We decided to...', type: 'decision' },
       });
 
@@ -190,7 +190,7 @@ describe('Memory Items API', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/work-items/${item_id}/memories`,
+        url: `/work-items/${item_id}/memories`,
         payload: { title: 'Test', content: 'Content', type: 'invalid_type' },
       });
 
@@ -207,7 +207,7 @@ describe('Memory Items API', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/work-items/${item_id}/memories`,
+        url: `/work-items/${item_id}/memories`,
         payload: { content: 'Content' },
       });
 
@@ -224,7 +224,7 @@ describe('Memory Items API', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/work-items/${item_id}/memories`,
+        url: `/work-items/${item_id}/memories`,
         payload: { title: 'Title' },
       });
 
@@ -232,11 +232,11 @@ describe('Memory Items API', () => {
     });
   });
 
-  describe('PATCH /api/memories/:id', () => {
+  describe('PATCH /memories/:id', () => {
     it('returns 404 for non-existent memory', async () => {
       const res = await app.inject({
         method: 'PATCH',
-        url: '/api/memories/00000000-0000-0000-0000-000000000000',
+        url: '/memories/00000000-0000-0000-0000-000000000000',
         payload: { title: 'Updated' },
       });
 
@@ -261,7 +261,7 @@ describe('Memory Items API', () => {
 
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/memories/${memory_id}`,
+        url: `/memories/${memory_id}`,
         payload: { title: 'Updated Title' },
       });
 
@@ -289,7 +289,7 @@ describe('Memory Items API', () => {
 
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/memories/${memory_id}`,
+        url: `/memories/${memory_id}`,
         payload: { content: 'Updated content' },
       });
 
@@ -316,7 +316,7 @@ describe('Memory Items API', () => {
 
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/memories/${memory_id}`,
+        url: `/memories/${memory_id}`,
         payload: { type: 'decision' },
       });
 
@@ -344,7 +344,7 @@ describe('Memory Items API', () => {
 
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/memories/${memory_id}`,
+        url: `/memories/${memory_id}`,
         payload: { title: 'Updated' },
       });
 
@@ -354,11 +354,11 @@ describe('Memory Items API', () => {
     });
   });
 
-  describe('DELETE /api/memories/:id', () => {
+  describe('DELETE /memories/:id', () => {
     it('returns 404 for non-existent memory', async () => {
       const res = await app.inject({
         method: 'DELETE',
-        url: '/api/memories/00000000-0000-0000-0000-000000000000',
+        url: '/memories/00000000-0000-0000-0000-000000000000',
       });
 
       expect(res.statusCode).toBe(404);
@@ -382,7 +382,7 @@ describe('Memory Items API', () => {
 
       const res = await app.inject({
         method: 'DELETE',
-        url: `/api/memories/${memory_id}`,
+        url: `/memories/${memory_id}`,
       });
 
       expect(res.statusCode).toBe(204);

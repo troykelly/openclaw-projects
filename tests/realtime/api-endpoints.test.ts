@@ -25,11 +25,11 @@ describe('Real-time API Endpoints', () => {
     await resetRealtimeHub();
   });
 
-  describe('GET /api/ws/stats', () => {
+  describe('GET /ws/stats', () => {
     it('returns connected client count', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/ws/stats',
+        url: '/ws/stats',
       });
 
       expect(response.statusCode).toBe(200);

@@ -82,11 +82,11 @@ describe('File Storage API Endpoints', () => {
     await app.close();
   });
 
-  describe('GET /api/files', () => {
+  describe('GET /files', () => {
     it('returns empty list initially', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/files',
+        url: '/files',
       });
 
       expect(response.statusCode).toBe(200);
@@ -98,7 +98,7 @@ describe('File Storage API Endpoints', () => {
     it('supports pagination parameters', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/files?limit=10&offset=0',
+        url: '/files?limit=10&offset=0',
       });
 
       expect(response.statusCode).toBe(200);
@@ -107,33 +107,33 @@ describe('File Storage API Endpoints', () => {
     });
   });
 
-  describe('GET /api/files/:id/metadata', () => {
+  describe('GET /files/:id/metadata', () => {
     it('returns 404 for non-existent file', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/files/00000000-0000-0000-0000-000000000000/metadata',
+        url: '/files/00000000-0000-0000-0000-000000000000/metadata',
       });
 
       expect(response.statusCode).toBe(404);
     });
   });
 
-  describe('GET /api/files/:id', () => {
+  describe('GET /files/:id', () => {
     it('returns 404 for non-existent file', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/files/00000000-0000-0000-0000-000000000000',
+        url: '/files/00000000-0000-0000-0000-000000000000',
       });
 
       expect(response.statusCode).toBe(404);
     });
   });
 
-  describe('GET /api/files/:id/url', () => {
+  describe('GET /files/:id/url', () => {
     it('returns 404 for non-existent file', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/files/00000000-0000-0000-0000-000000000000/url',
+        url: '/files/00000000-0000-0000-0000-000000000000/url',
       });
 
       expect(response.statusCode).toBe(404);
@@ -148,7 +148,7 @@ describe('File Storage API Endpoints', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: '/api/files/11111111-1111-1111-1111-111111111111/url?expires_in=10',
+        url: '/files/11111111-1111-1111-1111-111111111111/url?expires_in=10',
       });
 
       expect(response.statusCode).toBe(400);
@@ -156,11 +156,11 @@ describe('File Storage API Endpoints', () => {
     });
   });
 
-  describe('DELETE /api/files/:id', () => {
+  describe('DELETE /files/:id', () => {
     it('returns 404 for non-existent file', async () => {
       const response = await app.inject({
         method: 'DELETE',
-        url: '/api/files/00000000-0000-0000-0000-000000000000',
+        url: '/files/00000000-0000-0000-0000-000000000000',
       });
 
       expect(response.statusCode).toBe(404);
@@ -168,18 +168,18 @@ describe('File Storage API Endpoints', () => {
   });
 
   describe('Work Item Attachments', () => {
-    it('POST /api/work-items/:id/attachments requires file_id', async () => {
+    it('POST /work-items/:id/attachments requires file_id', async () => {
       // Create work item
       const wiResponse = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: { title: 'Test Task' },
       });
       const work_item_id = wiResponse.json().id;
 
       const response = await app.inject({
         method: 'POST',
-        url: `/api/work-items/${work_item_id}/attachments`,
+        url: `/work-items/${work_item_id}/attachments`,
         payload: {},
       });
 
@@ -187,10 +187,10 @@ describe('File Storage API Endpoints', () => {
       expect(response.json().error).toContain('file_id');
     });
 
-    it('POST /api/work-items/:id/attachments returns 404 for non-existent work item', async () => {
+    it('POST /work-items/:id/attachments returns 404 for non-existent work item', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: '/api/work-items/00000000-0000-0000-0000-000000000000/attachments',
+        url: '/work-items/00000000-0000-0000-0000-000000000000/attachments',
         payload: { file_id: '11111111-1111-1111-1111-111111111111' },
       });
 
@@ -198,18 +198,18 @@ describe('File Storage API Endpoints', () => {
       expect(response.json().error).toBe('not found');
     });
 
-    it('POST /api/work-items/:id/attachments returns 404 for non-existent file', async () => {
+    it('POST /work-items/:id/attachments returns 404 for non-existent file', async () => {
       // Create work item
       const wiResponse = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: { title: 'Test Task' },
       });
       const work_item_id = wiResponse.json().id;
 
       const response = await app.inject({
         method: 'POST',
-        url: `/api/work-items/${work_item_id}/attachments`,
+        url: `/work-items/${work_item_id}/attachments`,
         payload: { file_id: '00000000-0000-0000-0000-000000000000' },
       });
 
@@ -217,18 +217,18 @@ describe('File Storage API Endpoints', () => {
       expect(response.json().error).toContain('File');
     });
 
-    it('GET /api/work-items/:id/attachments returns empty list', async () => {
+    it('GET /work-items/:id/attachments returns empty list', async () => {
       // Create work item
       const wiResponse = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: { title: 'Test Task' },
       });
       const work_item_id = wiResponse.json().id;
 
       const response = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${work_item_id}/attachments`,
+        url: `/work-items/${work_item_id}/attachments`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -239,7 +239,7 @@ describe('File Storage API Endpoints', () => {
       // Create work item
       const wiResponse = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: { title: 'Test Task' },
       });
       const work_item_id = wiResponse.json().id;
@@ -255,7 +255,7 @@ describe('File Storage API Endpoints', () => {
       // Attach file to work item
       const attachResponse = await app.inject({
         method: 'POST',
-        url: `/api/work-items/${work_item_id}/attachments`,
+        url: `/work-items/${work_item_id}/attachments`,
         payload: { file_id: fileId },
       });
 
@@ -265,7 +265,7 @@ describe('File Storage API Endpoints', () => {
       // List attachments
       const listResponse = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${work_item_id}/attachments`,
+        url: `/work-items/${work_item_id}/attachments`,
       });
 
       expect(listResponse.statusCode).toBe(200);
@@ -275,7 +275,7 @@ describe('File Storage API Endpoints', () => {
       // Remove attachment
       const removeResponse = await app.inject({
         method: 'DELETE',
-        url: `/api/work-items/${work_item_id}/attachments/${fileId}`,
+        url: `/work-items/${work_item_id}/attachments/${fileId}`,
       });
 
       expect(removeResponse.statusCode).toBe(204);
@@ -283,16 +283,16 @@ describe('File Storage API Endpoints', () => {
       // Verify removed
       const listResponse2 = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${work_item_id}/attachments`,
+        url: `/work-items/${work_item_id}/attachments`,
       });
 
       expect(listResponse2.json().attachments.length).toBe(0);
     });
 
-    it('DELETE /api/work-items/:work_item_id/attachments/:fileId returns 404 if not attached', async () => {
+    it('DELETE /work-items/:work_item_id/attachments/:fileId returns 404 if not attached', async () => {
       const response = await app.inject({
         method: 'DELETE',
-        url: '/api/work-items/00000000-0000-0000-0000-000000000000/attachments/11111111-1111-1111-1111-111111111111',
+        url: '/work-items/00000000-0000-0000-0000-000000000000/attachments/11111111-1111-1111-1111-111111111111',
       });
 
       expect(response.statusCode).toBe(404);

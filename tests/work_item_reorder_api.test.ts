@@ -23,7 +23,7 @@ describe('Work Item Reorder API (issue #104)', () => {
     // Create parent initiative (top-level)
     const parent = await app.inject({
       method: 'POST',
-      url: '/api/work-items',
+      url: '/work-items',
       payload: { title: 'Parent Initiative', kind: 'initiative' },
     });
     parent_id = (parent.json() as { id: string }).id;
@@ -32,7 +32,7 @@ describe('Work Item Reorder API (issue #104)', () => {
     for (const name of ['A', 'B', 'C', 'D']) {
       const child = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: { title: `Epic ${name}`, kind: 'epic', parent_id },
       });
       childIds.push((child.json() as { id: string }).id);
@@ -54,12 +54,12 @@ describe('Work Item Reorder API (issue #104)', () => {
     return result.rows.map((r: { id: string }) => r.id);
   }
 
-  describe('PATCH /api/work-items/:id/reorder', () => {
+  describe('PATCH /work-items/:id/reorder', () => {
     it('moves item to first position when afterId is null', async () => {
       // Move D to first (after null = beginning)
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${childIds[3]}/reorder`,
+        url: `/work-items/${childIds[3]}/reorder`,
         payload: { after_id: null },
       });
       expect(res.statusCode).toBe(200);
@@ -74,7 +74,7 @@ describe('Work Item Reorder API (issue #104)', () => {
       // Move A to last (before null = end)
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${childIds[0]}/reorder`,
+        url: `/work-items/${childIds[0]}/reorder`,
         payload: { before_id: null },
       });
       expect(res.statusCode).toBe(200);
@@ -92,7 +92,7 @@ describe('Work Item Reorder API (issue #104)', () => {
       // Move D after A (A, D, B, C)
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${childIds[3]}/reorder`,
+        url: `/work-items/${childIds[3]}/reorder`,
         payload: { after_id: childIds[0] },
       });
       expect(res.statusCode).toBe(200);
@@ -113,7 +113,7 @@ describe('Work Item Reorder API (issue #104)', () => {
       // Move D before B (A, D, B, C)
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${childIds[3]}/reorder`,
+        url: `/work-items/${childIds[3]}/reorder`,
         payload: { before_id: childIds[1] },
       });
       expect(res.statusCode).toBe(200);
@@ -128,7 +128,7 @@ describe('Work Item Reorder API (issue #104)', () => {
     it('returns 400 when neither afterId nor beforeId provided', async () => {
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${childIds[0]}/reorder`,
+        url: `/work-items/${childIds[0]}/reorder`,
         payload: {},
       });
       expect(res.statusCode).toBe(400);
@@ -138,7 +138,7 @@ describe('Work Item Reorder API (issue #104)', () => {
     it('returns 400 when both afterId and beforeId provided', async () => {
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${childIds[0]}/reorder`,
+        url: `/work-items/${childIds[0]}/reorder`,
         payload: { after_id: childIds[1], before_id: childIds[2] },
       });
       expect(res.statusCode).toBe(400);
@@ -148,7 +148,7 @@ describe('Work Item Reorder API (issue #104)', () => {
     it('returns 404 for non-existent work item', async () => {
       const res = await app.inject({
         method: 'PATCH',
-        url: '/api/work-items/00000000-0000-0000-0000-000000000000/reorder',
+        url: '/work-items/00000000-0000-0000-0000-000000000000/reorder',
         payload: { after_id: null },
       });
       expect(res.statusCode).toBe(404);
@@ -159,14 +159,14 @@ describe('Work Item Reorder API (issue #104)', () => {
       // Create another initiative with its own child
       const otherParent = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: { title: 'Other Initiative', kind: 'initiative' },
       });
       const otherParentId = (otherParent.json() as { id: string }).id;
 
       const otherChild = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: { title: 'Other Epic', kind: 'epic', parent_id: otherParentId },
       });
       const otherChildId = (otherChild.json() as { id: string }).id;
@@ -174,7 +174,7 @@ describe('Work Item Reorder API (issue #104)', () => {
       // Try to reorder relative to non-sibling
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${childIds[0]}/reorder`,
+        url: `/work-items/${childIds[0]}/reorder`,
         payload: { after_id: otherChildId },
       });
       expect(res.statusCode).toBe(400);
@@ -184,7 +184,7 @@ describe('Work Item Reorder API (issue #104)', () => {
     it('returns 400 when target does not exist', async () => {
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${childIds[0]}/reorder`,
+        url: `/work-items/${childIds[0]}/reorder`,
         payload: { after_id: '00000000-0000-0000-0000-000000000000' },
       });
       expect(res.statusCode).toBe(400);
@@ -200,7 +200,7 @@ describe('Work Item Reorder API (issue #104)', () => {
       // Move B after A (it's already there)
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${childIds[1]}/reorder`,
+        url: `/work-items/${childIds[1]}/reorder`,
         payload: { after_id: childIds[0] },
       });
       expect(res.statusCode).toBe(200);
@@ -213,7 +213,7 @@ describe('Work Item Reorder API (issue #104)', () => {
       // Create another top-level initiative
       const init2 = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: { title: 'Second Initiative', kind: 'initiative' },
       });
       const init2Id = (init2.json() as { id: string }).id;
@@ -221,7 +221,7 @@ describe('Work Item Reorder API (issue #104)', () => {
       // Move second initiative before first
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${init2Id}/reorder`,
+        url: `/work-items/${init2Id}/reorder`,
         payload: { before_id: parent_id },
       });
       expect(res.statusCode).toBe(200);

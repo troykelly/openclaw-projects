@@ -83,7 +83,7 @@ describe('Work items core model', () => {
   });
 });
 
-describe('GET /api/work-items parent_work_item_id filter (#1882)', () => {
+describe('GET /work-items parent_work_item_id filter (#1882)', () => {
   const app = buildServer();
   let pool: Pool;
 
@@ -122,7 +122,7 @@ describe('GET /api/work-items parent_work_item_id filter (#1882)', () => {
 
     const res = await app.inject({
       method: 'GET',
-      url: `/api/work-items?parent_work_item_id=${parentId}`,
+      url: `/work-items?parent_work_item_id=${parentId}`,
     });
 
     expect(res.statusCode).toBe(200);
@@ -134,7 +134,7 @@ describe('GET /api/work-items parent_work_item_id filter (#1882)', () => {
   it('rejects invalid UUID for parent_work_item_id', async () => {
     const res = await app.inject({
       method: 'GET',
-      url: '/api/work-items?parent_work_item_id=not-a-uuid',
+      url: '/work-items?parent_work_item_id=not-a-uuid',
     });
 
     expect(res.statusCode).toBe(400);

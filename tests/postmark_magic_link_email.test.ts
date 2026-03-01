@@ -45,7 +45,7 @@ describe('Postmark delivery for magic-link auth', () => {
   it('sends a transactional email via Postmark and does not return the loginUrl in the API response', async () => {
     const res = await app.inject({
       method: 'POST',
-      url: '/api/auth/request-link',
+      url: '/auth/request-link',
       payload: { email: 'test@example.com' },
     });
 

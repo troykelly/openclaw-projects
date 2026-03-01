@@ -261,13 +261,13 @@ describe('Memory Tags (Issue #492)', () => {
     });
   });
 
-  // ── API: POST /api/memories/unified with tags ───────────
+  // ── API: POST /memories/unified with tags ───────────
 
-  describe('POST /api/memories/unified with tags', () => {
+  describe('POST /memories/unified with tags', () => {
     it('accepts tags array in request body', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/memories/unified',
+        url: '/memories/unified',
         payload: {
           title: 'Tagged via API',
           content: 'Testing tag support',
@@ -282,9 +282,9 @@ describe('Memory Tags (Issue #492)', () => {
     });
   });
 
-  // ── API: GET /api/memory with tags filter ───────────────
+  // ── API: GET /memory with tags filter ───────────────
 
-  describe('GET /api/memory with tags filter', () => {
+  describe('GET /memory with tags filter', () => {
     it('filters memories by tags query parameter', async () => {
       // Create a work item first (legacy endpoint requires work_item_id)
       const wiResult = await pool.query(
@@ -308,7 +308,7 @@ describe('Memory Tags (Issue #492)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/memory?tags=music',
+        url: '/memory?tags=music',
       });
 
       expect(res.statusCode).toBe(200);
@@ -318,9 +318,9 @@ describe('Memory Tags (Issue #492)', () => {
     });
   });
 
-  // ── API: GET /api/memories/search with tags ─────────────
+  // ── API: GET /memories/search with tags ─────────────
 
-  describe('GET /api/memories/search with tags', () => {
+  describe('GET /memories/search with tags', () => {
     it('accepts tags query parameter for filtered search', async () => {
       // Create tagged memories
       await pool.query(
@@ -341,7 +341,7 @@ describe('Memory Tags (Issue #492)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/memories/search?q=loves&tags=music',
+        url: '/memories/search?q=loves&tags=music',
       });
 
       expect(res.statusCode).toBe(200);

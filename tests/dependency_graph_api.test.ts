@@ -4,7 +4,7 @@ import { buildServer } from '../src/api/server.ts';
 import { runMigrate } from './helpers/migrate.ts';
 import { createTestPool, truncateAllTables } from './helpers/db.ts';
 
-describe('Dependency Graph API: GET /api/work-items/:id/dependency-graph', () => {
+describe('Dependency Graph API: GET /work-items/:id/dependency-graph', () => {
   let pool: Pool;
   const app = buildServer({ logger: false });
 
@@ -81,7 +81,7 @@ describe('Dependency Graph API: GET /api/work-items/:id/dependency-graph', () =>
 
     const response = await app.inject({
       method: 'GET',
-      url: `/api/work-items/${project_id}/dependency-graph`,
+      url: `/work-items/${project_id}/dependency-graph`,
     });
 
     expect(response.statusCode).toBe(200);
@@ -109,7 +109,7 @@ describe('Dependency Graph API: GET /api/work-items/:id/dependency-graph', () =>
   it('returns 404 for non-existent work item', async () => {
     const response = await app.inject({
       method: 'GET',
-      url: '/api/work-items/00000000-0000-0000-0000-000000000000/dependency-graph',
+      url: '/work-items/00000000-0000-0000-0000-000000000000/dependency-graph',
     });
 
     expect(response.statusCode).toBe(404);
@@ -124,7 +124,7 @@ describe('Dependency Graph API: GET /api/work-items/:id/dependency-graph', () =>
 
     const response = await app.inject({
       method: 'GET',
-      url: `/api/work-items/${issue.rows[0].id}/dependency-graph`,
+      url: `/work-items/${issue.rows[0].id}/dependency-graph`,
     });
 
     expect(response.statusCode).toBe(200);
@@ -180,7 +180,7 @@ describe('Dependency Graph API: GET /api/work-items/:id/dependency-graph', () =>
 
     const response = await app.inject({
       method: 'GET',
-      url: `/api/work-items/${project_id}/dependency-graph`,
+      url: `/work-items/${project_id}/dependency-graph`,
     });
 
     expect(response.statusCode).toBe(200);

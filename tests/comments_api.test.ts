@@ -219,11 +219,11 @@ describe('Comments API', () => {
     });
   });
 
-  describe('GET /api/work-items/:id/comments', () => {
+  describe('GET /work-items/:id/comments', () => {
     it('returns empty array when no comments', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${work_item_id}/comments`,
+        url: `/work-items/${work_item_id}/comments`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -241,7 +241,7 @@ describe('Comments API', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${work_item_id}/comments`,
+        url: `/work-items/${work_item_id}/comments`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -266,7 +266,7 @@ describe('Comments API', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${work_item_id}/comments`,
+        url: `/work-items/${work_item_id}/comments`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -279,18 +279,18 @@ describe('Comments API', () => {
     it('returns 404 for non-existent work item', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/work-items/00000000-0000-0000-0000-000000000000/comments',
+        url: '/work-items/00000000-0000-0000-0000-000000000000/comments',
       });
 
       expect(response.statusCode).toBe(404);
     });
   });
 
-  describe('POST /api/work-items/:id/comments', () => {
+  describe('POST /work-items/:id/comments', () => {
     it('creates a new comment', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: `/api/work-items/${work_item_id}/comments`,
+        url: `/work-items/${work_item_id}/comments`,
         payload: {
           user_email,
           content: 'New comment',
@@ -314,7 +314,7 @@ describe('Comments API', () => {
 
       const response = await app.inject({
         method: 'POST',
-        url: `/api/work-items/${work_item_id}/comments`,
+        url: `/work-items/${work_item_id}/comments`,
         payload: {
           user_email,
           content: 'Reply',
@@ -330,7 +330,7 @@ describe('Comments API', () => {
     it('extracts mentions from content', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: `/api/work-items/${work_item_id}/comments`,
+        url: `/work-items/${work_item_id}/comments`,
         payload: {
           user_email,
           content: 'Hey @alice@example.com and @bob@example.com!',
@@ -344,7 +344,7 @@ describe('Comments API', () => {
     });
   });
 
-  describe('PUT /api/work-items/:id/comments/:commentId', () => {
+  describe('PUT /work-items/:id/comments/:commentId', () => {
     it('updates comment content', async () => {
       const commentRes = await pool.query(
         `INSERT INTO work_item_comment (work_item_id, user_email, content)
@@ -356,7 +356,7 @@ describe('Comments API', () => {
 
       const response = await app.inject({
         method: 'PUT',
-        url: `/api/work-items/${work_item_id}/comments/${commentId}`,
+        url: `/work-items/${work_item_id}/comments/${commentId}`,
         payload: {
           user_email,
           content: 'Updated content',
@@ -380,7 +380,7 @@ describe('Comments API', () => {
 
       const response = await app.inject({
         method: 'PUT',
-        url: `/api/work-items/${work_item_id}/comments/${commentId}`,
+        url: `/work-items/${work_item_id}/comments/${commentId}`,
         payload: {
           user_email,
           content: 'Trying to update',
@@ -391,7 +391,7 @@ describe('Comments API', () => {
     });
   });
 
-  describe('DELETE /api/work-items/:id/comments/:commentId', () => {
+  describe('DELETE /work-items/:id/comments/:commentId', () => {
     it('deletes a comment', async () => {
       const commentRes = await pool.query(
         `INSERT INTO work_item_comment (work_item_id, user_email, content)
@@ -403,7 +403,7 @@ describe('Comments API', () => {
 
       const response = await app.inject({
         method: 'DELETE',
-        url: `/api/work-items/${work_item_id}/comments/${commentId}?user_email=${encodeURIComponent(user_email)}`,
+        url: `/work-items/${work_item_id}/comments/${commentId}?user_email=${encodeURIComponent(user_email)}`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -423,14 +423,14 @@ describe('Comments API', () => {
 
       const response = await app.inject({
         method: 'DELETE',
-        url: `/api/work-items/${work_item_id}/comments/${commentId}?user_email=${encodeURIComponent(user_email)}`,
+        url: `/work-items/${work_item_id}/comments/${commentId}?user_email=${encodeURIComponent(user_email)}`,
       });
 
       expect(response.statusCode).toBe(403);
     });
   });
 
-  describe('POST /api/work-items/:id/comments/:commentId/reactions', () => {
+  describe('POST /work-items/:id/comments/:commentId/reactions', () => {
     it('adds a reaction to a comment', async () => {
       const commentRes = await pool.query(
         `INSERT INTO work_item_comment (work_item_id, user_email, content)
@@ -442,7 +442,7 @@ describe('Comments API', () => {
 
       const response = await app.inject({
         method: 'POST',
-        url: `/api/work-items/${work_item_id}/comments/${commentId}/reactions`,
+        url: `/work-items/${work_item_id}/comments/${commentId}/reactions`,
         payload: {
           user_email,
           emoji: '👍',
@@ -469,7 +469,7 @@ describe('Comments API', () => {
 
       const response = await app.inject({
         method: 'POST',
-        url: `/api/work-items/${work_item_id}/comments/${commentId}/reactions`,
+        url: `/work-items/${work_item_id}/comments/${commentId}/reactions`,
         payload: {
           user_email,
           emoji: '👍',
@@ -483,11 +483,11 @@ describe('Comments API', () => {
     });
   });
 
-  describe('GET /api/work-items/:id/presence', () => {
+  describe('GET /work-items/:id/presence', () => {
     it('returns empty array when no presence', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${work_item_id}/presence`,
+        url: `/work-items/${work_item_id}/presence`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -504,7 +504,7 @@ describe('Comments API', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${work_item_id}/presence`,
+        url: `/work-items/${work_item_id}/presence`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -522,7 +522,7 @@ describe('Comments API', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${work_item_id}/presence`,
+        url: `/work-items/${work_item_id}/presence`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -531,11 +531,11 @@ describe('Comments API', () => {
     });
   });
 
-  describe('POST /api/work-items/:id/presence', () => {
+  describe('POST /work-items/:id/presence', () => {
     it('updates user presence', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: `/api/work-items/${work_item_id}/presence`,
+        url: `/work-items/${work_item_id}/presence`,
         payload: {
           user_email,
         },
@@ -556,7 +556,7 @@ describe('Comments API', () => {
 
       const response = await app.inject({
         method: 'POST',
-        url: `/api/work-items/${work_item_id}/presence`,
+        url: `/work-items/${work_item_id}/presence`,
         payload: {
           user_email,
         },
@@ -575,7 +575,7 @@ describe('Comments API', () => {
     });
   });
 
-  describe('DELETE /api/work-items/:id/presence', () => {
+  describe('DELETE /work-items/:id/presence', () => {
     it('removes user presence', async () => {
       await pool.query(
         `INSERT INTO user_presence (user_email, work_item_id)
@@ -585,7 +585,7 @@ describe('Comments API', () => {
 
       const response = await app.inject({
         method: 'DELETE',
-        url: `/api/work-items/${work_item_id}/presence?user_email=${encodeURIComponent(user_email)}`,
+        url: `/work-items/${work_item_id}/presence?user_email=${encodeURIComponent(user_email)}`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -595,7 +595,7 @@ describe('Comments API', () => {
     });
   });
 
-  describe('GET /api/users/search', () => {
+  describe('GET /users/search', () => {
     it('returns users matching search query', async () => {
       // Create some comments from different users to populate user data
       await pool.query(
@@ -608,7 +608,7 @@ describe('Comments API', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: '/api/users/search?q=alice',
+        url: '/users/search?q=alice',
       });
 
       expect(response.statusCode).toBe(200);
@@ -628,7 +628,7 @@ describe('Comments API', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: '/api/users/search?q=user&limit=5',
+        url: '/users/search?q=user&limit=5',
       });
 
       expect(response.statusCode).toBe(200);

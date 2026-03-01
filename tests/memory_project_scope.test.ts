@@ -347,15 +347,15 @@ describe('Memory Project Scope (Issue #1273)', () => {
     });
   });
 
-  // ── API: POST /api/memories/unified with project_id ─
+  // ── API: POST /memories/unified with project_id ─
 
-  describe('POST /api/memories/unified with project_id', () => {
+  describe('POST /memories/unified with project_id', () => {
     it('accepts project_id in request body', async () => {
       const project_id = await createTestProject();
 
       const res = await app.inject({
         method: 'POST',
-        url: '/api/memories/unified',
+        url: '/memories/unified',
         payload: {
           title: 'API project memory',
           content: 'Created via API with project scope',
@@ -372,7 +372,7 @@ describe('Memory Project Scope (Issue #1273)', () => {
     it('creates memory without project_id (backward compatible)', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/memories/unified',
+        url: '/memories/unified',
         payload: {
           title: 'No project scope',
           content: 'Backward compatible',
@@ -386,9 +386,9 @@ describe('Memory Project Scope (Issue #1273)', () => {
     });
   });
 
-  // ── API: GET /api/memories/unified with project_id filter ─
+  // ── API: GET /memories/unified with project_id filter ─
 
-  describe('GET /api/memories/unified with project_id filter', () => {
+  describe('GET /memories/unified with project_id filter', () => {
     it('filters memories by project_id query parameter', async () => {
       const project_id = await createTestProject();
 
@@ -406,7 +406,7 @@ describe('Memory Project Scope (Issue #1273)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/memories/unified?project_id=${project_id}`,
+        url: `/memories/unified?project_id=${project_id}`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -416,9 +416,9 @@ describe('Memory Project Scope (Issue #1273)', () => {
     });
   });
 
-  // ── API: GET /api/memories/search with project_id ──
+  // ── API: GET /memories/search with project_id ──
 
-  describe('GET /api/memories/search with project_id filter', () => {
+  describe('GET /memories/search with project_id filter', () => {
     it('accepts project_id query parameter for filtered search', async () => {
       const project_id = await createTestProject();
 
@@ -434,7 +434,7 @@ describe('Memory Project Scope (Issue #1273)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/memories/search?q=deployment&project_id=${project_id}`,
+        url: `/memories/search?q=deployment&project_id=${project_id}`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -445,9 +445,9 @@ describe('Memory Project Scope (Issue #1273)', () => {
     });
   });
 
-  // ── API: POST /api/memories/:id/supersede inherits project_id ──
+  // ── API: POST /memories/:id/supersede inherits project_id ──
 
-  describe('POST /api/memories/:id/supersede', () => {
+  describe('POST /memories/:id/supersede', () => {
     it('inherits project_id from superseded memory', async () => {
       const project_id = await createTestProject();
 
@@ -461,7 +461,7 @@ describe('Memory Project Scope (Issue #1273)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/memories/${oldId}/supersede`,
+        url: `/memories/${oldId}/supersede`,
         payload: {
           title: 'Updated config',
           content: 'Docker Compose v2',

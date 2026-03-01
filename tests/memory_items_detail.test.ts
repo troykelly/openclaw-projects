@@ -27,7 +27,7 @@ describe('Memory Items in Work Item Detail', () => {
     await pool.end();
   });
 
-  describe('GET /api/work-items/:id/memories', () => {
+  describe('GET /work-items/:id/memories', () => {
     it('returns memories for a work item', async () => {
       // Create a work item
       const item = await pool.query(
@@ -47,7 +47,7 @@ describe('Memory Items in Work Item Detail', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${item_id}/memories`,
+        url: `/work-items/${item_id}/memories`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -68,7 +68,7 @@ describe('Memory Items in Work Item Detail', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${item_id}/memories`,
+        url: `/work-items/${item_id}/memories`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -79,14 +79,14 @@ describe('Memory Items in Work Item Detail', () => {
     it('returns 404 for non-existent work item', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/work-items/00000000-0000-0000-0000-000000000000/memories',
+        url: '/work-items/00000000-0000-0000-0000-000000000000/memories',
       });
 
       expect(res.statusCode).toBe(404);
     });
   });
 
-  describe('POST /api/work-items/:id/memories', () => {
+  describe('POST /work-items/:id/memories', () => {
     it('creates a new memory for a work item', async () => {
       const item = await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
@@ -97,7 +97,7 @@ describe('Memory Items in Work Item Detail', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/work-items/${item_id}/memories`,
+        url: `/work-items/${item_id}/memories`,
         payload: {
           title: 'New Memory',
           content: 'Memory content here',
@@ -122,7 +122,7 @@ describe('Memory Items in Work Item Detail', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/work-items/${item_id}/memories`,
+        url: `/work-items/${item_id}/memories`,
         payload: {},
       });
 
@@ -130,7 +130,7 @@ describe('Memory Items in Work Item Detail', () => {
     });
   });
 
-  describe('PATCH /api/memories/:id', () => {
+  describe('PATCH /memories/:id', () => {
     it('updates an existing memory', async () => {
       // Create work item and memory
       const item = await pool.query(
@@ -150,7 +150,7 @@ describe('Memory Items in Work Item Detail', () => {
 
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/memories/${memory_id}`,
+        url: `/memories/${memory_id}`,
         payload: {
           title: 'Updated Title',
           content: 'Updated content',
@@ -166,7 +166,7 @@ describe('Memory Items in Work Item Detail', () => {
     it('returns 404 for non-existent memory', async () => {
       const res = await app.inject({
         method: 'PATCH',
-        url: '/api/memories/00000000-0000-0000-0000-000000000000',
+        url: '/memories/00000000-0000-0000-0000-000000000000',
         payload: { title: 'Test' },
       });
 
@@ -174,7 +174,7 @@ describe('Memory Items in Work Item Detail', () => {
     });
   });
 
-  describe('DELETE /api/memories/:id', () => {
+  describe('DELETE /memories/:id', () => {
     it('deletes a memory', async () => {
       const item = await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
@@ -193,7 +193,7 @@ describe('Memory Items in Work Item Detail', () => {
 
       const res = await app.inject({
         method: 'DELETE',
-        url: `/api/memories/${memory_id}`,
+        url: `/memories/${memory_id}`,
       });
 
       expect(res.statusCode).toBe(204);
@@ -201,7 +201,7 @@ describe('Memory Items in Work Item Detail', () => {
       // Verify deleted
       const checkRes = await app.inject({
         method: 'PATCH',
-        url: `/api/memories/${memory_id}`,
+        url: `/memories/${memory_id}`,
         payload: { title: 'Test' },
       });
       expect(checkRes.statusCode).toBe(404);

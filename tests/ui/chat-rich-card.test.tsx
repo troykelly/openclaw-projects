@@ -145,7 +145,7 @@ describe('ChatRichCard', () => {
 
     await waitFor(() => {
       expect(apiClient.post).toHaveBeenCalledWith(
-        '/api/chat/sessions/sess-1/messages',
+        '/chat/sessions/sess-1/messages',
         {
           content: JSON.stringify({
             action_id: 'approve',

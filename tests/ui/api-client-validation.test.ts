@@ -71,7 +71,7 @@ describe('apiClient without schema (backwards-compatible)', () => {
     mockFetch.mockResolvedValueOnce(mockResponse(payload));
 
     const { apiClient } = await import('@/ui/lib/api-client');
-    const result = await apiClient.get<{ items: Array<{ id: string; title: string }> }>('/api/work-items');
+    const result = await apiClient.get<{ items: Array<{ id: string; title: string }> }>('/work-items');
 
     expect(result).toEqual(payload);
   });
@@ -81,7 +81,7 @@ describe('apiClient without schema (backwards-compatible)', () => {
     mockFetch.mockResolvedValueOnce(mockResponse(payload));
 
     const { apiClient } = await import('@/ui/lib/api-client');
-    const result = await apiClient.post<{ id: string; title: string }>('/api/work-items', { title: 'New' });
+    const result = await apiClient.post<{ id: string; title: string }>('/work-items', { title: 'New' });
 
     expect(result).toEqual(payload);
   });
@@ -91,7 +91,7 @@ describe('apiClient without schema (backwards-compatible)', () => {
     mockFetch.mockResolvedValueOnce(mockResponse(payload));
 
     const { apiClient } = await import('@/ui/lib/api-client');
-    const result = await apiClient.put<{ id: string; title: string }>('/api/work-items/1', { title: 'Updated' });
+    const result = await apiClient.put<{ id: string; title: string }>('/work-items/1', { title: 'Updated' });
 
     expect(result).toEqual(payload);
   });
@@ -101,7 +101,7 @@ describe('apiClient without schema (backwards-compatible)', () => {
     mockFetch.mockResolvedValueOnce(mockResponse(payload));
 
     const { apiClient } = await import('@/ui/lib/api-client');
-    const result = await apiClient.patch<{ id: string; title: string }>('/api/work-items/1', { title: 'Patched' });
+    const result = await apiClient.patch<{ id: string; title: string }>('/work-items/1', { title: 'Patched' });
 
     expect(result).toEqual(payload);
   });
@@ -110,7 +110,7 @@ describe('apiClient without schema (backwards-compatible)', () => {
     mockFetch.mockResolvedValueOnce(mockResponse(undefined, 204));
 
     const { apiClient } = await import('@/ui/lib/api-client');
-    const result = await apiClient.delete('/api/work-items/1');
+    const result = await apiClient.delete('/work-items/1');
 
     expect(result).toBeUndefined();
   });
@@ -131,7 +131,7 @@ describe('apiClient with Zod schema validation', () => {
     mockFetch.mockResolvedValueOnce(mockResponse(payload));
 
     const { apiClient } = await import('@/ui/lib/api-client');
-    const result = await apiClient.get('/api/work-items', { schema: workItemsResponseSchema });
+    const result = await apiClient.get('/work-items', { schema: workItemsResponseSchema });
 
     expect(result).toEqual(payload);
     // Extra fields preserved with passthrough
@@ -146,7 +146,7 @@ describe('apiClient with Zod schema validation', () => {
     const { apiClient } = await import('@/ui/lib/api-client');
 
     await expect(
-      apiClient.get('/api/work-items', { schema: workItemsResponseSchema }),
+      apiClient.get('/work-items', { schema: workItemsResponseSchema }),
     ).rejects.toThrow(z.ZodError);
   });
 
@@ -157,7 +157,7 @@ describe('apiClient with Zod schema validation', () => {
     const { apiClient } = await import('@/ui/lib/api-client');
 
     await expect(
-      apiClient.get('/api/work-items', { schema: workItemsResponseSchema }),
+      apiClient.get('/work-items', { schema: workItemsResponseSchema }),
     ).rejects.toThrow(z.ZodError);
   });
 
@@ -169,7 +169,7 @@ describe('apiClient with Zod schema validation', () => {
     const { apiClient } = await import('@/ui/lib/api-client');
 
     await expect(
-      apiClient.get('/api/work-items', { schema: workItemsResponseSchema }),
+      apiClient.get('/work-items', { schema: workItemsResponseSchema }),
     ).rejects.toThrow(z.ZodError);
   });
 
@@ -179,7 +179,7 @@ describe('apiClient with Zod schema validation', () => {
     mockFetch.mockResolvedValueOnce(mockResponse(payload));
 
     const { apiClient } = await import('@/ui/lib/api-client');
-    const result = await apiClient.post('/api/work-items', { title: 'New' }, { schema: responseSchema });
+    const result = await apiClient.post('/work-items', { title: 'New' }, { schema: responseSchema });
 
     expect(result).toEqual(payload);
   });
@@ -192,7 +192,7 @@ describe('apiClient with Zod schema validation', () => {
     const { apiClient } = await import('@/ui/lib/api-client');
 
     await expect(
-      apiClient.post('/api/work-items', { title: 'New' }, { schema: responseSchema }),
+      apiClient.post('/work-items', { title: 'New' }, { schema: responseSchema }),
     ).rejects.toThrow(z.ZodError);
   });
 
@@ -202,7 +202,7 @@ describe('apiClient with Zod schema validation', () => {
     mockFetch.mockResolvedValueOnce(mockResponse(payload));
 
     const { apiClient } = await import('@/ui/lib/api-client');
-    const result = await apiClient.put('/api/work-items/1', { title: 'Updated' }, { schema: responseSchema });
+    const result = await apiClient.put('/work-items/1', { title: 'Updated' }, { schema: responseSchema });
 
     expect(result).toEqual(payload);
   });
@@ -213,7 +213,7 @@ describe('apiClient with Zod schema validation', () => {
     mockFetch.mockResolvedValueOnce(mockResponse(payload));
 
     const { apiClient } = await import('@/ui/lib/api-client');
-    const result = await apiClient.patch('/api/work-items/1', { title: 'Patched' }, { schema: responseSchema });
+    const result = await apiClient.patch('/work-items/1', { title: 'Patched' }, { schema: responseSchema });
 
     expect(result).toEqual(payload);
   });
@@ -224,7 +224,7 @@ describe('apiClient with Zod schema validation', () => {
     mockFetch.mockResolvedValueOnce(mockResponse(payload));
 
     const { apiClient } = await import('@/ui/lib/api-client');
-    const result = await apiClient.delete('/api/work-items/1', { schema: responseSchema });
+    const result = await apiClient.delete('/work-items/1', { schema: responseSchema });
 
     expect(result).toEqual(payload);
   });
@@ -235,7 +235,7 @@ describe('apiClient with Zod schema validation', () => {
     mockFetch.mockResolvedValueOnce(mockResponse(undefined, 204));
 
     const { apiClient } = await import('@/ui/lib/api-client');
-    const result = await apiClient.delete('/api/work-items/1', { schema: responseSchema });
+    const result = await apiClient.delete('/work-items/1', { schema: responseSchema });
 
     expect(result).toBeUndefined();
   });
@@ -249,7 +249,7 @@ describe('apiClient schema validation edge cases', () => {
     const { apiClient } = await import('@/ui/lib/api-client');
 
     await expect(
-      apiClient.get('/api/work-items', { schema }),
+      apiClient.get('/work-items', { schema }),
     ).rejects.toThrow(z.ZodError);
   });
 
@@ -260,7 +260,7 @@ describe('apiClient schema validation edge cases', () => {
     const { apiClient } = await import('@/ui/lib/api-client');
 
     await expect(
-      apiClient.get('/api/work-items', { schema }),
+      apiClient.get('/work-items', { schema }),
     ).rejects.toThrow(z.ZodError);
   });
 
@@ -272,7 +272,7 @@ describe('apiClient schema validation edge cases', () => {
     mockFetch.mockResolvedValueOnce(mockResponse(payload));
 
     const { apiClient } = await import('@/ui/lib/api-client');
-    const result = await apiClient.get('/api/test', { schema });
+    const result = await apiClient.get('/test', { schema });
 
     expect(result).toEqual(payload);
     expect(result).toHaveProperty('extra_field', 'preserved');
@@ -286,7 +286,7 @@ describe('apiClient schema validation edge cases', () => {
 
     const controller = new AbortController();
     const { apiClient } = await import('@/ui/lib/api-client');
-    const result = await apiClient.get('/api/test', {
+    const result = await apiClient.get('/test', {
       schema,
       signal: controller.signal,
       headers: { 'x-custom': 'value' },

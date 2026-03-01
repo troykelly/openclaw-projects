@@ -96,11 +96,11 @@ describe('Unified Search API', () => {
     return (result.rows[0] as { id: string }).id;
   }
 
-  describe('GET /api/search', () => {
+  describe('GET /search', () => {
     it('returns empty results when query is empty', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/search',
+        url: '/search',
       });
 
       expect(res.statusCode).toBe(200);
@@ -115,7 +115,7 @@ describe('Unified Search API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/search?q=nonexistent_xyz_123',
+        url: '/search?q=nonexistent_xyz_123',
       });
 
       expect(res.statusCode).toBe(200);
@@ -129,7 +129,7 @@ describe('Unified Search API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/search?q=tiny+house',
+        url: '/search?q=tiny+house',
       });
 
       expect(res.statusCode).toBe(200);
@@ -144,7 +144,7 @@ describe('Unified Search API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/search?q=concrete+rebar',
+        url: '/search?q=concrete+rebar',
       });
 
       expect(res.statusCode).toBe(200);
@@ -159,7 +159,7 @@ describe('Unified Search API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/search?q=john+smith',
+        url: '/search?q=john+smith',
       });
 
       expect(res.statusCode).toBe(200);
@@ -175,7 +175,7 @@ describe('Unified Search API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/search?q=solar+panels',
+        url: '/search?q=solar+panels',
       });
 
       expect(res.statusCode).toBe(200);
@@ -189,7 +189,7 @@ describe('Unified Search API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/search?q=project+timeline',
+        url: '/search?q=project+timeline',
       });
 
       expect(res.statusCode).toBe(200);
@@ -205,7 +205,7 @@ describe('Unified Search API', () => {
       // Search only work items
       const res = await app.inject({
         method: 'GET',
-        url: '/api/search?q=tiny&types=work_item',
+        url: '/search?q=tiny&types=work_item',
       });
 
       expect(res.statusCode).toBe(200);
@@ -222,7 +222,7 @@ describe('Unified Search API', () => {
       // Search work items and memories only
       const res = await app.inject({
         method: 'GET',
-        url: '/api/search?q=tiny&types=work_item,memory',
+        url: '/search?q=tiny&types=work_item,memory',
       });
 
       expect(res.statusCode).toBe(200);
@@ -240,7 +240,7 @@ describe('Unified Search API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/search?q=project&limit=3',
+        url: '/search?q=project&limit=3',
       });
 
       expect(res.statusCode).toBe(200);
@@ -254,7 +254,7 @@ describe('Unified Search API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/search?q=tiny',
+        url: '/search?q=tiny',
       });
 
       expect(res.statusCode).toBe(200);
@@ -271,7 +271,7 @@ describe('Unified Search API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/search?q=test',
+        url: '/search?q=test',
       });
 
       expect(res.statusCode).toBe(200);
@@ -284,7 +284,7 @@ describe('Unified Search API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/search?q=test&semantic=false',
+        url: '/search?q=test&semantic=false',
       });
 
       expect(res.statusCode).toBe(200);
@@ -297,7 +297,7 @@ describe('Unified Search API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/search?q=test',
+        url: '/search?q=test',
       });
 
       expect(res.statusCode).toBe(200);
@@ -311,7 +311,7 @@ describe('Unified Search API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/search?q=test',
+        url: '/search?q=test',
       });
 
       expect(res.statusCode).toBe(200);
@@ -327,7 +327,7 @@ describe('Unified Search API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/search?q=tiny+house',
+        url: '/search?q=tiny+house',
       });
 
       expect(res.statusCode).toBe(200);
@@ -343,7 +343,7 @@ describe('Unified Search API', () => {
       // Create memory via API (generates embedding)
       await app.inject({
         method: 'POST',
-        url: '/api/memory',
+        url: '/memory',
         payload: {
           title: 'Dark Theme Preference',
           content: 'User prefers dark mode for reduced eye strain during evening work',
@@ -355,7 +355,7 @@ describe('Unified Search API', () => {
       // Search with semantic enabled (default)
       const res = await app.inject({
         method: 'GET',
-        url: '/api/search?q=night+mode+theme&types=memory',
+        url: '/search?q=night+mode+theme&types=memory',
       });
 
       expect(res.statusCode).toBe(200);
@@ -371,7 +371,7 @@ describe('Unified Search API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/search?q=build',
+        url: '/search?q=build',
       });
 
       expect(res.statusCode).toBe(200);
@@ -385,7 +385,7 @@ describe('Unified Search API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/search?q=solar+panel+roof',
+        url: '/search?q=solar+panel+roof',
       });
 
       expect(res.statusCode).toBe(200);
@@ -402,7 +402,7 @@ describe('Unified Search API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/search?q=budget',
+        url: '/search?q=budget',
       });
 
       expect(res.statusCode).toBe(200);

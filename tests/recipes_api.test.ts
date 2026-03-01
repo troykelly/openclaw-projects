@@ -80,13 +80,13 @@ describe('Recipes API (Issue #1278)', () => {
     });
   });
 
-  // ─── POST /api/recipes ──────────────────────────────────────────────
+  // ─── POST /recipes ──────────────────────────────────────────────
 
-  describe('POST /api/recipes', () => {
+  describe('POST /recipes', () => {
     it('creates a recipe with ingredients and steps', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/recipes',
+        url: '/recipes',
         headers: { 'content-type': 'application/json', 'x-user-email': TEST_EMAIL },
         payload: {
           title: 'Spaghetti Bolognese',
@@ -123,7 +123,7 @@ describe('Recipes API (Issue #1278)', () => {
     it('returns 400 when title is missing', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/recipes',
+        url: '/recipes',
         headers: { 'content-type': 'application/json', 'x-user-email': TEST_EMAIL },
         payload: {},
       });
@@ -132,13 +132,13 @@ describe('Recipes API (Issue #1278)', () => {
     });
   });
 
-  // ─── GET /api/recipes ───────────────────────────────────────────────
+  // ─── GET /recipes ───────────────────────────────────────────────
 
-  describe('GET /api/recipes', () => {
+  describe('GET /recipes', () => {
     it('lists all recipes for the user', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/recipes',
+        url: '/recipes',
         headers: { 'x-user-email': TEST_EMAIL },
       });
 
@@ -151,7 +151,7 @@ describe('Recipes API (Issue #1278)', () => {
     it('filters by cuisine', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/recipes?cuisine=italian',
+        url: '/recipes?cuisine=italian',
         headers: { 'x-user-email': TEST_EMAIL },
       });
 
@@ -166,7 +166,7 @@ describe('Recipes API (Issue #1278)', () => {
     it('filters by tag', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/recipes?tag=comfort-food',
+        url: '/recipes?tag=comfort-food',
         headers: { 'x-user-email': TEST_EMAIL },
       });
 
@@ -178,7 +178,7 @@ describe('Recipes API (Issue #1278)', () => {
     it('filters favourites only', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/recipes?favourites=true',
+        url: '/recipes?favourites=true',
         headers: { 'x-user-email': TEST_EMAIL },
       });
 
@@ -188,14 +188,14 @@ describe('Recipes API (Issue #1278)', () => {
     });
   });
 
-  // ─── GET /api/recipes/:id ──────────────────────────────────────────
+  // ─── GET /recipes/:id ──────────────────────────────────────────
 
-  describe('GET /api/recipes/:id', () => {
+  describe('GET /recipes/:id', () => {
     it('returns a recipe with ingredients and steps', async () => {
       // Create a recipe first
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/recipes',
+        url: '/recipes',
         headers: { 'content-type': 'application/json', 'x-user-email': TEST_EMAIL },
         payload: {
           title: 'Detail Test Recipe',
@@ -207,7 +207,7 @@ describe('Recipes API (Issue #1278)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/recipes/${recipeId}`,
+        url: `/recipes/${recipeId}`,
         headers: { 'x-user-email': TEST_EMAIL },
       });
 
@@ -221,7 +221,7 @@ describe('Recipes API (Issue #1278)', () => {
     it('returns 404 for non-existent recipe', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/recipes/00000000-0000-0000-0000-000000000099',
+        url: '/recipes/00000000-0000-0000-0000-000000000099',
         headers: { 'x-user-email': TEST_EMAIL },
       });
 
@@ -229,13 +229,13 @@ describe('Recipes API (Issue #1278)', () => {
     });
   });
 
-  // ─── PATCH /api/recipes/:id ─────────────────────────────────────────
+  // ─── PATCH /recipes/:id ─────────────────────────────────────────
 
-  describe('PATCH /api/recipes/:id', () => {
+  describe('PATCH /recipes/:id', () => {
     it('updates recipe fields', async () => {
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/recipes',
+        url: '/recipes',
         headers: { 'content-type': 'application/json', 'x-user-email': TEST_EMAIL },
         payload: { title: 'Update Test' },
       });
@@ -243,7 +243,7 @@ describe('Recipes API (Issue #1278)', () => {
 
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/recipes/${recipeId}`,
+        url: `/recipes/${recipeId}`,
         headers: { 'content-type': 'application/json', 'x-user-email': TEST_EMAIL },
         payload: {
           title: 'Updated Title',
@@ -262,13 +262,13 @@ describe('Recipes API (Issue #1278)', () => {
     });
   });
 
-  // ─── DELETE /api/recipes/:id ────────────────────────────────────────
+  // ─── DELETE /recipes/:id ────────────────────────────────────────
 
-  describe('DELETE /api/recipes/:id', () => {
+  describe('DELETE /recipes/:id', () => {
     it('deletes a recipe and cascades', async () => {
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/recipes',
+        url: '/recipes',
         headers: { 'content-type': 'application/json', 'x-user-email': TEST_EMAIL },
         payload: {
           title: 'Delete Test',
@@ -280,7 +280,7 @@ describe('Recipes API (Issue #1278)', () => {
 
       const res = await app.inject({
         method: 'DELETE',
-        url: `/api/recipes/${recipeId}`,
+        url: `/recipes/${recipeId}`,
         headers: { 'x-user-email': TEST_EMAIL },
       });
 
@@ -294,7 +294,7 @@ describe('Recipes API (Issue #1278)', () => {
     it('returns 404 for non-existent recipe', async () => {
       const res = await app.inject({
         method: 'DELETE',
-        url: '/api/recipes/00000000-0000-0000-0000-000000000099',
+        url: '/recipes/00000000-0000-0000-0000-000000000099',
         headers: { 'x-user-email': TEST_EMAIL },
       });
 
@@ -302,10 +302,10 @@ describe('Recipes API (Issue #1278)', () => {
     });
   });
 
-  // ─── POST /api/recipes/:id/to-shopping-list ─────────────────────────
+  // ─── POST /recipes/:id/to-shopping-list ─────────────────────────
   // Skipped: depends on `list` and `list_item` tables from the lists PR.
 
-  describe.skip('POST /api/recipes/:id/to-shopping-list', () => {
+  describe.skip('POST /recipes/:id/to-shopping-list', () => {
     it('pushes recipe ingredients to a shopping list', async () => {
       // Create a list directly in DB (list routes are in a separate PR)
       const listResult = await pool.query(
@@ -318,7 +318,7 @@ describe('Recipes API (Issue #1278)', () => {
       // Create a recipe with ingredients
       const recipeRes = await app.inject({
         method: 'POST',
-        url: '/api/recipes',
+        url: '/recipes',
         headers: { 'content-type': 'application/json', 'x-user-email': TEST_EMAIL },
         payload: {
           title: 'Shopping List Test',
@@ -332,7 +332,7 @@ describe('Recipes API (Issue #1278)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/recipes/${recipeId}/to-shopping-list`,
+        url: `/recipes/${recipeId}/to-shopping-list`,
         headers: { 'content-type': 'application/json', 'x-user-email': TEST_EMAIL },
         payload: { list_id: list_id },
       });

@@ -61,9 +61,9 @@ describe('Entity Links API (Issue #1276)', () => {
     });
   });
 
-  // ── POST /api/entity-links ──────────────────────────────
+  // ── POST /entity-links ──────────────────────────────
 
-  describe('POST /api/entity-links', () => {
+  describe('POST /entity-links', () => {
     const validPayload = {
       source_type: 'message',
       source_id: '00000000-0000-0000-0000-000000000001',
@@ -74,7 +74,7 @@ describe('Entity Links API (Issue #1276)', () => {
     it('creates a link and returns 201', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/entity-links',
+        url: '/entity-links',
         payload: validPayload,
       });
 
@@ -92,7 +92,7 @@ describe('Entity Links API (Issue #1276)', () => {
     it('defaults link_type to related', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/entity-links',
+        url: '/entity-links',
         payload: validPayload,
       });
 
@@ -103,7 +103,7 @@ describe('Entity Links API (Issue #1276)', () => {
     it('accepts explicit link_type', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/entity-links',
+        url: '/entity-links',
         payload: { ...validPayload, link_type: 'caused_by' },
       });
 
@@ -114,7 +114,7 @@ describe('Entity Links API (Issue #1276)', () => {
     it('accepts created_by field', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/entity-links',
+        url: '/entity-links',
         payload: { ...validPayload, created_by: 'agent' },
       });
 
@@ -125,7 +125,7 @@ describe('Entity Links API (Issue #1276)', () => {
     it('is idempotent (upsert on duplicate)', async () => {
       const res1 = await app.inject({
         method: 'POST',
-        url: '/api/entity-links',
+        url: '/entity-links',
         payload: { ...validPayload, created_by: 'auto' },
       });
       expect(res1.statusCode).toBe(201);
@@ -133,7 +133,7 @@ describe('Entity Links API (Issue #1276)', () => {
 
       const res2 = await app.inject({
         method: 'POST',
-        url: '/api/entity-links',
+        url: '/entity-links',
         payload: { ...validPayload, created_by: 'agent' },
       });
       expect(res2.statusCode).toBe(201);
@@ -144,14 +144,14 @@ describe('Entity Links API (Issue #1276)', () => {
     it('allows different link_types between same source and target', async () => {
       const res1 = await app.inject({
         method: 'POST',
-        url: '/api/entity-links',
+        url: '/entity-links',
         payload: { ...validPayload, link_type: 'related' },
       });
       expect(res1.statusCode).toBe(201);
 
       const res2 = await app.inject({
         method: 'POST',
-        url: '/api/entity-links',
+        url: '/entity-links',
         payload: { ...validPayload, link_type: 'caused_by' },
       });
       expect(res2.statusCode).toBe(201);
@@ -161,7 +161,7 @@ describe('Entity Links API (Issue #1276)', () => {
     it('returns 400 for missing required fields', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/entity-links',
+        url: '/entity-links',
         payload: { source_type: 'message' },
       });
       expect(res.statusCode).toBe(400);
@@ -171,7 +171,7 @@ describe('Entity Links API (Issue #1276)', () => {
     it('returns 400 for invalid source_type', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/entity-links',
+        url: '/entity-links',
         payload: { ...validPayload, source_type: 'invalid' },
       });
       expect(res.statusCode).toBe(400);
@@ -181,7 +181,7 @@ describe('Entity Links API (Issue #1276)', () => {
     it('returns 400 for invalid target_type', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/entity-links',
+        url: '/entity-links',
         payload: { ...validPayload, target_type: 'invalid' },
       });
       expect(res.statusCode).toBe(400);
@@ -191,7 +191,7 @@ describe('Entity Links API (Issue #1276)', () => {
     it('returns 400 for invalid link_type', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/entity-links',
+        url: '/entity-links',
         payload: { ...validPayload, link_type: 'bad_type' },
       });
       expect(res.statusCode).toBe(400);
@@ -201,7 +201,7 @@ describe('Entity Links API (Issue #1276)', () => {
     it('returns 400 for invalid UUID format', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/entity-links',
+        url: '/entity-links',
         payload: { ...validPayload, source_id: 'not-a-uuid' },
       });
       expect(res.statusCode).toBe(400);
@@ -209,9 +209,9 @@ describe('Entity Links API (Issue #1276)', () => {
     });
   });
 
-  // ── GET /api/entity-links ──────────────────────────────
+  // ── GET /entity-links ──────────────────────────────
 
-  describe('GET /api/entity-links', () => {
+  describe('GET /entity-links', () => {
     const sourceId = '00000000-0000-0000-0000-000000000001';
     const targetId = '00000000-0000-0000-0000-000000000002';
 
@@ -220,7 +220,7 @@ describe('Entity Links API (Issue #1276)', () => {
       // Create two links
       await app.inject({
         method: 'POST',
-        url: '/api/entity-links',
+        url: '/entity-links',
         payload: {
           source_type: 'message',
           source_id: sourceId,
@@ -231,7 +231,7 @@ describe('Entity Links API (Issue #1276)', () => {
       });
       await app.inject({
         method: 'POST',
-        url: '/api/entity-links',
+        url: '/entity-links',
         payload: {
           source_type: 'message',
           source_id: sourceId,
@@ -245,7 +245,7 @@ describe('Entity Links API (Issue #1276)', () => {
     it('returns links by source', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: `/api/entity-links?source_type=message&source_id=${sourceId}`,
+        url: `/entity-links?source_type=message&source_id=${sourceId}`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -256,7 +256,7 @@ describe('Entity Links API (Issue #1276)', () => {
     it('returns links by target', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: `/api/entity-links?target_type=project&target_id=${targetId}`,
+        url: `/entity-links?target_type=project&target_id=${targetId}`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -268,7 +268,7 @@ describe('Entity Links API (Issue #1276)', () => {
     it('filters by link_type', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: `/api/entity-links?source_type=message&source_id=${sourceId}&link_type=about`,
+        url: `/entity-links?source_type=message&source_id=${sourceId}&link_type=about`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -279,7 +279,7 @@ describe('Entity Links API (Issue #1276)', () => {
     it('returns empty array when no links exist', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/entity-links?source_type=thread&source_id=00000000-0000-0000-0000-000000000099',
+        url: '/entity-links?source_type=thread&source_id=00000000-0000-0000-0000-000000000099',
       });
 
       expect(res.statusCode).toBe(200);
@@ -289,7 +289,7 @@ describe('Entity Links API (Issue #1276)', () => {
     it('returns 400 when neither source nor target provided', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/entity-links',
+        url: '/entity-links',
       });
       expect(res.statusCode).toBe(400);
     });
@@ -297,19 +297,19 @@ describe('Entity Links API (Issue #1276)', () => {
     it('returns 400 when only source_type without source_id', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/entity-links?source_type=message',
+        url: '/entity-links?source_type=message',
       });
       expect(res.statusCode).toBe(400);
     });
   });
 
-  // ── GET /api/entity-links/:id ──────────────────────────
+  // ── GET /entity-links/:id ──────────────────────────
 
-  describe('GET /api/entity-links/:id', () => {
+  describe('GET /entity-links/:id', () => {
     it('returns a single link by id', async () => {
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/entity-links',
+        url: '/entity-links',
         payload: {
           source_type: 'todo',
           source_id: '00000000-0000-0000-0000-000000000010',
@@ -321,7 +321,7 @@ describe('Entity Links API (Issue #1276)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/entity-links/${link_id}`,
+        url: `/entity-links/${link_id}`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -332,7 +332,7 @@ describe('Entity Links API (Issue #1276)', () => {
     it('returns 404 for non-existent link', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/entity-links/00000000-0000-0000-0000-999999999999',
+        url: '/entity-links/00000000-0000-0000-0000-999999999999',
       });
       expect(res.statusCode).toBe(404);
     });
@@ -340,19 +340,19 @@ describe('Entity Links API (Issue #1276)', () => {
     it('returns 400 for invalid id format', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/entity-links/not-a-uuid',
+        url: '/entity-links/not-a-uuid',
       });
       expect(res.statusCode).toBe(400);
     });
   });
 
-  // ── DELETE /api/entity-links/:id ───────────────────────
+  // ── DELETE /entity-links/:id ───────────────────────
 
-  describe('DELETE /api/entity-links/:id', () => {
+  describe('DELETE /entity-links/:id', () => {
     it('removes a link and returns 204', async () => {
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/entity-links',
+        url: '/entity-links',
         payload: {
           source_type: 'thread',
           source_id: '00000000-0000-0000-0000-000000000030',
@@ -364,14 +364,14 @@ describe('Entity Links API (Issue #1276)', () => {
 
       const delRes = await app.inject({
         method: 'DELETE',
-        url: `/api/entity-links/${link_id}`,
+        url: `/entity-links/${link_id}`,
       });
       expect(delRes.statusCode).toBe(204);
 
       // Verify it's gone
       const getRes = await app.inject({
         method: 'GET',
-        url: `/api/entity-links/${link_id}`,
+        url: `/entity-links/${link_id}`,
       });
       expect(getRes.statusCode).toBe(404);
     });
@@ -379,7 +379,7 @@ describe('Entity Links API (Issue #1276)', () => {
     it('returns 404 for non-existent link', async () => {
       const delRes = await app.inject({
         method: 'DELETE',
-        url: '/api/entity-links/00000000-0000-0000-0000-999999999999',
+        url: '/entity-links/00000000-0000-0000-0000-999999999999',
       });
       expect(delRes.statusCode).toBe(404);
     });
@@ -391,7 +391,7 @@ describe('Entity Links API (Issue #1276)', () => {
     it('link stores namespace from request context', async () => {
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/entity-links',
+        url: '/entity-links',
         payload: {
           source_type: 'message',
           source_id: '00000000-0000-0000-0000-000000000050',
@@ -408,7 +408,7 @@ describe('Entity Links API (Issue #1276)', () => {
     it('link is visible when queried by source (namespace-based, not user_email)', async () => {
       await app.inject({
         method: 'POST',
-        url: '/api/entity-links',
+        url: '/entity-links',
         payload: {
           source_type: 'message',
           source_id: '00000000-0000-0000-0000-000000000050',
@@ -421,7 +421,7 @@ describe('Entity Links API (Issue #1276)', () => {
       // scoping is now by namespace only
       const res = await app.inject({
         method: 'GET',
-        url: '/api/entity-links?source_type=message&source_id=00000000-0000-0000-0000-000000000050',
+        url: '/entity-links?source_type=message&source_id=00000000-0000-0000-0000-000000000050',
       });
       expect(res.statusCode).toBe(200);
       expect(res.json().links).toHaveLength(1);

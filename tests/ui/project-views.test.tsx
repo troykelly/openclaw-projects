@@ -166,20 +166,20 @@ vi.mock('@/ui/lib/work-item-utils', async (importOriginal) => {
 
 function setupApiMocks() {
   mockApiClient.get.mockImplementation((path: string) => {
-    if (path === '/api/work-items?kind=project') {
+    if (path === '/work-items?kind=project') {
       return Promise.resolve(mockProjects);
     }
-    if (path === '/api/work-items' || path.startsWith('/api/work-items?')) {
+    if (path === '/work-items' || path.startsWith('/work-items?')) {
       if (path.includes('kind=project')) return Promise.resolve(mockProjects);
       return Promise.resolve(mockAllItems);
     }
-    if (path === '/api/work-items/tree') {
+    if (path === '/work-items/tree') {
       return Promise.resolve(mockTreeData);
     }
     if (path.match(/\/api\/work-items\/proj-1$/)) {
       return Promise.resolve(mockProjectDetail);
     }
-    if (path.includes('/api/backlog')) {
+    if (path.includes('/backlog')) {
       return Promise.resolve(mockBacklog);
     }
     if (path.includes('/memories')) {

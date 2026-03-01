@@ -20,7 +20,7 @@ vi.mock('@/ui/lib/api-client', () => ({
 import { AnalyticsSection } from '@/ui/components/analytics/analytics-section';
 import { apiClient } from '@/ui/lib/api-client';
 
-/** Matches GET /api/analytics/velocity response. */
+/** Matches GET /analytics/velocity response. */
 const mockVelocity = {
   weeks: [
     { week_start: '2026-02-02', completed_count: 8, estimated_minutes: 480 },
@@ -30,7 +30,7 @@ const mockVelocity = {
   ],
 };
 
-/** Matches GET /api/analytics/project-health response. */
+/** Matches GET /analytics/project-health response. */
 const mockHealth = {
   projects: [
     { id: 'p1', title: 'Project Alpha', open_count: 2, in_progress_count: 3, closed_count: 15, total_count: 20 },

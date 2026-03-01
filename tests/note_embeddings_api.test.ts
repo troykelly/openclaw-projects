@@ -73,7 +73,7 @@ describe('Note Embeddings API', () => {
   ) {
     const response = await app.inject({
       method: 'POST',
-      url: '/api/notes',
+      url: '/notes',
       payload: {
         user_email: overrides.user_email ?? testUserEmail,
         title: overrides.title ?? 'Test Note',
@@ -90,7 +90,7 @@ describe('Note Embeddings API', () => {
   async function getNote(noteId: string, user_email: string = testUserEmail) {
     const response = await app.inject({
       method: 'GET',
-      url: `/api/notes/${noteId}?user_email=${user_email}`,
+      url: `/notes/${noteId}?user_email=${user_email}`,
     });
     if (response.statusCode === 200) {
       return JSON.parse(response.payload);
@@ -155,11 +155,11 @@ describe('Note Embeddings API', () => {
     });
   });
 
-  describe('GET /api/admin/embeddings/status/notes', () => {
+  describe('GET /admin/embeddings/status/notes', () => {
     it('should return embedding statistics', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/admin/embeddings/status/notes',
+        url: '/admin/embeddings/status/notes',
       });
 
       expect(response.statusCode).toBe(200);
@@ -176,7 +176,7 @@ describe('Note Embeddings API', () => {
     });
   });
 
-  describe('POST /api/admin/embeddings/backfill/notes', () => {
+  describe('POST /admin/embeddings/backfill/notes', () => {
     it('should backfill pending notes', async () => {
       // Create some notes first
       await createNote({ title: 'Backfill Note 1', content: 'Content 1' });
@@ -184,7 +184,7 @@ describe('Note Embeddings API', () => {
 
       const response = await app.inject({
         method: 'POST',
-        url: '/api/admin/embeddings/backfill/notes',
+        url: '/admin/embeddings/backfill/notes',
         payload: {
           limit: 10,
           only_pending: true,
@@ -206,7 +206,7 @@ describe('Note Embeddings API', () => {
     it('should accept default parameters', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: '/api/admin/embeddings/backfill/notes',
+        url: '/admin/embeddings/backfill/notes',
         payload: {},
       });
 
@@ -214,7 +214,7 @@ describe('Note Embeddings API', () => {
     });
   });
 
-  describe('POST /api/notes/search/semantic', () => {
+  describe('POST /notes/search/semantic', () => {
     beforeEach(async () => {
       // Create test notes with distinct content for search
       await createNote({
@@ -240,7 +240,7 @@ describe('Note Embeddings API', () => {
     it('should require user_email', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: '/api/notes/search/semantic',
+        url: '/notes/search/semantic',
         payload: {
           query: 'programming',
         },
@@ -253,7 +253,7 @@ describe('Note Embeddings API', () => {
     it('should require query', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: '/api/notes/search/semantic',
+        url: '/notes/search/semantic',
         payload: {
           user_email: testUserEmail,
         },
@@ -266,7 +266,7 @@ describe('Note Embeddings API', () => {
     it('should search notes semantically', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: '/api/notes/search/semantic',
+        url: '/notes/search/semantic',
         payload: {
           user_email: testUserEmail,
           query: 'programming languages',
@@ -286,7 +286,7 @@ describe('Note Embeddings API', () => {
     it('should return similarity scores', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: '/api/notes/search/semantic',
+        url: '/notes/search/semantic',
         payload: {
           user_email: testUserEmail,
           query: 'TypeScript',
@@ -310,7 +310,7 @@ describe('Note Embeddings API', () => {
       // Create a notebook and note in it
       const notebookResponse = await app.inject({
         method: 'POST',
-        url: '/api/notebooks',
+        url: '/notebooks',
         payload: {
           user_email: testUserEmail,
           name: 'Search Test Notebook',
@@ -326,7 +326,7 @@ describe('Note Embeddings API', () => {
 
       const response = await app.inject({
         method: 'POST',
-        url: '/api/notes/search/semantic',
+        url: '/notes/search/semantic',
         payload: {
           user_email: testUserEmail,
           query: 'notebook',
@@ -346,7 +346,7 @@ describe('Note Embeddings API', () => {
 
       const response = await app.inject({
         method: 'POST',
-        url: '/api/notes/search/semantic',
+        url: '/notes/search/semantic',
         payload: {
           user_email: testUserEmail,
           query: 'tagged',
@@ -368,7 +368,7 @@ describe('Note Embeddings API', () => {
       // Search as owner - should find
       const ownerResponse = await app.inject({
         method: 'POST',
-        url: '/api/notes/search/semantic',
+        url: '/notes/search/semantic',
         payload: {
           user_email: testUserEmail,
           query: 'Owner Only',
@@ -380,7 +380,7 @@ describe('Note Embeddings API', () => {
       // Search as other user - should not find the private note
       const otherResponse = await app.inject({
         method: 'POST',
-        url: '/api/notes/search/semantic',
+        url: '/notes/search/semantic',
         payload: {
           user_email: otherUserEmail,
           query: 'Owner Only',
@@ -398,7 +398,7 @@ describe('Note Embeddings API', () => {
     it('should handle pagination', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: '/api/notes/search/semantic',
+        url: '/notes/search/semantic',
         payload: {
           user_email: testUserEmail,
           query: 'test',
@@ -502,7 +502,7 @@ describe('Note Embeddings API', () => {
 
       const updateResponse = await app.inject({
         method: 'PUT',
-        url: `/api/notes/${note.id}`,
+        url: `/notes/${note.id}`,
         payload: {
           user_email: testUserEmail,
           title: 'Updated Title',
@@ -522,7 +522,7 @@ describe('Note Embeddings API', () => {
 
       const updateResponse = await app.inject({
         method: 'PUT',
-        url: `/api/notes/${note.id}`,
+        url: `/notes/${note.id}`,
         payload: {
           user_email: testUserEmail,
           content: 'Updated content for embedding',
@@ -541,7 +541,7 @@ describe('Note Embeddings API', () => {
 
       const updateResponse = await app.inject({
         method: 'PUT',
-        url: `/api/notes/${note.id}`,
+        url: `/notes/${note.id}`,
         payload: {
           user_email: testUserEmail,
           visibility: 'public',
@@ -562,7 +562,7 @@ describe('Note Embeddings API', () => {
 
       const updateResponse = await app.inject({
         method: 'PUT',
-        url: `/api/notes/${note.id}`,
+        url: `/notes/${note.id}`,
         payload: {
           user_email: testUserEmail,
           hide_from_agents: true, // API uses snake_case input

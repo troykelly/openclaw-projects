@@ -86,7 +86,7 @@ describe('MemoryDetailPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (apiClient.get as ReturnType<typeof vi.fn>).mockImplementation((url: string) => {
-      if (url === '/api/memories/mem-detail-1') {
+      if (url === '/memories/mem-detail-1') {
         return Promise.resolve(mockMemory);
       }
       if (url.includes('/attachments')) {

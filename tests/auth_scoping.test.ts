@@ -65,7 +65,7 @@ describe('Auth scoping', () => {
       const headers = await getAuthHeaders(USER_A);
       const res = await app.inject({
         method: 'GET',
-        url: `/api/notifications?user_email=${encodeURIComponent(USER_A)}`,
+        url: `/notifications?user_email=${encodeURIComponent(USER_A)}`,
         headers,
       });
 
@@ -80,7 +80,7 @@ describe('Auth scoping', () => {
       const headers = await getAuthHeaders(USER_A);
       const res = await app.inject({
         method: 'GET',
-        url: `/api/notifications?user_email=${encodeURIComponent(USER_B)}`,
+        url: `/notifications?user_email=${encodeURIComponent(USER_B)}`,
         headers,
       });
 
@@ -95,7 +95,7 @@ describe('Auth scoping', () => {
       const headers = await getAuthHeaders(USER_A);
       const res = await app.inject({
         method: 'GET',
-        url: `/api/notifications/unread-count?user_email=${encodeURIComponent(USER_A)}`,
+        url: `/notifications/unread-count?user_email=${encodeURIComponent(USER_A)}`,
         headers,
       });
 
@@ -107,7 +107,7 @@ describe('Auth scoping', () => {
       const headers = await getM2mAuthHeaders();
       const res = await app.inject({
         method: 'GET',
-        url: '/api/notifications',
+        url: '/notifications',
         headers,
       });
 
@@ -118,7 +118,7 @@ describe('Auth scoping', () => {
       const headers = await getM2mAuthHeaders();
       const res = await app.inject({
         method: 'GET',
-        url: `/api/notifications?user_email=${encodeURIComponent(USER_B)}`,
+        url: `/notifications?user_email=${encodeURIComponent(USER_B)}`,
         headers,
       });
 
@@ -131,7 +131,7 @@ describe('Auth scoping', () => {
     it('unauthenticated request returns 401 for notifications', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: `/api/notifications?user_email=${encodeURIComponent(USER_A)}`,
+        url: `/notifications?user_email=${encodeURIComponent(USER_A)}`,
       });
 
       expect(res.statusCode).toBe(401);
@@ -189,7 +189,7 @@ describe('Auth scoping', () => {
       // Create webhook as owner
       const createRes = await app.inject({
         method: 'POST',
-        url: `/api/projects/${project_id}/webhooks`,
+        url: `/projects/${project_id}/webhooks`,
         headers: ownerHeaders,
         payload: { label: 'Owner Hook' },
       });
@@ -198,7 +198,7 @@ describe('Auth scoping', () => {
       // Owner can list
       const listRes = await app.inject({
         method: 'GET',
-        url: `/api/projects/${project_id}/webhooks`,
+        url: `/projects/${project_id}/webhooks`,
         headers: ownerHeaders,
       });
       expect(listRes.statusCode).toBe(200);
@@ -213,7 +213,7 @@ describe('Auth scoping', () => {
       // Create webhook as owner
       await app.inject({
         method: 'POST',
-        url: `/api/projects/${project_id}/webhooks`,
+        url: `/projects/${project_id}/webhooks`,
         headers: ownerHeaders,
         payload: { label: 'Owner Only' },
       });
@@ -221,7 +221,7 @@ describe('Auth scoping', () => {
       // Other user has no namespace access to the project (#1811) — gets 404
       const listRes = await app.inject({
         method: 'GET',
-        url: `/api/projects/${project_id}/webhooks`,
+        url: `/projects/${project_id}/webhooks`,
         headers: otherHeaders,
       });
       expect(listRes.statusCode).toBe(404);
@@ -234,7 +234,7 @@ describe('Auth scoping', () => {
       // Create webhook as owner
       const createRes = await app.inject({
         method: 'POST',
-        url: `/api/projects/${project_id}/webhooks`,
+        url: `/projects/${project_id}/webhooks`,
         headers: ownerHeaders,
         payload: { label: 'Protected Hook' },
       });
@@ -243,7 +243,7 @@ describe('Auth scoping', () => {
       // Other user has no namespace access to the project (#1811) — gets 404
       const deleteRes = await app.inject({
         method: 'DELETE',
-        url: `/api/projects/${project_id}/webhooks/${webhookId}`,
+        url: `/projects/${project_id}/webhooks/${webhookId}`,
         headers: otherHeaders,
       });
       expect(deleteRes.statusCode).toBe(404);
@@ -251,7 +251,7 @@ describe('Auth scoping', () => {
       // Owner can still see it
       const listRes = await app.inject({
         method: 'GET',
-        url: `/api/projects/${project_id}/webhooks`,
+        url: `/projects/${project_id}/webhooks`,
         headers: ownerHeaders,
       });
       expect(listRes.json()).toHaveLength(1);
@@ -262,14 +262,14 @@ describe('Auth scoping', () => {
 
       await app.inject({
         method: 'POST',
-        url: `/api/projects/${project_id}/webhooks`,
+        url: `/projects/${project_id}/webhooks`,
         headers: ownerHeaders,
         payload: { label: 'Token Mask Test' },
       });
 
       const listRes = await app.inject({
         method: 'GET',
-        url: `/api/projects/${project_id}/webhooks`,
+        url: `/projects/${project_id}/webhooks`,
         headers: ownerHeaders,
       });
 
@@ -281,7 +281,7 @@ describe('Auth scoping', () => {
     it('unauthenticated webhook list returns 401', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: `/api/projects/${project_id}/webhooks`,
+        url: `/projects/${project_id}/webhooks`,
       });
       expect(res.statusCode).toBe(401);
     });
@@ -309,7 +309,7 @@ describe('Auth scoping', () => {
       // Only test if a provider is actually configured
       const providersRes = await app.inject({
         method: 'GET',
-        url: '/api/oauth/providers',
+        url: '/oauth/providers',
       });
 
       if (providersRes.statusCode !== 200) {
@@ -326,7 +326,7 @@ describe('Auth scoping', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/oauth/authorize/${configured.name}`,
+        url: `/oauth/authorize/${configured.name}`,
         headers: { accept: 'application/json' },
       });
 
@@ -340,7 +340,7 @@ describe('Auth scoping', () => {
     it('returns 302 redirect without Accept: application/json', async () => {
       const providersRes = await app.inject({
         method: 'GET',
-        url: '/api/oauth/providers',
+        url: '/oauth/providers',
       });
 
       if (providersRes.statusCode !== 200) return;
@@ -351,7 +351,7 @@ describe('Auth scoping', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/oauth/authorize/${configured.name}`,
+        url: `/oauth/authorize/${configured.name}`,
       });
 
       expect(res.statusCode).toBe(302);
@@ -361,7 +361,7 @@ describe('Auth scoping', () => {
     it('returns 400 for unknown provider', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/oauth/authorize/unknown-provider',
+        url: '/oauth/authorize/unknown-provider',
         headers: { accept: 'application/json' },
       });
 

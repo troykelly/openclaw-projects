@@ -73,7 +73,7 @@ describe('validateReAuthUrl', () => {
   });
 
   it('rejects a bare path', () => {
-    expect(validateReAuthUrl('/api/oauth/authorize/google')).toBeNull();
+    expect(validateReAuthUrl('/oauth/authorize/google')).toBeNull();
   });
 
   // #1624: Non-default port

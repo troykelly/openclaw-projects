@@ -71,7 +71,7 @@ const mockActivity = {
 
 const mockApiClient = {
   get: vi.fn().mockImplementation((path: string) => {
-    if (path.includes('/api/work-items/item-1') && !path.includes('/memories') && !path.includes('/communications')) {
+    if (path.includes('/work-items/item-1') && !path.includes('/memories') && !path.includes('/communications')) {
       return Promise.resolve(mockWorkItem);
     }
     if (path.includes('/memories')) {
@@ -150,7 +150,7 @@ describe('WorkItemDetailPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockApiClient.get.mockImplementation((path: string) => {
-      if (path.includes('/api/work-items/item-1') && !path.includes('/memories') && !path.includes('/communications')) {
+      if (path.includes('/work-items/item-1') && !path.includes('/memories') && !path.includes('/communications')) {
         return Promise.resolve(mockWorkItem);
       }
       if (path.includes('/memories')) {

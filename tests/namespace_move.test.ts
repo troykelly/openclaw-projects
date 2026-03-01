@@ -1,7 +1,7 @@
 /**
  * Integration tests for namespace move endpoints (Issue #1483).
  *
- * PATCH /api/<entity>/:id/namespace — Move an entity to a different namespace.
+ * PATCH /<entity>/:id/namespace — Move an entity to a different namespace.
  *
  * Note: Auth is disabled in integration tests (setup-api.ts sets
  * OPENCLAW_PROJECTS_AUTH_DISABLED=true), so namespace grant-based access
@@ -56,7 +56,7 @@ describe('Namespace Move API (Issue #1483)', () => {
   // ============================================================
   // Work Item
   // ============================================================
-  describe('PATCH /api/work-items/:id/namespace', () => {
+  describe('PATCH /work-items/:id/namespace', () => {
     it('moves a work item to the target namespace', async () => {
       const { rows } = await pool.query(
         `INSERT INTO work_item (title, kind, work_item_kind, namespace, status)
@@ -68,7 +68,7 @@ describe('Namespace Move API (Issue #1483)', () => {
       const headers = await getAuthHeaders(TEST_EMAIL);
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${id}/namespace`,
+        url: `/work-items/${id}/namespace`,
         headers: { ...headers, 'content-type': 'application/json' },
         payload: { target_namespace: TARGET_NS },
       });
@@ -110,7 +110,7 @@ describe('Namespace Move API (Issue #1483)', () => {
       const headers = await getAuthHeaders(TEST_EMAIL);
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${parentId}/namespace`,
+        url: `/work-items/${parentId}/namespace`,
         headers: { ...headers, 'content-type': 'application/json' },
         payload: { target_namespace: TARGET_NS },
       });
@@ -138,7 +138,7 @@ describe('Namespace Move API (Issue #1483)', () => {
       const headers = await getAuthHeaders(TEST_EMAIL);
       await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${id}/namespace`,
+        url: `/work-items/${id}/namespace`,
         headers: { ...headers, 'content-type': 'application/json' },
         payload: { target_namespace: TARGET_NS },
       });
@@ -160,7 +160,7 @@ describe('Namespace Move API (Issue #1483)', () => {
   // ============================================================
   // Contact
   // ============================================================
-  describe('PATCH /api/contacts/:id/namespace', () => {
+  describe('PATCH /contacts/:id/namespace', () => {
     it('moves a contact to the target namespace', async () => {
       const { rows } = await pool.query(
         `INSERT INTO contact (display_name, namespace) VALUES ('Test Contact', $1) RETURNING id::text as id`,
@@ -171,7 +171,7 @@ describe('Namespace Move API (Issue #1483)', () => {
       const headers = await getAuthHeaders(TEST_EMAIL);
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/contacts/${id}/namespace`,
+        url: `/contacts/${id}/namespace`,
         headers: { ...headers, 'content-type': 'application/json' },
         payload: { target_namespace: TARGET_NS },
       });
@@ -184,7 +184,7 @@ describe('Namespace Move API (Issue #1483)', () => {
   // ============================================================
   // Notebook + Notes
   // ============================================================
-  describe('PATCH /api/notebooks/:id/namespace', () => {
+  describe('PATCH /notebooks/:id/namespace', () => {
     it('moves a notebook and its notes', async () => {
       const { rows: nbRows } = await pool.query(
         `INSERT INTO notebook (name, namespace) VALUES ('Test NB', $1) RETURNING id::text as id`,
@@ -201,7 +201,7 @@ describe('Namespace Move API (Issue #1483)', () => {
       const headers = await getAuthHeaders(TEST_EMAIL);
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/notebooks/${nbId}/namespace`,
+        url: `/notebooks/${nbId}/namespace`,
         headers: { ...headers, 'content-type': 'application/json' },
         payload: { target_namespace: TARGET_NS },
       });
@@ -218,7 +218,7 @@ describe('Namespace Move API (Issue #1483)', () => {
   // ============================================================
   // Memory
   // ============================================================
-  describe('PATCH /api/memories/:id/namespace', () => {
+  describe('PATCH /memories/:id/namespace', () => {
     it('moves a memory to the target namespace', async () => {
       const { rows } = await pool.query(
         `INSERT INTO memory (title, content, memory_type, namespace)
@@ -230,7 +230,7 @@ describe('Namespace Move API (Issue #1483)', () => {
       const headers = await getAuthHeaders(TEST_EMAIL);
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/memories/${id}/namespace`,
+        url: `/memories/${id}/namespace`,
         headers: { ...headers, 'content-type': 'application/json' },
         payload: { target_namespace: TARGET_NS },
       });
@@ -255,7 +255,7 @@ describe('Namespace Move API (Issue #1483)', () => {
       const headers = await getAuthHeaders(TEST_EMAIL);
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${id}/namespace`,
+        url: `/work-items/${id}/namespace`,
         headers: { ...headers, 'content-type': 'application/json' },
         payload: {},
       });
@@ -275,7 +275,7 @@ describe('Namespace Move API (Issue #1483)', () => {
       const headers = await getAuthHeaders(TEST_EMAIL);
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${id}/namespace`,
+        url: `/work-items/${id}/namespace`,
         headers: { ...headers, 'content-type': 'application/json' },
         payload: { target_namespace: '-invalid-ns!' },
       });
@@ -288,7 +288,7 @@ describe('Namespace Move API (Issue #1483)', () => {
       const headers = await getAuthHeaders(TEST_EMAIL);
       const res = await app.inject({
         method: 'PATCH',
-        url: '/api/work-items/not-a-uuid/namespace',
+        url: '/work-items/not-a-uuid/namespace',
         headers: { ...headers, 'content-type': 'application/json' },
         payload: { target_namespace: TARGET_NS },
       });
@@ -301,7 +301,7 @@ describe('Namespace Move API (Issue #1483)', () => {
       const headers = await getAuthHeaders(TEST_EMAIL);
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${fakeId}/namespace`,
+        url: `/work-items/${fakeId}/namespace`,
         headers: { ...headers, 'content-type': 'application/json' },
         payload: { target_namespace: TARGET_NS },
       });
@@ -320,7 +320,7 @@ describe('Namespace Move API (Issue #1483)', () => {
       const headers = await getAuthHeaders(TEST_EMAIL);
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${id}/namespace`,
+        url: `/work-items/${id}/namespace`,
         headers: { ...headers, 'content-type': 'application/json' },
         payload: { target_namespace: SOURCE_NS },
       });
@@ -345,7 +345,7 @@ describe('Namespace Move API (Issue #1483)', () => {
       const headers = await getM2MHeaders();
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${id}/namespace`,
+        url: `/work-items/${id}/namespace`,
         headers: { ...headers, 'content-type': 'application/json' },
         payload: { target_namespace: TARGET_NS },
       });
@@ -369,7 +369,7 @@ describe('Namespace Move API (Issue #1483)', () => {
       const headers = await getAuthHeaders(TEST_EMAIL);
       await app.inject({
         method: 'PATCH',
-        url: `/api/contacts/${id}/namespace`,
+        url: `/contacts/${id}/namespace`,
         headers: { ...headers, 'content-type': 'application/json' },
         payload: { target_namespace: TARGET_NS },
       });
@@ -401,7 +401,7 @@ describe('Namespace Move API (Issue #1483)', () => {
       const headers = await getAuthHeaders(TEST_EMAIL);
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/recipes/${id}/namespace`,
+        url: `/recipes/${id}/namespace`,
         headers: { ...headers, 'content-type': 'application/json' },
         payload: { target_namespace: TARGET_NS },
       });
@@ -420,7 +420,7 @@ describe('Namespace Move API (Issue #1483)', () => {
       const headers = await getAuthHeaders(TEST_EMAIL);
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/pantry/${id}/namespace`,
+        url: `/pantry/${id}/namespace`,
         headers: { ...headers, 'content-type': 'application/json' },
         payload: { target_namespace: TARGET_NS },
       });
@@ -440,7 +440,7 @@ describe('Namespace Move API (Issue #1483)', () => {
       const headers = await getAuthHeaders(TEST_EMAIL);
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/skill-store/items/${id}/namespace`,
+        url: `/skill-store/items/${id}/namespace`,
         headers: { ...headers, 'content-type': 'application/json' },
         payload: { target_namespace: TARGET_NS },
       });
@@ -459,7 +459,7 @@ describe('Namespace Move API (Issue #1483)', () => {
       const headers = await getAuthHeaders(TEST_EMAIL);
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/notes/${id}/namespace`,
+        url: `/notes/${id}/namespace`,
         headers: { ...headers, 'content-type': 'application/json' },
         payload: { target_namespace: TARGET_NS },
       });

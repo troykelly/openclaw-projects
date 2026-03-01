@@ -11,11 +11,11 @@ process.env.JWT_SECRET = 'test-jwt-secret-at-least-32-bytes-long!!';
  * Integration tests for JWT auth endpoints (Issue #1325, Epic #1322).
  *
  * Tests the full lifecycle:
- *   POST /api/auth/consume      -- magic link -> JWT + refresh cookie
- *   POST /api/auth/refresh      -- rotate refresh token
- *   POST /api/auth/revoke       -- revoke refresh family + clear cookie
- *   POST /api/auth/exchange     -- one-time OAuth code -> JWT + refresh cookie
- *   POST /api/auth/request-link -- updated magic link URL
+ *   POST /auth/consume      -- magic link -> JWT + refresh cookie
+ *   POST /auth/refresh      -- rotate refresh token
+ *   POST /auth/revoke       -- revoke refresh family + clear cookie
+ *   POST /auth/exchange     -- one-time OAuth code -> JWT + refresh cookie
+ *   POST /auth/request-link -- updated magic link URL
  *
  * NOTE: These tests create tokens directly in the DB to avoid race conditions
  * with concurrent test suites that truncate tables.
@@ -50,13 +50,13 @@ describe('JWT auth endpoints', () => {
   }
 
   /**
-   * Helper: consume a magic link token via POST /api/auth/consume.
+   * Helper: consume a magic link token via POST /auth/consume.
    * Returns the response from the inject call.
    */
   async function consumeMagicLink(token: string) {
     return app.inject({
       method: 'POST',
-      url: '/api/auth/consume',
+      url: '/auth/consume',
       payload: { token },
     });
   }
@@ -92,9 +92,9 @@ describe('JWT auth endpoints', () => {
     return cookie!;
   }
 
-  // ── POST /api/auth/consume ─────────────────────────────────────────
+  // ── POST /auth/consume ─────────────────────────────────────────
 
-  describe('POST /api/auth/consume', () => {
+  describe('POST /auth/consume', () => {
     it('consumes magic link and returns access_token + refresh cookie', async () => {
       const token = await createMagicLinkToken('jwt-consume@example.com');
       const res = await consumeMagicLink(token);
@@ -110,13 +110,13 @@ describe('JWT auth endpoints', () => {
       expect(cookie).toBeTruthy();
       expect(cookie!.raw.toLowerCase()).toContain('httponly');
       expect(cookie!.raw.toLowerCase()).toContain('samesite=strict');
-      expect(cookie!.raw.toLowerCase()).toContain('path=/api/auth');
+      expect(cookie!.raw.toLowerCase()).toContain('path=/auth');
     });
 
     it('rejects missing token', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/auth/consume',
+        url: '/auth/consume',
         payload: {},
       });
       expect(res.statusCode).toBe(400);
@@ -126,7 +126,7 @@ describe('JWT auth endpoints', () => {
     it('rejects invalid token', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/auth/consume',
+        url: '/auth/consume',
         payload: { token: 'not-a-real-token' },
       });
       expect(res.statusCode).toBe(400);
@@ -164,16 +164,16 @@ describe('JWT auth endpoints', () => {
     });
   });
 
-  // ── POST /api/auth/refresh ─────────────────────────────────────────
+  // ── POST /auth/refresh ─────────────────────────────────────────
 
-  describe('POST /api/auth/refresh', () => {
+  describe('POST /auth/refresh', () => {
     it('rotates refresh token and returns new access_token', async () => {
       const oldCookie = await getRefreshCookie('jwt-refresh@example.com');
 
       // Refresh
       const refreshRes = await app.inject({
         method: 'POST',
-        url: '/api/auth/refresh',
+        url: '/auth/refresh',
         headers: {
           cookie: `projects_refresh=${oldCookie.value}`,
         },
@@ -193,7 +193,7 @@ describe('JWT auth endpoints', () => {
     it('returns 401 without refresh cookie', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/auth/refresh',
+        url: '/auth/refresh',
       });
       expect(res.statusCode).toBe(401);
       expect(res.json()).toEqual({ error: 'no refresh token' });
@@ -202,7 +202,7 @@ describe('JWT auth endpoints', () => {
     it('returns 401 with invalid refresh token', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/auth/refresh',
+        url: '/auth/refresh',
         headers: {
           cookie: 'projects_refresh=invalid-token-value',
         },
@@ -216,7 +216,7 @@ describe('JWT auth endpoints', () => {
       // First refresh -- should succeed
       const firstRefresh = await app.inject({
         method: 'POST',
-        url: '/api/auth/refresh',
+        url: '/auth/refresh',
         headers: {
           cookie: `projects_refresh=${oldCookie.value}`,
         },
@@ -236,7 +236,7 @@ describe('JWT auth endpoints', () => {
       // Attempt to reuse the OLD token -- should trigger family revocation
       const reuseRes = await app.inject({
         method: 'POST',
-        url: '/api/auth/refresh',
+        url: '/auth/refresh',
         headers: {
           cookie: `projects_refresh=${oldCookie.value}`,
         },
@@ -246,7 +246,7 @@ describe('JWT auth endpoints', () => {
       // The NEW token should also be revoked (entire family revoked)
       const afterRevokeRes = await app.inject({
         method: 'POST',
-        url: '/api/auth/refresh',
+        url: '/auth/refresh',
         headers: {
           cookie: `projects_refresh=${newCookie!.value}`,
         },
@@ -255,16 +255,16 @@ describe('JWT auth endpoints', () => {
     });
   });
 
-  // ── POST /api/auth/revoke ──────────────────────────────────────────
+  // ── POST /auth/revoke ──────────────────────────────────────────
 
-  describe('POST /api/auth/revoke', () => {
+  describe('POST /auth/revoke', () => {
     it('revokes refresh family and clears cookie', async () => {
       const cookie = await getRefreshCookie('jwt-revoke@example.com');
 
       // Revoke
       const revokeRes = await app.inject({
         method: 'POST',
-        url: '/api/auth/revoke',
+        url: '/auth/revoke',
         headers: {
           cookie: `projects_refresh=${cookie.value}`,
         },
@@ -285,7 +285,7 @@ describe('JWT auth endpoints', () => {
       // Attempt to refresh with the old token -- should fail
       const refreshRes = await app.inject({
         method: 'POST',
-        url: '/api/auth/refresh',
+        url: '/auth/refresh',
         headers: {
           cookie: `projects_refresh=${cookie.value}`,
         },
@@ -296,16 +296,16 @@ describe('JWT auth endpoints', () => {
     it('returns ok even without refresh cookie (idempotent)', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/auth/revoke',
+        url: '/auth/revoke',
       });
       expect(res.statusCode).toBe(200);
       expect(res.json()).toEqual({ ok: true });
     });
   });
 
-  // ── POST /api/auth/exchange ────────────────────────────────────────
+  // ── POST /auth/exchange ────────────────────────────────────────
 
-  describe('POST /api/auth/exchange', () => {
+  describe('POST /auth/exchange', () => {
     /** Helper: create a one-time code directly in the DB. */
     async function createOneTimeCode(email: string): Promise<string> {
       const code = randomBytes(32).toString('base64url');
@@ -325,7 +325,7 @@ describe('JWT auth endpoints', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: '/api/auth/exchange',
+        url: '/auth/exchange',
         payload: { code },
       });
 
@@ -342,7 +342,7 @@ describe('JWT auth endpoints', () => {
     it('rejects missing code', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/auth/exchange',
+        url: '/auth/exchange',
         payload: {},
       });
       expect(res.statusCode).toBe(400);
@@ -352,7 +352,7 @@ describe('JWT auth endpoints', () => {
     it('rejects invalid code', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/auth/exchange',
+        url: '/auth/exchange',
         payload: { code: 'bogus-code' },
       });
       expect(res.statusCode).toBe(400);
@@ -365,7 +365,7 @@ describe('JWT auth endpoints', () => {
       // First use
       const first = await app.inject({
         method: 'POST',
-        url: '/api/auth/exchange',
+        url: '/auth/exchange',
         payload: { code },
       });
       expect(first.statusCode).toBe(200);
@@ -373,7 +373,7 @@ describe('JWT auth endpoints', () => {
       // Second use
       const second = await app.inject({
         method: 'POST',
-        url: '/api/auth/exchange',
+        url: '/auth/exchange',
         payload: { code },
       });
       expect(second.statusCode).toBe(400);
@@ -393,7 +393,7 @@ describe('JWT auth endpoints', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: '/api/auth/exchange',
+        url: '/auth/exchange',
         payload: { code },
       });
       expect(res.statusCode).toBe(400);
@@ -401,13 +401,13 @@ describe('JWT auth endpoints', () => {
     });
   });
 
-  // ── POST /api/auth/request-link (updated URL) ─────────────────────
+  // ── POST /auth/request-link (updated URL) ─────────────────────
 
-  describe('POST /api/auth/request-link (updated magic link URL)', () => {
+  describe('POST /auth/request-link (updated magic link URL)', () => {
     it('generates magic link pointing to app domain /app/auth/consume', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/auth/request-link',
+        url: '/auth/request-link',
         payload: { email: 'jwt-link-url@example.com' },
       });
 
@@ -415,20 +415,20 @@ describe('JWT auth endpoints', () => {
       const body = res.json() as { login_url?: string };
       expect(body.login_url).toBeTruthy();
 
-      // URL should point to /app/auth/consume (SPA route), not /api/auth/consume
+      // URL should point to /app/auth/consume (SPA route), not /auth/consume
       const url = new URL(body.login_url!);
       expect(url.pathname).toBe('/app/auth/consume');
       expect(url.searchParams.get('token')).toBeTruthy();
     });
   });
 
-  // ── Old GET /api/auth/consume removed ──────────────────────────────
+  // ── Old GET /auth/consume removed ──────────────────────────────
 
-  describe('Old GET /api/auth/consume removed', () => {
-    it('returns 404 for GET /api/auth/consume', async () => {
+  describe('Old GET /auth/consume removed', () => {
+    it('returns 404 for GET /auth/consume', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/auth/consume?token=anything',
+        url: '/auth/consume?token=anything',
       });
       // Should be 404 (route no longer exists)
       expect(res.statusCode).toBe(404);
@@ -438,39 +438,39 @@ describe('JWT auth endpoints', () => {
   // ── Auth skip paths ────────────────────────────────────────────────
 
   describe('Auth skip paths include new endpoints', () => {
-    it('POST /api/auth/consume does not require Bearer token', async () => {
+    it('POST /auth/consume does not require Bearer token', async () => {
       // Even without a Bearer token, should get 400 (bad request) not 401
       const res = await app.inject({
         method: 'POST',
-        url: '/api/auth/consume',
+        url: '/auth/consume',
         payload: { token: 'test' },
       });
       // Should be 400 (invalid token), not 401 (unauthorized)
       expect(res.statusCode).toBe(400);
     });
 
-    it('POST /api/auth/refresh does not require Bearer token', async () => {
+    it('POST /auth/refresh does not require Bearer token', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/auth/refresh',
+        url: '/auth/refresh',
       });
       // Should be 401 (no refresh cookie), not from the auth middleware
       expect(res.json()).toEqual({ error: 'no refresh token' });
     });
 
-    it('POST /api/auth/revoke does not require Bearer token', async () => {
+    it('POST /auth/revoke does not require Bearer token', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/auth/revoke',
+        url: '/auth/revoke',
       });
       expect(res.statusCode).toBe(200);
       expect(res.json()).toEqual({ ok: true });
     });
 
-    it('POST /api/auth/exchange does not require Bearer token', async () => {
+    it('POST /auth/exchange does not require Bearer token', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/auth/exchange',
+        url: '/auth/exchange',
         payload: { code: 'test' },
       });
       expect(res.statusCode).toBe(400);

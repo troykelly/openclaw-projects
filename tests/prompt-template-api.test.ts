@@ -31,7 +31,7 @@ describe('Prompt Template API (Issue #1499)', () => {
   async function createTemplate(overrides: Record<string, unknown> = {}) {
     return app.inject({
       method: 'POST',
-      url: '/api/prompt-templates',
+      url: '/prompt-templates',
       payload: {
         label: 'Test Template',
         content: 'You are a helpful triage agent.',
@@ -41,9 +41,9 @@ describe('Prompt Template API (Issue #1499)', () => {
     });
   }
 
-  // ── POST /api/prompt-templates ────────────────────────────
+  // ── POST /prompt-templates ────────────────────────────
 
-  describe('POST /api/prompt-templates', () => {
+  describe('POST /prompt-templates', () => {
     it('creates a template with required fields', async () => {
       const res = await createTemplate();
 
@@ -106,16 +106,16 @@ describe('Prompt Template API (Issue #1499)', () => {
 
       await createTemplate({ label: 'Second', is_default: true });
 
-      const getFirst = await app.inject({ method: 'GET', url: `/api/prompt-templates/${firstId}` });
+      const getFirst = await app.inject({ method: 'GET', url: `/prompt-templates/${firstId}` });
       expect(getFirst.json().is_default).toBe(false);
     });
   });
 
-  // ── GET /api/prompt-templates ─────────────────────────────
+  // ── GET /prompt-templates ─────────────────────────────
 
-  describe('GET /api/prompt-templates', () => {
+  describe('GET /prompt-templates', () => {
     it('returns empty list when no templates exist', async () => {
-      const res = await app.inject({ method: 'GET', url: '/api/prompt-templates' });
+      const res = await app.inject({ method: 'GET', url: '/prompt-templates' });
 
       expect(res.statusCode).toBe(200);
       const body = res.json();
@@ -127,7 +127,7 @@ describe('Prompt Template API (Issue #1499)', () => {
       await createTemplate({ label: 'A' });
       await createTemplate({ label: 'B' });
 
-      const res = await app.inject({ method: 'GET', url: '/api/prompt-templates?limit=1' });
+      const res = await app.inject({ method: 'GET', url: '/prompt-templates?limit=1' });
 
       expect(res.statusCode).toBe(200);
       const body = res.json();
@@ -143,7 +143,7 @@ describe('Prompt Template API (Issue #1499)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/prompt-templates?channel_type=sms',
+        url: '/prompt-templates?channel_type=sms',
       });
 
       expect(res.statusCode).toBe(200);
@@ -158,7 +158,7 @@ describe('Prompt Template API (Issue #1499)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/prompt-templates?search=triage',
+        url: '/prompt-templates?search=triage',
       });
 
       expect(res.statusCode).toBe(200);
@@ -168,20 +168,20 @@ describe('Prompt Template API (Issue #1499)', () => {
     it('excludes inactive by default', async () => {
       const created = await createTemplate();
       const id = created.json().id;
-      await app.inject({ method: 'DELETE', url: `/api/prompt-templates/${id}` });
+      await app.inject({ method: 'DELETE', url: `/prompt-templates/${id}` });
 
-      const res = await app.inject({ method: 'GET', url: '/api/prompt-templates' });
+      const res = await app.inject({ method: 'GET', url: '/prompt-templates' });
       expect(res.json().total).toBe(0);
     });
 
     it('includes inactive when requested', async () => {
       const created = await createTemplate();
       const id = created.json().id;
-      await app.inject({ method: 'DELETE', url: `/api/prompt-templates/${id}` });
+      await app.inject({ method: 'DELETE', url: `/prompt-templates/${id}` });
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/prompt-templates?include_inactive=true',
+        url: '/prompt-templates?include_inactive=true',
       });
       expect(res.json().total).toBe(1);
     });
@@ -189,7 +189,7 @@ describe('Prompt Template API (Issue #1499)', () => {
     it('rejects non-numeric limit', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/prompt-templates?limit=abc',
+        url: '/prompt-templates?limit=abc',
       });
       expect(res.statusCode).toBe(400);
       expect(res.json().error).toContain('limit');
@@ -198,7 +198,7 @@ describe('Prompt Template API (Issue #1499)', () => {
     it('rejects non-numeric offset', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/prompt-templates?offset=xyz',
+        url: '/prompt-templates?offset=xyz',
       });
       expect(res.statusCode).toBe(400);
       expect(res.json().error).toContain('offset');
@@ -207,7 +207,7 @@ describe('Prompt Template API (Issue #1499)', () => {
     it('rejects negative offset', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/prompt-templates?offset=-1',
+        url: '/prompt-templates?offset=-1',
       });
       expect(res.statusCode).toBe(400);
     });
@@ -215,20 +215,20 @@ describe('Prompt Template API (Issue #1499)', () => {
     it('rejects zero limit', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/prompt-templates?limit=0',
+        url: '/prompt-templates?limit=0',
       });
       expect(res.statusCode).toBe(400);
     });
   });
 
-  // ── GET /api/prompt-templates/:id ─────────────────────────
+  // ── GET /prompt-templates/:id ─────────────────────────
 
-  describe('GET /api/prompt-templates/:id', () => {
+  describe('GET /prompt-templates/:id', () => {
     it('returns a template by ID', async () => {
       const created = await createTemplate();
       const id = created.json().id;
 
-      const res = await app.inject({ method: 'GET', url: `/api/prompt-templates/${id}` });
+      const res = await app.inject({ method: 'GET', url: `/prompt-templates/${id}` });
 
       expect(res.statusCode).toBe(200);
       expect(res.json().id).toBe(id);
@@ -238,7 +238,7 @@ describe('Prompt Template API (Issue #1499)', () => {
     it('returns 404 for non-existent ID', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/prompt-templates/00000000-0000-0000-0000-000000000000',
+        url: '/prompt-templates/00000000-0000-0000-0000-000000000000',
       });
 
       expect(res.statusCode).toBe(404);
@@ -247,7 +247,7 @@ describe('Prompt Template API (Issue #1499)', () => {
     it('returns 400 for malformed ID', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/prompt-templates/not-a-uuid',
+        url: '/prompt-templates/not-a-uuid',
       });
 
       expect(res.statusCode).toBe(400);
@@ -255,16 +255,16 @@ describe('Prompt Template API (Issue #1499)', () => {
     });
   });
 
-  // ── PUT /api/prompt-templates/:id ─────────────────────────
+  // ── PUT /prompt-templates/:id ─────────────────────────
 
-  describe('PUT /api/prompt-templates/:id', () => {
+  describe('PUT /prompt-templates/:id', () => {
     it('updates label', async () => {
       const created = await createTemplate();
       const id = created.json().id;
 
       const res = await app.inject({
         method: 'PUT',
-        url: `/api/prompt-templates/${id}`,
+        url: `/prompt-templates/${id}`,
         payload: { label: 'Updated Label' },
       });
 
@@ -279,7 +279,7 @@ describe('Prompt Template API (Issue #1499)', () => {
 
       const res = await app.inject({
         method: 'PUT',
-        url: `/api/prompt-templates/${id}`,
+        url: `/prompt-templates/${id}`,
         payload: { content: 'New content' },
       });
 
@@ -293,7 +293,7 @@ describe('Prompt Template API (Issue #1499)', () => {
 
       const res = await app.inject({
         method: 'PUT',
-        url: `/api/prompt-templates/${id}`,
+        url: `/prompt-templates/${id}`,
         payload: { channel_type: 'invalid' },
       });
 
@@ -303,7 +303,7 @@ describe('Prompt Template API (Issue #1499)', () => {
     it('returns 404 for non-existent ID', async () => {
       const res = await app.inject({
         method: 'PUT',
-        url: '/api/prompt-templates/00000000-0000-0000-0000-000000000000',
+        url: '/prompt-templates/00000000-0000-0000-0000-000000000000',
         payload: { label: 'x' },
       });
 
@@ -316,7 +316,7 @@ describe('Prompt Template API (Issue #1499)', () => {
 
       const res = await app.inject({
         method: 'PUT',
-        url: `/api/prompt-templates/${id}`,
+        url: `/prompt-templates/${id}`,
         payload: {},
       });
 
@@ -325,20 +325,20 @@ describe('Prompt Template API (Issue #1499)', () => {
     });
   });
 
-  // ── DELETE /api/prompt-templates/:id ──────────────────────
+  // ── DELETE /prompt-templates/:id ──────────────────────
 
-  describe('DELETE /api/prompt-templates/:id', () => {
+  describe('DELETE /prompt-templates/:id', () => {
     it('soft-deletes a template', async () => {
       const created = await createTemplate();
       const id = created.json().id;
 
-      const res = await app.inject({ method: 'DELETE', url: `/api/prompt-templates/${id}` });
+      const res = await app.inject({ method: 'DELETE', url: `/prompt-templates/${id}` });
       expect(res.statusCode).toBe(204);
 
       // Verify still exists but inactive
       const get = await app.inject({
         method: 'GET',
-        url: `/api/prompt-templates/${id}`,
+        url: `/prompt-templates/${id}`,
       });
       expect(get.statusCode).toBe(200);
       expect(get.json().is_active).toBe(false);
@@ -347,7 +347,7 @@ describe('Prompt Template API (Issue #1499)', () => {
     it('returns 404 for non-existent ID', async () => {
       const res = await app.inject({
         method: 'DELETE',
-        url: '/api/prompt-templates/00000000-0000-0000-0000-000000000000',
+        url: '/prompt-templates/00000000-0000-0000-0000-000000000000',
       });
       expect(res.statusCode).toBe(404);
     });
@@ -356,8 +356,8 @@ describe('Prompt Template API (Issue #1499)', () => {
       const created = await createTemplate();
       const id = created.json().id;
 
-      await app.inject({ method: 'DELETE', url: `/api/prompt-templates/${id}` });
-      const res = await app.inject({ method: 'DELETE', url: `/api/prompt-templates/${id}` });
+      await app.inject({ method: 'DELETE', url: `/prompt-templates/${id}` });
+      const res = await app.inject({ method: 'DELETE', url: `/prompt-templates/${id}` });
       expect(res.statusCode).toBe(404);
     });
   });

@@ -27,11 +27,11 @@ describe('Project Tree', () => {
     await pool.end();
   });
 
-  describe('GET /api/work-items/tree', () => {
+  describe('GET /work-items/tree', () => {
     it('returns empty tree when no work items exist', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/work-items/tree',
+        url: '/work-items/tree',
       });
 
       expect(res.statusCode).toBe(200);
@@ -57,7 +57,7 @@ describe('Project Tree', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/work-items/tree',
+        url: '/work-items/tree',
       });
 
       expect(res.statusCode).toBe(200);
@@ -104,7 +104,7 @@ describe('Project Tree', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/work-items/tree',
+        url: '/work-items/tree',
       });
 
       expect(res.statusCode).toBe(200);
@@ -136,7 +136,7 @@ describe('Project Tree', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/work-items/tree',
+        url: '/work-items/tree',
       });
 
       expect(res.statusCode).toBe(200);
@@ -173,7 +173,7 @@ describe('Project Tree', () => {
       // Get tree from specific root
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/tree?root_id=${project_id}`,
+        url: `/work-items/tree?root_id=${project_id}`,
       });
 
       expect(res.statusCode).toBe(200);

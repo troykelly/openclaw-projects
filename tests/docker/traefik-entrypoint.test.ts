@@ -176,7 +176,7 @@ describe('Traefik dynamic config: api-redirect-router', () => {
     const match = re.exec('https://test.example.com/api/work-items');
     expect(match).not.toBeNull();
     expect(match![1]).toBe('test.example.com');
-    expect(match![2]).toBe('/api/work-items');
+    expect(match![2]).toBe('/work-items');
 
     // Traefik uses Go regex ${N} syntax for capture groups; convert to JS $N for testing
     const jsReplacement = replacement.replace(/\$\{(\d+)\}/g, '$$$1');
@@ -193,7 +193,7 @@ describe('Traefik dynamic config: api-redirect-router', () => {
     expect(match).not.toBeNull();
     // www. is consumed by the non-capturing group, so $1 is the base domain
     expect(match![1]).toBe('test.example.com');
-    expect(match![2]).toBe('/api/auth/login');
+    expect(match![2]).toBe('/auth/login');
 
     // Traefik uses Go regex ${N} syntax for capture groups; convert to JS $N for testing
     const jsReplacement = replacement.replace(/\$\{(\d+)\}/g, '$$$1');

@@ -27,11 +27,11 @@ describe('Channel Default API (Issue #1501)', () => {
     await pool.end();
   });
 
-  // ── GET /api/channel-defaults ─────────────────────────────
+  // ── GET /channel-defaults ─────────────────────────────
 
-  describe('GET /api/channel-defaults', () => {
+  describe('GET /channel-defaults', () => {
     it('returns empty list when no defaults exist', async () => {
-      const res = await app.inject({ method: 'GET', url: '/api/channel-defaults' });
+      const res = await app.inject({ method: 'GET', url: '/channel-defaults' });
 
       expect(res.statusCode).toBe(200);
       expect(res.json()).toHaveLength(0);
@@ -48,23 +48,23 @@ describe('Channel Default API (Issue #1501)', () => {
         ['default', 'email', 'agent-email'],
       );
 
-      const res = await app.inject({ method: 'GET', url: '/api/channel-defaults' });
+      const res = await app.inject({ method: 'GET', url: '/channel-defaults' });
 
       expect(res.statusCode).toBe(200);
       expect(res.json()).toHaveLength(2);
     });
   });
 
-  // ── GET /api/channel-defaults/:channelType ────────────────
+  // ── GET /channel-defaults/:channelType ────────────────
 
-  describe('GET /api/channel-defaults/:channelType', () => {
+  describe('GET /channel-defaults/:channelType', () => {
     it('returns default for channel type', async () => {
       await pool.query(
         `INSERT INTO channel_default (namespace, channel_type, agent_id) VALUES ($1, $2, $3)`,
         ['default', 'sms', 'agent-sms'],
       );
 
-      const res = await app.inject({ method: 'GET', url: '/api/channel-defaults/sms' });
+      const res = await app.inject({ method: 'GET', url: '/channel-defaults/sms' });
 
       expect(res.statusCode).toBe(200);
       expect(res.json().channel_type).toBe('sms');
@@ -72,23 +72,23 @@ describe('Channel Default API (Issue #1501)', () => {
     });
 
     it('returns 404 when no default exists', async () => {
-      const res = await app.inject({ method: 'GET', url: '/api/channel-defaults/sms' });
+      const res = await app.inject({ method: 'GET', url: '/channel-defaults/sms' });
       expect(res.statusCode).toBe(404);
     });
 
     it('returns 400 for invalid channel type', async () => {
-      const res = await app.inject({ method: 'GET', url: '/api/channel-defaults/whatsapp' });
+      const res = await app.inject({ method: 'GET', url: '/channel-defaults/whatsapp' });
       expect(res.statusCode).toBe(400);
     });
   });
 
-  // ── PUT /api/channel-defaults/:channelType ────────────────
+  // ── PUT /channel-defaults/:channelType ────────────────
 
-  describe('PUT /api/channel-defaults/:channelType', () => {
+  describe('PUT /channel-defaults/:channelType', () => {
     it('creates a channel default', async () => {
       const res = await app.inject({
         method: 'PUT',
-        url: '/api/channel-defaults/sms',
+        url: '/channel-defaults/sms',
         payload: { agent_id: 'agent-sms-1' },
       });
 
@@ -100,13 +100,13 @@ describe('Channel Default API (Issue #1501)', () => {
     it('updates existing channel default (upsert)', async () => {
       await app.inject({
         method: 'PUT',
-        url: '/api/channel-defaults/sms',
+        url: '/channel-defaults/sms',
         payload: { agent_id: 'agent-1' },
       });
 
       const res = await app.inject({
         method: 'PUT',
-        url: '/api/channel-defaults/sms',
+        url: '/channel-defaults/sms',
         payload: { agent_id: 'agent-2' },
       });
 
@@ -118,14 +118,14 @@ describe('Channel Default API (Issue #1501)', () => {
       // Create a prompt template first
       const ptRes = await app.inject({
         method: 'POST',
-        url: '/api/prompt-templates',
+        url: '/prompt-templates',
         payload: { label: 'Test', content: 'test content', channel_type: 'sms' },
       });
       const ptId = ptRes.json().id;
 
       const res = await app.inject({
         method: 'PUT',
-        url: '/api/channel-defaults/sms',
+        url: '/channel-defaults/sms',
         payload: { agent_id: 'agent-1', prompt_template_id: ptId },
       });
 
@@ -136,7 +136,7 @@ describe('Channel Default API (Issue #1501)', () => {
     it('rejects missing agent_id', async () => {
       const res = await app.inject({
         method: 'PUT',
-        url: '/api/channel-defaults/sms',
+        url: '/channel-defaults/sms',
         payload: {},
       });
       expect(res.statusCode).toBe(400);
@@ -146,7 +146,7 @@ describe('Channel Default API (Issue #1501)', () => {
     it('rejects invalid channel type', async () => {
       const res = await app.inject({
         method: 'PUT',
-        url: '/api/channel-defaults/whatsapp',
+        url: '/channel-defaults/whatsapp',
         payload: { agent_id: 'agent-1' },
       });
       expect(res.statusCode).toBe(400);
@@ -156,7 +156,7 @@ describe('Channel Default API (Issue #1501)', () => {
     it('rejects invalid prompt_template_id format', async () => {
       const res = await app.inject({
         method: 'PUT',
-        url: '/api/channel-defaults/sms',
+        url: '/channel-defaults/sms',
         payload: { agent_id: 'agent-1', prompt_template_id: 'not-a-uuid' },
       });
       expect(res.statusCode).toBe(400);
@@ -166,7 +166,7 @@ describe('Channel Default API (Issue #1501)', () => {
     it('rejects invalid context_id format', async () => {
       const res = await app.inject({
         method: 'PUT',
-        url: '/api/channel-defaults/sms',
+        url: '/channel-defaults/sms',
         payload: { agent_id: 'agent-1', context_id: 'not-a-uuid' },
       });
       expect(res.statusCode).toBe(400);
@@ -176,7 +176,7 @@ describe('Channel Default API (Issue #1501)', () => {
     it('rejects whitespace-only agent_id', async () => {
       const res = await app.inject({
         method: 'PUT',
-        url: '/api/channel-defaults/sms',
+        url: '/channel-defaults/sms',
         payload: { agent_id: '   ' },
       });
       expect(res.statusCode).toBe(400);
@@ -186,7 +186,7 @@ describe('Channel Default API (Issue #1501)', () => {
     it('returns 400 for nonexistent prompt_template_id FK', async () => {
       const res = await app.inject({
         method: 'PUT',
-        url: '/api/channel-defaults/sms',
+        url: '/channel-defaults/sms',
         payload: { agent_id: 'agent-1', prompt_template_id: '00000000-0000-0000-0000-000000000000' },
       });
       expect(res.statusCode).toBe(400);

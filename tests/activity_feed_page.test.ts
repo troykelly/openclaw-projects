@@ -86,7 +86,7 @@ describe('Activity Feed Page', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/activity?limit=50',
+        url: '/activity?limit=50',
       });
 
       expect(res.statusCode).toBe(200);

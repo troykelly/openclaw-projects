@@ -26,11 +26,11 @@ describe('Contacts API', () => {
     await pool.end();
   });
 
-  describe('GET /api/contacts', () => {
+  describe('GET /contacts', () => {
     it('returns empty array when no contacts exist', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/contacts',
+        url: '/contacts',
       });
 
       expect(res.statusCode).toBe(200);
@@ -43,7 +43,7 @@ describe('Contacts API', () => {
       // Create a contact
       const created = await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: { display_name: 'John Doe', notes: 'Test contact' },
       });
       const { id } = created.json() as { id: string };
@@ -51,13 +51,13 @@ describe('Contacts API', () => {
       // Add an endpoint
       await app.inject({
         method: 'POST',
-        url: `/api/contacts/${id}/endpoints`,
+        url: `/contacts/${id}/endpoints`,
         payload: { endpoint_type: 'email', endpoint_value: 'john@example.com' },
       });
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/contacts',
+        url: '/contacts',
       });
 
       expect(res.statusCode).toBe(200);
@@ -83,18 +83,18 @@ describe('Contacts API', () => {
       // Create two contacts
       await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: { display_name: 'Alice Smith' },
       });
       await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: { display_name: 'Bob Jones' },
       });
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/contacts?search=alice',
+        url: '/contacts?search=alice',
       });
 
       expect(res.statusCode).toBe(200);
@@ -106,26 +106,26 @@ describe('Contacts API', () => {
     it('supports search by email', async () => {
       const created = await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: { display_name: 'Alice Smith' },
       });
       const { id } = created.json() as { id: string };
 
       await app.inject({
         method: 'POST',
-        url: `/api/contacts/${id}/endpoints`,
+        url: `/contacts/${id}/endpoints`,
         payload: { endpoint_type: 'email', endpoint_value: 'alice@example.com' },
       });
 
       await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: { display_name: 'Bob Jones' },
       });
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/contacts?search=alice@example',
+        url: '/contacts?search=alice@example',
       });
 
       expect(res.statusCode).toBe(200);
@@ -139,14 +139,14 @@ describe('Contacts API', () => {
       for (let i = 0; i < 5; i++) {
         await app.inject({
           method: 'POST',
-          url: '/api/contacts',
+          url: '/contacts',
           payload: { display_name: `Contact ${i}` },
         });
       }
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/contacts?limit=2&offset=2',
+        url: '/contacts?limit=2&offset=2',
       });
 
       expect(res.statusCode).toBe(200);
@@ -156,11 +156,11 @@ describe('Contacts API', () => {
     });
   });
 
-  describe('POST /api/contacts', () => {
+  describe('POST /contacts', () => {
     it('creates contact with display_name', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: { display_name: 'Snake Case Name', notes: 'Created with snake_case' },
       });
 
@@ -171,7 +171,7 @@ describe('Contacts API', () => {
       // Verify the contact was created with the correct name
       const get = await app.inject({
         method: 'GET',
-        url: `/api/contacts/${body.id}`,
+        url: `/contacts/${body.id}`,
       });
       expect(get.statusCode).toBe(200);
       const contact = get.json() as { display_name: string; notes: string };
@@ -182,7 +182,7 @@ describe('Contacts API', () => {
     it('accepts contact_kind', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: { display_name: 'Org Contact', contact_kind: 'organisation' },
       });
 
@@ -191,7 +191,7 @@ describe('Contacts API', () => {
 
       const get = await app.inject({
         method: 'GET',
-        url: `/api/contacts/${body.id}`,
+        url: `/contacts/${body.id}`,
       });
       const contact = get.json() as { contact_kind: string };
       expect(contact.contact_kind).toBe('organisation');
@@ -200,7 +200,7 @@ describe('Contacts API', () => {
     it('trims whitespace from display_name', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: { display_name: '  Trimmed Name  ' },
       });
 
@@ -209,7 +209,7 @@ describe('Contacts API', () => {
 
       const get = await app.inject({
         method: 'GET',
-        url: `/api/contacts/${body.id}`,
+        url: `/contacts/${body.id}`,
       });
       const contact = get.json() as { display_name: string };
       expect(contact.display_name).toBe('Trimmed Name');
@@ -218,7 +218,7 @@ describe('Contacts API', () => {
     it('rejects request when display_name is not provided', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: { notes: 'No name provided' },
       });
 
@@ -226,11 +226,11 @@ describe('Contacts API', () => {
     });
   });
 
-  describe('POST /api/contacts with endpoints (#1881)', () => {
+  describe('POST /contacts with endpoints (#1881)', () => {
     it('creates contact with email and phone endpoints', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: {
           given_name: 'Endpoint',
           family_name: 'Test',
@@ -262,7 +262,7 @@ describe('Contacts API', () => {
     it('creates contact without endpoints (backward compat)', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: { display_name: 'No Endpoints' },
       });
 
@@ -279,7 +279,7 @@ describe('Contacts API', () => {
     it('rejects invalid endpoint type', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: {
           display_name: 'Bad Endpoint',
           endpoints: [{ type: 'fax', value: '1234' }],
@@ -293,11 +293,11 @@ describe('Contacts API', () => {
     });
   });
 
-  describe('GET /api/contacts/:id', () => {
+  describe('GET /contacts/:id', () => {
     it('returns 404 for non-existent contact', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/contacts/00000000-0000-0000-0000-000000000000',
+        url: '/contacts/00000000-0000-0000-0000-000000000000',
       });
 
       expect(res.statusCode).toBe(404);
@@ -307,7 +307,7 @@ describe('Contacts API', () => {
       // Create a contact
       const created = await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: { display_name: 'Jane Doe', notes: 'VIP contact' },
       });
       const { id } = created.json() as { id: string };
@@ -315,18 +315,18 @@ describe('Contacts API', () => {
       // Add endpoints
       await app.inject({
         method: 'POST',
-        url: `/api/contacts/${id}/endpoints`,
+        url: `/contacts/${id}/endpoints`,
         payload: { endpoint_type: 'email', endpoint_value: 'jane@example.com' },
       });
       await app.inject({
         method: 'POST',
-        url: `/api/contacts/${id}/endpoints`,
+        url: `/contacts/${id}/endpoints`,
         payload: { endpoint_type: 'phone', endpoint_value: '+1234567890' },
       });
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/contacts/${id}`,
+        url: `/contacts/${id}`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -345,11 +345,11 @@ describe('Contacts API', () => {
     });
   });
 
-  describe('PATCH /api/contacts/:id', () => {
+  describe('PATCH /contacts/:id', () => {
     it('returns 404 for non-existent contact', async () => {
       const res = await app.inject({
         method: 'PATCH',
-        url: '/api/contacts/00000000-0000-0000-0000-000000000000',
+        url: '/contacts/00000000-0000-0000-0000-000000000000',
         payload: { display_name: 'Updated' },
       });
 
@@ -359,14 +359,14 @@ describe('Contacts API', () => {
     it('updates contact display name', async () => {
       const created = await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: { display_name: 'Original Name' },
       });
       const { id } = created.json() as { id: string };
 
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/contacts/${id}`,
+        url: `/contacts/${id}`,
         payload: { display_name: 'Updated Name' },
       });
 
@@ -378,14 +378,14 @@ describe('Contacts API', () => {
     it('updates contact notes', async () => {
       const created = await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: { display_name: 'Test Contact', notes: 'Original notes' },
       });
       const { id } = created.json() as { id: string };
 
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/contacts/${id}`,
+        url: `/contacts/${id}`,
         payload: { notes: 'Updated notes' },
       });
 
@@ -397,14 +397,14 @@ describe('Contacts API', () => {
     it('allows clearing notes with null', async () => {
       const created = await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: { display_name: 'Test Contact', notes: 'Some notes' },
       });
       const { id } = created.json() as { id: string };
 
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/contacts/${id}`,
+        url: `/contacts/${id}`,
         payload: { notes: null },
       });
 
@@ -414,11 +414,11 @@ describe('Contacts API', () => {
     });
   });
 
-  describe('DELETE /api/contacts/:id', () => {
+  describe('DELETE /contacts/:id', () => {
     it('returns 404 for non-existent contact', async () => {
       const res = await app.inject({
         method: 'DELETE',
-        url: '/api/contacts/00000000-0000-0000-0000-000000000000',
+        url: '/contacts/00000000-0000-0000-0000-000000000000',
       });
 
       expect(res.statusCode).toBe(404);
@@ -427,14 +427,14 @@ describe('Contacts API', () => {
     it('deletes contact and returns 204', async () => {
       const created = await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: { display_name: 'To Delete' },
       });
       const { id } = created.json() as { id: string };
 
       const res = await app.inject({
         method: 'DELETE',
-        url: `/api/contacts/${id}`,
+        url: `/contacts/${id}`,
       });
 
       expect(res.statusCode).toBe(204);
@@ -442,7 +442,7 @@ describe('Contacts API', () => {
       // Verify it's deleted
       const check = await app.inject({
         method: 'GET',
-        url: `/api/contacts/${id}`,
+        url: `/contacts/${id}`,
       });
       expect(check.statusCode).toBe(404);
     });
@@ -450,38 +450,38 @@ describe('Contacts API', () => {
     it('deletes associated endpoints (cascade)', async () => {
       const created = await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: { display_name: 'With Endpoints' },
       });
       const { id } = created.json() as { id: string };
 
       await app.inject({
         method: 'POST',
-        url: `/api/contacts/${id}/endpoints`,
+        url: `/contacts/${id}/endpoints`,
         payload: { endpoint_type: 'email', endpoint_value: 'test@example.com' },
       });
 
       const res = await app.inject({
         method: 'DELETE',
-        url: `/api/contacts/${id}`,
+        url: `/contacts/${id}`,
       });
 
       expect(res.statusCode).toBe(204);
     });
   });
 
-  describe('POST /api/contacts/:id/endpoints (#1702)', () => {
+  describe('POST /contacts/:id/endpoints (#1702)', () => {
     it('accepts type/value aliases for endpoint_type/endpoint_value', async () => {
       const created = await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: { display_name: 'Alias Test' },
       });
       const { id } = created.json() as { id: string };
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/contacts/${id}/endpoints`,
+        url: `/contacts/${id}/endpoints`,
         payload: { type: 'email', value: 'alias@example.com' },
       });
 
@@ -494,14 +494,14 @@ describe('Contacts API', () => {
     it('still accepts endpoint_type/endpoint_value (backward compat)', async () => {
       const created = await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: { display_name: 'Legacy Test' },
       });
       const { id } = created.json() as { id: string };
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/contacts/${id}/endpoints`,
+        url: `/contacts/${id}/endpoints`,
         payload: { endpoint_type: 'phone', endpoint_value: '+15551234567' },
       });
 
@@ -514,14 +514,14 @@ describe('Contacts API', () => {
     it('accepts label and is_primary on create', async () => {
       const created = await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: { display_name: 'Label Test' },
       });
       const { id } = created.json() as { id: string };
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/contacts/${id}/endpoints`,
+        url: `/contacts/${id}/endpoints`,
         payload: { type: 'email', value: 'labeled@example.com', label: 'Work', is_primary: true },
       });
 
@@ -534,14 +534,14 @@ describe('Contacts API', () => {
     it('returns aliased field names in response (type, value)', async () => {
       const created = await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: { display_name: 'Response Shape Test' },
       });
       const { id } = created.json() as { id: string };
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/contacts/${id}/endpoints`,
+        url: `/contacts/${id}/endpoints`,
         payload: { type: 'email', value: 'shape@example.com' },
       });
 
@@ -562,14 +562,14 @@ describe('Contacts API', () => {
     it('returns 400 when neither type nor endpoint_type provided', async () => {
       const created = await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: { display_name: 'Error Test' },
       });
       const { id } = created.json() as { id: string };
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/contacts/${id}/endpoints`,
+        url: `/contacts/${id}/endpoints`,
         payload: { value: 'noType@example.com' },
       });
 
@@ -577,11 +577,11 @@ describe('Contacts API', () => {
     });
   });
 
-  describe('GET /api/contacts/:id/work-items', () => {
+  describe('GET /contacts/:id/work-items', () => {
     it('returns 404 for non-existent contact', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/contacts/00000000-0000-0000-0000-000000000000/work-items',
+        url: '/contacts/00000000-0000-0000-0000-000000000000/work-items',
       });
 
       expect(res.statusCode).toBe(404);
@@ -590,14 +590,14 @@ describe('Contacts API', () => {
     it('returns empty array when contact has no associated work items', async () => {
       const created = await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: { display_name: 'No Work Items' },
       });
       const { id } = created.json() as { id: string };
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/contacts/${id}/work-items`,
+        url: `/contacts/${id}/work-items`,
       });
 
       expect(res.statusCode).toBe(200);

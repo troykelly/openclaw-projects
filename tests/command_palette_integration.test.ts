@@ -33,7 +33,7 @@ describe('Command Palette Integration', () => {
     it('returns empty results for empty query', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/search?q=',
+        url: '/search?q=',
       });
 
       expect(res.statusCode).toBe(200);
@@ -53,7 +53,7 @@ describe('Command Palette Integration', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/search?q=login',
+        url: '/search?q=login',
       });
 
       expect(res.statusCode).toBe(200);
@@ -73,7 +73,7 @@ describe('Command Palette Integration', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/search?q=authentication+bug',
+        url: '/search?q=authentication+bug',
       });
 
       expect(res.statusCode).toBe(200);
@@ -90,7 +90,7 @@ describe('Command Palette Integration', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/search?q=smith&types=contact',
+        url: '/search?q=smith&types=contact',
       });
 
       expect(res.statusCode).toBe(200);
@@ -115,7 +115,7 @@ describe('Command Palette Integration', () => {
       // Search only work items
       const workItemRes = await app.inject({
         method: 'GET',
-        url: '/api/search?q=test&types=work_item',
+        url: '/search?q=test&types=work_item',
       });
 
       expect(workItemRes.statusCode).toBe(200);
@@ -125,7 +125,7 @@ describe('Command Palette Integration', () => {
       // Search only contacts
       const contactRes = await app.inject({
         method: 'GET',
-        url: '/api/search?q=test&types=contact',
+        url: '/search?q=test&types=contact',
       });
 
       expect(contactRes.statusCode).toBe(200);
@@ -145,7 +145,7 @@ describe('Command Palette Integration', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/search?q=search&limit=5',
+        url: '/search?q=search&limit=5',
       });
 
       expect(res.statusCode).toBe(200);
@@ -163,7 +163,7 @@ describe('Command Palette Integration', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/search?q=navigate+test',
+        url: '/search?q=navigate+test',
       });
 
       expect(res.statusCode).toBe(200);

@@ -37,7 +37,7 @@ describe('Chat Message API (#1943)', () => {
   async function createSession(agentId: string = 'test-agent'): Promise<Record<string, unknown>> {
     const res = await app.inject({
       method: 'POST',
-      url: '/api/chat/sessions',
+      url: '/chat/sessions',
       headers: { 'x-user-email': 'msg-user@example.com' },
       payload: { agent_id: agentId },
     });
@@ -46,16 +46,16 @@ describe('Chat Message API (#1943)', () => {
   }
 
   // ================================================================
-  // POST /api/chat/sessions/:id/messages — Send message
+  // POST /chat/sessions/:id/messages — Send message
   // ================================================================
 
-  describe('POST /api/chat/sessions/:id/messages', () => {
+  describe('POST /chat/sessions/:id/messages', () => {
     it('sends a message to an active session', async () => {
       const session = await createSession();
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/chat/sessions/${session.id}/messages`,
+        url: `/chat/sessions/${session.id}/messages`,
         headers: { 'x-user-email': 'msg-user@example.com' },
         payload: {
           content: 'Hello, agent!',
@@ -77,7 +77,7 @@ describe('Chat Message API (#1943)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/chat/sessions/${session.id}/messages`,
+        url: `/chat/sessions/${session.id}/messages`,
         headers: { 'x-user-email': 'msg-user@example.com' },
         payload: {
           content: '# Hello\n\nWorld',
@@ -97,7 +97,7 @@ describe('Chat Message API (#1943)', () => {
 
       const res1 = await app.inject({
         method: 'POST',
-        url: `/api/chat/sessions/${session.id}/messages`,
+        url: `/chat/sessions/${session.id}/messages`,
         headers: { 'x-user-email': 'msg-user@example.com' },
         payload: { content: 'First send', idempotency_key: idempotencyKey },
       });
@@ -106,7 +106,7 @@ describe('Chat Message API (#1943)', () => {
 
       const res2 = await app.inject({
         method: 'POST',
-        url: `/api/chat/sessions/${session.id}/messages`,
+        url: `/chat/sessions/${session.id}/messages`,
         headers: { 'x-user-email': 'msg-user@example.com' },
         payload: { content: 'Second send', idempotency_key: idempotencyKey },
       });
@@ -121,7 +121,7 @@ describe('Chat Message API (#1943)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/chat/sessions/${session.id}/messages`,
+        url: `/chat/sessions/${session.id}/messages`,
         headers: { 'x-user-email': 'msg-user@example.com' },
         payload: { idempotency_key: randomUUID() },
       });
@@ -136,7 +136,7 @@ describe('Chat Message API (#1943)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/chat/sessions/${session.id}/messages`,
+        url: `/chat/sessions/${session.id}/messages`,
         headers: { 'x-user-email': 'msg-user@example.com' },
         payload: {
           content: 'x'.repeat(65537),
@@ -154,7 +154,7 @@ describe('Chat Message API (#1943)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/chat/sessions/${session.id}/messages`,
+        url: `/chat/sessions/${session.id}/messages`,
         headers: { 'x-user-email': 'msg-user@example.com' },
         payload: {
           content: 'Hello',
@@ -173,7 +173,7 @@ describe('Chat Message API (#1943)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/chat/sessions/${session.id}/messages`,
+        url: `/chat/sessions/${session.id}/messages`,
         headers: { 'x-user-email': 'msg-user@example.com' },
         payload: {
           content: 'Hello',
@@ -192,13 +192,13 @@ describe('Chat Message API (#1943)', () => {
       // End the session
       await app.inject({
         method: 'POST',
-        url: `/api/chat/sessions/${session.id}/end`,
+        url: `/chat/sessions/${session.id}/end`,
         headers: { 'x-user-email': 'msg-user@example.com' },
       });
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/chat/sessions/${session.id}/messages`,
+        url: `/chat/sessions/${session.id}/messages`,
         headers: { 'x-user-email': 'msg-user@example.com' },
         payload: { content: 'Hello', idempotency_key: randomUUID() },
       });
@@ -211,7 +211,7 @@ describe('Chat Message API (#1943)', () => {
     it('returns 404 for non-existent session', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/chat/sessions/00000000-0000-0000-0000-000000000000/messages',
+        url: '/chat/sessions/00000000-0000-0000-0000-000000000000/messages',
         headers: { 'x-user-email': 'msg-user@example.com' },
         payload: { content: 'Hello', idempotency_key: randomUUID() },
       });
@@ -222,7 +222,7 @@ describe('Chat Message API (#1943)', () => {
     it('rejects invalid session UUID', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/chat/sessions/not-uuid/messages',
+        url: '/chat/sessions/not-uuid/messages',
         headers: { 'x-user-email': 'msg-user@example.com' },
         payload: { content: 'Hello' },
       });
@@ -235,7 +235,7 @@ describe('Chat Message API (#1943)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/chat/sessions/${session.id}/messages`,
+        url: `/chat/sessions/${session.id}/messages`,
         headers: { 'x-user-email': 'msg-user@example.com' },
         payload: { content: 'Hello without key' },
       });
@@ -247,10 +247,10 @@ describe('Chat Message API (#1943)', () => {
   });
 
   // ================================================================
-  // GET /api/chat/sessions/:id/messages — List messages
+  // GET /chat/sessions/:id/messages — List messages
   // ================================================================
 
-  describe('GET /api/chat/sessions/:id/messages', () => {
+  describe('GET /chat/sessions/:id/messages', () => {
     it('lists messages for a session', async () => {
       const session = await createSession();
 
@@ -258,7 +258,7 @@ describe('Chat Message API (#1943)', () => {
       for (let i = 0; i < 3; i++) {
         await app.inject({
           method: 'POST',
-          url: `/api/chat/sessions/${session.id}/messages`,
+          url: `/chat/sessions/${session.id}/messages`,
           headers: { 'x-user-email': 'msg-user@example.com' },
           payload: { content: `Message ${i}`, idempotency_key: randomUUID() },
         });
@@ -266,7 +266,7 @@ describe('Chat Message API (#1943)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/chat/sessions/${session.id}/messages`,
+        url: `/chat/sessions/${session.id}/messages`,
         headers: { 'x-user-email': 'msg-user@example.com' },
       });
 
@@ -291,7 +291,7 @@ describe('Chat Message API (#1943)', () => {
       for (let i = 0; i < 5; i++) {
         await app.inject({
           method: 'POST',
-          url: `/api/chat/sessions/${session.id}/messages`,
+          url: `/chat/sessions/${session.id}/messages`,
           headers: { 'x-user-email': 'msg-user@example.com' },
           payload: { content: `Message ${i}`, idempotency_key: randomUUID() },
         });
@@ -301,7 +301,7 @@ describe('Chat Message API (#1943)', () => {
       // First page
       const res1 = await app.inject({
         method: 'GET',
-        url: `/api/chat/sessions/${session.id}/messages?limit=3`,
+        url: `/chat/sessions/${session.id}/messages?limit=3`,
         headers: { 'x-user-email': 'msg-user@example.com' },
       });
 
@@ -312,7 +312,7 @@ describe('Chat Message API (#1943)', () => {
       // Second page
       const res2 = await app.inject({
         method: 'GET',
-        url: `/api/chat/sessions/${session.id}/messages?limit=3&cursor=${encodeURIComponent(page1.next_cursor!)}`,
+        url: `/chat/sessions/${session.id}/messages?limit=3&cursor=${encodeURIComponent(page1.next_cursor!)}`,
         headers: { 'x-user-email': 'msg-user@example.com' },
       });
 
@@ -333,7 +333,7 @@ describe('Chat Message API (#1943)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/chat/sessions/${session.id}/messages`,
+        url: `/chat/sessions/${session.id}/messages`,
         headers: { 'x-user-email': 'msg-user@example.com' },
       });
 
@@ -345,7 +345,7 @@ describe('Chat Message API (#1943)', () => {
     it('returns 404 for non-existent session', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/chat/sessions/00000000-0000-0000-0000-000000000000/messages',
+        url: '/chat/sessions/00000000-0000-0000-0000-000000000000/messages',
         headers: { 'x-user-email': 'msg-user@example.com' },
       });
 
@@ -358,7 +358,7 @@ describe('Chat Message API (#1943)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/chat/sessions/${session.id}/messages`,
+        url: `/chat/sessions/${session.id}/messages`,
         headers: { 'x-user-email': 'other@example.com' },
       });
 
@@ -381,7 +381,7 @@ describe('Chat Message API (#1943)', () => {
 
         await app.inject({
           method: 'POST',
-          url: `/api/chat/sessions/${session.id}/messages`,
+          url: `/chat/sessions/${session.id}/messages`,
           headers: { 'x-user-email': 'msg-user@example.com' },
           payload: { content: 'Trigger webhook', idempotency_key: randomUUID() },
         });

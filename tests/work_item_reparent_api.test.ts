@@ -26,13 +26,13 @@ describe('Work Item Reparent API (issue #105)', () => {
   async function createItem(title: string, kind: string, parent_id?: string): Promise<string> {
     const res = await app.inject({
       method: 'POST',
-      url: '/api/work-items',
+      url: '/work-items',
       payload: { title, kind, parent_id },
     });
     return (res.json() as { id: string }).id;
   }
 
-  describe('PATCH /api/work-items/:id/reparent', () => {
+  describe('PATCH /work-items/:id/reparent', () => {
     it('moves epic to different initiative', async () => {
       // Create project -> initiative1 -> epic
       //                -> initiative2 (target)
@@ -43,7 +43,7 @@ describe('Work Item Reparent API (issue #105)', () => {
 
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${epicId}/reparent`,
+        url: `/work-items/${epicId}/reparent`,
         payload: { new_parent_id: init2Id },
       });
       expect(res.statusCode).toBe(200);
@@ -63,7 +63,7 @@ describe('Work Item Reparent API (issue #105)', () => {
 
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${issueId}/reparent`,
+        url: `/work-items/${issueId}/reparent`,
         payload: { new_parent_id: epic2Id },
       });
       expect(res.statusCode).toBe(200);
@@ -79,7 +79,7 @@ describe('Work Item Reparent API (issue #105)', () => {
 
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${initId}/reparent`,
+        url: `/work-items/${initId}/reparent`,
         payload: { new_parent_id: project2Id },
       });
       expect(res.statusCode).toBe(200);
@@ -94,7 +94,7 @@ describe('Work Item Reparent API (issue #105)', () => {
 
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${initId}/reparent`,
+        url: `/work-items/${initId}/reparent`,
         payload: { new_parent_id: null },
       });
       expect(res.statusCode).toBe(200);
@@ -118,7 +118,7 @@ describe('Work Item Reparent API (issue #105)', () => {
       // Move epic1 to init2, after epic2
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${epic1Id}/reparent`,
+        url: `/work-items/${epic1Id}/reparent`,
         payload: { new_parent_id: init2Id, after_id: epic2Id },
       });
       expect(res.statusCode).toBe(200);
@@ -143,7 +143,7 @@ describe('Work Item Reparent API (issue #105)', () => {
 
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${epicId}/reparent`,
+        url: `/work-items/${epicId}/reparent`,
         payload: { new_parent_id: project_id },
       });
       expect(res.statusCode).toBe(400);
@@ -158,7 +158,7 @@ describe('Work Item Reparent API (issue #105)', () => {
 
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${issueId}/reparent`,
+        url: `/work-items/${issueId}/reparent`,
         payload: { new_parent_id: initId },
       });
       expect(res.statusCode).toBe(400);
@@ -172,7 +172,7 @@ describe('Work Item Reparent API (issue #105)', () => {
 
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${init1Id}/reparent`,
+        url: `/work-items/${init1Id}/reparent`,
         payload: { new_parent_id: init2Id },
       });
       expect(res.statusCode).toBe(400);
@@ -185,7 +185,7 @@ describe('Work Item Reparent API (issue #105)', () => {
 
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${project1Id}/reparent`,
+        url: `/work-items/${project1Id}/reparent`,
         payload: { new_parent_id: project2Id },
       });
       expect(res.statusCode).toBe(400);
@@ -200,7 +200,7 @@ describe('Work Item Reparent API (issue #105)', () => {
       // Try to make initiative a child of epic (circular through hierarchy)
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${initId}/reparent`,
+        url: `/work-items/${initId}/reparent`,
         payload: { new_parent_id: epicId },
       });
       expect(res.statusCode).toBe(400);
@@ -211,7 +211,7 @@ describe('Work Item Reparent API (issue #105)', () => {
     it('returns 404 for non-existent work item', async () => {
       const res = await app.inject({
         method: 'PATCH',
-        url: '/api/work-items/00000000-0000-0000-0000-000000000000/reparent',
+        url: '/work-items/00000000-0000-0000-0000-000000000000/reparent',
         payload: { new_parent_id: null },
       });
       expect(res.statusCode).toBe(404);
@@ -224,7 +224,7 @@ describe('Work Item Reparent API (issue #105)', () => {
 
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${initId}/reparent`,
+        url: `/work-items/${initId}/reparent`,
         payload: { new_parent_id: '00000000-0000-0000-0000-000000000000' },
       });
       expect(res.statusCode).toBe(400);
@@ -237,7 +237,7 @@ describe('Work Item Reparent API (issue #105)', () => {
 
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${initId}/reparent`,
+        url: `/work-items/${initId}/reparent`,
         payload: { new_parent_id: initId },
       });
       expect(res.statusCode).toBe(400);

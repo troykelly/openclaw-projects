@@ -32,10 +32,10 @@ describe('Issue #1141 - Route Path Collisions', () => {
     await app.close();
   });
 
-  it('GET /api/memories/search should not be treated as /:id route', async () => {
+  it('GET /memories/search should not be treated as /:id route', async () => {
     const response = await app.inject({
       method: 'GET',
-      url: '/api/memories/search?q=test',
+      url: '/memories/search?q=test',
     });
 
     // Should not get UUID parsing error
@@ -49,10 +49,10 @@ describe('Issue #1141 - Route Path Collisions', () => {
     expect([200, 400]).toContain(response.statusCode);
   });
 
-  it('GET /api/contacts/search should not be treated as /:id route', async () => {
+  it('GET /contacts/search should not be treated as /:id route', async () => {
     const response = await app.inject({
       method: 'GET',
-      url: '/api/contacts/search?q=test',
+      url: '/contacts/search?q=test',
     });
 
     console.log('Response status:', response.statusCode);
@@ -69,10 +69,10 @@ describe('Issue #1141 - Route Path Collisions', () => {
     expect([200, 301, 400]).toContain(response.statusCode);
   });
 
-  it('GET /api/files/share should not be treated as /:id route', async () => {
+  it('GET /files/share should not be treated as /:id route', async () => {
     const response = await app.inject({
       method: 'GET',
-      url: '/api/files/share?token=test',
+      url: '/files/share?token=test',
     });
 
     // Should not get UUID parsing error

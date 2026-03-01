@@ -59,11 +59,11 @@ describe('Postmark Inbound Webhook', () => {
     await pool.end();
   });
 
-  describe('POST /api/postmark/inbound', () => {
+  describe('POST /postmark/inbound', () => {
     it('returns 400 for missing required fields', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: '/api/postmark/inbound',
+        url: '/postmark/inbound',
         payload: { Subject: 'Test' }, // Missing MessageID and FromFull
       });
 
@@ -76,7 +76,7 @@ describe('Postmark Inbound Webhook', () => {
 
       const response = await app.inject({
         method: 'POST',
-        url: '/api/postmark/inbound',
+        url: '/postmark/inbound',
         payload,
       });
 
@@ -107,7 +107,7 @@ describe('Postmark Inbound Webhook', () => {
 
       const response1 = await app.inject({
         method: 'POST',
-        url: '/api/postmark/inbound',
+        url: '/postmark/inbound',
         payload: payload1,
       });
       expect(response1.statusCode).toBe(200);
@@ -124,7 +124,7 @@ describe('Postmark Inbound Webhook', () => {
 
       const response2 = await app.inject({
         method: 'POST',
-        url: '/api/postmark/inbound',
+        url: '/postmark/inbound',
         payload: payload2,
       });
       expect(response2.statusCode).toBe(200);
@@ -145,7 +145,7 @@ describe('Postmark Inbound Webhook', () => {
 
       await app.inject({
         method: 'POST',
-        url: '/api/postmark/inbound',
+        url: '/postmark/inbound',
         payload,
       });
 
@@ -170,7 +170,7 @@ describe('Postmark Inbound Webhook', () => {
 
       const response1 = await app.inject({
         method: 'POST',
-        url: '/api/postmark/inbound',
+        url: '/postmark/inbound',
         payload: originalPayload,
       });
       const originalThreadId = response1.json().thread_id;
@@ -187,7 +187,7 @@ describe('Postmark Inbound Webhook', () => {
 
       const response2 = await app.inject({
         method: 'POST',
-        url: '/api/postmark/inbound',
+        url: '/postmark/inbound',
         payload: replyPayload,
       });
       const replyThreadId = response2.json().thread_id;
@@ -212,7 +212,7 @@ describe('Postmark Inbound Webhook', () => {
 
       await app.inject({
         method: 'POST',
-        url: '/api/postmark/inbound',
+        url: '/postmark/inbound',
         payload,
       });
 
@@ -251,7 +251,7 @@ describe('Postmark Inbound Webhook', () => {
 
       await app.inject({
         method: 'POST',
-        url: '/api/postmark/inbound',
+        url: '/postmark/inbound',
         payload,
       });
 
@@ -280,7 +280,7 @@ describe('Postmark Inbound Webhook', () => {
 
       await app.inject({
         method: 'POST',
-        url: '/api/postmark/inbound',
+        url: '/postmark/inbound',
         payload,
       });
 
@@ -299,7 +299,7 @@ describe('Postmark Inbound Webhook', () => {
 
       await app.inject({
         method: 'POST',
-        url: '/api/postmark/inbound',
+        url: '/postmark/inbound',
         payload,
       });
 
@@ -313,13 +313,13 @@ describe('Postmark Inbound Webhook', () => {
       // Send same message twice
       await app.inject({
         method: 'POST',
-        url: '/api/postmark/inbound',
+        url: '/postmark/inbound',
         payload,
       });
 
       const response = await app.inject({
         method: 'POST',
-        url: '/api/postmark/inbound',
+        url: '/postmark/inbound',
         payload, // Same MessageID
       });
 
@@ -342,7 +342,7 @@ describe('Postmark Inbound Webhook', () => {
 
       const response = await app.inject({
         method: 'POST',
-        url: '/api/postmark/inbound',
+        url: '/postmark/inbound',
         payload,
         headers: {
           // No Authorization header
@@ -357,7 +357,7 @@ describe('Postmark Inbound Webhook', () => {
 
       const response = await app.inject({
         method: 'POST',
-        url: '/api/postmark/inbound',
+        url: '/postmark/inbound',
         payload,
         headers: {
           authorization: createBasicAuth('wrong-user', 'wrong-pass'),
@@ -372,7 +372,7 @@ describe('Postmark Inbound Webhook', () => {
 
       const response = await app.inject({
         method: 'POST',
-        url: '/api/postmark/inbound',
+        url: '/postmark/inbound',
         payload,
         headers: {
           authorization: createBasicAuth(webhookUsername, webhookPassword),
@@ -388,7 +388,7 @@ describe('Postmark Inbound Webhook', () => {
 
       const response = await app.inject({
         method: 'POST',
-        url: '/api/postmark/inbound',
+        url: '/postmark/inbound',
         payload,
         // No Authorization header
       });

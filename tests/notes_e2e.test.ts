@@ -338,7 +338,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
       // Create a note first
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: { user_email: primaryUser, title: 'Navigation Test' },
       });
       const noteId = createRes.json<NoteResponse>().id;
@@ -367,7 +367,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
       // Create a notebook
       const nbRes = await app.inject({
         method: 'POST',
-        url: '/api/notebooks',
+        url: '/notebooks',
         payload: { user_email: primaryUser, name: 'Test Notebook' },
       });
       const notebook_id = nbRes.json<NotebookResponse>().id;
@@ -392,7 +392,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
       // 1. Create a notebook
       const nbRes = await app.inject({
         method: 'POST',
-        url: '/api/notebooks',
+        url: '/notebooks',
         payload: {
           user_email: primaryUser,
           name: 'Project Notes',
@@ -410,7 +410,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
       // 2. Create notes in the notebook
       const note1Res = await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: {
           user_email: primaryUser,
           title: 'Meeting Notes',
@@ -426,7 +426,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
 
       const note2Res = await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: {
           user_email: primaryUser,
           title: 'Action Items',
@@ -441,7 +441,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
       // 3. Verify notebook now has 2 notes
       const nbGetRes = await app.inject({
         method: 'GET',
-        url: `/api/notebooks/${notebook.id}`,
+        url: `/notebooks/${notebook.id}`,
         query: { user_email: primaryUser, include_notes: 'true' },
       });
 
@@ -451,7 +451,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
       // 4. Update a note
       const updateRes = await app.inject({
         method: 'PUT',
-        url: `/api/notes/${note1.id}`,
+        url: `/notes/${note1.id}`,
         payload: {
           user_email: primaryUser,
           title: 'Updated Meeting Notes',
@@ -465,7 +465,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
       // 5. Delete a note
       const deleteRes = await app.inject({
         method: 'DELETE',
-        url: `/api/notes/${note2Res.json<NoteResponse>().id}`,
+        url: `/notes/${note2Res.json<NoteResponse>().id}`,
         query: { user_email: primaryUser },
       });
 
@@ -474,7 +474,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
       // 6. Verify soft delete
       const listRes = await app.inject({
         method: 'GET',
-        url: '/api/notes',
+        url: '/notes',
         query: { user_email: primaryUser, notebook_id: notebook.id },
       });
 
@@ -483,7 +483,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
       // 7. Restore the deleted note
       const restoreRes = await app.inject({
         method: 'POST',
-        url: `/api/notes/${note2Res.json<NoteResponse>().id}/restore`,
+        url: `/notes/${note2Res.json<NoteResponse>().id}/restore`,
         payload: { user_email: primaryUser },
       });
 
@@ -492,7 +492,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
       // 8. Verify restore
       const listRes2 = await app.inject({
         method: 'GET',
-        url: '/api/notes',
+        url: '/notes',
         query: { user_email: primaryUser, notebook_id: notebook.id },
       });
 
@@ -501,7 +501,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
       // 9. Delete the notebook (moves notes to root)
       const nbDeleteRes = await app.inject({
         method: 'DELETE',
-        url: `/api/notebooks/${notebook.id}`,
+        url: `/notebooks/${notebook.id}`,
         query: { user_email: primaryUser },
       });
 
@@ -510,7 +510,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
       // 10. Verify notes are now at root
       const finalListRes = await app.inject({
         method: 'GET',
-        url: '/api/notes',
+        url: '/notes',
         query: { user_email: primaryUser },
       });
 
@@ -523,7 +523,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
       // 1. Create root notebook
       const rootRes = await app.inject({
         method: 'POST',
-        url: '/api/notebooks',
+        url: '/notebooks',
         payload: { user_email: primaryUser, name: 'Root' },
       });
       const rootId = rootRes.json<NotebookResponse>().id;
@@ -531,7 +531,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
       // 2. Create child notebook
       const childRes = await app.inject({
         method: 'POST',
-        url: '/api/notebooks',
+        url: '/notebooks',
         payload: {
           user_email: primaryUser,
           name: 'Child',
@@ -545,7 +545,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
       // 3. Create grandchild notebook
       const grandchildRes = await app.inject({
         method: 'POST',
-        url: '/api/notebooks',
+        url: '/notebooks',
         payload: {
           user_email: primaryUser,
           name: 'Grandchild',
@@ -557,7 +557,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
       // 4. Get tree view
       const treeRes = await app.inject({
         method: 'GET',
-        url: '/api/notebooks/tree',
+        url: '/notebooks/tree',
         query: { user_email: primaryUser },
       });
 
@@ -574,7 +574,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
       // Create notes
       const note1Res = await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: { user_email: primaryUser, title: 'Note 1' },
       });
       const note1 = note1Res.json<NoteResponse>();
@@ -582,7 +582,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
 
       const note2Res = await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: { user_email: primaryUser, title: 'Note 2', is_pinned: true },
       });
       const note2 = note2Res.json<NoteResponse>();
@@ -594,7 +594,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
       // Pin note 1
       const pinRes = await app.inject({
         method: 'PUT',
-        url: `/api/notes/${note1Id}`,
+        url: `/notes/${note1Id}`,
         payload: { user_email: primaryUser, is_pinned: true },
       });
       expect(pinRes.json<NoteResponse>().is_pinned).toBe(true);
@@ -602,7 +602,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
       // List pinned notes
       const pinnedRes = await app.inject({
         method: 'GET',
-        url: '/api/notes',
+        url: '/notes',
         query: { user_email: primaryUser, is_pinned: 'true' },
       });
       expect(pinnedRes.json<NotesListResponse>().notes).toHaveLength(2);
@@ -634,7 +634,7 @@ This is a **bold** and *italic* text.
 
       const res = await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: {
           user_email: primaryUser,
           title: 'Markdown Test',
@@ -663,7 +663,7 @@ def hello(name: str) -> str:
 
       const res = await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: {
           user_email: primaryUser,
           title: 'Code Block Test',
@@ -688,7 +688,7 @@ def hello(name: str) -> str:
 
       const res = await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: {
           user_email: primaryUser,
           title: 'Table Test',
@@ -711,7 +711,7 @@ def hello(name: str) -> str:
 
       const res = await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: {
           user_email: primaryUser,
           title: 'Links Test',
@@ -736,7 +736,7 @@ graph TD
 
       const res = await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: {
           user_email: primaryUser,
           title: 'Mermaid Test',
@@ -764,7 +764,7 @@ $$
 
       const res = await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: {
           user_email: primaryUser,
           title: 'Math Test',
@@ -788,7 +788,7 @@ $$
       // Create test notes for search
       await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: {
           user_email: primaryUser,
           title: 'TypeScript Guide',
@@ -800,7 +800,7 @@ $$
 
       await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: {
           user_email: primaryUser,
           title: 'Python Tutorial',
@@ -812,7 +812,7 @@ $$
 
       await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: {
           user_email: primaryUser,
           title: 'Private Journal',
@@ -826,7 +826,7 @@ $$
     it('searches notes by content using text search', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/notes/search',
+        url: '/notes/search',
         query: {
           user_email: primaryUser,
           q: 'TypeScript',
@@ -845,7 +845,7 @@ $$
     it('filters notes by tags', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/notes',
+        url: '/notes',
         query: {
           user_email: primaryUser,
           tags: 'programming',
@@ -861,7 +861,7 @@ $$
     it('filters notes by visibility', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/notes',
+        url: '/notes',
         query: {
           user_email: primaryUser,
           visibility: 'private',
@@ -877,7 +877,7 @@ $$
     it('supports sorting options', async () => {
       const ascRes = await app.inject({
         method: 'GET',
-        url: '/api/notes',
+        url: '/notes',
         query: {
           user_email: primaryUser,
           sort_by: 'title',
@@ -887,7 +887,7 @@ $$
 
       const descRes = await app.inject({
         method: 'GET',
-        url: '/api/notes',
+        url: '/notes',
         query: {
           user_email: primaryUser,
           sort_by: 'title',
@@ -907,7 +907,7 @@ $$
     it('supports pagination', async () => {
       const page1Res = await app.inject({
         method: 'GET',
-        url: '/api/notes',
+        url: '/notes',
         query: {
           user_email: primaryUser,
           limit: '2',
@@ -917,7 +917,7 @@ $$
 
       const page2Res = await app.inject({
         method: 'GET',
-        url: '/api/notes',
+        url: '/notes',
         query: {
           user_email: primaryUser,
           limit: '2',
@@ -954,7 +954,7 @@ $$
       // 1. Create a note as primary user
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: {
           user_email: primaryUser,
           title: 'Shared Document',
@@ -968,7 +968,7 @@ $$
       // 2. Secondary user cannot access yet
       const beforeShareRes = await app.inject({
         method: 'GET',
-        url: `/api/notes/${noteId}`,
+        url: `/notes/${noteId}`,
         query: { user_email: secondaryUser },
       });
       expect(beforeShareRes.statusCode).toBe(404);
@@ -976,7 +976,7 @@ $$
       // 3. Share with secondary user
       const shareRes = await app.inject({
         method: 'POST',
-        url: `/api/notes/${noteId}/share`,
+        url: `/notes/${noteId}/share`,
         payload: {
           user_email: primaryUser,
           email: secondaryUser,
@@ -991,7 +991,7 @@ $$
       // 4. Secondary user can now access
       const afterShareRes = await app.inject({
         method: 'GET',
-        url: `/api/notes/${noteId}`,
+        url: `/notes/${noteId}`,
         query: { user_email: secondaryUser },
       });
       expect(afterShareRes.statusCode).toBe(200);
@@ -1000,7 +1000,7 @@ $$
       // 5. Verify in shared-with-me list
       const sharedListRes = await app.inject({
         method: 'GET',
-        url: '/api/notes/shared-with-me',
+        url: '/notes/shared-with-me',
         query: { user_email: secondaryUser },
       });
       expect(sharedListRes.statusCode).toBe(200);
@@ -1009,7 +1009,7 @@ $$
       // 6. Secondary user cannot edit with read permission
       const editRes = await app.inject({
         method: 'PUT',
-        url: `/api/notes/${noteId}`,
+        url: `/notes/${noteId}`,
         payload: {
           user_email: secondaryUser,
           title: 'Hacked Title',
@@ -1020,7 +1020,7 @@ $$
       // 7. Upgrade to read_write
       const updateShareRes = await app.inject({
         method: 'PUT',
-        url: `/api/notes/${noteId}/shares/${share.id}`,
+        url: `/notes/${noteId}/shares/${share.id}`,
         payload: {
           user_email: primaryUser,
           permission: 'read_write',
@@ -1031,7 +1031,7 @@ $$
       // 8. Secondary user can now edit
       const editRes2 = await app.inject({
         method: 'PUT',
-        url: `/api/notes/${noteId}`,
+        url: `/notes/${noteId}`,
         payload: {
           user_email: secondaryUser,
           title: 'Updated by Collaborator',
@@ -1042,7 +1042,7 @@ $$
       // 9. Revoke share
       const revokeRes = await app.inject({
         method: 'DELETE',
-        url: `/api/notes/${noteId}/shares/${share.id}`,
+        url: `/notes/${noteId}/shares/${share.id}`,
         query: { user_email: primaryUser },
       });
       expect(revokeRes.statusCode).toBe(204);
@@ -1050,7 +1050,7 @@ $$
       // 10. Secondary user cannot access anymore
       const afterRevokeRes = await app.inject({
         method: 'GET',
-        url: `/api/notes/${noteId}`,
+        url: `/notes/${noteId}`,
         query: { user_email: secondaryUser },
       });
       expect(afterRevokeRes.statusCode).toBe(404);
@@ -1060,7 +1060,7 @@ $$
       // 1. Create a note
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: {
           user_email: primaryUser,
           title: 'Link Shared Note',
@@ -1072,7 +1072,7 @@ $$
       // 2. Create share link
       const linkRes = await app.inject({
         method: 'POST',
-        url: `/api/notes/${noteId}/share/link`,
+        url: `/notes/${noteId}/share/link`,
         payload: { user_email: primaryUser },
       });
 
@@ -1084,7 +1084,7 @@ $$
       // 3. Access note via link (no authentication needed)
       const accessRes = await app.inject({
         method: 'GET',
-        url: `/api/shared/notes/${link.token}`,
+        url: `/shared/notes/${link.token}`,
       });
 
       expect(accessRes.statusCode).toBe(200);
@@ -1097,7 +1097,7 @@ $$
       // 1. Create a note
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: {
           user_email: primaryUser,
           title: 'One Time Note',
@@ -1109,7 +1109,7 @@ $$
       // 2. Create single-view link
       const linkRes = await app.inject({
         method: 'POST',
-        url: `/api/notes/${noteId}/share/link`,
+        url: `/notes/${noteId}/share/link`,
         payload: {
           user_email: primaryUser,
           is_single_view: true,
@@ -1120,14 +1120,14 @@ $$
       // 3. First access works
       const access1Res = await app.inject({
         method: 'GET',
-        url: `/api/shared/notes/${token}`,
+        url: `/shared/notes/${token}`,
       });
       expect(access1Res.statusCode).toBe(200);
 
       // 4. Second access fails
       const access2Res = await app.inject({
         method: 'GET',
-        url: `/api/shared/notes/${token}`,
+        url: `/shared/notes/${token}`,
       });
       expect(access2Res.statusCode).toBe(410); // Gone
     });
@@ -1136,14 +1136,14 @@ $$
       // 1. Create notebook with notes
       const nbRes = await app.inject({
         method: 'POST',
-        url: '/api/notebooks',
+        url: '/notebooks',
         payload: { user_email: primaryUser, name: 'Shared Notebook' },
       });
       const notebook_id = nbRes.json<NotebookResponse>().id;
 
       await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: {
           user_email: primaryUser,
           title: 'Note in Shared Notebook',
@@ -1154,7 +1154,7 @@ $$
       // 2. Share notebook
       const shareRes = await app.inject({
         method: 'POST',
-        url: `/api/notebooks/${notebook_id}/share`,
+        url: `/notebooks/${notebook_id}/share`,
         payload: {
           user_email: primaryUser,
           email: secondaryUser,
@@ -1166,7 +1166,7 @@ $$
       // 3. Check shared-with-me for notebooks
       const sharedNbRes = await app.inject({
         method: 'GET',
-        url: '/api/notebooks/shared-with-me',
+        url: '/notebooks/shared-with-me',
         query: { user_email: secondaryUser },
       });
       expect(sharedNbRes.statusCode).toBe(200);
@@ -1183,7 +1183,7 @@ $$
       // 1. Create a note as primary user
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: {
           user_email: primaryUser,
           title: 'Multi-Party Document',
@@ -1197,7 +1197,7 @@ $$
       // 2. Share with secondary user (read only)
       const share1Res = await app.inject({
         method: 'POST',
-        url: `/api/notes/${noteId}/share`,
+        url: `/notes/${noteId}/share`,
         payload: {
           user_email: primaryUser,
           email: secondaryUser,
@@ -1209,7 +1209,7 @@ $$
       // 3. Share with tertiary user (read_write)
       const share2Res = await app.inject({
         method: 'POST',
-        url: `/api/notes/${noteId}/share`,
+        url: `/notes/${noteId}/share`,
         payload: {
           user_email: primaryUser,
           email: tertiaryUser,
@@ -1221,7 +1221,7 @@ $$
       // 4. Both shared users can read
       const secondaryReadRes = await app.inject({
         method: 'GET',
-        url: `/api/notes/${noteId}`,
+        url: `/notes/${noteId}`,
         query: { user_email: secondaryUser },
       });
       expect(secondaryReadRes.statusCode).toBe(200);
@@ -1229,7 +1229,7 @@ $$
 
       const tertiaryReadRes = await app.inject({
         method: 'GET',
-        url: `/api/notes/${noteId}`,
+        url: `/notes/${noteId}`,
         query: { user_email: tertiaryUser },
       });
       expect(tertiaryReadRes.statusCode).toBe(200);
@@ -1237,7 +1237,7 @@ $$
       // 5. Secondary user cannot edit (read only)
       const secondaryEditRes = await app.inject({
         method: 'PUT',
-        url: `/api/notes/${noteId}`,
+        url: `/notes/${noteId}`,
         payload: {
           user_email: secondaryUser,
           content: 'Attempted edit by secondary user',
@@ -1248,7 +1248,7 @@ $$
       // 6. Tertiary user can edit (read_write)
       const tertiaryEditRes = await app.inject({
         method: 'PUT',
-        url: `/api/notes/${noteId}`,
+        url: `/notes/${noteId}`,
         payload: {
           user_email: tertiaryUser,
           content: 'Content updated by tertiary user',
@@ -1259,7 +1259,7 @@ $$
       // 7. Verify the edit persists
       const verifyRes = await app.inject({
         method: 'GET',
-        url: `/api/notes/${noteId}`,
+        url: `/notes/${noteId}`,
         query: { user_email: primaryUser },
       });
       expect(verifyRes.json<NoteResponse>().content).toBe('Content updated by tertiary user');
@@ -1267,7 +1267,7 @@ $$
       // 8. Secondary user still sees updated content (via tertiary's edit)
       const secondaryVerifyRes = await app.inject({
         method: 'GET',
-        url: `/api/notes/${noteId}`,
+        url: `/notes/${noteId}`,
         query: { user_email: secondaryUser },
       });
       expect(secondaryVerifyRes.json<NoteResponse>().content).toBe('Content updated by tertiary user');
@@ -1275,7 +1275,7 @@ $$
       // 9. Secondary user cannot manage shares (not owner)
       const secondaryShareAttempt = await app.inject({
         method: 'POST',
-        url: `/api/notes/${noteId}/share`,
+        url: `/notes/${noteId}/share`,
         payload: {
           user_email: secondaryUser,
           email: 'another@example.com',
@@ -1287,7 +1287,7 @@ $$
       // 10. Tertiary user also cannot manage shares (not owner, only read_write)
       const tertiaryShareAttempt = await app.inject({
         method: 'POST',
-        url: `/api/notes/${noteId}/share`,
+        url: `/notes/${noteId}/share`,
         payload: {
           user_email: tertiaryUser,
           email: 'another@example.com',
@@ -1299,7 +1299,7 @@ $$
       // 11. Only owner can delete
       const tertiaryDeleteAttempt = await app.inject({
         method: 'DELETE',
-        url: `/api/notes/${noteId}`,
+        url: `/notes/${noteId}`,
         query: { user_email: tertiaryUser },
       });
       expect(tertiaryDeleteAttempt.statusCode).toBe(403);
@@ -1307,7 +1307,7 @@ $$
       // 12. Owner can delete
       const ownerDeleteRes = await app.inject({
         method: 'DELETE',
-        url: `/api/notes/${noteId}`,
+        url: `/notes/${noteId}`,
         query: { user_email: primaryUser },
       });
       expect(ownerDeleteRes.statusCode).toBe(204);
@@ -1323,7 +1323,7 @@ $$
       // 1. Create a note
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: {
           user_email: primaryUser,
           title: 'Version Test',
@@ -1335,7 +1335,7 @@ $$
       // 2. Edit the note multiple times
       await app.inject({
         method: 'PUT',
-        url: `/api/notes/${noteId}`,
+        url: `/notes/${noteId}`,
         payload: {
           user_email: primaryUser,
           title: 'Version Test v2',
@@ -1345,7 +1345,7 @@ $$
 
       await app.inject({
         method: 'PUT',
-        url: `/api/notes/${noteId}`,
+        url: `/notes/${noteId}`,
         payload: {
           user_email: primaryUser,
           title: 'Version Test v3',
@@ -1356,7 +1356,7 @@ $$
       // 3. List versions
       const versionsRes = await app.inject({
         method: 'GET',
-        url: `/api/notes/${noteId}/versions`,
+        url: `/notes/${noteId}/versions`,
         query: { user_email: primaryUser },
       });
 
@@ -1367,7 +1367,7 @@ $$
       // 4. Get specific version
       const v1Res = await app.inject({
         method: 'GET',
-        url: `/api/notes/${noteId}/versions/1`,
+        url: `/notes/${noteId}/versions/1`,
         query: { user_email: primaryUser },
       });
 
@@ -1380,7 +1380,7 @@ $$
       // 5. Compare versions
       const compareRes = await app.inject({
         method: 'GET',
-        url: `/api/notes/${noteId}/versions/compare`,
+        url: `/notes/${noteId}/versions/compare`,
         query: {
           user_email: primaryUser,
           from: '1',
@@ -1396,7 +1396,7 @@ $$
       // 6. Restore to version 1
       const restoreRes = await app.inject({
         method: 'POST',
-        url: `/api/notes/${noteId}/versions/1/restore`,
+        url: `/notes/${noteId}/versions/1/restore`,
         query: { user_email: primaryUser },
       });
 
@@ -1406,7 +1406,7 @@ $$
       // 7. Verify note content was restored
       const noteRes = await app.inject({
         method: 'GET',
-        url: `/api/notes/${noteId}`,
+        url: `/notes/${noteId}`,
         query: { user_email: primaryUser },
       });
 
@@ -1417,7 +1417,7 @@ $$
       // 8. Verify new version was created (non-destructive restore)
       const finalVersionsRes = await app.inject({
         method: 'GET',
-        url: `/api/notes/${noteId}/versions`,
+        url: `/notes/${noteId}/versions`,
         query: { user_email: primaryUser },
       });
 
@@ -1435,7 +1435,7 @@ $$
       // 1. Create a note
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: {
           user_email: primaryUser,
           title: 'Presence Test Note',
@@ -1448,7 +1448,7 @@ $$
       // 2. User joins presence
       const joinRes = await app.inject({
         method: 'POST',
-        url: `/api/notes/${noteId}/presence`,
+        url: `/notes/${noteId}/presence`,
         payload: { user_email: primaryUser },
       });
       expect(joinRes.statusCode).toBe(200);
@@ -1459,7 +1459,7 @@ $$
       // 3. Get current viewers
       const getRes = await app.inject({
         method: 'GET',
-        url: `/api/notes/${noteId}/presence`,
+        url: `/notes/${noteId}/presence`,
         headers: { 'x-user-email': primaryUser },
       });
       expect(getRes.statusCode).toBe(200);
@@ -1468,7 +1468,7 @@ $$
       // 4. User leaves presence
       const leaveRes = await app.inject({
         method: 'DELETE',
-        url: `/api/notes/${noteId}/presence`,
+        url: `/notes/${noteId}/presence`,
         headers: { 'x-user-email': primaryUser },
       });
       expect(leaveRes.statusCode).toBe(204);
@@ -1478,7 +1478,7 @@ $$
       // 1. Create a note
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: {
           user_email: primaryUser,
           title: 'Cursor Test Note',
@@ -1490,14 +1490,14 @@ $$
       // 2. Join presence
       await app.inject({
         method: 'POST',
-        url: `/api/notes/${noteId}/presence`,
+        url: `/notes/${noteId}/presence`,
         payload: { user_email: primaryUser },
       });
 
       // 3. Update cursor position
       const cursorRes = await app.inject({
         method: 'PUT',
-        url: `/api/notes/${noteId}/presence/cursor`,
+        url: `/notes/${noteId}/presence/cursor`,
         payload: {
           user_email: primaryUser,
           cursor_position: { line: 5, column: 10 },
@@ -1510,7 +1510,7 @@ $$
       // 1. Create a private note as primary user
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: {
           user_email: primaryUser,
           title: 'Private Presence Note',
@@ -1523,7 +1523,7 @@ $$
       // 2. Secondary user tries to join presence - should fail
       const joinRes = await app.inject({
         method: 'POST',
-        url: `/api/notes/${noteId}/presence`,
+        url: `/notes/${noteId}/presence`,
         payload: { user_email: secondaryUser },
       });
       expect(joinRes.statusCode).toBe(403);
@@ -1531,7 +1531,7 @@ $$
       // 3. Secondary user tries to get presence - should fail
       const getRes = await app.inject({
         method: 'GET',
-        url: `/api/notes/${noteId}/presence`,
+        url: `/notes/${noteId}/presence`,
         headers: { 'x-user-email': secondaryUser },
       });
       expect(getRes.statusCode).toBe(403);
@@ -1541,7 +1541,7 @@ $$
       // 1. Create a note as primary user
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: {
           user_email: primaryUser,
           title: 'Shared Presence Note',
@@ -1554,7 +1554,7 @@ $$
       // 2. Share with secondary user
       await app.inject({
         method: 'POST',
-        url: `/api/notes/${noteId}/share`,
+        url: `/notes/${noteId}/share`,
         payload: {
           user_email: primaryUser,
           email: secondaryUser,
@@ -1565,7 +1565,7 @@ $$
       // 3. Secondary user can now join presence
       const joinRes = await app.inject({
         method: 'POST',
-        url: `/api/notes/${noteId}/presence`,
+        url: `/notes/${noteId}/presence`,
         payload: { user_email: secondaryUser },
       });
       expect(joinRes.statusCode).toBe(200);
@@ -1573,7 +1573,7 @@ $$
       // 4. Both users should appear in presence list
       const getRes = await app.inject({
         method: 'GET',
-        url: `/api/notes/${noteId}/presence`,
+        url: `/notes/${noteId}/presence`,
         headers: { 'x-user-email': primaryUser },
       });
       expect(getRes.statusCode).toBe(200);
@@ -1585,7 +1585,7 @@ $$
       // 1. Create a note
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: {
           user_email: primaryUser,
           title: 'Initial Cursor Note',
@@ -1597,7 +1597,7 @@ $$
       // 2. Join with cursor position
       const joinRes = await app.inject({
         method: 'POST',
-        url: `/api/notes/${noteId}/presence`,
+        url: `/notes/${noteId}/presence`,
         payload: {
           user_email: primaryUser,
           cursor_position: { line: 1, column: 0 },
@@ -1616,7 +1616,7 @@ $$
       // Try to join presence for non-existent note
       const joinRes = await app.inject({
         method: 'POST',
-        url: `/api/notes/${fakeId}/presence`,
+        url: `/notes/${fakeId}/presence`,
         payload: { user_email: primaryUser },
       });
       // Should return 403 or 404 depending on implementation
@@ -1633,7 +1633,7 @@ $$
       // Create private note
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: {
           user_email: primaryUser,
           title: 'Private Note',
@@ -1646,7 +1646,7 @@ $$
       // Other user cannot access
       const otherRes = await app.inject({
         method: 'GET',
-        url: `/api/notes/${noteId}`,
+        url: `/notes/${noteId}`,
         query: { user_email: secondaryUser },
       });
       expect(otherRes.statusCode).toBe(404);
@@ -1654,7 +1654,7 @@ $$
       // Owner can access
       const ownerRes = await app.inject({
         method: 'GET',
-        url: `/api/notes/${noteId}`,
+        url: `/notes/${noteId}`,
         query: { user_email: primaryUser },
       });
       expect(ownerRes.statusCode).toBe(200);
@@ -1664,7 +1664,7 @@ $$
       // Create public note
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: {
           user_email: primaryUser,
           title: 'Public Note',
@@ -1677,7 +1677,7 @@ $$
       // Any user can access
       const otherRes = await app.inject({
         method: 'GET',
-        url: `/api/notes/${noteId}`,
+        url: `/notes/${noteId}`,
         query: { user_email: secondaryUser },
       });
       expect(otherRes.statusCode).toBe(200);
@@ -1685,7 +1685,7 @@ $$
       // But only owner can edit
       const editRes = await app.inject({
         method: 'PUT',
-        url: `/api/notes/${noteId}`,
+        url: `/notes/${noteId}`,
         payload: {
           user_email: secondaryUser,
           title: 'Hacked',
@@ -1698,7 +1698,7 @@ $$
       // Create note hidden from agents
       await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: {
           user_email: primaryUser,
           title: 'Agent Hidden Note',
@@ -1711,7 +1711,7 @@ $$
       // Search as agent
       const agentSearchRes = await app.inject({
         method: 'GET',
-        url: '/api/notes/search',
+        url: '/notes/search',
         query: {
           user_email: primaryUser,
           q: 'Agent Hidden',
@@ -1729,7 +1729,7 @@ $$
       // Search as user (should find it)
       const userSearchRes = await app.inject({
         method: 'GET',
-        url: '/api/notes/search',
+        url: '/notes/search',
         query: {
           user_email: primaryUser,
           q: 'Agent Hidden',
@@ -1753,7 +1753,7 @@ $$
 
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: {
           user_email: primaryUser,
           title: 'XSS Test Note',
@@ -1771,7 +1771,7 @@ $$
       // Verify we can retrieve it
       const getRes = await app.inject({
         method: 'GET',
-        url: `/api/notes/${note.id}`,
+        url: `/notes/${note.id}`,
         query: { user_email: primaryUser },
       });
 
@@ -1784,7 +1784,7 @@ $$
 
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: {
           user_email: primaryUser,
           title: 'Onerror XSS Test',
@@ -1798,7 +1798,7 @@ $$
       // Frontend sanitization (DOMPurify) handles the onerror stripping
       const onerrorGetRes = await app.inject({
         method: 'GET',
-        url: `/api/notes/${createRes.json<NoteResponse>().id}`,
+        url: `/notes/${createRes.json<NoteResponse>().id}`,
         query: { user_email: primaryUser },
       });
 
@@ -1810,7 +1810,7 @@ $$
 
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: {
           user_email: primaryUser,
           title: 'JavaScript URL Test',
@@ -1823,7 +1823,7 @@ $$
       // Content stored - frontend handles sanitization
       const jsUrlGetRes = await app.inject({
         method: 'GET',
-        url: `/api/notes/${createRes.json<NoteResponse>().id}`,
+        url: `/notes/${createRes.json<NoteResponse>().id}`,
         query: { user_email: primaryUser },
       });
 
@@ -1835,7 +1835,7 @@ $$
 
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: {
           user_email: primaryUser,
           title: 'Data URL Test',
@@ -1851,7 +1851,7 @@ $$
 
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: {
           user_email: primaryUser,
           title: 'SVG XSS Test',
@@ -1867,7 +1867,7 @@ $$
 
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: {
           user_email: primaryUser,
           title: 'Iframe Test',
@@ -1884,7 +1884,7 @@ $$
 
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: {
           user_email: primaryUser,
           title: maliciousTitle,
@@ -1902,7 +1902,7 @@ $$
 
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: {
           user_email: primaryUser,
           title: 'Style XSS Test',
@@ -1918,7 +1918,7 @@ $$
 
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: {
           user_email: primaryUser,
           title: 'Form Injection Test',
@@ -1934,7 +1934,7 @@ $$
 
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: {
           user_email: primaryUser,
           title: 'Base Tag Test',
@@ -1949,7 +1949,7 @@ $$
       // Create note with XSS payload
       await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: {
           user_email: primaryUser,
           title: 'Searchable XSS Note',
@@ -1960,7 +1960,7 @@ $$
       // Search for the note
       const searchRes = await app.inject({
         method: 'GET',
-        url: '/api/notes/search',
+        url: '/notes/search',
         query: {
           user_email: primaryUser,
           q: 'xyz123',
@@ -1986,7 +1986,7 @@ $$
       // Missing user_email
       const res1 = await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: { title: 'Test' },
       });
       expect(res1.statusCode).toBe(400);
@@ -1995,7 +1995,7 @@ $$
       // Missing title
       const res2 = await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: { user_email: primaryUser },
       });
       expect(res2.statusCode).toBe(400);
@@ -2005,7 +2005,7 @@ $$
     it('returns 400 for invalid visibility', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: {
           user_email: primaryUser,
           title: 'Test',
@@ -2022,7 +2022,7 @@ $$
       // Non-existent note
       const noteRes = await app.inject({
         method: 'GET',
-        url: `/api/notes/${fakeId}`,
+        url: `/notes/${fakeId}`,
         query: { user_email: primaryUser },
       });
       expect(noteRes.statusCode).toBe(404);
@@ -2030,7 +2030,7 @@ $$
       // Non-existent notebook
       const nbRes = await app.inject({
         method: 'GET',
-        url: `/api/notebooks/${fakeId}`,
+        url: `/notebooks/${fakeId}`,
         query: { user_email: primaryUser },
       });
       expect(nbRes.statusCode).toBe(404);
@@ -2040,7 +2040,7 @@ $$
       // Create note as primary user
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: {
           user_email: primaryUser,
           title: 'Owned Note',
@@ -2052,7 +2052,7 @@ $$
       // Try to delete as secondary user
       const deleteRes = await app.inject({
         method: 'DELETE',
-        url: `/api/notes/${noteId}`,
+        url: `/notes/${noteId}`,
         query: { user_email: secondaryUser },
       });
       expect(deleteRes.statusCode).toBe(403);
@@ -2061,7 +2061,7 @@ $$
     it('returns 409 for duplicate share', async () => {
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: {
           user_email: primaryUser,
           title: 'Test Note',
@@ -2072,7 +2072,7 @@ $$
       // First share
       await app.inject({
         method: 'POST',
-        url: `/api/notes/${noteId}/share`,
+        url: `/notes/${noteId}/share`,
         payload: {
           user_email: primaryUser,
           email: secondaryUser,
@@ -2082,7 +2082,7 @@ $$
       // Duplicate share
       const dupRes = await app.inject({
         method: 'POST',
-        url: `/api/notes/${noteId}/share`,
+        url: `/notes/${noteId}/share`,
         payload: {
           user_email: primaryUser,
           email: secondaryUser,
@@ -2117,7 +2117,7 @@ $$
         .map((_, i) =>
           app.inject({
             method: 'POST',
-            url: '/api/notes',
+            url: '/notes',
             payload: {
               user_email: primaryUser,
               title: `Rate Limit Test Note ${i}`,
@@ -2142,7 +2142,7 @@ $$
         .map(() =>
           app.inject({
             method: 'GET',
-            url: '/api/notes/search',
+            url: '/notes/search',
             query: {
               user_email: primaryUser,
               q: 'test',
@@ -2162,7 +2162,7 @@ $$
       // Create a note first
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: {
           user_email: primaryUser,
           title: 'Rate Limit Share Test',
@@ -2178,7 +2178,7 @@ $$
         .map((_, i) =>
           app.inject({
             method: 'POST',
-            url: `/api/notes/${noteId}/share`,
+            url: `/notes/${noteId}/share`,
             payload: {
               user_email: primaryUser,
               email: `rate-limit-test-${i}@example.com`,
@@ -2204,7 +2204,7 @@ $$
         .map((_, i) =>
           app.inject({
             method: 'POST',
-            url: '/api/notes',
+            url: '/notes',
             payload: {
               user_email: primaryUser,
               title: `Concurrent Load Test Note ${i}`,
@@ -2217,7 +2217,7 @@ $$
       // Immediately follow with another request - should succeed
       const res = await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: {
           user_email: primaryUser,
           title: 'Post Concurrent Load Test Note',
@@ -2238,14 +2238,14 @@ $$
       // Create two notebooks
       const nb1Res = await app.inject({
         method: 'POST',
-        url: '/api/notebooks',
+        url: '/notebooks',
         payload: { user_email: primaryUser, name: 'Source' },
       });
       const nb1Id = nb1Res.json<NotebookResponse>().id;
 
       const nb2Res = await app.inject({
         method: 'POST',
-        url: '/api/notebooks',
+        url: '/notebooks',
         payload: { user_email: primaryUser, name: 'Target' },
       });
       const nb2Id = nb2Res.json<NotebookResponse>().id;
@@ -2253,7 +2253,7 @@ $$
       // Create note in first notebook
       const noteRes = await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: {
           user_email: primaryUser,
           title: 'Movable Note',
@@ -2265,7 +2265,7 @@ $$
       // Move to second notebook
       const moveRes = await app.inject({
         method: 'POST',
-        url: `/api/notebooks/${nb2Id}/notes`,
+        url: `/notebooks/${nb2Id}/notes`,
         payload: {
           user_email: primaryUser,
           note_ids: [noteId],
@@ -2279,7 +2279,7 @@ $$
       // Verify note is now in second notebook
       const checkRes = await app.inject({
         method: 'GET',
-        url: `/api/notes/${noteId}`,
+        url: `/notes/${noteId}`,
         query: { user_email: primaryUser },
       });
       expect(checkRes.json<NoteResponse>().notebook_id).toBe(nb2Id);
@@ -2289,7 +2289,7 @@ $$
       // Create notebook
       const nbRes = await app.inject({
         method: 'POST',
-        url: '/api/notebooks',
+        url: '/notebooks',
         payload: { user_email: primaryUser, name: 'Target' },
       });
       const nbId = nbRes.json<NotebookResponse>().id;
@@ -2297,7 +2297,7 @@ $$
       // Create note (no notebook)
       const noteRes = await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: {
           user_email: primaryUser,
           title: 'Original Note',
@@ -2309,7 +2309,7 @@ $$
       // Copy to notebook
       const copyRes = await app.inject({
         method: 'POST',
-        url: `/api/notebooks/${nbId}/notes`,
+        url: `/notebooks/${nbId}/notes`,
         payload: {
           user_email: primaryUser,
           note_ids: [originalId],
@@ -2324,7 +2324,7 @@ $$
       // Verify original unchanged
       const origCheck = await app.inject({
         method: 'GET',
-        url: `/api/notes/${originalId}`,
+        url: `/notes/${originalId}`,
         query: { user_email: primaryUser },
       });
       expect(origCheck.json<NoteResponse>().notebook_id).toBeNull();
@@ -2332,7 +2332,7 @@ $$
       // Verify copy in notebook
       const copyCheck = await app.inject({
         method: 'GET',
-        url: `/api/notes/${copiedId}`,
+        url: `/notes/${copiedId}`,
         query: { user_email: primaryUser },
       });
       const copiedNote = copyCheck.json<NoteResponse>();

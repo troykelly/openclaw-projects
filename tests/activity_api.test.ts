@@ -27,11 +27,11 @@ describe('Activity Feed API', () => {
     await pool.end();
   });
 
-  describe('GET /api/activity', () => {
+  describe('GET /activity', () => {
     it('returns empty array when no activity exists', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/activity',
+        url: '/activity',
       });
 
       expect(res.statusCode).toBe(200);
@@ -43,13 +43,13 @@ describe('Activity Feed API', () => {
       // Create a work item
       await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: { title: 'Test Item' },
       });
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/activity',
+        url: '/activity',
       });
 
       expect(res.statusCode).toBe(200);
@@ -63,7 +63,7 @@ describe('Activity Feed API', () => {
       // Create a work item
       const created = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: { title: 'Test Item' },
       });
       const { id } = created.json() as { id: string };
@@ -71,13 +71,13 @@ describe('Activity Feed API', () => {
       // Update the work item
       await app.inject({
         method: 'PUT',
-        url: `/api/work-items/${id}`,
+        url: `/work-items/${id}`,
         payload: { title: 'Updated Item' },
       });
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/activity',
+        url: '/activity',
       });
 
       expect(res.statusCode).toBe(200);
@@ -95,7 +95,7 @@ describe('Activity Feed API', () => {
       // Create a work item
       const created = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: { title: 'Test Item' },
       });
       const { id } = created.json() as { id: string };
@@ -103,13 +103,13 @@ describe('Activity Feed API', () => {
       // Change status
       await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${id}/status`,
+        url: `/work-items/${id}/status`,
         payload: { status: 'closed' },
       });
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/activity',
+        url: '/activity',
       });
 
       expect(res.statusCode).toBe(200);
@@ -126,14 +126,14 @@ describe('Activity Feed API', () => {
       for (let i = 0; i < 60; i++) {
         await app.inject({
           method: 'POST',
-          url: '/api/work-items',
+          url: '/work-items',
           payload: { title: `Item ${i}` },
         });
       }
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/activity',
+        url: '/activity',
       });
 
       expect(res.statusCode).toBe(200);
@@ -146,14 +146,14 @@ describe('Activity Feed API', () => {
       for (let i = 0; i < 10; i++) {
         await app.inject({
           method: 'POST',
-          url: '/api/work-items',
+          url: '/work-items',
           payload: { title: `Item ${i}` },
         });
       }
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/activity?limit=5&offset=5',
+        url: '/activity?limit=5&offset=5',
       });
 
       expect(res.statusCode).toBe(200);
@@ -162,11 +162,11 @@ describe('Activity Feed API', () => {
     });
   });
 
-  describe('GET /api/work-items/:id/activity', () => {
+  describe('GET /work-items/:id/activity', () => {
     it('returns 404 for non-existent work item', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/work-items/00000000-0000-0000-0000-000000000000/activity',
+        url: '/work-items/00000000-0000-0000-0000-000000000000/activity',
       });
 
       expect(res.statusCode).toBe(404);
@@ -176,14 +176,14 @@ describe('Activity Feed API', () => {
       // Create two work items
       const created1 = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: { title: 'Item 1' },
       });
       const { id: id1 } = created1.json() as { id: string };
 
       const created2 = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: { title: 'Item 2' },
       });
       const { id: id2 } = created2.json() as { id: string };
@@ -191,14 +191,14 @@ describe('Activity Feed API', () => {
       // Update item 1
       await app.inject({
         method: 'PUT',
-        url: `/api/work-items/${id1}`,
+        url: `/work-items/${id1}`,
         payload: { title: 'Item 1 Updated' },
       });
 
       // Get activity for item 1 only
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${id1}/activity`,
+        url: `/work-items/${id1}/activity`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -217,13 +217,13 @@ describe('Activity Feed API', () => {
       // Create a work item
       await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: { title: 'Test Item' },
       });
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/activity',
+        url: '/activity',
       });
 
       expect(res.statusCode).toBe(200);
@@ -258,7 +258,7 @@ describe('Activity Feed API', () => {
       // Create work items to generate 'created' activity
       const created = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: { title: 'Test Item' },
       });
       const { id } = created.json() as { id: string };
@@ -266,14 +266,14 @@ describe('Activity Feed API', () => {
       // Update to generate 'updated' activity
       await app.inject({
         method: 'PUT',
-        url: `/api/work-items/${id}`,
+        url: `/work-items/${id}`,
         payload: { title: 'Updated Item' },
       });
 
       // Filter for only 'created' actions
       const res = await app.inject({
         method: 'GET',
-        url: '/api/activity?action_type=created',
+        url: '/activity?action_type=created',
       });
 
       expect(res.statusCode).toBe(200);
@@ -286,21 +286,21 @@ describe('Activity Feed API', () => {
       // Create project
       await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: { title: 'Test Project', kind: 'project' },
       });
 
       // Create issue
       await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: { title: 'Test Issue', kind: 'issue' },
       });
 
       // Filter for only 'project' entity type
       const res = await app.inject({
         method: 'GET',
-        url: '/api/activity?entity_type=project',
+        url: '/activity?entity_type=project',
       });
 
       expect(res.statusCode).toBe(200);
@@ -313,7 +313,7 @@ describe('Activity Feed API', () => {
       // Create project
       const project = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: { title: 'Test Project', kind: 'project' },
       });
       const project_id = (project.json() as { id: string }).id;
@@ -321,7 +321,7 @@ describe('Activity Feed API', () => {
       // Create initiative under project (hierarchy: project -> initiative -> epic -> issue)
       const init = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: { title: 'Test Initiative', kind: 'initiative', parent_id: project_id },
       });
       const initId = (init.json() as { id: string }).id;
@@ -329,7 +329,7 @@ describe('Activity Feed API', () => {
       // Create epic under initiative
       const epic = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: { title: 'Test Epic', kind: 'epic', parent_id: initId },
       });
       const epicId = (epic.json() as { id: string }).id;
@@ -337,21 +337,21 @@ describe('Activity Feed API', () => {
       // Create issue under epic
       await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: { title: 'Test Issue', kind: 'issue', parent_id: epicId },
       });
 
       // Create separate standalone issue (not under the project)
       await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: { title: 'Standalone Issue', kind: 'issue' },
       });
 
       // Filter by project_id (should get project + all descendants)
       const res = await app.inject({
         method: 'GET',
-        url: `/api/activity?project_id=${project_id}`,
+        url: `/activity?project_id=${project_id}`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -370,7 +370,7 @@ describe('Activity Feed API', () => {
       // Create first item
       await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: { title: 'Older Item' },
       });
 
@@ -382,14 +382,14 @@ describe('Activity Feed API', () => {
       await new Promise((resolve) => setTimeout(resolve, 50));
       await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: { title: 'Newer Item' },
       });
 
       // Filter for items since middle timestamp
       const res = await app.inject({
         method: 'GET',
-        url: `/api/activity?since=${encodeURIComponent(sinceTime)}`,
+        url: `/activity?since=${encodeURIComponent(sinceTime)}`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -403,7 +403,7 @@ describe('Activity Feed API', () => {
       for (let i = 0; i < 5; i++) {
         await app.inject({
           method: 'POST',
-          url: '/api/work-items',
+          url: '/work-items',
           payload: { title: `Item ${i}` },
         });
       }
@@ -411,7 +411,7 @@ describe('Activity Feed API', () => {
       // Get page 1 with limit 2
       const page1 = await app.inject({
         method: 'GET',
-        url: '/api/activity?page=1&limit=2',
+        url: '/activity?page=1&limit=2',
       });
 
       expect(page1.statusCode).toBe(200);
@@ -428,7 +428,7 @@ describe('Activity Feed API', () => {
       // Get page 2
       const page2 = await app.inject({
         method: 'GET',
-        url: '/api/activity?page=2&limit=2',
+        url: '/activity?page=2&limit=2',
       });
 
       expect(page2.statusCode).toBe(200);
@@ -443,7 +443,7 @@ describe('Activity Feed API', () => {
       // Get page 3 (last page)
       const page3 = await app.inject({
         method: 'GET',
-        url: '/api/activity?page=3&limit=2',
+        url: '/activity?page=3&limit=2',
       });
 
       expect(page3.statusCode).toBe(200);
@@ -459,7 +459,7 @@ describe('Activity Feed API', () => {
       // Create project first
       const project = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: { title: 'Test Project', kind: 'project' },
       });
       const project_id = (project.json() as { id: string }).id;
@@ -467,7 +467,7 @@ describe('Activity Feed API', () => {
       // Create initiative under project
       const init = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: { title: 'Test Initiative', kind: 'initiative', parent_id: project_id },
       });
       const initId = (init.json() as { id: string }).id;
@@ -475,13 +475,13 @@ describe('Activity Feed API', () => {
       // Create epic under initiative
       await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: { title: 'Test Epic', kind: 'epic', parent_id: initId },
       });
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/activity',
+        url: '/activity',
       });
 
       expect(res.statusCode).toBe(200);
@@ -497,19 +497,19 @@ describe('Activity Feed API', () => {
    * Issue #102: Mark as Read endpoints
    */
   describe('Issue #102 - Mark as Read', () => {
-    describe('POST /api/activity/:id/read', () => {
+    describe('POST /activity/:id/read', () => {
       it('marks a single activity item as read', async () => {
         // Create activity by creating a work item
         await app.inject({
           method: 'POST',
-          url: '/api/work-items',
+          url: '/work-items',
           payload: { title: 'Test Item' },
         });
 
         // Get activity items
         const activityRes = await app.inject({
           method: 'GET',
-          url: '/api/activity',
+          url: '/activity',
         });
         const activities = activityRes.json() as { items: Array<{ id: string; read_at: string | null }> };
         const activityId = activities.items[0].id;
@@ -520,7 +520,7 @@ describe('Activity Feed API', () => {
         // Mark as read
         const res = await app.inject({
           method: 'POST',
-          url: `/api/activity/${activityId}/read`,
+          url: `/activity/${activityId}/read`,
         });
 
         expect(res.statusCode).toBe(204);
@@ -528,7 +528,7 @@ describe('Activity Feed API', () => {
         // Verify it's now read
         const checkRes = await app.inject({
           method: 'GET',
-          url: '/api/activity',
+          url: '/activity',
         });
         const checkBody = checkRes.json() as { items: Array<{ id: string; read_at: string | null }> };
         const markedItem = checkBody.items.find((i) => i.id === activityId);
@@ -538,7 +538,7 @@ describe('Activity Feed API', () => {
       it('returns 404 for non-existent activity', async () => {
         const res = await app.inject({
           method: 'POST',
-          url: '/api/activity/00000000-0000-0000-0000-000000000000/read',
+          url: '/activity/00000000-0000-0000-0000-000000000000/read',
         });
 
         expect(res.statusCode).toBe(404);
@@ -549,13 +549,13 @@ describe('Activity Feed API', () => {
         // Create activity
         await app.inject({
           method: 'POST',
-          url: '/api/work-items',
+          url: '/work-items',
           payload: { title: 'Test Item' },
         });
 
         const activityRes = await app.inject({
           method: 'GET',
-          url: '/api/activity',
+          url: '/activity',
         });
         const activities = activityRes.json() as { items: Array<{ id: string }> };
         const activityId = activities.items[0].id;
@@ -563,41 +563,41 @@ describe('Activity Feed API', () => {
         // Mark as read twice
         await app.inject({
           method: 'POST',
-          url: `/api/activity/${activityId}/read`,
+          url: `/activity/${activityId}/read`,
         });
 
         const res = await app.inject({
           method: 'POST',
-          url: `/api/activity/${activityId}/read`,
+          url: `/activity/${activityId}/read`,
         });
 
         expect(res.statusCode).toBe(204);
       });
     });
 
-    describe('POST /api/activity/read-all', () => {
+    describe('POST /activity/read-all', () => {
       it('marks all activity items as read', async () => {
         // Create multiple activities
         await app.inject({
           method: 'POST',
-          url: '/api/work-items',
+          url: '/work-items',
           payload: { title: 'Item 1' },
         });
         await app.inject({
           method: 'POST',
-          url: '/api/work-items',
+          url: '/work-items',
           payload: { title: 'Item 2' },
         });
         await app.inject({
           method: 'POST',
-          url: '/api/work-items',
+          url: '/work-items',
           payload: { title: 'Item 3' },
         });
 
         // Mark all as read
         const res = await app.inject({
           method: 'POST',
-          url: '/api/activity/read-all',
+          url: '/activity/read-all',
         });
 
         expect(res.statusCode).toBe(200);
@@ -607,7 +607,7 @@ describe('Activity Feed API', () => {
         // Verify all are read
         const checkRes = await app.inject({
           method: 'GET',
-          url: '/api/activity',
+          url: '/activity',
         });
         const checkBody = checkRes.json() as { items: Array<{ read_at: string | null }> };
         checkBody.items.forEach((item) => {
@@ -619,7 +619,7 @@ describe('Activity Feed API', () => {
         // No activity created
         const res = await app.inject({
           method: 'POST',
-          url: '/api/activity/read-all',
+          url: '/activity/read-all',
         });
 
         expect(res.statusCode).toBe(200);
@@ -631,27 +631,27 @@ describe('Activity Feed API', () => {
         // Create activity
         await app.inject({
           method: 'POST',
-          url: '/api/work-items',
+          url: '/work-items',
           payload: { title: 'Item 1' },
         });
 
         // Mark all as read
         await app.inject({
           method: 'POST',
-          url: '/api/activity/read-all',
+          url: '/activity/read-all',
         });
 
         // Create more activity
         await app.inject({
           method: 'POST',
-          url: '/api/work-items',
+          url: '/work-items',
           payload: { title: 'Item 2' },
         });
 
         // Mark all as read again - should only mark the new one
         const res = await app.inject({
           method: 'POST',
-          url: '/api/activity/read-all',
+          url: '/activity/read-all',
         });
 
         expect(res.statusCode).toBe(200);
@@ -665,11 +665,11 @@ describe('Activity Feed API', () => {
    * Issue #101: SSE Real-time Stream endpoint
    */
   describe('Issue #101 - SSE Stream', () => {
-    describe('GET /api/activity/stream', () => {
+    describe('GET /activity/stream', () => {
       it('returns SSE headers', async () => {
         const res = await app.inject({
           method: 'GET',
-          url: '/api/activity/stream',
+          url: '/activity/stream',
         });
 
         expect(res.statusCode).toBe(200);
@@ -681,7 +681,7 @@ describe('Activity Feed API', () => {
       it('sends initial heartbeat event', async () => {
         const res = await app.inject({
           method: 'GET',
-          url: '/api/activity/stream',
+          url: '/activity/stream',
         });
 
         expect(res.statusCode).toBe(200);
@@ -694,14 +694,14 @@ describe('Activity Feed API', () => {
         // Create a project first
         const project = await app.inject({
           method: 'POST',
-          url: '/api/work-items',
+          url: '/work-items',
           payload: { title: 'Test Project', kind: 'project' },
         });
         const project_id = (project.json() as { id: string }).id;
 
         const res = await app.inject({
           method: 'GET',
-          url: `/api/activity/stream?project_id=${project_id}`,
+          url: `/activity/stream?project_id=${project_id}`,
         });
 
         expect(res.statusCode).toBe(200);
@@ -712,13 +712,13 @@ describe('Activity Feed API', () => {
         // Create some activity first
         await app.inject({
           method: 'POST',
-          url: '/api/work-items',
+          url: '/work-items',
           payload: { title: 'SSE Test Item' },
         });
 
         const res = await app.inject({
           method: 'GET',
-          url: '/api/activity/stream',
+          url: '/activity/stream',
         });
 
         expect(res.statusCode).toBe(200);
@@ -731,7 +731,7 @@ describe('Activity Feed API', () => {
         // Create a project with a child
         const project = await app.inject({
           method: 'POST',
-          url: '/api/work-items',
+          url: '/work-items',
           payload: { title: 'Project A', kind: 'project' },
         });
         const project_id = (project.json() as { id: string }).id;
@@ -739,20 +739,20 @@ describe('Activity Feed API', () => {
         // Create initiative under project
         await app.inject({
           method: 'POST',
-          url: '/api/work-items',
+          url: '/work-items',
           payload: { title: 'Initiative Under A', kind: 'initiative', parent_id: project_id },
         });
 
         // Create separate standalone item
         await app.inject({
           method: 'POST',
-          url: '/api/work-items',
+          url: '/work-items',
           payload: { title: 'Standalone Item' },
         });
 
         const res = await app.inject({
           method: 'GET',
-          url: `/api/activity/stream?project_id=${project_id}`,
+          url: `/activity/stream?project_id=${project_id}`,
         });
 
         expect(res.statusCode).toBe(200);

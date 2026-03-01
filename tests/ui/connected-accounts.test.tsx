@@ -71,14 +71,14 @@ function mockFetchSuccess(
   unconfigured: OAuthProviderInfo[] = [],
 ) {
   return vi.fn().mockImplementation((url: string) => {
-    if (url === '/api/oauth/connections') {
+    if (url === '/oauth/connections') {
       return Promise.resolve({
         ok: true,
         status: 200,
         json: () => Promise.resolve({ connections }),
       });
     }
-    if (url === '/api/oauth/providers') {
+    if (url === '/oauth/providers') {
       return Promise.resolve({
         ok: true,
         status: 200,
@@ -774,14 +774,14 @@ describe('ConnectedAccountsSection', () => {
           json: () => Promise.resolve({ connection: updatedConn }),
         });
       }
-      if (url === '/api/oauth/connections') {
+      if (url === '/oauth/connections') {
         return Promise.resolve({
           ok: true,
           status: 200,
           json: () => Promise.resolve({ connections: [mockConnection] }),
         });
       }
-      if (url === '/api/oauth/providers') {
+      if (url === '/oauth/providers') {
         return Promise.resolve({
           ok: true,
           status: 200,

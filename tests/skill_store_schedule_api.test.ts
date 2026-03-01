@@ -8,13 +8,13 @@ import { createTestPool, truncateAllTables } from './helpers/db.ts';
  * Integration tests for Skill Store Schedule Management API (Issue #802).
  *
  * Covers:
- * - POST /api/skill-store/schedules (create)
- * - GET /api/skill-store/schedules (list + filter)
- * - PATCH /api/skill-store/schedules/:id (update)
- * - DELETE /api/skill-store/schedules/:id (delete)
- * - POST /api/skill-store/schedules/:id/trigger (manual trigger)
- * - POST /api/skill-store/schedules/:id/pause (pause)
- * - POST /api/skill-store/schedules/:id/resume (resume)
+ * - POST /skill-store/schedules (create)
+ * - GET /skill-store/schedules (list + filter)
+ * - PATCH /skill-store/schedules/:id (update)
+ * - DELETE /skill-store/schedules/:id (delete)
+ * - POST /skill-store/schedules/:id/trigger (manual trigger)
+ * - POST /skill-store/schedules/:id/pause (pause)
+ * - POST /skill-store/schedules/:id/resume (resume)
  * - Cron expression validation (>= 5 minutes)
  * - Timezone validation (valid IANA timezone)
  * - Webhook URL validation (https in prod, http in dev/test)
@@ -50,12 +50,12 @@ describe('Skill Store Schedule API (Issue #802)', () => {
 
     return app.inject({
       method: 'POST',
-      url: '/api/skill-store/schedules',
+      url: '/skill-store/schedules',
       payload: defaults,
     });
   }
 
-  describe('POST /api/skill-store/schedules', () => {
+  describe('POST /skill-store/schedules', () => {
     it('creates a schedule and returns 201', async () => {
       const res = await createSchedule();
 
@@ -94,7 +94,7 @@ describe('Skill Store Schedule API (Issue #802)', () => {
     it('returns 400 if skill_id is missing', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/skill-store/schedules',
+        url: '/skill-store/schedules',
         payload: {
           cron_expression: '0 9 * * *',
           webhook_url: 'https://example.com/hook',
@@ -108,7 +108,7 @@ describe('Skill Store Schedule API (Issue #802)', () => {
     it('returns 400 if cron_expression is missing', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/skill-store/schedules',
+        url: '/skill-store/schedules',
         payload: {
           skill_id: 'test-skill',
           webhook_url: 'https://example.com/hook',
@@ -122,7 +122,7 @@ describe('Skill Store Schedule API (Issue #802)', () => {
     it('returns 400 if webhook_url is missing', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/skill-store/schedules',
+        url: '/skill-store/schedules',
         payload: {
           skill_id: 'test-skill',
           cron_expression: '0 9 * * *',
@@ -241,11 +241,11 @@ describe('Skill Store Schedule API (Issue #802)', () => {
     });
   });
 
-  describe('GET /api/skill-store/schedules', () => {
+  describe('GET /skill-store/schedules', () => {
     it('returns empty list when no schedules exist', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/skill-store/schedules?skill_id=test-skill',
+        url: '/skill-store/schedules?skill_id=test-skill',
       });
 
       expect(res.statusCode).toBe(200);
@@ -257,7 +257,7 @@ describe('Skill Store Schedule API (Issue #802)', () => {
     it('returns 400 when skill_id is missing', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/skill-store/schedules',
+        url: '/skill-store/schedules',
       });
       expect(res.statusCode).toBe(400);
       expect(res.json().error).toContain('skill_id');
@@ -269,7 +269,7 @@ describe('Skill Store Schedule API (Issue #802)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/skill-store/schedules?skill_id=skill-1',
+        url: '/skill-store/schedules?skill_id=skill-1',
       });
 
       expect(res.statusCode).toBe(200);
@@ -283,7 +283,7 @@ describe('Skill Store Schedule API (Issue #802)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/skill-store/schedules?skill_id=test-skill',
+        url: '/skill-store/schedules?skill_id=test-skill',
       });
 
       const schedule = res.json().schedules[0];
@@ -313,7 +313,7 @@ describe('Skill Store Schedule API (Issue #802)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/skill-store/schedules?skill_id=secret-skill',
+        url: '/skill-store/schedules?skill_id=secret-skill',
       });
 
       expect(res.statusCode).toBe(200);
@@ -330,7 +330,7 @@ describe('Skill Store Schedule API (Issue #802)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/skill-store/schedules?skill_id=skill-1',
+        url: '/skill-store/schedules?skill_id=skill-1',
       });
 
       expect(res.statusCode).toBe(200);
@@ -345,7 +345,7 @@ describe('Skill Store Schedule API (Issue #802)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/skill-store/schedules?skill_id=filter-skill&enabled=true',
+        url: '/skill-store/schedules?skill_id=filter-skill&enabled=true',
       });
 
       expect(res.statusCode).toBe(200);
@@ -361,7 +361,7 @@ describe('Skill Store Schedule API (Issue #802)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/skill-store/schedules?skill_id=page-skill&limit=2&offset=0',
+        url: '/skill-store/schedules?skill_id=page-skill&limit=2&offset=0',
       });
 
       expect(res.statusCode).toBe(200);
@@ -371,14 +371,14 @@ describe('Skill Store Schedule API (Issue #802)', () => {
     });
   });
 
-  describe('PATCH /api/skill-store/schedules/:id', () => {
+  describe('PATCH /skill-store/schedules/:id', () => {
     it('updates schedule fields', async () => {
       const createRes = await createSchedule();
       const id = createRes.json().id;
 
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/skill-store/schedules/${id}`,
+        url: `/skill-store/schedules/${id}`,
         payload: {
           cron_expression: '0 */6 * * *',
           webhook_url: 'https://example.com/new-hook',
@@ -402,7 +402,7 @@ describe('Skill Store Schedule API (Issue #802)', () => {
     it('returns 404 for non-existent schedule', async () => {
       const res = await app.inject({
         method: 'PATCH',
-        url: '/api/skill-store/schedules/00000000-0000-0000-0000-000000000000',
+        url: '/skill-store/schedules/00000000-0000-0000-0000-000000000000',
         payload: { enabled: false },
       });
 
@@ -412,7 +412,7 @@ describe('Skill Store Schedule API (Issue #802)', () => {
     it('returns 400 for invalid UUID', async () => {
       const res = await app.inject({
         method: 'PATCH',
-        url: '/api/skill-store/schedules/not-a-uuid',
+        url: '/skill-store/schedules/not-a-uuid',
         payload: { enabled: false },
       });
 
@@ -425,7 +425,7 @@ describe('Skill Store Schedule API (Issue #802)', () => {
 
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/skill-store/schedules/${id}`,
+        url: `/skill-store/schedules/${id}`,
         payload: { cron_expression: '*/1 * * * *' },
       });
 
@@ -439,7 +439,7 @@ describe('Skill Store Schedule API (Issue #802)', () => {
 
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/skill-store/schedules/${id}`,
+        url: `/skill-store/schedules/${id}`,
         payload: { timezone: 'Invalid/Zone' },
       });
 
@@ -453,7 +453,7 @@ describe('Skill Store Schedule API (Issue #802)', () => {
 
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/skill-store/schedules/${id}`,
+        url: `/skill-store/schedules/${id}`,
         payload: { webhook_url: 'not-a-url' },
       });
 
@@ -462,14 +462,14 @@ describe('Skill Store Schedule API (Issue #802)', () => {
     });
   });
 
-  describe('DELETE /api/skill-store/schedules/:id', () => {
+  describe('DELETE /skill-store/schedules/:id', () => {
     it('deletes a schedule and returns 204', async () => {
       const createRes = await createSchedule();
       const id = createRes.json().id;
 
       const res = await app.inject({
         method: 'DELETE',
-        url: `/api/skill-store/schedules/${id}`,
+        url: `/skill-store/schedules/${id}`,
       });
 
       expect(res.statusCode).toBe(204);
@@ -477,7 +477,7 @@ describe('Skill Store Schedule API (Issue #802)', () => {
       // Verify it's gone
       const listRes = await app.inject({
         method: 'GET',
-        url: '/api/skill-store/schedules?skill_id=test-skill',
+        url: '/skill-store/schedules?skill_id=test-skill',
       });
       expect(listRes.json().schedules).toHaveLength(0);
     });
@@ -485,7 +485,7 @@ describe('Skill Store Schedule API (Issue #802)', () => {
     it('returns 404 for non-existent schedule', async () => {
       const res = await app.inject({
         method: 'DELETE',
-        url: '/api/skill-store/schedules/00000000-0000-0000-0000-000000000000',
+        url: '/skill-store/schedules/00000000-0000-0000-0000-000000000000',
       });
 
       expect(res.statusCode).toBe(404);
@@ -494,14 +494,14 @@ describe('Skill Store Schedule API (Issue #802)', () => {
     it('returns 400 for invalid UUID', async () => {
       const res = await app.inject({
         method: 'DELETE',
-        url: '/api/skill-store/schedules/not-a-uuid',
+        url: '/skill-store/schedules/not-a-uuid',
       });
 
       expect(res.statusCode).toBe(400);
     });
   });
 
-  describe('POST /api/skill-store/schedules/:id/trigger', () => {
+  describe('POST /skill-store/schedules/:id/trigger', () => {
     it('enqueues a job for the schedule and returns 202', async () => {
       const createRes = await createSchedule({
         collection: 'articles',
@@ -510,7 +510,7 @@ describe('Skill Store Schedule API (Issue #802)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/skill-store/schedules/${id}/trigger`,
+        url: `/skill-store/schedules/${id}/trigger`,
       });
 
       expect(res.statusCode).toBe(202);
@@ -532,7 +532,7 @@ describe('Skill Store Schedule API (Issue #802)', () => {
     it('returns 404 for non-existent schedule', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/skill-store/schedules/00000000-0000-0000-0000-000000000000/trigger',
+        url: '/skill-store/schedules/00000000-0000-0000-0000-000000000000/trigger',
       });
 
       expect(res.statusCode).toBe(404);
@@ -541,21 +541,21 @@ describe('Skill Store Schedule API (Issue #802)', () => {
     it('returns 400 for invalid UUID', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/skill-store/schedules/not-a-uuid/trigger',
+        url: '/skill-store/schedules/not-a-uuid/trigger',
       });
 
       expect(res.statusCode).toBe(400);
     });
   });
 
-  describe('POST /api/skill-store/schedules/:id/pause', () => {
+  describe('POST /skill-store/schedules/:id/pause', () => {
     it('disables a schedule and returns 200', async () => {
       const createRes = await createSchedule();
       const id = createRes.json().id;
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/skill-store/schedules/${id}/pause`,
+        url: `/skill-store/schedules/${id}/pause`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -569,7 +569,7 @@ describe('Skill Store Schedule API (Issue #802)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/skill-store/schedules/${id}/pause`,
+        url: `/skill-store/schedules/${id}/pause`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -579,21 +579,21 @@ describe('Skill Store Schedule API (Issue #802)', () => {
     it('returns 404 for non-existent schedule', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/skill-store/schedules/00000000-0000-0000-0000-000000000000/pause',
+        url: '/skill-store/schedules/00000000-0000-0000-0000-000000000000/pause',
       });
 
       expect(res.statusCode).toBe(404);
     });
   });
 
-  describe('POST /api/skill-store/schedules/:id/resume', () => {
+  describe('POST /skill-store/schedules/:id/resume', () => {
     it('enables a schedule and returns 200', async () => {
       const createRes = await createSchedule({ enabled: false });
       const id = createRes.json().id;
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/skill-store/schedules/${id}/resume`,
+        url: `/skill-store/schedules/${id}/resume`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -607,7 +607,7 @@ describe('Skill Store Schedule API (Issue #802)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/skill-store/schedules/${id}/resume`,
+        url: `/skill-store/schedules/${id}/resume`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -617,7 +617,7 @@ describe('Skill Store Schedule API (Issue #802)', () => {
     it('returns 404 for non-existent schedule', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/skill-store/schedules/00000000-0000-0000-0000-000000000000/resume',
+        url: '/skill-store/schedules/00000000-0000-0000-0000-000000000000/resume',
       });
 
       expect(res.statusCode).toBe(404);
@@ -637,7 +637,7 @@ describe('Skill Store Schedule API (Issue #802)', () => {
       // Trigger it
       const triggerRes = await app.inject({
         method: 'POST',
-        url: `/api/skill-store/schedules/${scheduleId}/trigger`,
+        url: `/skill-store/schedules/${scheduleId}/trigger`,
       });
       expect(triggerRes.statusCode).toBe(202);
 

@@ -37,9 +37,9 @@ describe('apiClient', () => {
         json: async () => data,
       });
 
-      const result = await apiClient.get('/api/work-items');
+      const result = await apiClient.get('/work-items');
 
-      expect(fetchMock).toHaveBeenCalledWith('/api/work-items', {
+      expect(fetchMock).toHaveBeenCalledWith('/work-items', {
         method: 'GET',
         credentials: 'include',
         headers: { accept: 'application/json' },
@@ -56,10 +56,10 @@ describe('apiClient', () => {
       });
       const controller = new AbortController();
 
-      await apiClient.get('/api/test', { signal: controller.signal });
+      await apiClient.get('/test', { signal: controller.signal });
 
       expect(fetchMock).toHaveBeenCalledWith(
-        '/api/test',
+        '/test',
         expect.objectContaining({
           signal: controller.signal,
         }),
@@ -73,10 +73,10 @@ describe('apiClient', () => {
         json: async () => ({}),
       });
 
-      await apiClient.get('/api/test', { headers: { 'x-custom': 'value' } });
+      await apiClient.get('/test', { headers: { 'x-custom': 'value' } });
 
       expect(fetchMock).toHaveBeenCalledWith(
-        '/api/test',
+        '/test',
         expect.objectContaining({
           headers: { accept: 'application/json', 'x-custom': 'value' },
         }),
@@ -91,10 +91,10 @@ describe('apiClient', () => {
         json: async () => ({ message: 'Work item not found' }),
       });
 
-      await expect(apiClient.get('/api/work-items/missing')).rejects.toThrow(ApiRequestError);
+      await expect(apiClient.get('/work-items/missing')).rejects.toThrow(ApiRequestError);
 
       try {
-        await apiClient.get('/api/work-items/missing');
+        await apiClient.get('/work-items/missing');
       } catch (err) {
         expect(err).toBeInstanceOf(ApiRequestError);
         const apiError = err as ApiRequestError;
@@ -113,10 +113,10 @@ describe('apiClient', () => {
         },
       });
 
-      await expect(apiClient.get('/api/broken')).rejects.toThrow(ApiRequestError);
+      await expect(apiClient.get('/broken')).rejects.toThrow(ApiRequestError);
 
       try {
-        await apiClient.get('/api/broken');
+        await apiClient.get('/broken');
       } catch (err) {
         const apiError = err as ApiRequestError;
         expect(apiError.status).toBe(500);
@@ -135,9 +135,9 @@ describe('apiClient', () => {
         json: async () => responseData,
       });
 
-      const result = await apiClient.post('/api/work-items', payload);
+      const result = await apiClient.post('/work-items', payload);
 
-      expect(fetchMock).toHaveBeenCalledWith('/api/work-items', {
+      expect(fetchMock).toHaveBeenCalledWith('/work-items', {
         method: 'POST',
         credentials: 'include',
         headers: {
@@ -159,7 +159,7 @@ describe('apiClient', () => {
       });
 
       try {
-        await apiClient.post('/api/work-items', {});
+        await apiClient.post('/work-items', {});
       } catch (err) {
         expect(err).toBeInstanceOf(ApiRequestError);
         const apiError = err as ApiRequestError;
@@ -178,9 +178,9 @@ describe('apiClient', () => {
         json: async () => ({ id: '1', ...payload }),
       });
 
-      await apiClient.put('/api/work-items/1', payload);
+      await apiClient.put('/work-items/1', payload);
 
-      expect(fetchMock).toHaveBeenCalledWith('/api/work-items/1', {
+      expect(fetchMock).toHaveBeenCalledWith('/work-items/1', {
         method: 'PUT',
         credentials: 'include',
         headers: {
@@ -202,9 +202,9 @@ describe('apiClient', () => {
         json: async () => ({ id: '1', title: 'Patched' }),
       });
 
-      await apiClient.patch('/api/memories/1', payload);
+      await apiClient.patch('/memories/1', payload);
 
-      expect(fetchMock).toHaveBeenCalledWith('/api/memories/1', {
+      expect(fetchMock).toHaveBeenCalledWith('/memories/1', {
         method: 'PATCH',
         credentials: 'include',
         headers: {
@@ -227,9 +227,9 @@ describe('apiClient', () => {
         },
       });
 
-      const result = await apiClient.delete('/api/work-items/1');
+      const result = await apiClient.delete('/work-items/1');
 
-      expect(fetchMock).toHaveBeenCalledWith('/api/work-items/1', {
+      expect(fetchMock).toHaveBeenCalledWith('/work-items/1', {
         method: 'DELETE',
         credentials: 'include',
         headers: { accept: 'application/json' },
@@ -246,7 +246,7 @@ describe('apiClient', () => {
         json: async () => responseData,
       });
 
-      const result = await apiClient.delete('/api/work-items/1');
+      const result = await apiClient.delete('/work-items/1');
       expect(result).toEqual(responseData);
     });
 
@@ -258,7 +258,7 @@ describe('apiClient', () => {
         json: async () => ({ message: 'Access denied' }),
       });
 
-      await expect(apiClient.delete('/api/work-items/1')).rejects.toThrow(ApiRequestError);
+      await expect(apiClient.delete('/work-items/1')).rejects.toThrow(ApiRequestError);
     });
   });
 });

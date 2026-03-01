@@ -26,7 +26,7 @@ describe('Email and Calendar Linking API (issue #126)', () => {
     // Create a work item
     const wi = await app.inject({
       method: 'POST',
-      url: '/api/work-items',
+      url: '/work-items',
       payload: { title: 'Test Project', kind: 'project' },
     });
     work_item_id = (wi.json() as { id: string }).id;
@@ -34,14 +34,14 @@ describe('Email and Calendar Linking API (issue #126)', () => {
     // Create a contact with an email endpoint
     const contact = await app.inject({
       method: 'POST',
-      url: '/api/contacts',
+      url: '/contacts',
       payload: { display_name: 'John Doe' },
     });
     contact_id = (contact.json() as { id: string }).id;
 
     const endpoint = await app.inject({
       method: 'POST',
-      url: `/api/contacts/${contact_id}/endpoints`,
+      url: `/contacts/${contact_id}/endpoints`,
       payload: { endpoint_type: 'email', endpoint_value: 'john@example.com' },
     });
     endpointId = (endpoint.json() as { id: string }).id;
@@ -87,11 +87,11 @@ describe('Email and Calendar Linking API (issue #126)', () => {
     await pool.end();
   });
 
-  describe('POST /api/work-items/:id/emails', () => {
+  describe('POST /work-items/:id/emails', () => {
     it('links an email to a work item', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: `/api/work-items/${work_item_id}/emails`,
+        url: `/work-items/${work_item_id}/emails`,
         payload: { email_id: emailMessageId },
       });
       expect(res.statusCode).toBe(201);
@@ -107,7 +107,7 @@ describe('Email and Calendar Linking API (issue #126)', () => {
     it('returns 400 when email_id is missing', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: `/api/work-items/${work_item_id}/emails`,
+        url: `/work-items/${work_item_id}/emails`,
         payload: {},
       });
       expect(res.statusCode).toBe(400);
@@ -117,7 +117,7 @@ describe('Email and Calendar Linking API (issue #126)', () => {
     it('returns 404 for non-existent work item', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/work-items/00000000-0000-0000-0000-000000000000/emails',
+        url: '/work-items/00000000-0000-0000-0000-000000000000/emails',
         payload: { email_id: emailMessageId },
       });
       expect(res.statusCode).toBe(404);
@@ -127,7 +127,7 @@ describe('Email and Calendar Linking API (issue #126)', () => {
     it('returns 400 for non-existent email', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: `/api/work-items/${work_item_id}/emails`,
+        url: `/work-items/${work_item_id}/emails`,
         payload: { email_id: '00000000-0000-0000-0000-000000000000' },
       });
       expect(res.statusCode).toBe(400);
@@ -135,12 +135,12 @@ describe('Email and Calendar Linking API (issue #126)', () => {
     });
   });
 
-  describe('DELETE /api/work-items/:id/emails/:emailId', () => {
+  describe('DELETE /work-items/:id/emails/:emailId', () => {
     beforeEach(async () => {
       // Link the email first
       await app.inject({
         method: 'POST',
-        url: `/api/work-items/${work_item_id}/emails`,
+        url: `/work-items/${work_item_id}/emails`,
         payload: { email_id: emailMessageId },
       });
     });
@@ -148,7 +148,7 @@ describe('Email and Calendar Linking API (issue #126)', () => {
     it('unlinks an email from a work item', async () => {
       const res = await app.inject({
         method: 'DELETE',
-        url: `/api/work-items/${work_item_id}/emails/${emailMessageId}`,
+        url: `/work-items/${work_item_id}/emails/${emailMessageId}`,
       });
       expect(res.statusCode).toBe(204);
 
@@ -160,7 +160,7 @@ describe('Email and Calendar Linking API (issue #126)', () => {
     it('returns 404 for non-existent work item', async () => {
       const res = await app.inject({
         method: 'DELETE',
-        url: `/api/work-items/00000000-0000-0000-0000-000000000000/emails/${emailMessageId}`,
+        url: `/work-items/00000000-0000-0000-0000-000000000000/emails/${emailMessageId}`,
       });
       expect(res.statusCode).toBe(404);
       expect(res.json()).toEqual({ error: 'not found' });
@@ -170,25 +170,25 @@ describe('Email and Calendar Linking API (issue #126)', () => {
       // Create a new work item without any email links
       const wi2 = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: { title: 'Test Project 2', kind: 'project' },
       });
       const workItemId2 = (wi2.json() as { id: string }).id;
 
       const res = await app.inject({
         method: 'DELETE',
-        url: `/api/work-items/${workItemId2}/emails/${emailMessageId}`,
+        url: `/work-items/${workItemId2}/emails/${emailMessageId}`,
       });
       expect(res.statusCode).toBe(404);
       expect(res.json()).toEqual({ error: 'not found' });
     });
   });
 
-  describe('POST /api/work-items/:id/calendar', () => {
+  describe('POST /work-items/:id/calendar', () => {
     it('links a calendar event to a work item', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: `/api/work-items/${work_item_id}/calendar`,
+        url: `/work-items/${work_item_id}/calendar`,
         payload: { event_id: calendarEventId },
       });
       expect(res.statusCode).toBe(201);
@@ -204,7 +204,7 @@ describe('Email and Calendar Linking API (issue #126)', () => {
     it('returns 400 when event_id is missing', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: `/api/work-items/${work_item_id}/calendar`,
+        url: `/work-items/${work_item_id}/calendar`,
         payload: {},
       });
       expect(res.statusCode).toBe(400);
@@ -214,7 +214,7 @@ describe('Email and Calendar Linking API (issue #126)', () => {
     it('returns 404 for non-existent work item', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/work-items/00000000-0000-0000-0000-000000000000/calendar',
+        url: '/work-items/00000000-0000-0000-0000-000000000000/calendar',
         payload: { event_id: calendarEventId },
       });
       expect(res.statusCode).toBe(404);
@@ -224,7 +224,7 @@ describe('Email and Calendar Linking API (issue #126)', () => {
     it('returns 400 for non-existent event', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: `/api/work-items/${work_item_id}/calendar`,
+        url: `/work-items/${work_item_id}/calendar`,
         payload: { event_id: '00000000-0000-0000-0000-000000000000' },
       });
       expect(res.statusCode).toBe(400);
@@ -232,12 +232,12 @@ describe('Email and Calendar Linking API (issue #126)', () => {
     });
   });
 
-  describe('DELETE /api/work-items/:id/calendar/:eventId', () => {
+  describe('DELETE /work-items/:id/calendar/:eventId', () => {
     beforeEach(async () => {
       // Link the calendar event first
       await app.inject({
         method: 'POST',
-        url: `/api/work-items/${work_item_id}/calendar`,
+        url: `/work-items/${work_item_id}/calendar`,
         payload: { event_id: calendarEventId },
       });
     });
@@ -245,7 +245,7 @@ describe('Email and Calendar Linking API (issue #126)', () => {
     it('unlinks a calendar event from a work item', async () => {
       const res = await app.inject({
         method: 'DELETE',
-        url: `/api/work-items/${work_item_id}/calendar/${calendarEventId}`,
+        url: `/work-items/${work_item_id}/calendar/${calendarEventId}`,
       });
       expect(res.statusCode).toBe(204);
 
@@ -257,7 +257,7 @@ describe('Email and Calendar Linking API (issue #126)', () => {
     it('returns 404 for non-existent work item', async () => {
       const res = await app.inject({
         method: 'DELETE',
-        url: `/api/work-items/00000000-0000-0000-0000-000000000000/calendar/${calendarEventId}`,
+        url: `/work-items/00000000-0000-0000-0000-000000000000/calendar/${calendarEventId}`,
       });
       expect(res.statusCode).toBe(404);
       expect(res.json()).toEqual({ error: 'not found' });
@@ -267,14 +267,14 @@ describe('Email and Calendar Linking API (issue #126)', () => {
       // Create a new work item without any event links
       const wi2 = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: { title: 'Test Project 2', kind: 'project' },
       });
       const workItemId2 = (wi2.json() as { id: string }).id;
 
       const res = await app.inject({
         method: 'DELETE',
-        url: `/api/work-items/${workItemId2}/calendar/${calendarEventId}`,
+        url: `/work-items/${workItemId2}/calendar/${calendarEventId}`,
       });
       expect(res.statusCode).toBe(404);
       expect(res.json()).toEqual({ error: 'not found' });

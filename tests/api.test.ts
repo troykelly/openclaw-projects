@@ -32,14 +32,14 @@ describe('Backend API service', () => {
   it('can create and fetch a work item', async () => {
     const created = await app.inject({
       method: 'POST',
-      url: '/api/work-items',
+      url: '/work-items',
       payload: { title: 'API item', description: 'via api' },
     });
     expect(created.statusCode).toBe(201);
     const body = created.json() as { id: string };
     expect(body.id).toMatch(/^[0-9a-f-]{36}$/i);
 
-    const fetched = await app.inject({ method: 'GET', url: `/api/work-items/${body.id}` });
+    const fetched = await app.inject({ method: 'GET', url: `/work-items/${body.id}` });
     expect(fetched.statusCode).toBe(200);
     expect(fetched.json().title).toBe('API item');
   });
@@ -47,14 +47,14 @@ describe('Backend API service', () => {
   it('supports update + delete for work items', async () => {
     const created = await app.inject({
       method: 'POST',
-      url: '/api/work-items',
+      url: '/work-items',
       payload: { title: 'To update', description: 'a' },
     });
     const { id } = created.json() as { id: string };
 
     const updated = await app.inject({
       method: 'PUT',
-      url: `/api/work-items/${id}`,
+      url: `/work-items/${id}`,
       payload: {
         title: 'Updated title',
         description: 'b',
@@ -69,24 +69,24 @@ describe('Backend API service', () => {
     expect(updated.json().title).toBe('Updated title');
     expect(updated.json().priority).toBe('P1');
 
-    const del = await app.inject({ method: 'DELETE', url: `/api/work-items/${id}` });
+    const del = await app.inject({ method: 'DELETE', url: `/work-items/${id}` });
     expect(del.statusCode).toBe(204);
 
-    const fetched = await app.inject({ method: 'GET', url: `/api/work-items/${id}` });
+    const fetched = await app.inject({ method: 'GET', url: `/work-items/${id}` });
     expect(fetched.statusCode).toBe(404);
   });
 
   it('supports dependencies + participants CRUD', async () => {
-    const a = await app.inject({ method: 'POST', url: '/api/work-items', payload: { title: 'A' } });
-    const b = await app.inject({ method: 'POST', url: '/api/work-items', payload: { title: 'B' } });
-    const c = await app.inject({ method: 'POST', url: '/api/work-items', payload: { title: 'C' } });
+    const a = await app.inject({ method: 'POST', url: '/work-items', payload: { title: 'A' } });
+    const b = await app.inject({ method: 'POST', url: '/work-items', payload: { title: 'B' } });
+    const c = await app.inject({ method: 'POST', url: '/work-items', payload: { title: 'C' } });
     const aId = (a.json() as { id: string }).id;
     const bId = (b.json() as { id: string }).id;
     const cId = (c.json() as { id: string }).id;
 
     const dep = await app.inject({
       method: 'POST',
-      url: `/api/work-items/${bId}/dependencies`,
+      url: `/work-items/${bId}/dependencies`,
       payload: { depends_on_work_item_id: aId, kind: 'depends_on' },
     });
     expect(dep.statusCode).toBe(201);
@@ -94,7 +94,7 @@ describe('Backend API service', () => {
 
     const dep2 = await app.inject({
       method: 'POST',
-      url: `/api/work-items/${cId}/dependencies`,
+      url: `/work-items/${cId}/dependencies`,
       payload: { depends_on_work_item_id: bId, kind: 'depends_on' },
     });
     expect(dep2.statusCode).toBe(201);
@@ -102,40 +102,40 @@ describe('Backend API service', () => {
     // Reject cycles: if C -> B -> A, then A cannot depend on C.
     const cycle = await app.inject({
       method: 'POST',
-      url: `/api/work-items/${aId}/dependencies`,
+      url: `/work-items/${aId}/dependencies`,
       payload: { depends_on_work_item_id: cId, kind: 'depends_on' },
     });
     expect(cycle.statusCode).toBe(400);
 
-    const deps = await app.inject({ method: 'GET', url: `/api/work-items/${bId}/dependencies` });
+    const deps = await app.inject({ method: 'GET', url: `/work-items/${bId}/dependencies` });
     expect(deps.statusCode).toBe(200);
     expect((deps.json() as { items: unknown[] }).items.length).toBe(1);
 
     const depDel = await app.inject({
       method: 'DELETE',
-      url: `/api/work-items/${bId}/dependencies/${depId}`,
+      url: `/work-items/${bId}/dependencies/${depId}`,
     });
     expect(depDel.statusCode).toBe(204);
 
     const p = await app.inject({
       method: 'POST',
-      url: `/api/work-items/${bId}/participants`,
+      url: `/work-items/${bId}/participants`,
       payload: { participant: 'troy@example.com', role: 'watcher' },
     });
     expect(p.statusCode).toBe(201);
     const pid = (p.json() as { id: string }).id;
 
-    const plist = await app.inject({ method: 'GET', url: `/api/work-items/${bId}/participants` });
+    const plist = await app.inject({ method: 'GET', url: `/work-items/${bId}/participants` });
     expect(plist.statusCode).toBe(200);
     expect((plist.json() as { items: Array<{ participant: string }> }).items[0].participant).toBe('troy@example.com');
 
-    const pdel = await app.inject({ method: 'DELETE', url: `/api/work-items/${bId}/participants/${pid}` });
+    const pdel = await app.inject({ method: 'DELETE', url: `/work-items/${bId}/participants/${pid}` });
     expect(pdel.statusCode).toBe(204);
   });
 
   it('auto-sets not_before when adding a depends_on dependency', async () => {
-    const blocker = await app.inject({ method: 'POST', url: '/api/work-items', payload: { title: 'Blocker' } });
-    const dependent = await app.inject({ method: 'POST', url: '/api/work-items', payload: { title: 'Dependent' } });
+    const blocker = await app.inject({ method: 'POST', url: '/work-items', payload: { title: 'Blocker' } });
+    const dependent = await app.inject({ method: 'POST', url: '/work-items', payload: { title: 'Dependent' } });
 
     const blockerId = (blocker.json() as { id: string }).id;
     const dependentId = (dependent.json() as { id: string }).id;
@@ -144,7 +144,7 @@ describe('Backend API service', () => {
 
     const updatedBlocker = await app.inject({
       method: 'PUT',
-      url: `/api/work-items/${blockerId}`,
+      url: `/work-items/${blockerId}`,
       payload: {
         title: 'Blocker',
         description: null,
@@ -159,12 +159,12 @@ describe('Backend API service', () => {
 
     const dep = await app.inject({
       method: 'POST',
-      url: `/api/work-items/${dependentId}/dependencies`,
+      url: `/work-items/${dependentId}/dependencies`,
       payload: { depends_on_work_item_id: blockerId, kind: 'depends_on' },
     });
     expect(dep.statusCode).toBe(201);
 
-    const fetched = await app.inject({ method: 'GET', url: `/api/work-items/${dependentId}` });
+    const fetched = await app.inject({ method: 'GET', url: `/work-items/${dependentId}` });
     expect(fetched.statusCode).toBe(200);
 
     const body = fetched.json() as { not_before: string | null };
@@ -175,7 +175,7 @@ describe('Backend API service', () => {
   it('can ingest an external message (contact+endpoint+thread+message)', async () => {
     const res = await app.inject({
       method: 'POST',
-      url: '/api/ingest/external-message',
+      url: '/ingest/external-message',
       payload: {
         contact_display_name: 'Test Sender',
         endpoint_type: 'telegram',

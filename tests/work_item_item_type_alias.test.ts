@@ -1,8 +1,8 @@
 /**
- * Tests for issue #1347: Plugin sends item_type which POST /api/work-items silently ignores.
+ * Tests for issue #1347: Plugin sends item_type which POST /work-items silently ignores.
  *
  * Verifies:
- * - POST /api/work-items accepts `item_type` as alias for `kind`/`type`
+ * - POST /work-items accepts `item_type` as alias for `kind`/`type`
  * - `item_type` is respected when `type` and `kind` are absent
  * - `type` still takes precedence over `item_type` when both are present
  * - `kind` takes precedence over `item_type` when `type` is absent
@@ -14,7 +14,7 @@ import { runMigrate } from './helpers/migrate.ts';
 import { createTestPool, truncateAllTables } from './helpers/db.ts';
 import { buildServer } from '../src/api/server.ts';
 
-describe('POST /api/work-items — item_type alias (Issue #1347)', () => {
+describe('POST /work-items — item_type alias (Issue #1347)', () => {
   const app = buildServer();
   let pool: Pool;
 
@@ -36,7 +36,7 @@ describe('POST /api/work-items — item_type alias (Issue #1347)', () => {
   it('accepts item_type as work_item_kind', async () => {
     const res = await app.inject({
       method: 'POST',
-      url: '/api/work-items',
+      url: '/work-items',
       payload: {
         title: 'My project via item_type',
         item_type: 'project',
@@ -58,7 +58,7 @@ describe('POST /api/work-items — item_type alias (Issue #1347)', () => {
   it('uses item_type: task correctly', async () => {
     const res = await app.inject({
       method: 'POST',
-      url: '/api/work-items',
+      url: '/work-items',
       payload: {
         title: 'A task via item_type',
         item_type: 'task',
@@ -76,7 +76,7 @@ describe('POST /api/work-items — item_type alias (Issue #1347)', () => {
   it('type takes precedence over item_type', async () => {
     const res = await app.inject({
       method: 'POST',
-      url: '/api/work-items',
+      url: '/work-items',
       payload: {
         title: 'Precedence test',
         type: 'task',
@@ -95,7 +95,7 @@ describe('POST /api/work-items — item_type alias (Issue #1347)', () => {
   it('kind takes precedence over item_type when type is absent', async () => {
     const res = await app.inject({
       method: 'POST',
-      url: '/api/work-items',
+      url: '/work-items',
       payload: {
         title: 'Kind precedence test',
         kind: 'task',
@@ -114,7 +114,7 @@ describe('POST /api/work-items — item_type alias (Issue #1347)', () => {
   it('defaults to issue when no type/kind/item_type provided', async () => {
     const res = await app.inject({
       method: 'POST',
-      url: '/api/work-items',
+      url: '/work-items',
       payload: {
         title: 'Default kind test',
       },
@@ -131,7 +131,7 @@ describe('POST /api/work-items — item_type alias (Issue #1347)', () => {
   it('rejects invalid item_type value', async () => {
     const res = await app.inject({
       method: 'POST',
-      url: '/api/work-items',
+      url: '/work-items',
       payload: {
         title: 'Invalid item_type',
         item_type: 'banana',

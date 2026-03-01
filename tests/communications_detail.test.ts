@@ -27,7 +27,7 @@ describe('Communications in Work Item Detail', () => {
     await pool.end();
   });
 
-  describe('GET /api/work-items/:id/communications', () => {
+  describe('GET /work-items/:id/communications', () => {
     it('returns emails and calendar events for a work item', async () => {
       // Create a work item
       const item = await pool.query(
@@ -80,7 +80,7 @@ describe('Communications in Work Item Detail', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${item_id}/communications`,
+        url: `/work-items/${item_id}/communications`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -100,7 +100,7 @@ describe('Communications in Work Item Detail', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${item_id}/communications`,
+        url: `/work-items/${item_id}/communications`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -112,14 +112,14 @@ describe('Communications in Work Item Detail', () => {
     it('returns 404 for non-existent work item', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/work-items/00000000-0000-0000-0000-000000000000/communications',
+        url: '/work-items/00000000-0000-0000-0000-000000000000/communications',
       });
 
       expect(res.statusCode).toBe(404);
     });
   });
 
-  describe('POST /api/work-items/:id/communications', () => {
+  describe('POST /work-items/:id/communications', () => {
     it('links a communication thread to a work item', async () => {
       // Create a work item
       const item = await pool.query(
@@ -156,7 +156,7 @@ describe('Communications in Work Item Detail', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/work-items/${item_id}/communications`,
+        url: `/work-items/${item_id}/communications`,
         payload: {
           thread_id: thread_id, // camelCase as expected by API
         },
@@ -178,7 +178,7 @@ describe('Communications in Work Item Detail', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/work-items/${item_id}/communications`,
+        url: `/work-items/${item_id}/communications`,
         payload: {},
       });
 
@@ -186,7 +186,7 @@ describe('Communications in Work Item Detail', () => {
     });
   });
 
-  describe('DELETE /api/work-items/:id/communications/:commId', () => {
+  describe('DELETE /work-items/:id/communications/:commId', () => {
     it('unlinks a communication from a work item', async () => {
       // Create a work item
       const item = await pool.query(
@@ -240,7 +240,7 @@ describe('Communications in Work Item Detail', () => {
       // DELETE uses thread_id as commId
       const res = await app.inject({
         method: 'DELETE',
-        url: `/api/work-items/${item_id}/communications/${thread_id}`,
+        url: `/work-items/${item_id}/communications/${thread_id}`,
       });
 
       expect(res.statusCode).toBe(204);
@@ -248,7 +248,7 @@ describe('Communications in Work Item Detail', () => {
       // Verify unlinked
       const checkRes = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${item_id}/communications`,
+        url: `/work-items/${item_id}/communications`,
       });
       const body = checkRes.json() as { emails: unknown[] };
       expect(body.emails.length).toBe(0);
@@ -264,7 +264,7 @@ describe('Communications in Work Item Detail', () => {
 
       const res = await app.inject({
         method: 'DELETE',
-        url: `/api/work-items/${item_id}/communications/00000000-0000-0000-0000-000000000000`,
+        url: `/work-items/${item_id}/communications/00000000-0000-0000-0000-000000000000`,
       });
 
       expect(res.statusCode).toBe(404);

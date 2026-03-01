@@ -85,46 +85,46 @@ describe('RealtimeProvider JWT Auth', () => {
 
   it('appends token as query parameter to WebSocket URL', () => {
     render(
-      <RealtimeProvider url="ws://localhost/api/ws" getAccessToken={() => 'my-jwt-token'}>
+      <RealtimeProvider url="ws://localhost/ws" getAccessToken={() => 'my-jwt-token'}>
         <StatusDisplay />
       </RealtimeProvider>,
     );
 
     expect(MockWebSocket.instances.length).toBe(1);
-    expect(MockWebSocket.instances[0].url).toBe('ws://localhost/api/ws?token=my-jwt-token');
+    expect(MockWebSocket.instances[0].url).toBe('ws://localhost/ws?token=my-jwt-token');
   });
 
   it('does not append token param when getAccessToken returns null', () => {
     render(
-      <RealtimeProvider url="ws://localhost/api/ws" getAccessToken={() => null}>
+      <RealtimeProvider url="ws://localhost/ws" getAccessToken={() => null}>
         <StatusDisplay />
       </RealtimeProvider>,
     );
 
     expect(MockWebSocket.instances.length).toBe(1);
-    expect(MockWebSocket.instances[0].url).toBe('ws://localhost/api/ws');
+    expect(MockWebSocket.instances[0].url).toBe('ws://localhost/ws');
   });
 
   it('does not append token param when getAccessToken is not provided', () => {
     render(
-      <RealtimeProvider url="ws://localhost/api/ws">
+      <RealtimeProvider url="ws://localhost/ws">
         <StatusDisplay />
       </RealtimeProvider>,
     );
 
     expect(MockWebSocket.instances.length).toBe(1);
-    expect(MockWebSocket.instances[0].url).toBe('ws://localhost/api/ws');
+    expect(MockWebSocket.instances[0].url).toBe('ws://localhost/ws');
   });
 
   it('preserves existing query parameters when appending token', () => {
     render(
-      <RealtimeProvider url="ws://localhost/api/ws?debug=1" getAccessToken={() => 'my-token'}>
+      <RealtimeProvider url="ws://localhost/ws?debug=1" getAccessToken={() => 'my-token'}>
         <StatusDisplay />
       </RealtimeProvider>,
     );
 
     expect(MockWebSocket.instances.length).toBe(1);
-    expect(MockWebSocket.instances[0].url).toBe('ws://localhost/api/ws?debug=1&token=my-token');
+    expect(MockWebSocket.instances[0].url).toBe('ws://localhost/ws?debug=1&token=my-token');
   });
 
   it('reconnects when onTokenRefreshed is called', async () => {
@@ -132,7 +132,7 @@ describe('RealtimeProvider JWT Auth', () => {
 
     render(
       <RealtimeProvider
-        url="ws://localhost/api/ws"
+        url="ws://localhost/ws"
         getAccessToken={() => 'new-token'}
         onTokenRefreshed={(cb) => {
           tokenRefreshedCallback = cb;
@@ -163,7 +163,7 @@ describe('RealtimeProvider JWT Auth', () => {
 
     // A new connection should be created with the new token
     expect(MockWebSocket.instances.length).toBe(2);
-    expect(MockWebSocket.instances[1].url).toBe('ws://localhost/api/ws?token=new-token');
+    expect(MockWebSocket.instances[1].url).toBe('ws://localhost/ws?token=new-token');
   });
 
   it('cleans up onTokenRefreshed subscription on unmount', () => {
@@ -172,7 +172,7 @@ describe('RealtimeProvider JWT Auth', () => {
 
     const { unmount } = render(
       <RealtimeProvider
-        url="ws://localhost/api/ws"
+        url="ws://localhost/ws"
         getAccessToken={() => 'token'}
         onTokenRefreshed={(cb) => {
           cleanupFn = () => cb();

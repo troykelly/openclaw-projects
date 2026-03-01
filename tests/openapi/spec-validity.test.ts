@@ -51,13 +51,13 @@ describe('OpenAPI Spec Validity', () => {
 
     it('includes core domain paths', () => {
       const requiredPaths = [
-        '/api/work-items',
-        '/api/contacts',
-        '/api/memory',
-        '/api/notes',
-        '/api/lists',
-        '/api/health',
-        '/api/auth/request-link',
+        '/work-items',
+        '/contacts',
+        '/memory',
+        '/notes',
+        '/lists',
+        '/health',
+        '/auth/request-link',
       ];
       for (const p of requiredPaths) {
         expect(spec.paths).toHaveProperty(p);

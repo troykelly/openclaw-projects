@@ -26,11 +26,11 @@ describe('Work Items Tree API', () => {
     await pool.end();
   });
 
-  describe('GET /api/work-items/tree', () => {
+  describe('GET /work-items/tree', () => {
     it('returns empty array when no work items exist', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/work-items/tree',
+        url: '/work-items/tree',
       });
 
       expect(res.statusCode).toBe(200);
@@ -47,7 +47,7 @@ describe('Work Items Tree API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/work-items/tree',
+        url: '/work-items/tree',
       });
 
       expect(res.statusCode).toBe(200);
@@ -92,7 +92,7 @@ describe('Work Items Tree API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/work-items/tree',
+        url: '/work-items/tree',
       });
 
       expect(res.statusCode).toBe(200);
@@ -129,7 +129,7 @@ describe('Work Items Tree API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/work-items/tree',
+        url: '/work-items/tree',
       });
 
       expect(res.statusCode).toBe(200);
@@ -147,7 +147,7 @@ describe('Work Items Tree API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/work-items/tree',
+        url: '/work-items/tree',
       });
 
       expect(res.statusCode).toBe(200);
@@ -187,7 +187,7 @@ describe('Work Items Tree API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/tree?root_id=${project1Id}`,
+        url: `/work-items/tree?root_id=${project1Id}`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -208,7 +208,7 @@ describe('Work Items Tree API', () => {
     it('returns 404 when root_id does not exist', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/work-items/tree?root_id=00000000-0000-0000-0000-000000000000',
+        url: '/work-items/tree?root_id=00000000-0000-0000-0000-000000000000',
       });
 
       expect(res.statusCode).toBe(404);
@@ -247,7 +247,7 @@ describe('Work Items Tree API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/work-items/tree?depth=2',
+        url: '/work-items/tree?depth=2',
       });
 
       expect(res.statusCode).toBe(200);
@@ -282,7 +282,7 @@ describe('Work Items Tree API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/work-items/tree',
+        url: '/work-items/tree',
       });
 
       expect(res.statusCode).toBe(200);

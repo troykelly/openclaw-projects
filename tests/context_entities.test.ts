@@ -28,13 +28,13 @@ describe('Context entities API (Issue #1275)', () => {
     await pool.end();
   });
 
-  // ── POST /api/contexts ─────────────────────────────────
+  // ── POST /contexts ─────────────────────────────────
 
-  describe('POST /api/contexts', () => {
+  describe('POST /contexts', () => {
     it('creates a context with label and content', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/contexts',
+        url: '/contexts',
         payload: {
           label: 'CareSwap project info',
           content: 'CareSwap is a healthcare consent management platform.',
@@ -54,7 +54,7 @@ describe('Context entities API (Issue #1275)', () => {
     it('creates a context with optional content_type', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/contexts',
+        url: '/contexts',
         payload: {
           label: 'Deployment runbook',
           content: '# Steps\n1. Pull latest\n2. Deploy',
@@ -69,7 +69,7 @@ describe('Context entities API (Issue #1275)', () => {
     it('rejects missing label', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/contexts',
+        url: '/contexts',
         payload: { content: 'Some content' },
       });
 
@@ -80,7 +80,7 @@ describe('Context entities API (Issue #1275)', () => {
     it('rejects missing content', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/contexts',
+        url: '/contexts',
         payload: { label: 'A label' },
       });
 
@@ -91,7 +91,7 @@ describe('Context entities API (Issue #1275)', () => {
     it('rejects empty label', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/contexts',
+        url: '/contexts',
         payload: { label: '   ', content: 'Some content' },
       });
 
@@ -99,25 +99,25 @@ describe('Context entities API (Issue #1275)', () => {
     });
   });
 
-  // ── GET /api/contexts ──────────────────────────────────
+  // ── GET /contexts ──────────────────────────────────
 
-  describe('GET /api/contexts', () => {
+  describe('GET /contexts', () => {
     it('lists contexts with pagination', async () => {
       // Create two contexts
       await app.inject({
         method: 'POST',
-        url: '/api/contexts',
+        url: '/contexts',
         payload: { label: 'First', content: 'Content 1' },
       });
       await app.inject({
         method: 'POST',
-        url: '/api/contexts',
+        url: '/contexts',
         payload: { label: 'Second', content: 'Content 2' },
       });
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/contexts?limit=10&offset=0',
+        url: '/contexts?limit=10&offset=0',
       });
 
       expect(res.statusCode).toBe(200);
@@ -129,18 +129,18 @@ describe('Context entities API (Issue #1275)', () => {
     it('filters by search term in label', async () => {
       await app.inject({
         method: 'POST',
-        url: '/api/contexts',
+        url: '/contexts',
         payload: { label: 'CareSwap context', content: 'Healthcare' },
       });
       await app.inject({
         method: 'POST',
-        url: '/api/contexts',
+        url: '/contexts',
         payload: { label: 'Deploy runbook', content: 'Deployment' },
       });
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/contexts?search=CareSwap',
+        url: '/contexts?search=CareSwap',
       });
 
       expect(res.statusCode).toBe(200);
@@ -152,14 +152,14 @@ describe('Context entities API (Issue #1275)', () => {
     it('only returns active contexts by default', async () => {
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/contexts',
+        url: '/contexts',
         payload: { label: 'Active', content: 'Active content' },
       });
       const activeId = createRes.json().id;
 
       const createRes2 = await app.inject({
         method: 'POST',
-        url: '/api/contexts',
+        url: '/contexts',
         payload: { label: 'Deactivated', content: 'Deactivated content' },
       });
       const inactiveId = createRes2.json().id;
@@ -167,13 +167,13 @@ describe('Context entities API (Issue #1275)', () => {
       // Deactivate one
       await app.inject({
         method: 'PATCH',
-        url: `/api/contexts/${inactiveId}`,
+        url: `/contexts/${inactiveId}`,
         payload: { is_active: false },
       });
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/contexts',
+        url: '/contexts',
       });
 
       expect(res.statusCode).toBe(200);
@@ -183,20 +183,20 @@ describe('Context entities API (Issue #1275)', () => {
     });
   });
 
-  // ── GET /api/contexts/:id ──────────────────────────────
+  // ── GET /contexts/:id ──────────────────────────────
 
-  describe('GET /api/contexts/:id', () => {
+  describe('GET /contexts/:id', () => {
     it('returns a single context by id', async () => {
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/contexts',
+        url: '/contexts',
         payload: { label: 'My context', content: 'Context body' },
       });
       const id = createRes.json().id;
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/contexts/${id}`,
+        url: `/contexts/${id}`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -206,27 +206,27 @@ describe('Context entities API (Issue #1275)', () => {
     it('returns 404 for non-existent context', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/contexts/00000000-0000-0000-0000-000000000000',
+        url: '/contexts/00000000-0000-0000-0000-000000000000',
       });
 
       expect(res.statusCode).toBe(404);
     });
   });
 
-  // ── PATCH /api/contexts/:id ────────────────────────────
+  // ── PATCH /contexts/:id ────────────────────────────
 
-  describe('PATCH /api/contexts/:id', () => {
+  describe('PATCH /contexts/:id', () => {
     it('updates label and content', async () => {
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/contexts',
+        url: '/contexts',
         payload: { label: 'Original', content: 'Original content' },
       });
       const id = createRes.json().id;
 
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/contexts/${id}`,
+        url: `/contexts/${id}`,
         payload: { label: 'Updated', content: 'Updated content' },
       });
 
@@ -238,14 +238,14 @@ describe('Context entities API (Issue #1275)', () => {
     it('can deactivate a context', async () => {
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/contexts',
+        url: '/contexts',
         payload: { label: 'Active', content: 'Content' },
       });
       const id = createRes.json().id;
 
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/contexts/${id}`,
+        url: `/contexts/${id}`,
         payload: { is_active: false },
       });
 
@@ -256,7 +256,7 @@ describe('Context entities API (Issue #1275)', () => {
     it('returns 404 for non-existent context', async () => {
       const res = await app.inject({
         method: 'PATCH',
-        url: '/api/contexts/00000000-0000-0000-0000-000000000000',
+        url: '/contexts/00000000-0000-0000-0000-000000000000',
         payload: { label: 'Updated' },
       });
 
@@ -264,20 +264,20 @@ describe('Context entities API (Issue #1275)', () => {
     });
   });
 
-  // ── DELETE /api/contexts/:id ───────────────────────────
+  // ── DELETE /contexts/:id ───────────────────────────
 
-  describe('DELETE /api/contexts/:id', () => {
+  describe('DELETE /contexts/:id', () => {
     it('deletes a context', async () => {
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/contexts',
+        url: '/contexts',
         payload: { label: 'To delete', content: 'Will be removed' },
       });
       const id = createRes.json().id;
 
       const res = await app.inject({
         method: 'DELETE',
-        url: `/api/contexts/${id}`,
+        url: `/contexts/${id}`,
       });
 
       expect(res.statusCode).toBe(204);
@@ -285,7 +285,7 @@ describe('Context entities API (Issue #1275)', () => {
       // Verify it's gone
       const getRes = await app.inject({
         method: 'GET',
-        url: `/api/contexts/${id}`,
+        url: `/contexts/${id}`,
       });
       expect(getRes.statusCode).toBe(404);
     });
@@ -293,7 +293,7 @@ describe('Context entities API (Issue #1275)', () => {
     it('returns 404 for non-existent context', async () => {
       const res = await app.inject({
         method: 'DELETE',
-        url: '/api/contexts/00000000-0000-0000-0000-000000000000',
+        url: '/contexts/00000000-0000-0000-0000-000000000000',
       });
 
       expect(res.statusCode).toBe(404);
@@ -302,11 +302,11 @@ describe('Context entities API (Issue #1275)', () => {
 
   // ── Context Links ──────────────────────────────────────
 
-  describe('POST /api/contexts/:id/links', () => {
+  describe('POST /contexts/:id/links', () => {
     it('creates a link between context and target entity', async () => {
       const ctxRes = await app.inject({
         method: 'POST',
-        url: '/api/contexts',
+        url: '/contexts',
         payload: { label: 'Project info', content: 'Project details' },
       });
       const contextId = ctxRes.json().id;
@@ -319,7 +319,7 @@ describe('Context entities API (Issue #1275)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/contexts/${contextId}/links`,
+        url: `/contexts/${contextId}/links`,
         payload: {
           target_type: 'project',
           target_id: work_item_id,
@@ -337,14 +337,14 @@ describe('Context entities API (Issue #1275)', () => {
     it('creates a link with optional priority', async () => {
       const ctxRes = await app.inject({
         method: 'POST',
-        url: '/api/contexts',
+        url: '/contexts',
         payload: { label: 'High-priority context', content: 'Important info' },
       });
       const contextId = ctxRes.json().id;
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/contexts/${contextId}/links`,
+        url: `/contexts/${contextId}/links`,
         payload: {
           target_type: 'contact',
           target_id: '00000000-0000-0000-0000-000000000001',
@@ -359,7 +359,7 @@ describe('Context entities API (Issue #1275)', () => {
     it('rejects duplicate link (same context + target_type + target_id)', async () => {
       const ctxRes = await app.inject({
         method: 'POST',
-        url: '/api/contexts',
+        url: '/contexts',
         payload: { label: 'Context', content: 'Content' },
       });
       const contextId = ctxRes.json().id;
@@ -367,13 +367,13 @@ describe('Context entities API (Issue #1275)', () => {
 
       await app.inject({
         method: 'POST',
-        url: `/api/contexts/${contextId}/links`,
+        url: `/contexts/${contextId}/links`,
         payload: { target_type: 'project', target_id: targetId },
       });
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/contexts/${contextId}/links`,
+        url: `/contexts/${contextId}/links`,
         payload: { target_type: 'project', target_id: targetId },
       });
 
@@ -383,13 +383,13 @@ describe('Context entities API (Issue #1275)', () => {
     it('rejects missing target_type', async () => {
       const ctxRes = await app.inject({
         method: 'POST',
-        url: '/api/contexts',
+        url: '/contexts',
         payload: { label: 'Context', content: 'Content' },
       });
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/contexts/${ctxRes.json().id}/links`,
+        url: `/contexts/${ctxRes.json().id}/links`,
         payload: { target_id: '00000000-0000-0000-0000-000000000001' },
       });
 
@@ -399,7 +399,7 @@ describe('Context entities API (Issue #1275)', () => {
     it('returns 404 for non-existent context', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/contexts/00000000-0000-0000-0000-000000000000/links',
+        url: '/contexts/00000000-0000-0000-0000-000000000000/links',
         payload: { target_type: 'project', target_id: '00000000-0000-0000-0000-000000000001' },
       });
 
@@ -407,29 +407,29 @@ describe('Context entities API (Issue #1275)', () => {
     });
   });
 
-  describe('GET /api/contexts/:id/links', () => {
+  describe('GET /contexts/:id/links', () => {
     it('lists links for a context', async () => {
       const ctxRes = await app.inject({
         method: 'POST',
-        url: '/api/contexts',
+        url: '/contexts',
         payload: { label: 'Multi-linked', content: 'Linked to many things' },
       });
       const contextId = ctxRes.json().id;
 
       await app.inject({
         method: 'POST',
-        url: `/api/contexts/${contextId}/links`,
+        url: `/contexts/${contextId}/links`,
         payload: { target_type: 'project', target_id: '00000000-0000-0000-0000-000000000001' },
       });
       await app.inject({
         method: 'POST',
-        url: `/api/contexts/${contextId}/links`,
+        url: `/contexts/${contextId}/links`,
         payload: { target_type: 'contact', target_id: '00000000-0000-0000-0000-000000000002' },
       });
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/contexts/${contextId}/links`,
+        url: `/contexts/${contextId}/links`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -438,25 +438,25 @@ describe('Context entities API (Issue #1275)', () => {
     });
   });
 
-  describe('DELETE /api/contexts/:id/links/:link_id', () => {
+  describe('DELETE /contexts/:id/links/:link_id', () => {
     it('removes a link', async () => {
       const ctxRes = await app.inject({
         method: 'POST',
-        url: '/api/contexts',
+        url: '/contexts',
         payload: { label: 'Linked context', content: 'Has a link' },
       });
       const contextId = ctxRes.json().id;
 
       const linkRes = await app.inject({
         method: 'POST',
-        url: `/api/contexts/${contextId}/links`,
+        url: `/contexts/${contextId}/links`,
         payload: { target_type: 'project', target_id: '00000000-0000-0000-0000-000000000001' },
       });
       const link_id = linkRes.json().id;
 
       const res = await app.inject({
         method: 'DELETE',
-        url: `/api/contexts/${contextId}/links/${link_id}`,
+        url: `/contexts/${contextId}/links/${link_id}`,
       });
 
       expect(res.statusCode).toBe(204);
@@ -464,44 +464,44 @@ describe('Context entities API (Issue #1275)', () => {
       // Verify it's gone
       const listRes = await app.inject({
         method: 'GET',
-        url: `/api/contexts/${contextId}/links`,
+        url: `/contexts/${contextId}/links`,
       });
       expect(listRes.json().links).toHaveLength(0);
     });
   });
 
-  // ── GET /api/entity-contexts — reverse lookup ──────────
+  // ── GET /entity-contexts — reverse lookup ──────────
 
-  describe('GET /api/entity-contexts', () => {
+  describe('GET /entity-contexts', () => {
     it('returns all contexts linked to a target entity', async () => {
       const targetId = '00000000-0000-0000-0000-000000000099';
 
       // Create two contexts and link both to same target
       const ctx1Res = await app.inject({
         method: 'POST',
-        url: '/api/contexts',
+        url: '/contexts',
         payload: { label: 'Context A', content: 'Info A' },
       });
       const ctx2Res = await app.inject({
         method: 'POST',
-        url: '/api/contexts',
+        url: '/contexts',
         payload: { label: 'Context B', content: 'Info B' },
       });
 
       await app.inject({
         method: 'POST',
-        url: `/api/contexts/${ctx1Res.json().id}/links`,
+        url: `/contexts/${ctx1Res.json().id}/links`,
         payload: { target_type: 'project', target_id: targetId, priority: 1 },
       });
       await app.inject({
         method: 'POST',
-        url: `/api/contexts/${ctx2Res.json().id}/links`,
+        url: `/contexts/${ctx2Res.json().id}/links`,
         payload: { target_type: 'project', target_id: targetId, priority: 5 },
       });
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/entity-contexts?target_type=project&target_id=${targetId}`,
+        url: `/entity-contexts?target_type=project&target_id=${targetId}`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -515,7 +515,7 @@ describe('Context entities API (Issue #1275)', () => {
     it('requires target_type and target_id params', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/entity-contexts?target_type=project',
+        url: '/entity-contexts?target_type=project',
       });
 
       expect(res.statusCode).toBe(400);
@@ -524,7 +524,7 @@ describe('Context entities API (Issue #1275)', () => {
     it('returns empty array when no contexts linked', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/entity-contexts?target_type=project&target_id=00000000-0000-0000-0000-000000000099',
+        url: '/entity-contexts?target_type=project&target_id=00000000-0000-0000-0000-000000000099',
       });
 
       expect(res.statusCode).toBe(200);
@@ -538,21 +538,21 @@ describe('Context entities API (Issue #1275)', () => {
     it('deleting a context also removes its links', async () => {
       const ctxRes = await app.inject({
         method: 'POST',
-        url: '/api/contexts',
+        url: '/contexts',
         payload: { label: 'Will be deleted', content: 'And its links too' },
       });
       const contextId = ctxRes.json().id;
 
       await app.inject({
         method: 'POST',
-        url: `/api/contexts/${contextId}/links`,
+        url: `/contexts/${contextId}/links`,
         payload: { target_type: 'project', target_id: '00000000-0000-0000-0000-000000000001' },
       });
 
       // Delete the context
       await app.inject({
         method: 'DELETE',
-        url: `/api/contexts/${contextId}`,
+        url: `/contexts/${contextId}`,
       });
 
       // Verify links are gone

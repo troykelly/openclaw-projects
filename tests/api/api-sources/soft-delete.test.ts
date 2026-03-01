@@ -142,7 +142,7 @@ describe('API Source Soft-Delete', () => {
   });
 
   describe('Route integration: trash and restore endpoints', () => {
-    it('DELETE /api/api-sources/:id maps to softDeleteApiSource', () => {
+    it('DELETE /api-sources/:id maps to softDeleteApiSource', () => {
       // This is a structural test — verify that the routes.ts file
       // registers the DELETE endpoint mapping to softDeleteApiSource.
       // The route is verified in the HTTP route tests (routes.test.ts).
@@ -151,7 +151,7 @@ describe('API Source Soft-Delete', () => {
       expect(softDeleteApiSource.length).toBe(3); // pool, id, namespace
     });
 
-    it('POST /api/api-sources/:id/restore maps to restoreApiSource', () => {
+    it('POST /api-sources/:id/restore maps to restoreApiSource', () => {
       expect(typeof restoreApiSource).toBe('function');
       expect(restoreApiSource.length).toBe(3); // pool, id, namespace
     });

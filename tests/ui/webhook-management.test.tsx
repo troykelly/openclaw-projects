@@ -5,7 +5,7 @@
  * Tests for the webhook management section (#1733, #1832).
  *
  * After #1832, the settings-page webhook section only shows global status
- * (from /api/webhooks/status). Project-scoped webhook CRUD is on project pages.
+ * (from /webhooks/status). Project-scoped webhook CRUD is on project pages.
  */
 import * as React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -24,7 +24,7 @@ vi.mock('@/ui/lib/api-client', () => ({
 import { WebhookManagementSection } from '@/ui/components/settings/webhook-management-section';
 import { apiClient } from '@/ui/lib/api-client';
 
-// Mock data matches the actual GET /api/webhooks/status response shape
+// Mock data matches the actual GET /webhooks/status response shape
 const mockStatus = {
   configured: true,
   gateway_url: 'https://gateway.example.com',
@@ -114,8 +114,8 @@ describe('WebhookManagementSection', () => {
     // Verify only the global status endpoint was called, not project-scoped ones
     const calls = vi.mocked(apiClient.get).mock.calls;
     expect(calls).toHaveLength(1);
-    expect(calls[0][0]).toBe('/api/webhooks/status');
-    // Ensure no calls to /api/projects/default/*
+    expect(calls[0][0]).toBe('/webhooks/status');
+    // Ensure no calls to /projects/default/*
     for (const call of calls) {
       expect(call[0]).not.toContain('/projects/default');
     }

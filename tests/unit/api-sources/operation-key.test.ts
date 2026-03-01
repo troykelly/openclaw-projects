@@ -12,7 +12,7 @@ import {
 
 describe('resolveOperationKey', () => {
   it('uses operationId when present', () => {
-    const key = resolveOperationKey('GET', '/api/users', 'getDepartures');
+    const key = resolveOperationKey('GET', '/users', 'getDepartures');
     expect(key).toBe('getDepartures');
   });
 
@@ -32,23 +32,23 @@ describe('resolveOperationKey', () => {
   });
 
   it('normalizes method to uppercase', () => {
-    const key = resolveOperationKey('get', '/api/users');
-    expect(key).toBe('GET:/api/users');
+    const key = resolveOperationKey('get', '/users');
+    expect(key).toBe('GET:/users');
   });
 
   it('handles POST method', () => {
-    const key = resolveOperationKey('POST', '/api/users');
-    expect(key).toBe('POST:/api/users');
+    const key = resolveOperationKey('POST', '/users');
+    expect(key).toBe('POST:/users');
   });
 
   it('handles DELETE method', () => {
-    const key = resolveOperationKey('DELETE', '/api/users/{id}');
-    expect(key).toBe('DELETE:/api/users/{}');
+    const key = resolveOperationKey('DELETE', '/users/{id}');
+    expect(key).toBe('DELETE:/users/{}');
   });
 
   it('handles PATCH method', () => {
-    const key = resolveOperationKey('PATCH', '/api/users/{id}');
-    expect(key).toBe('PATCH:/api/users/{}');
+    const key = resolveOperationKey('PATCH', '/users/{id}');
+    expect(key).toBe('PATCH:/users/{}');
   });
 
   it('handles path without leading slash', () => {
@@ -57,8 +57,8 @@ describe('resolveOperationKey', () => {
   });
 
   it('handles trailing slash in path', () => {
-    const key = resolveOperationKey('GET', '/api/users/');
-    expect(key).toBe('GET:/api/users/');
+    const key = resolveOperationKey('GET', '/users/');
+    expect(key).toBe('GET:/users/');
   });
 });
 

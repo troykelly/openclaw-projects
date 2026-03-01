@@ -58,13 +58,13 @@ describe('Pantry Inventory API', () => {
     });
   });
 
-  // ── POST /api/pantry ────────────────────────────────────────────────
+  // ── POST /pantry ────────────────────────────────────────────────
 
-  describe('POST /api/pantry', () => {
+  describe('POST /pantry', () => {
     it('creates a pantry item with required fields', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/pantry',
+        url: '/pantry',
         payload: { name: 'Milk', location: 'fridge' },
       });
 
@@ -81,7 +81,7 @@ describe('Pantry Inventory API', () => {
     it('creates a pantry item with all optional fields', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/pantry',
+        url: '/pantry',
         payload: {
           name: 'Chicken Thighs',
           location: 'freezer',
@@ -107,7 +107,7 @@ describe('Pantry Inventory API', () => {
     it('creates a leftover entry', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/pantry',
+        url: '/pantry',
         payload: {
           name: 'Leftover Curry',
           location: 'fridge',
@@ -128,7 +128,7 @@ describe('Pantry Inventory API', () => {
     it('rejects request missing name', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/pantry',
+        url: '/pantry',
         payload: { location: 'fridge' },
       });
       expect(res.statusCode).toBe(400);
@@ -137,18 +137,18 @@ describe('Pantry Inventory API', () => {
     it('rejects request missing location', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/pantry',
+        url: '/pantry',
         payload: { name: 'Milk' },
       });
       expect(res.statusCode).toBe(400);
     });
   });
 
-  // ── GET /api/pantry ─────────────────────────────────────────────────
+  // ── GET /pantry ─────────────────────────────────────────────────
 
-  describe('GET /api/pantry', () => {
+  describe('GET /pantry', () => {
     it('returns empty array when no items exist', async () => {
-      const res = await app.inject({ method: 'GET', url: '/api/pantry' });
+      const res = await app.inject({ method: 'GET', url: '/pantry' });
 
       expect(res.statusCode).toBe(200);
       const body = res.json();
@@ -160,12 +160,12 @@ describe('Pantry Inventory API', () => {
       // Create two items
       await app.inject({
         method: 'POST',
-        url: '/api/pantry',
+        url: '/pantry',
         payload: { name: 'Milk', location: 'fridge' },
       });
       const created = await app.inject({
         method: 'POST',
-        url: '/api/pantry',
+        url: '/pantry',
         payload: { name: 'Old Cheese', location: 'fridge' },
       });
       const cheeseId = created.json().id;
@@ -173,10 +173,10 @@ describe('Pantry Inventory API', () => {
       // Deplete the cheese
       await app.inject({
         method: 'POST',
-        url: `/api/pantry/${cheeseId}/deplete`,
+        url: `/pantry/${cheeseId}/deplete`,
       });
 
-      const res = await app.inject({ method: 'GET', url: '/api/pantry' });
+      const res = await app.inject({ method: 'GET', url: '/pantry' });
       expect(res.statusCode).toBe(200);
       const body = res.json();
       expect(body.items.length).toBe(1);
@@ -186,16 +186,16 @@ describe('Pantry Inventory API', () => {
     it('filters by location', async () => {
       await app.inject({
         method: 'POST',
-        url: '/api/pantry',
+        url: '/pantry',
         payload: { name: 'Milk', location: 'fridge' },
       });
       await app.inject({
         method: 'POST',
-        url: '/api/pantry',
+        url: '/pantry',
         payload: { name: 'Rice', location: 'pantry' },
       });
 
-      const res = await app.inject({ method: 'GET', url: '/api/pantry?location=fridge' });
+      const res = await app.inject({ method: 'GET', url: '/pantry?location=fridge' });
       expect(res.statusCode).toBe(200);
       const body = res.json();
       expect(body.items.length).toBe(1);
@@ -205,16 +205,16 @@ describe('Pantry Inventory API', () => {
     it('filters by category', async () => {
       await app.inject({
         method: 'POST',
-        url: '/api/pantry',
+        url: '/pantry',
         payload: { name: 'Milk', location: 'fridge', category: 'dairy' },
       });
       await app.inject({
         method: 'POST',
-        url: '/api/pantry',
+        url: '/pantry',
         payload: { name: 'Chicken', location: 'fridge', category: 'meat' },
       });
 
-      const res = await app.inject({ method: 'GET', url: '/api/pantry?category=dairy' });
+      const res = await app.inject({ method: 'GET', url: '/pantry?category=dairy' });
       const body = res.json();
       expect(body.items.length).toBe(1);
       expect(body.items[0].name).toBe('Milk');
@@ -223,16 +223,16 @@ describe('Pantry Inventory API', () => {
     it('filters for leftovers only', async () => {
       await app.inject({
         method: 'POST',
-        url: '/api/pantry',
+        url: '/pantry',
         payload: { name: 'Milk', location: 'fridge' },
       });
       await app.inject({
         method: 'POST',
-        url: '/api/pantry',
+        url: '/pantry',
         payload: { name: 'Leftover Pasta', location: 'fridge', is_leftover: true, leftover_dish: 'Bolognese' },
       });
 
-      const res = await app.inject({ method: 'GET', url: '/api/pantry?leftovers_only=true' });
+      const res = await app.inject({ method: 'GET', url: '/pantry?leftovers_only=true' });
       const body = res.json();
       expect(body.items.length).toBe(1);
       expect(body.items[0].name).toBe('Leftover Pasta');
@@ -241,16 +241,16 @@ describe('Pantry Inventory API', () => {
     it('filters for use_soon items', async () => {
       await app.inject({
         method: 'POST',
-        url: '/api/pantry',
+        url: '/pantry',
         payload: { name: 'Milk', location: 'fridge' },
       });
       await app.inject({
         method: 'POST',
-        url: '/api/pantry',
+        url: '/pantry',
         payload: { name: 'Yogurt', location: 'fridge', use_soon: true },
       });
 
-      const res = await app.inject({ method: 'GET', url: '/api/pantry?use_soon_only=true' });
+      const res = await app.inject({ method: 'GET', url: '/pantry?use_soon_only=true' });
       const body = res.json();
       expect(body.items.length).toBe(1);
       expect(body.items[0].name).toBe('Yogurt');
@@ -259,31 +259,31 @@ describe('Pantry Inventory API', () => {
     it('includes depleted items when include_depleted=true', async () => {
       const created = await app.inject({
         method: 'POST',
-        url: '/api/pantry',
+        url: '/pantry',
         payload: { name: 'Used Up Milk', location: 'fridge' },
       });
       const id = created.json().id;
-      await app.inject({ method: 'POST', url: `/api/pantry/${id}/deplete` });
+      await app.inject({ method: 'POST', url: `/pantry/${id}/deplete` });
 
-      const res = await app.inject({ method: 'GET', url: '/api/pantry?include_depleted=true' });
+      const res = await app.inject({ method: 'GET', url: '/pantry?include_depleted=true' });
       const body = res.json();
       expect(body.items.length).toBe(1);
       expect(body.items[0].is_depleted).toBe(true);
     });
   });
 
-  // ── GET /api/pantry/:id ─────────────────────────────────────────────
+  // ── GET /pantry/:id ─────────────────────────────────────────────
 
-  describe('GET /api/pantry/:id', () => {
+  describe('GET /pantry/:id', () => {
     it('returns a single item by id', async () => {
       const created = await app.inject({
         method: 'POST',
-        url: '/api/pantry',
+        url: '/pantry',
         payload: { name: 'Eggs', location: 'fridge', quantity: '12' },
       });
       const { id } = created.json();
 
-      const res = await app.inject({ method: 'GET', url: `/api/pantry/${id}` });
+      const res = await app.inject({ method: 'GET', url: `/pantry/${id}` });
       expect(res.statusCode).toBe(200);
       const body = res.json();
       expect(body.id).toBe(id);
@@ -293,26 +293,26 @@ describe('Pantry Inventory API', () => {
     it('returns 404 for non-existent item', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/pantry/00000000-0000-0000-0000-000000000000',
+        url: '/pantry/00000000-0000-0000-0000-000000000000',
       });
       expect(res.statusCode).toBe(404);
     });
   });
 
-  // ── PATCH /api/pantry/:id ───────────────────────────────────────────
+  // ── PATCH /pantry/:id ───────────────────────────────────────────
 
-  describe('PATCH /api/pantry/:id', () => {
+  describe('PATCH /pantry/:id', () => {
     it('updates item fields', async () => {
       const created = await app.inject({
         method: 'POST',
-        url: '/api/pantry',
+        url: '/pantry',
         payload: { name: 'Milk', location: 'fridge', quantity: '1L' },
       });
       const { id } = created.json();
 
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/pantry/${id}`,
+        url: `/pantry/${id}`,
         payload: { quantity: '500ml', use_soon: true, notes: 'Running low' },
       });
 
@@ -326,27 +326,27 @@ describe('Pantry Inventory API', () => {
     it('returns 404 for non-existent item', async () => {
       const res = await app.inject({
         method: 'PATCH',
-        url: '/api/pantry/00000000-0000-0000-0000-000000000000',
+        url: '/pantry/00000000-0000-0000-0000-000000000000',
         payload: { quantity: '2' },
       });
       expect(res.statusCode).toBe(404);
     });
   });
 
-  // ── POST /api/pantry/:id/deplete ────────────────────────────────────
+  // ── POST /pantry/:id/deplete ────────────────────────────────────
 
-  describe('POST /api/pantry/:id/deplete', () => {
+  describe('POST /pantry/:id/deplete', () => {
     it('marks item as depleted', async () => {
       const created = await app.inject({
         method: 'POST',
-        url: '/api/pantry',
+        url: '/pantry',
         payload: { name: 'Butter', location: 'fridge' },
       });
       const { id } = created.json();
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/pantry/${id}/deplete`,
+        url: `/pantry/${id}/deplete`,
       });
       expect(res.statusCode).toBe(200);
       const body = res.json();
@@ -355,28 +355,28 @@ describe('Pantry Inventory API', () => {
     });
   });
 
-  // ── DELETE /api/pantry/:id ──────────────────────────────────────────
+  // ── DELETE /pantry/:id ──────────────────────────────────────────
 
-  describe('DELETE /api/pantry/:id', () => {
+  describe('DELETE /pantry/:id', () => {
     it('hard-deletes a pantry item', async () => {
       const created = await app.inject({
         method: 'POST',
-        url: '/api/pantry',
+        url: '/pantry',
         payload: { name: 'Expired Yogurt', location: 'fridge' },
       });
       const { id } = created.json();
 
-      const res = await app.inject({ method: 'DELETE', url: `/api/pantry/${id}` });
+      const res = await app.inject({ method: 'DELETE', url: `/pantry/${id}` });
       expect(res.statusCode).toBe(204);
 
-      const check = await app.inject({ method: 'GET', url: `/api/pantry/${id}` });
+      const check = await app.inject({ method: 'GET', url: `/pantry/${id}` });
       expect(check.statusCode).toBe(404);
     });
   });
 
-  // ── GET /api/pantry/expiring ────────────────────────────────────────
+  // ── GET /pantry/expiring ────────────────────────────────────────
 
-  describe('GET /api/pantry/expiring', () => {
+  describe('GET /pantry/expiring', () => {
     it('returns items expiring within N days', async () => {
       // Item expiring tomorrow
       const tomorrow = new Date();
@@ -385,7 +385,7 @@ describe('Pantry Inventory API', () => {
 
       await app.inject({
         method: 'POST',
-        url: '/api/pantry',
+        url: '/pantry',
         payload: { name: 'Yogurt', location: 'fridge', use_by_date: tomorrowStr },
       });
 
@@ -394,18 +394,18 @@ describe('Pantry Inventory API', () => {
       farDate.setDate(farDate.getDate() + 30);
       await app.inject({
         method: 'POST',
-        url: '/api/pantry',
+        url: '/pantry',
         payload: { name: 'Canned Beans', location: 'pantry', use_by_date: farDate.toISOString().split('T')[0] },
       });
 
       // Item with no use_by_date (should not appear)
       await app.inject({
         method: 'POST',
-        url: '/api/pantry',
+        url: '/pantry',
         payload: { name: 'Salt', location: 'pantry' },
       });
 
-      const res = await app.inject({ method: 'GET', url: '/api/pantry/expiring?days=3' });
+      const res = await app.inject({ method: 'GET', url: '/pantry/expiring?days=3' });
       expect(res.statusCode).toBe(200);
       const body = res.json();
       expect(body.items.length).toBe(1);
@@ -417,11 +417,11 @@ describe('Pantry Inventory API', () => {
       soon.setDate(soon.getDate() + 5);
       await app.inject({
         method: 'POST',
-        url: '/api/pantry',
+        url: '/pantry',
         payload: { name: 'Cream', location: 'fridge', use_by_date: soon.toISOString().split('T')[0] },
       });
 
-      const res = await app.inject({ method: 'GET', url: '/api/pantry/expiring' });
+      const res = await app.inject({ method: 'GET', url: '/pantry/expiring' });
       expect(res.statusCode).toBe(200);
       const body = res.json();
       expect(body.items.length).toBe(1);

@@ -67,7 +67,7 @@ const mockActivityData: ActivityResponse = {
 
 const mockApiClient = {
   get: vi.fn().mockImplementation((path: string) => {
-    if (path.includes('/api/activity')) {
+    if (path.includes('/activity')) {
       return Promise.resolve(mockActivityData);
     }
     return Promise.reject(new Error('Unknown endpoint'));
@@ -125,7 +125,7 @@ describe('ActivityPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockApiClient.get.mockImplementation((path: string) => {
-      if (path.includes('/api/activity')) {
+      if (path.includes('/activity')) {
         return Promise.resolve(mockActivityData);
       }
       return Promise.reject(new Error('Unknown endpoint'));
