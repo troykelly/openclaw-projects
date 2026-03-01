@@ -153,7 +153,7 @@ export function createTodoListTool(options: TodoToolOptions): TodoListTool {
           queryParams.set('parent_work_item_id', project_id);
         }
         if (completed !== undefined) {
-          queryParams.set('status', completed ? 'completed' : 'open');
+          queryParams.set('status', completed ? 'completed' : 'active');
         }
 
         const response = await client.get<{ items?: WorkItemRow[]; total?: number }>(`/api/work-items?${queryParams.toString()}`, { user_id });

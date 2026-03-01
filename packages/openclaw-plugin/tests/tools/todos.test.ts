@@ -138,7 +138,7 @@ describe('todo tools', () => {
         expect(mockGet).toHaveBeenCalledWith(expect.stringContaining('status=completed'), expect.any(Object));
       });
 
-      it('should send status=open when completed=false (#1981)', async () => {
+      it('should send status=active when completed=false (#1981)', async () => {
         const mockGet = vi.fn().mockResolvedValue({
           success: true,
           data: { items: [], total: 0 },
@@ -153,7 +153,8 @@ describe('todo tools', () => {
         });
 
         await tool.execute({ completed: false });
-        expect(mockGet).toHaveBeenCalledWith(expect.stringContaining('status=open'), expect.any(Object));
+        // 'active' is a server-side meta-status meaning "not completed/closed/done/cancelled"
+        expect(mockGet).toHaveBeenCalledWith(expect.stringContaining('status=active'), expect.any(Object));
       });
 
       it('should accept limit within range', async () => {
