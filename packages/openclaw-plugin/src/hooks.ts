@@ -147,7 +147,7 @@ export function createAutoRecallHook(options: AutoRecallHookOptions): (event: Au
     try {
       // Race between API call and timeout
       const result = await Promise.race([
-        fetchContext(client, user_id, event.prompt, logger, config.maxRecallMemories),
+        fetchContext(client, user_id, event.prompt, logger, config.maxRecallMemories, config.minRecallScore),
         createTimeoutPromise<AutoRecallResult | null>(timeoutMs, null).then(() => {
           logger.warn('auto-recall timeout exceeded', { user_id, timeoutMs });
           return null;
@@ -175,14 +175,19 @@ export function createAutoRecallHook(options: AutoRecallHookOptions): (event: Au
   };
 }
 
+/** Guidance note prepended to recalled context (#1926) */
+const RECALL_GUIDANCE_NOTE =
+  '[Recalled from long-term memory. For deeper investigation, use memory_recall, context_search, or tool_guide.]';
+
 /**
  * Fetch context from the backend API using semantic memory search.
  *
  * Uses the existing `/api/memories/search` endpoint (which works)
  * instead of the non-existent `/api/context` endpoint.
  * The user's actual prompt is passed as the search query for semantic matching.
+ * Filters results by minRecallScore with graceful degradation (#1926).
  */
-async function fetchContext(client: ApiClient, user_id: string, prompt: string, logger: Logger, max_results = 5): Promise<AutoRecallResult | null> {
+async function fetchContext(client: ApiClient, user_id: string, prompt: string, logger: Logger, max_results = 5, minScore = 0.7): Promise<AutoRecallResult | null> {
   // Truncate prompt to a reasonable length for the search query
   const searchQuery = prompt.substring(0, 500);
 
@@ -214,22 +219,45 @@ async function fetchContext(client: ApiClient, user_id: string, prompt: string, 
     return null;
   }
 
+  // Filter memories by minRecallScore (#1926)
+  const filtered = filterByScore(memories, minScore, (m) => m.score ?? 0);
+
   // Generate a per-invocation nonce for boundary markers (#1255)
   const { nonce } = createBoundaryMarkers();
 
   // Format memories as context to prepend to the conversation.
   // Boundary-wrap each memory to mark recalled content as untrusted data.
   // Memory content may originate from external messages (indirect injection path).
-  const context = memories
+  // Include provenance markers with memory_type and relevance % (#1926).
+  const context = filtered
     .map((m) => {
       const wrapped = wrapExternalMessage(m.content, { channel: `memory:${m.category}`, nonce });
-      return `- ${wrapped}`;
+      const relevancePct = Math.round((m.score ?? 0) * 100);
+      return `- [${m.category}] (relevance: ${relevancePct}%) ${wrapped}`;
     })
     .join('\n');
 
   return {
-    prependContext: context,
+    prependContext: `${RECALL_GUIDANCE_NOTE}\n${context}`,
   };
+}
+
+/**
+ * Filter items by a minimum score threshold with graceful degradation.
+ * If no items meet the threshold, the single highest-scoring item is kept (#1926).
+ */
+function filterByScore<T>(items: T[], minScore: number, getScore: (item: T) => number): T[] {
+  const passing = items.filter((item) => getScore(item) >= minScore);
+  if (passing.length > 0) return passing;
+
+  // Graceful degradation: keep the best single item
+  let best = items[0];
+  for (let i = 1; i < items.length; i++) {
+    if (getScore(items[i]) > getScore(best)) {
+      best = items[i];
+    }
+  }
+  return [best];
 }
 
 /**
@@ -390,7 +418,7 @@ export function createGraphAwareRecallHook(options: GraphAwareRecallHookOptions)
     try {
       // Race between API call and timeout
       const result = await Promise.race([
-        fetchGraphAwareContext(client, user_id, event.prompt, logger, config.maxRecallMemories),
+        fetchGraphAwareContext(client, user_id, event.prompt, logger, config.maxRecallMemories, config.minRecallScore),
         createTimeoutPromise<AutoRecallResult | null>(timeoutMs, null).then(() => {
           logger.warn('graph-aware-recall timeout exceeded', { user_id, timeoutMs });
           return null;
@@ -425,7 +453,7 @@ export function createGraphAwareRecallHook(options: GraphAwareRecallHookOptions)
  * multi-scope semantic search across relationships.
  * Falls back to basic /api/memories/search if the graph-aware endpoint fails.
  */
-async function fetchGraphAwareContext(client: ApiClient, user_id: string, prompt: string, logger: Logger, max_results = 10): Promise<AutoRecallResult | null> {
+async function fetchGraphAwareContext(client: ApiClient, user_id: string, prompt: string, logger: Logger, max_results = 10, minScore = 0.7): Promise<AutoRecallResult | null> {
   // Truncate prompt for the search query
   const searchPrompt = prompt.substring(0, 500);
 
@@ -440,7 +468,7 @@ async function fetchGraphAwareContext(client: ApiClient, user_id: string, prompt
     { user_id },
   );
 
-  if (graphResponse.success && graphResponse.data.context) {
+  if (graphResponse.success && graphResponse.data.memories.length > 0) {
     logger.debug('graph-aware context retrieved', {
       user_id,
       memoryCount: graphResponse.data.memories.length,
@@ -449,28 +477,34 @@ async function fetchGraphAwareContext(client: ApiClient, user_id: string, prompt
       queryTimeMs: graphResponse.data.metadata.queryTimeMs,
     });
 
-    // Boundary-wrap the graph-aware context to mark recalled content as untrusted.
-    // The API returns a pre-formatted string that may contain content from
-    // external messages stored as memories (indirect injection path).
+    // Filter memories by minRecallScore using combinedRelevance (#1926)
+    const filtered = filterByScore(graphResponse.data.memories, minScore, (m) => m.combinedRelevance);
+
     // Generate a per-invocation nonce for boundary markers (#1255)
     const { nonce } = createBoundaryMarkers();
-    const wrappedContext = wrapExternalMessage(graphResponse.data.context, {
-      channel: 'memory:graph-aware',
-      nonce,
-    });
+
+    // Format each memory with provenance markers and boundary wrapping (#1926).
+    // Memory content may originate from external messages (indirect injection path).
+    const context = filtered
+      .map((m) => {
+        const wrapped = wrapExternalMessage(m.content, { channel: `memory:${m.memory_type}`, nonce });
+        const relevancePct = Math.round(m.combinedRelevance * 100);
+        return `- [${m.memory_type}] (relevance: ${relevancePct}%) ${wrapped}`;
+      })
+      .join('\n');
 
     return {
-      prependContext: wrappedContext,
+      prependContext: `${RECALL_GUIDANCE_NOTE}\n${context}`,
     };
   }
 
-  // Fall back to basic memory search if graph-aware endpoint fails
+  // Fall back to basic memory search if graph-aware endpoint fails or returns no memories
   logger.debug('graph-aware endpoint unavailable, falling back to basic recall', {
     user_id,
     graphError: graphResponse.success ? 'no context' : graphResponse.error.code,
   });
 
-  return fetchContext(client, user_id, prompt, logger, max_results);
+  return fetchContext(client, user_id, prompt, logger, max_results, minScore);
 }
 
 /**
