@@ -2,12 +2,13 @@
  * Connection card for connections list (Epic #1667, #1692).
  */
 
-import { Loader2, Play, Server, Settings2, Trash2 } from 'lucide-react';
+import { CheckCircle, Loader2, Play, Server, Settings2, Trash2, XCircle } from 'lucide-react';
 import type * as React from 'react';
 import { Link } from 'react-router';
 import { Badge } from '@/ui/components/ui/badge';
 import { Button } from '@/ui/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/ui/components/ui/card';
+import type { TestConnectionResponse } from '@/ui/hooks/queries/use-terminal-connections';
 import type { TerminalConnection } from '@/ui/lib/api-types';
 import { ConnectionStatusIndicator } from './connection-status-indicator';
 
@@ -17,9 +18,10 @@ interface ConnectionCardProps {
   onDelete?: (id: string) => void;
   isTesting?: boolean;
   workerAvailable?: boolean;
+  testResult?: TestConnectionResponse;
 }
 
-export function ConnectionCard({ connection, onTest, onDelete, isTesting, workerAvailable = true }: ConnectionCardProps): React.JSX.Element {
+export function ConnectionCard({ connection, onTest, onDelete, isTesting, workerAvailable = true, testResult }: ConnectionCardProps): React.JSX.Element {
   return (
     <Card data-testid="connection-card">
       <CardHeader className="flex flex-row items-start justify-between pb-2">
@@ -67,6 +69,12 @@ export function ConnectionCard({ connection, onTest, onDelete, isTesting, worker
               <Trash2 className="size-3" />
             </Button>
           </div>
+          {testResult && (
+            <div data-testid="test-result" className={`flex items-center gap-1 text-xs ${testResult.success ? 'text-green-600' : 'text-red-500'}`}>
+              {testResult.success ? <CheckCircle className="size-3" /> : <XCircle className="size-3" />}
+              <span>{testResult.success ? `Connected (${testResult.latency_ms}ms)` : testResult.message}</span>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
