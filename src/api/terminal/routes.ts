@@ -495,6 +495,12 @@ export async function terminalRoutesPlugin(
     const trustHostKey = body?.trust_host_key === true;
     const expectedFingerprint = typeof body?.expected_fingerprint === 'string' ? body.expected_fingerprint : undefined;
 
+    // Issue #2042: Require expected_fingerprint when trust_host_key is true
+    // to prevent TOCTOU race (server key changes between initial test and retry).
+    if (trustHostKey && !expectedFingerprint) {
+      return reply.code(400).send({ error: 'expected_fingerprint is required when trust_host_key is true' });
+    }
+
     if (trustHostKey) {
       if (!(await verifyWriteScope(pool, 'terminal_connection', params.id, req))) {
         return reply.code(404).send({ error: 'Connection not found' });

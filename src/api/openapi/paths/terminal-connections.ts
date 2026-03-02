@@ -260,7 +260,7 @@ export function terminalConnectionsPaths(): OpenApiDomainModule {
                     },
                     expected_fingerprint: {
                       type: 'string',
-                      description: 'When set with trust_host_key, verify the offered key matches this '
+                      description: 'Required when trust_host_key is true. Verify the offered key matches this '
                         + 'fingerprint before storing. Prevents TOCTOU race during Trust & Retry.',
                     },
                   },
