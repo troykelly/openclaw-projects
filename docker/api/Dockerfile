@@ -18,6 +18,7 @@ RUN pnpm install --frozen-lockfile
 
 # Copy source files (respecting .dockerignore)
 COPY src/api/ ./src/api/
+COPY src/instrument.ts ./src/instrument.ts
 COPY src/db.ts ./src/db.ts
 COPY src/email/ ./src/email/
 # Terminal routes import credentials + gRPC client from tmux-worker (Epic #1667)
@@ -75,6 +76,8 @@ COPY --from=deps /app/package.json ./
 
 # Copy only API source files (no UI, no tests, no docs)
 COPY --from=builder /app/src/api/ ./src/api/
+# Sentry preload module — loaded via --import before application code (#2000)
+COPY --from=builder /app/src/instrument.ts ./src/instrument.ts
 COPY --from=builder /app/src/db.ts ./src/db.ts
 COPY --from=builder /app/src/email/ ./src/email/
 # Terminal routes import credentials + gRPC client from tmux-worker (Epic #1667)
@@ -87,6 +90,8 @@ COPY --from=builder /app/proto/ ./proto/
 ENV NODE_ENV=production
 ENV HOST=::
 ENV PORT=3000
+# Sentry process identifier for error grouping (#2000)
+ENV SENTRY_SERVER_NAME=api
 
 # Expose only the API port
 EXPOSE 3000
@@ -94,5 +99,5 @@ EXPOSE 3000
 # Switch to non-root user (node user exists in node:25-bookworm-slim with UID 1000)
 USER node
 
-# Use Node 25's native TypeScript support
-CMD ["node", "--experimental-transform-types", "--experimental-detect-module", "src/api/run.ts"]
+# Use Node 25's native TypeScript support with Sentry preload instrumentation (#2000)
+CMD ["node", "--experimental-transform-types", "--experimental-detect-module", "--import", "./src/instrument.ts", "src/api/run.ts"]

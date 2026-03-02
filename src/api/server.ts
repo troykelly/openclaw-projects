@@ -2,6 +2,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import * as Sentry from '@sentry/node';
 import cookie from '@fastify/cookie';
 import formbody from '@fastify/formbody';
 import { registerCors } from './cors.ts';
@@ -841,9 +842,21 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.decorateRequest('namespaceContext', null);
   app.addHook('preHandler', async (req) => {
     req.namespaceContext = await resolveNamespaces(req, nsPool);
+
+    // Attach Sentry user context from resolved namespace (#2000).
+    // Set after namespace resolution so errors include user identity.
+    if (req.namespaceContext?.storeNamespace) {
+      Sentry.setUser({ id: req.namespaceContext.storeNamespace });
+    }
+  });
+
+  // Clear Sentry user context after each request to prevent cross-request leakage (#2000)
+  app.addHook('onResponse', async () => {
+    Sentry.setUser(null);
   });
 
   // Global error handler: convert RoleError to 403 (#1485)
+  // Sentry capture for 5xx only — 4xx errors are NOT sent to Sentry (#2000)
   app.setErrorHandler((error, req, reply) => {
     if (error instanceof RoleError) {
       return reply.code(403).send({ error: error.message });
@@ -851,8 +864,24 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     // Fastify errors (validation, etc.) have statusCode set
     const statusCode = (error as { statusCode?: number }).statusCode;
     if (statusCode) {
+      // Capture 5xx errors that have an explicit status code (#2000)
+      if (statusCode >= 500) {
+        // Strip query string from URL to avoid PII leakage in Sentry tags
+        const urlPath = req.url.split('?')[0];
+        Sentry.captureException(error, {
+          tags: { method: req.method, url: urlPath, statusCode },
+        });
+        req.log.error(error, 'Server error');
+        return reply.code(statusCode).send({ error: 'Internal Server Error' });
+      }
       return reply.code(statusCode).send({ error: (error as Error).message });
     }
+    // Unhandled errors without statusCode are treated as 500 (#2000)
+    // Strip query string from URL to avoid PII leakage in Sentry tags
+    const urlPath = req.url.split('?')[0];
+    Sentry.captureException(error, {
+      tags: { method: req.method, url: urlPath, statusCode: 500 },
+    });
     req.log.error(error, 'Unhandled error');
     reply.code(500).send({ error: 'Internal Server Error' });
   });
