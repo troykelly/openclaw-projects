@@ -104,11 +104,11 @@ describe('OpenClaw Hook Contract Validation', () => {
       expect(content).toContain('OpenClawPluginAPI');
     });
 
-    it('should identify missing api.on method', () => {
+    it('should include api.on method aligned with SDK (#2034)', () => {
       const content = readFileSync(typesPath, 'utf-8');
-      // Our type doesn't have the `on` method for modern hook registration
-      // The actual OpenClaw API has: on: <K extends PluginHookName>(hookName: K, ...) => void
-      expect(content).not.toContain('on: <K extends PluginHookName>');
+      // Our type now includes the `on` method for modern hook registration,
+      // aligned with the SDK's OpenClawPluginApi type.
+      expect(content).toContain('on: <K extends PluginHookName>');
     });
   });
 

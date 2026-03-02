@@ -14,7 +14,8 @@
  *
  * Types kept local (and why):
  *   - JSONSchema, JSONSchemaProperty: Generic JSON Schema, no SDK equivalent
- *   - ToolContext, ToolResult: Our internal tool execution types
+ *   - ToolContext: Our internal tool execution type (maps to SDK's OpenClawPluginToolContext)
+ *   - ToolResult: Our internal tool execution result
  *   - AgentToolResult: SDK uses (TextContent | ImageContent)[], we use {type:'text',text:string}[]
  *   - AgentToolExecute: Depends on our AgentToolResult
  *   - ToolDefinition: SDK uses AnyAgentTool (TypeBox), we use plain JSON Schema
@@ -29,7 +30,7 @@
  *   - ServiceDefinition: Simplified service definition
  *   - PluginInitializer, PluginDefinition, OpenClawPluginAPI: Plugin definitions
  *
- * Part of #885.
+ * Part of #885. Updated for Epic #2045.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -41,6 +42,8 @@ import type {
   PluginHookBeforeAgentStartResult,
   PluginHookAgentEndEvent,
   OpenClawPluginApi,
+  ToolContext,
+  ServiceDefinition,
 } from '../src/types/openclaw-api.js';
 
 // ── Compile-time type compatibility checks ────────────────────────────────────
@@ -64,25 +67,35 @@ void _localToSdk;
 
 describe('SDK Type Compatibility', () => {
   describe('PluginHookName', () => {
-    it('should include all expected hook names', () => {
+    it('should include all 24 SDK hook names', () => {
+      // All 24 hook names from the SDK's PluginHookName union (#2030)
       const expectedHooks: PluginHookName[] = [
+        'before_model_resolve',
+        'before_prompt_build',
         'before_agent_start',
+        'llm_input',
+        'llm_output',
         'agent_end',
         'before_compaction',
         'after_compaction',
+        'before_reset',
         'message_received',
         'message_sending',
         'message_sent',
         'before_tool_call',
         'after_tool_call',
         'tool_result_persist',
+        'before_message_write',
         'session_start',
         'session_end',
+        'subagent_spawning',
+        'subagent_delivery_target',
+        'subagent_spawned',
+        'subagent_ended',
         'gateway_start',
         'gateway_stop',
       ];
-      // This ensures our type covers all 14 hooks
-      expect(expectedHooks).toHaveLength(14);
+      expect(expectedHooks).toHaveLength(24);
     });
 
     it('should match the SDK hook names at runtime', () => {
@@ -95,15 +108,17 @@ describe('SDK Type Compatibility', () => {
   });
 
   describe('PluginHookAgentContext', () => {
-    it('should have the expected shape', () => {
+    it('should have the expected shape including sessionId (#2035)', () => {
       const ctx: PluginHookAgentContext = {
         agentId: 'test-agent',
         sessionKey: 'test-session',
+        sessionId: 'test-session-id',
         workspaceDir: '/tmp/workspace',
         messageProvider: 'test-provider',
       };
       expect(ctx.agentId).toBe('test-agent');
       expect(ctx.sessionKey).toBe('test-session');
+      expect(ctx.sessionId).toBe('test-session-id');
       expect(ctx.workspaceDir).toBe('/tmp/workspace');
       expect(ctx.messageProvider).toBe('test-provider');
     });
@@ -111,6 +126,7 @@ describe('SDK Type Compatibility', () => {
     it('should allow all optional fields', () => {
       const ctx: PluginHookAgentContext = {};
       expect(ctx.agentId).toBeUndefined();
+      expect(ctx.sessionId).toBeUndefined();
     });
   });
 
@@ -133,6 +149,16 @@ describe('SDK Type Compatibility', () => {
       };
       expect(result.systemPrompt).toBe('You are a helpful assistant');
       expect(result.prependContext).toBe('User preferences loaded');
+    });
+
+    it('should support modelOverride and providerOverride (#2033)', () => {
+      const result: PluginHookBeforeAgentStartResult = {
+        systemPrompt: 'System prompt',
+        modelOverride: 'llama3.3:8b',
+        providerOverride: 'ollama',
+      };
+      expect(result.modelOverride).toBe('llama3.3:8b');
+      expect(result.providerOverride).toBe('ollama');
     });
   });
 
@@ -158,6 +184,57 @@ describe('SDK Type Compatibility', () => {
     });
   });
 
+  describe('ToolContext', () => {
+    it('should include requesterSenderId and senderIsOwner (#2039)', () => {
+      const ctx: ToolContext = {
+        user_id: 'user-1',
+        agentId: 'agent-1',
+        sessionId: 'session-1',
+        requestId: 'req-1',
+        requesterSenderId: 'sender-123',
+        senderIsOwner: true,
+      };
+      expect(ctx.requesterSenderId).toBe('sender-123');
+      expect(ctx.senderIsOwner).toBe(true);
+    });
+
+    it('should include workspaceDir, agentDir, messageChannel, agentAccountId, sandboxed', () => {
+      const ctx: ToolContext = {
+        workspaceDir: '/tmp/workspace',
+        agentDir: '/tmp/agent',
+        messageChannel: 'telegram',
+        agentAccountId: 'acct-1',
+        sandboxed: true,
+      };
+      expect(ctx.workspaceDir).toBe('/tmp/workspace');
+      expect(ctx.agentDir).toBe('/tmp/agent');
+      expect(ctx.messageChannel).toBe('telegram');
+      expect(ctx.agentAccountId).toBe('acct-1');
+      expect(ctx.sandboxed).toBe(true);
+    });
+  });
+
+  describe('ServiceDefinition', () => {
+    it('should allow stop to be optional (#2036)', () => {
+      const service: ServiceDefinition = {
+        id: 'test-service',
+        start: async () => {},
+      };
+      expect(service.id).toBe('test-service');
+      expect(service.stop).toBeUndefined();
+    });
+
+    it('should accept start/stop returning void or Promise<void> (#2036)', () => {
+      const service: ServiceDefinition = {
+        id: 'test-service',
+        start: () => {},
+        stop: () => {},
+      };
+      expect(service.id).toBe('test-service');
+      expect(service.stop).toBeDefined();
+    });
+  });
+
   describe('OpenClawPluginApi', () => {
     it('should define the same method names as the SDK', () => {
       // Verify that both our API and the SDK share key method names.
@@ -166,19 +243,39 @@ describe('SDK Type Compatibility', () => {
       type LocalMethods = keyof OpenClawPluginApi;
       type SdkMethods = keyof SdkOpenClawPluginApi;
 
-      // Methods that both our type and the SDK should have
+      // Methods that both our type and the SDK should have (#2034)
       const sharedMethods: Array<LocalMethods & SdkMethods> = [
         'registerTool',
         'registerHook',
         'registerCli',
         'registerService',
         'registerGatewayMethod',
+        'registerHttpHandler',
+        'registerHttpRoute',
+        'registerChannel',
+        'registerProvider',
+        'registerCommand',
+        'resolvePath',
         'on',
         'config',
         'logger',
+        'id',
+        'name',
+        'source',
+        'runtime',
+        'pluginConfig',
       ];
 
-      expect(sharedMethods.length).toBeGreaterThanOrEqual(8);
+      expect(sharedMethods.length).toBeGreaterThanOrEqual(19);
+    });
+
+    it('should include version and description fields (#2034)', () => {
+      // Compile-time check: these optional fields must exist on our type
+      const api = {} as OpenClawPluginApi;
+      // TypeScript will error if these don't exist
+      void api.version;
+      void api.description;
+      expect(true).toBe(true);
     });
   });
 
