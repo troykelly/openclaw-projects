@@ -40,6 +40,7 @@ const HomeAutomationPage = React.lazy(() => import('@/ui/pages/HomeAutomationPag
 const PantryPage = React.lazy(() => import('@/ui/pages/PantryPage.js').then((m) => ({ default: m.PantryPage })));
 const VoicePage = React.lazy(() => import('@/ui/pages/VoicePage.js').then((m) => ({ default: m.VoicePage })));
 const DevSessionsPage = React.lazy(() => import('@/ui/pages/DevSessionsPage.js').then((m) => ({ default: m.DevSessionsPage })));
+const DevPromptsPage = React.lazy(() => import('@/ui/pages/DevPromptsPage.js').then((m) => ({ default: m.DevPromptsPage })));
 const OAuthCallbackPage = React.lazy(() => import('@/ui/pages/OAuthCallbackPage.js').then((m) => ({ default: m.OAuthCallbackPage })));
 const AuthConsumePage = React.lazy(() => import('@/ui/pages/AuthConsumePage.js').then((m) => ({ default: m.AuthConsumePage })));
 
@@ -218,6 +219,10 @@ export const routes: RouteObject[] = [
       {
         path: 'dev-sessions',
         element: lazy(DevSessionsPage),
+      },
+      {
+        path: 'dev-prompts',
+        element: lazy(DevPromptsPage),
       },
       {
         path: 'skill-store',
