@@ -425,6 +425,13 @@ services:
       TMUX_WORKER_MTLS_CERT: /certs/api-client.pem
       TMUX_WORKER_MTLS_KEY: /certs/api-client-key.pem
       TMUX_WORKER_MTLS_CA: /certs/ca.pem
+      # Error tracking (Sentry / GlitchTip)
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-production}
+      SENTRY_TRACES_SAMPLE_RATE: ${SENTRY_TRACES_SAMPLE_RATE:-0.1}
+      SENTRY_SAMPLE_RATE: ${SENTRY_SAMPLE_RATE:-1.0}
+      SENTRY_DEBUG: ${SENTRY_DEBUG:-false}
+      SENTRY_SERVER_NAME: api
     # Publish to localhost for Traefik (host networking mode)
     ports:
       - "[::1]:${API_HOST_PORT:-3001}:3001"       # IPv6 (preferred)
@@ -495,6 +502,13 @@ services:
       POSTMARK_REPLY_TO: ${POSTMARK_REPLY_TO:-}
       POSTMARK_MESSAGE_STREAM: ${POSTMARK_MESSAGE_STREAM:-outbound}
       POSTMARK_TRANSACTIONAL_TOKEN: ${POSTMARK_TRANSACTIONAL_TOKEN:-}
+      # Error tracking (Sentry / GlitchTip)
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-production}
+      SENTRY_TRACES_SAMPLE_RATE: ${SENTRY_TRACES_SAMPLE_RATE:-0.1}
+      SENTRY_SAMPLE_RATE: ${SENTRY_SAMPLE_RATE:-1.0}
+      SENTRY_DEBUG: ${SENTRY_DEBUG:-false}
+      SENTRY_SERVER_NAME: worker
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:9000/health"]
       interval: 10s
@@ -541,6 +555,13 @@ services:
       HA_CONNECTOR_POOL_MAX: 5
       OAUTH_TOKEN_ENCRYPTION_KEY: ${OAUTH_TOKEN_ENCRYPTION_KEY:-}
       GEO_TOKEN_ENCRYPTION_KEY: ${GEO_TOKEN_ENCRYPTION_KEY:-}
+      # Error tracking (Sentry / GlitchTip)
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-production}
+      SENTRY_TRACES_SAMPLE_RATE: ${SENTRY_TRACES_SAMPLE_RATE:-0.1}
+      SENTRY_SAMPLE_RATE: ${SENTRY_SAMPLE_RATE:-1.0}
+      SENTRY_DEBUG: ${SENTRY_DEBUG:-false}
+      SENTRY_SERVER_NAME: ha-connector
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:9001/healthz"]
       interval: 10s
@@ -679,6 +700,13 @@ services:
       GRPC_TLS_CA: /certs/ca.pem
       # Persistent SSH host key (Issue #1857)
       ENROLLMENT_SSH_HOST_KEY_PATH: /data/ssh_host_key
+      # Error tracking (Sentry / GlitchTip)
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-production}
+      SENTRY_TRACES_SAMPLE_RATE: ${SENTRY_TRACES_SAMPLE_RATE:-0.1}
+      SENTRY_SAMPLE_RATE: ${SENTRY_SAMPLE_RATE:-1.0}
+      SENTRY_DEBUG: ${SENTRY_DEBUG:-false}
+      SENTRY_SERVER_NAME: tmux-worker
     ports:
       - "[::1]:${TMUX_GRPC_HOST_PORT:-50051}:50051"       # gRPC (internal)
       - "127.0.0.1:${TMUX_GRPC_HOST_PORT:-50051}:50051"
