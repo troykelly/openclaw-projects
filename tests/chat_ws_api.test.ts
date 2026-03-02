@@ -1,7 +1,7 @@
 /**
  * Integration tests for Chat WebSocket API (#1944).
  *
- * Tests the POST /api/chat/ws/ticket endpoint and WebSocket lifecycle.
+ * Tests the POST /chat/ws/ticket endpoint and WebSocket lifecycle.
  * Requires Postgres for session verification.
  *
  * Epic #1940 — Agent Chat.
@@ -41,7 +41,7 @@ describe('Chat WebSocket API (#1944)', () => {
   async function createSession(agentId = 'test-agent'): Promise<string> {
     const res = await app.inject({
       method: 'POST',
-      url: '/api/chat/sessions',
+      url: '/chat/sessions',
       headers: { 'x-user-email': TEST_EMAIL },
       payload: { agent_id: agentId },
     });
@@ -50,16 +50,16 @@ describe('Chat WebSocket API (#1944)', () => {
   }
 
   // ================================================================
-  // POST /api/chat/ws/ticket — Generate one-time ticket
+  // POST /chat/ws/ticket — Generate one-time ticket
   // ================================================================
 
-  describe('POST /api/chat/ws/ticket', () => {
+  describe('POST /chat/ws/ticket', () => {
     it('returns a ticket for an active session', async () => {
       const sessionId = await createSession();
 
       const res = await app.inject({
         method: 'POST',
-        url: '/api/chat/ws/ticket',
+        url: '/chat/ws/ticket',
         headers: { 'x-user-email': TEST_EMAIL },
         payload: { session_id: sessionId },
       });
@@ -75,7 +75,7 @@ describe('Chat WebSocket API (#1944)', () => {
       // Auth is disabled in test mode, but if x-user-email is missing, getUserEmail returns null
       const res = await app.inject({
         method: 'POST',
-        url: '/api/chat/ws/ticket',
+        url: '/chat/ws/ticket',
         payload: { session_id: '00000000-0000-0000-0000-000000000000' },
       });
 
@@ -85,7 +85,7 @@ describe('Chat WebSocket API (#1944)', () => {
     it('rejects missing session_id', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/chat/ws/ticket',
+        url: '/chat/ws/ticket',
         headers: { 'x-user-email': TEST_EMAIL },
         payload: {},
       });
@@ -96,7 +96,7 @@ describe('Chat WebSocket API (#1944)', () => {
     it('rejects invalid session_id format', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/chat/ws/ticket',
+        url: '/chat/ws/ticket',
         headers: { 'x-user-email': TEST_EMAIL },
         payload: { session_id: 'not-a-uuid' },
       });
@@ -109,7 +109,7 @@ describe('Chat WebSocket API (#1944)', () => {
       await ensureTestNamespace(pool, 'other@example.com');
       const otherRes = await app.inject({
         method: 'POST',
-        url: '/api/chat/sessions',
+        url: '/chat/sessions',
         headers: { 'x-user-email': 'other@example.com' },
         payload: { agent_id: 'test-agent' },
       });
@@ -118,7 +118,7 @@ describe('Chat WebSocket API (#1944)', () => {
       // Try to get ticket as different user
       const res = await app.inject({
         method: 'POST',
-        url: '/api/chat/ws/ticket',
+        url: '/chat/ws/ticket',
         headers: { 'x-user-email': TEST_EMAIL },
         payload: { session_id: otherSessionId },
       });
@@ -136,7 +136,7 @@ describe('Chat WebSocket API (#1944)', () => {
 
       const ticketRes = await app.inject({
         method: 'POST',
-        url: '/api/chat/ws/ticket',
+        url: '/chat/ws/ticket',
         headers: { 'x-user-email': TEST_EMAIL },
         payload: { session_id: sessionId },
       });
@@ -151,13 +151,13 @@ describe('Chat WebSocket API (#1944)', () => {
       // End the session
       await app.inject({
         method: 'POST',
-        url: `/api/chat/sessions/${sessionId}/end`,
+        url: `/chat/sessions/${sessionId}/end`,
         headers: { 'x-user-email': TEST_EMAIL },
       });
 
       const res = await app.inject({
         method: 'POST',
-        url: '/api/chat/ws/ticket',
+        url: '/chat/ws/ticket',
         headers: { 'x-user-email': TEST_EMAIL },
         payload: { session_id: sessionId },
       });

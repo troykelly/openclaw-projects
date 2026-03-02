@@ -61,11 +61,11 @@ describe('Communications API', () => {
     return { contact_id, endpointId, thread_id, message_id };
   }
 
-  describe('GET /api/work-items/:id/communications', () => {
+  describe('GET /work-items/:id/communications', () => {
     it('returns 404 for non-existent work item', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/work-items/00000000-0000-0000-0000-000000000000/communications',
+        url: '/work-items/00000000-0000-0000-0000-000000000000/communications',
       });
 
       expect(res.statusCode).toBe(404);
@@ -81,7 +81,7 @@ describe('Communications API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${item_id}/communications`,
+        url: `/work-items/${item_id}/communications`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -111,7 +111,7 @@ describe('Communications API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${item_id}/communications`,
+        url: `/work-items/${item_id}/communications`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -168,7 +168,7 @@ describe('Communications API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${item_id}/communications`,
+        url: `/work-items/${item_id}/communications`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -193,11 +193,11 @@ describe('Communications API', () => {
     });
   });
 
-  describe('POST /api/work-items/:id/communications', () => {
+  describe('POST /work-items/:id/communications', () => {
     it('returns 404 for non-existent work item', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/work-items/00000000-0000-0000-0000-000000000000/communications',
+        url: '/work-items/00000000-0000-0000-0000-000000000000/communications',
         payload: { thread_id: '00000000-0000-0000-0000-000000000001' },
       });
 
@@ -214,7 +214,7 @@ describe('Communications API', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/work-items/${item_id}/communications`,
+        url: `/work-items/${item_id}/communications`,
         payload: {},
       });
 
@@ -231,7 +231,7 @@ describe('Communications API', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/work-items/${item_id}/communications`,
+        url: `/work-items/${item_id}/communications`,
         payload: { thread_id: '00000000-0000-0000-0000-000000000001' },
       });
 
@@ -252,7 +252,7 @@ describe('Communications API', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/work-items/${item_id}/communications`,
+        url: `/work-items/${item_id}/communications`,
         payload: { thread_id: thread_id, message_id: message_id, action: 'follow_up' },
       });
 
@@ -281,7 +281,7 @@ describe('Communications API', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/work-items/${item_id}/communications`,
+        url: `/work-items/${item_id}/communications`,
         payload: { thread_id: thread_id },
       });
 
@@ -291,11 +291,11 @@ describe('Communications API', () => {
     });
   });
 
-  describe('DELETE /api/work-items/:id/communications/:comm_id', () => {
+  describe('DELETE /work-items/:id/communications/:comm_id', () => {
     it('returns 404 for non-existent work item', async () => {
       const res = await app.inject({
         method: 'DELETE',
-        url: '/api/work-items/00000000-0000-0000-0000-000000000000/communications/00000000-0000-0000-0000-000000000001',
+        url: '/work-items/00000000-0000-0000-0000-000000000000/communications/00000000-0000-0000-0000-000000000001',
       });
 
       expect(res.statusCode).toBe(404);
@@ -311,7 +311,7 @@ describe('Communications API', () => {
 
       const res = await app.inject({
         method: 'DELETE',
-        url: `/api/work-items/${item_id}/communications/00000000-0000-0000-0000-000000000001`,
+        url: `/work-items/${item_id}/communications/00000000-0000-0000-0000-000000000001`,
       });
 
       expect(res.statusCode).toBe(404);
@@ -339,7 +339,7 @@ describe('Communications API', () => {
 
       const res = await app.inject({
         method: 'DELETE',
-        url: `/api/work-items/${item_id}/communications/${thread_id}`,
+        url: `/work-items/${item_id}/communications/${thread_id}`,
       });
 
       expect(res.statusCode).toBe(204);

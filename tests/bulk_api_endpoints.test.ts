@@ -28,11 +28,11 @@ describe('Bulk API Endpoints', () => {
     await pool.end();
   });
 
-  describe('POST /api/work-items/bulk', () => {
+  describe('POST /work-items/bulk', () => {
     it('creates multiple work items', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: '/api/work-items/bulk',
+        url: '/work-items/bulk',
         payload: {
           items: [
             { title: 'Task 1', work_item_kind: 'issue' },
@@ -58,7 +58,7 @@ describe('Bulk API Endpoints', () => {
     it('returns 400 for empty items array', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: '/api/work-items/bulk',
+        url: '/work-items/bulk',
         payload: { items: [] },
       });
 
@@ -71,7 +71,7 @@ describe('Bulk API Endpoints', () => {
 
       const response = await app.inject({
         method: 'POST',
-        url: '/api/work-items/bulk',
+        url: '/work-items/bulk',
         payload: { items },
       });
 
@@ -82,7 +82,7 @@ describe('Bulk API Endpoints', () => {
     it('handles partial failures with validation errors', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: '/api/work-items/bulk',
+        url: '/work-items/bulk',
         payload: {
           items: [
             { title: 'Valid Task 1' },
@@ -108,7 +108,7 @@ describe('Bulk API Endpoints', () => {
 
       const response = await app.inject({
         method: 'POST',
-        url: '/api/work-items/bulk',
+        url: '/work-items/bulk',
         payload: {
           items: [
             { title: 'Child 1', parent_work_item_id: parent_id },
@@ -126,7 +126,7 @@ describe('Bulk API Endpoints', () => {
     });
   });
 
-  describe('DELETE /api/work-items/bulk', () => {
+  describe('DELETE /work-items/bulk', () => {
     it('deletes multiple work items', async () => {
       // Create items to delete
       const ids: string[] = [];
@@ -137,7 +137,7 @@ describe('Bulk API Endpoints', () => {
 
       const response = await app.inject({
         method: 'DELETE',
-        url: '/api/work-items/bulk',
+        url: '/work-items/bulk',
         payload: { ids },
       });
 
@@ -154,7 +154,7 @@ describe('Bulk API Endpoints', () => {
     it('returns 400 for invalid UUIDs', async () => {
       const response = await app.inject({
         method: 'DELETE',
-        url: '/api/work-items/bulk',
+        url: '/work-items/bulk',
         payload: { ids: ['not-a-uuid', 'also-invalid'] },
       });
 
@@ -167,7 +167,7 @@ describe('Bulk API Endpoints', () => {
 
       const response = await app.inject({
         method: 'DELETE',
-        url: '/api/work-items/bulk',
+        url: '/work-items/bulk',
         payload: { ids },
       });
 
@@ -175,7 +175,7 @@ describe('Bulk API Endpoints', () => {
     });
   });
 
-  describe('PATCH /api/work-items/bulk', () => {
+  describe('PATCH /work-items/bulk', () => {
     let testIds: string[];
 
     beforeEach(async () => {
@@ -191,7 +191,7 @@ describe('Bulk API Endpoints', () => {
     it('updates status for multiple items', async () => {
       const response = await app.inject({
         method: 'PATCH',
-        url: '/api/work-items/bulk',
+        url: '/work-items/bulk',
         payload: {
           ids: testIds,
           action: 'status',
@@ -211,7 +211,7 @@ describe('Bulk API Endpoints', () => {
     it('updates priority for multiple items', async () => {
       const response = await app.inject({
         method: 'PATCH',
-        url: '/api/work-items/bulk',
+        url: '/work-items/bulk',
         payload: {
           ids: testIds,
           action: 'priority',
@@ -228,7 +228,7 @@ describe('Bulk API Endpoints', () => {
 
       const response = await app.inject({
         method: 'PATCH',
-        url: '/api/work-items/bulk',
+        url: '/work-items/bulk',
         payload: {
           ids,
           action: 'status',
@@ -240,11 +240,11 @@ describe('Bulk API Endpoints', () => {
     });
   });
 
-  describe('POST /api/contacts/bulk', () => {
+  describe('POST /contacts/bulk', () => {
     it('creates multiple contacts', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: '/api/contacts/bulk',
+        url: '/contacts/bulk',
         payload: {
           contacts: [{ display_name: 'Contact 1' }, { display_name: 'Contact 2', notes: 'Some notes' }, { display_name: 'Contact 3' }],
         },
@@ -264,7 +264,7 @@ describe('Bulk API Endpoints', () => {
     it('creates contacts with endpoints', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: '/api/contacts/bulk',
+        url: '/contacts/bulk',
         payload: {
           contacts: [
             {
@@ -286,7 +286,7 @@ describe('Bulk API Endpoints', () => {
     it('handles validation errors for empty display_name', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: '/api/contacts/bulk',
+        url: '/contacts/bulk',
         payload: {
           contacts: [
             { display_name: 'Valid Contact' },
@@ -308,7 +308,7 @@ describe('Bulk API Endpoints', () => {
 
       const response = await app.inject({
         method: 'POST',
-        url: '/api/contacts/bulk',
+        url: '/contacts/bulk',
         payload: { contacts },
       });
 
@@ -316,11 +316,11 @@ describe('Bulk API Endpoints', () => {
     });
   });
 
-  describe('POST /api/memories/bulk', () => {
+  describe('POST /memories/bulk', () => {
     it('creates multiple memories', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: '/api/memories/bulk',
+        url: '/memories/bulk',
         payload: {
           memories: [
             { title: 'Memory 1', content: 'Content 1', memory_type: 'note' },
@@ -343,7 +343,7 @@ describe('Bulk API Endpoints', () => {
     it('handles validation errors', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: '/api/memories/bulk',
+        url: '/memories/bulk',
         payload: {
           memories: [
             { title: 'Valid Memory', content: 'Valid Content' },
@@ -369,7 +369,7 @@ describe('Bulk API Endpoints', () => {
 
       const response = await app.inject({
         method: 'POST',
-        url: '/api/memories/bulk',
+        url: '/memories/bulk',
         payload: { memories },
       });
 
@@ -377,7 +377,7 @@ describe('Bulk API Endpoints', () => {
     });
   });
 
-  describe('PATCH /api/memories/bulk', () => {
+  describe('PATCH /memories/bulk', () => {
     let memoryIds: string[];
 
     beforeEach(async () => {
@@ -396,7 +396,7 @@ describe('Bulk API Endpoints', () => {
     it('updates multiple memories', async () => {
       const response = await app.inject({
         method: 'PATCH',
-        url: '/api/memories/bulk',
+        url: '/memories/bulk',
         payload: {
           updates: [
             { id: memoryIds[0], title: 'Updated Title 0' },
@@ -421,7 +421,7 @@ describe('Bulk API Endpoints', () => {
     it('handles partial failures for non-existent IDs', async () => {
       const response = await app.inject({
         method: 'PATCH',
-        url: '/api/memories/bulk',
+        url: '/memories/bulk',
         payload: {
           updates: [
             { id: memoryIds[0], title: 'Updated' },
@@ -441,7 +441,7 @@ describe('Bulk API Endpoints', () => {
     it('returns error for updates with no fields', async () => {
       const response = await app.inject({
         method: 'PATCH',
-        url: '/api/memories/bulk',
+        url: '/memories/bulk',
         payload: {
           updates: [{ id: memoryIds[0] }], // No fields to update
         },
@@ -461,7 +461,7 @@ describe('Bulk API Endpoints', () => {
 
       const response = await app.inject({
         method: 'PATCH',
-        url: '/api/memories/bulk',
+        url: '/memories/bulk',
         payload: { updates },
       });
 

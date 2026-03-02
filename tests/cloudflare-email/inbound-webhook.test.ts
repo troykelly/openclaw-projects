@@ -48,11 +48,11 @@ describe('Cloudflare Email Inbound Webhook', () => {
     await pool.end();
   });
 
-  describe('POST /api/cloudflare/email', () => {
+  describe('POST /cloudflare/email', () => {
     it('returns 400 for missing required fields', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: '/api/cloudflare/email',
+        url: '/cloudflare/email',
         payload: { subject: 'Test' }, // Missing from, to, timestamp
       });
 
@@ -66,7 +66,7 @@ describe('Cloudflare Email Inbound Webhook', () => {
 
       const response = await app.inject({
         method: 'POST',
-        url: '/api/cloudflare/email',
+        url: '/cloudflare/email',
         payload,
       });
 
@@ -79,7 +79,7 @@ describe('Cloudflare Email Inbound Webhook', () => {
 
       const response = await app.inject({
         method: 'POST',
-        url: '/api/cloudflare/email',
+        url: '/cloudflare/email',
         payload,
       });
 
@@ -92,7 +92,7 @@ describe('Cloudflare Email Inbound Webhook', () => {
 
       const response = await app.inject({
         method: 'POST',
-        url: '/api/cloudflare/email',
+        url: '/cloudflare/email',
         payload,
       });
 
@@ -122,7 +122,7 @@ describe('Cloudflare Email Inbound Webhook', () => {
 
       const response1 = await app.inject({
         method: 'POST',
-        url: '/api/cloudflare/email',
+        url: '/cloudflare/email',
         payload: payload1,
       });
       expect(response1.statusCode).toBe(200);
@@ -138,7 +138,7 @@ describe('Cloudflare Email Inbound Webhook', () => {
 
       const response2 = await app.inject({
         method: 'POST',
-        url: '/api/cloudflare/email',
+        url: '/cloudflare/email',
         payload: payload2,
       });
       expect(response2.statusCode).toBe(200);
@@ -159,7 +159,7 @@ describe('Cloudflare Email Inbound Webhook', () => {
 
       await app.inject({
         method: 'POST',
-        url: '/api/cloudflare/email',
+        url: '/cloudflare/email',
         payload,
       });
 
@@ -185,7 +185,7 @@ describe('Cloudflare Email Inbound Webhook', () => {
 
       const response1 = await app.inject({
         method: 'POST',
-        url: '/api/cloudflare/email',
+        url: '/cloudflare/email',
         payload: originalPayload,
       });
       expect(response1.statusCode).toBe(200);
@@ -202,7 +202,7 @@ describe('Cloudflare Email Inbound Webhook', () => {
 
       const response2 = await app.inject({
         method: 'POST',
-        url: '/api/cloudflare/email',
+        url: '/cloudflare/email',
         payload: replyPayload,
       });
       expect(response2.statusCode).toBe(200);
@@ -227,7 +227,7 @@ describe('Cloudflare Email Inbound Webhook', () => {
 
       await app.inject({
         method: 'POST',
-        url: '/api/cloudflare/email',
+        url: '/cloudflare/email',
         payload,
       });
 
@@ -251,7 +251,7 @@ describe('Cloudflare Email Inbound Webhook', () => {
 
       await app.inject({
         method: 'POST',
-        url: '/api/cloudflare/email',
+        url: '/cloudflare/email',
         payload,
       });
 
@@ -266,7 +266,7 @@ describe('Cloudflare Email Inbound Webhook', () => {
 
       await app.inject({
         method: 'POST',
-        url: '/api/cloudflare/email',
+        url: '/cloudflare/email',
         payload,
       });
 
@@ -284,13 +284,13 @@ describe('Cloudflare Email Inbound Webhook', () => {
       // Send same message twice
       await app.inject({
         method: 'POST',
-        url: '/api/cloudflare/email',
+        url: '/cloudflare/email',
         payload,
       });
 
       const response = await app.inject({
         method: 'POST',
-        url: '/api/cloudflare/email',
+        url: '/cloudflare/email',
         payload, // Same message-id
       });
 
@@ -313,7 +313,7 @@ describe('Cloudflare Email Inbound Webhook', () => {
 
       const response = await app.inject({
         method: 'POST',
-        url: '/api/cloudflare/email',
+        url: '/cloudflare/email',
         payload,
         headers: {
           // No X-Webhook-Signature header
@@ -329,7 +329,7 @@ describe('Cloudflare Email Inbound Webhook', () => {
 
       const response = await app.inject({
         method: 'POST',
-        url: '/api/cloudflare/email',
+        url: '/cloudflare/email',
         payload,
         headers: {
           'x-cloudflare-email-secret': 'wrong-secret',
@@ -345,7 +345,7 @@ describe('Cloudflare Email Inbound Webhook', () => {
 
       const response = await app.inject({
         method: 'POST',
-        url: '/api/cloudflare/email',
+        url: '/cloudflare/email',
         payload,
         headers: {
           'x-cloudflare-email-secret': webhookSecret,
@@ -361,7 +361,7 @@ describe('Cloudflare Email Inbound Webhook', () => {
 
       const response = await app.inject({
         method: 'POST',
-        url: '/api/cloudflare/email',
+        url: '/cloudflare/email',
         payload,
         // No Authorization header
       });

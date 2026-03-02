@@ -51,9 +51,9 @@ describe('Namespace & User Provisioning API', () => {
   // Namespace Management API (#1473)
   // ============================================================
   describe('Namespace Management API', () => {
-    describe('GET /api/namespaces', () => {
+    describe('GET /namespaces', () => {
       it('returns 401 without auth', async () => {
-        const res = await app.inject({ method: 'GET', url: '/api/namespaces' });
+        const res = await app.inject({ method: 'GET', url: '/namespaces' });
         expect(res.statusCode).toBe(401);
       });
 
@@ -70,7 +70,7 @@ describe('Namespace & User Provisioning API', () => {
         );
 
         const headers = await getAuthHeaders(TEST_EMAIL);
-        const res = await app.inject({ method: 'GET', url: '/api/namespaces', headers });
+        const res = await app.inject({ method: 'GET', url: '/namespaces', headers });
         expect(res.statusCode).toBe(200);
 
         const body = res.json();
@@ -93,7 +93,7 @@ describe('Namespace & User Provisioning API', () => {
         );
 
         const headers = await getM2MHeaders();
-        const res = await app.inject({ method: 'GET', url: '/api/namespaces', headers });
+        const res = await app.inject({ method: 'GET', url: '/namespaces', headers });
         expect(res.statusCode).toBe(200);
 
         const body = res.json();
@@ -118,7 +118,7 @@ describe('Namespace & User Provisioning API', () => {
         );
 
         const headers = await getM2MHeadersLimited();
-        const res = await app.inject({ method: 'GET', url: '/api/namespaces', headers });
+        const res = await app.inject({ method: 'GET', url: '/namespaces', headers });
         expect(res.statusCode).toBe(200);
 
         const body = res.json();
@@ -131,7 +131,7 @@ describe('Namespace & User Provisioning API', () => {
 
       it('returns empty list for M2M token with no grants and no api:full', async () => {
         const headers = await getM2MHeadersLimited();
-        const res = await app.inject({ method: 'GET', url: '/api/namespaces', headers });
+        const res = await app.inject({ method: 'GET', url: '/namespaces', headers });
         expect(res.statusCode).toBe(200);
 
         const body = res.json();
@@ -140,11 +140,11 @@ describe('Namespace & User Provisioning API', () => {
       });
     });
 
-    describe('POST /api/namespaces', () => {
+    describe('POST /namespaces', () => {
       it('returns 400 when name is missing', async () => {
         const headers = await getM2MHeaders();
         const res = await app.inject({
-          method: 'POST', url: '/api/namespaces',
+          method: 'POST', url: '/namespaces',
           headers: { ...headers, 'content-type': 'application/json' },
           payload: {},
         });
@@ -154,7 +154,7 @@ describe('Namespace & User Provisioning API', () => {
       it('returns 400 for invalid namespace name', async () => {
         const headers = await getM2MHeaders();
         const res = await app.inject({
-          method: 'POST', url: '/api/namespaces',
+          method: 'POST', url: '/namespaces',
           headers: { ...headers, 'content-type': 'application/json' },
           payload: { name: '-invalid' },
         });
@@ -164,7 +164,7 @@ describe('Namespace & User Provisioning API', () => {
       it('returns 400 for reserved namespace', async () => {
         const headers = await getM2MHeaders();
         const res = await app.inject({
-          method: 'POST', url: '/api/namespaces',
+          method: 'POST', url: '/namespaces',
           headers: { ...headers, 'content-type': 'application/json' },
           payload: { name: 'system' },
         });
@@ -174,7 +174,7 @@ describe('Namespace & User Provisioning API', () => {
       it('creates namespace with M2M token', async () => {
         const headers = await getM2MHeaders();
         const res = await app.inject({
-          method: 'POST', url: '/api/namespaces',
+          method: 'POST', url: '/namespaces',
           headers: { ...headers, 'content-type': 'application/json' },
           payload: { name: 'test-ns-created' },
         });
@@ -188,7 +188,7 @@ describe('Namespace & User Provisioning API', () => {
 
         const headers = await getM2MHeaders();
         const res = await app.inject({
-          method: 'POST', url: '/api/namespaces',
+          method: 'POST', url: '/namespaces',
           headers: {
             ...headers,
             'content-type': 'application/json',
@@ -213,7 +213,7 @@ describe('Namespace & User Provisioning API', () => {
         const token = await signM2MToken('agent-no-user-setting-row', ['api:full']);
         const headers = { authorization: `Bearer ${token}` };
         const res = await app.inject({
-          method: 'POST', url: '/api/namespaces',
+          method: 'POST', url: '/namespaces',
           headers: { ...headers, 'content-type': 'application/json' },
           payload: { name: 'test-ns-no-grant' },
         });
@@ -231,7 +231,7 @@ describe('Namespace & User Provisioning API', () => {
 
         const headers = await getAuthHeaders(TEST_EMAIL);
         const res = await app.inject({
-          method: 'POST', url: '/api/namespaces',
+          method: 'POST', url: '/namespaces',
           headers: { ...headers, 'content-type': 'application/json' },
           payload: { name: 'test-ns-user-created' },
         });
@@ -254,7 +254,7 @@ describe('Namespace & User Provisioning API', () => {
 
         const headers = await getM2MHeaders();
         const res = await app.inject({
-          method: 'POST', url: '/api/namespaces',
+          method: 'POST', url: '/namespaces',
           headers: { ...headers, 'content-type': 'application/json' },
           payload: { name: 'test-ns-dup' },
         });
@@ -262,7 +262,7 @@ describe('Namespace & User Provisioning API', () => {
       });
     });
 
-    describe('GET /api/namespaces/:ns', () => {
+    describe('GET /namespaces/:ns', () => {
       it('returns namespace details with member list', async () => {
         await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, [TEST_EMAIL]);
         await pool.query(
@@ -271,7 +271,7 @@ describe('Namespace & User Provisioning API', () => {
         );
 
         const headers = await getAuthHeaders(TEST_EMAIL);
-        const res = await app.inject({ method: 'GET', url: '/api/namespaces/test-ns-detail', headers });
+        const res = await app.inject({ method: 'GET', url: '/namespaces/test-ns-detail', headers });
         expect(res.statusCode).toBe(200);
 
         const body = res.json();
@@ -290,7 +290,7 @@ describe('Namespace & User Provisioning API', () => {
         );
 
         const headers = await getAuthHeaders(TEST_EMAIL_2);
-        const res = await app.inject({ method: 'GET', url: '/api/namespaces/test-ns-forbidden', headers });
+        const res = await app.inject({ method: 'GET', url: '/namespaces/test-ns-forbidden', headers });
         expect(res.statusCode).toBe(403);
       });
 
@@ -302,7 +302,7 @@ describe('Namespace & User Provisioning API', () => {
         );
 
         const headers = await getM2MHeaders();
-        const res = await app.inject({ method: 'GET', url: '/api/namespaces/test-ns-m2m-view', headers });
+        const res = await app.inject({ method: 'GET', url: '/namespaces/test-ns-m2m-view', headers });
         expect(res.statusCode).toBe(200);
         expect(res.json().namespace).toBe('test-ns-m2m-view');
       });
@@ -315,7 +315,7 @@ describe('Namespace & User Provisioning API', () => {
         );
 
         const headers = await getM2MHeaders();
-        const res = await app.inject({ method: 'GET', url: '/api/namespaces/test-ns-m2m-members', headers });
+        const res = await app.inject({ method: 'GET', url: '/namespaces/test-ns-m2m-members', headers });
         expect(res.statusCode).toBe(200);
 
         const body = res.json();
@@ -333,7 +333,7 @@ describe('Namespace & User Provisioning API', () => {
       });
     });
 
-    describe('GET /api/namespaces/:ns/grants', () => {
+    describe('GET /namespaces/:ns/grants', () => {
       it('lists grants for namespace', async () => {
         await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, [TEST_EMAIL]);
         await pool.query(
@@ -342,7 +342,7 @@ describe('Namespace & User Provisioning API', () => {
         );
 
         const headers = await getAuthHeaders(TEST_EMAIL);
-        const res = await app.inject({ method: 'GET', url: '/api/namespaces/test-ns-grants/grants', headers });
+        const res = await app.inject({ method: 'GET', url: '/namespaces/test-ns-grants/grants', headers });
         expect(res.statusCode).toBe(200);
 
         const body = res.json();
@@ -352,7 +352,7 @@ describe('Namespace & User Provisioning API', () => {
       });
     });
 
-    describe('POST /api/namespaces/:ns/grants', () => {
+    describe('POST /namespaces/:ns/grants', () => {
       it('grants access to user', async () => {
         await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, [TEST_EMAIL]);
         await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, [TEST_EMAIL_2]);
@@ -363,7 +363,7 @@ describe('Namespace & User Provisioning API', () => {
 
         const headers = await getAuthHeaders(TEST_EMAIL);
         const res = await app.inject({
-          method: 'POST', url: '/api/namespaces/test-ns-grant-add/grants',
+          method: 'POST', url: '/namespaces/test-ns-grant-add/grants',
           headers: { ...headers, 'content-type': 'application/json' },
           payload: { email: TEST_EMAIL_2, access: 'readwrite' },
         });
@@ -382,7 +382,7 @@ describe('Namespace & User Provisioning API', () => {
 
         const headers = await getAuthHeaders(TEST_EMAIL);
         const res = await app.inject({
-          method: 'POST', url: '/api/namespaces/test-ns-grant-bad/grants',
+          method: 'POST', url: '/namespaces/test-ns-grant-bad/grants',
           headers: { ...headers, 'content-type': 'application/json' },
           payload: { email: TEST_EMAIL_2, access: 'superuser' },
         });
@@ -398,7 +398,7 @@ describe('Namespace & User Provisioning API', () => {
 
         const headers = await getAuthHeaders(TEST_EMAIL);
         const res = await app.inject({
-          method: 'POST', url: '/api/namespaces/test-ns-grant-nouser/grants',
+          method: 'POST', url: '/namespaces/test-ns-grant-nouser/grants',
           headers: { ...headers, 'content-type': 'application/json' },
           payload: { email: 'nonexistent@example.com', access: 'readwrite' },
         });
@@ -420,7 +420,7 @@ describe('Namespace & User Provisioning API', () => {
 
         const headers = await getM2MHeaders();
         const res = await app.inject({
-          method: 'POST', url: '/api/namespaces/test-ns-upsert/grants',
+          method: 'POST', url: '/namespaces/test-ns-upsert/grants',
           headers: { ...headers, 'content-type': 'application/json' },
           payload: { email: TEST_EMAIL, access: 'readwrite' },
         });
@@ -436,7 +436,7 @@ describe('Namespace & User Provisioning API', () => {
       });
     });
 
-    describe('PATCH /api/namespaces/:ns/grants/:id', () => {
+    describe('PATCH /namespaces/:ns/grants/:id', () => {
       it('updates grant access level', async () => {
         await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, [TEST_EMAIL]);
         await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, ['test-service']);
@@ -453,7 +453,7 @@ describe('Namespace & User Provisioning API', () => {
 
         const headers = await getM2MHeaders();
         const res = await app.inject({
-          method: 'PATCH', url: `/api/namespaces/test-ns-patch/grants/${grantId}`,
+          method: 'PATCH', url: `/namespaces/test-ns-patch/grants/${grantId}`,
           headers: { ...headers, 'content-type': 'application/json' },
           payload: { access: 'readwrite' },
         });
@@ -471,7 +471,7 @@ describe('Namespace & User Provisioning API', () => {
 
         const headers = await getM2MHeaders();
         const res = await app.inject({
-          method: 'PATCH', url: '/api/namespaces/test-ns-patch/grants/00000000-0000-0000-0000-000000000000',
+          method: 'PATCH', url: '/namespaces/test-ns-patch/grants/00000000-0000-0000-0000-000000000000',
           headers: { ...headers, 'content-type': 'application/json' },
           payload: { access: 'readwrite' },
         });
@@ -479,7 +479,7 @@ describe('Namespace & User Provisioning API', () => {
       });
     });
 
-    describe('DELETE /api/namespaces/:ns/grants/:id', () => {
+    describe('DELETE /namespaces/:ns/grants/:id', () => {
       it('deletes grant', async () => {
         await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, [TEST_EMAIL]);
         await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, ['test-service']);
@@ -496,7 +496,7 @@ describe('Namespace & User Provisioning API', () => {
 
         const headers = await getM2MHeaders();
         const res = await app.inject({
-          method: 'DELETE', url: `/api/namespaces/test-ns-del/grants/${grantId}`,
+          method: 'DELETE', url: `/namespaces/test-ns-del/grants/${grantId}`,
           headers,
         });
         expect(res.statusCode).toBe(200);
@@ -520,7 +520,7 @@ describe('Namespace & User Provisioning API', () => {
 
         const headers = await getM2MHeaders();
         const res = await app.inject({
-          method: 'DELETE', url: '/api/namespaces/test-ns-del/grants/00000000-0000-0000-0000-000000000000',
+          method: 'DELETE', url: '/namespaces/test-ns-del/grants/00000000-0000-0000-0000-000000000000',
           headers,
         });
         expect(res.statusCode).toBe(404);
@@ -532,11 +532,11 @@ describe('Namespace & User Provisioning API', () => {
   // User Provisioning API (#1474)
   // ============================================================
   describe('User Provisioning API', () => {
-    describe('POST /api/users', () => {
+    describe('POST /users', () => {
       it('returns 403 for user tokens', async () => {
         const headers = await getAuthHeaders(TEST_EMAIL);
         const res = await app.inject({
-          method: 'POST', url: '/api/users',
+          method: 'POST', url: '/users',
           headers: { ...headers, 'content-type': 'application/json' },
           payload: { email: 'new-user@example.com' },
         });
@@ -546,7 +546,7 @@ describe('Namespace & User Provisioning API', () => {
       it('returns 400 when email is missing', async () => {
         const headers = await getM2MHeaders();
         const res = await app.inject({
-          method: 'POST', url: '/api/users',
+          method: 'POST', url: '/users',
           headers: { ...headers, 'content-type': 'application/json' },
           payload: {},
         });
@@ -556,7 +556,7 @@ describe('Namespace & User Provisioning API', () => {
       it('provisions user with auto-namespace', async () => {
         const headers = await getM2MHeaders();
         const res = await app.inject({
-          method: 'POST', url: '/api/users',
+          method: 'POST', url: '/users',
           headers: { ...headers, 'content-type': 'application/json' },
           payload: { email: TEST_EMAIL },
         });
@@ -585,7 +585,7 @@ describe('Namespace & User Provisioning API', () => {
       it('provisions user with custom namespace', async () => {
         const headers = await getM2MHeaders();
         const res = await app.inject({
-          method: 'POST', url: '/api/users',
+          method: 'POST', url: '/users',
           headers: { ...headers, 'content-type': 'application/json' },
           payload: { email: TEST_EMAIL, namespace: 'test-ns-custom' },
         });
@@ -598,7 +598,7 @@ describe('Namespace & User Provisioning API', () => {
 
         // First call
         const res1 = await app.inject({
-          method: 'POST', url: '/api/users',
+          method: 'POST', url: '/users',
           headers: { ...headers, 'content-type': 'application/json' },
           payload: { email: TEST_EMAIL },
         });
@@ -606,7 +606,7 @@ describe('Namespace & User Provisioning API', () => {
 
         // Second call (same email)
         const res2 = await app.inject({
-          method: 'POST', url: '/api/users',
+          method: 'POST', url: '/users',
           headers: { ...headers, 'content-type': 'application/json' },
           payload: { email: TEST_EMAIL },
         });
@@ -621,11 +621,11 @@ describe('Namespace & User Provisioning API', () => {
       });
     });
 
-    describe('GET /api/users', () => {
+    describe('GET /users', () => {
       it('returns 403 for user tokens', async () => {
         await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, [TEST_EMAIL]);
         const headers = await getAuthHeaders(TEST_EMAIL);
-        const res = await app.inject({ method: 'GET', url: '/api/users', headers });
+        const res = await app.inject({ method: 'GET', url: '/users', headers });
         expect(res.statusCode).toBe(403);
       });
 
@@ -637,7 +637,7 @@ describe('Namespace & User Provisioning API', () => {
         );
 
         const headers = await getM2MHeaders();
-        const res = await app.inject({ method: 'GET', url: '/api/users', headers });
+        const res = await app.inject({ method: 'GET', url: '/users', headers });
         expect(res.statusCode).toBe(200);
 
         const body = res.json();
@@ -648,7 +648,7 @@ describe('Namespace & User Provisioning API', () => {
       });
     });
 
-    describe('GET /api/users/:email', () => {
+    describe('GET /users/:email', () => {
       it('returns user details with grants', async () => {
         await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, [TEST_EMAIL]);
         await pool.query(
@@ -658,7 +658,7 @@ describe('Namespace & User Provisioning API', () => {
 
         const headers = await getAuthHeaders(TEST_EMAIL);
         const res = await app.inject({
-          method: 'GET', url: `/api/users/${encodeURIComponent(TEST_EMAIL)}`,
+          method: 'GET', url: `/users/${encodeURIComponent(TEST_EMAIL)}`,
           headers,
         });
         expect(res.statusCode).toBe(200);
@@ -675,7 +675,7 @@ describe('Namespace & User Provisioning API', () => {
 
         const headers = await getAuthHeaders(TEST_EMAIL);
         const res = await app.inject({
-          method: 'GET', url: `/api/users/${encodeURIComponent(TEST_EMAIL_2)}`,
+          method: 'GET', url: `/users/${encodeURIComponent(TEST_EMAIL_2)}`,
           headers,
         });
         expect(res.statusCode).toBe(403);
@@ -686,7 +686,7 @@ describe('Namespace & User Provisioning API', () => {
 
         const headers = await getM2MHeaders();
         const res = await app.inject({
-          method: 'GET', url: `/api/users/${encodeURIComponent(TEST_EMAIL)}`,
+          method: 'GET', url: `/users/${encodeURIComponent(TEST_EMAIL)}`,
           headers,
         });
         expect(res.statusCode).toBe(200);
@@ -696,20 +696,20 @@ describe('Namespace & User Provisioning API', () => {
       it('returns 404 for nonexistent user', async () => {
         const headers = await getM2MHeaders();
         const res = await app.inject({
-          method: 'GET', url: '/api/users/nobody@example.com',
+          method: 'GET', url: '/users/nobody@example.com',
           headers,
         });
         expect(res.statusCode).toBe(404);
       });
     });
 
-    describe('PATCH /api/users/:email', () => {
+    describe('PATCH /users/:email', () => {
       it('updates user settings', async () => {
         await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, [TEST_EMAIL]);
 
         const headers = await getAuthHeaders(TEST_EMAIL);
         const res = await app.inject({
-          method: 'PATCH', url: `/api/users/${encodeURIComponent(TEST_EMAIL)}`,
+          method: 'PATCH', url: `/users/${encodeURIComponent(TEST_EMAIL)}`,
           headers: { ...headers, 'content-type': 'application/json' },
           payload: { theme: 'dark', timezone: 'America/New_York' },
         });
@@ -724,7 +724,7 @@ describe('Namespace & User Provisioning API', () => {
 
         const headers = await getAuthHeaders(TEST_EMAIL);
         const res = await app.inject({
-          method: 'PATCH', url: `/api/users/${encodeURIComponent(TEST_EMAIL_2)}`,
+          method: 'PATCH', url: `/users/${encodeURIComponent(TEST_EMAIL_2)}`,
           headers: { ...headers, 'content-type': 'application/json' },
           payload: { theme: 'dark' },
         });
@@ -736,7 +736,7 @@ describe('Namespace & User Provisioning API', () => {
 
         const headers = await getAuthHeaders(TEST_EMAIL);
         const res = await app.inject({
-          method: 'PATCH', url: `/api/users/${encodeURIComponent(TEST_EMAIL)}`,
+          method: 'PATCH', url: `/users/${encodeURIComponent(TEST_EMAIL)}`,
           headers: { ...headers, 'content-type': 'application/json' },
           payload: { invalid_field: 'value' },
         });
@@ -744,13 +744,13 @@ describe('Namespace & User Provisioning API', () => {
       });
     });
 
-    describe('DELETE /api/users/:email', () => {
+    describe('DELETE /users/:email', () => {
       it('returns 403 for user tokens', async () => {
         await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, [TEST_EMAIL]);
 
         const headers = await getAuthHeaders(TEST_EMAIL);
         const res = await app.inject({
-          method: 'DELETE', url: `/api/users/${encodeURIComponent(TEST_EMAIL)}`,
+          method: 'DELETE', url: `/users/${encodeURIComponent(TEST_EMAIL)}`,
           headers,
         });
         expect(res.statusCode).toBe(403);
@@ -765,7 +765,7 @@ describe('Namespace & User Provisioning API', () => {
 
         const headers = await getM2MHeaders();
         const res = await app.inject({
-          method: 'DELETE', url: `/api/users/${encodeURIComponent(TEST_EMAIL)}`,
+          method: 'DELETE', url: `/users/${encodeURIComponent(TEST_EMAIL)}`,
           headers,
         });
         expect(res.statusCode).toBe(200);
@@ -782,7 +782,7 @@ describe('Namespace & User Provisioning API', () => {
       it('returns 404 for nonexistent user', async () => {
         const headers = await getM2MHeaders();
         const res = await app.inject({
-          method: 'DELETE', url: '/api/users/nobody@example.com',
+          method: 'DELETE', url: '/users/nobody@example.com',
           headers,
         });
         expect(res.statusCode).toBe(404);

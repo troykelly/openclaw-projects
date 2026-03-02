@@ -2,8 +2,8 @@
  * Integration tests for Agent Chat Tools M2M API (#1954, #1955).
  *
  * Tests:
- * - POST /api/chat/sessions/:id/agent-message (M2M agent sends message)
- * - POST /api/notifications/agent (M2M agent sends notification)
+ * - POST /chat/sessions/:id/agent-message (M2M agent sends message)
+ * - POST /notifications/agent (M2M agent sends notification)
  * - Rate limits, dedup, auth
  *
  * Requires Postgres for session, message, and notification storage.
@@ -49,7 +49,7 @@ describe('Agent Chat Tools API (#1954)', () => {
   }> {
     const res = await app.inject({
       method: 'POST',
-      url: '/api/chat/sessions',
+      url: '/chat/sessions',
       headers: { 'x-user-email': TEST_EMAIL },
       payload: { agent_id: agentId },
     });
@@ -66,16 +66,16 @@ describe('Agent Chat Tools API (#1954)', () => {
   }
 
   // ================================================================
-  // POST /api/chat/sessions/:id/agent-message
+  // POST /chat/sessions/:id/agent-message
   // ================================================================
 
-  describe('POST /api/chat/sessions/:id/agent-message', () => {
+  describe('POST /chat/sessions/:id/agent-message', () => {
     it('sends a message to active session', async () => {
       const { id, thread_id, stream_secret } = await createSession();
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/chat/sessions/${id}/agent-message`,
+        url: `/chat/sessions/${id}/agent-message`,
         headers: {
           'x-user-email': TEST_EMAIL,
           'x-stream-secret': stream_secret,
@@ -109,7 +109,7 @@ describe('Agent Chat Tools API (#1954)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/chat/sessions/${id}/agent-message`,
+        url: `/chat/sessions/${id}/agent-message`,
         headers: { 'x-user-email': TEST_EMAIL },
         payload: { content: 'Hello' },
       });
@@ -122,7 +122,7 @@ describe('Agent Chat Tools API (#1954)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/chat/sessions/${id}/agent-message`,
+        url: `/chat/sessions/${id}/agent-message`,
         headers: {
           'x-user-email': TEST_EMAIL,
           'x-stream-secret': 'wrong-secret',
@@ -139,13 +139,13 @@ describe('Agent Chat Tools API (#1954)', () => {
       // End the session
       await app.inject({
         method: 'POST',
-        url: `/api/chat/sessions/${id}/end`,
+        url: `/chat/sessions/${id}/end`,
         headers: { 'x-user-email': TEST_EMAIL },
       });
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/chat/sessions/${id}/agent-message`,
+        url: `/chat/sessions/${id}/agent-message`,
         headers: {
           'x-user-email': TEST_EMAIL,
           'x-stream-secret': stream_secret,
@@ -161,7 +161,7 @@ describe('Agent Chat Tools API (#1954)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/chat/sessions/${id}/agent-message`,
+        url: `/chat/sessions/${id}/agent-message`,
         headers: {
           'x-user-email': TEST_EMAIL,
           'x-stream-secret': stream_secret,
@@ -175,7 +175,7 @@ describe('Agent Chat Tools API (#1954)', () => {
     it('rejects invalid session ID', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: `/api/chat/sessions/not-a-uuid/agent-message`,
+        url: `/chat/sessions/not-a-uuid/agent-message`,
         headers: {
           'x-user-email': TEST_EMAIL,
           'x-stream-secret': 'any',
@@ -188,14 +188,14 @@ describe('Agent Chat Tools API (#1954)', () => {
   });
 
   // ================================================================
-  // POST /api/notifications/agent
+  // POST /notifications/agent
   // ================================================================
 
-  describe('POST /api/notifications/agent', () => {
+  describe('POST /notifications/agent', () => {
     it('creates a notification with low urgency', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/notifications/agent',
+        url: '/notifications/agent',
         headers: { 'x-user-email': TEST_EMAIL },
         payload: {
           message: 'Task reminder: review PR',
@@ -226,7 +226,7 @@ describe('Agent Chat Tools API (#1954)', () => {
       // First notification
       const res1 = await app.inject({
         method: 'POST',
-        url: '/api/notifications/agent',
+        url: '/notifications/agent',
         headers: { 'x-user-email': TEST_EMAIL },
         payload: {
           message: 'First notification',
@@ -240,7 +240,7 @@ describe('Agent Chat Tools API (#1954)', () => {
       // Second notification with same reason_key — should be deduplicated
       const res2 = await app.inject({
         method: 'POST',
-        url: '/api/notifications/agent',
+        url: '/notifications/agent',
         headers: { 'x-user-email': TEST_EMAIL },
         payload: {
           message: 'Duplicate notification',
@@ -255,7 +255,7 @@ describe('Agent Chat Tools API (#1954)', () => {
     it('rejects missing message', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/notifications/agent',
+        url: '/notifications/agent',
         headers: { 'x-user-email': TEST_EMAIL },
         payload: {
           urgency: 'low',
@@ -269,7 +269,7 @@ describe('Agent Chat Tools API (#1954)', () => {
     it('rejects invalid urgency', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/notifications/agent',
+        url: '/notifications/agent',
         headers: { 'x-user-email': TEST_EMAIL },
         payload: {
           message: 'Hello',
@@ -284,7 +284,7 @@ describe('Agent Chat Tools API (#1954)', () => {
     it('rejects missing reason_key', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/notifications/agent',
+        url: '/notifications/agent',
         headers: { 'x-user-email': TEST_EMAIL },
         payload: {
           message: 'Hello',
@@ -298,7 +298,7 @@ describe('Agent Chat Tools API (#1954)', () => {
     it('rejects message exceeding 500 chars', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/notifications/agent',
+        url: '/notifications/agent',
         headers: { 'x-user-email': TEST_EMAIL },
         payload: {
           message: 'x'.repeat(501),

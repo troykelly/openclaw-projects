@@ -38,11 +38,11 @@ describe('Email & Calendar Sync API', () => {
   });
 
   describe('OAuth Connections', () => {
-    describe('GET /api/oauth/connections', () => {
+    describe('GET /oauth/connections', () => {
       it('returns empty list when no connections exist', async () => {
         const response = await app.inject({
           method: 'GET',
-          url: '/api/oauth/connections',
+          url: '/oauth/connections',
         });
 
         expect(response.statusCode).toBe(200);
@@ -59,7 +59,7 @@ describe('Email & Calendar Sync API', () => {
 
         const response = await app.inject({
           method: 'GET',
-          url: '/api/oauth/connections?user_email=user@example.com',
+          url: '/oauth/connections?user_email=user@example.com',
         });
 
         expect(response.statusCode).toBe(200);
@@ -70,11 +70,11 @@ describe('Email & Calendar Sync API', () => {
       });
     });
 
-    describe('GET /api/oauth/authorize/:provider', () => {
+    describe('GET /oauth/authorize/:provider', () => {
       it('redirects to authorization URL for google', async () => {
         const response = await app.inject({
           method: 'GET',
-          url: '/api/oauth/authorize/google?user_email=user@example.com&scopes=email,calendar',
+          url: '/oauth/authorize/google?user_email=user@example.com&scopes=email,calendar',
         });
 
         expect(response.statusCode).toBe(302);
@@ -85,7 +85,7 @@ describe('Email & Calendar Sync API', () => {
       it('redirects to authorization URL for microsoft', async () => {
         const response = await app.inject({
           method: 'GET',
-          url: '/api/oauth/authorize/microsoft?user_email=user@example.com&scopes=email,calendar',
+          url: '/oauth/authorize/microsoft?user_email=user@example.com&scopes=email,calendar',
         });
 
         expect(response.statusCode).toBe(302);
@@ -96,14 +96,14 @@ describe('Email & Calendar Sync API', () => {
       it('returns 400 for unknown provider', async () => {
         const response = await app.inject({
           method: 'GET',
-          url: '/api/oauth/authorize/unknown?user_email=user@example.com',
+          url: '/oauth/authorize/unknown?user_email=user@example.com',
         });
 
         expect(response.statusCode).toBe(400);
       });
     });
 
-    describe('DELETE /api/oauth/connections/:id', () => {
+    describe('DELETE /oauth/connections/:id', () => {
       it('deletes an OAuth connection', async () => {
         const insertRes = await pool.query(
           `INSERT INTO oauth_connection (user_email, provider, access_token, refresh_token, scopes, expires_at)
@@ -114,7 +114,7 @@ describe('Email & Calendar Sync API', () => {
 
         const response = await app.inject({
           method: 'DELETE',
-          url: `/api/oauth/connections/${connection_id}`,
+          url: `/oauth/connections/${connection_id}`,
         });
 
         expect(response.statusCode).toBe(204);
@@ -126,7 +126,7 @@ describe('Email & Calendar Sync API', () => {
       it('returns 404 for non-existent connection', async () => {
         const response = await app.inject({
           method: 'DELETE',
-          url: '/api/oauth/connections/00000000-0000-0000-0000-000000000000',
+          url: '/oauth/connections/00000000-0000-0000-0000-000000000000',
         });
 
         expect(response.statusCode).toBe(404);
@@ -135,7 +135,7 @@ describe('Email & Calendar Sync API', () => {
   });
 
   describe('Email Sync', () => {
-    describe('POST /api/sync/emails', () => {
+    describe('POST /sync/emails', () => {
       it('returns live_api status for valid connection (no sync needed)', async () => {
         // Create OAuth connection first
         const connResult = await pool.query(
@@ -147,7 +147,7 @@ describe('Email & Calendar Sync API', () => {
 
         const response = await app.inject({
           method: 'POST',
-          url: '/api/sync/emails',
+          url: '/sync/emails',
           payload: {
             connection_id,
           },
@@ -163,7 +163,7 @@ describe('Email & Calendar Sync API', () => {
       it('returns 400 when no OAuth connection exists', async () => {
         const response = await app.inject({
           method: 'POST',
-          url: '/api/sync/emails',
+          url: '/sync/emails',
           payload: {
             connection_id: '00000000-0000-0000-0000-000000000000',
           },
@@ -173,7 +173,7 @@ describe('Email & Calendar Sync API', () => {
       });
     });
 
-    describe('GET /api/emails', () => {
+    describe('GET /emails', () => {
       it('returns synced emails for a user', async () => {
         // Create contact and endpoint
         const contactRes = await pool.query(`INSERT INTO contact (display_name) VALUES ('Test User') RETURNING id`);
@@ -204,7 +204,7 @@ describe('Email & Calendar Sync API', () => {
 
         const response = await app.inject({
           method: 'GET',
-          url: '/api/emails?provider=google',
+          url: '/emails?provider=google',
         });
 
         expect(response.statusCode).toBe(200);
@@ -215,7 +215,7 @@ describe('Email & Calendar Sync API', () => {
       });
     });
 
-    describe('POST /api/emails/send', () => {
+    describe('POST /emails/send', () => {
       it('sends an email reply', async () => {
         // Create OAuth connection
         await pool.query(
@@ -245,7 +245,7 @@ describe('Email & Calendar Sync API', () => {
 
         const response = await app.inject({
           method: 'POST',
-          url: '/api/emails/send',
+          url: '/emails/send',
           payload: {
             user_email: 'user@example.com',
             thread_id: thread_id,
@@ -259,7 +259,7 @@ describe('Email & Calendar Sync API', () => {
       });
     });
 
-    describe('POST /api/emails/create-work-item', () => {
+    describe('POST /emails/create-work-item', () => {
       it('creates a work item from an email', async () => {
         // Create contact and endpoint
         const contactRes = await pool.query(`INSERT INTO contact (display_name) VALUES ('Test User') RETURNING id`);
@@ -292,7 +292,7 @@ describe('Email & Calendar Sync API', () => {
 
         const response = await app.inject({
           method: 'POST',
-          url: '/api/emails/create-work-item',
+          url: '/emails/create-work-item',
           payload: {
             message_id: message_id,
             title: 'Review document from email',
@@ -309,11 +309,11 @@ describe('Email & Calendar Sync API', () => {
   });
 
   describe('Calendar Sync', () => {
-    describe('POST /api/sync/calendar', () => {
+    describe('POST /sync/calendar', () => {
       it('returns 400 when connection_id is missing', async () => {
         const response = await app.inject({
           method: 'POST',
-          url: '/api/sync/calendar',
+          url: '/sync/calendar',
           payload: {},
         });
 
@@ -325,7 +325,7 @@ describe('Email & Calendar Sync API', () => {
       it('returns 404 for non-existent connection', async () => {
         const response = await app.inject({
           method: 'POST',
-          url: '/api/sync/calendar',
+          url: '/sync/calendar',
           payload: {
             connection_id: '00000000-0000-0000-0000-000000000000',
           },
@@ -344,7 +344,7 @@ describe('Email & Calendar Sync API', () => {
 
         const response = await app.inject({
           method: 'POST',
-          url: '/api/sync/calendar',
+          url: '/sync/calendar',
           payload: { connection_id },
         });
 
@@ -354,11 +354,11 @@ describe('Email & Calendar Sync API', () => {
       });
     });
 
-    describe('GET /api/calendar/events/live', () => {
+    describe('GET /calendar/events/live', () => {
       it('returns 400 when connection_id is missing', async () => {
         const response = await app.inject({
           method: 'GET',
-          url: '/api/calendar/events/live',
+          url: '/calendar/events/live',
         });
 
         expect(response.statusCode).toBe(400);
@@ -369,7 +369,7 @@ describe('Email & Calendar Sync API', () => {
       it('returns 404 for non-existent connection', async () => {
         const response = await app.inject({
           method: 'GET',
-          url: '/api/calendar/events/live?connection_id=00000000-0000-0000-0000-000000000000',
+          url: '/calendar/events/live?connection_id=00000000-0000-0000-0000-000000000000',
         });
 
         expect(response.statusCode).toBe(404);
@@ -385,7 +385,7 @@ describe('Email & Calendar Sync API', () => {
 
         const response = await app.inject({
           method: 'GET',
-          url: `/api/calendar/events/live?connection_id=${connection_id}`,
+          url: `/calendar/events/live?connection_id=${connection_id}`,
         });
 
         expect(response.statusCode).toBe(400);
@@ -394,7 +394,7 @@ describe('Email & Calendar Sync API', () => {
       });
     });
 
-    describe('GET /api/calendar/events', () => {
+    describe('GET /calendar/events', () => {
       it('returns calendar events', async () => {
         await pool.query(
           `INSERT INTO calendar_event (user_email, provider, external_event_id, title, start_time, end_time)
@@ -403,7 +403,7 @@ describe('Email & Calendar Sync API', () => {
 
         const response = await app.inject({
           method: 'GET',
-          url: '/api/calendar/events?user_email=user@example.com',
+          url: '/calendar/events?user_email=user@example.com',
         });
 
         expect(response.statusCode).toBe(200);
@@ -425,7 +425,7 @@ describe('Email & Calendar Sync API', () => {
 
         const response = await app.inject({
           method: 'GET',
-          url: `/api/calendar/events?user_email=user@example.com&start_after=${now.toISOString()}`,
+          url: `/calendar/events?user_email=user@example.com&start_after=${now.toISOString()}`,
         });
 
         expect(response.statusCode).toBe(200);
@@ -434,7 +434,7 @@ describe('Email & Calendar Sync API', () => {
       });
     });
 
-    describe('POST /api/calendar/events', () => {
+    describe('POST /calendar/events', () => {
       it('creates a local-only calendar event (legacy path)', async () => {
         await pool.query(
           `INSERT INTO oauth_connection (user_email, provider, access_token, refresh_token, scopes, expires_at)
@@ -446,7 +446,7 @@ describe('Email & Calendar Sync API', () => {
 
         const response = await app.inject({
           method: 'POST',
-          url: '/api/calendar/events',
+          url: '/calendar/events',
           payload: {
             user_email: 'user@example.com',
             provider: 'google',
@@ -476,7 +476,7 @@ describe('Email & Calendar Sync API', () => {
 
         const response = await app.inject({
           method: 'POST',
-          url: '/api/calendar/events',
+          url: '/calendar/events',
           payload: {
             connection_id,
             user_email: 'user@example.com',
@@ -505,7 +505,7 @@ describe('Email & Calendar Sync API', () => {
 
         const response = await app.inject({
           method: 'POST',
-          url: '/api/calendar/events',
+          url: '/calendar/events',
           payload: {
             connection_id,
             user_email: 'user@example.com',
@@ -522,7 +522,7 @@ describe('Email & Calendar Sync API', () => {
       });
     });
 
-    describe('POST /api/calendar/events/from-work-item', () => {
+    describe('POST /calendar/events/from-work-item', () => {
       it('creates a calendar event from a work item deadline', async () => {
         await pool.query(
           `INSERT INTO oauth_connection (user_email, provider, access_token, refresh_token, scopes, expires_at)
@@ -540,7 +540,7 @@ describe('Email & Calendar Sync API', () => {
 
         const response = await app.inject({
           method: 'POST',
-          url: '/api/calendar/events/from-work-item',
+          url: '/calendar/events/from-work-item',
           payload: {
             user_email: 'user@example.com',
             provider: 'google',
@@ -562,7 +562,7 @@ describe('Email & Calendar Sync API', () => {
 
         const response = await app.inject({
           method: 'POST',
-          url: '/api/calendar/events/from-work-item',
+          url: '/calendar/events/from-work-item',
           payload: {
             user_email: 'user@example.com',
             provider: 'google',
@@ -588,7 +588,7 @@ describe('Email & Calendar Sync API', () => {
 
         const response = await app.inject({
           method: 'POST',
-          url: '/api/calendar/events/from-work-item',
+          url: '/calendar/events/from-work-item',
           payload: {
             user_email: 'user@example.com',
             provider: 'google',
@@ -600,7 +600,7 @@ describe('Email & Calendar Sync API', () => {
       });
     });
 
-    describe('DELETE /api/calendar/events/:id', () => {
+    describe('DELETE /calendar/events/:id', () => {
       it('deletes a local-only calendar event', async () => {
         const insertRes = await pool.query(
           `INSERT INTO calendar_event (user_email, provider, external_event_id, title, start_time, end_time)
@@ -611,7 +611,7 @@ describe('Email & Calendar Sync API', () => {
 
         const response = await app.inject({
           method: 'DELETE',
-          url: `/api/calendar/events/${eventId}`,
+          url: `/calendar/events/${eventId}`,
         });
 
         expect(response.statusCode).toBe(204);
@@ -624,7 +624,7 @@ describe('Email & Calendar Sync API', () => {
       it('returns 404 for non-existent event', async () => {
         const response = await app.inject({
           method: 'DELETE',
-          url: '/api/calendar/events/00000000-0000-0000-0000-000000000000',
+          url: '/calendar/events/00000000-0000-0000-0000-000000000000',
         });
 
         expect(response.statusCode).toBe(404);
@@ -640,7 +640,7 @@ describe('Email & Calendar Sync API', () => {
 
         const response = await app.inject({
           method: 'DELETE',
-          url: `/api/calendar/events/${eventId}`,
+          url: `/calendar/events/${eventId}`,
         });
 
         expect(response.statusCode).toBe(204);
@@ -649,7 +649,7 @@ describe('Email & Calendar Sync API', () => {
   });
 
   describe('Work Item Calendar View', () => {
-    describe('GET /api/work-items/calendar', () => {
+    describe('GET /work-items/calendar', () => {
       it('returns work items with deadlines as calendar entries', async () => {
         const deadline = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
         await pool.query(
@@ -660,7 +660,7 @@ describe('Email & Calendar Sync API', () => {
 
         const response = await app.inject({
           method: 'GET',
-          url: '/api/work-items/calendar',
+          url: '/work-items/calendar',
         });
 
         expect(response.statusCode).toBe(200);
@@ -682,7 +682,7 @@ describe('Email & Calendar Sync API', () => {
 
         const response = await app.inject({
           method: 'GET',
-          url: `/api/work-items/calendar?start_date=${startDate.toISOString()}&end_date=${endDate.toISOString()}`,
+          url: `/work-items/calendar?start_date=${startDate.toISOString()}&end_date=${endDate.toISOString()}`,
         });
 
         expect(response.statusCode).toBe(200);

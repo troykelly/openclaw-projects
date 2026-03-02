@@ -36,7 +36,7 @@ describe('/app work items list', () => {
   it('renders HTML containing work item title when authenticated', async () => {
     await app.inject({
       method: 'POST',
-      url: '/api/work-items',
+      url: '/work-items',
       payload: { title: 'List Item' },
     });
 

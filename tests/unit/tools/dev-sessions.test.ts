@@ -110,7 +110,7 @@ describe('dev_session_create', () => {
     }
 
     expect(client.post).toHaveBeenCalledWith(
-      '/api/dev-sessions',
+      '/dev-sessions',
       expect.objectContaining({
         user_email: TEST_USER_ID,
         session_name: 'fix-auth-bug',
@@ -136,7 +136,7 @@ describe('dev_session_create', () => {
     });
 
     expect(client.post).toHaveBeenCalledWith(
-      '/api/dev-sessions',
+      '/dev-sessions',
       expect.objectContaining({
         branch: 'issue/123-fix',
         repo_org: 'troykelly',
@@ -219,7 +219,7 @@ describe('dev_session_create', () => {
     });
 
     expect(client.post).toHaveBeenCalledWith(
-      '/api/dev-sessions',
+      '/dev-sessions',
       expect.objectContaining({
         task_summary: 'Fix auth bug',
       }),
@@ -384,7 +384,7 @@ describe('dev_session_get', () => {
     }
 
     expect(client.get).toHaveBeenCalledWith(
-      `/api/dev-sessions/${TEST_SESSION_ID}`,
+      `/dev-sessions/${TEST_SESSION_ID}`,
       { user_id: TEST_USER_ID, user_email: TEST_USER_ID },
     );
   });
@@ -459,7 +459,7 @@ describe('dev_session_update', () => {
     }
 
     expect(client.patch).toHaveBeenCalledWith(
-      `/api/dev-sessions/${TEST_SESSION_ID}`,
+      `/dev-sessions/${TEST_SESSION_ID}`,
       expect.objectContaining({
         user_email: TEST_USER_ID,
         task_summary: 'Updated summary',
@@ -506,7 +506,7 @@ describe('dev_session_update', () => {
     });
 
     expect(client.patch).toHaveBeenCalledWith(
-      `/api/dev-sessions/${TEST_SESSION_ID}`,
+      `/dev-sessions/${TEST_SESSION_ID}`,
       expect.objectContaining({
         completion_summary: 'Done with work',
       }),
@@ -526,7 +526,7 @@ describe('dev_session_update', () => {
     });
 
     expect(client.patch).toHaveBeenCalledWith(
-      `/api/dev-sessions/${TEST_SESSION_ID}`,
+      `/dev-sessions/${TEST_SESSION_ID}`,
       expect.objectContaining({
         linked_issues: ['#100', '#101'],
         linked_prs: ['#200'],
@@ -583,7 +583,7 @@ describe('dev_session_complete', () => {
     }
 
     expect(client.post).toHaveBeenCalledWith(
-      `/api/dev-sessions/${TEST_SESSION_ID}/complete`,
+      `/dev-sessions/${TEST_SESSION_ID}/complete`,
       expect.objectContaining({
         user_email: TEST_USER_ID,
         completion_summary: 'Fixed auth race condition. All tests passing.',
@@ -601,7 +601,7 @@ describe('dev_session_complete', () => {
 
     expect(result.success).toBe(true);
     expect(client.post).toHaveBeenCalledWith(
-      `/api/dev-sessions/${TEST_SESSION_ID}/complete`,
+      `/dev-sessions/${TEST_SESSION_ID}/complete`,
       { user_email: TEST_USER_ID },
       { user_id: TEST_USER_ID },
     );
@@ -659,7 +659,7 @@ describe('dev_session_complete', () => {
     });
 
     expect(client.post).toHaveBeenCalledWith(
-      `/api/dev-sessions/${TEST_SESSION_ID}/complete`,
+      `/dev-sessions/${TEST_SESSION_ID}/complete`,
       expect.objectContaining({
         completion_summary: 'All done',
       }),

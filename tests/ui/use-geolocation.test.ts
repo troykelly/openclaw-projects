@@ -152,7 +152,7 @@ describe('useGeoMutations — createProvider includes auth_type', () => {
     });
 
     expect(mockedPost).toHaveBeenCalledWith(
-      '/api/geolocation/providers',
+      '/geolocation/providers',
       expect.objectContaining({
         providerType: 'home_assistant',
         authType: 'access_token',
@@ -177,7 +177,7 @@ describe('useGeoMutations — createProvider includes auth_type', () => {
     });
 
     expect(mockedPost).toHaveBeenCalledWith(
-      '/api/geolocation/providers',
+      '/geolocation/providers',
       expect.objectContaining({
         providerType: 'mqtt',
         authType: 'mqtt_credentials',
@@ -201,7 +201,7 @@ describe('useGeoMutations — createProvider includes auth_type', () => {
     });
 
     expect(mockedPost).toHaveBeenCalledWith(
-      '/api/geolocation/providers',
+      '/geolocation/providers',
       expect.objectContaining({
         providerType: 'webhook',
         authType: 'webhook_token',

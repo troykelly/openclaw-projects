@@ -34,12 +34,12 @@ describe('Soft Delete API Endpoints', () => {
     await app.close();
   });
 
-  describe('DELETE /api/work-items/:id', () => {
+  describe('DELETE /work-items/:id', () => {
     it('soft deletes by default', async () => {
       // Create a work item
       const createResponse = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: { title: 'Test Task' },
       });
       const work_item_id = createResponse.json().id;
@@ -47,14 +47,14 @@ describe('Soft Delete API Endpoints', () => {
       // Delete (soft)
       const deleteResponse = await app.inject({
         method: 'DELETE',
-        url: `/api/work-items/${work_item_id}`,
+        url: `/work-items/${work_item_id}`,
       });
       expect(deleteResponse.statusCode).toBe(204);
 
       // Verify it's not in normal list
       const listResponse = await app.inject({
         method: 'GET',
-        url: '/api/work-items',
+        url: '/work-items',
       });
       const items = listResponse.json().items;
       expect(items.find((i: { id: string }) => i.id === work_item_id)).toBeUndefined();
@@ -67,14 +67,14 @@ describe('Soft Delete API Endpoints', () => {
     it('hard deletes with permanent=true', async () => {
       const createResponse = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: { title: 'Test Task' },
       });
       const work_item_id = createResponse.json().id;
 
       const deleteResponse = await app.inject({
         method: 'DELETE',
-        url: `/api/work-items/${work_item_id}?permanent=true`,
+        url: `/work-items/${work_item_id}?permanent=true`,
       });
       expect(deleteResponse.statusCode).toBe(204);
 
@@ -84,25 +84,25 @@ describe('Soft Delete API Endpoints', () => {
     });
   });
 
-  describe('POST /api/work-items/:id/restore', () => {
+  describe('POST /work-items/:id/restore', () => {
     it('restores a soft-deleted work item', async () => {
       // Create and soft delete
       const createResponse = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: { title: 'Test Task' },
       });
       const work_item_id = createResponse.json().id;
 
       await app.inject({
         method: 'DELETE',
-        url: `/api/work-items/${work_item_id}`,
+        url: `/work-items/${work_item_id}`,
       });
 
       // Restore
       const restoreResponse = await app.inject({
         method: 'POST',
-        url: `/api/work-items/${work_item_id}/restore`,
+        url: `/work-items/${work_item_id}/restore`,
       });
       expect(restoreResponse.statusCode).toBe(200);
       expect(restoreResponse.json().restored).toBe(true);
@@ -111,7 +111,7 @@ describe('Soft Delete API Endpoints', () => {
       // Verify it's back in list
       const listResponse = await app.inject({
         method: 'GET',
-        url: '/api/work-items',
+        url: '/work-items',
       });
       const items = listResponse.json().items;
       expect(items.find((i: { id: string }) => i.id === work_item_id)).toBeDefined();
@@ -120,31 +120,31 @@ describe('Soft Delete API Endpoints', () => {
     it('returns 404 for non-deleted work item', async () => {
       const createResponse = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: { title: 'Active Task' },
       });
       const work_item_id = createResponse.json().id;
 
       const restoreResponse = await app.inject({
         method: 'POST',
-        url: `/api/work-items/${work_item_id}/restore`,
+        url: `/work-items/${work_item_id}/restore`,
       });
       expect(restoreResponse.statusCode).toBe(404);
     });
   });
 
-  describe('DELETE /api/contacts/:id', () => {
+  describe('DELETE /contacts/:id', () => {
     it('soft deletes by default', async () => {
       const createResponse = await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: { display_name: 'John Doe' },
       });
       const contact_id = createResponse.json().id;
 
       const deleteResponse = await app.inject({
         method: 'DELETE',
-        url: `/api/contacts/${contact_id}`,
+        url: `/contacts/${contact_id}`,
       });
       expect(deleteResponse.statusCode).toBe(204);
 
@@ -156,14 +156,14 @@ describe('Soft Delete API Endpoints', () => {
     it('hard deletes with permanent=true', async () => {
       const createResponse = await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: { display_name: 'Jane Doe' },
       });
       const contact_id = createResponse.json().id;
 
       const deleteResponse = await app.inject({
         method: 'DELETE',
-        url: `/api/contacts/${contact_id}?permanent=true`,
+        url: `/contacts/${contact_id}?permanent=true`,
       });
       expect(deleteResponse.statusCode).toBe(204);
 
@@ -172,55 +172,55 @@ describe('Soft Delete API Endpoints', () => {
     });
   });
 
-  describe('POST /api/contacts/:id/restore', () => {
+  describe('POST /contacts/:id/restore', () => {
     it('restores a soft-deleted contact', async () => {
       const createResponse = await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: { display_name: 'John Doe' },
       });
       const contact_id = createResponse.json().id;
 
       await app.inject({
         method: 'DELETE',
-        url: `/api/contacts/${contact_id}`,
+        url: `/contacts/${contact_id}`,
       });
 
       const restoreResponse = await app.inject({
         method: 'POST',
-        url: `/api/contacts/${contact_id}/restore`,
+        url: `/contacts/${contact_id}/restore`,
       });
       expect(restoreResponse.statusCode).toBe(200);
       expect(restoreResponse.json().restored).toBe(true);
     });
   });
 
-  describe('GET /api/trash', () => {
+  describe('GET /trash', () => {
     it('lists all soft-deleted items', async () => {
       // Create and delete items
       const wi1 = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: { title: 'Task 1' },
       });
       await app.inject({
         method: 'DELETE',
-        url: `/api/work-items/${wi1.json().id}`,
+        url: `/work-items/${wi1.json().id}`,
       });
 
       const c1 = await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: { display_name: 'Contact 1' },
       });
       await app.inject({
         method: 'DELETE',
-        url: `/api/contacts/${c1.json().id}`,
+        url: `/contacts/${c1.json().id}`,
       });
 
       const response = await app.inject({
         method: 'GET',
-        url: '/api/trash',
+        url: '/trash',
       });
 
       expect(response.statusCode).toBe(200);
@@ -233,27 +233,27 @@ describe('Soft Delete API Endpoints', () => {
     it('filters by entity_type', async () => {
       const wi = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: { title: 'Task' },
       });
       await app.inject({
         method: 'DELETE',
-        url: `/api/work-items/${wi.json().id}`,
+        url: `/work-items/${wi.json().id}`,
       });
 
       const c = await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: { display_name: 'Contact' },
       });
       await app.inject({
         method: 'DELETE',
-        url: `/api/contacts/${c.json().id}`,
+        url: `/contacts/${c.json().id}`,
       });
 
       const response = await app.inject({
         method: 'GET',
-        url: '/api/trash?entity_type=work_item',
+        url: '/trash?entity_type=work_item',
       });
 
       expect(response.statusCode).toBe(200);
@@ -262,14 +262,14 @@ describe('Soft Delete API Endpoints', () => {
     });
   });
 
-  describe('POST /api/trash/purge', () => {
+  describe('POST /trash/purge', () => {
     it('purges old deleted items', async () => {
       // Create item deleted 40 days ago directly in DB
       await pool.query(`INSERT INTO work_item (title, deleted_at) VALUES ('Old Task', now() - INTERVAL '40 days')`);
 
       const response = await app.inject({
         method: 'POST',
-        url: '/api/trash/purge',
+        url: '/trash/purge',
         payload: { retention_days: 30 },
       });
 
@@ -282,7 +282,7 @@ describe('Soft Delete API Endpoints', () => {
     it('uses default retention days', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: '/api/trash/purge',
+        url: '/trash/purge',
         payload: {},
       });
 
@@ -293,7 +293,7 @@ describe('Soft Delete API Endpoints', () => {
     it('rejects invalid retention days', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: '/api/trash/purge',
+        url: '/trash/purge',
         payload: { retention_days: 500 },
       });
 
@@ -301,27 +301,27 @@ describe('Soft Delete API Endpoints', () => {
     });
   });
 
-  describe('GET /api/work-items excludes deleted', () => {
+  describe('GET /work-items excludes deleted', () => {
     it('excludes soft-deleted items by default', async () => {
       const wi1 = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: { title: 'Active Task' },
       });
 
       const wi2 = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: { title: 'To Delete Task' },
       });
       await app.inject({
         method: 'DELETE',
-        url: `/api/work-items/${wi2.json().id}`,
+        url: `/work-items/${wi2.json().id}`,
       });
 
       const response = await app.inject({
         method: 'GET',
-        url: '/api/work-items',
+        url: '/work-items',
       });
 
       const items = response.json().items;
@@ -332,23 +332,23 @@ describe('Soft Delete API Endpoints', () => {
     it('includes deleted items with include_deleted=true', async () => {
       const wi1 = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: { title: 'Active Task' },
       });
 
       const wi2 = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: { title: 'Deleted Task' },
       });
       await app.inject({
         method: 'DELETE',
-        url: `/api/work-items/${wi2.json().id}`,
+        url: `/work-items/${wi2.json().id}`,
       });
 
       const response = await app.inject({
         method: 'GET',
-        url: '/api/work-items?include_deleted=true',
+        url: '/work-items?include_deleted=true',
       });
 
       const items = response.json().items;
@@ -356,27 +356,27 @@ describe('Soft Delete API Endpoints', () => {
     });
   });
 
-  describe('GET /api/contacts excludes deleted', () => {
+  describe('GET /contacts excludes deleted', () => {
     it('excludes soft-deleted contacts by default', async () => {
       const c1 = await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: { display_name: 'Active Contact' },
       });
 
       const c2 = await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: { display_name: 'Deleted Contact' },
       });
       await app.inject({
         method: 'DELETE',
-        url: `/api/contacts/${c2.json().id}`,
+        url: `/contacts/${c2.json().id}`,
       });
 
       const response = await app.inject({
         method: 'GET',
-        url: '/api/contacts',
+        url: '/contacts',
       });
 
       const contacts = response.json().contacts;

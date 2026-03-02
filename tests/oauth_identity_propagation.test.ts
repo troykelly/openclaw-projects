@@ -61,7 +61,7 @@ describe('OAuth identity propagation (Issue #1832)', () => {
 
         const response = await app.inject({
           method: 'GET',
-          url: '/api/oauth/authorize/microsoft',
+          url: '/oauth/authorize/microsoft',
           headers: {
             accept: 'application/json',
             authorization: `Bearer ${token}`,
@@ -94,7 +94,7 @@ describe('OAuth identity propagation (Issue #1832)', () => {
       try {
         const response = await app.inject({
           method: 'GET',
-          url: '/api/oauth/authorize/google',
+          url: '/oauth/authorize/google',
           headers: { accept: 'application/json' },
         });
 
@@ -221,7 +221,7 @@ describe('OAuth identity propagation (Issue #1832)', () => {
 
         const response = await app.inject({
           method: 'GET',
-          url: '/api/oauth/authorize/google?features=contacts&permission_level=read',
+          url: '/oauth/authorize/google?features=contacts&permission_level=read',
           headers: {
             accept: 'application/json',
             authorization: `Bearer ${token}`,

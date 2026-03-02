@@ -1,5 +1,5 @@
 /**
- * Tests for issue #1352: POST /api/work-items/bulk drops not_before, not_after.
+ * Tests for issue #1352: POST /work-items/bulk drops not_before, not_after.
  *
  * Verifies:
  * - Bulk endpoint accepts not_before and not_after per item
@@ -33,7 +33,7 @@ async function queryWithRetry(
   return pool.query(sql, params);
 }
 
-describe('POST /api/work-items/bulk — not_before/not_after (Issue #1352)', () => {
+describe('POST /work-items/bulk — not_before/not_after (Issue #1352)', () => {
   const app = buildServer();
   let pool: Pool;
 
@@ -55,7 +55,7 @@ describe('POST /api/work-items/bulk — not_before/not_after (Issue #1352)', () 
   it('persists not_before and not_after for bulk items', async () => {
     const res = await app.inject({
       method: 'POST',
-      url: '/api/work-items/bulk',
+      url: '/work-items/bulk',
       payload: {
         items: [
           {
@@ -112,7 +112,7 @@ describe('POST /api/work-items/bulk — not_before/not_after (Issue #1352)', () 
   it('creates internal_job entries for items with dates', async () => {
     const res = await app.inject({
       method: 'POST',
-      url: '/api/work-items/bulk',
+      url: '/work-items/bulk',
       payload: {
         items: [
           {
@@ -159,7 +159,7 @@ describe('POST /api/work-items/bulk — not_before/not_after (Issue #1352)', () 
   it('creates both reminder and nudge jobs when both dates are set', async () => {
     const res = await app.inject({
       method: 'POST',
-      url: '/api/work-items/bulk',
+      url: '/work-items/bulk',
       payload: {
         items: [
           {
@@ -198,7 +198,7 @@ describe('POST /api/work-items/bulk — not_before/not_after (Issue #1352)', () 
   it('does not create jobs for items without dates', async () => {
     const res = await app.inject({
       method: 'POST',
-      url: '/api/work-items/bulk',
+      url: '/work-items/bulk',
       payload: {
         items: [
           { title: 'No dates item' },
@@ -223,7 +223,7 @@ describe('POST /api/work-items/bulk — not_before/not_after (Issue #1352)', () 
   it('handles mix of items with and without dates', async () => {
     const res = await app.inject({
       method: 'POST',
-      url: '/api/work-items/bulk',
+      url: '/work-items/bulk',
       payload: {
         items: [
           { title: 'No dates' },
@@ -252,7 +252,7 @@ describe('POST /api/work-items/bulk — not_before/not_after (Issue #1352)', () 
   it('rejects items with invalid not_before date', async () => {
     const res = await app.inject({
       method: 'POST',
-      url: '/api/work-items/bulk',
+      url: '/work-items/bulk',
       payload: {
         items: [
           { title: 'Bad date', not_before: 'not-a-date' },
@@ -269,7 +269,7 @@ describe('POST /api/work-items/bulk — not_before/not_after (Issue #1352)', () 
   it('rejects items with invalid not_after date', async () => {
     const res = await app.inject({
       method: 'POST',
-      url: '/api/work-items/bulk',
+      url: '/work-items/bulk',
       payload: {
         items: [
           { title: 'Bad date', not_after: 'garbage' },
@@ -286,7 +286,7 @@ describe('POST /api/work-items/bulk — not_before/not_after (Issue #1352)', () 
   it('rejects items where not_before is after not_after', async () => {
     const res = await app.inject({
       method: 'POST',
-      url: '/api/work-items/bulk',
+      url: '/work-items/bulk',
       payload: {
         items: [
           {

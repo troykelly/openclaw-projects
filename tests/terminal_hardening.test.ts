@@ -73,7 +73,7 @@ describe('Terminal API Hardening', () => {
     it('records activity on connection create', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/terminal/connections',
+        url: '/terminal/connections',
         payload: { name: 'audit-test', host: '10.0.0.1' },
       });
       expect(res.statusCode).toBe(201);
@@ -89,14 +89,14 @@ describe('Terminal API Hardening', () => {
     it('records activity on connection update', async () => {
       const created = await app.inject({
         method: 'POST',
-        url: '/api/terminal/connections',
+        url: '/terminal/connections',
         payload: { name: 'update-me', host: 'example.com' },
       });
       const { id } = created.json() as { id: string };
 
       await app.inject({
         method: 'PATCH',
-        url: `/api/terminal/connections/${id}`,
+        url: `/terminal/connections/${id}`,
         payload: { name: 'updated-name' },
       });
 
@@ -110,14 +110,14 @@ describe('Terminal API Hardening', () => {
     it('records activity on connection delete', async () => {
       const created = await app.inject({
         method: 'POST',
-        url: '/api/terminal/connections',
+        url: '/terminal/connections',
         payload: { name: 'delete-me', host: 'example.com' },
       });
       const { id } = created.json() as { id: string };
 
       await app.inject({
         method: 'DELETE',
-        url: `/api/terminal/connections/${id}`,
+        url: `/terminal/connections/${id}`,
       });
 
       await new Promise((r) => setTimeout(r, 100));
@@ -130,7 +130,7 @@ describe('Terminal API Hardening', () => {
     it('records activity on credential create', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/terminal/credentials',
+        url: '/terminal/credentials',
         payload: { name: 'test-cred', kind: 'password', value: 'secret123' },
       });
       expect(res.statusCode).toBe(201);
@@ -147,14 +147,14 @@ describe('Terminal API Hardening', () => {
     it('records activity on credential delete', async () => {
       const created = await app.inject({
         method: 'POST',
-        url: '/api/terminal/credentials',
+        url: '/terminal/credentials',
         payload: { name: 'del-cred', kind: 'password', value: 'secret123' },
       });
       const { id } = created.json() as { id: string };
 
       await app.inject({
         method: 'DELETE',
-        url: `/api/terminal/credentials/${id}`,
+        url: `/terminal/credentials/${id}`,
       });
 
       await new Promise((r) => setTimeout(r, 100));
@@ -166,7 +166,7 @@ describe('Terminal API Hardening', () => {
     it('records activity on credential generate', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/terminal/credentials/generate',
+        url: '/terminal/credentials/generate',
         payload: { name: 'gen-key', type: 'ed25519' },
       });
       expect(res.statusCode).toBe(201);
@@ -181,7 +181,7 @@ describe('Terminal API Hardening', () => {
     it('records activity on settings update', async () => {
       await app.inject({
         method: 'PATCH',
-        url: '/api/terminal/settings',
+        url: '/terminal/settings',
         payload: { entry_retention_days: 30 },
       });
 
@@ -195,7 +195,7 @@ describe('Terminal API Hardening', () => {
     it('records activity on enrollment token create and revoke', async () => {
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/terminal/enrollment-tokens',
+        url: '/terminal/enrollment-tokens',
         payload: { label: 'test-token' },
       });
       expect(createRes.statusCode).toBe(201);
@@ -208,7 +208,7 @@ describe('Terminal API Hardening', () => {
 
       await app.inject({
         method: 'DELETE',
-        url: `/api/terminal/enrollment-tokens/${id}`,
+        url: `/terminal/enrollment-tokens/${id}`,
       });
 
       await new Promise((r) => setTimeout(r, 100));
@@ -220,7 +220,7 @@ describe('Terminal API Hardening', () => {
     it('records activity on known host trust', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/terminal/known-hosts',
+        url: '/terminal/known-hosts',
         payload: {
           host: 'example.com',
           key_type: 'ssh-ed25519',
@@ -241,7 +241,7 @@ describe('Terminal API Hardening', () => {
       // Create a known host first
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/terminal/known-hosts',
+        url: '/terminal/known-hosts',
         payload: {
           host: 'del-host.example.com',
           key_type: 'ssh-ed25519',
@@ -253,7 +253,7 @@ describe('Terminal API Hardening', () => {
 
       await app.inject({
         method: 'DELETE',
-        url: `/api/terminal/known-hosts/${id}`,
+        url: `/terminal/known-hosts/${id}`,
       });
 
       await new Promise((r) => setTimeout(r, 100));
@@ -266,7 +266,7 @@ describe('Terminal API Hardening', () => {
       const config = `Host web-server\n  HostName 192.168.1.10\n  User admin\n  Port 2222`;
       const res = await app.inject({
         method: 'POST',
-        url: '/api/terminal/connections/import-ssh-config',
+        url: '/terminal/connections/import-ssh-config',
         payload: { config_text: config },
       });
       expect(res.statusCode).toBe(201);
@@ -288,7 +288,7 @@ describe('Terminal API Hardening', () => {
       // Create a password credential
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/terminal/credentials',
+        url: '/terminal/credentials',
         payload: { name: 'reencrypt-test', kind: 'password', value: 'original-password' },
       });
       expect(createRes.statusCode).toBe(201);
@@ -305,7 +305,7 @@ describe('Terminal API Hardening', () => {
       // PATCH with a new value
       const patchRes = await app.inject({
         method: 'PATCH',
-        url: `/api/terminal/credentials/${id}`,
+        url: `/terminal/credentials/${id}`,
         payload: { value: 'new-password' },
       });
       expect(patchRes.statusCode).toBe(200);
@@ -332,7 +332,7 @@ describe('Terminal API Hardening', () => {
     it('updates metadata fields without touching encrypted_value when value not provided', async () => {
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/terminal/credentials',
+        url: '/terminal/credentials',
         payload: { name: 'metadata-test', kind: 'password', value: 'dont-change-me' },
       });
       const { id } = createRes.json() as { id: string };
@@ -347,7 +347,7 @@ describe('Terminal API Hardening', () => {
       // PATCH only metadata
       const patchRes = await app.inject({
         method: 'PATCH',
-        url: `/api/terminal/credentials/${id}`,
+        url: `/terminal/credentials/${id}`,
         payload: { name: 'renamed-credential' },
       });
       expect(patchRes.statusCode).toBe(200);
@@ -365,7 +365,7 @@ describe('Terminal API Hardening', () => {
     it('records activity with value_changed flag on credential update', async () => {
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/terminal/credentials',
+        url: '/terminal/credentials',
         payload: { name: 'activity-test', kind: 'password', value: 'secret' },
       });
       const { id } = createRes.json() as { id: string };
@@ -373,7 +373,7 @@ describe('Terminal API Hardening', () => {
       // PATCH with value
       await app.inject({
         method: 'PATCH',
-        url: `/api/terminal/credentials/${id}`,
+        url: `/terminal/credentials/${id}`,
         payload: { value: 'new-secret', name: 'updated-name' },
       });
 
@@ -442,7 +442,7 @@ describe('Terminal API Hardening', () => {
       // First create a connection+session, then a linked activity, then delete the session
       const connRes = await app.inject({
         method: 'POST',
-        url: '/api/terminal/connections',
+        url: '/terminal/connections',
         payload: { name: 'cascade-test', host: 'cascade.example.com' },
       });
       const connId = (connRes.json() as { id: string }).id;

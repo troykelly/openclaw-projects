@@ -243,7 +243,7 @@ describe('Nginx Configuration Template', () => {
 
   describe('API proxy', () => {
     it('should have API proxy location block', () => {
-      expect(nginxConfigContent).toContain('location /api/');
+      expect(nginxConfigContent).toContain('location /');
     });
 
     it('should proxy to API_HOST and API_PORT', () => {

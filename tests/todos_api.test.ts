@@ -22,7 +22,7 @@ describe('Todos API (issue #108)', () => {
     // Create a work item for todos to attach to
     const created = await app.inject({
       method: 'POST',
-      url: '/api/work-items',
+      url: '/work-items',
       payload: { title: 'Work item with todos' },
     });
     work_item_id = (created.json() as { id: string }).id;
@@ -33,11 +33,11 @@ describe('Todos API (issue #108)', () => {
     await pool.end();
   });
 
-  describe('GET /api/work-items/:id/todos', () => {
+  describe('GET /work-items/:id/todos', () => {
     it('returns empty array when no todos exist', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${work_item_id}/todos`,
+        url: `/work-items/${work_item_id}/todos`,
       });
       expect(res.statusCode).toBe(200);
       expect(res.json()).toEqual({ todos: [] });
@@ -46,7 +46,7 @@ describe('Todos API (issue #108)', () => {
     it('returns 404 for non-existent work item', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/work-items/00000000-0000-0000-0000-000000000000/todos',
+        url: '/work-items/00000000-0000-0000-0000-000000000000/todos',
       });
       expect(res.statusCode).toBe(404);
       expect(res.json()).toEqual({ error: 'not found' });
@@ -56,18 +56,18 @@ describe('Todos API (issue #108)', () => {
       // Create multiple todos
       await app.inject({
         method: 'POST',
-        url: `/api/work-items/${work_item_id}/todos`,
+        url: `/work-items/${work_item_id}/todos`,
         payload: { text: 'First todo' },
       });
       await app.inject({
         method: 'POST',
-        url: `/api/work-items/${work_item_id}/todos`,
+        url: `/work-items/${work_item_id}/todos`,
         payload: { text: 'Second todo' },
       });
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${work_item_id}/todos`,
+        url: `/work-items/${work_item_id}/todos`,
       });
       expect(res.statusCode).toBe(200);
 
@@ -78,11 +78,11 @@ describe('Todos API (issue #108)', () => {
     });
   });
 
-  describe('POST /api/work-items/:id/todos', () => {
+  describe('POST /work-items/:id/todos', () => {
     it('creates a new todo', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: `/api/work-items/${work_item_id}/todos`,
+        url: `/work-items/${work_item_id}/todos`,
         payload: { text: 'New todo item' },
       });
       expect(res.statusCode).toBe(201);
@@ -104,7 +104,7 @@ describe('Todos API (issue #108)', () => {
     it('returns 400 when text is missing', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: `/api/work-items/${work_item_id}/todos`,
+        url: `/work-items/${work_item_id}/todos`,
         payload: {},
       });
       expect(res.statusCode).toBe(400);
@@ -114,7 +114,7 @@ describe('Todos API (issue #108)', () => {
     it('returns 400 when text is empty', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: `/api/work-items/${work_item_id}/todos`,
+        url: `/work-items/${work_item_id}/todos`,
         payload: { text: '   ' },
       });
       expect(res.statusCode).toBe(400);
@@ -124,7 +124,7 @@ describe('Todos API (issue #108)', () => {
     it('returns 404 for non-existent work item', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/work-items/00000000-0000-0000-0000-000000000000/todos',
+        url: '/work-items/00000000-0000-0000-0000-000000000000/todos',
         payload: { text: 'Todo for missing item' },
       });
       expect(res.statusCode).toBe(404);
@@ -132,13 +132,13 @@ describe('Todos API (issue #108)', () => {
     });
   });
 
-  describe('PATCH /api/work-items/:id/todos/:todoId', () => {
+  describe('PATCH /work-items/:id/todos/:todoId', () => {
     let todoId: string;
 
     beforeEach(async () => {
       const created = await app.inject({
         method: 'POST',
-        url: `/api/work-items/${work_item_id}/todos`,
+        url: `/work-items/${work_item_id}/todos`,
         payload: { text: 'Original text' },
       });
       todoId = (created.json() as { id: string }).id;
@@ -147,7 +147,7 @@ describe('Todos API (issue #108)', () => {
     it('updates todo text', async () => {
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${work_item_id}/todos/${todoId}`,
+        url: `/work-items/${work_item_id}/todos/${todoId}`,
         payload: { text: 'Updated text' },
       });
       expect(res.statusCode).toBe(200);
@@ -159,7 +159,7 @@ describe('Todos API (issue #108)', () => {
     it('marks todo as completed and sets completed_at', async () => {
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${work_item_id}/todos/${todoId}`,
+        url: `/work-items/${work_item_id}/todos/${todoId}`,
         payload: { completed: true },
       });
       expect(res.statusCode).toBe(200);
@@ -173,14 +173,14 @@ describe('Todos API (issue #108)', () => {
       // First mark as complete
       await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${work_item_id}/todos/${todoId}`,
+        url: `/work-items/${work_item_id}/todos/${todoId}`,
         payload: { completed: true },
       });
 
       // Then mark as incomplete
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${work_item_id}/todos/${todoId}`,
+        url: `/work-items/${work_item_id}/todos/${todoId}`,
         payload: { completed: false },
       });
       expect(res.statusCode).toBe(200);
@@ -193,7 +193,7 @@ describe('Todos API (issue #108)', () => {
     it('returns 404 for non-existent todo', async () => {
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${work_item_id}/todos/00000000-0000-0000-0000-000000000000`,
+        url: `/work-items/${work_item_id}/todos/00000000-0000-0000-0000-000000000000`,
         payload: { text: 'Updated' },
       });
       expect(res.statusCode).toBe(404);
@@ -203,7 +203,7 @@ describe('Todos API (issue #108)', () => {
     it('returns 404 for non-existent work item', async () => {
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/00000000-0000-0000-0000-000000000000/todos/${todoId}`,
+        url: `/work-items/00000000-0000-0000-0000-000000000000/todos/${todoId}`,
         payload: { text: 'Updated' },
       });
       expect(res.statusCode).toBe(404);
@@ -213,7 +213,7 @@ describe('Todos API (issue #108)', () => {
     it('returns 400 when no update fields provided', async () => {
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${work_item_id}/todos/${todoId}`,
+        url: `/work-items/${work_item_id}/todos/${todoId}`,
         payload: {},
       });
       expect(res.statusCode).toBe(400);
@@ -221,13 +221,13 @@ describe('Todos API (issue #108)', () => {
     });
   });
 
-  describe('DELETE /api/work-items/:id/todos/:todoId', () => {
+  describe('DELETE /work-items/:id/todos/:todoId', () => {
     let todoId: string;
 
     beforeEach(async () => {
       const created = await app.inject({
         method: 'POST',
-        url: `/api/work-items/${work_item_id}/todos`,
+        url: `/work-items/${work_item_id}/todos`,
         payload: { text: 'Todo to delete' },
       });
       todoId = (created.json() as { id: string }).id;
@@ -236,14 +236,14 @@ describe('Todos API (issue #108)', () => {
     it('deletes a todo', async () => {
       const res = await app.inject({
         method: 'DELETE',
-        url: `/api/work-items/${work_item_id}/todos/${todoId}`,
+        url: `/work-items/${work_item_id}/todos/${todoId}`,
       });
       expect(res.statusCode).toBe(204);
 
       // Verify it's deleted
       const list = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${work_item_id}/todos`,
+        url: `/work-items/${work_item_id}/todos`,
       });
       const body = list.json() as { todos: Array<{ id: string }> };
       expect(body.todos.find((t) => t.id === todoId)).toBeUndefined();
@@ -252,7 +252,7 @@ describe('Todos API (issue #108)', () => {
     it('returns 404 for non-existent todo', async () => {
       const res = await app.inject({
         method: 'DELETE',
-        url: `/api/work-items/${work_item_id}/todos/00000000-0000-0000-0000-000000000000`,
+        url: `/work-items/${work_item_id}/todos/00000000-0000-0000-0000-000000000000`,
       });
       expect(res.statusCode).toBe(404);
       expect(res.json()).toEqual({ error: 'not found' });
@@ -261,7 +261,7 @@ describe('Todos API (issue #108)', () => {
     it('returns 404 for non-existent work item', async () => {
       const res = await app.inject({
         method: 'DELETE',
-        url: `/api/work-items/00000000-0000-0000-0000-000000000000/todos/${todoId}`,
+        url: `/work-items/00000000-0000-0000-0000-000000000000/todos/${todoId}`,
       });
       expect(res.statusCode).toBe(404);
       expect(res.json()).toEqual({ error: 'not found' });

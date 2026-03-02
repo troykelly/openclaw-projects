@@ -32,11 +32,11 @@ describe('Webhook API', () => {
     await pool.end();
   });
 
-  describe('GET /api/webhooks/outbox', () => {
+  describe('GET /webhooks/outbox', () => {
     it('returns empty list when no webhooks', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/webhooks/outbox',
+        url: '/webhooks/outbox',
       });
 
       expect(res.statusCode).toBe(200);
@@ -55,7 +55,7 @@ describe('Webhook API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/webhooks/outbox',
+        url: '/webhooks/outbox',
       });
 
       expect(res.statusCode).toBe(200);
@@ -77,7 +77,7 @@ describe('Webhook API', () => {
 
       const pendingRes = await app.inject({
         method: 'GET',
-        url: '/api/webhooks/outbox?status=pending',
+        url: '/webhooks/outbox?status=pending',
       });
 
       expect(pendingRes.statusCode).toBe(200);
@@ -87,7 +87,7 @@ describe('Webhook API', () => {
 
       const dispatchedRes = await app.inject({
         method: 'GET',
-        url: '/api/webhooks/outbox?status=dispatched',
+        url: '/webhooks/outbox?status=dispatched',
       });
 
       expect(dispatchedRes.statusCode).toBe(200);
@@ -105,7 +105,7 @@ describe('Webhook API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/webhooks/outbox?kind=sms_received',
+        url: '/webhooks/outbox?kind=sms_received',
       });
 
       expect(res.statusCode).toBe(200);
@@ -126,7 +126,7 @@ describe('Webhook API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/webhooks/outbox?limit=2&offset=1',
+        url: '/webhooks/outbox?limit=2&offset=1',
       });
 
       expect(res.statusCode).toBe(200);
@@ -138,7 +138,7 @@ describe('Webhook API', () => {
     });
   });
 
-  describe('POST /api/webhooks/:id/retry', () => {
+  describe('POST /webhooks/:id/retry', () => {
     it('retries a failed webhook', async () => {
       // Create a failed webhook
       const result = await pool.query(
@@ -150,7 +150,7 @@ describe('Webhook API', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/webhooks/${id}/retry`,
+        url: `/webhooks/${id}/retry`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -167,7 +167,7 @@ describe('Webhook API', () => {
     it('returns 404 for non-existent webhook', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/webhooks/00000000-0000-0000-0000-000000000000/retry',
+        url: '/webhooks/00000000-0000-0000-0000-000000000000/retry',
       });
 
       expect(res.statusCode).toBe(404);
@@ -183,14 +183,14 @@ describe('Webhook API', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/webhooks/${id}/retry`,
+        url: `/webhooks/${id}/retry`,
       });
 
       expect(res.statusCode).toBe(404);
     });
   });
 
-  describe('GET /api/webhooks/status', () => {
+  describe('GET /webhooks/status', () => {
     it('returns configuration status when not configured', async () => {
       delete process.env.OPENCLAW_GATEWAY_URL;
       delete process.env.OPENCLAW_API_TOKEN;
@@ -198,7 +198,7 @@ describe('Webhook API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/webhooks/status',
+        url: '/webhooks/status',
       });
 
       expect(res.statusCode).toBe(200);
@@ -215,7 +215,7 @@ describe('Webhook API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/webhooks/status',
+        url: '/webhooks/status',
       });
 
       expect(res.statusCode).toBe(200);
@@ -243,7 +243,7 @@ describe('Webhook API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/webhooks/status',
+        url: '/webhooks/status',
       });
 
       expect(res.statusCode).toBe(200);
@@ -254,11 +254,11 @@ describe('Webhook API', () => {
     });
   });
 
-  describe('POST /api/webhooks/process', () => {
+  describe('POST /webhooks/process', () => {
     it('returns stats when no webhooks to process', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/webhooks/process',
+        url: '/webhooks/process',
       });
 
       expect(res.statusCode).toBe(200);
@@ -282,7 +282,7 @@ describe('Webhook API', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: '/api/webhooks/process',
+        url: '/webhooks/process',
       });
 
       expect(res.statusCode).toBe(200);
@@ -293,7 +293,7 @@ describe('Webhook API', () => {
     it('respects limit parameter', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/webhooks/process',
+        url: '/webhooks/process',
         payload: { limit: 50 },
       });
 
@@ -301,11 +301,11 @@ describe('Webhook API', () => {
     });
   });
 
-  describe('GET /api/health', () => {
+  describe('GET /health', () => {
     it('includes webhook health check', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/health',
+        url: '/health',
       });
 
       expect(res.statusCode).toBe(200);
@@ -321,7 +321,7 @@ describe('Webhook API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/health',
+        url: '/health',
       });
 
       expect(res.statusCode).toBe(200);
@@ -336,7 +336,7 @@ describe('Webhook API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/health',
+        url: '/health',
       });
 
       expect(res.statusCode).toBe(200);

@@ -106,7 +106,7 @@ describe('File Share Ownership Check (Issue #615)', () => {
     );
   }
 
-  describe('POST /api/files/:id/share', () => {
+  describe('POST /files/:id/share', () => {
     it('allows the file owner to create a share link', async () => {
       const ownerEmail = 'owner@example.com';
       const fileId = '11111111-1111-1111-1111-111111111111';
@@ -117,7 +117,7 @@ describe('File Share Ownership Check (Issue #615)', () => {
 
       const response = await app.inject({
         method: 'POST',
-        url: `/api/files/${fileId}/share`,
+        url: `/files/${fileId}/share`,
         headers: { authorization: `Bearer ${token}` },
         payload: { expires_in: 3600 },
       });
@@ -141,7 +141,7 @@ describe('File Share Ownership Check (Issue #615)', () => {
 
       const response = await app.inject({
         method: 'POST',
-        url: `/api/files/${fileId}/share`,
+        url: `/files/${fileId}/share`,
         headers: { authorization: `Bearer ${attackerToken}` },
         payload: { expires_in: 3600 },
       });
@@ -158,7 +158,7 @@ describe('File Share Ownership Check (Issue #615)', () => {
 
       const response = await app.inject({
         method: 'POST',
-        url: `/api/files/${nonExistentFileId}/share`,
+        url: `/files/${nonExistentFileId}/share`,
         headers: { authorization: `Bearer ${token}` },
         payload: { expires_in: 3600 },
       });
@@ -179,7 +179,7 @@ describe('File Share Ownership Check (Issue #615)', () => {
 
       const response = await app.inject({
         method: 'POST',
-        url: `/api/files/${fileId}/share`,
+        url: `/files/${fileId}/share`,
         payload: { expires_in: 3600 },
       });
 
@@ -202,7 +202,7 @@ describe('File Share Ownership Check (Issue #615)', () => {
       // Should be able to share even without being the owner (auth disabled)
       const response = await app.inject({
         method: 'POST',
-        url: `/api/files/${fileId}/share`,
+        url: `/files/${fileId}/share`,
         payload: { expires_in: 3600 },
       });
 
@@ -216,7 +216,7 @@ describe('File Share Ownership Check (Issue #615)', () => {
 
       const response = await app.inject({
         method: 'POST',
-        url: `/api/files/${fileId}/share`,
+        url: `/files/${fileId}/share`,
         payload: { expires_in: 3600 },
         // No session cookie or bearer token
       });

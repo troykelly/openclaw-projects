@@ -81,7 +81,7 @@ describe('useDefaultAgent hook', () => {
     });
 
     expect(screen.getByTestId('agent-id').textContent).toBe('agent-abc');
-    expect(mockGet).toHaveBeenCalledWith('/api/settings');
+    expect(mockGet).toHaveBeenCalledWith('/settings');
   });
 
   it('returns null when no default agent is set', async () => {
@@ -134,7 +134,7 @@ describe('useDefaultAgent hook', () => {
       fireEvent.click(screen.getByTestId('set-agent'));
     });
 
-    expect(mockPatch).toHaveBeenCalledWith('/api/settings', { default_agent_id: 'agent-123' });
+    expect(mockPatch).toHaveBeenCalledWith('/settings', { default_agent_id: 'agent-123' });
 
     await waitFor(() => {
       expect(screen.getByTestId('agent-id').textContent).toBe('agent-123');
@@ -163,7 +163,7 @@ describe('useDefaultAgent hook', () => {
       fireEvent.click(screen.getByTestId('clear-agent'));
     });
 
-    expect(mockPatch).toHaveBeenCalledWith('/api/settings', { default_agent_id: null });
+    expect(mockPatch).toHaveBeenCalledWith('/settings', { default_agent_id: null });
   });
 
   it('reverts on save failure', async () => {
@@ -214,8 +214,8 @@ describe('ChatSettingsSection component', () => {
   it('renders loading state', async () => {
     // Settings loading
     mockGet.mockImplementation((url: string) => {
-      if (url === '/api/settings') return new Promise(() => {});
-      if (url === '/api/chat/agents') return Promise.resolve({ agents: mockAgents });
+      if (url === '/settings') return new Promise(() => {});
+      if (url === '/chat/agents') return Promise.resolve({ agents: mockAgents });
       return Promise.resolve({});
     });
 
@@ -228,14 +228,14 @@ describe('ChatSettingsSection component', () => {
 
   it('renders agent dropdown with available agents', async () => {
     mockGet.mockImplementation((url: string) => {
-      if (url === '/api/settings') {
+      if (url === '/settings') {
         return Promise.resolve({
           id: 'user-1',
           email: 'test@example.com',
           default_agent_id: null,
         });
       }
-      if (url.includes('/api/chat/agents')) {
+      if (url.includes('/chat/agents')) {
         return Promise.resolve({ agents: mockAgents });
       }
       return Promise.resolve({});
@@ -253,14 +253,14 @@ describe('ChatSettingsSection component', () => {
 
   it('displays currently selected agent', async () => {
     mockGet.mockImplementation((url: string) => {
-      if (url === '/api/settings') {
+      if (url === '/settings') {
         return Promise.resolve({
           id: 'user-1',
           email: 'test@example.com',
           default_agent_id: 'agent-1',
         });
       }
-      if (url.includes('/api/chat/agents')) {
+      if (url.includes('/chat/agents')) {
         return Promise.resolve({ agents: mockAgents });
       }
       return Promise.resolve({});
@@ -275,10 +275,10 @@ describe('ChatSettingsSection component', () => {
 
   it('renders error state when settings fail to load', async () => {
     mockGet.mockImplementation((url: string) => {
-      if (url === '/api/settings') {
+      if (url === '/settings') {
         return Promise.reject(new Error('Network error'));
       }
-      if (url.includes('/api/chat/agents')) {
+      if (url.includes('/chat/agents')) {
         return Promise.resolve({ agents: mockAgents });
       }
       return Promise.resolve({});
@@ -293,14 +293,14 @@ describe('ChatSettingsSection component', () => {
 
   it('renders empty agent list message', async () => {
     mockGet.mockImplementation((url: string) => {
-      if (url === '/api/settings') {
+      if (url === '/settings') {
         return Promise.resolve({
           id: 'user-1',
           email: 'test@example.com',
           default_agent_id: null,
         });
       }
-      if (url.includes('/api/chat/agents')) {
+      if (url.includes('/chat/agents')) {
         return Promise.resolve({ agents: [] });
       }
       return Promise.resolve({});

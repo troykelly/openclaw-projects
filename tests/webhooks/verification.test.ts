@@ -31,7 +31,7 @@ function createMockRequest(options: {
   return {
     headers: options.headers || {},
     body: options.body,
-    url: options.url || '/api/webhooks/test',
+    url: options.url || '/webhooks/test',
     protocol: options.protocol || 'https',
     hostname,
     host: options.host || hostname,
@@ -93,7 +93,7 @@ describe('Webhook Verification', () => {
 
       const body = { From: '+1234567890', Body: 'Hello' };
       // Signature computed against the trusted host
-      const url = 'https://public.example.com/api/webhooks/twilio';
+      const url = 'https://public.example.com/webhooks/twilio';
       const signature = calculateTwilioSignature(url, body, authToken);
 
       const request = createMockRequest({
@@ -103,7 +103,7 @@ describe('Webhook Verification', () => {
           host: 'internal-lb.local',
         },
         body,
-        url: '/api/webhooks/twilio',
+        url: '/webhooks/twilio',
         protocol: 'https',
         // Fastify resolves the trusted host from X-Forwarded-Host
         hostname: 'public.example.com',
@@ -117,7 +117,7 @@ describe('Webhook Verification', () => {
       process.env.TWILIO_AUTH_TOKEN = authToken;
 
       const body = { From: '+1234567890', Body: 'Hello' };
-      const url = 'https://example.com/api/webhooks/twilio';
+      const url = 'https://example.com/webhooks/twilio';
       const signature = calculateTwilioSignature(url, body, authToken);
 
       const request = createMockRequest({
@@ -126,7 +126,7 @@ describe('Webhook Verification', () => {
           host: 'example.com',
         },
         body,
-        url: '/api/webhooks/twilio',
+        url: '/webhooks/twilio',
         protocol: 'https',
       });
 
@@ -144,7 +144,7 @@ describe('Webhook Verification', () => {
           host: 'example.com',
         },
         body,
-        url: '/api/webhooks/twilio',
+        url: '/webhooks/twilio',
       });
 
       expect(verifyTwilioSignature(request)).toBe(false);
@@ -154,7 +154,7 @@ describe('Webhook Verification', () => {
       process.env.TWILIO_AUTH_TOKEN = authToken;
 
       const originalBody = { From: '+1234567890', Body: 'Hello' };
-      const url = 'https://example.com/api/webhooks/twilio';
+      const url = 'https://example.com/webhooks/twilio';
       const signature = calculateTwilioSignature(url, originalBody, authToken);
 
       // Tamper with the body
@@ -166,7 +166,7 @@ describe('Webhook Verification', () => {
           host: 'example.com',
         },
         body: tamperedBody,
-        url: '/api/webhooks/twilio',
+        url: '/webhooks/twilio',
         protocol: 'https',
       });
 
@@ -177,7 +177,7 @@ describe('Webhook Verification', () => {
       process.env.TWILIO_AUTH_TOKEN = authToken;
 
       const body = {};
-      const url = 'https://example.com/api/webhooks/twilio';
+      const url = 'https://example.com/webhooks/twilio';
       const signature = calculateTwilioSignature(url, body, authToken);
 
       const request = createMockRequest({
@@ -186,7 +186,7 @@ describe('Webhook Verification', () => {
           host: 'example.com',
         },
         body,
-        url: '/api/webhooks/twilio',
+        url: '/webhooks/twilio',
         protocol: 'https',
       });
 

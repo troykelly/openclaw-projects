@@ -28,36 +28,36 @@ describe('Chat OpenAPI Specification (#1963)', () => {
 
     it('includes all expected paths', () => {
       const expected = [
-        '/api/chat/sessions',
-        '/api/chat/sessions/{id}',
-        '/api/chat/sessions/{id}/end',
-        '/api/chat/sessions/{id}/messages',
-        '/api/chat/ws/ticket',
-        '/api/chat/sessions/{id}/stream',
-        '/api/chat/sessions/{id}/agent-message',
-        '/api/notifications/agent',
-        '/api/push/subscribe',
-        '/api/chat/data',
+        '/chat/sessions',
+        '/chat/sessions/{id}',
+        '/chat/sessions/{id}/end',
+        '/chat/sessions/{id}/messages',
+        '/chat/ws/ticket',
+        '/chat/sessions/{id}/stream',
+        '/chat/sessions/{id}/agent-message',
+        '/notifications/agent',
+        '/push/subscribe',
+        '/chat/data',
       ];
       for (const path of expected) {
         expect(paths, `Missing path: ${path}`).toContain(path);
       }
     });
 
-    it('POST /api/chat/sessions includes 429 response', () => {
-      const post = spec.paths['/api/chat/sessions']?.post;
+    it('POST /chat/sessions includes 429 response', () => {
+      const post = spec.paths['/chat/sessions']?.post;
       expect(post).toBeDefined();
       expect(post.responses).toHaveProperty('429');
     });
 
-    it('POST /api/chat/sessions/{id}/messages includes 429 response', () => {
-      const post = spec.paths['/api/chat/sessions/{id}/messages']?.post;
+    it('POST /chat/sessions/{id}/messages includes 429 response', () => {
+      const post = spec.paths['/chat/sessions/{id}/messages']?.post;
       expect(post).toBeDefined();
       expect(post.responses).toHaveProperty('429');
     });
 
-    it('POST /api/chat/sessions/{id}/stream has X-Stream-Secret header', () => {
-      const post = spec.paths['/api/chat/sessions/{id}/stream']?.post;
+    it('POST /chat/sessions/{id}/stream has X-Stream-Secret header', () => {
+      const post = spec.paths['/chat/sessions/{id}/stream']?.post;
       expect(post).toBeDefined();
       const headers = post.parameters?.filter(
         (p: { name: string }) => p.name === 'X-Stream-Secret',
@@ -65,8 +65,8 @@ describe('Chat OpenAPI Specification (#1963)', () => {
       expect(headers).toHaveLength(1);
     });
 
-    it('POST /api/chat/sessions/{id}/agent-message has X-Stream-Secret header', () => {
-      const post = spec.paths['/api/chat/sessions/{id}/agent-message']?.post;
+    it('POST /chat/sessions/{id}/agent-message has X-Stream-Secret header', () => {
+      const post = spec.paths['/chat/sessions/{id}/agent-message']?.post;
       expect(post).toBeDefined();
       const headers = post.parameters?.filter(
         (p: { name: string }) => p.name === 'X-Stream-Secret',
@@ -74,8 +74,8 @@ describe('Chat OpenAPI Specification (#1963)', () => {
       expect(headers).toHaveLength(1);
     });
 
-    it('POST /api/notifications/agent has X-User-Email header', () => {
-      const post = spec.paths['/api/notifications/agent']?.post;
+    it('POST /notifications/agent has X-User-Email header', () => {
+      const post = spec.paths['/notifications/agent']?.post;
       expect(post).toBeDefined();
       const headers = post.parameters?.filter(
         (p: { name: string }) => p.name === 'X-User-Email',
@@ -83,14 +83,14 @@ describe('Chat OpenAPI Specification (#1963)', () => {
       expect(headers).toHaveLength(1);
     });
 
-    it('DELETE /api/chat/data is documented', () => {
-      const del = spec.paths['/api/chat/data']?.delete;
+    it('DELETE /chat/data is documented', () => {
+      const del = spec.paths['/chat/data']?.delete;
       expect(del).toBeDefined();
       expect(del.operationId).toBe('deleteAllChatData');
     });
 
-    it('DELETE /api/chat/sessions/{id} is documented', () => {
-      const del = spec.paths['/api/chat/sessions/{id}']?.delete;
+    it('DELETE /chat/sessions/{id} is documented', () => {
+      const del = spec.paths['/chat/sessions/{id}']?.delete;
       expect(del).toBeDefined();
       expect(del.operationId).toBe('deleteChatSession');
     });

@@ -39,7 +39,7 @@ describe('Issue #1145 - Memory Search Scores', () => {
     // Create a memory using the unified endpoint
     const createResponse = await app.inject({
       method: 'POST',
-      url: '/api/memories/unified',
+      url: '/memories/unified',
       payload: {
         title: 'Test Memory',
         content: 'This is a test memory about programming',
@@ -52,7 +52,7 @@ describe('Issue #1145 - Memory Search Scores', () => {
     // Search for the memory
     const searchResponse = await app.inject({
       method: 'GET',
-      url: '/api/memories/search?q=programming',
+      url: '/memories/search?q=programming',
     });
 
     expect(searchResponse.statusCode).toBe(200);
@@ -89,7 +89,7 @@ describe('Issue #1145 - Memory Search Scores', () => {
     // Create a memory without waiting for embeddings
     const createResponse = await app.inject({
       method: 'POST',
-      url: '/api/memories/unified',
+      url: '/memories/unified',
       payload: {
         title: 'Test Memory',
         content: 'This is a test memory',
@@ -102,7 +102,7 @@ describe('Issue #1145 - Memory Search Scores', () => {
     // Search immediately (before embeddings are generated)
     const searchResponse = await app.inject({
       method: 'GET',
-      url: '/api/memories/search?q=test',
+      url: '/memories/search?q=test',
     });
 
     expect(searchResponse.statusCode).toBe(200);

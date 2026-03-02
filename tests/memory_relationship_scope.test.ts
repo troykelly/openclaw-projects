@@ -315,15 +315,15 @@ describe('Memory Relationship Scope (Issue #493)', () => {
     });
   });
 
-  // ── API: POST /api/memories/unified with relationship_id ─
+  // ── API: POST /memories/unified with relationship_id ─
 
-  describe('POST /api/memories/unified with relationship_id', () => {
+  describe('POST /memories/unified with relationship_id', () => {
     it('accepts relationship_id in request body', async () => {
       const { relationship_id } = await createTestRelationship();
 
       const res = await app.inject({
         method: 'POST',
-        url: '/api/memories/unified',
+        url: '/memories/unified',
         payload: {
           title: 'API relationship memory',
           content: 'Created via API with relationship scope',
@@ -340,7 +340,7 @@ describe('Memory Relationship Scope (Issue #493)', () => {
     it('creates memory without relationship_id (backward compatible)', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/memories/unified',
+        url: '/memories/unified',
         payload: {
           title: 'No relationship scope',
           content: 'Backward compatible',
@@ -354,9 +354,9 @@ describe('Memory Relationship Scope (Issue #493)', () => {
     });
   });
 
-  // ── API: GET /api/memories/unified with relationship_id filter ─
+  // ── API: GET /memories/unified with relationship_id filter ─
 
-  describe('GET /api/memories/unified with relationship_id filter', () => {
+  describe('GET /memories/unified with relationship_id filter', () => {
     it('filters memories by relationship_id query parameter', async () => {
       const { relationship_id } = await createTestRelationship();
 
@@ -374,7 +374,7 @@ describe('Memory Relationship Scope (Issue #493)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/memories/unified?relationship_id=${relationship_id}`,
+        url: `/memories/unified?relationship_id=${relationship_id}`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -384,9 +384,9 @@ describe('Memory Relationship Scope (Issue #493)', () => {
     });
   });
 
-  // ── API: GET /api/memories/search with relationship_id ──
+  // ── API: GET /memories/search with relationship_id ──
 
-  describe('GET /api/memories/search with relationship_id filter', () => {
+  describe('GET /memories/search with relationship_id filter', () => {
     it('accepts relationship_id query parameter for filtered search', async () => {
       const { relationship_id } = await createTestRelationship();
 
@@ -402,7 +402,7 @@ describe('Memory Relationship Scope (Issue #493)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/memories/search?q=anniversary&relationship_id=${relationship_id}`,
+        url: `/memories/search?q=anniversary&relationship_id=${relationship_id}`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -415,9 +415,9 @@ describe('Memory Relationship Scope (Issue #493)', () => {
     });
   });
 
-  // ── API: POST /api/memories/:id/supersede inherits relationship_id ──
+  // ── API: POST /memories/:id/supersede inherits relationship_id ──
 
-  describe('POST /api/memories/:id/supersede', () => {
+  describe('POST /memories/:id/supersede', () => {
     it('inherits relationship_id from superseded memory', async () => {
       const { relationship_id } = await createTestRelationship();
 
@@ -432,7 +432,7 @@ describe('Memory Relationship Scope (Issue #493)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/memories/${oldId}/supersede`,
+        url: `/memories/${oldId}/supersede`,
         payload: {
           title: 'Updated anniversary',
           content: 'Actually March 16',

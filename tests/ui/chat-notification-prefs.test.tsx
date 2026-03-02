@@ -98,7 +98,7 @@ describe('useChatNotificationPrefs hook', () => {
 
     expect(screen.getByTestId('sound').textContent).toBe('true');
     expect(screen.getByTestId('auto-open').textContent).toBe('true');
-    expect(mockGet).toHaveBeenCalledWith('/api/chat/preferences');
+    expect(mockGet).toHaveBeenCalledWith('/chat/preferences');
   });
 
   it('handles fetch error', async () => {
@@ -127,7 +127,7 @@ describe('useChatNotificationPrefs hook', () => {
       fireEvent.click(screen.getByTestId('toggle-sound'));
     });
 
-    expect(mockPatch).toHaveBeenCalledWith('/api/chat/preferences', {
+    expect(mockPatch).toHaveBeenCalledWith('/chat/preferences', {
       sound_enabled: false,
     });
 

@@ -17,11 +17,11 @@ describe('API Documentation Endpoints', () => {
     await app.close();
   });
 
-  describe('GET /api/capabilities', () => {
+  describe('GET /capabilities', () => {
     it('returns a list of available capabilities', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/capabilities',
+        url: '/capabilities',
       });
 
       expect(res.statusCode).toBe(200);
@@ -36,7 +36,7 @@ describe('API Documentation Endpoints', () => {
     it('includes work items capability', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/capabilities',
+        url: '/capabilities',
       });
 
       const body = res.json();
@@ -51,7 +51,7 @@ describe('API Documentation Endpoints', () => {
     it('includes memory capability', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/capabilities',
+        url: '/capabilities',
       });
 
       const body = res.json();
@@ -64,7 +64,7 @@ describe('API Documentation Endpoints', () => {
     it('includes contacts capability', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/capabilities',
+        url: '/capabilities',
       });
 
       const body = res.json();
@@ -76,7 +76,7 @@ describe('API Documentation Endpoints', () => {
     it('includes common workflows', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/capabilities',
+        url: '/capabilities',
       });
 
       const body = res.json();
@@ -89,7 +89,7 @@ describe('API Documentation Endpoints', () => {
     it('includes authentication info', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/capabilities',
+        url: '/capabilities',
       });
 
       const body = res.json();
@@ -100,11 +100,11 @@ describe('API Documentation Endpoints', () => {
     });
   });
 
-  describe('GET /api/openapi.json', () => {
+  describe('GET /openapi.json', () => {
     it('returns valid OpenAPI spec', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/openapi.json',
+        url: '/openapi.json',
       });
 
       expect(res.statusCode).toBe(200);
@@ -122,42 +122,42 @@ describe('API Documentation Endpoints', () => {
     it('includes work items paths', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/openapi.json',
+        url: '/openapi.json',
       });
 
       const body = res.json();
 
-      expect(body.paths).toHaveProperty('/api/work-items');
-      expect(body.paths['/api/work-items']).toHaveProperty('get');
-      expect(body.paths['/api/work-items']).toHaveProperty('post');
+      expect(body.paths).toHaveProperty('/work-items');
+      expect(body.paths['/work-items']).toHaveProperty('get');
+      expect(body.paths['/work-items']).toHaveProperty('post');
     });
 
     it('includes memory paths', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/openapi.json',
+        url: '/openapi.json',
       });
 
       const body = res.json();
 
-      expect(body.paths).toHaveProperty('/api/memory');
+      expect(body.paths).toHaveProperty('/memory');
     });
 
     it('includes contacts paths', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/openapi.json',
+        url: '/openapi.json',
       });
 
       const body = res.json();
 
-      expect(body.paths).toHaveProperty('/api/contacts');
+      expect(body.paths).toHaveProperty('/contacts');
     });
 
     it('includes security scheme', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/openapi.json',
+        url: '/openapi.json',
       });
 
       const body = res.json();
@@ -170,7 +170,7 @@ describe('API Documentation Endpoints', () => {
     it('includes server URL', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/openapi.json',
+        url: '/openapi.json',
       });
 
       const body = res.json();
@@ -182,7 +182,7 @@ describe('API Documentation Endpoints', () => {
     it('documents at least 200 API paths', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/openapi.json',
+        url: '/openapi.json',
       });
 
       const body = res.json();
@@ -194,7 +194,7 @@ describe('API Documentation Endpoints', () => {
     it('has unique operationIds on every operation', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/openapi.json',
+        url: '/openapi.json',
       });
 
       const body = res.json();

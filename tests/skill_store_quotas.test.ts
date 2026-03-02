@@ -265,14 +265,14 @@ describe('Skill Store Quotas (Issue #805)', () => {
       await app.close();
     });
 
-    describe('GET /api/admin/skill-store/skills/:skill_id/quota', () => {
+    describe('GET /admin/skill-store/skills/:skill_id/quota', () => {
       it('returns quota usage for a skill', async () => {
         await insertItems('sk1', 5);
         await insertSchedule('sk1');
 
         const res = await app.inject({
           method: 'GET',
-          url: '/api/admin/skill-store/skills/sk1/quota',
+          url: '/admin/skill-store/skills/sk1/quota',
         });
 
         expect(res.statusCode).toBe(200);
@@ -288,7 +288,7 @@ describe('Skill Store Quotas (Issue #805)', () => {
       it('returns zero counts for non-existent skill', async () => {
         const res = await app.inject({
           method: 'GET',
-          url: '/api/admin/skill-store/skills/nonexistent/quota',
+          url: '/admin/skill-store/skills/nonexistent/quota',
         });
 
         expect(res.statusCode).toBe(200);
@@ -299,7 +299,7 @@ describe('Skill Store Quotas (Issue #805)', () => {
       });
     });
 
-    describe('POST /api/skill-store/items quota enforcement', () => {
+    describe('POST /skill-store/items quota enforcement', () => {
       it('returns 429 when item quota is exceeded', async () => {
         // Set a very low quota via env
         const original = process.env.SKILL_STORE_MAX_ITEMS_PER_SKILL;
@@ -310,7 +310,7 @@ describe('Skill Store Quotas (Issue #805)', () => {
 
           const res = await app.inject({
             method: 'POST',
-            url: '/api/skill-store/items',
+            url: '/skill-store/items',
             payload: {
               skill_id: 'quota-test',
               title: 'Over limit',
@@ -338,7 +338,7 @@ describe('Skill Store Quotas (Issue #805)', () => {
         try {
           const res = await app.inject({
             method: 'POST',
-            url: '/api/skill-store/items',
+            url: '/skill-store/items',
             payload: {
               skill_id: 'quota-ok',
               title: 'Under limit',
@@ -356,7 +356,7 @@ describe('Skill Store Quotas (Issue #805)', () => {
       });
     });
 
-    describe('POST /api/skill-store/schedules quota enforcement', () => {
+    describe('POST /skill-store/schedules quota enforcement', () => {
       it('returns 429 when schedule quota is exceeded', async () => {
         const original = process.env.SKILL_STORE_MAX_SCHEDULES_PER_SKILL;
         process.env.SKILL_STORE_MAX_SCHEDULES_PER_SKILL = '2';
@@ -367,7 +367,7 @@ describe('Skill Store Quotas (Issue #805)', () => {
 
           const res = await app.inject({
             method: 'POST',
-            url: '/api/skill-store/schedules',
+            url: '/skill-store/schedules',
             payload: {
               skill_id: 'sched-quota',
               cron_expression: '30 8 * * 1',

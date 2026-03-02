@@ -38,13 +38,13 @@ describe('InboundRoutingSection — ChannelDefaultsSection', () => {
     vi.mocked(apiClient.delete).mockReset();
 
     vi.mocked(apiClient.get).mockImplementation((path: string) => {
-      if (path === '/api/channel-defaults') {
+      if (path === '/channel-defaults') {
         return Promise.resolve(mockChannelDefaults);
       }
-      if (path.startsWith('/api/inbound-destinations')) {
+      if (path.startsWith('/inbound-destinations')) {
         return Promise.resolve({ items: [], total: 0 });
       }
-      if (path.startsWith('/api/prompt-templates')) {
+      if (path.startsWith('/prompt-templates')) {
         return Promise.resolve({ items: [], total: 0 });
       }
       return Promise.reject(new Error('Not found'));

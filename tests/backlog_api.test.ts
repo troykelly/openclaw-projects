@@ -4,7 +4,7 @@ import { buildServer } from '../src/api/server.ts';
 import { runMigrate } from './helpers/migrate.ts';
 import { createTestPool, truncateAllTables } from './helpers/db.ts';
 
-describe('Backlog API: GET /api/backlog', () => {
+describe('Backlog API: GET /backlog', () => {
   let pool: Pool;
   const app = buildServer({ logger: false });
 
@@ -33,7 +33,7 @@ describe('Backlog API: GET /api/backlog', () => {
 
     const response = await app.inject({
       method: 'GET',
-      url: '/api/backlog',
+      url: '/backlog',
     });
 
     expect(response.statusCode).toBe(200);
@@ -51,7 +51,7 @@ describe('Backlog API: GET /api/backlog', () => {
 
     const response = await app.inject({
       method: 'GET',
-      url: '/api/backlog?status=open',
+      url: '/backlog?status=open',
     });
 
     expect(response.statusCode).toBe(200);
@@ -70,7 +70,7 @@ describe('Backlog API: GET /api/backlog', () => {
 
     const response = await app.inject({
       method: 'GET',
-      url: '/api/backlog?status=open&status=blocked',
+      url: '/backlog?status=open&status=blocked',
     });
 
     expect(response.statusCode).toBe(200);
@@ -89,7 +89,7 @@ describe('Backlog API: GET /api/backlog', () => {
 
     const response = await app.inject({
       method: 'GET',
-      url: '/api/backlog?priority=P0',
+      url: '/backlog?priority=P0',
     });
 
     expect(response.statusCode).toBe(200);
@@ -108,7 +108,7 @@ describe('Backlog API: GET /api/backlog', () => {
 
     const response = await app.inject({
       method: 'GET',
-      url: '/api/backlog?kind=issue',
+      url: '/backlog?kind=issue',
     });
 
     expect(response.statusCode).toBe(200);
@@ -128,7 +128,7 @@ describe('Backlog API: GET /api/backlog', () => {
 
     const response = await app.inject({
       method: 'GET',
-      url: '/api/backlog?status=open&priority=P0&kind=issue',
+      url: '/backlog?status=open&priority=P0&kind=issue',
     });
 
     expect(response.statusCode).toBe(200);
@@ -147,7 +147,7 @@ describe('Backlog API: GET /api/backlog', () => {
 
     const response = await app.inject({
       method: 'GET',
-      url: '/api/backlog',
+      url: '/backlog',
     });
 
     expect(response.statusCode).toBe(200);
@@ -158,7 +158,7 @@ describe('Backlog API: GET /api/backlog', () => {
   });
 });
 
-describe('Kanban API: PATCH /api/work-items/:id/status', () => {
+describe('Kanban API: PATCH /work-items/:id/status', () => {
   let pool: Pool;
   const app = buildServer({ logger: false });
 
@@ -186,7 +186,7 @@ describe('Kanban API: PATCH /api/work-items/:id/status', () => {
 
     const response = await app.inject({
       method: 'PATCH',
-      url: `/api/work-items/${inserted.rows[0].id}/status`,
+      url: `/work-items/${inserted.rows[0].id}/status`,
       payload: { status: 'closed' },
     });
 
@@ -208,7 +208,7 @@ describe('Kanban API: PATCH /api/work-items/:id/status', () => {
 
     const response = await app.inject({
       method: 'PATCH',
-      url: `/api/work-items/${inserted.rows[0].id}/status`,
+      url: `/work-items/${inserted.rows[0].id}/status`,
       payload: {},
     });
 
@@ -218,7 +218,7 @@ describe('Kanban API: PATCH /api/work-items/:id/status', () => {
   it('returns 404 for non-existent work item', async () => {
     const response = await app.inject({
       method: 'PATCH',
-      url: '/api/work-items/00000000-0000-0000-0000-000000000000/status',
+      url: '/work-items/00000000-0000-0000-0000-000000000000/status',
       payload: { status: 'closed' },
     });
 

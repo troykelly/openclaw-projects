@@ -1,7 +1,7 @@
 /**
  * Integration tests for Agent Streaming Callback API (#1945).
  *
- * Tests POST /api/chat/sessions/:id/stream endpoint.
+ * Tests POST /chat/sessions/:id/stream endpoint.
  * Requires Postgres for session and message storage.
  *
  * Epic #1940 — Agent Chat.
@@ -45,7 +45,7 @@ describe('Agent Streaming Callback API (#1945)', () => {
   }> {
     const res = await app.inject({
       method: 'POST',
-      url: '/api/chat/sessions',
+      url: '/chat/sessions',
       headers: { 'x-user-email': TEST_EMAIL },
       payload: { agent_id: agentId },
     });
@@ -63,7 +63,7 @@ describe('Agent Streaming Callback API (#1945)', () => {
   }
 
   // ================================================================
-  // POST /api/chat/sessions/:id/stream — chunk type
+  // POST /chat/sessions/:id/stream — chunk type
   // ================================================================
 
   describe('chunk type', () => {
@@ -72,7 +72,7 @@ describe('Agent Streaming Callback API (#1945)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/chat/sessions/${id}/stream`,
+        url: `/chat/sessions/${id}/stream`,
         headers: {
           'x-user-email': TEST_EMAIL,
           'x-stream-secret': stream_secret,
@@ -91,7 +91,7 @@ describe('Agent Streaming Callback API (#1945)', () => {
 
       const res1 = await app.inject({
         method: 'POST',
-        url: `/api/chat/sessions/${id}/stream`,
+        url: `/chat/sessions/${id}/stream`,
         headers: { 'x-user-email': TEST_EMAIL, 'x-stream-secret': stream_secret },
         payload: { type: 'chunk', content: 'Hello', seq: 0 },
       });
@@ -99,7 +99,7 @@ describe('Agent Streaming Callback API (#1945)', () => {
 
       const res2 = await app.inject({
         method: 'POST',
-        url: `/api/chat/sessions/${id}/stream`,
+        url: `/chat/sessions/${id}/stream`,
         headers: { 'x-user-email': TEST_EMAIL, 'x-stream-secret': stream_secret },
         payload: { type: 'chunk', content: ' world', seq: 1 },
       });
@@ -111,7 +111,7 @@ describe('Agent Streaming Callback API (#1945)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/chat/sessions/${id}/stream`,
+        url: `/chat/sessions/${id}/stream`,
         headers: {
           'x-user-email': TEST_EMAIL,
           'x-stream-secret': 'wrong-secret',
@@ -127,7 +127,7 @@ describe('Agent Streaming Callback API (#1945)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/chat/sessions/${id}/stream`,
+        url: `/chat/sessions/${id}/stream`,
         headers: { 'x-user-email': TEST_EMAIL },
         payload: { type: 'chunk', content: 'Hello', seq: 0 },
       });
@@ -140,7 +140,7 @@ describe('Agent Streaming Callback API (#1945)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/chat/sessions/${id}/stream`,
+        url: `/chat/sessions/${id}/stream`,
         headers: { 'x-user-email': TEST_EMAIL, 'x-stream-secret': stream_secret },
         payload: { type: 'chunk', seq: 0 },
       });
@@ -151,7 +151,7 @@ describe('Agent Streaming Callback API (#1945)', () => {
     it('rejects invalid session ID', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: `/api/chat/sessions/not-a-uuid/stream`,
+        url: `/chat/sessions/not-a-uuid/stream`,
         headers: { 'x-user-email': TEST_EMAIL, 'x-stream-secret': 'any' },
         payload: { type: 'chunk', content: 'Hello', seq: 0 },
       });
@@ -161,7 +161,7 @@ describe('Agent Streaming Callback API (#1945)', () => {
   });
 
   // ================================================================
-  // POST /api/chat/sessions/:id/stream — completed type
+  // POST /chat/sessions/:id/stream — completed type
   // ================================================================
 
   describe('completed type', () => {
@@ -171,7 +171,7 @@ describe('Agent Streaming Callback API (#1945)', () => {
       // Send a chunk first
       await app.inject({
         method: 'POST',
-        url: `/api/chat/sessions/${id}/stream`,
+        url: `/chat/sessions/${id}/stream`,
         headers: { 'x-user-email': TEST_EMAIL, 'x-stream-secret': stream_secret },
         payload: { type: 'chunk', content: 'Hello', seq: 0 },
       });
@@ -179,7 +179,7 @@ describe('Agent Streaming Callback API (#1945)', () => {
       // Complete the stream
       const res = await app.inject({
         method: 'POST',
-        url: `/api/chat/sessions/${id}/stream`,
+        url: `/chat/sessions/${id}/stream`,
         headers: { 'x-user-email': TEST_EMAIL, 'x-stream-secret': stream_secret },
         payload: {
           type: 'completed',
@@ -212,7 +212,7 @@ describe('Agent Streaming Callback API (#1945)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/chat/sessions/${id}/stream`,
+        url: `/chat/sessions/${id}/stream`,
         headers: { 'x-user-email': TEST_EMAIL, 'x-stream-secret': stream_secret },
         payload: {
           type: 'completed',
@@ -235,7 +235,7 @@ describe('Agent Streaming Callback API (#1945)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/chat/sessions/${id}/stream`,
+        url: `/chat/sessions/${id}/stream`,
         headers: { 'x-user-email': TEST_EMAIL, 'x-stream-secret': stream_secret },
         payload: {
           type: 'completed',
@@ -253,7 +253,7 @@ describe('Agent Streaming Callback API (#1945)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/chat/sessions/${id}/stream`,
+        url: `/chat/sessions/${id}/stream`,
         headers: { 'x-user-email': TEST_EMAIL, 'x-stream-secret': stream_secret },
         payload: {
           type: 'completed',
@@ -271,7 +271,7 @@ describe('Agent Streaming Callback API (#1945)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/chat/sessions/${id}/stream`,
+        url: `/chat/sessions/${id}/stream`,
         headers: { 'x-user-email': TEST_EMAIL, 'x-stream-secret': stream_secret },
         payload: {
           type: 'completed',
@@ -289,7 +289,7 @@ describe('Agent Streaming Callback API (#1945)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/chat/sessions/${id}/stream`,
+        url: `/chat/sessions/${id}/stream`,
         headers: { 'x-user-email': TEST_EMAIL, 'x-stream-secret': stream_secret },
         payload: {
           type: 'completed',
@@ -314,7 +314,7 @@ describe('Agent Streaming Callback API (#1945)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/chat/sessions/${id}/stream`,
+        url: `/chat/sessions/${id}/stream`,
         headers: { 'x-user-email': TEST_EMAIL, 'x-stream-secret': stream_secret },
         payload: {
           type: 'completed',
@@ -333,7 +333,7 @@ describe('Agent Streaming Callback API (#1945)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/chat/sessions/${id}/stream`,
+        url: `/chat/sessions/${id}/stream`,
         headers: { 'x-user-email': TEST_EMAIL, 'x-stream-secret': stream_secret },
         payload: {
           type: 'completed',
@@ -350,7 +350,7 @@ describe('Agent Streaming Callback API (#1945)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/chat/sessions/${id}/stream`,
+        url: `/chat/sessions/${id}/stream`,
         headers: { 'x-user-email': TEST_EMAIL, 'x-stream-secret': stream_secret },
         payload: {
           type: 'completed',
@@ -364,7 +364,7 @@ describe('Agent Streaming Callback API (#1945)', () => {
   });
 
   // ================================================================
-  // POST /api/chat/sessions/:id/stream — failed type
+  // POST /chat/sessions/:id/stream — failed type
   // ================================================================
 
   describe('failed type', () => {
@@ -373,7 +373,7 @@ describe('Agent Streaming Callback API (#1945)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/chat/sessions/${id}/stream`,
+        url: `/chat/sessions/${id}/stream`,
         headers: { 'x-user-email': TEST_EMAIL, 'x-stream-secret': stream_secret },
         payload: { type: 'failed', error: 'Agent crashed' },
       });
@@ -387,14 +387,14 @@ describe('Agent Streaming Callback API (#1945)', () => {
 
       await app.inject({
         method: 'POST',
-        url: `/api/chat/sessions/${id}/stream`,
+        url: `/chat/sessions/${id}/stream`,
         headers: { 'x-user-email': TEST_EMAIL, 'x-stream-secret': stream_secret },
         payload: { type: 'chunk', content: 'partial', seq: 0 },
       });
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/chat/sessions/${id}/stream`,
+        url: `/chat/sessions/${id}/stream`,
         headers: { 'x-user-email': TEST_EMAIL, 'x-stream-secret': stream_secret },
         payload: { type: 'failed', error: 'Something went wrong' },
       });
@@ -413,13 +413,13 @@ describe('Agent Streaming Callback API (#1945)', () => {
 
       await app.inject({
         method: 'POST',
-        url: `/api/chat/sessions/${id}/end`,
+        url: `/chat/sessions/${id}/end`,
         headers: { 'x-user-email': TEST_EMAIL },
       });
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/chat/sessions/${id}/stream`,
+        url: `/chat/sessions/${id}/stream`,
         headers: { 'x-user-email': TEST_EMAIL, 'x-stream-secret': stream_secret },
         payload: { type: 'chunk', content: 'Hello', seq: 0 },
       });
@@ -432,7 +432,7 @@ describe('Agent Streaming Callback API (#1945)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/chat/sessions/${id}/stream`,
+        url: `/chat/sessions/${id}/stream`,
         headers: { 'x-user-email': TEST_EMAIL, 'x-stream-secret': stream_secret },
         payload: { type: 'unknown_type' },
       });

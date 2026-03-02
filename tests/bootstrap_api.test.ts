@@ -24,11 +24,11 @@ describe('Agent Bootstrap API (Issue #219)', () => {
     await pool.end();
   });
 
-  describe('GET /api/bootstrap', () => {
+  describe('GET /bootstrap', () => {
     it('returns bootstrap context with all sections', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/bootstrap',
+        url: '/bootstrap',
       });
 
       expect(res.statusCode).toBe(200);
@@ -53,7 +53,7 @@ describe('Agent Bootstrap API (Issue #219)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/bootstrap?user_email=test@example.com',
+        url: '/bootstrap?user_email=test@example.com',
       });
 
       expect(res.statusCode).toBe(200);
@@ -74,7 +74,7 @@ describe('Agent Bootstrap API (Issue #219)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/bootstrap',
+        url: '/bootstrap',
       });
 
       expect(res.statusCode).toBe(200);
@@ -96,7 +96,7 @@ describe('Agent Bootstrap API (Issue #219)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/bootstrap',
+        url: '/bootstrap',
       });
 
       expect(res.statusCode).toBe(200);
@@ -114,7 +114,7 @@ describe('Agent Bootstrap API (Issue #219)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/bootstrap',
+        url: '/bootstrap',
       });
 
       expect(res.statusCode).toBe(200);
@@ -145,7 +145,7 @@ describe('Agent Bootstrap API (Issue #219)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/bootstrap',
+        url: '/bootstrap',
       });
 
       expect(res.statusCode).toBe(200);
@@ -159,7 +159,7 @@ describe('Agent Bootstrap API (Issue #219)', () => {
     it('filters sections with include parameter', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/bootstrap?include=stats,projects',
+        url: '/bootstrap?include=stats,projects',
       });
 
       expect(res.statusCode).toBe(200);
@@ -178,7 +178,7 @@ describe('Agent Bootstrap API (Issue #219)', () => {
     it('excludes sections with exclude parameter', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/bootstrap?exclude=activity,messages',
+        url: '/bootstrap?exclude=activity,messages',
       });
 
       expect(res.statusCode).toBe(200);
@@ -246,7 +246,7 @@ describe('Agent Bootstrap API (Issue #219)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/bootstrap',
+        url: '/bootstrap',
       });
 
       expect(res.statusCode).toBe(200);
@@ -265,7 +265,7 @@ describe('Agent Bootstrap API (Issue #219)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/bootstrap',
+        url: '/bootstrap',
       });
 
       expect(res.statusCode).toBe(200);
@@ -284,7 +284,7 @@ describe('Agent Bootstrap API (Issue #219)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/bootstrap?user_email=test@example.com',
+        url: '/bootstrap?user_email=test@example.com',
       });
 
       expect(res.statusCode).toBe(200);

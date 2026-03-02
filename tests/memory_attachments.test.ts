@@ -102,16 +102,16 @@ describe('Memory File Attachments (Issue #1271)', () => {
     });
   });
 
-  // ── API: POST /api/memories/:id/attachments ─────────────
+  // ── API: POST /memories/:id/attachments ─────────────
 
-  describe('POST /api/memories/:id/attachments', () => {
+  describe('POST /memories/:id/attachments', () => {
     it('attaches a file to a memory', async () => {
       const memory_id = await createTestMemory();
       const fileId = await createTestFile();
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/memories/${memory_id}/attachments`,
+        url: `/memories/${memory_id}/attachments`,
         payload: { file_id: fileId },
       });
 
@@ -127,7 +127,7 @@ describe('Memory File Attachments (Issue #1271)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/memories/${memory_id}/attachments`,
+        url: `/memories/${memory_id}/attachments`,
         payload: {},
       });
 
@@ -139,7 +139,7 @@ describe('Memory File Attachments (Issue #1271)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: '/api/memories/00000000-0000-0000-0000-000000000000/attachments',
+        url: '/memories/00000000-0000-0000-0000-000000000000/attachments',
         payload: { file_id: fileId },
       });
 
@@ -151,7 +151,7 @@ describe('Memory File Attachments (Issue #1271)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/memories/${memory_id}/attachments`,
+        url: `/memories/${memory_id}/attachments`,
         payload: { file_id: '00000000-0000-0000-0000-000000000000' },
       });
 
@@ -164,13 +164,13 @@ describe('Memory File Attachments (Issue #1271)', () => {
 
       await app.inject({
         method: 'POST',
-        url: `/api/memories/${memory_id}/attachments`,
+        url: `/memories/${memory_id}/attachments`,
         payload: { file_id: fileId },
       });
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/memories/${memory_id}/attachments`,
+        url: `/memories/${memory_id}/attachments`,
         payload: { file_id: fileId },
       });
 
@@ -178,9 +178,9 @@ describe('Memory File Attachments (Issue #1271)', () => {
     });
   });
 
-  // ── API: GET /api/memories/:id/attachments ──────────────
+  // ── API: GET /memories/:id/attachments ──────────────
 
-  describe('GET /api/memories/:id/attachments', () => {
+  describe('GET /memories/:id/attachments', () => {
     it('lists attachments for a memory', async () => {
       const memory_id = await createTestMemory();
       const fileId1 = await createTestFile('doc1.pdf');
@@ -188,18 +188,18 @@ describe('Memory File Attachments (Issue #1271)', () => {
 
       await app.inject({
         method: 'POST',
-        url: `/api/memories/${memory_id}/attachments`,
+        url: `/memories/${memory_id}/attachments`,
         payload: { file_id: fileId1 },
       });
       await app.inject({
         method: 'POST',
-        url: `/api/memories/${memory_id}/attachments`,
+        url: `/memories/${memory_id}/attachments`,
         payload: { file_id: fileId2 },
       });
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/memories/${memory_id}/attachments`,
+        url: `/memories/${memory_id}/attachments`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -215,7 +215,7 @@ describe('Memory File Attachments (Issue #1271)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/memories/${memory_id}/attachments`,
+        url: `/memories/${memory_id}/attachments`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -224,22 +224,22 @@ describe('Memory File Attachments (Issue #1271)', () => {
     });
   });
 
-  // ── API: DELETE /api/memories/:memory_id/attachments/:fileId ─
+  // ── API: DELETE /memories/:memory_id/attachments/:fileId ─
 
-  describe('DELETE /api/memories/:memory_id/attachments/:fileId', () => {
+  describe('DELETE /memories/:memory_id/attachments/:fileId', () => {
     it('removes an attachment from a memory', async () => {
       const memory_id = await createTestMemory();
       const fileId = await createTestFile();
 
       await app.inject({
         method: 'POST',
-        url: `/api/memories/${memory_id}/attachments`,
+        url: `/memories/${memory_id}/attachments`,
         payload: { file_id: fileId },
       });
 
       const res = await app.inject({
         method: 'DELETE',
-        url: `/api/memories/${memory_id}/attachments/${fileId}`,
+        url: `/memories/${memory_id}/attachments/${fileId}`,
       });
 
       expect(res.statusCode).toBe(204);
@@ -247,7 +247,7 @@ describe('Memory File Attachments (Issue #1271)', () => {
       // Verify it's gone
       const listRes = await app.inject({
         method: 'GET',
-        url: `/api/memories/${memory_id}/attachments`,
+        url: `/memories/${memory_id}/attachments`,
       });
       const body = listRes.json();
       expect(body.attachments.length).toBe(0);
@@ -258,7 +258,7 @@ describe('Memory File Attachments (Issue #1271)', () => {
 
       const res = await app.inject({
         method: 'DELETE',
-        url: `/api/memories/${memory_id}/attachments/00000000-0000-0000-0000-000000000000`,
+        url: `/memories/${memory_id}/attachments/00000000-0000-0000-0000-000000000000`,
       });
 
       expect(res.statusCode).toBe(404);

@@ -43,7 +43,7 @@ const mockConnections: TerminalConnectionsResponse = {
 
 const mockApiClient = {
   get: vi.fn().mockImplementation((path: string) => {
-    if (path.includes('/api/terminal/connections')) return Promise.resolve(mockConnections);
+    if (path.includes('/terminal/connections')) return Promise.resolve(mockConnections);
     return Promise.reject(new Error(`Unknown endpoint: ${path}`));
   }),
   post: vi.fn().mockResolvedValue({ results: [], total: 0 }),
@@ -99,7 +99,7 @@ describe('TerminalSearchPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockApiClient.get.mockImplementation((path: string) => {
-      if (path.includes('/api/terminal/connections')) return Promise.resolve(mockConnections);
+      if (path.includes('/terminal/connections')) return Promise.resolve(mockConnections);
       return Promise.reject(new Error(`Unknown endpoint: ${path}`));
     });
   });

@@ -137,7 +137,7 @@ describe('Memory temporal search API (Issue #1272)', () => {
     return (result.rows[0] as { id: string }).id;
   }
 
-  describe('GET /api/memories/unified with temporal params', () => {
+  describe('GET /memories/unified with temporal params', () => {
     it('filters by since parameter (relative duration)', async () => {
       // Create one old memory and one recent memory
       await insertMemory('Old memory', 'From last year', '2025-01-15T00:00:00Z');
@@ -145,7 +145,7 @@ describe('Memory temporal search API (Issue #1272)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/memories/unified?since=30d',
+        url: '/memories/unified?since=30d',
       });
 
       expect(res.statusCode).toBe(200);
@@ -160,7 +160,7 @@ describe('Memory temporal search API (Issue #1272)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/memories/unified?before=2026-02-01T00:00:00Z',
+        url: '/memories/unified?before=2026-02-01T00:00:00Z',
       });
 
       expect(res.statusCode).toBe(200);
@@ -180,7 +180,7 @@ describe('Memory temporal search API (Issue #1272)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/memories/unified?period=this_month',
+        url: '/memories/unified?period=this_month',
       });
 
       expect(res.statusCode).toBe(200);
@@ -196,7 +196,7 @@ describe('Memory temporal search API (Issue #1272)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/memories/unified?since=2026-01-01T00:00:00Z&before=2026-03-01T00:00:00Z',
+        url: '/memories/unified?since=2026-01-01T00:00:00Z&before=2026-03-01T00:00:00Z',
       });
 
       expect(res.statusCode).toBe(200);
@@ -210,7 +210,7 @@ describe('Memory temporal search API (Issue #1272)', () => {
     it('rejects invalid period value', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/memories/unified?period=next_century',
+        url: '/memories/unified?period=next_century',
       });
 
       expect(res.statusCode).toBe(400);
@@ -219,7 +219,7 @@ describe('Memory temporal search API (Issue #1272)', () => {
     });
   });
 
-  describe('GET /api/memories/search with temporal params', () => {
+  describe('GET /memories/search with temporal params', () => {
     // Note: When an embedding provider (e.g. VoyageAI) is configured, search
     // uses the semantic path which requires memories to have stored embeddings.
     // Test-inserted memories don't have embeddings, so semantic search may
@@ -232,7 +232,7 @@ describe('Memory temporal search API (Issue #1272)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/memories/search?q=roadmap&since=30d',
+        url: '/memories/search?q=roadmap&since=30d',
       });
 
       expect(res.statusCode).toBe(200);
@@ -252,7 +252,7 @@ describe('Memory temporal search API (Issue #1272)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/memories/search?q=important&before=2026-02-01T00:00:00Z',
+        url: '/memories/search?q=important&before=2026-02-01T00:00:00Z',
       });
 
       expect(res.statusCode).toBe(200);
@@ -275,7 +275,7 @@ describe('Memory temporal search API (Issue #1272)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/memories/search?q=mockup&period=this_month',
+        url: '/memories/search?q=mockup&period=this_month',
       });
 
       expect(res.statusCode).toBe(200);

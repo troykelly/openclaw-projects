@@ -65,13 +65,13 @@ describe('Dev Sessions API (Issue #1285)', () => {
     });
   });
 
-  // ─── POST /api/dev-sessions ────────────────────────────────────────────
+  // ─── POST /dev-sessions ────────────────────────────────────────────
 
-  describe('POST /api/dev-sessions', () => {
+  describe('POST /dev-sessions', () => {
     it('creates a dev session and returns it', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/dev-sessions',
+        url: '/dev-sessions',
         headers: { 'content-type': 'application/json', 'x-user-email': TEST_EMAIL },
         payload: {
           session_name: 'dev-test-001',
@@ -94,7 +94,7 @@ describe('Dev Sessions API (Issue #1285)', () => {
     it('creates a session with optional fields', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/dev-sessions',
+        url: '/dev-sessions',
         headers: { 'content-type': 'application/json', 'x-user-email': TEST_EMAIL },
         payload: {
           session_name: 'dev-test-002',
@@ -120,7 +120,7 @@ describe('Dev Sessions API (Issue #1285)', () => {
     it('returns 400 when session_name is missing', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/dev-sessions',
+        url: '/dev-sessions',
         headers: { 'content-type': 'application/json', 'x-user-email': TEST_EMAIL },
         payload: { node: 'MST001' },
       });
@@ -131,7 +131,7 @@ describe('Dev Sessions API (Issue #1285)', () => {
     it('returns 400 when node is missing', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/dev-sessions',
+        url: '/dev-sessions',
         headers: { 'content-type': 'application/json', 'x-user-email': TEST_EMAIL },
         payload: { session_name: 'test' },
       });
@@ -140,13 +140,13 @@ describe('Dev Sessions API (Issue #1285)', () => {
     });
   });
 
-  // ─── GET /api/dev-sessions ─────────────────────────────────────────────
+  // ─── GET /dev-sessions ─────────────────────────────────────────────
 
-  describe('GET /api/dev-sessions', () => {
+  describe('GET /dev-sessions', () => {
     it('lists dev sessions', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/dev-sessions',
+        url: '/dev-sessions',
         headers: { 'x-user-email': TEST_EMAIL },
       });
 
@@ -159,7 +159,7 @@ describe('Dev Sessions API (Issue #1285)', () => {
     it('filters by status', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/dev-sessions?status=active',
+        url: '/dev-sessions?status=active',
         headers: { 'x-user-email': TEST_EMAIL },
       });
 
@@ -173,7 +173,7 @@ describe('Dev Sessions API (Issue #1285)', () => {
     it('filters by node', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/dev-sessions?node=MST001-service',
+        url: '/dev-sessions?node=MST001-service',
         headers: { 'x-user-email': TEST_EMAIL },
       });
 
@@ -187,7 +187,7 @@ describe('Dev Sessions API (Issue #1285)', () => {
     it('filters by project_id', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: `/api/dev-sessions?project_id=${project_id}`,
+        url: `/dev-sessions?project_id=${project_id}`,
         headers: { 'x-user-email': TEST_EMAIL },
       });
 
@@ -199,14 +199,14 @@ describe('Dev Sessions API (Issue #1285)', () => {
     });
   });
 
-  // ─── GET /api/dev-sessions/:id ─────────────────────────────────────────
+  // ─── GET /dev-sessions/:id ─────────────────────────────────────────
 
-  describe('GET /api/dev-sessions/:id', () => {
+  describe('GET /dev-sessions/:id', () => {
     it('returns a specific session by id', async () => {
       // Create one first
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/dev-sessions',
+        url: '/dev-sessions',
         headers: { 'content-type': 'application/json', 'x-user-email': TEST_EMAIL },
         payload: {
           session_name: 'get-test-001',
@@ -218,7 +218,7 @@ describe('Dev Sessions API (Issue #1285)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/dev-sessions/${sessionId}`,
+        url: `/dev-sessions/${sessionId}`,
         headers: { 'x-user-email': TEST_EMAIL },
       });
 
@@ -231,7 +231,7 @@ describe('Dev Sessions API (Issue #1285)', () => {
     it('returns 404 for non-existent session', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/dev-sessions/00000000-0000-0000-0000-000000000099',
+        url: '/dev-sessions/00000000-0000-0000-0000-000000000099',
         headers: { 'x-user-email': TEST_EMAIL },
       });
 
@@ -239,13 +239,13 @@ describe('Dev Sessions API (Issue #1285)', () => {
     });
   });
 
-  // ─── PATCH /api/dev-sessions/:id ───────────────────────────────────────
+  // ─── PATCH /dev-sessions/:id ───────────────────────────────────────
 
-  describe('PATCH /api/dev-sessions/:id', () => {
+  describe('PATCH /dev-sessions/:id', () => {
     it('updates session fields', async () => {
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/dev-sessions',
+        url: '/dev-sessions',
         headers: { 'content-type': 'application/json', 'x-user-email': TEST_EMAIL },
         payload: {
           session_name: 'patch-test-001',
@@ -257,7 +257,7 @@ describe('Dev Sessions API (Issue #1285)', () => {
 
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/dev-sessions/${sessionId}`,
+        url: `/dev-sessions/${sessionId}`,
         headers: { 'content-type': 'application/json', 'x-user-email': TEST_EMAIL },
         payload: {
           status: 'stalled',
@@ -276,7 +276,7 @@ describe('Dev Sessions API (Issue #1285)', () => {
     it('updates linked_prs and linked_issues', async () => {
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/dev-sessions',
+        url: '/dev-sessions',
         headers: { 'content-type': 'application/json', 'x-user-email': TEST_EMAIL },
         payload: {
           session_name: 'patch-test-002',
@@ -288,7 +288,7 @@ describe('Dev Sessions API (Issue #1285)', () => {
 
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/dev-sessions/${sessionId}`,
+        url: `/dev-sessions/${sessionId}`,
         headers: { 'content-type': 'application/json', 'x-user-email': TEST_EMAIL },
         payload: {
           linked_prs: ['1290', '1291'],
@@ -305,7 +305,7 @@ describe('Dev Sessions API (Issue #1285)', () => {
     it('returns 404 for non-existent session', async () => {
       const res = await app.inject({
         method: 'PATCH',
-        url: '/api/dev-sessions/00000000-0000-0000-0000-000000000099',
+        url: '/dev-sessions/00000000-0000-0000-0000-000000000099',
         headers: { 'content-type': 'application/json', 'x-user-email': TEST_EMAIL },
         payload: { status: 'completed' },
       });
@@ -314,13 +314,13 @@ describe('Dev Sessions API (Issue #1285)', () => {
     });
   });
 
-  // ─── POST /api/dev-sessions/:id/complete ───────────────────────────────
+  // ─── POST /dev-sessions/:id/complete ───────────────────────────────
 
-  describe('POST /api/dev-sessions/:id/complete', () => {
+  describe('POST /dev-sessions/:id/complete', () => {
     it('marks a session as completed', async () => {
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/dev-sessions',
+        url: '/dev-sessions',
         headers: { 'content-type': 'application/json', 'x-user-email': TEST_EMAIL },
         payload: {
           session_name: 'complete-test-001',
@@ -332,7 +332,7 @@ describe('Dev Sessions API (Issue #1285)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/dev-sessions/${sessionId}/complete`,
+        url: `/dev-sessions/${sessionId}/complete`,
         headers: { 'content-type': 'application/json', 'x-user-email': TEST_EMAIL },
         payload: { completion_summary: 'Split tests into parallel projects' },
       });
@@ -347,7 +347,7 @@ describe('Dev Sessions API (Issue #1285)', () => {
     it('returns 404 for non-existent session', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/dev-sessions/00000000-0000-0000-0000-000000000099/complete',
+        url: '/dev-sessions/00000000-0000-0000-0000-000000000099/complete',
         headers: { 'content-type': 'application/json', 'x-user-email': TEST_EMAIL },
         payload: {},
       });
@@ -356,13 +356,13 @@ describe('Dev Sessions API (Issue #1285)', () => {
     });
   });
 
-  // ─── DELETE /api/dev-sessions/:id ──────────────────────────────────────
+  // ─── DELETE /dev-sessions/:id ──────────────────────────────────────
 
-  describe('DELETE /api/dev-sessions/:id', () => {
+  describe('DELETE /dev-sessions/:id', () => {
     it('deletes a session and returns 204', async () => {
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/dev-sessions',
+        url: '/dev-sessions',
         headers: { 'content-type': 'application/json', 'x-user-email': TEST_EMAIL },
         payload: {
           session_name: 'delete-test-001',
@@ -374,7 +374,7 @@ describe('Dev Sessions API (Issue #1285)', () => {
 
       const res = await app.inject({
         method: 'DELETE',
-        url: `/api/dev-sessions/${sessionId}`,
+        url: `/dev-sessions/${sessionId}`,
         headers: { 'x-user-email': TEST_EMAIL },
       });
 
@@ -388,7 +388,7 @@ describe('Dev Sessions API (Issue #1285)', () => {
     it('returns 404 for non-existent session', async () => {
       const res = await app.inject({
         method: 'DELETE',
-        url: '/api/dev-sessions/00000000-0000-0000-0000-000000000099',
+        url: '/dev-sessions/00000000-0000-0000-0000-000000000099',
         headers: { 'x-user-email': TEST_EMAIL },
       });
 

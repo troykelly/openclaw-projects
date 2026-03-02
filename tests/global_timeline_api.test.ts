@@ -26,11 +26,11 @@ describe('Global Timeline API', () => {
     await pool.end();
   });
 
-  describe('GET /api/timeline', () => {
+  describe('GET /timeline', () => {
     it('returns empty arrays when no work items exist', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/timeline',
+        url: '/timeline',
       });
 
       expect(res.statusCode).toBe(200);
@@ -54,7 +54,7 @@ describe('Global Timeline API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/timeline',
+        url: '/timeline',
       });
 
       expect(res.statusCode).toBe(200);
@@ -73,7 +73,7 @@ describe('Global Timeline API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/timeline',
+        url: '/timeline',
       });
 
       expect(res.statusCode).toBe(200);
@@ -117,7 +117,7 @@ describe('Global Timeline API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/timeline?from=2024-02-01',
+        url: '/timeline?from=2024-02-01',
       });
 
       expect(res.statusCode).toBe(200);
@@ -139,7 +139,7 @@ describe('Global Timeline API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/timeline?to=2024-02-01',
+        url: '/timeline?to=2024-02-01',
       });
 
       expect(res.statusCode).toBe(200);
@@ -175,7 +175,7 @@ describe('Global Timeline API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/timeline?kind=epic',
+        url: '/timeline?kind=epic',
       });
 
       expect(res.statusCode).toBe(200);
@@ -209,7 +209,7 @@ describe('Global Timeline API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/timeline?kind=project,initiative',
+        url: '/timeline?kind=project,initiative',
       });
 
       expect(res.statusCode).toBe(200);
@@ -247,7 +247,7 @@ describe('Global Timeline API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/timeline?parent_id=${project_id}`,
+        url: `/timeline?parent_id=${project_id}`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -284,7 +284,7 @@ describe('Global Timeline API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/timeline',
+        url: '/timeline',
       });
 
       expect(res.statusCode).toBe(200);
@@ -328,7 +328,7 @@ describe('Global Timeline API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/timeline?parent_id=${project_id}`,
+        url: `/timeline?parent_id=${project_id}`,
       });
 
       expect(res.statusCode).toBe(200);

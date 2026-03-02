@@ -108,10 +108,10 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
   }
 
   // ============================================
-  // POST /api/files/:id/share
+  // POST /files/:id/share
   // ============================================
 
-  describe('POST /api/files/:id/share', () => {
+  describe('POST /files/:id/share', () => {
     it('returns 503 when storage is not configured', async () => {
       // This test only applies when S3 is not configured
       if (storageConfigured) {
@@ -122,7 +122,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: '/api/files/00000000-0000-0000-0000-000000000001/share',
+        url: '/files/00000000-0000-0000-0000-000000000001/share',
         payload: {},
       });
 
@@ -135,7 +135,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
         // Storage not configured, endpoint returns 503 before checking file
         const res = await app.inject({
           method: 'POST',
-          url: '/api/files/00000000-0000-0000-0000-000000000001/share',
+          url: '/files/00000000-0000-0000-0000-000000000001/share',
           payload: {},
         });
         expect(res.statusCode).toBe(503);
@@ -144,7 +144,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: '/api/files/00000000-0000-0000-0000-000000000001/share',
+        url: '/files/00000000-0000-0000-0000-000000000001/share',
         payload: {},
       });
 
@@ -158,7 +158,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
       // This is current behavior - the route does not explicitly validate UUID format
       const res = await app.inject({
         method: 'POST',
-        url: '/api/files/not-a-valid-uuid/share',
+        url: '/files/not-a-valid-uuid/share',
         payload: {},
       });
 
@@ -170,7 +170,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
       if (!storageConfigured) {
         const res = await app.inject({
           method: 'POST',
-          url: '/api/files/00000000-0000-0000-0000-000000000001/share',
+          url: '/files/00000000-0000-0000-0000-000000000001/share',
           payload: { expires_in: 30 },
         });
         expect(res.statusCode).toBe(503);
@@ -181,7 +181,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/files/${fileId}/share`,
+        url: `/files/${fileId}/share`,
         payload: { expires_in: 30 },
       });
 
@@ -193,7 +193,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
       if (!storageConfigured) {
         const res = await app.inject({
           method: 'POST',
-          url: '/api/files/00000000-0000-0000-0000-000000000001/share',
+          url: '/files/00000000-0000-0000-0000-000000000001/share',
           payload: { expires_in: 700000 },
         });
         expect(res.statusCode).toBe(503);
@@ -204,7 +204,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/files/${fileId}/share`,
+        url: `/files/${fileId}/share`,
         payload: { expires_in: 700000 },
       });
 
@@ -216,7 +216,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
       if (!storageConfigured) {
         const res = await app.inject({
           method: 'POST',
-          url: '/api/files/00000000-0000-0000-0000-000000000001/share',
+          url: '/files/00000000-0000-0000-0000-000000000001/share',
           payload: {},
         });
         expect(res.statusCode).toBe(503);
@@ -227,7 +227,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/files/${fileId}/share`,
+        url: `/files/${fileId}/share`,
         payload: {},
       });
 
@@ -245,7 +245,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
       if (!storageConfigured) {
         const res = await app.inject({
           method: 'POST',
-          url: '/api/files/00000000-0000-0000-0000-000000000001/share',
+          url: '/files/00000000-0000-0000-0000-000000000001/share',
           payload: { expires_in: 7200 },
         });
         expect(res.statusCode).toBe(503);
@@ -256,7 +256,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/files/${fileId}/share`,
+        url: `/files/${fileId}/share`,
         payload: { expires_in: 7200 },
       });
 
@@ -269,7 +269,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
       if (!storageConfigured) {
         const res = await app.inject({
           method: 'POST',
-          url: '/api/files/00000000-0000-0000-0000-000000000001/share',
+          url: '/files/00000000-0000-0000-0000-000000000001/share',
           payload: { max_downloads: 5 },
         });
         expect(res.statusCode).toBe(503);
@@ -280,7 +280,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/files/${fileId}/share`,
+        url: `/files/${fileId}/share`,
         payload: { max_downloads: 5 },
       });
 
@@ -292,7 +292,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
       if (!storageConfigured) {
         const res = await app.inject({
           method: 'POST',
-          url: '/api/files/00000000-0000-0000-0000-000000000001/share',
+          url: '/files/00000000-0000-0000-0000-000000000001/share',
           payload: { expires_in: 60 },
         });
         expect(res.statusCode).toBe(503);
@@ -303,7 +303,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/files/${fileId}/share`,
+        url: `/files/${fileId}/share`,
         payload: { expires_in: 60 },
       });
 
@@ -315,7 +315,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
       if (!storageConfigured) {
         const res = await app.inject({
           method: 'POST',
-          url: '/api/files/00000000-0000-0000-0000-000000000001/share',
+          url: '/files/00000000-0000-0000-0000-000000000001/share',
           payload: { expires_in: 604800 },
         });
         expect(res.statusCode).toBe(503);
@@ -326,7 +326,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/files/${fileId}/share`,
+        url: `/files/${fileId}/share`,
         payload: { expires_in: 604800 },
       });
 
@@ -336,10 +336,10 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
   });
 
   // ============================================
-  // GET /api/files/shared/:token (Proxy Mode)
+  // GET /files/shared/:token (Proxy Mode)
   // ============================================
 
-  describe('GET /api/files/shared/:token', () => {
+  describe('GET /files/shared/:token', () => {
     it('returns 503 when storage is not configured', async () => {
       if (storageConfigured) {
         expect(true).toBe(true);
@@ -348,7 +348,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/files/shared/some-token-here',
+        url: '/files/shared/some-token-here',
       });
 
       expect(res.statusCode).toBe(503);
@@ -359,7 +359,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
       if (!storageConfigured) {
         const res = await app.inject({
           method: 'GET',
-          url: '/api/files/shared/nonexistent-token-12345',
+          url: '/files/shared/nonexistent-token-12345',
         });
         expect(res.statusCode).toBe(503);
         return;
@@ -367,7 +367,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/files/shared/nonexistent-token-12345',
+        url: '/files/shared/nonexistent-token-12345',
       });
 
       expect(res.statusCode).toBe(403);
@@ -378,7 +378,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
       if (!storageConfigured) {
         const res = await app.inject({
           method: 'GET',
-          url: '/api/files/shared/expired-token',
+          url: '/files/shared/expired-token',
         });
         expect(res.statusCode).toBe(503);
         return;
@@ -389,7 +389,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/files/shared/${token}`,
+        url: `/files/shared/${token}`,
       });
 
       expect(res.statusCode).toBe(403);
@@ -400,7 +400,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
       if (!storageConfigured) {
         const res = await app.inject({
           method: 'GET',
-          url: '/api/files/shared/maxed-out-token',
+          url: '/files/shared/maxed-out-token',
         });
         expect(res.statusCode).toBe(503);
         return;
@@ -414,7 +414,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/files/shared/${token}`,
+        url: `/files/shared/${token}`,
       });
 
       expect(res.statusCode).toBe(403);
@@ -433,7 +433,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
       if (!storageConfigured) {
         const res = await app.inject({
           method: 'GET',
-          url: '/api/files/shared/valid-token',
+          url: '/files/shared/valid-token',
         });
         expect(res.statusCode).toBe(503);
         return;
@@ -444,7 +444,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
       const shareMode = process.env.FILE_SHARE_MODE?.toLowerCase();
       if (shareMode !== 'proxy') {
         // In presigned mode, the share endpoint returns a direct S3 URL
-        // and doesn't use the /api/files/shared/:token endpoint
+        // and doesn't use the /files/shared/:token endpoint
         expect(true).toBe(true);
         return;
       }
@@ -459,7 +459,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
       if (!storageConfigured) {
         const res = await app.inject({
           method: 'GET',
-          url: '/api/files/shared/count-test-token',
+          url: '/files/shared/count-test-token',
         });
         expect(res.statusCode).toBe(503);
         return;
@@ -471,7 +471,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
       // First request (will fail at download stage since no actual file, but token validates)
       const res = await app.inject({
         method: 'GET',
-        url: `/api/files/shared/${token}`,
+        url: `/files/shared/${token}`,
       });
 
       // The request may fail (404/500) because the file doesn't exist in S3,
@@ -649,12 +649,12 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
   // M2M Access (#1884)
   // ============================================
 
-  describe('POST /api/files/:id/share M2M access (#1884)', () => {
+  describe('POST /files/:id/share M2M access (#1884)', () => {
     it('allows M2M token to share a file in the same namespace', async function () {
       if (!storageConfigured) {
         const res = await app.inject({
           method: 'POST',
-          url: '/api/files/00000000-0000-0000-0000-000000000001/share',
+          url: '/files/00000000-0000-0000-0000-000000000001/share',
           payload: {},
         });
         expect(res.statusCode).toBe(503);
@@ -677,7 +677,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/files/${id}/share`,
+        url: `/files/${id}/share`,
         headers: { ...headers, 'x-namespace': 'default' },
         payload: { expires_in: 300 },
       });
@@ -692,7 +692,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
       if (!storageConfigured) {
         const res = await app.inject({
           method: 'POST',
-          url: '/api/files/00000000-0000-0000-0000-000000000001/share',
+          url: '/files/00000000-0000-0000-0000-000000000001/share',
           payload: {},
         });
         expect(res.statusCode).toBe(503);
@@ -721,7 +721,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/files/${id}/share`,
+        url: `/files/${id}/share`,
         headers: { ...headers, 'x-namespace': 'default' },
         payload: { expires_in: 300 },
       });

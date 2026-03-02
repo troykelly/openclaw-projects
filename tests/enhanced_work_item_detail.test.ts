@@ -28,7 +28,7 @@ describe('Enhanced Work Item Detail', () => {
     await pool.end();
   });
 
-  describe('GET /api/work-items/:id', () => {
+  describe('GET /work-items/:id', () => {
     it('returns full work item metadata', async () => {
       // Create a work item with all metadata
       const now = new Date();
@@ -45,7 +45,7 @@ describe('Enhanced Work Item Detail', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${item_id}`,
+        url: `/work-items/${item_id}`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -106,7 +106,7 @@ describe('Enhanced Work Item Detail', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${mainId}`,
+        url: `/work-items/${mainId}`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -151,7 +151,7 @@ describe('Enhanced Work Item Detail', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${childId}`,
+        url: `/work-items/${childId}`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -167,14 +167,14 @@ describe('Enhanced Work Item Detail', () => {
     it('returns 404 for non-existent work item', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/work-items/00000000-0000-0000-0000-000000000000',
+        url: '/work-items/00000000-0000-0000-0000-000000000000',
       });
 
       expect(res.statusCode).toBe(404);
     });
   });
 
-  describe('PUT /api/work-items/:id', () => {
+  describe('PUT /work-items/:id', () => {
     it('updates work item title', async () => {
       const item = await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
@@ -185,7 +185,7 @@ describe('Enhanced Work Item Detail', () => {
 
       const res = await app.inject({
         method: 'PUT',
-        url: `/api/work-items/${item_id}`,
+        url: `/work-items/${item_id}`,
         payload: {
           title: 'Updated Title',
         },
@@ -207,7 +207,7 @@ describe('Enhanced Work Item Detail', () => {
       // PUT requires title to be included (it's not optional)
       const res = await app.inject({
         method: 'PUT',
-        url: `/api/work-items/${item_id}`,
+        url: `/work-items/${item_id}`,
         payload: {
           title: 'Test Item',
           description: 'New description with **markdown**',
@@ -229,7 +229,7 @@ describe('Enhanced Work Item Detail', () => {
 
       const res = await app.inject({
         method: 'PUT',
-        url: `/api/work-items/${item_id}`,
+        url: `/work-items/${item_id}`,
         payload: {
           title: 'Test Item',
           status: 'in_progress',
@@ -252,7 +252,7 @@ describe('Enhanced Work Item Detail', () => {
 
       const res = await app.inject({
         method: 'PUT',
-        url: `/api/work-items/${item_id}`,
+        url: `/work-items/${item_id}`,
         payload: {
           title: 'Test Item',
           priority: 'P0',
@@ -277,7 +277,7 @@ describe('Enhanced Work Item Detail', () => {
 
       const res = await app.inject({
         method: 'PUT',
-        url: `/api/work-items/${item_id}`,
+        url: `/work-items/${item_id}`,
         payload: {
           title: 'Test Item',
           not_before: now.toISOString(),
@@ -301,7 +301,7 @@ describe('Enhanced Work Item Detail', () => {
 
       const res = await app.inject({
         method: 'PUT',
-        url: `/api/work-items/${item_id}`,
+        url: `/work-items/${item_id}`,
         payload: {
           title: 'Test Item',
           estimate_minutes: 240,

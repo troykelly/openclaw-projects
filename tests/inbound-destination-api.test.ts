@@ -45,11 +45,11 @@ describe('Inbound Destination API (Issue #1500)', () => {
     return (result.rows[0] as { id: string }).id;
   }
 
-  // ── GET /api/inbound-destinations ─────────────────────────
+  // ── GET /inbound-destinations ─────────────────────────
 
-  describe('GET /api/inbound-destinations', () => {
+  describe('GET /inbound-destinations', () => {
     it('returns empty list when no destinations exist', async () => {
-      const res = await app.inject({ method: 'GET', url: '/api/inbound-destinations' });
+      const res = await app.inject({ method: 'GET', url: '/inbound-destinations' });
 
       expect(res.statusCode).toBe(200);
       const body = res.json();
@@ -61,7 +61,7 @@ describe('Inbound Destination API (Issue #1500)', () => {
       await seedDestination({ address: '+61400000001' });
       await seedDestination({ address: '+61400000002' });
 
-      const res = await app.inject({ method: 'GET', url: '/api/inbound-destinations?limit=1' });
+      const res = await app.inject({ method: 'GET', url: '/inbound-destinations?limit=1' });
 
       expect(res.statusCode).toBe(200);
       const body = res.json();
@@ -77,7 +77,7 @@ describe('Inbound Destination API (Issue #1500)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/inbound-destinations?channel_type=email',
+        url: '/inbound-destinations?channel_type=email',
       });
 
       expect(res.statusCode).toBe(200);
@@ -91,7 +91,7 @@ describe('Inbound Destination API (Issue #1500)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/inbound-destinations?search=office',
+        url: '/inbound-destinations?search=office',
       });
 
       expect(res.statusCode).toBe(200);
@@ -102,7 +102,7 @@ describe('Inbound Destination API (Issue #1500)', () => {
       const id = await seedDestination();
       await pool.query('UPDATE inbound_destination SET is_active = false WHERE id = $1', [id]);
 
-      const res = await app.inject({ method: 'GET', url: '/api/inbound-destinations' });
+      const res = await app.inject({ method: 'GET', url: '/inbound-destinations' });
       expect(res.json().total).toBe(0);
     });
 
@@ -112,7 +112,7 @@ describe('Inbound Destination API (Issue #1500)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/inbound-destinations?include_inactive=true',
+        url: '/inbound-destinations?include_inactive=true',
       });
       expect(res.json().total).toBe(1);
     });
@@ -120,7 +120,7 @@ describe('Inbound Destination API (Issue #1500)', () => {
     it('rejects non-numeric limit', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/inbound-destinations?limit=abc',
+        url: '/inbound-destinations?limit=abc',
       });
       expect(res.statusCode).toBe(400);
     });
@@ -128,19 +128,19 @@ describe('Inbound Destination API (Issue #1500)', () => {
     it('rejects non-numeric offset', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/inbound-destinations?offset=xyz',
+        url: '/inbound-destinations?offset=xyz',
       });
       expect(res.statusCode).toBe(400);
     });
   });
 
-  // ── GET /api/inbound-destinations/:id ─────────────────────
+  // ── GET /inbound-destinations/:id ─────────────────────
 
-  describe('GET /api/inbound-destinations/:id', () => {
+  describe('GET /inbound-destinations/:id', () => {
     it('returns a destination by ID', async () => {
       const id = await seedDestination();
 
-      const res = await app.inject({ method: 'GET', url: `/api/inbound-destinations/${id}` });
+      const res = await app.inject({ method: 'GET', url: `/inbound-destinations/${id}` });
 
       expect(res.statusCode).toBe(200);
       expect(res.json().id).toBe(id);
@@ -150,7 +150,7 @@ describe('Inbound Destination API (Issue #1500)', () => {
     it('returns 404 for non-existent ID', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/inbound-destinations/00000000-0000-0000-0000-000000000000',
+        url: '/inbound-destinations/00000000-0000-0000-0000-000000000000',
       });
       expect(res.statusCode).toBe(404);
     });
@@ -158,21 +158,21 @@ describe('Inbound Destination API (Issue #1500)', () => {
     it('returns 400 for malformed ID', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/inbound-destinations/not-a-uuid',
+        url: '/inbound-destinations/not-a-uuid',
       });
       expect(res.statusCode).toBe(400);
     });
   });
 
-  // ── PUT /api/inbound-destinations/:id ─────────────────────
+  // ── PUT /inbound-destinations/:id ─────────────────────
 
-  describe('PUT /api/inbound-destinations/:id', () => {
+  describe('PUT /inbound-destinations/:id', () => {
     it('updates display_name', async () => {
       const id = await seedDestination();
 
       const res = await app.inject({
         method: 'PUT',
-        url: `/api/inbound-destinations/${id}`,
+        url: `/inbound-destinations/${id}`,
         payload: { display_name: 'My Office Phone' },
       });
 
@@ -185,7 +185,7 @@ describe('Inbound Destination API (Issue #1500)', () => {
 
       const res = await app.inject({
         method: 'PUT',
-        url: `/api/inbound-destinations/${id}`,
+        url: `/inbound-destinations/${id}`,
         payload: { agent_id: 'agent-xyz' },
       });
 
@@ -198,13 +198,13 @@ describe('Inbound Destination API (Issue #1500)', () => {
       // Set first
       await app.inject({
         method: 'PUT',
-        url: `/api/inbound-destinations/${id}`,
+        url: `/inbound-destinations/${id}`,
         payload: { agent_id: 'agent-xyz' },
       });
       // Clear
       const res = await app.inject({
         method: 'PUT',
-        url: `/api/inbound-destinations/${id}`,
+        url: `/inbound-destinations/${id}`,
         payload: { agent_id: null },
       });
 
@@ -215,7 +215,7 @@ describe('Inbound Destination API (Issue #1500)', () => {
     it('returns 404 for non-existent ID', async () => {
       const res = await app.inject({
         method: 'PUT',
-        url: '/api/inbound-destinations/00000000-0000-0000-0000-000000000000',
+        url: '/inbound-destinations/00000000-0000-0000-0000-000000000000',
         payload: { display_name: 'x' },
       });
       expect(res.statusCode).toBe(404);
@@ -226,7 +226,7 @@ describe('Inbound Destination API (Issue #1500)', () => {
 
       const res = await app.inject({
         method: 'PUT',
-        url: `/api/inbound-destinations/${id}`,
+        url: `/inbound-destinations/${id}`,
         payload: {},
       });
       expect(res.statusCode).toBe(400);
@@ -235,7 +235,7 @@ describe('Inbound Destination API (Issue #1500)', () => {
     it('returns 400 for malformed ID', async () => {
       const res = await app.inject({
         method: 'PUT',
-        url: '/api/inbound-destinations/not-a-uuid',
+        url: '/inbound-destinations/not-a-uuid',
         payload: { display_name: 'x' },
       });
       expect(res.statusCode).toBe(400);
@@ -245,7 +245,7 @@ describe('Inbound Destination API (Issue #1500)', () => {
       const id = await seedDestination();
       const res = await app.inject({
         method: 'PUT',
-        url: `/api/inbound-destinations/${id}`,
+        url: `/inbound-destinations/${id}`,
         payload: { prompt_template_id: 'not-a-uuid' },
       });
       expect(res.statusCode).toBe(400);
@@ -256,7 +256,7 @@ describe('Inbound Destination API (Issue #1500)', () => {
       const id = await seedDestination();
       const res = await app.inject({
         method: 'PUT',
-        url: `/api/inbound-destinations/${id}`,
+        url: `/inbound-destinations/${id}`,
         payload: { context_id: 'not-a-uuid' },
       });
       expect(res.statusCode).toBe(400);
@@ -264,17 +264,17 @@ describe('Inbound Destination API (Issue #1500)', () => {
     });
   });
 
-  // ── DELETE /api/inbound-destinations/:id ──────────────────
+  // ── DELETE /inbound-destinations/:id ──────────────────
 
-  describe('DELETE /api/inbound-destinations/:id', () => {
+  describe('DELETE /inbound-destinations/:id', () => {
     it('soft-deletes a destination', async () => {
       const id = await seedDestination();
 
-      const res = await app.inject({ method: 'DELETE', url: `/api/inbound-destinations/${id}` });
+      const res = await app.inject({ method: 'DELETE', url: `/inbound-destinations/${id}` });
       expect(res.statusCode).toBe(204);
 
       // Verify still exists but inactive
-      const get = await app.inject({ method: 'GET', url: `/api/inbound-destinations/${id}` });
+      const get = await app.inject({ method: 'GET', url: `/inbound-destinations/${id}` });
       expect(get.statusCode).toBe(200);
       expect(get.json().is_active).toBe(false);
     });
@@ -282,7 +282,7 @@ describe('Inbound Destination API (Issue #1500)', () => {
     it('returns 404 for non-existent ID', async () => {
       const res = await app.inject({
         method: 'DELETE',
-        url: '/api/inbound-destinations/00000000-0000-0000-0000-000000000000',
+        url: '/inbound-destinations/00000000-0000-0000-0000-000000000000',
       });
       expect(res.statusCode).toBe(404);
     });
@@ -290,8 +290,8 @@ describe('Inbound Destination API (Issue #1500)', () => {
     it('returns 404 for already-deleted destination', async () => {
       const id = await seedDestination();
 
-      await app.inject({ method: 'DELETE', url: `/api/inbound-destinations/${id}` });
-      const res = await app.inject({ method: 'DELETE', url: `/api/inbound-destinations/${id}` });
+      await app.inject({ method: 'DELETE', url: `/inbound-destinations/${id}` });
+      const res = await app.inject({ method: 'DELETE', url: `/inbound-destinations/${id}` });
       expect(res.statusCode).toBe(404);
     });
   });

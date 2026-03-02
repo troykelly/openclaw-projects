@@ -100,11 +100,11 @@ describe('Onboard Endpoint', () => {
     vi.unstubAllEnvs();
   });
 
-  describe('POST /api/api-sources with spec_content', () => {
+  describe('POST /api-sources with spec_content', () => {
     it('onboards a minimal spec and creates memories', async () => {
       const res = await app.inject(injectOpts({
         method: 'POST',
-        url: '/api/api-sources',
+        url: '/api-sources',
         payload: {
           spec_content: minimalSpec,
           name: 'Test Minimal API',
@@ -128,7 +128,7 @@ describe('Onboard Endpoint', () => {
     it('creates correct number of memories for rich spec', async () => {
       const res = await app.inject(injectOpts({
         method: 'POST',
-        url: '/api/api-sources',
+        url: '/api-sources',
         payload: {
           spec_content: richSpec,
           tags: ['test'],
@@ -151,7 +151,7 @@ describe('Onboard Endpoint', () => {
     it('creates api_memory rows with correct operation keys', async () => {
       const res = await app.inject(injectOpts({
         method: 'POST',
-        url: '/api/api-sources',
+        url: '/api-sources',
         payload: { spec_content: richSpec },
       }));
 
@@ -179,7 +179,7 @@ describe('Onboard Endpoint', () => {
     it('sets embedding_status to pending', async () => {
       const res = await app.inject(injectOpts({
         method: 'POST',
-        url: '/api/api-sources',
+        url: '/api-sources',
         payload: { spec_content: minimalSpec },
       }));
 
@@ -200,7 +200,7 @@ describe('Onboard Endpoint', () => {
     it('stores credentials encrypted', async () => {
       const res = await app.inject(injectOpts({
         method: 'POST',
-        url: '/api/api-sources',
+        url: '/api-sources',
         payload: {
           spec_content: minimalSpec,
           credentials: [
@@ -231,7 +231,7 @@ describe('Onboard Endpoint', () => {
     it('uses spec name when no name provided', async () => {
       const res = await app.inject(injectOpts({
         method: 'POST',
-        url: '/api/api-sources',
+        url: '/api-sources',
         payload: { spec_content: minimalSpec },
       }));
 
@@ -246,7 +246,7 @@ describe('Onboard Endpoint', () => {
       // First onboard with spec_content + spec_url
       const firstRes = await app.inject(injectOpts({
         method: 'POST',
-        url: '/api/api-sources',
+        url: '/api-sources',
         payload: {
           spec_url: 'https://example.com/openapi.json',
           spec_content: minimalSpec,
@@ -260,7 +260,7 @@ describe('Onboard Endpoint', () => {
       // Since the source already exists with that URL, should return existing
       const secondRes = await app.inject(injectOpts({
         method: 'POST',
-        url: '/api/api-sources',
+        url: '/api-sources',
         payload: {
           spec_url: 'https://example.com/openapi.json',
           spec_content: minimalSpec,
@@ -278,7 +278,7 @@ describe('Onboard Endpoint', () => {
     it('rejects private IP addresses in spec_url', async () => {
       const res = await app.inject(injectOpts({
         method: 'POST',
-        url: '/api/api-sources',
+        url: '/api-sources',
         payload: {
           spec_url: 'http://192.168.1.1/openapi.json',
           spec_content: minimalSpec,
@@ -293,7 +293,7 @@ describe('Onboard Endpoint', () => {
     it('rejects localhost in spec_url', async () => {
       const res = await app.inject(injectOpts({
         method: 'POST',
-        url: '/api/api-sources',
+        url: '/api-sources',
         payload: {
           spec_url: 'http://localhost/openapi.json',
           spec_content: minimalSpec,
@@ -310,7 +310,7 @@ describe('Onboard Endpoint', () => {
     it('rejects invalid spec_content', async () => {
       const res = await app.inject(injectOpts({
         method: 'POST',
-        url: '/api/api-sources',
+        url: '/api-sources',
         payload: {
           spec_content: 'not valid json',
         },
@@ -322,7 +322,7 @@ describe('Onboard Endpoint', () => {
     it('rejects non-OpenAPI document', async () => {
       const res = await app.inject(injectOpts({
         method: 'POST',
-        url: '/api/api-sources',
+        url: '/api-sources',
         payload: {
           spec_content: JSON.stringify({ foo: 'bar' }),
         },
@@ -334,7 +334,7 @@ describe('Onboard Endpoint', () => {
     it('requires spec_url or spec_content or name for creation', async () => {
       const res = await app.inject(injectOpts({
         method: 'POST',
-        url: '/api/api-sources',
+        url: '/api-sources',
         payload: {},
       }));
 

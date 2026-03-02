@@ -43,12 +43,12 @@ describe('Note Presence API - UUID Validation (Issue #701)', () => {
     await pool.end();
   });
 
-  describe('POST /api/notes/:id/presence - UUID Validation', () => {
+  describe('POST /notes/:id/presence - UUID Validation', () => {
     for (const invalidId of invalidUUIDs) {
       it(`returns 400 for invalid UUID: "${invalidId.slice(0, 30)}..."`, async () => {
         const res = await app.inject({
           method: 'POST',
-          url: `/api/notes/${encodeURIComponent(invalidId)}/presence`,
+          url: `/notes/${encodeURIComponent(invalidId)}/presence`,
           payload: { user_email: testUserEmail },
         });
 
@@ -69,7 +69,7 @@ describe('Note Presence API - UUID Validation (Issue #701)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/notes/${noteId}/presence`,
+        url: `/notes/${noteId}/presence`,
         payload: { user_email: testUserEmail },
       });
 
@@ -77,12 +77,12 @@ describe('Note Presence API - UUID Validation (Issue #701)', () => {
     });
   });
 
-  describe('DELETE /api/notes/:id/presence - UUID Validation', () => {
+  describe('DELETE /notes/:id/presence - UUID Validation', () => {
     for (const invalidId of invalidUUIDs) {
       it(`returns 400 for invalid UUID: "${invalidId.slice(0, 30)}..."`, async () => {
         const res = await app.inject({
           method: 'DELETE',
-          url: `/api/notes/${encodeURIComponent(invalidId)}/presence`,
+          url: `/notes/${encodeURIComponent(invalidId)}/presence`,
           headers: { 'x-user-email': testUserEmail },
         });
 
@@ -103,7 +103,7 @@ describe('Note Presence API - UUID Validation (Issue #701)', () => {
 
       const res = await app.inject({
         method: 'DELETE',
-        url: `/api/notes/${noteId}/presence`,
+        url: `/notes/${noteId}/presence`,
         headers: { 'x-user-email': testUserEmail },
       });
 
@@ -111,12 +111,12 @@ describe('Note Presence API - UUID Validation (Issue #701)', () => {
     });
   });
 
-  describe('GET /api/notes/:id/presence - UUID Validation', () => {
+  describe('GET /notes/:id/presence - UUID Validation', () => {
     for (const invalidId of invalidUUIDs) {
       it(`returns 400 for invalid UUID: "${invalidId.slice(0, 30)}..."`, async () => {
         const res = await app.inject({
           method: 'GET',
-          url: `/api/notes/${encodeURIComponent(invalidId)}/presence`,
+          url: `/notes/${encodeURIComponent(invalidId)}/presence`,
           headers: { 'x-user-email': testUserEmail },
         });
 
@@ -137,7 +137,7 @@ describe('Note Presence API - UUID Validation (Issue #701)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/notes/${noteId}/presence`,
+        url: `/notes/${noteId}/presence`,
         headers: { 'x-user-email': testUserEmail },
       });
 
@@ -145,12 +145,12 @@ describe('Note Presence API - UUID Validation (Issue #701)', () => {
     });
   });
 
-  describe('PUT /api/notes/:id/presence/cursor - UUID Validation', () => {
+  describe('PUT /notes/:id/presence/cursor - UUID Validation', () => {
     for (const invalidId of invalidUUIDs) {
       it(`returns 400 for invalid UUID: "${invalidId.slice(0, 30)}..."`, async () => {
         const res = await app.inject({
           method: 'PUT',
-          url: `/api/notes/${encodeURIComponent(invalidId)}/presence/cursor`,
+          url: `/notes/${encodeURIComponent(invalidId)}/presence/cursor`,
           payload: {
             user_email: testUserEmail,
             cursor_position: { line: 1, column: 1 },
@@ -175,13 +175,13 @@ describe('Note Presence API - UUID Validation (Issue #701)', () => {
       // Join presence first
       await app.inject({
         method: 'POST',
-        url: `/api/notes/${noteId}/presence`,
+        url: `/notes/${noteId}/presence`,
         payload: { user_email: testUserEmail },
       });
 
       const res = await app.inject({
         method: 'PUT',
-        url: `/api/notes/${noteId}/presence/cursor`,
+        url: `/notes/${noteId}/presence/cursor`,
         payload: {
           user_email: testUserEmail,
           cursor_position: { line: 1, column: 1 },

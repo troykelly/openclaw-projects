@@ -109,11 +109,11 @@ describe('Relationship Types API (Epic #486, Issue #490)', () => {
     await pool.end();
   });
 
-  describe('GET /api/relationship-types', () => {
+  describe('GET /relationship-types', () => {
     it('returns all pre-seeded relationship types', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/relationship-types',
+        url: '/relationship-types',
       });
 
       expect(res.statusCode).toBe(200);
@@ -126,7 +126,7 @@ describe('Relationship Types API (Epic #486, Issue #490)', () => {
     it('each type has expected fields', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/relationship-types',
+        url: '/relationship-types',
         query: { limit: '1' },
       });
 
@@ -146,7 +146,7 @@ describe('Relationship Types API (Epic #486, Issue #490)', () => {
     it('filters by is_directional=true', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/relationship-types',
+        url: '/relationship-types',
         query: { is_directional: 'true' },
       });
 
@@ -162,7 +162,7 @@ describe('Relationship Types API (Epic #486, Issue #490)', () => {
     it('filters by is_directional=false', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/relationship-types',
+        url: '/relationship-types',
         query: { is_directional: 'false' },
       });
 
@@ -178,7 +178,7 @@ describe('Relationship Types API (Epic #486, Issue #490)', () => {
     it('supports pagination', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/relationship-types',
+        url: '/relationship-types',
         query: { limit: '5', offset: '0' },
       });
 
@@ -191,7 +191,7 @@ describe('Relationship Types API (Epic #486, Issue #490)', () => {
     it('directional types include inverse type details', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/relationship-types',
+        url: '/relationship-types',
         query: { is_directional: 'true', limit: '5' },
       });
 
@@ -208,19 +208,19 @@ describe('Relationship Types API (Epic #486, Issue #490)', () => {
     });
   });
 
-  describe('GET /api/relationship-types/:id', () => {
+  describe('GET /relationship-types/:id', () => {
     it('returns a specific relationship type', async () => {
       // First get the list to find an ID
       const listRes = await app.inject({
         method: 'GET',
-        url: '/api/relationship-types',
+        url: '/relationship-types',
         query: { limit: '1' },
       });
       const typeId = listRes.json().types[0].id;
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/relationship-types/${typeId}`,
+        url: `/relationship-types/${typeId}`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -233,18 +233,18 @@ describe('Relationship Types API (Epic #486, Issue #490)', () => {
     it('returns 404 for non-existent ID', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/relationship-types/00000000-0000-0000-0000-000000000000',
+        url: '/relationship-types/00000000-0000-0000-0000-000000000000',
       });
 
       expect(res.statusCode).toBe(404);
     });
   });
 
-  describe('POST /api/relationship-types', () => {
+  describe('POST /relationship-types', () => {
     it('creates a new relationship type', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/relationship-types',
+        url: '/relationship-types',
         payload: {
           name: 'api_test_neighbor_of',
           label: 'Neighbor of',
@@ -272,7 +272,7 @@ describe('Relationship Types API (Epic #486, Issue #490)', () => {
       // Create first type
       const res1 = await app.inject({
         method: 'POST',
-        url: '/api/relationship-types',
+        url: '/relationship-types',
         payload: {
           name: 'api_test_teaches',
           label: 'Teaches',
@@ -287,7 +287,7 @@ describe('Relationship Types API (Epic #486, Issue #490)', () => {
       // Create inverse, linking to first
       const res2 = await app.inject({
         method: 'POST',
-        url: '/api/relationship-types',
+        url: '/relationship-types',
         payload: {
           name: 'api_test_taught_by',
           label: 'Taught by',
@@ -304,7 +304,7 @@ describe('Relationship Types API (Epic #486, Issue #490)', () => {
       // Verify first type now points back
       const verifyRes = await app.inject({
         method: 'GET',
-        url: `/api/relationship-types/${type1.id}`,
+        url: `/relationship-types/${type1.id}`,
       });
       expect(verifyRes.json().inverse_type_id).toBe(type2.id);
 
@@ -315,7 +315,7 @@ describe('Relationship Types API (Epic #486, Issue #490)', () => {
     it('returns 400 when name is missing', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/relationship-types',
+        url: '/relationship-types',
         payload: {
           label: 'No name',
         },
@@ -327,7 +327,7 @@ describe('Relationship Types API (Epic #486, Issue #490)', () => {
     it('returns 400 when label is missing', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/relationship-types',
+        url: '/relationship-types',
         payload: {
           name: 'api_test_no_label',
         },
@@ -339,7 +339,7 @@ describe('Relationship Types API (Epic #486, Issue #490)', () => {
     it('returns 409 for duplicate name', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/relationship-types',
+        url: '/relationship-types',
         payload: {
           name: 'partner_of',
           label: 'Duplicate Partner',
@@ -350,11 +350,11 @@ describe('Relationship Types API (Epic #486, Issue #490)', () => {
     });
   });
 
-  describe('GET /api/relationship-types/match', () => {
+  describe('GET /relationship-types/match', () => {
     it('finds matching types by query', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/relationship-types/match',
+        url: '/relationship-types/match',
         query: { q: 'partner' },
       });
 
@@ -370,7 +370,7 @@ describe('Relationship Types API (Epic #486, Issue #490)', () => {
     it('returns 400 when q parameter is missing', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/relationship-types/match',
+        url: '/relationship-types/match',
       });
 
       expect(res.statusCode).toBe(400);
@@ -379,7 +379,7 @@ describe('Relationship Types API (Epic #486, Issue #490)', () => {
     it('supports limit parameter', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/relationship-types/match',
+        url: '/relationship-types/match',
         query: { q: 'of', limit: '3' },
       });
 

@@ -124,10 +124,10 @@ describe('SPA fallback (/static/app/*)', () => {
 
   // ── API routes must NOT be affected ────────────────────────────────
 
-  it('does not intercept /api/health', async () => {
+  it('does not intercept /health', async () => {
     const res = await app.inject({
       method: 'GET',
-      url: '/api/health',
+      url: '/health',
     });
     // Health check returns JSON (not SPA HTML), status may be 'ok' or 'degraded'
     const body = res.json();
@@ -136,10 +136,10 @@ describe('SPA fallback (/static/app/*)', () => {
     expect(res.body).not.toContain('data-testid="app-frontend-shell"');
   });
 
-  it('does not intercept /api/health/live', async () => {
+  it('does not intercept /health/live', async () => {
     const res = await app.inject({
       method: 'GET',
-      url: '/api/health/live',
+      url: '/health/live',
     });
     expect(res.statusCode).toBe(200);
     const body = res.json();
@@ -156,10 +156,10 @@ describe('SPA fallback (/static/app/*)', () => {
     expect(body).toHaveProperty('ok', true);
   });
 
-  it('does not intercept POST /api/auth/request-link', async () => {
+  it('does not intercept POST /auth/request-link', async () => {
     const res = await app.inject({
       method: 'POST',
-      url: '/api/auth/request-link',
+      url: '/auth/request-link',
       payload: { email: 'test@example.com' },
     });
     // Should return a success status with loginUrl (not the SPA HTML)

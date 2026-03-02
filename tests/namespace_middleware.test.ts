@@ -59,7 +59,7 @@ describe('Namespace Resolution Middleware (#1475)', () => {
       const headers = await getAuthHeaders(TEST_EMAIL);
       const res = await app.inject({
         method: 'GET',
-        url: '/api/namespaces',
+        url: '/namespaces',
         headers,
       });
       expect(res.statusCode).toBe(200);
@@ -83,7 +83,7 @@ describe('Namespace Resolution Middleware (#1475)', () => {
       // Request specific namespace via header
       const res = await app.inject({
         method: 'GET',
-        url: '/api/namespaces/ns-b',
+        url: '/namespaces/ns-b',
         headers: { ...headers, 'x-namespace': 'ns-b' },
       });
       expect(res.statusCode).toBe(200);
@@ -100,7 +100,7 @@ describe('Namespace Resolution Middleware (#1475)', () => {
       const headers = await getAuthHeaders(TEST_EMAIL);
       const res = await app.inject({
         method: 'GET',
-        url: '/api/namespaces/ns-q?namespace=ns-q',
+        url: '/namespaces/ns-q?namespace=ns-q',
         headers,
       });
       expect(res.statusCode).toBe(200);
@@ -118,7 +118,7 @@ describe('Namespace Resolution Middleware (#1475)', () => {
       const headers = await getM2MHeaders();
       const res = await app.inject({
         method: 'GET',
-        url: '/api/namespaces/test-m2m-ns',
+        url: '/namespaces/test-m2m-ns',
         headers: { ...headers, 'x-namespace': 'test-m2m-ns' },
       });
       expect(res.statusCode).toBe(200);
@@ -137,7 +137,7 @@ describe('Namespace Resolution Middleware (#1475)', () => {
       const headers = await getAuthHeaders(TEST_EMAIL);
       const res = await app.inject({
         method: 'GET',
-        url: '/api/namespaces',
+        url: '/namespaces',
         headers,
       });
       expect(res.statusCode).toBe(200);
@@ -149,13 +149,13 @@ describe('Namespace Resolution Middleware (#1475)', () => {
 
   describe('namespace context edge cases', () => {
     it('health endpoints work without namespace context', async () => {
-      const res = await app.inject({ method: 'GET', url: '/api/health/live' });
+      const res = await app.inject({ method: 'GET', url: '/health/live' });
       expect(res.statusCode).toBe(200);
     });
 
     it('unauthenticated requests get null namespace context', async () => {
       // The namespace API returns 401 for unauthenticated requests
-      const res = await app.inject({ method: 'GET', url: '/api/namespaces' });
+      const res = await app.inject({ method: 'GET', url: '/namespaces' });
       expect(res.statusCode).toBe(401);
     });
   });

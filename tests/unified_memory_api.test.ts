@@ -23,11 +23,11 @@ describe('Unified Memory API (Issue #209)', () => {
     await pool.end();
   });
 
-  describe('POST /api/memories/unified', () => {
+  describe('POST /memories/unified', () => {
     it('creates a global memory with user email only', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/memories/unified',
+        url: '/memories/unified',
         payload: {
           title: 'User preference',
           content: 'User prefers dark mode',
@@ -55,7 +55,7 @@ describe('Unified Memory API (Issue #209)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: '/api/memories/unified',
+        url: '/memories/unified',
         payload: {
           title: 'Tech decision',
           content: 'Chose PostgreSQL for ACID compliance',
@@ -81,7 +81,7 @@ describe('Unified Memory API (Issue #209)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: '/api/memories/unified',
+        url: '/memories/unified',
         payload: {
           title: 'Contact preference',
           content: 'John prefers email',
@@ -99,7 +99,7 @@ describe('Unified Memory API (Issue #209)', () => {
     it('creates memory with agent attribution', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/memories/unified',
+        url: '/memories/unified',
         payload: {
           title: 'Agent note',
           content: 'User mentioned liking pizza',
@@ -118,7 +118,7 @@ describe('Unified Memory API (Issue #209)', () => {
     it('creates memory with importance and confidence', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/memories/unified',
+        url: '/memories/unified',
         payload: {
           title: 'Important fact',
           content: 'User is allergic to peanuts',
@@ -137,7 +137,7 @@ describe('Unified Memory API (Issue #209)', () => {
     it('normalizes 0-1 float importance to 1-10 scale', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/memories/unified',
+        url: '/memories/unified',
         payload: {
           title: 'Float importance',
           content: 'Testing OpenClaw 0-1 importance',
@@ -154,7 +154,7 @@ describe('Unified Memory API (Issue #209)', () => {
     it('returns 400 for invalid memory type', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/memories/unified',
+        url: '/memories/unified',
         payload: {
           title: 'Test',
           content: 'Test',
@@ -169,7 +169,7 @@ describe('Unified Memory API (Issue #209)', () => {
     it('auto-generates title when title is missing', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/memories/unified',
+        url: '/memories/unified',
         payload: {
           content: 'User prefers dark mode. Other details follow.',
         },
@@ -181,7 +181,7 @@ describe('Unified Memory API (Issue #209)', () => {
     });
   });
 
-  describe('GET /api/memories/unified', () => {
+  describe('GET /memories/unified', () => {
     it('lists all memories', async () => {
       await pool.query(
         `INSERT INTO memory (title, content, memory_type, namespace)
@@ -191,7 +191,7 @@ describe('Unified Memory API (Issue #209)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/memories/unified',
+        url: '/memories/unified',
       });
 
       expect(res.statusCode).toBe(200);
@@ -209,7 +209,7 @@ describe('Unified Memory API (Issue #209)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/memories/unified?user_email=user1@example.com',
+        url: '/memories/unified?user_email=user1@example.com',
       });
 
       expect(res.statusCode).toBe(200);
@@ -225,7 +225,7 @@ describe('Unified Memory API (Issue #209)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/memories/unified?memory_type=preference',
+        url: '/memories/unified?memory_type=preference',
       });
 
       expect(res.statusCode).toBe(200);
@@ -235,7 +235,7 @@ describe('Unified Memory API (Issue #209)', () => {
     });
   });
 
-  describe('GET /api/memories/global', () => {
+  describe('GET /memories/global', () => {
     it('returns only global memories for a user', async () => {
       // Create a work item
       const wiResult = await pool.query(
@@ -258,7 +258,7 @@ describe('Unified Memory API (Issue #209)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/memories/global?user_email=test@example.com',
+        url: '/memories/global?user_email=test@example.com',
       });
 
       expect(res.statusCode).toBe(200);
@@ -270,7 +270,7 @@ describe('Unified Memory API (Issue #209)', () => {
     it('returns 200 without user_email (namespace scoping only)', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/memories/global',
+        url: '/memories/global',
       });
 
       // Epic #1418 Phase 4: user_email no longer required for memory routes
@@ -278,7 +278,7 @@ describe('Unified Memory API (Issue #209)', () => {
     });
   });
 
-  describe('POST /api/memories/:id/supersede', () => {
+  describe('POST /memories/:id/supersede', () => {
     it('supersedes a memory with a new one', async () => {
       // Create original memory
       const result = await pool.query(
@@ -290,7 +290,7 @@ describe('Unified Memory API (Issue #209)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/memories/${oldId}/supersede`,
+        url: `/memories/${oldId}/supersede`,
         payload: {
           title: 'New fact',
           content: 'Updated information',
@@ -312,7 +312,7 @@ describe('Unified Memory API (Issue #209)', () => {
     it('returns 404 for non-existent memory', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/memories/00000000-0000-0000-0000-000000000000/supersede',
+        url: '/memories/00000000-0000-0000-0000-000000000000/supersede',
         payload: {
           title: 'New',
           content: 'Content',
@@ -323,7 +323,7 @@ describe('Unified Memory API (Issue #209)', () => {
     });
   });
 
-  describe('DELETE /api/memories/cleanup-expired', () => {
+  describe('DELETE /memories/cleanup-expired', () => {
     it('deletes expired memories', async () => {
       // Create active and expired memories
       await pool.query(
@@ -337,7 +337,7 @@ describe('Unified Memory API (Issue #209)', () => {
 
       const res = await app.inject({
         method: 'DELETE',
-        url: '/api/memories/cleanup-expired',
+        url: '/memories/cleanup-expired',
       });
 
       expect(res.statusCode).toBe(200);

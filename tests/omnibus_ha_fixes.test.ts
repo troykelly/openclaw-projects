@@ -2,7 +2,7 @@
  * Omnibus HA bug fix tests.
  *
  * Covers:
- * - Bug #1900: GET /api/work-items status filter
+ * - Bug #1900: GET /work-items status filter
  * - Bug #1902: suggest-match namespace scoping
  * - Bug #1831: contact_get field rendering
  * - Bug #1831: namespace_members 'access' field
@@ -37,13 +37,13 @@ describe('Omnibus HA bug fixes', () => {
   });
 
   // ============================================================
-  // Bug #1900 — GET /api/work-items status filter
+  // Bug #1900 — GET /work-items status filter
   // ============================================================
-  describe('Bug #1900 — GET /api/work-items status filter', () => {
+  describe('Bug #1900 — GET /work-items status filter', () => {
     async function createWorkItem(title: string, kind: string = 'task'): Promise<string> {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: { title, kind },
       });
       expect(res.statusCode).toBe(201);
@@ -53,7 +53,7 @@ describe('Omnibus HA bug fixes', () => {
     async function setStatus(id: string, status: string): Promise<void> {
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${id}/status`,
+        url: `/work-items/${id}/status`,
         payload: { status },
       });
       expect(res.statusCode).toBe(200);
@@ -69,7 +69,7 @@ describe('Omnibus HA bug fixes', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/work-items?status=completed',
+        url: '/work-items?status=completed',
       });
 
       expect(res.statusCode).toBe(200);
@@ -88,7 +88,7 @@ describe('Omnibus HA bug fixes', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/work-items?status=open',
+        url: '/work-items?status=open',
       });
 
       expect(res.statusCode).toBe(200);
@@ -109,7 +109,7 @@ describe('Omnibus HA bug fixes', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/work-items?status=active',
+        url: '/work-items?status=active',
       });
 
       expect(res.statusCode).toBe(200);
@@ -132,7 +132,7 @@ describe('Omnibus HA bug fixes', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/work-items',
+        url: '/work-items',
       });
 
       expect(res.statusCode).toBe(200);
@@ -148,7 +148,7 @@ describe('Omnibus HA bug fixes', () => {
       // Using ?kind=task
       const resKind = await app.inject({
         method: 'GET',
-        url: '/api/work-items?kind=task',
+        url: '/work-items?kind=task',
       });
       expect(resKind.statusCode).toBe(200);
       const kindBody = resKind.json() as { items: Array<{ kind: string }> };
@@ -160,7 +160,7 @@ describe('Omnibus HA bug fixes', () => {
       // Using ?item_type=task should also work
       const resItemType = await app.inject({
         method: 'GET',
-        url: '/api/work-items?item_type=task',
+        url: '/work-items?item_type=task',
       });
       expect(resItemType.statusCode).toBe(200);
       const itemTypeBody = resItemType.json() as { items: Array<{ kind: string }> };
@@ -176,7 +176,7 @@ describe('Omnibus HA bug fixes', () => {
       // Create children via POST with parent_id
       const childRes = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: { title: 'Child task', kind: 'task', parent_id: parentId },
       });
       expect(childRes.statusCode).toBe(201);
@@ -186,7 +186,7 @@ describe('Omnibus HA bug fixes', () => {
       // Using ?parent_id=
       const resParentId = await app.inject({
         method: 'GET',
-        url: `/api/work-items?parent_id=${parentId}`,
+        url: `/work-items?parent_id=${parentId}`,
       });
       expect(resParentId.statusCode).toBe(200);
       const parentIdBody = resParentId.json() as { items: Array<{ parent_id: string }> };
@@ -196,7 +196,7 @@ describe('Omnibus HA bug fixes', () => {
       // Using ?parent_work_item_id= should also work
       const resLegacy = await app.inject({
         method: 'GET',
-        url: `/api/work-items?parent_work_item_id=${parentId}`,
+        url: `/work-items?parent_work_item_id=${parentId}`,
       });
       expect(resLegacy.statusCode).toBe(200);
       const legacyBody = resLegacy.json() as { items: Array<{ parent_id: string }> };
@@ -211,7 +211,7 @@ describe('Omnibus HA bug fixes', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/work-items?limit=2',
+        url: '/work-items?limit=2',
       });
 
       expect(res.statusCode).toBe(200);
@@ -242,7 +242,7 @@ describe('Omnibus HA bug fixes', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/contacts/suggest-match?email=match-test@example.com',
+        url: '/contacts/suggest-match?email=match-test@example.com',
       });
 
       expect(res.statusCode).toBe(200);
@@ -279,7 +279,7 @@ describe('Omnibus HA bug fixes', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/contacts/suggest-match?phone=%2B61400999888',
+        url: '/contacts/suggest-match?phone=%2B61400999888',
       });
 
       expect(res.statusCode).toBe(200);
@@ -301,7 +301,7 @@ describe('Omnibus HA bug fixes', () => {
     it('returns empty matches when no data matches', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/contacts/suggest-match?email=no-one-here@nonexistent.example',
+        url: '/contacts/suggest-match?email=no-one-here@nonexistent.example',
       });
 
       expect(res.statusCode).toBe(200);
@@ -314,11 +314,11 @@ describe('Omnibus HA bug fixes', () => {
   // Bug #1831 — contact_get field rendering
   // ============================================================
   describe('Bug #1831 — contact_get field rendering', () => {
-    it('returns display_name and endpoints on GET /api/contacts/:id', async () => {
+    it('returns display_name and endpoints on GET /contacts/:id', async () => {
       // Create contact with display_name
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: { display_name: 'Field Render Test' },
       });
       expect(createRes.statusCode).toBe(201);
@@ -327,20 +327,20 @@ describe('Omnibus HA bug fixes', () => {
       // Add email endpoint
       await app.inject({
         method: 'POST',
-        url: `/api/contacts/${id}/endpoints`,
+        url: `/contacts/${id}/endpoints`,
         payload: { type: 'email', value: 'fieldtest@example.com' },
       });
 
       // Add phone endpoint
       await app.inject({
         method: 'POST',
-        url: `/api/contacts/${id}/endpoints`,
+        url: `/contacts/${id}/endpoints`,
         payload: { type: 'phone', value: '+15559876543' },
       });
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/contacts/${id}`,
+        url: `/contacts/${id}`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -366,7 +366,7 @@ describe('Omnibus HA bug fixes', () => {
     it('returns proper name fields for contact with given_name/family_name', async () => {
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: {
           display_name: 'Jane Doe',
           given_name: 'Jane',
@@ -378,7 +378,7 @@ describe('Omnibus HA bug fixes', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/contacts/${id}`,
+        url: `/contacts/${id}`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -415,7 +415,7 @@ describe('Omnibus HA bug fixes', () => {
       const headers = await getAuthHeaders(TEST_EMAIL);
       const res = await app.inject({
         method: 'GET',
-        url: '/api/namespaces/default',
+        url: '/namespaces/default',
         headers,
       });
 
@@ -445,7 +445,7 @@ describe('Omnibus HA bug fixes', () => {
     it('returns 400 when state is invalid', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/oauth/callback?code=fake_code&state=invalid_state_value',
+        url: '/oauth/callback?code=fake_code&state=invalid_state_value',
       });
 
       expect(res.statusCode).toBe(400);
@@ -457,7 +457,7 @@ describe('Omnibus HA bug fixes', () => {
     it('returns 400 when state param is missing', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/oauth/callback?code=fake_code',
+        url: '/oauth/callback?code=fake_code',
       });
 
       expect(res.statusCode).toBe(400);
@@ -468,7 +468,7 @@ describe('Omnibus HA bug fixes', () => {
     it('returns 400 when error param is present', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/oauth/callback?error=access_denied',
+        url: '/oauth/callback?error=access_denied',
       });
 
       expect(res.statusCode).toBe(400);

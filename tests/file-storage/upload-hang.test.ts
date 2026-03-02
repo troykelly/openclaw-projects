@@ -1,5 +1,5 @@
 /**
- * Test for Issue #1136: File upload to /api/files/upload hangs indefinitely
+ * Test for Issue #1136: File upload to /files/upload hangs indefinitely
  */
 
 import { describe, it, expect, beforeEach, afterEach, beforeAll, vi } from 'vitest';
@@ -91,7 +91,7 @@ describe('Issue #1136 - File Upload Hang', () => {
 
     const response = await app.inject({
       method: 'POST',
-      url: '/api/files/upload',
+      url: '/files/upload',
       headers: {
         'content-type': `multipart/form-data; boundary=----${boundary}`,
       },
@@ -115,7 +115,7 @@ describe('Issue #1136 - File Upload Hang', () => {
   it('should handle empty upload request without hanging', async () => {
     const response = await app.inject({
       method: 'POST',
-      url: '/api/files/upload',
+      url: '/files/upload',
       headers: {
         'content-type': 'multipart/form-data; boundary=----test',
       },
@@ -130,7 +130,7 @@ describe('Issue #1136 - File Upload Hang', () => {
   it('should handle malformed multipart request without hanging', async () => {
     const response = await app.inject({
       method: 'POST',
-      url: '/api/files/upload',
+      url: '/files/upload',
       headers: {
         'content-type': 'multipart/form-data; boundary=----test',
       },

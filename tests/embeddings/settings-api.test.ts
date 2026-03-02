@@ -55,11 +55,11 @@ describe('Embedding Settings API Endpoints', () => {
     await app.close();
   });
 
-  describe('GET /api/settings/embeddings', () => {
+  describe('GET /settings/embeddings', () => {
     it('returns embedding settings', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/settings/embeddings',
+        url: '/settings/embeddings',
       });
 
       expect(response.statusCode).toBe(200);
@@ -78,7 +78,7 @@ describe('Embedding Settings API Endpoints', () => {
     it('includes current provider status', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/settings/embeddings',
+        url: '/settings/embeddings',
       });
 
       const body = response.json();
@@ -97,7 +97,7 @@ describe('Embedding Settings API Endpoints', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: '/api/settings/embeddings',
+        url: '/settings/embeddings',
       });
 
       const body = response.json();
@@ -107,11 +107,11 @@ describe('Embedding Settings API Endpoints', () => {
     });
   });
 
-  describe('PATCH /api/settings/embeddings', () => {
+  describe('PATCH /settings/embeddings', () => {
     it('updates daily limit', async () => {
       const response = await app.inject({
         method: 'PATCH',
-        url: '/api/settings/embeddings',
+        url: '/settings/embeddings',
         payload: { daily_limit_usd: 25 },
       });
 
@@ -123,7 +123,7 @@ describe('Embedding Settings API Endpoints', () => {
     it('updates monthly limit', async () => {
       const response = await app.inject({
         method: 'PATCH',
-        url: '/api/settings/embeddings',
+        url: '/settings/embeddings',
         payload: { monthly_limit_usd: 250 },
       });
 
@@ -135,7 +135,7 @@ describe('Embedding Settings API Endpoints', () => {
     it('updates pause on limit', async () => {
       const response = await app.inject({
         method: 'PATCH',
-        url: '/api/settings/embeddings',
+        url: '/settings/embeddings',
         payload: { pause_on_limit: false },
       });
 
@@ -147,7 +147,7 @@ describe('Embedding Settings API Endpoints', () => {
     it('updates multiple fields', async () => {
       const response = await app.inject({
         method: 'PATCH',
-        url: '/api/settings/embeddings',
+        url: '/settings/embeddings',
         payload: {
           daily_limit_usd: 50,
           monthly_limit_usd: 500,
@@ -165,7 +165,7 @@ describe('Embedding Settings API Endpoints', () => {
     it('rejects invalid daily limit', async () => {
       const response = await app.inject({
         method: 'PATCH',
-        url: '/api/settings/embeddings',
+        url: '/settings/embeddings',
         payload: { daily_limit_usd: -5 },
       });
 
@@ -175,7 +175,7 @@ describe('Embedding Settings API Endpoints', () => {
     it('rejects daily limit over maximum', async () => {
       const response = await app.inject({
         method: 'PATCH',
-        url: '/api/settings/embeddings',
+        url: '/settings/embeddings',
         payload: { daily_limit_usd: 50000 },
       });
 
@@ -185,7 +185,7 @@ describe('Embedding Settings API Endpoints', () => {
     it('rejects invalid monthly limit', async () => {
       const response = await app.inject({
         method: 'PATCH',
-        url: '/api/settings/embeddings',
+        url: '/settings/embeddings',
         payload: { monthly_limit_usd: -10 },
       });
 
@@ -193,12 +193,12 @@ describe('Embedding Settings API Endpoints', () => {
     });
   });
 
-  describe('POST /api/settings/embeddings/test', () => {
+  describe('POST /settings/embeddings/test', () => {
     it('returns test result structure', async () => {
       // Note: This will likely fail in tests without real API key
       const response = await app.inject({
         method: 'POST',
-        url: '/api/settings/embeddings/test',
+        url: '/settings/embeddings/test',
       });
 
       expect(response.statusCode).toBe(200);

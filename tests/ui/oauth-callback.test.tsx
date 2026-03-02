@@ -186,7 +186,7 @@ describe('OAuthCallbackPage', () => {
 
     await waitFor(() => {
       expect(fetchSpy).toHaveBeenCalledWith(
-        '/api/oauth/callback?code=my-code&state=my-state',
+        '/oauth/callback?code=my-code&state=my-state',
         expect.objectContaining({ signal: expect.any(AbortSignal) }),
       );
     });

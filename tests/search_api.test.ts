@@ -29,11 +29,11 @@ describe('Search API', () => {
     await pool.end();
   });
 
-  describe('GET /api/search', () => {
+  describe('GET /search', () => {
     it('returns empty results when no data exists', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/search?q=test',
+        url: '/search?q=test',
       });
 
       expect(res.statusCode).toBe(200);
@@ -45,7 +45,7 @@ describe('Search API', () => {
     it('returns results for empty query', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/search',
+        url: '/search',
       });
 
       expect(res.statusCode).toBe(200);
@@ -63,7 +63,7 @@ describe('Search API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/search?q=feature+request',
+        url: '/search?q=feature+request',
       });
 
       expect(res.statusCode).toBe(200);
@@ -81,7 +81,7 @@ describe('Search API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/search?q=login+page+crashes',
+        url: '/search?q=login+page+crashes',
       });
 
       expect(res.statusCode).toBe(200);
@@ -98,7 +98,7 @@ describe('Search API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/search?q=john+smith',
+        url: '/search?q=john+smith',
       });
 
       expect(res.statusCode).toBe(200);
@@ -116,7 +116,7 @@ describe('Search API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/search?q=tiny+house+manager',
+        url: '/search?q=tiny+house+manager',
       });
 
       expect(res.statusCode).toBe(200);
@@ -138,7 +138,7 @@ describe('Search API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/search?q=test&types=work_item',
+        url: '/search?q=test&types=work_item',
       });
 
       expect(res.statusCode).toBe(200);
@@ -159,7 +159,7 @@ describe('Search API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/search?q=test&types=contact',
+        url: '/search?q=test&types=contact',
       });
 
       expect(res.statusCode).toBe(200);
@@ -180,7 +180,7 @@ describe('Search API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/search?q=test&types=work_item,contact',
+        url: '/search?q=test&types=work_item,contact',
       });
 
       expect(res.statusCode).toBe(200);
@@ -205,7 +205,7 @@ describe('Search API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/search?q=test',
+        url: '/search?q=test',
       });
 
       expect(res.statusCode).toBe(200);
@@ -230,7 +230,7 @@ describe('Search API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/search?q=test&limit=3',
+        url: '/search?q=test&limit=3',
       });
 
       expect(res.statusCode).toBe(200);
@@ -246,7 +246,7 @@ describe('Search API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/search?q=uppercase+title',
+        url: '/search?q=uppercase+title',
       });
 
       expect(res.statusCode).toBe(200);
@@ -263,7 +263,7 @@ describe('Search API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/search?q=feature+request',
+        url: '/search?q=feature+request',
       });
 
       expect(res.statusCode).toBe(200);
@@ -284,7 +284,7 @@ describe('Search API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/search?q=search',
+        url: '/search?q=search',
       });
 
       expect(res.statusCode).toBe(200);
@@ -301,7 +301,7 @@ describe('Search API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/search?q=test',
+        url: '/search?q=test',
       });
 
       expect(res.statusCode).toBe(200);

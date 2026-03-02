@@ -13,7 +13,7 @@ import { registerCors } from './cors.ts';
 async function buildCorsApp() {
   const app = Fastify();
   registerCors(app);
-  app.get('/api/test', async () => ({ ok: true }));
+  app.get('/test', async () => ({ ok: true }));
   await app.ready();
   return app;
 }
@@ -46,7 +46,7 @@ describe('CORS configuration (Issue #1327)', () => {
 
       const res = await app.inject({
         method: 'OPTIONS',
-        url: '/api/test',
+        url: '/test',
         headers: {
           origin: 'https://app.example.com',
           'access-control-request-method': 'GET',
@@ -77,7 +77,7 @@ describe('CORS configuration (Issue #1327)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/test',
+        url: '/test',
         headers: { origin: 'https://app.example.com' },
       });
 
@@ -95,7 +95,7 @@ describe('CORS configuration (Issue #1327)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/test',
+        url: '/test',
         headers: { origin: 'https://evil.example.com' },
       });
 
@@ -114,7 +114,7 @@ describe('CORS configuration (Issue #1327)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/test',
+        url: '/test',
         // No origin header
       });
 
@@ -132,14 +132,14 @@ describe('CORS configuration (Issue #1327)', () => {
 
       const res1 = await app.inject({
         method: 'GET',
-        url: '/api/test',
+        url: '/test',
         headers: { origin: 'https://app.example.com' },
       });
       expect(res1.headers['access-control-allow-origin']).toBe('https://app.example.com');
 
       const res2 = await app.inject({
         method: 'GET',
-        url: '/api/test',
+        url: '/test',
         headers: { origin: 'https://admin.example.com' },
       });
       expect(res2.headers['access-control-allow-origin']).toBe('https://admin.example.com');
@@ -153,7 +153,7 @@ describe('CORS configuration (Issue #1327)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/test',
+        url: '/test',
         headers: { origin: 'https://evil.example.com' },
       });
       expect(res.headers['access-control-allow-origin']).toBeUndefined();
@@ -169,7 +169,7 @@ describe('CORS configuration (Issue #1327)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/test',
+        url: '/test',
         headers: { origin: 'https://app.example.com' },
       });
 
@@ -187,7 +187,7 @@ describe('CORS configuration (Issue #1327)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/test',
+        url: '/test',
         headers: { origin: 'http://localhost:3000' },
       });
 
@@ -202,12 +202,12 @@ describe('CORS configuration (Issue #1327)', () => {
       process.env.PUBLIC_BASE_URL = 'https://app.example.com';
       const app = Fastify();
       registerCors(app);
-      app.post('/api/fail', async (_req, reply) => reply.code(502).send({ error: 'Bad Gateway' }));
+      app.post('/fail', async (_req, reply) => reply.code(502).send({ error: 'Bad Gateway' }));
       await app.ready();
 
       const res = await app.inject({
         method: 'POST',
-        url: '/api/fail',
+        url: '/fail',
         headers: { origin: 'https://app.example.com' },
         payload: {},
       });
@@ -223,12 +223,12 @@ describe('CORS configuration (Issue #1327)', () => {
       process.env.PUBLIC_BASE_URL = 'https://app.example.com';
       const app = Fastify();
       registerCors(app);
-      app.get('/api/error', async (_req, reply) => reply.code(500).send({ error: 'Internal Server Error' }));
+      app.get('/error', async (_req, reply) => reply.code(500).send({ error: 'Internal Server Error' }));
       await app.ready();
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/error',
+        url: '/error',
         headers: { origin: 'https://app.example.com' },
       });
 
@@ -247,7 +247,7 @@ describe('CORS configuration (Issue #1327)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/test',
+        url: '/test',
         headers: { origin: 'https://app.example.com' },
       });
 
@@ -268,7 +268,7 @@ describe('CORS configuration (Issue #1327)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/test',
+        url: '/test',
         headers: { origin: 'https://app.example.com' },
       });
 
@@ -287,7 +287,7 @@ describe('CORS configuration (Issue #1327)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/test',
+        url: '/test',
         headers: { origin: 'https://app.example.com' },
       });
 
@@ -304,7 +304,7 @@ describe('CORS configuration (Issue #1327)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/test',
+        url: '/test',
         headers: { origin: 'https://app.example.com' },
       });
 

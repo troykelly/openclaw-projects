@@ -118,10 +118,10 @@ const mockActivityData: ActivityResponse = {
 
 const mockApiClient = {
   get: vi.fn().mockImplementation((path: string) => {
-    if (path.includes('/api/work-items')) {
+    if (path.includes('/work-items')) {
       return Promise.resolve({ items: mockWorkItems } as WorkItemsResponse);
     }
-    if (path.includes('/api/activity')) {
+    if (path.includes('/activity')) {
       return Promise.resolve(mockActivityData);
     }
     return Promise.reject(new Error('Unknown endpoint'));
@@ -187,10 +187,10 @@ describe('DashboardPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockApiClient.get.mockImplementation((path: string) => {
-      if (path.includes('/api/work-items')) {
+      if (path.includes('/work-items')) {
         return Promise.resolve({ items: mockWorkItems } as WorkItemsResponse);
       }
-      if (path.includes('/api/activity')) {
+      if (path.includes('/activity')) {
         return Promise.resolve(mockActivityData);
       }
       return Promise.reject(new Error('Unknown endpoint'));
@@ -294,10 +294,10 @@ describe('DashboardPage', () => {
 
     it('shows empty state when no tasks', async () => {
       mockApiClient.get.mockImplementation((path: string) => {
-        if (path.includes('/api/work-items')) {
+        if (path.includes('/work-items')) {
           return Promise.resolve({ items: [] } as WorkItemsResponse);
         }
-        if (path.includes('/api/activity')) {
+        if (path.includes('/activity')) {
           return Promise.resolve({ items: [] });
         }
         return Promise.reject(new Error('Unknown endpoint'));
@@ -360,10 +360,10 @@ describe('DashboardPage', () => {
 
     it('shows empty state when no upcoming items', async () => {
       mockApiClient.get.mockImplementation((path: string) => {
-        if (path.includes('/api/work-items')) {
+        if (path.includes('/work-items')) {
           return Promise.resolve({ items: [] } as WorkItemsResponse);
         }
-        if (path.includes('/api/activity')) {
+        if (path.includes('/activity')) {
           return Promise.resolve({ items: [] });
         }
         return Promise.reject(new Error('Unknown endpoint'));
@@ -400,10 +400,10 @@ describe('DashboardPage', () => {
 
     it('shows empty state when no activity', async () => {
       mockApiClient.get.mockImplementation((path: string) => {
-        if (path.includes('/api/work-items')) {
+        if (path.includes('/work-items')) {
           return Promise.resolve({ items: [] } as WorkItemsResponse);
         }
-        if (path.includes('/api/activity')) {
+        if (path.includes('/activity')) {
           return Promise.resolve({ items: [] });
         }
         return Promise.reject(new Error('Unknown endpoint'));

@@ -117,7 +117,7 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
     await pool.end();
   });
 
-  describe('POST /api/relationships', () => {
+  describe('POST /relationships', () => {
     it('creates a relationship between two contacts', async () => {
       const aliceId = await createContactDirect(pool, 'Alice');
       const bobId = await createContactDirect(pool, 'Bob');
@@ -125,7 +125,7 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: '/api/relationships',
+        url: '/relationships',
         payload: {
           contact_a_id: aliceId,
           contact_b_id: bobId,
@@ -150,7 +150,7 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: '/api/relationships',
+        url: '/relationships',
         payload: {
           contact_b_id: bobId,
           relationship_type_id: friendTypeId,
@@ -166,7 +166,7 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: '/api/relationships',
+        url: '/relationships',
         payload: {
           contact_a_id: aliceId,
           relationship_type_id: friendTypeId,
@@ -182,7 +182,7 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: '/api/relationships',
+        url: '/relationships',
         payload: {
           contact_a_id: aliceId,
           contact_b_id: bobId,
@@ -199,7 +199,7 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
 
       await app.inject({
         method: 'POST',
-        url: '/api/relationships',
+        url: '/relationships',
         payload: {
           contact_a_id: aliceId,
           contact_b_id: bobId,
@@ -209,7 +209,7 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: '/api/relationships',
+        url: '/relationships',
         payload: {
           contact_a_id: aliceId,
           contact_b_id: bobId,
@@ -221,7 +221,7 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
     });
   });
 
-  describe('GET /api/relationships/:id', () => {
+  describe('GET /relationships/:id', () => {
     it('returns a relationship with details', async () => {
       const aliceId = await createContactDirect(pool, 'Alice');
       const bobId = await createContactDirect(pool, 'Bob');
@@ -229,7 +229,7 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
 
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/relationships',
+        url: '/relationships',
         payload: {
           contact_a_id: aliceId,
           contact_b_id: bobId,
@@ -240,7 +240,7 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/relationships/${relId}`,
+        url: `/relationships/${relId}`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -254,14 +254,14 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
     it('returns 404 for non-existent ID', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/relationships/00000000-0000-0000-0000-000000000000',
+        url: '/relationships/00000000-0000-0000-0000-000000000000',
       });
 
       expect(res.statusCode).toBe(404);
     });
   });
 
-  describe('PATCH /api/relationships/:id', () => {
+  describe('PATCH /relationships/:id', () => {
     it('updates relationship notes', async () => {
       const aliceId = await createContactDirect(pool, 'Alice');
       const bobId = await createContactDirect(pool, 'Bob');
@@ -269,7 +269,7 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
 
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/relationships',
+        url: '/relationships',
         payload: {
           contact_a_id: aliceId,
           contact_b_id: bobId,
@@ -281,7 +281,7 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
 
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/relationships/${relId}`,
+        url: `/relationships/${relId}`,
         payload: { notes: 'Updated notes' },
       });
 
@@ -292,7 +292,7 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
     it('returns 404 for non-existent ID', async () => {
       const res = await app.inject({
         method: 'PATCH',
-        url: '/api/relationships/00000000-0000-0000-0000-000000000000',
+        url: '/relationships/00000000-0000-0000-0000-000000000000',
         payload: { notes: 'Nope' },
       });
 
@@ -300,7 +300,7 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
     });
   });
 
-  describe('DELETE /api/relationships/:id', () => {
+  describe('DELETE /relationships/:id', () => {
     it('deletes a relationship', async () => {
       const aliceId = await createContactDirect(pool, 'Alice');
       const bobId = await createContactDirect(pool, 'Bob');
@@ -308,7 +308,7 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
 
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/relationships',
+        url: '/relationships',
         payload: {
           contact_a_id: aliceId,
           contact_b_id: bobId,
@@ -319,7 +319,7 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
 
       const res = await app.inject({
         method: 'DELETE',
-        url: `/api/relationships/${relId}`,
+        url: `/relationships/${relId}`,
       });
 
       expect(res.statusCode).toBe(204);
@@ -327,7 +327,7 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
       // Verify it's gone
       const getRes = await app.inject({
         method: 'GET',
-        url: `/api/relationships/${relId}`,
+        url: `/relationships/${relId}`,
       });
       expect(getRes.statusCode).toBe(404);
     });
@@ -335,14 +335,14 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
     it('returns 404 for non-existent ID', async () => {
       const res = await app.inject({
         method: 'DELETE',
-        url: '/api/relationships/00000000-0000-0000-0000-000000000000',
+        url: '/relationships/00000000-0000-0000-0000-000000000000',
       });
 
       expect(res.statusCode).toBe(404);
     });
   });
 
-  describe('GET /api/relationships', () => {
+  describe('GET /relationships', () => {
     it('lists all relationships', async () => {
       const aliceId = await createContactDirect(pool, 'Alice');
       const bobId = await createContactDirect(pool, 'Bob');
@@ -350,7 +350,7 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
 
       await app.inject({
         method: 'POST',
-        url: '/api/relationships',
+        url: '/relationships',
         payload: {
           contact_a_id: aliceId,
           contact_b_id: bobId,
@@ -360,7 +360,7 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/relationships',
+        url: '/relationships',
       });
 
       expect(res.statusCode).toBe(200);
@@ -377,18 +377,18 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
 
       await app.inject({
         method: 'POST',
-        url: '/api/relationships',
+        url: '/relationships',
         payload: { contact_a_id: aliceId, contact_b_id: bobId, relationship_type_id: friendTypeId },
       });
       await app.inject({
         method: 'POST',
-        url: '/api/relationships',
+        url: '/relationships',
         payload: { contact_a_id: bobId, contact_b_id: charlieId, relationship_type_id: friendTypeId },
       });
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/relationships',
+        url: '/relationships',
         query: { contact_id: bobId },
       });
 
@@ -405,18 +405,18 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
 
       await app.inject({
         method: 'POST',
-        url: '/api/relationships',
+        url: '/relationships',
         payload: { contact_a_id: aliceId, contact_b_id: bobId, relationship_type_id: friendTypeId },
       });
       await app.inject({
         method: 'POST',
-        url: '/api/relationships',
+        url: '/relationships',
         payload: { contact_a_id: aliceId, contact_b_id: charlieId, relationship_type_id: colleagueTypeId },
       });
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/relationships',
+        url: '/relationships',
         query: { limit: '1', offset: '0' },
       });
 
@@ -427,7 +427,7 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
     });
   });
 
-  describe('GET /api/contacts/:id/relationships', () => {
+  describe('GET /contacts/:id/relationships', () => {
     it('returns graph traversal for a contact', async () => {
       const aliceId = await createContactDirect(pool, 'Alice');
       const bobId = await createContactDirect(pool, 'Bob');
@@ -435,7 +435,7 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
 
       await app.inject({
         method: 'POST',
-        url: '/api/relationships',
+        url: '/relationships',
         payload: {
           contact_a_id: aliceId,
           contact_b_id: bobId,
@@ -445,7 +445,7 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/contacts/${aliceId}/relationships`,
+        url: `/contacts/${aliceId}/relationships`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -463,7 +463,7 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
 
       await app.inject({
         method: 'POST',
-        url: '/api/relationships',
+        url: '/relationships',
         payload: {
           contact_a_id: parent_id,
           contact_b_id: childId,
@@ -474,7 +474,7 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
       // From child's perspective: should show "child_of Parent"
       const res = await app.inject({
         method: 'GET',
-        url: `/api/contacts/${childId}/relationships`,
+        url: `/contacts/${childId}/relationships`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -485,7 +485,7 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
     });
   });
 
-  describe('GET /api/contacts/:id/groups', () => {
+  describe('GET /contacts/:id/groups', () => {
     it('returns groups the contact belongs to', async () => {
       const group_id = await createContactDirect(pool, 'Team', 'group');
       const aliceId = await createContactDirect(pool, 'Alice');
@@ -493,7 +493,7 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
 
       await app.inject({
         method: 'POST',
-        url: '/api/relationships',
+        url: '/relationships',
         payload: {
           contact_a_id: group_id,
           contact_b_id: aliceId,
@@ -503,7 +503,7 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/contacts/${aliceId}/groups`,
+        url: `/contacts/${aliceId}/groups`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -513,7 +513,7 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
     });
   });
 
-  describe('GET /api/contacts/:id/members', () => {
+  describe('GET /contacts/:id/members', () => {
     it('returns members of a group contact', async () => {
       const group_id = await createContactDirect(pool, 'Team', 'group');
       const aliceId = await createContactDirect(pool, 'Alice');
@@ -522,7 +522,7 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
 
       await app.inject({
         method: 'POST',
-        url: '/api/relationships',
+        url: '/relationships',
         payload: {
           contact_a_id: group_id,
           contact_b_id: aliceId,
@@ -531,7 +531,7 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
       });
       await app.inject({
         method: 'POST',
-        url: '/api/relationships',
+        url: '/relationships',
         payload: {
           contact_a_id: group_id,
           contact_b_id: bobId,
@@ -541,7 +541,7 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/contacts/${group_id}/members`,
+        url: `/contacts/${group_id}/members`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -553,14 +553,14 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
     });
   });
 
-  describe('POST /api/relationships/set', () => {
+  describe('POST /relationships/set', () => {
     it('creates relationship via smart creation', async () => {
       await createContactDirect(pool, 'Alice');
       await createContactDirect(pool, 'Bob');
 
       const res = await app.inject({
         method: 'POST',
-        url: '/api/relationships/set',
+        url: '/relationships/set',
         payload: {
           contact_a: 'Alice',
           contact_b: 'Bob',
@@ -581,7 +581,7 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
     it('returns 400 when contact_a is missing', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/relationships/set',
+        url: '/relationships/set',
         payload: {
           contact_b: 'Bob',
           relationship_type: 'friend_of',
@@ -596,7 +596,7 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: '/api/relationships/set',
+        url: '/relationships/set',
         payload: {
           contact_a: 'Alice',
           contact_b: 'NonexistentPerson',

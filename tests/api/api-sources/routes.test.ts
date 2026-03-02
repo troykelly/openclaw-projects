@@ -48,11 +48,11 @@ describe('API Sources Routes', () => {
 
   // ── API Source CRUD ─────────────────────────────────────────────
 
-  describe('POST /api/api-sources', () => {
+  describe('POST /api-sources', () => {
     it('creates a new API source', async () => {
       const res = await app.inject(injectOpts({
         method: 'POST',
-        url: '/api/api-sources',
+        url: '/api-sources',
         payload: {
           name: 'Petstore API',
           description: 'A sample pet API',
@@ -70,7 +70,7 @@ describe('API Sources Routes', () => {
     it('rejects missing name', async () => {
       const res = await app.inject(injectOpts({
         method: 'POST',
-        url: '/api/api-sources',
+        url: '/api-sources',
         payload: { description: 'No name' },
       }));
 
@@ -78,22 +78,22 @@ describe('API Sources Routes', () => {
     });
   });
 
-  describe('GET /api/api-sources', () => {
+  describe('GET /api-sources', () => {
     it('lists API sources', async () => {
       await app.inject(injectOpts({
         method: 'POST',
-        url: '/api/api-sources',
+        url: '/api-sources',
         payload: { name: 'API 1' },
       }));
       await app.inject(injectOpts({
         method: 'POST',
-        url: '/api/api-sources',
+        url: '/api-sources',
         payload: { name: 'API 2' },
       }));
 
       const res = await app.inject(injectOpts({
         method: 'GET',
-        url: '/api/api-sources',
+        url: '/api-sources',
       }));
 
       expect(res.statusCode).toBe(200);
@@ -104,19 +104,19 @@ describe('API Sources Routes', () => {
     it('excludes soft-deleted sources', async () => {
       const createRes = await app.inject(injectOpts({
         method: 'POST',
-        url: '/api/api-sources',
+        url: '/api-sources',
         payload: { name: 'To Delete' },
       }));
       const { id } = (createRes.json() as { data: { id: string } }).data;
 
       await app.inject(injectOpts({
         method: 'DELETE',
-        url: `/api/api-sources/${id}`,
+        url: `/api-sources/${id}`,
       }));
 
       const res = await app.inject(injectOpts({
         method: 'GET',
-        url: '/api/api-sources',
+        url: '/api-sources',
       }));
 
       expect(res.statusCode).toBe(200);
@@ -125,18 +125,18 @@ describe('API Sources Routes', () => {
     });
   });
 
-  describe('GET /api/api-sources/:id', () => {
+  describe('GET /api-sources/:id', () => {
     it('returns a single API source', async () => {
       const createRes = await app.inject(injectOpts({
         method: 'POST',
-        url: '/api/api-sources',
+        url: '/api-sources',
         payload: { name: 'Test Get' },
       }));
       const { id } = (createRes.json() as { data: { id: string } }).data;
 
       const res = await app.inject(injectOpts({
         method: 'GET',
-        url: `/api/api-sources/${id}`,
+        url: `/api-sources/${id}`,
       }));
 
       expect(res.statusCode).toBe(200);
@@ -148,7 +148,7 @@ describe('API Sources Routes', () => {
     it('returns 404 for non-existent source', async () => {
       const res = await app.inject(injectOpts({
         method: 'GET',
-        url: '/api/api-sources/00000000-0000-0000-0000-000000000000',
+        url: '/api-sources/00000000-0000-0000-0000-000000000000',
       }));
 
       expect(res.statusCode).toBe(404);
@@ -157,25 +157,25 @@ describe('API Sources Routes', () => {
     it('returns 400 for invalid UUID', async () => {
       const res = await app.inject(injectOpts({
         method: 'GET',
-        url: '/api/api-sources/not-a-uuid',
+        url: '/api-sources/not-a-uuid',
       }));
 
       expect(res.statusCode).toBe(400);
     });
   });
 
-  describe('PATCH /api/api-sources/:id', () => {
+  describe('PATCH /api-sources/:id', () => {
     it('updates an API source', async () => {
       const createRes = await app.inject(injectOpts({
         method: 'POST',
-        url: '/api/api-sources',
+        url: '/api-sources',
         payload: { name: 'Original' },
       }));
       const { id } = (createRes.json() as { data: { id: string } }).data;
 
       const res = await app.inject(injectOpts({
         method: 'PATCH',
-        url: `/api/api-sources/${id}`,
+        url: `/api-sources/${id}`,
         payload: { name: 'Updated', tags: ['new-tag'] },
       }));
 
@@ -188,7 +188,7 @@ describe('API Sources Routes', () => {
     it('returns 404 for non-existent source', async () => {
       const res = await app.inject(injectOpts({
         method: 'PATCH',
-        url: '/api/api-sources/00000000-0000-0000-0000-000000000000',
+        url: '/api-sources/00000000-0000-0000-0000-000000000000',
         payload: { name: 'Nope' },
       }));
 
@@ -196,18 +196,18 @@ describe('API Sources Routes', () => {
     });
   });
 
-  describe('DELETE /api/api-sources/:id', () => {
+  describe('DELETE /api-sources/:id', () => {
     it('soft deletes an API source', async () => {
       const createRes = await app.inject(injectOpts({
         method: 'POST',
-        url: '/api/api-sources',
+        url: '/api-sources',
         payload: { name: 'To Delete' },
       }));
       const { id } = (createRes.json() as { data: { id: string } }).data;
 
       const res = await app.inject(injectOpts({
         method: 'DELETE',
-        url: `/api/api-sources/${id}`,
+        url: `/api-sources/${id}`,
       }));
 
       expect(res.statusCode).toBe(204);
@@ -215,29 +215,29 @@ describe('API Sources Routes', () => {
       // Verify it's gone from list
       const listRes = await app.inject(injectOpts({
         method: 'GET',
-        url: '/api/api-sources',
+        url: '/api-sources',
       }));
       const body = listRes.json() as { data: unknown[] };
       expect(body.data).toHaveLength(0);
     });
   });
 
-  describe('POST /api/api-sources/:id/restore', () => {
+  describe('POST /api-sources/:id/restore', () => {
     it('restores a soft-deleted source', async () => {
       const createRes = await app.inject(injectOpts({
         method: 'POST',
-        url: '/api/api-sources',
+        url: '/api-sources',
         payload: { name: 'To Restore' },
       }));
       const { id } = (createRes.json() as { data: { id: string } }).data;
 
       // Soft delete
-      await app.inject(injectOpts({ method: 'DELETE', url: `/api/api-sources/${id}` }));
+      await app.inject(injectOpts({ method: 'DELETE', url: `/api-sources/${id}` }));
 
       // Restore
       const res = await app.inject(injectOpts({
         method: 'POST',
-        url: `/api/api-sources/${id}/restore`,
+        url: `/api-sources/${id}/restore`,
       }));
 
       expect(res.statusCode).toBe(200);
@@ -247,7 +247,7 @@ describe('API Sources Routes', () => {
       // Verify it's back in list
       const listRes = await app.inject(injectOpts({
         method: 'GET',
-        url: '/api/api-sources',
+        url: '/api-sources',
       }));
       const listBody = listRes.json() as { data: unknown[] };
       expect(listBody.data).toHaveLength(1);
@@ -262,7 +262,7 @@ describe('API Sources Routes', () => {
     beforeEach(async () => {
       const createRes = await app.inject(injectOpts({
         method: 'POST',
-        url: '/api/api-sources',
+        url: '/api-sources',
         payload: { name: 'Cred Test API' },
       }));
       apiSourceId = (createRes.json() as { data: { id: string } }).data.id;
@@ -271,7 +271,7 @@ describe('API Sources Routes', () => {
     it('creates a credential and returns plaintext reference', async () => {
       const res = await app.inject(injectOpts({
         method: 'POST',
-        url: `/api/api-sources/${apiSourceId}/credentials`,
+        url: `/api-sources/${apiSourceId}/credentials`,
         payload: {
           header_name: 'Authorization',
           header_prefix: 'Bearer',
@@ -289,7 +289,7 @@ describe('API Sources Routes', () => {
     it('lists credentials with masked values by default', async () => {
       await app.inject(injectOpts({
         method: 'POST',
-        url: `/api/api-sources/${apiSourceId}/credentials`,
+        url: `/api-sources/${apiSourceId}/credentials`,
         payload: {
           header_name: 'Authorization',
           resolve_strategy: 'literal',
@@ -299,7 +299,7 @@ describe('API Sources Routes', () => {
 
       const res = await app.inject(injectOpts({
         method: 'GET',
-        url: `/api/api-sources/${apiSourceId}/credentials`,
+        url: `/api-sources/${apiSourceId}/credentials`,
       }));
 
       expect(res.statusCode).toBe(200);
@@ -312,7 +312,7 @@ describe('API Sources Routes', () => {
     it('lists credentials with decrypted values when decrypt=true', async () => {
       await app.inject(injectOpts({
         method: 'POST',
-        url: `/api/api-sources/${apiSourceId}/credentials`,
+        url: `/api-sources/${apiSourceId}/credentials`,
         payload: {
           header_name: 'Authorization',
           resolve_strategy: 'literal',
@@ -322,7 +322,7 @@ describe('API Sources Routes', () => {
 
       const res = await app.inject(injectOpts({
         method: 'GET',
-        url: `/api/api-sources/${apiSourceId}/credentials?decrypt=true`,
+        url: `/api-sources/${apiSourceId}/credentials?decrypt=true`,
       }));
 
       expect(res.statusCode).toBe(200);
@@ -333,7 +333,7 @@ describe('API Sources Routes', () => {
     it('gets a single credential with masked value', async () => {
       const createRes = await app.inject(injectOpts({
         method: 'POST',
-        url: `/api/api-sources/${apiSourceId}/credentials`,
+        url: `/api-sources/${apiSourceId}/credentials`,
         payload: {
           header_name: 'X-API-Key',
           resolve_strategy: 'literal',
@@ -344,7 +344,7 @@ describe('API Sources Routes', () => {
 
       const res = await app.inject(injectOpts({
         method: 'GET',
-        url: `/api/api-sources/${apiSourceId}/credentials/${credId}`,
+        url: `/api-sources/${apiSourceId}/credentials/${credId}`,
       }));
 
       expect(res.statusCode).toBe(200);
@@ -355,7 +355,7 @@ describe('API Sources Routes', () => {
     it('updates a credential', async () => {
       const createRes = await app.inject(injectOpts({
         method: 'POST',
-        url: `/api/api-sources/${apiSourceId}/credentials`,
+        url: `/api-sources/${apiSourceId}/credentials`,
         payload: {
           header_name: 'Authorization',
           resolve_strategy: 'literal',
@@ -366,7 +366,7 @@ describe('API Sources Routes', () => {
 
       const res = await app.inject(injectOpts({
         method: 'PATCH',
-        url: `/api/api-sources/${apiSourceId}/credentials/${credId}`,
+        url: `/api-sources/${apiSourceId}/credentials/${credId}`,
         payload: {
           header_name: 'X-Custom-Header',
           resolve_reference: 'new-secret-value-that-is-long-enough',
@@ -382,7 +382,7 @@ describe('API Sources Routes', () => {
     it('deletes a credential', async () => {
       const createRes = await app.inject(injectOpts({
         method: 'POST',
-        url: `/api/api-sources/${apiSourceId}/credentials`,
+        url: `/api-sources/${apiSourceId}/credentials`,
         payload: {
           header_name: 'Authorization',
           resolve_strategy: 'literal',
@@ -393,7 +393,7 @@ describe('API Sources Routes', () => {
 
       const res = await app.inject(injectOpts({
         method: 'DELETE',
-        url: `/api/api-sources/${apiSourceId}/credentials/${credId}`,
+        url: `/api-sources/${apiSourceId}/credentials/${credId}`,
       }));
 
       expect(res.statusCode).toBe(204);
@@ -401,7 +401,7 @@ describe('API Sources Routes', () => {
       // Verify it's gone
       const listRes = await app.inject(injectOpts({
         method: 'GET',
-        url: `/api/api-sources/${apiSourceId}/credentials`,
+        url: `/api-sources/${apiSourceId}/credentials`,
       }));
       const body = listRes.json() as { data: unknown[] };
       expect(body.data).toHaveLength(0);
@@ -410,7 +410,7 @@ describe('API Sources Routes', () => {
     it('returns 404 for credential on non-existent source', async () => {
       const res = await app.inject(injectOpts({
         method: 'GET',
-        url: '/api/api-sources/00000000-0000-0000-0000-000000000000/credentials',
+        url: '/api-sources/00000000-0000-0000-0000-000000000000/credentials',
       }));
 
       expect(res.statusCode).toBe(404);
@@ -419,7 +419,7 @@ describe('API Sources Routes', () => {
     it('rejects credential with invalid resolve_strategy', async () => {
       const res = await app.inject(injectOpts({
         method: 'POST',
-        url: `/api/api-sources/${apiSourceId}/credentials`,
+        url: `/api-sources/${apiSourceId}/credentials`,
         payload: {
           header_name: 'Authorization',
           resolve_strategy: 'invalid',
@@ -433,7 +433,7 @@ describe('API Sources Routes', () => {
     it('rejects credential with missing required fields', async () => {
       const res = await app.inject(injectOpts({
         method: 'POST',
-        url: `/api/api-sources/${apiSourceId}/credentials`,
+        url: `/api-sources/${apiSourceId}/credentials`,
         payload: {
           header_name: 'Authorization',
         },
@@ -450,7 +450,7 @@ describe('API Sources Routes', () => {
       // Create
       const createRes = await app.inject(injectOpts({
         method: 'POST',
-        url: '/api/api-sources',
+        url: '/api-sources',
         payload: { name: 'Lifecycle Test', tags: ['v1'] },
       }));
       expect(createRes.statusCode).toBe(201);
@@ -459,7 +459,7 @@ describe('API Sources Routes', () => {
       // Get
       const getRes = await app.inject(injectOpts({
         method: 'GET',
-        url: `/api/api-sources/${id}`,
+        url: `/api-sources/${id}`,
       }));
       expect(getRes.statusCode).toBe(200);
       expect((getRes.json() as { data: { name: string } }).data.name).toBe('Lifecycle Test');
@@ -467,7 +467,7 @@ describe('API Sources Routes', () => {
       // Update
       const updateRes = await app.inject(injectOpts({
         method: 'PATCH',
-        url: `/api/api-sources/${id}`,
+        url: `/api-sources/${id}`,
         payload: { name: 'Updated Lifecycle', tags: ['v2'] },
       }));
       expect(updateRes.statusCode).toBe(200);
@@ -476,28 +476,28 @@ describe('API Sources Routes', () => {
       // Soft delete
       const deleteRes = await app.inject(injectOpts({
         method: 'DELETE',
-        url: `/api/api-sources/${id}`,
+        url: `/api-sources/${id}`,
       }));
       expect(deleteRes.statusCode).toBe(204);
 
       // Verify gone
       const getDeletedRes = await app.inject(injectOpts({
         method: 'GET',
-        url: `/api/api-sources/${id}`,
+        url: `/api-sources/${id}`,
       }));
       expect(getDeletedRes.statusCode).toBe(404);
 
       // Restore
       const restoreRes = await app.inject(injectOpts({
         method: 'POST',
-        url: `/api/api-sources/${id}/restore`,
+        url: `/api-sources/${id}/restore`,
       }));
       expect(restoreRes.statusCode).toBe(200);
 
       // Verify back
       const getFinalRes = await app.inject(injectOpts({
         method: 'GET',
-        url: `/api/api-sources/${id}`,
+        url: `/api-sources/${id}`,
       }));
       expect(getFinalRes.statusCode).toBe(200);
       expect((getFinalRes.json() as { data: { name: string } }).data.name).toBe('Updated Lifecycle');

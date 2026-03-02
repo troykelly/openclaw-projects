@@ -45,7 +45,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
   async function createNote(user_email: string, title: string, content: string, visibility: 'private' | 'shared' | 'public' = 'private'): Promise<string> {
     const res = await app.inject({
       method: 'POST',
-      url: '/api/notes',
+      url: '/notes',
       payload: {
         user_email: user_email,
         title,
@@ -63,7 +63,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
   async function updateNote(noteId: string, title: string, content: string, user_email: string): Promise<void> {
     const res = await app.inject({
       method: 'PUT',
-      url: `/api/notes/${noteId}`,
+      url: `/notes/${noteId}`,
       payload: {
         user_email: user_email,
         title,
@@ -93,10 +93,10 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
   }
 
   // ============================================
-  // GET /api/notes/:id/versions - List versions
+  // GET /notes/:id/versions - List versions
   // ============================================
 
-  describe('GET /api/notes/:id/versions', () => {
+  describe('GET /notes/:id/versions', () => {
     it('should list versions for a note', async () => {
       // Create note
       const noteId = await createNote(testUserEmail, 'Original Title', 'Original content');
@@ -110,7 +110,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/${noteId}/versions`,
+        url: `/notes/${noteId}/versions`,
         query: { user_email: testUserEmail },
       });
 
@@ -149,7 +149,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
       // Get first page
       const response1 = await app.inject({
         method: 'GET',
-        url: `/api/notes/${noteId}/versions`,
+        url: `/notes/${noteId}/versions`,
         query: { user_email: testUserEmail, limit: '2', offset: '0' },
       });
 
@@ -160,7 +160,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
       // Get second page
       const response2 = await app.inject({
         method: 'GET',
-        url: `/api/notes/${noteId}/versions`,
+        url: `/notes/${noteId}/versions`,
         query: { user_email: testUserEmail, limit: '2', offset: '2' },
       });
 
@@ -178,7 +178,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
     it('should return 404 for non-existent note', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/notes/00000000-0000-0000-0000-000000000000/versions',
+        url: '/notes/00000000-0000-0000-0000-000000000000/versions',
         query: { user_email: testUserEmail },
       });
 
@@ -190,7 +190,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/${noteId}/versions`,
+        url: `/notes/${noteId}/versions`,
         query: { user_email: otherUserEmail },
       });
 
@@ -203,7 +203,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/${noteId}/versions`,
+        url: `/notes/${noteId}/versions`,
         query: { user_email: otherUserEmail },
       });
 
@@ -213,7 +213,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
     it('should require user_email', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/notes/some-id/versions',
+        url: '/notes/some-id/versions',
       });
 
       expect(response.statusCode).toBe(400);
@@ -222,10 +222,10 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
   });
 
   // ============================================
-  // GET /api/notes/:id/versions/:versionNumber
+  // GET /notes/:id/versions/:versionNumber
   // ============================================
 
-  describe('GET /api/notes/:id/versions/:versionNumber', () => {
+  describe('GET /notes/:id/versions/:versionNumber', () => {
     it('should get a specific version with full content', async () => {
       const noteId = await createNote(testUserEmail, 'Original Title', 'Original content');
       await updateNote(noteId, 'Updated Title', 'Updated content', testUserEmail);
@@ -233,7 +233,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
       // Get version 1 (the original)
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/${noteId}/versions/1`,
+        url: `/notes/${noteId}/versions/1`,
         query: { user_email: testUserEmail },
       });
 
@@ -252,7 +252,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/${noteId}/versions/999`,
+        url: `/notes/${noteId}/versions/999`,
         query: { user_email: testUserEmail },
       });
 
@@ -264,7 +264,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/${noteId}/versions/1`,
+        url: `/notes/${noteId}/versions/1`,
         query: { user_email: otherUserEmail },
       });
 
@@ -276,7 +276,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/${noteId}/versions/abc`,
+        url: `/notes/${noteId}/versions/abc`,
         query: { user_email: testUserEmail },
       });
 
@@ -287,7 +287,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
     it('should require user_email', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/notes/some-id/versions/1',
+        url: '/notes/some-id/versions/1',
       });
 
       expect(response.statusCode).toBe(400);
@@ -296,10 +296,10 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
   });
 
   // ============================================
-  // GET /api/notes/:id/versions/compare
+  // GET /notes/:id/versions/compare
   // ============================================
 
-  describe('GET /api/notes/:id/versions/compare', () => {
+  describe('GET /notes/:id/versions/compare', () => {
     it('should compare two versions', async () => {
       const noteId = await createNote(testUserEmail, 'Original Title', 'Line 1\nLine 2\nLine 3');
       // First update creates version 1 with original content
@@ -309,7 +309,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/${noteId}/versions/compare`,
+        url: `/notes/${noteId}/versions/compare`,
         query: { user_email: testUserEmail, from: '1', to: '2' },
       });
 
@@ -345,7 +345,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
       // Actually, let's just compare versions 1 and 2 which have different content
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/${noteId}/versions/compare`,
+        url: `/notes/${noteId}/versions/compare`,
         query: { user_email: testUserEmail, from: '1', to: '2' },
       });
 
@@ -361,7 +361,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/${noteId}/versions/compare`,
+        url: `/notes/${noteId}/versions/compare`,
         query: { user_email: testUserEmail, from: '1', to: '999' },
       });
 
@@ -373,7 +373,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/${noteId}/versions/compare`,
+        url: `/notes/${noteId}/versions/compare`,
         query: { user_email: testUserEmail },
       });
 
@@ -386,7 +386,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/${noteId}/versions/compare`,
+        url: `/notes/${noteId}/versions/compare`,
         query: { user_email: testUserEmail, from: 'abc', to: 'def' },
       });
 
@@ -397,7 +397,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
     it('should require user_email', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/notes/some-id/versions/compare',
+        url: '/notes/some-id/versions/compare',
         query: { from: '1', to: '2' },
       });
 
@@ -410,7 +410,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/${noteId}/versions/compare`,
+        url: `/notes/${noteId}/versions/compare`,
         query: { user_email: otherUserEmail, from: '1', to: '2' },
       });
 
@@ -419,10 +419,10 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
   });
 
   // ============================================
-  // POST /api/notes/:id/versions/:versionNumber/restore
+  // POST /notes/:id/versions/:versionNumber/restore
   // ============================================
 
-  describe('POST /api/notes/:id/versions/:versionNumber/restore', () => {
+  describe('POST /notes/:id/versions/:versionNumber/restore', () => {
     it('should restore a note to a previous version', async () => {
       const noteId = await createNote(testUserEmail, 'Original Title', 'Original content');
       await updateNote(noteId, 'New Title', 'New content', testUserEmail);
@@ -438,7 +438,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
       // Restore to version 1 (which contains Original Title/Original content)
       const response = await app.inject({
         method: 'POST',
-        url: `/api/notes/${noteId}/versions/1/restore`,
+        url: `/notes/${noteId}/versions/1/restore`,
         query: { user_email: testUserEmail },
       });
 
@@ -465,7 +465,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
 
       await app.inject({
         method: 'POST',
-        url: `/api/notes/${noteId}/versions/1/restore`,
+        url: `/notes/${noteId}/versions/1/restore`,
         query: { user_email: testUserEmail },
       });
 
@@ -480,7 +480,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
     it('should return 404 for non-existent note', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: '/api/notes/00000000-0000-0000-0000-000000000000/versions/1/restore',
+        url: '/notes/00000000-0000-0000-0000-000000000000/versions/1/restore',
         query: { user_email: testUserEmail },
       });
 
@@ -492,7 +492,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
 
       const response = await app.inject({
         method: 'POST',
-        url: `/api/notes/${noteId}/versions/999/restore`,
+        url: `/notes/${noteId}/versions/999/restore`,
         query: { user_email: testUserEmail },
       });
 
@@ -506,7 +506,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
 
       const response = await app.inject({
         method: 'POST',
-        url: `/api/notes/${noteId}/versions/1/restore`,
+        url: `/notes/${noteId}/versions/1/restore`,
         query: { user_email: otherUserEmail },
       });
 
@@ -521,7 +521,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
 
       const response = await app.inject({
         method: 'POST',
-        url: `/api/notes/${noteId}/versions/1/restore`,
+        url: `/notes/${noteId}/versions/1/restore`,
         query: { user_email: otherUserEmail },
       });
 
@@ -533,7 +533,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
 
       const response = await app.inject({
         method: 'POST',
-        url: `/api/notes/${noteId}/versions/abc/restore`,
+        url: `/notes/${noteId}/versions/abc/restore`,
         query: { user_email: testUserEmail },
       });
 
@@ -544,7 +544,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
     it('should require user_email', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: '/api/notes/some-id/versions/1/restore',
+        url: '/notes/some-id/versions/1/restore',
       });
 
       expect(response.statusCode).toBe(400);
@@ -559,7 +559,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
 
       const response = await app.inject({
         method: 'POST',
-        url: `/api/notes/${noteId}/versions/1/restore`,
+        url: `/notes/${noteId}/versions/1/restore`,
         query: { user_email: otherUserEmail },
       });
 
@@ -582,7 +582,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/${noteId}/versions`,
+        url: `/notes/${noteId}/versions`,
         query: { user_email: testUserEmail },
       });
 
@@ -599,7 +599,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/${noteId}/versions`,
+        url: `/notes/${noteId}/versions`,
         query: { user_email: testUserEmail },
       });
 
@@ -624,7 +624,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/${noteId}/versions`,
+        url: `/notes/${noteId}/versions`,
         query: { user_email: testUserEmail },
       });
 
@@ -655,7 +655,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/${noteId}/versions`,
+        url: `/notes/${noteId}/versions`,
         query: { user_email: testUserEmail },
       });
 

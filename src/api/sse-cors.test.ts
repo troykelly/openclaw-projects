@@ -26,7 +26,7 @@ async function buildSseApp(options?: {
   const app = Fastify();
   registerCors(app);
 
-  app.get('/api/events', async (_req, reply) => {
+  app.get('/events', async (_req, reply) => {
     const sseHeaders: Record<string, string> = {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
@@ -83,7 +83,7 @@ describe('SSE endpoint CORS headers (Issue #1340)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/events',
+        url: '/events',
         headers: { origin: 'https://app.example.com' },
       });
 
@@ -101,7 +101,7 @@ describe('SSE endpoint CORS headers (Issue #1340)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/events',
+        url: '/events',
         headers: { origin: 'https://app.example.com' },
       });
 
@@ -119,7 +119,7 @@ describe('SSE endpoint CORS headers (Issue #1340)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/events',
+        url: '/events',
         headers: { origin: 'https://app.example.com' },
       });
 
@@ -134,7 +134,7 @@ describe('SSE endpoint CORS headers (Issue #1340)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/events',
+        url: '/events',
         headers: { origin: 'https://app.example.com' },
       });
 
@@ -149,7 +149,7 @@ describe('SSE endpoint CORS headers (Issue #1340)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/events',
+        url: '/events',
         headers: { origin: 'https://evil.example.com' },
       });
 
@@ -165,7 +165,7 @@ describe('SSE endpoint CORS headers (Issue #1340)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/events',
+        url: '/events',
         headers: { origin: 'https://app.example.com' },
       });
 

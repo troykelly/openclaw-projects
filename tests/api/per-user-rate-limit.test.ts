@@ -9,7 +9,7 @@ import { extractUserIdForRateLimit, getRateLimitConfig, getEndpointRateLimitCate
 
 // Mock request creator
 function createMockRequest(options: { ip?: string; sessionEmail?: string | null; bearerToken?: string; url?: string; method?: string }): FastifyRequest {
-  const { ip = '127.0.0.1', sessionEmail, bearerToken, url = '/api/test', method = 'GET' } = options;
+  const { ip = '127.0.0.1', sessionEmail, bearerToken, url = '/test', method = 'GET' } = options;
 
   return {
     ip,
@@ -63,42 +63,42 @@ describe('Per-User Rate Limiting', () => {
 
   describe('getEndpointRateLimitCategory', () => {
     it('should categorize read operations', () => {
-      expect(getEndpointRateLimitCategory('GET', '/api/contacts')).toBe('read');
-      expect(getEndpointRateLimitCategory('GET', '/api/work-items')).toBe('read');
-      expect(getEndpointRateLimitCategory('GET', '/api/memories')).toBe('read');
+      expect(getEndpointRateLimitCategory('GET', '/contacts')).toBe('read');
+      expect(getEndpointRateLimitCategory('GET', '/work-items')).toBe('read');
+      expect(getEndpointRateLimitCategory('GET', '/memories')).toBe('read');
     });
 
     it('should categorize write operations', () => {
-      expect(getEndpointRateLimitCategory('POST', '/api/contacts')).toBe('write');
-      expect(getEndpointRateLimitCategory('PUT', '/api/work-items/123')).toBe('write');
-      expect(getEndpointRateLimitCategory('PATCH', '/api/memories/456')).toBe('write');
-      expect(getEndpointRateLimitCategory('DELETE', '/api/contacts/789')).toBe('write');
+      expect(getEndpointRateLimitCategory('POST', '/contacts')).toBe('write');
+      expect(getEndpointRateLimitCategory('PUT', '/work-items/123')).toBe('write');
+      expect(getEndpointRateLimitCategory('PATCH', '/memories/456')).toBe('write');
+      expect(getEndpointRateLimitCategory('DELETE', '/contacts/789')).toBe('write');
     });
 
     it('should categorize search operations', () => {
-      expect(getEndpointRateLimitCategory('GET', '/api/search')).toBe('search');
-      expect(getEndpointRateLimitCategory('GET', '/api/memories/search')).toBe('search');
-      expect(getEndpointRateLimitCategory('POST', '/api/search/hybrid')).toBe('search');
+      expect(getEndpointRateLimitCategory('GET', '/search')).toBe('search');
+      expect(getEndpointRateLimitCategory('GET', '/memories/search')).toBe('search');
+      expect(getEndpointRateLimitCategory('POST', '/search/hybrid')).toBe('search');
     });
 
     it('should categorize message sending operations', () => {
-      expect(getEndpointRateLimitCategory('POST', '/api/twilio/sms/send')).toBe('send');
-      expect(getEndpointRateLimitCategory('POST', '/api/email/send')).toBe('send');
+      expect(getEndpointRateLimitCategory('POST', '/twilio/sms/send')).toBe('send');
+      expect(getEndpointRateLimitCategory('POST', '/email/send')).toBe('send');
     });
 
     it('should categorize admin operations', () => {
-      expect(getEndpointRateLimitCategory('POST', '/api/admin/users')).toBe('admin');
-      expect(getEndpointRateLimitCategory('DELETE', '/api/admin/cache')).toBe('admin');
+      expect(getEndpointRateLimitCategory('POST', '/admin/users')).toBe('admin');
+      expect(getEndpointRateLimitCategory('DELETE', '/admin/cache')).toBe('admin');
     });
 
     it('should categorize webhook operations', () => {
-      expect(getEndpointRateLimitCategory('POST', '/api/twilio/sms')).toBe('webhook');
-      expect(getEndpointRateLimitCategory('POST', '/api/postmark/inbound')).toBe('webhook');
-      expect(getEndpointRateLimitCategory('POST', '/api/cloudflare/email')).toBe('webhook');
+      expect(getEndpointRateLimitCategory('POST', '/twilio/sms')).toBe('webhook');
+      expect(getEndpointRateLimitCategory('POST', '/postmark/inbound')).toBe('webhook');
+      expect(getEndpointRateLimitCategory('POST', '/cloudflare/email')).toBe('webhook');
     });
 
     it('should default to read for health endpoints', () => {
-      expect(getEndpointRateLimitCategory('GET', '/api/health')).toBe('read');
+      expect(getEndpointRateLimitCategory('GET', '/health')).toBe('read');
     });
   });
 

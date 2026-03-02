@@ -36,11 +36,11 @@ describe('Terminal API', () => {
   // ================================================================
 
   describe('Connection CRUD (#1672)', () => {
-    describe('POST /api/terminal/connections', () => {
+    describe('POST /terminal/connections', () => {
       it('creates a connection with required fields', async () => {
         const res = await app.inject({
           method: 'POST',
-          url: '/api/terminal/connections',
+          url: '/terminal/connections',
           payload: {
             name: 'test-server',
             host: '192.168.1.100',
@@ -62,7 +62,7 @@ describe('Terminal API', () => {
       it('rejects missing name', async () => {
         const res = await app.inject({
           method: 'POST',
-          url: '/api/terminal/connections',
+          url: '/terminal/connections',
           payload: { host: '192.168.1.100' },
         });
 
@@ -74,7 +74,7 @@ describe('Terminal API', () => {
       it('rejects invalid auth_method', async () => {
         const res = await app.inject({
           method: 'POST',
-          url: '/api/terminal/connections',
+          url: '/terminal/connections',
           payload: { name: 'test', auth_method: 'invalid' },
         });
 
@@ -86,7 +86,7 @@ describe('Terminal API', () => {
       it('creates a local connection', async () => {
         const res = await app.inject({
           method: 'POST',
-          url: '/api/terminal/connections',
+          url: '/terminal/connections',
           payload: { name: 'local-tmux', is_local: true },
         });
 
@@ -98,7 +98,7 @@ describe('Terminal API', () => {
       it('creates connection with tags', async () => {
         const res = await app.inject({
           method: 'POST',
-          url: '/api/terminal/connections',
+          url: '/terminal/connections',
           payload: {
             name: 'tagged-server',
             host: 'example.com',
@@ -112,11 +112,11 @@ describe('Terminal API', () => {
       });
     });
 
-    describe('GET /api/terminal/connections', () => {
+    describe('GET /terminal/connections', () => {
       it('returns empty list when no connections exist', async () => {
         const res = await app.inject({
           method: 'GET',
-          url: '/api/terminal/connections',
+          url: '/terminal/connections',
         });
 
         expect(res.statusCode).toBe(200);
@@ -130,14 +130,14 @@ describe('Terminal API', () => {
         for (let i = 0; i < 3; i++) {
           await app.inject({
             method: 'POST',
-            url: '/api/terminal/connections',
+            url: '/terminal/connections',
             payload: { name: `server-${i}`, host: `host-${i}.example.com` },
           });
         }
 
         const res = await app.inject({
           method: 'GET',
-          url: '/api/terminal/connections?limit=2&offset=0',
+          url: '/terminal/connections?limit=2&offset=0',
         });
 
         expect(res.statusCode).toBe(200);
@@ -149,18 +149,18 @@ describe('Terminal API', () => {
       it('filters by search term', async () => {
         await app.inject({
           method: 'POST',
-          url: '/api/terminal/connections',
+          url: '/terminal/connections',
           payload: { name: 'production-web', host: 'prod.example.com' },
         });
         await app.inject({
           method: 'POST',
-          url: '/api/terminal/connections',
+          url: '/terminal/connections',
           payload: { name: 'staging-db', host: 'staging.example.com' },
         });
 
         const res = await app.inject({
           method: 'GET',
-          url: '/api/terminal/connections?search=production',
+          url: '/terminal/connections?search=production',
         });
 
         expect(res.statusCode).toBe(200);
@@ -172,18 +172,18 @@ describe('Terminal API', () => {
       it('filters by tags', async () => {
         await app.inject({
           method: 'POST',
-          url: '/api/terminal/connections',
+          url: '/terminal/connections',
           payload: { name: 'server-1', tags: ['production'] },
         });
         await app.inject({
           method: 'POST',
-          url: '/api/terminal/connections',
+          url: '/terminal/connections',
           payload: { name: 'server-2', tags: ['staging'] },
         });
 
         const res = await app.inject({
           method: 'GET',
-          url: '/api/terminal/connections?tags=production',
+          url: '/terminal/connections?tags=production',
         });
 
         expect(res.statusCode).toBe(200);
@@ -195,18 +195,18 @@ describe('Terminal API', () => {
       it('filters by is_local', async () => {
         await app.inject({
           method: 'POST',
-          url: '/api/terminal/connections',
+          url: '/terminal/connections',
           payload: { name: 'remote', host: 'remote.example.com' },
         });
         await app.inject({
           method: 'POST',
-          url: '/api/terminal/connections',
+          url: '/terminal/connections',
           payload: { name: 'local', is_local: true },
         });
 
         const res = await app.inject({
           method: 'GET',
-          url: '/api/terminal/connections?is_local=true',
+          url: '/terminal/connections?is_local=true',
         });
 
         expect(res.statusCode).toBe(200);
@@ -216,18 +216,18 @@ describe('Terminal API', () => {
       });
     });
 
-    describe('GET /api/terminal/connections/:id', () => {
+    describe('GET /terminal/connections/:id', () => {
       it('returns a specific connection', async () => {
         const created = await app.inject({
           method: 'POST',
-          url: '/api/terminal/connections',
+          url: '/terminal/connections',
           payload: { name: 'my-server', host: 'example.com' },
         });
         const { id } = created.json() as { id: string };
 
         const res = await app.inject({
           method: 'GET',
-          url: `/api/terminal/connections/${id}`,
+          url: `/terminal/connections/${id}`,
         });
 
         expect(res.statusCode).toBe(200);
@@ -239,25 +239,25 @@ describe('Terminal API', () => {
       it('returns 404 for non-existent connection', async () => {
         const res = await app.inject({
           method: 'GET',
-          url: '/api/terminal/connections/00000000-0000-0000-0000-000000000000',
+          url: '/terminal/connections/00000000-0000-0000-0000-000000000000',
         });
 
         expect(res.statusCode).toBe(404);
       });
     });
 
-    describe('PATCH /api/terminal/connections/:id', () => {
+    describe('PATCH /terminal/connections/:id', () => {
       it('updates connection fields', async () => {
         const created = await app.inject({
           method: 'POST',
-          url: '/api/terminal/connections',
+          url: '/terminal/connections',
           payload: { name: 'old-name', host: 'old.example.com' },
         });
         const { id } = created.json() as { id: string };
 
         const res = await app.inject({
           method: 'PATCH',
-          url: `/api/terminal/connections/${id}`,
+          url: `/terminal/connections/${id}`,
           payload: { name: 'new-name', host: 'new.example.com', tags: ['updated'] },
         });
 
@@ -269,35 +269,35 @@ describe('Terminal API', () => {
       });
     });
 
-    describe('DELETE /api/terminal/connections/:id', () => {
+    describe('DELETE /terminal/connections/:id', () => {
       it('soft deletes a connection', async () => {
         const created = await app.inject({
           method: 'POST',
-          url: '/api/terminal/connections',
+          url: '/terminal/connections',
           payload: { name: 'to-delete', host: 'delete.example.com' },
         });
         const { id } = created.json() as { id: string };
 
         const deleteRes = await app.inject({
           method: 'DELETE',
-          url: `/api/terminal/connections/${id}`,
+          url: `/terminal/connections/${id}`,
         });
         expect(deleteRes.statusCode).toBe(204);
 
         // Verify it's no longer visible
         const getRes = await app.inject({
           method: 'GET',
-          url: `/api/terminal/connections/${id}`,
+          url: `/terminal/connections/${id}`,
         });
         expect(getRes.statusCode).toBe(404);
       });
     });
 
-    describe('POST /api/terminal/connections/import-ssh-config', () => {
+    describe('POST /terminal/connections/import-ssh-config', () => {
       it('imports connections from SSH config', async () => {
         const res = await app.inject({
           method: 'POST',
-          url: '/api/terminal/connections/import-ssh-config',
+          url: '/terminal/connections/import-ssh-config',
           payload: {
             config_text: `
 Host web-server
@@ -321,7 +321,7 @@ Host db-server
         // Verify connections were created in DB
         const list = await app.inject({
           method: 'GET',
-          url: '/api/terminal/connections',
+          url: '/terminal/connections',
         });
         const listBody = list.json() as { total: number };
         expect(listBody.total).toBe(2);
@@ -330,7 +330,7 @@ Host db-server
       it('returns empty for config with only wildcards', async () => {
         const res = await app.inject({
           method: 'POST',
-          url: '/api/terminal/connections/import-ssh-config',
+          url: '/terminal/connections/import-ssh-config',
           payload: { config_text: 'Host *\n  ServerAliveInterval 60\n' },
         });
 
@@ -342,7 +342,7 @@ Host db-server
       it('rejects empty config_text', async () => {
         const res = await app.inject({
           method: 'POST',
-          url: '/api/terminal/connections/import-ssh-config',
+          url: '/terminal/connections/import-ssh-config',
           payload: {},
         });
 
@@ -350,11 +350,11 @@ Host db-server
       });
     });
 
-    describe('POST /api/terminal/connections/:id/test', () => {
+    describe('POST /terminal/connections/:id/test', () => {
       it('returns 400 for invalid connection ID format', async () => {
         const res = await app.inject({
           method: 'POST',
-          url: '/api/terminal/connections/not-a-uuid/test',
+          url: '/terminal/connections/not-a-uuid/test',
         });
 
         expect(res.statusCode).toBe(400);
@@ -365,7 +365,7 @@ Host db-server
       it('returns 404 for non-existent connection', async () => {
         const res = await app.inject({
           method: 'POST',
-          url: '/api/terminal/connections/00000000-0000-0000-0000-000000000099/test',
+          url: '/terminal/connections/00000000-0000-0000-0000-000000000099/test',
         });
 
         expect(res.statusCode).toBe(404);
@@ -380,7 +380,7 @@ Host db-server
 
         const res = await app.inject({
           method: 'POST',
-          url: `/api/terminal/connections/${connId}/test`,
+          url: `/terminal/connections/${connId}/test`,
         });
 
         // Worker is not running in tests — gRPC call fails with 502
@@ -394,14 +394,14 @@ Host db-server
   // ================================================================
 
   describe('Credential CRUD (#1673)', () => {
-    describe('POST /api/terminal/credentials', () => {
+    describe('POST /terminal/credentials', () => {
       it('creates a password credential', async () => {
         // Set encryption key for credential operations
         process.env.OAUTH_TOKEN_ENCRYPTION_KEY = 'a'.repeat(64);
 
         const res = await app.inject({
           method: 'POST',
-          url: '/api/terminal/credentials',
+          url: '/terminal/credentials',
           payload: {
             name: 'test-password',
             kind: 'password',
@@ -423,7 +423,7 @@ Host db-server
 
         const res = await app.inject({
           method: 'POST',
-          url: '/api/terminal/credentials',
+          url: '/terminal/credentials',
           payload: {
             name: 'test-key',
             kind: 'ssh_key',
@@ -443,7 +443,7 @@ Host db-server
       it('creates a command credential', async () => {
         const res = await app.inject({
           method: 'POST',
-          url: '/api/terminal/credentials',
+          url: '/terminal/credentials',
           payload: {
             name: 'op-credential',
             kind: 'command',
@@ -461,7 +461,7 @@ Host db-server
       it('rejects missing name', async () => {
         const res = await app.inject({
           method: 'POST',
-          url: '/api/terminal/credentials',
+          url: '/terminal/credentials',
           payload: { kind: 'password', value: 'test' },
         });
         expect(res.statusCode).toBe(400);
@@ -470,7 +470,7 @@ Host db-server
       it('rejects invalid kind', async () => {
         const res = await app.inject({
           method: 'POST',
-          url: '/api/terminal/credentials',
+          url: '/terminal/credentials',
           payload: { name: 'test', kind: 'invalid' },
         });
         expect(res.statusCode).toBe(400);
@@ -480,31 +480,31 @@ Host db-server
         process.env.OAUTH_TOKEN_ENCRYPTION_KEY = 'a'.repeat(64);
         const res = await app.inject({
           method: 'POST',
-          url: '/api/terminal/credentials',
+          url: '/terminal/credentials',
           payload: { name: 'test', kind: 'ssh_key' },
         });
         expect(res.statusCode).toBe(400);
       });
     });
 
-    describe('GET /api/terminal/credentials', () => {
+    describe('GET /terminal/credentials', () => {
       it('lists credentials without encrypted_value', async () => {
         process.env.OAUTH_TOKEN_ENCRYPTION_KEY = 'a'.repeat(64);
 
         await app.inject({
           method: 'POST',
-          url: '/api/terminal/credentials',
+          url: '/terminal/credentials',
           payload: { name: 'cred-1', kind: 'password', value: 'secret1' },
         });
         await app.inject({
           method: 'POST',
-          url: '/api/terminal/credentials',
+          url: '/terminal/credentials',
           payload: { name: 'cred-2', kind: 'command', command: 'echo test' },
         });
 
         const res = await app.inject({
           method: 'GET',
-          url: '/api/terminal/credentials',
+          url: '/terminal/credentials',
         });
 
         expect(res.statusCode).toBe(200);
@@ -517,20 +517,20 @@ Host db-server
       });
     });
 
-    describe('GET /api/terminal/credentials/:id', () => {
+    describe('GET /terminal/credentials/:id', () => {
       it('returns credential metadata without encrypted_value', async () => {
         process.env.OAUTH_TOKEN_ENCRYPTION_KEY = 'a'.repeat(64);
 
         const created = await app.inject({
           method: 'POST',
-          url: '/api/terminal/credentials',
+          url: '/terminal/credentials',
           payload: { name: 'my-cred', kind: 'password', value: 'secret' },
         });
         const { id } = created.json() as { id: string };
 
         const res = await app.inject({
           method: 'GET',
-          url: `/api/terminal/credentials/${id}`,
+          url: `/terminal/credentials/${id}`,
         });
 
         expect(res.statusCode).toBe(200);
@@ -540,20 +540,20 @@ Host db-server
       });
     });
 
-    describe('PATCH /api/terminal/credentials/:id', () => {
+    describe('PATCH /terminal/credentials/:id', () => {
       it('updates credential name', async () => {
         process.env.OAUTH_TOKEN_ENCRYPTION_KEY = 'a'.repeat(64);
 
         const created = await app.inject({
           method: 'POST',
-          url: '/api/terminal/credentials',
+          url: '/terminal/credentials',
           payload: { name: 'old-name', kind: 'password', value: 'test' },
         });
         const { id } = created.json() as { id: string };
 
         const res = await app.inject({
           method: 'PATCH',
-          url: `/api/terminal/credentials/${id}`,
+          url: `/terminal/credentials/${id}`,
           payload: { name: 'new-name' },
         });
 
@@ -563,39 +563,39 @@ Host db-server
       });
     });
 
-    describe('DELETE /api/terminal/credentials/:id', () => {
+    describe('DELETE /terminal/credentials/:id', () => {
       it('soft deletes a credential', async () => {
         process.env.OAUTH_TOKEN_ENCRYPTION_KEY = 'a'.repeat(64);
 
         const created = await app.inject({
           method: 'POST',
-          url: '/api/terminal/credentials',
+          url: '/terminal/credentials',
           payload: { name: 'to-delete', kind: 'password', value: 'test' },
         });
         const { id } = created.json() as { id: string };
 
         const deleteRes = await app.inject({
           method: 'DELETE',
-          url: `/api/terminal/credentials/${id}`,
+          url: `/terminal/credentials/${id}`,
         });
         expect(deleteRes.statusCode).toBe(204);
 
         // Verify it's no longer visible
         const getRes = await app.inject({
           method: 'GET',
-          url: `/api/terminal/credentials/${id}`,
+          url: `/terminal/credentials/${id}`,
         });
         expect(getRes.statusCode).toBe(404);
       });
     });
 
-    describe('POST /api/terminal/credentials/generate', () => {
+    describe('POST /terminal/credentials/generate', () => {
       it('generates an ed25519 key pair', async () => {
         process.env.OAUTH_TOKEN_ENCRYPTION_KEY = 'a'.repeat(64);
 
         const res = await app.inject({
           method: 'POST',
-          url: '/api/terminal/credentials/generate',
+          url: '/terminal/credentials/generate',
           payload: { name: 'generated-key', type: 'ed25519' },
         });
 
@@ -615,7 +615,7 @@ Host db-server
 
         const res = await app.inject({
           method: 'POST',
-          url: '/api/terminal/credentials/generate',
+          url: '/terminal/credentials/generate',
           payload: { name: 'rsa-key', type: 'rsa' },
         });
 
@@ -628,7 +628,7 @@ Host db-server
       it('rejects invalid key type', async () => {
         const res = await app.inject({
           method: 'POST',
-          url: '/api/terminal/credentials/generate',
+          url: '/terminal/credentials/generate',
           payload: { name: 'bad-key', type: 'dsa' },
         });
 
@@ -638,7 +638,7 @@ Host db-server
       it('rejects missing name', async () => {
         const res = await app.inject({
           method: 'POST',
-          url: '/api/terminal/credentials/generate',
+          url: '/terminal/credentials/generate',
           payload: { type: 'ed25519' },
         });
 
@@ -652,11 +652,11 @@ Host db-server
   // ================================================================
 
   describe('Session Lifecycle (#1674)', () => {
-    describe('GET /api/terminal/sessions', () => {
+    describe('GET /terminal/sessions', () => {
       it('returns empty list when no sessions exist', async () => {
         const res = await app.inject({
           method: 'GET',
-          url: '/api/terminal/sessions',
+          url: '/terminal/sessions',
         });
 
         expect(res.statusCode).toBe(200);
@@ -684,7 +684,7 @@ Host db-server
 
         const res = await app.inject({
           method: 'GET',
-          url: '/api/terminal/sessions?status=active',
+          url: '/terminal/sessions?status=active',
         });
 
         expect(res.statusCode).toBe(200);
@@ -694,11 +694,11 @@ Host db-server
       });
     });
 
-    describe('POST /api/terminal/sessions', () => {
+    describe('POST /terminal/sessions', () => {
       it('rejects missing connection_id', async () => {
         const res = await app.inject({
           method: 'POST',
-          url: '/api/terminal/sessions',
+          url: '/terminal/sessions',
           payload: {},
         });
 
@@ -708,7 +708,7 @@ Host db-server
       it('rejects non-existent connection_id', async () => {
         const res = await app.inject({
           method: 'POST',
-          url: '/api/terminal/sessions',
+          url: '/terminal/sessions',
           payload: { connection_id: '00000000-0000-0000-0000-000000000099' },
         });
 
@@ -723,7 +723,7 @@ Host db-server
 
         const res = await app.inject({
           method: 'POST',
-          url: '/api/terminal/sessions',
+          url: '/terminal/sessions',
           payload: { connection_id: '00000000-0000-0000-0000-000000000001' },
         });
 
@@ -732,7 +732,7 @@ Host db-server
       });
     });
 
-    describe('GET /api/terminal/sessions/:id', () => {
+    describe('GET /terminal/sessions/:id', () => {
       it('returns session with windows and panes', async () => {
         // Create test data
         const connId = '00000000-0000-0000-0000-000000000001';
@@ -762,7 +762,7 @@ Host db-server
 
         const res = await app.inject({
           method: 'GET',
-          url: `/api/terminal/sessions/${sessId}`,
+          url: `/terminal/sessions/${sessId}`,
         });
 
         expect(res.statusCode).toBe(200);
@@ -779,7 +779,7 @@ Host db-server
       });
     });
 
-    describe('PATCH /api/terminal/sessions/:id', () => {
+    describe('PATCH /terminal/sessions/:id', () => {
       it('updates session notes and tags', async () => {
         const connId = '00000000-0000-0000-0000-000000000001';
         const sessId = '00000000-0000-0000-0000-000000000010';
@@ -796,7 +796,7 @@ Host db-server
 
         const res = await app.inject({
           method: 'PATCH',
-          url: `/api/terminal/sessions/${sessId}`,
+          url: `/terminal/sessions/${sessId}`,
           payload: { notes: 'Updated notes', tags: ['important'] },
         });
 
@@ -807,11 +807,11 @@ Host db-server
       });
     });
 
-    describe('DELETE /api/terminal/sessions/:id', () => {
+    describe('DELETE /terminal/sessions/:id', () => {
       it('returns 400 for invalid session ID format', async () => {
         const res = await app.inject({
           method: 'DELETE',
-          url: '/api/terminal/sessions/not-a-uuid',
+          url: '/terminal/sessions/not-a-uuid',
         });
 
         expect(res.statusCode).toBe(400);
@@ -822,7 +822,7 @@ Host db-server
       it('returns 404 for non-existent session', async () => {
         const res = await app.inject({
           method: 'DELETE',
-          url: '/api/terminal/sessions/00000000-0000-0000-0000-000000000099',
+          url: '/terminal/sessions/00000000-0000-0000-0000-000000000099',
         });
 
         expect(res.statusCode).toBe(404);
@@ -844,7 +844,7 @@ Host db-server
 
         const res = await app.inject({
           method: 'DELETE',
-          url: `/api/terminal/sessions/${sessId}`,
+          url: `/terminal/sessions/${sessId}`,
         });
 
         // Worker is not running in tests — gRPC call fails with 502
@@ -854,7 +854,7 @@ Host db-server
       });
     });
 
-    describe('POST /api/terminal/sessions/:id/annotate', () => {
+    describe('POST /terminal/sessions/:id/annotate', () => {
       it('adds an annotation entry to a session', async () => {
         const connId = '00000000-0000-0000-0000-000000000001';
         const sessId = '00000000-0000-0000-0000-000000000010';
@@ -871,7 +871,7 @@ Host db-server
 
         const res = await app.inject({
           method: 'POST',
-          url: `/api/terminal/sessions/${sessId}/annotate`,
+          url: `/terminal/sessions/${sessId}/annotate`,
           payload: {
             content: 'Important observation about server state',
             metadata: { severity: 'info' },
@@ -900,7 +900,7 @@ Host db-server
 
         const res = await app.inject({
           method: 'POST',
-          url: `/api/terminal/sessions/${sessId}/annotate`,
+          url: `/terminal/sessions/${sessId}/annotate`,
           payload: { content: '' },
         });
 
@@ -914,7 +914,7 @@ Host db-server
   // ================================================================
 
   describe('Command Execution (#1676)', () => {
-    describe('POST /api/terminal/sessions/:id/send-command', () => {
+    describe('POST /terminal/sessions/:id/send-command', () => {
       it('rejects missing command', async () => {
         const connId = '00000000-0000-0000-0000-000000000001';
         const sessId = '00000000-0000-0000-0000-000000000010';
@@ -931,7 +931,7 @@ Host db-server
 
         const res = await app.inject({
           method: 'POST',
-          url: `/api/terminal/sessions/${sessId}/send-command`,
+          url: `/terminal/sessions/${sessId}/send-command`,
           payload: {},
         });
 
@@ -956,7 +956,7 @@ Host db-server
 
         const res = await app.inject({
           method: 'POST',
-          url: `/api/terminal/sessions/${sessId}/send-command`,
+          url: `/terminal/sessions/${sessId}/send-command`,
           payload: { command: 'ls -la', timeout_s: 5 },
         });
 
@@ -964,7 +964,7 @@ Host db-server
       });
     });
 
-    describe('POST /api/terminal/sessions/:id/send-keys', () => {
+    describe('POST /terminal/sessions/:id/send-keys', () => {
       it('rejects missing keys', async () => {
         const connId = '00000000-0000-0000-0000-000000000001';
         const sessId = '00000000-0000-0000-0000-000000000010';
@@ -981,7 +981,7 @@ Host db-server
 
         const res = await app.inject({
           method: 'POST',
-          url: `/api/terminal/sessions/${sessId}/send-keys`,
+          url: `/terminal/sessions/${sessId}/send-keys`,
           payload: {},
         });
 
@@ -989,7 +989,7 @@ Host db-server
       });
     });
 
-    describe('GET /api/terminal/sessions/:id/capture', () => {
+    describe('GET /terminal/sessions/:id/capture', () => {
       it('returns 502 when worker is unavailable', async () => {
         const connId = '00000000-0000-0000-0000-000000000001';
         const sessId = '00000000-0000-0000-0000-000000000010';
@@ -1006,7 +1006,7 @@ Host db-server
 
         const res = await app.inject({
           method: 'GET',
-          url: `/api/terminal/sessions/${sessId}/capture`,
+          url: `/terminal/sessions/${sessId}/capture`,
         });
 
         expect(res.statusCode).toBe(502);
@@ -1029,7 +1029,7 @@ Host db-server
       // Query from default namespace should not see it
       const res = await app.inject({
         method: 'GET',
-        url: '/api/terminal/connections',
+        url: '/terminal/connections',
       });
 
       const body = res.json() as { total: number };
@@ -1044,7 +1044,7 @@ Host db-server
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/terminal/credentials',
+        url: '/terminal/credentials',
       });
 
       const body = res.json() as { total: number };
@@ -1064,7 +1064,7 @@ Host db-server
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/terminal/sessions',
+        url: '/terminal/sessions',
       });
 
       const body = res.json() as { total: number };
@@ -1092,13 +1092,13 @@ Host db-server
       );
     }
 
-    describe('POST /api/terminal/sessions/:id/windows', () => {
+    describe('POST /terminal/sessions/:id/windows', () => {
       it('returns 502 when worker is unavailable', async () => {
         await createSessionFixture();
 
         const res = await app.inject({
           method: 'POST',
-          url: `/api/terminal/sessions/${sessId}/windows`,
+          url: `/terminal/sessions/${sessId}/windows`,
           payload: { name: 'new-window' },
         });
 
@@ -1108,7 +1108,7 @@ Host db-server
       it('returns 404 for non-existent session', async () => {
         const res = await app.inject({
           method: 'POST',
-          url: '/api/terminal/sessions/00000000-0000-0000-0000-000000000099/windows',
+          url: '/terminal/sessions/00000000-0000-0000-0000-000000000099/windows',
           payload: { name: 'window' },
         });
 
@@ -1118,7 +1118,7 @@ Host db-server
       it('returns 400 for invalid session ID', async () => {
         const res = await app.inject({
           method: 'POST',
-          url: '/api/terminal/sessions/not-a-uuid/windows',
+          url: '/terminal/sessions/not-a-uuid/windows',
           payload: {},
         });
 
@@ -1126,13 +1126,13 @@ Host db-server
       });
     });
 
-    describe('DELETE /api/terminal/sessions/:sid/windows/:wid', () => {
+    describe('DELETE /terminal/sessions/:sid/windows/:wid', () => {
       it('returns 502 when worker is unavailable', async () => {
         await createSessionFixture();
 
         const res = await app.inject({
           method: 'DELETE',
-          url: `/api/terminal/sessions/${sessId}/windows/0`,
+          url: `/terminal/sessions/${sessId}/windows/0`,
         });
 
         expect(res.statusCode).toBe(502);
@@ -1143,20 +1143,20 @@ Host db-server
 
         const res = await app.inject({
           method: 'DELETE',
-          url: `/api/terminal/sessions/${sessId}/windows/-1`,
+          url: `/terminal/sessions/${sessId}/windows/-1`,
         });
 
         expect(res.statusCode).toBe(400);
       });
     });
 
-    describe('POST /api/terminal/sessions/:sid/windows/:wid/split', () => {
+    describe('POST /terminal/sessions/:sid/windows/:wid/split', () => {
       it('returns 502 when worker is unavailable', async () => {
         await createSessionFixture();
 
         const res = await app.inject({
           method: 'POST',
-          url: `/api/terminal/sessions/${sessId}/windows/0/split`,
+          url: `/terminal/sessions/${sessId}/windows/0/split`,
           payload: { direction: 'horizontal' },
         });
 
@@ -1168,7 +1168,7 @@ Host db-server
 
         const res = await app.inject({
           method: 'POST',
-          url: `/api/terminal/sessions/${sessId}/windows/abc/split`,
+          url: `/terminal/sessions/${sessId}/windows/abc/split`,
           payload: { direction: 'vertical' },
         });
 
@@ -1176,13 +1176,13 @@ Host db-server
       });
     });
 
-    describe('DELETE /api/terminal/sessions/:sid/panes/:pid', () => {
+    describe('DELETE /terminal/sessions/:sid/panes/:pid', () => {
       it('returns 502 when worker is unavailable', async () => {
         await createSessionFixture();
 
         const res = await app.inject({
           method: 'DELETE',
-          url: `/api/terminal/sessions/${sessId}/panes/0`,
+          url: `/terminal/sessions/${sessId}/panes/0`,
         });
 
         expect(res.statusCode).toBe(502);
@@ -1193,7 +1193,7 @@ Host db-server
 
         const res = await app.inject({
           method: 'DELETE',
-          url: `/api/terminal/sessions/${sessId}/panes/-5`,
+          url: `/terminal/sessions/${sessId}/panes/-5`,
         });
 
         expect(res.statusCode).toBe(400);
@@ -1215,11 +1215,11 @@ Host db-server
       );
     }
 
-    describe('GET /api/terminal/tunnels', () => {
+    describe('GET /terminal/tunnels', () => {
       it('returns empty list when no tunnels exist', async () => {
         const res = await app.inject({
           method: 'GET',
-          url: '/api/terminal/tunnels',
+          url: '/terminal/tunnels',
         });
 
         expect(res.statusCode).toBe(200);
@@ -1245,7 +1245,7 @@ Host db-server
 
         const res = await app.inject({
           method: 'GET',
-          url: '/api/terminal/tunnels?direction=local',
+          url: '/terminal/tunnels?direction=local',
         });
 
         expect(res.statusCode).toBe(200);
@@ -1275,7 +1275,7 @@ Host db-server
 
         const res = await app.inject({
           method: 'GET',
-          url: `/api/terminal/tunnels?connection_id=${connId}`,
+          url: `/terminal/tunnels?connection_id=${connId}`,
         });
 
         expect(res.statusCode).toBe(200);
@@ -1284,11 +1284,11 @@ Host db-server
       });
     });
 
-    describe('POST /api/terminal/tunnels', () => {
+    describe('POST /terminal/tunnels', () => {
       it('rejects missing connection_id', async () => {
         const res = await app.inject({
           method: 'POST',
-          url: '/api/terminal/tunnels',
+          url: '/terminal/tunnels',
           payload: {
             direction: 'local',
             bind_port: 8080,
@@ -1305,7 +1305,7 @@ Host db-server
 
         const res = await app.inject({
           method: 'POST',
-          url: '/api/terminal/tunnels',
+          url: '/terminal/tunnels',
           payload: {
             connection_id: connId,
             direction: 'invalid',
@@ -1323,7 +1323,7 @@ Host db-server
 
         const res = await app.inject({
           method: 'POST',
-          url: '/api/terminal/tunnels',
+          url: '/terminal/tunnels',
           payload: {
             connection_id: connId,
             direction: 'local',
@@ -1340,7 +1340,7 @@ Host db-server
 
         const res = await app.inject({
           method: 'POST',
-          url: '/api/terminal/tunnels',
+          url: '/terminal/tunnels',
           payload: {
             connection_id: connId,
             direction: 'local',
@@ -1359,7 +1359,7 @@ Host db-server
 
         const res = await app.inject({
           method: 'POST',
-          url: '/api/terminal/tunnels',
+          url: '/terminal/tunnels',
           payload: {
             connection_id: connId,
             direction: 'local',
@@ -1377,7 +1377,7 @@ Host db-server
 
         const res = await app.inject({
           method: 'POST',
-          url: '/api/terminal/tunnels',
+          url: '/terminal/tunnels',
           payload: {
             connection_id: connId,
             direction: 'dynamic',
@@ -1390,11 +1390,11 @@ Host db-server
       });
     });
 
-    describe('DELETE /api/terminal/tunnels/:id', () => {
+    describe('DELETE /terminal/tunnels/:id', () => {
       it('returns 404 for non-existent tunnel', async () => {
         const res = await app.inject({
           method: 'DELETE',
-          url: '/api/terminal/tunnels/00000000-0000-0000-0000-000000000099',
+          url: '/terminal/tunnels/00000000-0000-0000-0000-000000000099',
         });
 
         expect(res.statusCode).toBe(404);
@@ -1403,7 +1403,7 @@ Host db-server
       it('returns 400 for invalid tunnel ID', async () => {
         const res = await app.inject({
           method: 'DELETE',
-          url: '/api/terminal/tunnels/not-a-uuid',
+          url: '/terminal/tunnels/not-a-uuid',
         });
 
         expect(res.statusCode).toBe(400);
@@ -1424,7 +1424,7 @@ Host db-server
 
         const res = await app.inject({
           method: 'GET',
-          url: '/api/terminal/tunnels',
+          url: '/terminal/tunnels',
         });
 
         const body = res.json() as { total: number };
@@ -1438,11 +1438,11 @@ Host db-server
   // ================================================================
 
   describe('Known Host Verification (#1679)', () => {
-    describe('GET /api/terminal/known-hosts', () => {
+    describe('GET /terminal/known-hosts', () => {
       it('returns empty list when no hosts exist', async () => {
         const res = await app.inject({
           method: 'GET',
-          url: '/api/terminal/known-hosts',
+          url: '/terminal/known-hosts',
         });
 
         expect(res.statusCode).toBe(200);
@@ -1465,7 +1465,7 @@ Host db-server
 
         const res = await app.inject({
           method: 'GET',
-          url: '/api/terminal/known-hosts?host=server1',
+          url: '/terminal/known-hosts?host=server1',
         });
 
         expect(res.statusCode).toBe(200);
@@ -1475,11 +1475,11 @@ Host db-server
       });
     });
 
-    describe('POST /api/terminal/known-hosts', () => {
+    describe('POST /terminal/known-hosts', () => {
       it('trusts a host key', async () => {
         const res = await app.inject({
           method: 'POST',
-          url: '/api/terminal/known-hosts',
+          url: '/terminal/known-hosts',
           payload: {
             host: 'server.example.com',
             port: 22,
@@ -1501,7 +1501,7 @@ Host db-server
         // First trust
         await app.inject({
           method: 'POST',
-          url: '/api/terminal/known-hosts',
+          url: '/terminal/known-hosts',
           payload: {
             host: 'server.example.com',
             port: 22,
@@ -1514,7 +1514,7 @@ Host db-server
         // Second trust with new fingerprint
         const res = await app.inject({
           method: 'POST',
-          url: '/api/terminal/known-hosts',
+          url: '/terminal/known-hosts',
           payload: {
             host: 'server.example.com',
             port: 22,
@@ -1531,7 +1531,7 @@ Host db-server
         // Verify only one entry exists
         const list = await app.inject({
           method: 'GET',
-          url: '/api/terminal/known-hosts',
+          url: '/terminal/known-hosts',
         });
         const listBody = list.json() as { total: number };
         expect(listBody.total).toBe(1);
@@ -1540,7 +1540,7 @@ Host db-server
       it('rejects missing required fields', async () => {
         const res = await app.inject({
           method: 'POST',
-          url: '/api/terminal/known-hosts',
+          url: '/terminal/known-hosts',
           payload: { host: 'server.example.com' },
         });
 
@@ -1548,11 +1548,11 @@ Host db-server
       });
     });
 
-    describe('POST /api/terminal/known-hosts/approve', () => {
+    describe('POST /terminal/known-hosts/approve', () => {
       it('rejects missing session_id', async () => {
         const res = await app.inject({
           method: 'POST',
-          url: '/api/terminal/known-hosts/approve',
+          url: '/terminal/known-hosts/approve',
           payload: {
             host: 'server.example.com',
             key_type: 'ssh-ed25519',
@@ -1567,7 +1567,7 @@ Host db-server
       it('rejects invalid session_id', async () => {
         const res = await app.inject({
           method: 'POST',
-          url: '/api/terminal/known-hosts/approve',
+          url: '/terminal/known-hosts/approve',
           payload: {
             session_id: 'not-a-uuid',
             host: 'server.example.com',
@@ -1583,7 +1583,7 @@ Host db-server
       it('returns 404 for non-existent session', async () => {
         const res = await app.inject({
           method: 'POST',
-          url: '/api/terminal/known-hosts/approve',
+          url: '/terminal/known-hosts/approve',
           payload: {
             session_id: '00000000-0000-0000-0000-000000000099',
             host: 'server.example.com',
@@ -1612,7 +1612,7 @@ Host db-server
 
         const res = await app.inject({
           method: 'POST',
-          url: '/api/terminal/known-hosts/approve',
+          url: '/terminal/known-hosts/approve',
           payload: {
             session_id: sessId,
             host: 'example.com',
@@ -1629,7 +1629,7 @@ Host db-server
         // Verify the known host was stored
         const list = await app.inject({
           method: 'GET',
-          url: '/api/terminal/known-hosts',
+          url: '/terminal/known-hosts',
         });
         const body = list.json() as { known_hosts: Array<{ host: string }>; total: number };
         expect(body.total).toBe(1);
@@ -1637,7 +1637,7 @@ Host db-server
       });
     });
 
-    describe('DELETE /api/terminal/known-hosts/:id', () => {
+    describe('DELETE /terminal/known-hosts/:id', () => {
       it('revokes trust', async () => {
         const hostId = '00000000-0000-0000-0000-000000000060';
         await pool.query(
@@ -1648,14 +1648,14 @@ Host db-server
 
         const deleteRes = await app.inject({
           method: 'DELETE',
-          url: `/api/terminal/known-hosts/${hostId}`,
+          url: `/terminal/known-hosts/${hostId}`,
         });
         expect(deleteRes.statusCode).toBe(204);
 
         // Verify it's gone
         const list = await app.inject({
           method: 'GET',
-          url: '/api/terminal/known-hosts',
+          url: '/terminal/known-hosts',
         });
         const body = list.json() as { total: number };
         expect(body.total).toBe(0);
@@ -1664,7 +1664,7 @@ Host db-server
       it('returns 404 for non-existent host', async () => {
         const res = await app.inject({
           method: 'DELETE',
-          url: '/api/terminal/known-hosts/00000000-0000-0000-0000-000000000099',
+          url: '/terminal/known-hosts/00000000-0000-0000-0000-000000000099',
         });
 
         expect(res.statusCode).toBe(404);
@@ -1681,7 +1681,7 @@ Host db-server
 
         const res = await app.inject({
           method: 'GET',
-          url: '/api/terminal/known-hosts',
+          url: '/terminal/known-hosts',
         });
 
         const body = res.json() as { total: number };
@@ -1728,13 +1728,13 @@ Host db-server
       );
     }
 
-    describe('GET /api/terminal/sessions/:id/entries', () => {
+    describe('GET /terminal/sessions/:id/entries', () => {
       it('lists entries for a session', async () => {
         await createSessionWithEntries();
 
         const res = await app.inject({
           method: 'GET',
-          url: `/api/terminal/sessions/${sessId}/entries`,
+          url: `/terminal/sessions/${sessId}/entries`,
         });
 
         expect(res.statusCode).toBe(200);
@@ -1748,7 +1748,7 @@ Host db-server
 
         const res = await app.inject({
           method: 'GET',
-          url: `/api/terminal/sessions/${sessId}/entries?kind=command`,
+          url: `/terminal/sessions/${sessId}/entries?kind=command`,
         });
 
         expect(res.statusCode).toBe(200);
@@ -1764,7 +1764,7 @@ Host db-server
 
         const res = await app.inject({
           method: 'GET',
-          url: `/api/terminal/sessions/${sessId}/entries?limit=2&offset=0`,
+          url: `/terminal/sessions/${sessId}/entries?limit=2&offset=0`,
         });
 
         expect(res.statusCode).toBe(200);
@@ -1776,20 +1776,20 @@ Host db-server
       it('returns 404 for non-existent session', async () => {
         const res = await app.inject({
           method: 'GET',
-          url: '/api/terminal/sessions/00000000-0000-0000-0000-000000000099/entries',
+          url: '/terminal/sessions/00000000-0000-0000-0000-000000000099/entries',
         });
 
         expect(res.statusCode).toBe(404);
       });
     });
 
-    describe('GET /api/terminal/sessions/:id/entries/export', () => {
+    describe('GET /terminal/sessions/:id/entries/export', () => {
       it('exports entries as plain text', async () => {
         await createSessionWithEntries();
 
         const res = await app.inject({
           method: 'GET',
-          url: `/api/terminal/sessions/${sessId}/entries/export?format=text`,
+          url: `/terminal/sessions/${sessId}/entries/export?format=text`,
         });
 
         expect(res.statusCode).toBe(200);
@@ -1805,7 +1805,7 @@ Host db-server
 
         const res = await app.inject({
           method: 'GET',
-          url: `/api/terminal/sessions/${sessId}/entries/export?format=markdown`,
+          url: `/terminal/sessions/${sessId}/entries/export?format=markdown`,
         });
 
         expect(res.statusCode).toBe(200);
@@ -1820,7 +1820,7 @@ Host db-server
       it('returns 404 for non-existent session', async () => {
         const res = await app.inject({
           method: 'GET',
-          url: '/api/terminal/sessions/00000000-0000-0000-0000-000000000099/entries/export',
+          url: '/terminal/sessions/00000000-0000-0000-0000-000000000099/entries/export',
         });
 
         expect(res.statusCode).toBe(404);
@@ -1864,13 +1864,13 @@ Host db-server
       );
     }
 
-    describe('POST /api/terminal/search', () => {
+    describe('POST /terminal/search', () => {
       it('searches entries by content', async () => {
         await createSearchableEntries();
 
         const res = await app.inject({
           method: 'POST',
-          url: '/api/terminal/search',
+          url: '/terminal/search',
           payload: { query: 'nginx' },
         });
 
@@ -1900,7 +1900,7 @@ Host db-server
 
         const res = await app.inject({
           method: 'POST',
-          url: '/api/terminal/search',
+          url: '/terminal/search',
           payload: { query: 'nginx', kind: ['command'] },
         });
 
@@ -1916,7 +1916,7 @@ Host db-server
 
         const res = await app.inject({
           method: 'POST',
-          url: '/api/terminal/search',
+          url: '/terminal/search',
           payload: { query: 'nginx', tags: ['production'] },
         });
 
@@ -1930,7 +1930,7 @@ Host db-server
 
         const res = await app.inject({
           method: 'POST',
-          url: '/api/terminal/search',
+          url: '/terminal/search',
           payload: { query: 'nginx', host: 'web.example' },
         });
 
@@ -1944,7 +1944,7 @@ Host db-server
 
         const res = await app.inject({
           method: 'POST',
-          url: '/api/terminal/search',
+          url: '/terminal/search',
           payload: { query: 'kubernetes-nonexistent-term' },
         });
 
@@ -1957,7 +1957,7 @@ Host db-server
       it('rejects missing query', async () => {
         const res = await app.inject({
           method: 'POST',
-          url: '/api/terminal/search',
+          url: '/terminal/search',
           payload: {},
         });
 
@@ -1971,7 +1971,7 @@ Host db-server
 
         const res = await app.inject({
           method: 'POST',
-          url: '/api/terminal/search',
+          url: '/terminal/search',
           payload: { query: 'proxy_pass' },
         });
 
@@ -2006,7 +2006,7 @@ Host db-server
 
         const res = await app.inject({
           method: 'POST',
-          url: '/api/terminal/search',
+          url: '/terminal/search',
           payload: { query: 'secret-nginx' },
         });
 
@@ -2021,11 +2021,11 @@ Host db-server
   // ================================================================
 
   describe('Worker Status (#1682)', () => {
-    describe('GET /api/terminal/worker/status', () => {
+    describe('GET /terminal/worker/status', () => {
       it('returns 502 when worker is unavailable', async () => {
         const res = await app.inject({
           method: 'GET',
-          url: '/api/terminal/worker/status',
+          url: '/terminal/worker/status',
         });
 
         expect(res.statusCode).toBe(502);
