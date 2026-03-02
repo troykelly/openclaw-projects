@@ -631,29 +631,44 @@ jobs:
     name: Finalize Sentry release
     needs: [validate, publish-containers]
     runs-on: ubuntu-latest
-    # Only run when Sentry secrets are configured
-    if: ${{ secrets.SENTRY_AUTH_TOKEN != '' }}
     permissions:
       contents: read
 
     steps:
+      - name: Check Sentry configuration
+        id: sentry-check
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        run: |
+          if [ -n "${SENTRY_AUTH_TOKEN}" ]; then
+            echo "configured=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "configured=false" >> "${GITHUB_OUTPUT}"
+            echo "::notice::Sentry not configured — skipping release finalization"
+          fi
+
       - name: Checkout repository
+        if: steps.sentry-check.outputs.configured == 'true'
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           fetch-depth: 0
 
       - name: Setup Node.js
+        if: steps.sentry-check.outputs.configured == 'true'
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22'
 
       - name: Install pnpm
+        if: steps.sentry-check.outputs.configured == 'true'
         uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4
 
       - name: Install dependencies
+        if: steps.sentry-check.outputs.configured == 'true'
         run: pnpm install --frozen-lockfile
 
       - name: Finalize Sentry release
+        if: steps.sentry-check.outputs.configured == 'true'
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
