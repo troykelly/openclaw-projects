@@ -46,7 +46,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
   async function createNote(user_email: string, title: string, content: string, visibility: 'private' | 'shared' | 'public' = 'private'): Promise<string> {
     const res = await app.inject({
       method: 'POST',
-      url: '/api/notes',
+      url: '/notes',
       payload: { user_email: user_email, title, content, visibility },
     });
     expect(res.statusCode).toBe(201);
@@ -59,7 +59,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
   async function createNotebook(user_email: string, name: string): Promise<string> {
     const res = await app.inject({
       method: 'POST',
-      url: '/api/notebooks',
+      url: '/notebooks',
       payload: { user_email: user_email, name },
     });
     expect(res.statusCode).toBe(201);
@@ -70,13 +70,13 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
   // Note Sharing with Users
   // ============================================
 
-  describe('POST /api/notes/:id/share', () => {
+  describe('POST /notes/:id/share', () => {
     it('shares a note with another user', async () => {
       const noteId = await createNote(ownerEmail, 'Test Note', 'Content');
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/notes/${noteId}/share`,
+        url: `/notes/${noteId}/share`,
         payload: {
           user_email: ownerEmail,
           email: collaboratorEmail,
@@ -97,7 +97,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/notes/${noteId}/share`,
+        url: `/notes/${noteId}/share`,
         payload: {
           user_email: ownerEmail,
           email: collaboratorEmail,
@@ -115,7 +115,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/notes/${noteId}/share`,
+        url: `/notes/${noteId}/share`,
         payload: {
           user_email: ownerEmail,
           email: collaboratorEmail,
@@ -130,7 +130,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
     it('returns 404 for non-existent note', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/notes/00000000-0000-0000-0000-000000000000/share',
+        url: '/notes/00000000-0000-0000-0000-000000000000/share',
         payload: {
           user_email: ownerEmail,
           email: collaboratorEmail,
@@ -145,7 +145,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/notes/${noteId}/share`,
+        url: `/notes/${noteId}/share`,
         payload: {
           user_email: otherEmail,
           email: collaboratorEmail,
@@ -161,7 +161,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
       // First share
       await app.inject({
         method: 'POST',
-        url: `/api/notes/${noteId}/share`,
+        url: `/notes/${noteId}/share`,
         payload: {
           user_email: ownerEmail,
           email: collaboratorEmail,
@@ -171,7 +171,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
       // Try to share again
       const res = await app.inject({
         method: 'POST',
-        url: `/api/notes/${noteId}/share`,
+        url: `/notes/${noteId}/share`,
         payload: {
           user_email: ownerEmail,
           email: collaboratorEmail,
@@ -184,7 +184,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
     it('requires user_email', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/notes/some-id/share',
+        url: '/notes/some-id/share',
         payload: { email: collaboratorEmail },
       });
 
@@ -196,7 +196,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/notes/${noteId}/share`,
+        url: `/notes/${noteId}/share`,
         payload: { user_email: ownerEmail },
       });
 
@@ -208,13 +208,13 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
   // Note Share Links
   // ============================================
 
-  describe('POST /api/notes/:id/share/link', () => {
+  describe('POST /notes/:id/share/link', () => {
     it('creates a share link', async () => {
       const noteId = await createNote(ownerEmail, 'Test Note', 'Content');
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/notes/${noteId}/share/link`,
+        url: `/notes/${noteId}/share/link`,
         payload: { user_email: ownerEmail },
       });
 
@@ -231,7 +231,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/notes/${noteId}/share/link`,
+        url: `/notes/${noteId}/share/link`,
         payload: {
           user_email: ownerEmail,
           is_single_view: true,
@@ -247,7 +247,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/notes/${noteId}/share/link`,
+        url: `/notes/${noteId}/share/link`,
         payload: {
           user_email: ownerEmail,
           max_views: 5,
@@ -263,7 +263,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/notes/${noteId}/share/link`,
+        url: `/notes/${noteId}/share/link`,
         payload: { user_email: otherEmail },
       });
 
@@ -275,27 +275,27 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
   // List and Manage Shares
   // ============================================
 
-  describe('GET /api/notes/:id/shares', () => {
+  describe('GET /notes/:id/shares', () => {
     it('lists all shares for a note', async () => {
       const noteId = await createNote(ownerEmail, 'Test Note', 'Content');
 
       // Create user share
       await app.inject({
         method: 'POST',
-        url: `/api/notes/${noteId}/share`,
+        url: `/notes/${noteId}/share`,
         payload: { user_email: ownerEmail, email: collaboratorEmail },
       });
 
       // Create link share
       await app.inject({
         method: 'POST',
-        url: `/api/notes/${noteId}/share/link`,
+        url: `/notes/${noteId}/share/link`,
         payload: { user_email: ownerEmail },
       });
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/notes/${noteId}/shares`,
+        url: `/notes/${noteId}/shares`,
         query: { user_email: ownerEmail },
       });
 
@@ -314,7 +314,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/notes/${noteId}/shares`,
+        url: `/notes/${noteId}/shares`,
         query: { user_email: otherEmail },
       });
 
@@ -322,20 +322,20 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
     });
   });
 
-  describe('PUT /api/notes/:id/shares/:shareId', () => {
+  describe('PUT /notes/:id/shares/:shareId', () => {
     it('updates share permission', async () => {
       const noteId = await createNote(ownerEmail, 'Test Note', 'Content');
 
       const shareRes = await app.inject({
         method: 'POST',
-        url: `/api/notes/${noteId}/share`,
+        url: `/notes/${noteId}/share`,
         payload: { user_email: ownerEmail, email: collaboratorEmail, permission: 'read' },
       });
       const shareId = shareRes.json().id;
 
       const res = await app.inject({
         method: 'PUT',
-        url: `/api/notes/${noteId}/shares/${shareId}`,
+        url: `/notes/${noteId}/shares/${shareId}`,
         payload: { user_email: ownerEmail, permission: 'read_write' },
       });
 
@@ -348,7 +348,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
 
       const res = await app.inject({
         method: 'PUT',
-        url: `/api/notes/${noteId}/shares/00000000-0000-0000-0000-000000000000`,
+        url: `/notes/${noteId}/shares/00000000-0000-0000-0000-000000000000`,
         payload: { user_email: ownerEmail, permission: 'read_write' },
       });
 
@@ -356,20 +356,20 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
     });
   });
 
-  describe('DELETE /api/notes/:id/shares/:shareId', () => {
+  describe('DELETE /notes/:id/shares/:shareId', () => {
     it('revokes a share', async () => {
       const noteId = await createNote(ownerEmail, 'Test Note', 'Content');
 
       const shareRes = await app.inject({
         method: 'POST',
-        url: `/api/notes/${noteId}/share`,
+        url: `/notes/${noteId}/share`,
         payload: { user_email: ownerEmail, email: collaboratorEmail },
       });
       const shareId = shareRes.json().id;
 
       const res = await app.inject({
         method: 'DELETE',
-        url: `/api/notes/${noteId}/shares/${shareId}`,
+        url: `/notes/${noteId}/shares/${shareId}`,
         query: { user_email: ownerEmail },
       });
 
@@ -378,7 +378,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
       // Verify share is gone
       const listRes = await app.inject({
         method: 'GET',
-        url: `/api/notes/${noteId}/shares`,
+        url: `/notes/${noteId}/shares`,
         query: { user_email: ownerEmail },
       });
       expect(listRes.json().shares.length).toBe(0);
@@ -389,7 +389,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
 
       const res = await app.inject({
         method: 'DELETE',
-        url: `/api/notes/${noteId}/shares/00000000-0000-0000-0000-000000000000`,
+        url: `/notes/${noteId}/shares/00000000-0000-0000-0000-000000000000`,
         query: { user_email: ownerEmail },
       });
 
@@ -401,20 +401,20 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
   // Access Shared Notes
   // ============================================
 
-  describe('GET /api/shared/notes/:token', () => {
+  describe('GET /shared/notes/:token', () => {
     it('accesses a note via share link', async () => {
       const noteId = await createNote(ownerEmail, 'Shared Note', 'Secret content');
 
       const linkRes = await app.inject({
         method: 'POST',
-        url: `/api/notes/${noteId}/share/link`,
+        url: `/notes/${noteId}/share/link`,
         payload: { user_email: ownerEmail },
       });
       const token = linkRes.json().token;
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/shared/notes/${token}`,
+        url: `/shared/notes/${token}`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -429,7 +429,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
     it('returns 404 for invalid token', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/shared/notes/invalid-token-here',
+        url: '/shared/notes/invalid-token-here',
       });
 
       expect(res.statusCode).toBe(404);
@@ -440,7 +440,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
 
       const linkRes = await app.inject({
         method: 'POST',
-        url: `/api/notes/${noteId}/share/link`,
+        url: `/notes/${noteId}/share/link`,
         payload: { user_email: ownerEmail, is_single_view: true },
       });
       const token = linkRes.json().token;
@@ -448,14 +448,14 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
       // First access - should work
       const res1 = await app.inject({
         method: 'GET',
-        url: `/api/shared/notes/${token}`,
+        url: `/shared/notes/${token}`,
       });
       expect(res1.statusCode).toBe(200);
 
       // Second access - should fail
       const res2 = await app.inject({
         method: 'GET',
-        url: `/api/shared/notes/${token}`,
+        url: `/shared/notes/${token}`,
       });
       expect(res2.statusCode).toBe(410);
     });
@@ -465,14 +465,14 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
 
       const linkRes = await app.inject({
         method: 'POST',
-        url: `/api/notes/${noteId}/share/link`,
+        url: `/notes/${noteId}/share/link`,
         payload: { user_email: ownerEmail },
       });
       const token = linkRes.json().token;
 
       // Access twice
-      await app.inject({ method: 'GET', url: `/api/shared/notes/${token}` });
-      await app.inject({ method: 'GET', url: `/api/shared/notes/${token}` });
+      await app.inject({ method: 'GET', url: `/shared/notes/${token}` });
+      await app.inject({ method: 'GET', url: `/shared/notes/${token}` });
 
       // Check view count
       const result = await pool.query('SELECT view_count FROM note_share WHERE share_link_token = $1', [token]);
@@ -484,19 +484,19 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
   // Shared With Me
   // ============================================
 
-  describe('GET /api/notes/shared-with-me', () => {
+  describe('GET /notes/shared-with-me', () => {
     it('lists notes shared with user', async () => {
       const noteId = await createNote(ownerEmail, 'Shared Note', 'Content');
 
       await app.inject({
         method: 'POST',
-        url: `/api/notes/${noteId}/share`,
+        url: `/notes/${noteId}/share`,
         payload: { user_email: ownerEmail, email: collaboratorEmail },
       });
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/notes/shared-with-me',
+        url: '/notes/shared-with-me',
         query: { user_email: collaboratorEmail },
       });
 
@@ -511,7 +511,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
     it('returns empty list when nothing shared', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/notes/shared-with-me',
+        url: '/notes/shared-with-me',
         query: { user_email: collaboratorEmail },
       });
 
@@ -526,13 +526,13 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
       const pastDate = new Date(Date.now() - 1000).toISOString();
       await app.inject({
         method: 'POST',
-        url: `/api/notes/${noteId}/share`,
+        url: `/notes/${noteId}/share`,
         payload: { user_email: ownerEmail, email: collaboratorEmail, expires_at: pastDate },
       });
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/notes/shared-with-me',
+        url: '/notes/shared-with-me',
         query: { user_email: collaboratorEmail },
       });
 
@@ -546,13 +546,13 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
   // ============================================
 
   describe('Notebook Sharing', () => {
-    describe('POST /api/notebooks/:id/share', () => {
+    describe('POST /notebooks/:id/share', () => {
       it('shares a notebook with another user', async () => {
         const notebook_id = await createNotebook(ownerEmail, 'Test Notebook');
 
         const res = await app.inject({
           method: 'POST',
-          url: `/api/notebooks/${notebook_id}/share`,
+          url: `/notebooks/${notebook_id}/share`,
           payload: {
             user_email: ownerEmail,
             email: collaboratorEmail,
@@ -568,13 +568,13 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
       });
     });
 
-    describe('POST /api/notebooks/:id/share/link', () => {
+    describe('POST /notebooks/:id/share/link', () => {
       it('creates a share link for notebook', async () => {
         const notebook_id = await createNotebook(ownerEmail, 'Test Notebook');
 
         const res = await app.inject({
           method: 'POST',
-          url: `/api/notebooks/${notebook_id}/share/link`,
+          url: `/notebooks/${notebook_id}/share/link`,
           payload: { user_email: ownerEmail },
         });
 
@@ -584,19 +584,19 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
       });
     });
 
-    describe('GET /api/notebooks/:id/shares', () => {
+    describe('GET /notebooks/:id/shares', () => {
       it('lists notebook shares', async () => {
         const notebook_id = await createNotebook(ownerEmail, 'Test Notebook');
 
         await app.inject({
           method: 'POST',
-          url: `/api/notebooks/${notebook_id}/share`,
+          url: `/notebooks/${notebook_id}/share`,
           payload: { user_email: ownerEmail, email: collaboratorEmail },
         });
 
         const res = await app.inject({
           method: 'GET',
-          url: `/api/notebooks/${notebook_id}/shares`,
+          url: `/notebooks/${notebook_id}/shares`,
           query: { user_email: ownerEmail },
         });
 
@@ -605,20 +605,20 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
       });
     });
 
-    describe('GET /api/shared/notebooks/:token', () => {
+    describe('GET /shared/notebooks/:token', () => {
       it('accesses a notebook via share link', async () => {
         const notebook_id = await createNotebook(ownerEmail, 'Shared Notebook');
 
         const linkRes = await app.inject({
           method: 'POST',
-          url: `/api/notebooks/${notebook_id}/share/link`,
+          url: `/notebooks/${notebook_id}/share/link`,
           payload: { user_email: ownerEmail },
         });
         const token = linkRes.json().token;
 
         const res = await app.inject({
           method: 'GET',
-          url: `/api/shared/notebooks/${token}`,
+          url: `/shared/notebooks/${token}`,
         });
 
         expect(res.statusCode).toBe(200);
@@ -627,19 +627,19 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
       });
     });
 
-    describe('GET /api/notebooks/shared-with-me', () => {
+    describe('GET /notebooks/shared-with-me', () => {
       it('lists notebooks shared with user', async () => {
         const notebook_id = await createNotebook(ownerEmail, 'Shared Notebook');
 
         await app.inject({
           method: 'POST',
-          url: `/api/notebooks/${notebook_id}/share`,
+          url: `/notebooks/${notebook_id}/share`,
           payload: { user_email: ownerEmail, email: collaboratorEmail },
         });
 
         const res = await app.inject({
           method: 'GET',
-          url: '/api/notebooks/shared-with-me',
+          url: '/notebooks/shared-with-me',
           query: { user_email: collaboratorEmail },
         });
 
@@ -661,7 +661,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
       // Before sharing, collaborator cannot access
       const beforeRes = await app.inject({
         method: 'GET',
-        url: `/api/notes/${noteId}`,
+        url: `/notes/${noteId}`,
         query: { user_email: collaboratorEmail },
       });
       expect(beforeRes.statusCode).toBe(404);
@@ -669,14 +669,14 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
       // Share with collaborator
       await app.inject({
         method: 'POST',
-        url: `/api/notes/${noteId}/share`,
+        url: `/notes/${noteId}/share`,
         payload: { user_email: ownerEmail, email: collaboratorEmail },
       });
 
       // After sharing, collaborator can access
       const afterRes = await app.inject({
         method: 'GET',
-        url: `/api/notes/${noteId}`,
+        url: `/notes/${noteId}`,
         query: { user_email: collaboratorEmail },
       });
       expect(afterRes.statusCode).toBe(200);
@@ -689,14 +689,14 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
       // Share with read_write
       await app.inject({
         method: 'POST',
-        url: `/api/notes/${noteId}/share`,
+        url: `/notes/${noteId}/share`,
         payload: { user_email: ownerEmail, email: collaboratorEmail, permission: 'read_write' },
       });
 
       // Collaborator can update
       const res = await app.inject({
         method: 'PUT',
-        url: `/api/notes/${noteId}`,
+        url: `/notes/${noteId}`,
         payload: {
           user_email: collaboratorEmail,
           content: 'Updated by collaborator',

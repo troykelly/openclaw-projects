@@ -127,13 +127,13 @@ describe('Fuzzy Contact Matching (Issue #1270)', () => {
     await app.close();
   });
 
-  // ─── GET /api/contacts/suggest-match ───────────────────────────────────
+  // ─── GET /contacts/suggest-match ───────────────────────────────────
 
-  describe('GET /api/contacts/suggest-match', () => {
+  describe('GET /contacts/suggest-match', () => {
     it('returns 400 when no search parameters provided', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/contacts/suggest-match',
+        url: '/contacts/suggest-match',
         headers: { 'x-user-email': TEST_EMAIL },
       });
 
@@ -143,7 +143,7 @@ describe('Fuzzy Contact Matching (Issue #1270)', () => {
     it('matches by exact phone number', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/contacts/suggest-match?phone=%2B61400123456',
+        url: '/contacts/suggest-match?phone=%2B61400123456',
         headers: { 'x-user-email': TEST_EMAIL },
       });
 
@@ -162,7 +162,7 @@ describe('Fuzzy Contact Matching (Issue #1270)', () => {
       // Search for a phone number that shares the same prefix as Alice/Bob
       const res = await app.inject({
         method: 'GET',
-        url: '/api/contacts/suggest-match?phone=%2B61400123499&user_email=' + encodeURIComponent(TEST_EMAIL),
+        url: '/contacts/suggest-match?phone=%2B61400123499&user_email=' + encodeURIComponent(TEST_EMAIL),
         headers: { 'x-user-email': TEST_EMAIL },
       });
 
@@ -179,7 +179,7 @@ describe('Fuzzy Contact Matching (Issue #1270)', () => {
     it('matches by exact email address', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/contacts/suggest-match?email=alice.smith%40example.com',
+        url: '/contacts/suggest-match?email=alice.smith%40example.com',
         headers: { 'x-user-email': TEST_EMAIL },
       });
 
@@ -196,7 +196,7 @@ describe('Fuzzy Contact Matching (Issue #1270)', () => {
       // Search for unknown email at same domain
       const res = await app.inject({
         method: 'GET',
-        url: '/api/contacts/suggest-match?email=unknown%40example.com',
+        url: '/contacts/suggest-match?email=unknown%40example.com',
         headers: { 'x-user-email': TEST_EMAIL },
       });
 
@@ -211,7 +211,7 @@ describe('Fuzzy Contact Matching (Issue #1270)', () => {
     it('matches by name', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/contacts/suggest-match?name=Alice',
+        url: '/contacts/suggest-match?name=Alice',
         headers: { 'x-user-email': TEST_EMAIL },
       });
 
@@ -227,7 +227,7 @@ describe('Fuzzy Contact Matching (Issue #1270)', () => {
       // Search with both phone and name that match Alice
       const res = await app.inject({
         method: 'GET',
-        url: '/api/contacts/suggest-match?phone=%2B61400123456&name=Alice',
+        url: '/contacts/suggest-match?phone=%2B61400123456&name=Alice',
         headers: { 'x-user-email': TEST_EMAIL },
       });
 
@@ -243,7 +243,7 @@ describe('Fuzzy Contact Matching (Issue #1270)', () => {
     it('returns results sorted by confidence descending', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/contacts/suggest-match?phone=%2B61400123458&name=Alice',
+        url: '/contacts/suggest-match?phone=%2B61400123458&name=Alice',
         headers: { 'x-user-email': TEST_EMAIL },
       });
 
@@ -258,7 +258,7 @@ describe('Fuzzy Contact Matching (Issue #1270)', () => {
     it('returns contact display_name and endpoints in match results', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/contacts/suggest-match?phone=%2B61400123456',
+        url: '/contacts/suggest-match?phone=%2B61400123456',
         headers: { 'x-user-email': TEST_EMAIL },
       });
 
@@ -274,7 +274,7 @@ describe('Fuzzy Contact Matching (Issue #1270)', () => {
     it('respects limit parameter', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/contacts/suggest-match?name=Fuzzy+Test&limit=1',
+        url: '/contacts/suggest-match?name=Fuzzy+Test&limit=1',
         headers: { 'x-user-email': TEST_EMAIL },
       });
 
@@ -286,7 +286,7 @@ describe('Fuzzy Contact Matching (Issue #1270)', () => {
     it('returns empty matches when no contacts match', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/contacts/suggest-match?phone=%2B99999999999',
+        url: '/contacts/suggest-match?phone=%2B99999999999',
         headers: { 'x-user-email': TEST_EMAIL },
       });
 
@@ -307,7 +307,7 @@ describe('Fuzzy Contact Matching (Issue #1270)', () => {
       // Query from default namespace — should NOT see the isolated-ns contact
       const res = await app.inject({
         method: 'GET',
-        url: '/api/contacts/suggest-match?name=Alice',
+        url: '/contacts/suggest-match?name=Alice',
         headers: { 'x-user-email': TEST_EMAIL },
       });
 
@@ -325,13 +325,13 @@ describe('Fuzzy Contact Matching (Issue #1270)', () => {
     });
   });
 
-  // ─── POST /api/messages/:id/link-contact ───────────────────────────────
+  // ─── POST /messages/:id/link-contact ───────────────────────────────
 
-  describe('POST /api/messages/:id/link-contact', () => {
+  describe('POST /messages/:id/link-contact', () => {
     it('returns 400 when contact_id is missing', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: `/api/messages/${unlinkedMessageId}/link-contact`,
+        url: `/messages/${unlinkedMessageId}/link-contact`,
         headers: { 'content-type': 'application/json', 'x-user-email': TEST_EMAIL },
         payload: {},
       });
@@ -342,7 +342,7 @@ describe('Fuzzy Contact Matching (Issue #1270)', () => {
     it('returns 404 for non-existent message', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/messages/00000000-0000-0000-0000-000000000099/link-contact',
+        url: '/messages/00000000-0000-0000-0000-000000000099/link-contact',
         headers: { 'content-type': 'application/json', 'x-user-email': TEST_EMAIL },
         payload: { contact_id: contactAliceId },
       });
@@ -353,7 +353,7 @@ describe('Fuzzy Contact Matching (Issue #1270)', () => {
     it('returns 404 for non-existent contact', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: `/api/messages/${unlinkedMessageId}/link-contact`,
+        url: `/messages/${unlinkedMessageId}/link-contact`,
         headers: { 'content-type': 'application/json', 'x-user-email': TEST_EMAIL },
         payload: { contact_id: '00000000-0000-0000-0000-000000000099' },
       });
@@ -373,7 +373,7 @@ describe('Fuzzy Contact Matching (Issue #1270)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/messages/${message_id}/link-contact`,
+        url: `/messages/${message_id}/link-contact`,
         headers: { 'content-type': 'application/json', 'x-user-email': TEST_EMAIL },
         payload: { contact_id: contactBobId },
       });
@@ -387,7 +387,7 @@ describe('Fuzzy Contact Matching (Issue #1270)', () => {
     it('returns 400 for invalid message id format', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/messages/not-a-uuid/link-contact',
+        url: '/messages/not-a-uuid/link-contact',
         headers: { 'content-type': 'application/json', 'x-user-email': TEST_EMAIL },
         payload: { contact_id: contactAliceId },
       });
@@ -398,7 +398,7 @@ describe('Fuzzy Contact Matching (Issue #1270)', () => {
     it('returns 400 for invalid contact_id format', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: `/api/messages/${unlinkedMessageId}/link-contact`,
+        url: `/messages/${unlinkedMessageId}/link-contact`,
         headers: { 'content-type': 'application/json', 'x-user-email': TEST_EMAIL },
         payload: { contact_id: 'not-a-uuid' },
       });

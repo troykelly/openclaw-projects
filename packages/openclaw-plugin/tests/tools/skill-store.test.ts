@@ -195,7 +195,7 @@ describe('Skill Store Tools (Issue #800)', () => {
 
         expect(result.success).toBe(true);
         expect(mockApiClient.post).toHaveBeenCalledWith(
-          '/api/skill-store/items',
+          '/skill-store/items',
           expect.objectContaining({
             skill_id: 'my-skill',
             collection: 'config',
@@ -278,7 +278,7 @@ describe('Skill Store Tools (Issue #800)', () => {
         });
 
         expect(result.success).toBe(true);
-        expect(mockApiClient.get).toHaveBeenCalledWith('/api/skill-store/items/550e8400-e29b-41d4-a716-446655440000', { user_id: 'agent-1' });
+        expect(mockApiClient.get).toHaveBeenCalledWith('/skill-store/items/550e8400-e29b-41d4-a716-446655440000', { user_id: 'agent-1' });
       });
 
       it('fetches by composite key', async () => {
@@ -308,7 +308,7 @@ describe('Skill Store Tools (Issue #800)', () => {
         });
 
         expect(result.success).toBe(true);
-        expect(mockApiClient.get).toHaveBeenCalledWith(expect.stringContaining('/api/skill-store/items/by-key'), { user_id: 'agent-1' });
+        expect(mockApiClient.get).toHaveBeenCalledWith(expect.stringContaining('/skill-store/items/by-key'), { user_id: 'agent-1' });
       });
 
       it('returns not found for 404', async () => {
@@ -471,7 +471,7 @@ describe('Skill Store Tools (Issue #800)', () => {
         });
 
         expect(result.success).toBe(true);
-        expect(mockApiClient.delete).toHaveBeenCalledWith('/api/skill-store/items/550e8400-e29b-41d4-a716-446655440000', { user_id: 'agent-1' });
+        expect(mockApiClient.delete).toHaveBeenCalledWith('/skill-store/items/550e8400-e29b-41d4-a716-446655440000', { user_id: 'agent-1' });
       });
 
       it('deletes by composite key (lookup then delete)', async () => {
@@ -491,8 +491,8 @@ describe('Skill Store Tools (Issue #800)', () => {
         });
 
         expect(result.success).toBe(true);
-        expect(mockApiClient.get).toHaveBeenCalledWith(expect.stringContaining('/api/skill-store/items/by-key'), { user_id: 'agent-1' });
-        expect(mockApiClient.delete).toHaveBeenCalledWith('/api/skill-store/items/found-uuid', { user_id: 'agent-1' });
+        expect(mockApiClient.get).toHaveBeenCalledWith(expect.stringContaining('/skill-store/items/by-key'), { user_id: 'agent-1' });
+        expect(mockApiClient.delete).toHaveBeenCalledWith('/skill-store/items/found-uuid', { user_id: 'agent-1' });
       });
 
       it('returns not found for 404', async () => {

@@ -59,7 +59,7 @@ TWILIO_PHONE_NUMBER=+15005550006  # Twilio magic test number
 ngrok http 3000
 
 # Configure Twilio webhook URL
-# https://xxxxx.ngrok.io/api/twilio/sms/status
+# https://xxxxx.ngrok.io/twilio/sms/status
 ```
 
 ## Postmark Email Setup
@@ -91,7 +91,7 @@ POSTMARK_FROM_EMAIL=noreply@yourdomain.com
 
 In Postmark server settings:
 1. Go to **Webhooks** tab
-2. Add webhook URL: `https://yourdomain.com/api/postmark/email/status`
+2. Add webhook URL: `https://yourdomain.com/postmark/email/status`
 3. Select events: Delivery, Bounce, SpamComplaint
 
 ## Testing Endpoints
@@ -100,7 +100,7 @@ In Postmark server settings:
 
 ```bash
 # Without auth (dev mode)
-curl -X POST http://localhost:3000/api/twilio/sms/send \
+curl -X POST http://localhost:3000/twilio/sms/send \
   -H "Content-Type: application/json" \
   -d '{
     "to": "+15551234567",
@@ -111,7 +111,7 @@ curl -X POST http://localhost:3000/api/twilio/sms/send \
 ### Send Test Email
 
 ```bash
-curl -X POST http://localhost:3000/api/postmark/email/send \
+curl -X POST http://localhost:3000/postmark/email/send \
   -H "Content-Type: application/json" \
   -d '{
     "to": "test@example.com",
@@ -125,7 +125,7 @@ curl -X POST http://localhost:3000/api/postmark/email/send \
 #### Twilio SMS Status
 
 ```bash
-curl -X POST http://localhost:3000/api/twilio/sms/status \
+curl -X POST http://localhost:3000/twilio/sms/status \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "MessageSid=SM12345&MessageStatus=delivered&To=%2B15551234567"
 ```
@@ -133,7 +133,7 @@ curl -X POST http://localhost:3000/api/twilio/sms/status \
 #### Postmark Delivery
 
 ```bash
-curl -X POST http://localhost:3000/api/postmark/email/status \
+curl -X POST http://localhost:3000/postmark/email/status \
   -H "Content-Type: application/json" \
   -d '{
     "RecordType": "Delivery",
@@ -148,7 +148,7 @@ curl -X POST http://localhost:3000/api/postmark/email/status \
 #### Postmark Bounce
 
 ```bash
-curl -X POST http://localhost:3000/api/postmark/email/status \
+curl -X POST http://localhost:3000/postmark/email/status \
   -H "Content-Type: application/json" \
   -d '{
     "RecordType": "Bounce",

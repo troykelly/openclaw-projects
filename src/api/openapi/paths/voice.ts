@@ -1,8 +1,8 @@
 /**
  * OpenAPI path definitions for voice conversation endpoints.
- * Routes: GET /api/voice/config, PUT /api/voice/config,
- *         GET /api/voice/conversations, GET /api/voice/conversations/:id,
- *         DELETE /api/voice/conversations/:id
+ * Routes: GET /voice/config, PUT /voice/config,
+ *         GET /voice/conversations, GET /voice/conversations/:id,
+ *         DELETE /voice/conversations/:id
  */
 import type { OpenApiDomainModule } from '../types.ts';
 import { errorResponses, jsonBody, jsonResponse, paginationParams, uuidParam } from '../helpers.ts';
@@ -151,7 +151,7 @@ export function voicePaths(): OpenApiDomainModule {
       },
     },
     paths: {
-      '/api/voice/config': {
+      '/voice/config': {
         get: {
           operationId: 'getVoiceConfig',
           summary: 'Get voice routing configuration',
@@ -222,7 +222,7 @@ export function voicePaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/voice/conversations': {
+      '/voice/conversations': {
         get: {
           operationId: 'listVoiceConversations',
           summary: 'List voice conversations',
@@ -261,7 +261,7 @@ export function voicePaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/voice/conversations/{id}': {
+      '/voice/conversations/{id}': {
         get: {
           operationId: 'getVoiceConversation',
           summary: 'Get a voice conversation with messages',

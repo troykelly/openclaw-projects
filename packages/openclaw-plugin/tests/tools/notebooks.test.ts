@@ -410,7 +410,7 @@ describe('notebook tools', () => {
         await tool.execute({ name: 'Test\x00Notebook' });
 
         expect(mockApiClient.post).toHaveBeenCalledWith(
-          '/api/notebooks',
+          '/notebooks',
           expect.objectContaining({
             name: 'TestNotebook',
           }),

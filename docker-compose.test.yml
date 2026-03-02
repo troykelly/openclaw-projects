@@ -82,7 +82,7 @@ services:
       migrate-test:
         condition: service_completed_successfully
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:3001/api/health || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:3001/health || exit 1"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -115,7 +115,7 @@ services:
       migrate-test:
         condition: service_completed_successfully
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:3002/api/health || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:3002/health || exit 1"]
       interval: 5s
       timeout: 5s
       retries: 10

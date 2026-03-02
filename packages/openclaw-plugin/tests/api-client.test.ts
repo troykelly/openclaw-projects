@@ -184,7 +184,7 @@ describe('ApiClient', () => {
       });
 
       const client = createApiClient({ config: defaultConfig, logger: mockLogger });
-      await client.patch('/api/work-items/123/status', { status: 'completed' }, { user_id: 'acme', namespace: 'acme' });
+      await client.patch('/work-items/123/status', { status: 'completed' }, { user_id: 'acme', namespace: 'acme' });
 
       expect(mockFetch).toHaveBeenCalledWith(
         expect.any(String),

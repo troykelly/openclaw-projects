@@ -23,7 +23,7 @@ describe('Effort API: estimate_minutes and actual_minutes', () => {
     await app.close();
   });
 
-  describe('GET /api/work-items/:id', () => {
+  describe('GET /work-items/:id', () => {
     it('returns estimate_minutes and actual_minutes fields', async () => {
       const inserted = await pool.query(
         `INSERT INTO work_item (title, estimate_minutes, actual_minutes)
@@ -34,7 +34,7 @@ describe('Effort API: estimate_minutes and actual_minutes', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${id}`,
+        url: `/work-items/${id}`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -53,7 +53,7 @@ describe('Effort API: estimate_minutes and actual_minutes', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${id}`,
+        url: `/work-items/${id}`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -63,7 +63,7 @@ describe('Effort API: estimate_minutes and actual_minutes', () => {
     });
   });
 
-  describe('GET /api/work-items (list)', () => {
+  describe('GET /work-items (list)', () => {
     it('returns estimate_minutes and actual_minutes in list items', async () => {
       await pool.query(
         `INSERT INTO work_item (title, estimate_minutes, actual_minutes)
@@ -72,7 +72,7 @@ describe('Effort API: estimate_minutes and actual_minutes', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: '/api/work-items',
+        url: '/work-items',
       });
 
       expect(response.statusCode).toBe(200);
@@ -83,11 +83,11 @@ describe('Effort API: estimate_minutes and actual_minutes', () => {
     });
   });
 
-  describe('POST /api/work-items', () => {
+  describe('POST /work-items', () => {
     it('accepts estimateMinutes and actualMinutes in create', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: {
           title: 'New task with estimates',
           estimate_minutes: 180,
@@ -104,7 +104,7 @@ describe('Effort API: estimate_minutes and actual_minutes', () => {
     it('rejects negative estimateMinutes', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: {
           title: 'Invalid estimate',
           estimate_minutes: -10,
@@ -118,7 +118,7 @@ describe('Effort API: estimate_minutes and actual_minutes', () => {
     it('rejects estimateMinutes exceeding 525600', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: {
           title: 'Too big estimate',
           estimate_minutes: 600000,
@@ -130,7 +130,7 @@ describe('Effort API: estimate_minutes and actual_minutes', () => {
     });
   });
 
-  describe('PUT /api/work-items/:id', () => {
+  describe('PUT /work-items/:id', () => {
     it('updates estimateMinutes and actualMinutes', async () => {
       const inserted = await pool.query(
         `INSERT INTO work_item (title, estimate_minutes, actual_minutes)
@@ -141,7 +141,7 @@ describe('Effort API: estimate_minutes and actual_minutes', () => {
 
       const response = await app.inject({
         method: 'PUT',
-        url: `/api/work-items/${id}`,
+        url: `/work-items/${id}`,
         payload: {
           title: 'Updated task',
           estimate_minutes: 120,
@@ -165,7 +165,7 @@ describe('Effort API: estimate_minutes and actual_minutes', () => {
 
       const response = await app.inject({
         method: 'PUT',
-        url: `/api/work-items/${id}`,
+        url: `/work-items/${id}`,
         payload: {
           title: 'Clear estimates',
           estimate_minutes: null,
@@ -189,7 +189,7 @@ describe('Effort API: estimate_minutes and actual_minutes', () => {
 
       const response = await app.inject({
         method: 'PUT',
-        url: `/api/work-items/${id}`,
+        url: `/work-items/${id}`,
         payload: {
           title: 'Only title changed',
         },
@@ -211,7 +211,7 @@ describe('Effort API: estimate_minutes and actual_minutes', () => {
 
       const negativeResponse = await app.inject({
         method: 'PUT',
-        url: `/api/work-items/${id}`,
+        url: `/work-items/${id}`,
         payload: {
           title: 'Test',
           estimate_minutes: -5,
@@ -221,7 +221,7 @@ describe('Effort API: estimate_minutes and actual_minutes', () => {
 
       const tooBigResponse = await app.inject({
         method: 'PUT',
-        url: `/api/work-items/${id}`,
+        url: `/work-items/${id}`,
         payload: {
           title: 'Test',
           actual_minutes: 600000,
@@ -251,7 +251,7 @@ describe('Effort rollups in API', () => {
     await app.close();
   });
 
-  it('GET /api/work-items/:id/rollup returns aggregated estimates for hierarchy', async () => {
+  it('GET /work-items/:id/rollup returns aggregated estimates for hierarchy', async () => {
     // Create hierarchy: project -> initiative -> epic -> issues
     const project = await pool.query(
       `INSERT INTO work_item (title, work_item_kind, estimate_minutes, actual_minutes)
@@ -288,7 +288,7 @@ describe('Effort rollups in API', () => {
     // Test project rollup
     const projectResponse = await app.inject({
       method: 'GET',
-      url: `/api/work-items/${project.rows[0].id}/rollup`,
+      url: `/work-items/${project.rows[0].id}/rollup`,
     });
 
     expect(projectResponse.statusCode).toBe(200);
@@ -299,7 +299,7 @@ describe('Effort rollups in API', () => {
     // Test epic rollup
     const epicResponse = await app.inject({
       method: 'GET',
-      url: `/api/work-items/${epic.rows[0].id}/rollup`,
+      url: `/work-items/${epic.rows[0].id}/rollup`,
     });
 
     expect(epicResponse.statusCode).toBe(200);
@@ -311,7 +311,7 @@ describe('Effort rollups in API', () => {
   it('returns 404 for rollup of non-existent work item', async () => {
     const response = await app.inject({
       method: 'GET',
-      url: '/api/work-items/00000000-0000-0000-0000-000000000000/rollup',
+      url: '/work-items/00000000-0000-0000-0000-000000000000/rollup',
     });
 
     expect(response.statusCode).toBe(404);

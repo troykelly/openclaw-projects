@@ -126,7 +126,7 @@ export function createProjectListTool(options: ProjectToolOptions): ProjectListT
           queryParams.set('status', status);
         }
 
-        const response = await client.get<{ items?: Project[]; total?: number }>(`/api/work-items?${queryParams.toString()}`, { user_id });
+        const response = await client.get<{ items?: Project[]; total?: number }>(`/work-items?${queryParams.toString()}`, { user_id });
 
         if (!response.success) {
           logger.error('project_list API error', {
@@ -238,7 +238,7 @@ export function createProjectGetTool(options: ProjectToolOptions): ProjectGetToo
       logger.info('project_get invoked', { user_id, project_id: id });
 
       try {
-        const response = await client.get<Project>(`/api/work-items/${id}`, { user_id });
+        const response = await client.get<Project>(`/work-items/${id}`, { user_id });
 
         if (!response.success) {
           if (response.error.code === 'NOT_FOUND') {
@@ -346,7 +346,7 @@ export function createProjectCreateTool(options: ProjectToolOptions): ProjectCre
 
       try {
         const response = await client.post<{ id: string; title?: string; name?: string }>(
-          '/api/work-items',
+          '/work-items',
           {
             title: sanitizedName,
             description: sanitizedDescription,

@@ -97,7 +97,7 @@ export function terminalCredentialsPaths(): OpenApiDomainModule {
     },
 
     paths: {
-      '/api/terminal/credentials': {
+      '/terminal/credentials': {
         get: {
           operationId: 'listTerminalCredentials',
           summary: 'List credentials (metadata only)',
@@ -129,7 +129,7 @@ export function terminalCredentialsPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/terminal/credentials/{id}': {
+      '/terminal/credentials/{id}': {
         parameters: [uuidParam('id', 'Credential UUID')],
         get: {
           operationId: 'getTerminalCredential',
@@ -167,7 +167,7 @@ export function terminalCredentialsPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/terminal/credentials/generate': {
+      '/terminal/credentials/generate': {
         post: {
           operationId: 'generateTerminalKeyPair',
           summary: 'Generate an SSH key pair',

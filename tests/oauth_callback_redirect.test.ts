@@ -41,7 +41,7 @@ describe('OAuth callback redirect (Issue #1335)', () => {
     it('returns 400 when OAuth error parameter is present', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/oauth/callback?error=access_denied',
+        url: '/oauth/callback?error=access_denied',
       });
 
       expect(res.statusCode).toBe(400);
@@ -52,7 +52,7 @@ describe('OAuth callback redirect (Issue #1335)', () => {
     it('returns 400 when authorization code is missing', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/oauth/callback',
+        url: '/oauth/callback',
       });
 
       expect(res.statusCode).toBe(400);
@@ -63,7 +63,7 @@ describe('OAuth callback redirect (Issue #1335)', () => {
     it('returns 400 when state is missing', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/oauth/callback?code=test-code',
+        url: '/oauth/callback?code=test-code',
       });
 
       expect(res.statusCode).toBe(400);
@@ -74,7 +74,7 @@ describe('OAuth callback redirect (Issue #1335)', () => {
     it('returns 400 when state is invalid/expired', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/oauth/callback?code=test-code&state=invalid-state',
+        url: '/oauth/callback?code=test-code&state=invalid-state',
       });
 
       expect(res.statusCode).toBe(400);
@@ -144,12 +144,12 @@ describe('OAuth callback redirect (Issue #1335)', () => {
       return code;
     }
 
-    it('one-time code can be exchanged for JWT via POST /api/auth/exchange', async () => {
+    it('one-time code can be exchanged for JWT via POST /auth/exchange', async () => {
       const code = await createOneTimeCode('oauth-exchange-flow@example.com');
 
       const res = await app.inject({
         method: 'POST',
-        url: '/api/auth/exchange',
+        url: '/auth/exchange',
         payload: { code },
       });
 
@@ -172,7 +172,7 @@ describe('OAuth callback redirect (Issue #1335)', () => {
       // First exchange should succeed
       const first = await app.inject({
         method: 'POST',
-        url: '/api/auth/exchange',
+        url: '/auth/exchange',
         payload: { code },
       });
       expect(first.statusCode).toBe(200);
@@ -180,7 +180,7 @@ describe('OAuth callback redirect (Issue #1335)', () => {
       // Second exchange should fail
       const second = await app.inject({
         method: 'POST',
-        url: '/api/auth/exchange',
+        url: '/auth/exchange',
         payload: { code },
       });
       expect(second.statusCode).toBe(400);
@@ -201,7 +201,7 @@ describe('OAuth callback redirect (Issue #1335)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: '/api/auth/exchange',
+        url: '/auth/exchange',
         payload: { code },
       });
       expect(res.statusCode).toBe(400);
@@ -238,13 +238,13 @@ describe('OAuth callback redirect (Issue #1335)', () => {
     });
   });
 
-  // ── POST /api/auth/exchange auth skip ──────────────────────────────
+  // ── POST /auth/exchange auth skip ──────────────────────────────
 
-  describe('POST /api/auth/exchange does not require Bearer token', () => {
+  describe('POST /auth/exchange does not require Bearer token', () => {
     it('returns 400 (not 401) for invalid code without auth header', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/auth/exchange',
+        url: '/auth/exchange',
         payload: { code: 'test' },
       });
       // Should be 400 (bad code), not 401 (missing auth)
@@ -252,13 +252,13 @@ describe('OAuth callback redirect (Issue #1335)', () => {
     });
   });
 
-  // ── CSRF / Content-Type enforcement on /api/auth/exchange ─────────
+  // ── CSRF / Content-Type enforcement on /auth/exchange ─────────
 
-  describe('CSRF protection on POST /api/auth/exchange', () => {
+  describe('CSRF protection on POST /auth/exchange', () => {
     it('rejects requests without application/json content-type (415)', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/auth/exchange',
+        url: '/auth/exchange',
         headers: { 'content-type': 'application/x-www-form-urlencoded' },
         body: 'code=test',
       });
@@ -270,7 +270,7 @@ describe('OAuth callback redirect (Issue #1335)', () => {
     it('rejects requests with mismatched Origin header (403)', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/auth/exchange',
+        url: '/auth/exchange',
         headers: {
           'content-type': 'application/json',
           origin: 'https://evil.example.com',
@@ -299,7 +299,7 @@ describe('OAuth callback redirect (Issue #1335)', () => {
       // PUBLIC_BASE_URL defaults to http://localhost:3000
       const res = await app.inject({
         method: 'POST',
-        url: '/api/auth/exchange',
+        url: '/auth/exchange',
         headers: {
           'content-type': 'application/json',
           origin: 'http://localhost:3000',
@@ -327,7 +327,7 @@ describe('OAuth callback redirect (Issue #1335)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: '/api/auth/exchange',
+        url: '/auth/exchange',
         headers: { 'content-type': 'application/json' },
         payload: { code },
       });

@@ -121,7 +121,7 @@ describe('Graph-Aware Integration', () => {
       const result = await hook({ prompt: 'What food does Alex like?' });
 
       expect(mockPost).toHaveBeenCalledWith(
-        '/api/context/graph-aware',
+        '/context/graph-aware',
         expect.objectContaining({
           prompt: 'What food does Alex like?',
         }),
@@ -158,7 +158,7 @@ describe('Graph-Aware Integration', () => {
 
       // Should have tried graph-aware first, then fallen back
       expect(mockPost).toHaveBeenCalled();
-      expect(mockGet).toHaveBeenCalledWith(expect.stringContaining('/api/memories/search'), expect.any(Object));
+      expect(mockGet).toHaveBeenCalledWith(expect.stringContaining('/memories/search'), expect.any(Object));
 
       // Should still return context from fallback
       expect(result).not.toBeNull();
@@ -208,7 +208,7 @@ describe('Graph-Aware Integration', () => {
         fetchCalls.push({ url, method, body: init?.body as string });
 
         // Graph-aware context endpoint returns scoped memories
-        if (url.includes('/api/context/graph-aware') && method === 'POST') {
+        if (url.includes('/context/graph-aware') && method === 'POST') {
           return {
             ok: true,
             status: 200,
@@ -288,7 +288,7 @@ describe('Graph-Aware Integration', () => {
         const result = await beforeAgentStartHook({ prompt: 'What food do I prefer?' }, { agentId: 'agent-1', sessionKey: 'session-1' });
 
         // Should have called the graph-aware endpoint
-        const graphAwareCalls = fetchCalls.filter((c) => c.url.includes('/api/context/graph-aware') && c.method === 'POST');
+        const graphAwareCalls = fetchCalls.filter((c) => c.url.includes('/context/graph-aware') && c.method === 'POST');
         expect(graphAwareCalls.length).toBeGreaterThan(0);
 
         // Should return prependContext with the memory
@@ -310,7 +310,7 @@ describe('Graph-Aware Integration', () => {
       globalThis.fetch = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
         const method = init?.method ?? 'GET';
 
-        if (url.includes('/api/context/graph-aware') && method === 'POST') {
+        if (url.includes('/context/graph-aware') && method === 'POST') {
           return {
             ok: true,
             status: 200,

@@ -93,20 +93,20 @@ export function HomeAutomationPage(): React.JSX.Element {
       const params = new URLSearchParams();
       if (statusFilter) params.set('status', statusFilter);
       const qs = params.toString();
-      return apiClient.get<RoutineListResponse>(`/api/ha/routines${qs ? `?${qs}` : ''}`);
+      return apiClient.get<RoutineListResponse>(`/ha/routines${qs ? `?${qs}` : ''}`);
     },
   });
 
   // Fetch anomalies (unresolved)
   const anomaliesQuery = useQuery({
     queryKey: ['ha-anomalies'],
-    queryFn: () => apiClient.get<AnomalyListResponse>('/api/ha/anomalies?resolved=false'),
+    queryFn: () => apiClient.get<AnomalyListResponse>('/ha/anomalies?resolved=false'),
   });
 
   // Confirm routine
   const confirmMutation = useMutation({
     mutationFn: (id: string) =>
-      apiClient.post<{ data: Routine }>(`/api/ha/routines/${id}/confirm`, {}),
+      apiClient.post<{ data: Routine }>(`/ha/routines/${id}/confirm`, {}),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['ha-routines'] });
     },
@@ -115,7 +115,7 @@ export function HomeAutomationPage(): React.JSX.Element {
   // Reject routine
   const rejectMutation = useMutation({
     mutationFn: (id: string) =>
-      apiClient.post<{ data: Routine }>(`/api/ha/routines/${id}/reject`, {}),
+      apiClient.post<{ data: Routine }>(`/ha/routines/${id}/reject`, {}),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['ha-routines'] });
     },
@@ -124,7 +124,7 @@ export function HomeAutomationPage(): React.JSX.Element {
   // Edit routine
   const editMutation = useMutation({
     mutationFn: ({ id, title, description }: { id: string; title: string; description: string }) =>
-      apiClient.patch<{ data: Routine }>(`/api/ha/routines/${id}`, { title, description }),
+      apiClient.patch<{ data: Routine }>(`/ha/routines/${id}`, { title, description }),
     onSuccess: () => {
       setEditingRoutine(null);
       void queryClient.invalidateQueries({ queryKey: ['ha-routines'] });
@@ -133,7 +133,7 @@ export function HomeAutomationPage(): React.JSX.Element {
 
   // Delete (archive) routine
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => apiClient.delete(`/api/ha/routines/${id}`),
+    mutationFn: (id: string) => apiClient.delete(`/ha/routines/${id}`),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['ha-routines'] });
     },
@@ -142,7 +142,7 @@ export function HomeAutomationPage(): React.JSX.Element {
   // Resolve anomaly
   const resolveAnomalyMutation = useMutation({
     mutationFn: (id: string) =>
-      apiClient.patch(`/api/ha/anomalies/${id}`, { resolved: true }),
+      apiClient.patch(`/ha/anomalies/${id}`, { resolved: true }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['ha-anomalies'] });
     },

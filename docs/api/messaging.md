@@ -6,7 +6,7 @@ This document covers the outbound messaging APIs for SMS and Email, including de
 
 ### Send SMS
 
-**POST** `/api/twilio/sms/send`
+**POST** `/twilio/sms/send`
 
 Send an SMS message via Twilio. Messages are queued for async delivery.
 
@@ -42,7 +42,7 @@ Send an SMS message via Twilio. Messages are queued for async delivery.
 
 **Example:**
 ```bash
-curl -X POST https://api.example.com/api/twilio/sms/send \
+curl -X POST https://api.example.com/twilio/sms/send \
   -H "Authorization: Bearer $API_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -53,7 +53,7 @@ curl -X POST https://api.example.com/api/twilio/sms/send \
 
 ### SMS Delivery Status Webhook
 
-**POST** `/api/twilio/sms/status`
+**POST** `/twilio/sms/status`
 
 Webhook endpoint for Twilio delivery status callbacks. Configure in your Twilio console.
 
@@ -84,7 +84,7 @@ AccountSid=AC1234567890
 
 ### Send Email
 
-**POST** `/api/postmark/email/send`
+**POST** `/postmark/email/send`
 
 Send an email via Postmark. Messages are queued for async delivery.
 
@@ -127,7 +127,7 @@ Send an email via Postmark. Messages are queued for async delivery.
 
 **Example:**
 ```bash
-curl -X POST https://api.example.com/api/postmark/email/send \
+curl -X POST https://api.example.com/postmark/email/send \
   -H "Authorization: Bearer $API_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -140,7 +140,7 @@ curl -X POST https://api.example.com/api/postmark/email/send \
 
 ### Email Delivery Status Webhook
 
-**POST** `/api/postmark/email/status`
+**POST** `/postmark/email/status`
 
 Webhook endpoint for Postmark delivery status callbacks. Configure in your Postmark server settings.
 
@@ -188,7 +188,7 @@ Webhook endpoint for Postmark delivery status callbacks. Configure in your Postm
 
 ### List Threads
 
-**GET** `/api/threads`
+**GET** `/threads`
 
 List all conversation threads with optional filtering by channel or contact.
 
@@ -236,17 +236,17 @@ List all conversation threads with optional filtering by channel or contact.
 **Example:**
 ```bash
 # List all threads
-curl https://api.example.com/api/threads \
+curl https://api.example.com/threads \
   -H "Authorization: Bearer $API_TOKEN"
 
 # Filter by channel
-curl "https://api.example.com/api/threads?channel=sms&limit=10" \
+curl "https://api.example.com/threads?channel=sms&limit=10" \
   -H "Authorization: Bearer $API_TOKEN"
 ```
 
 ### Get Thread History
 
-**GET** `/api/threads/:id/history`
+**GET** `/threads/:id/history`
 
 Get full thread history including messages, related work items, and contact memories.
 
@@ -333,7 +333,7 @@ Use idempotency keys to safely retry failed requests without sending duplicate m
 
 ```bash
 # Safe to retry - only sends once
-curl -X POST /api/twilio/sms/send \
+curl -X POST /twilio/sms/send \
   -d '{"to": "+15551234567", "body": "Hello", "idempotency_key": "retry-safe-123"}'
 ```
 

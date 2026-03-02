@@ -101,7 +101,7 @@ describe('useChatReadCursor hook', () => {
     // Should post only once with the latest message
     expect(mockPost).toHaveBeenCalledTimes(1);
     expect(mockPost).toHaveBeenCalledWith(
-      '/api/chat/sessions/session-1/read',
+      '/chat/sessions/session-1/read',
       { last_read_message_id: 'msg-2' },
     );
   });

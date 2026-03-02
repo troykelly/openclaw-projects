@@ -86,7 +86,7 @@ export function getMicrosoftConfig(): OAuthConfig | null {
   return {
     client_id,
     client_secret,
-    redirect_uri: redirect_uri || 'http://localhost:3000/api/oauth/callback',
+    redirect_uri: redirect_uri || 'http://localhost:3000/oauth/callback',
     scopes: DEFAULT_SCOPES.microsoft,
     tenant_id,
   };
@@ -114,7 +114,7 @@ export function getGoogleConfig(): OAuthConfig | null {
   return {
     client_id,
     client_secret,
-    redirect_uri: redirect_uri || 'http://localhost:3000/api/oauth/callback',
+    redirect_uri: redirect_uri || 'http://localhost:3000/oauth/callback',
     scopes: DEFAULT_SCOPES.google,
   };
 }

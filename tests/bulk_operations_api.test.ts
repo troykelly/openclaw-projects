@@ -30,7 +30,7 @@ describe('Bulk Operations API', () => {
     }
   });
 
-  describe('PATCH /api/work-items/bulk/status', () => {
+  describe('PATCH /work-items/bulk/status', () => {
     it('updates status for multiple items', async () => {
       // Update first 3 items to "in_progress"
       const idsToUpdate = testItemIds.slice(0, 3);
@@ -69,7 +69,7 @@ describe('Bulk Operations API', () => {
     });
   });
 
-  describe('PATCH /api/work-items/bulk/priority', () => {
+  describe('PATCH /work-items/bulk/priority', () => {
     it('updates priority for multiple items', async () => {
       const idsToUpdate = testItemIds.slice(0, 3);
 
@@ -88,7 +88,7 @@ describe('Bulk Operations API', () => {
     });
   });
 
-  describe('DELETE /api/work-items/bulk', () => {
+  describe('DELETE /work-items/bulk', () => {
     it('deletes multiple items', async () => {
       const idsToDelete = testItemIds.slice(0, 2);
 
@@ -104,7 +104,7 @@ describe('Bulk Operations API', () => {
     });
   });
 
-  describe('PATCH /api/work-items/bulk/parent', () => {
+  describe('PATCH /work-items/bulk/parent', () => {
     it('reparents multiple items to a new parent', async () => {
       // Create a parent
       const parentResult = await pool.query(

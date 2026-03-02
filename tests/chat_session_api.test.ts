@@ -33,14 +33,14 @@ describe('Chat Session CRUD API (#1942)', () => {
   });
 
   // ================================================================
-  // POST /api/chat/sessions — Create session
+  // POST /chat/sessions — Create session
   // ================================================================
 
-  describe('POST /api/chat/sessions', () => {
+  describe('POST /chat/sessions', () => {
     it('creates a session with required fields', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/chat/sessions',
+        url: '/chat/sessions',
         headers: { 'x-user-email': 'chat-user@example.com' },
         payload: { agent_id: 'test-agent-1' },
       });
@@ -63,7 +63,7 @@ describe('Chat Session CRUD API (#1942)', () => {
     it('creates a session with optional title', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/chat/sessions',
+        url: '/chat/sessions',
         headers: { 'x-user-email': 'chat-user@example.com' },
         payload: { agent_id: 'test-agent-1', title: 'My Chat' },
       });
@@ -76,7 +76,7 @@ describe('Chat Session CRUD API (#1942)', () => {
     it('rejects missing agent_id', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/chat/sessions',
+        url: '/chat/sessions',
         headers: { 'x-user-email': 'chat-user@example.com' },
         payload: {},
       });
@@ -89,7 +89,7 @@ describe('Chat Session CRUD API (#1942)', () => {
     it('rejects title exceeding 200 characters', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/chat/sessions',
+        url: '/chat/sessions',
         headers: { 'x-user-email': 'chat-user@example.com' },
         payload: { agent_id: 'test-agent', title: 'x'.repeat(201) },
       });
@@ -103,7 +103,7 @@ describe('Chat Session CRUD API (#1942)', () => {
       for (let i = 0; i < 3; i++) {
         const res = await app.inject({
           method: 'POST',
-          url: '/api/chat/sessions',
+          url: '/chat/sessions',
           headers: { 'x-user-email': 'chat-user@example.com' },
           payload: { agent_id: `agent-${i}` },
         });
@@ -113,14 +113,14 @@ describe('Chat Session CRUD API (#1942)', () => {
   });
 
   // ================================================================
-  // GET /api/chat/sessions — List sessions
+  // GET /chat/sessions — List sessions
   // ================================================================
 
-  describe('GET /api/chat/sessions', () => {
+  describe('GET /chat/sessions', () => {
     async function createSession(agentId: string, title?: string): Promise<Record<string, unknown>> {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/chat/sessions',
+        url: '/chat/sessions',
         headers: { 'x-user-email': 'chat-user@example.com' },
         payload: { agent_id: agentId, title },
       });
@@ -133,7 +133,7 @@ describe('Chat Session CRUD API (#1942)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/chat/sessions',
+        url: '/chat/sessions',
         headers: { 'x-user-email': 'chat-user@example.com' },
       });
 
@@ -154,7 +154,7 @@ describe('Chat Session CRUD API (#1942)', () => {
       // First page: limit 2
       const res1 = await app.inject({
         method: 'GET',
-        url: '/api/chat/sessions?limit=2',
+        url: '/chat/sessions?limit=2',
         headers: { 'x-user-email': 'chat-user@example.com' },
       });
 
@@ -166,7 +166,7 @@ describe('Chat Session CRUD API (#1942)', () => {
       // Second page
       const res2 = await app.inject({
         method: 'GET',
-        url: `/api/chat/sessions?limit=2&cursor=${encodeURIComponent(page1.next_cursor!)}`,
+        url: `/chat/sessions?limit=2&cursor=${encodeURIComponent(page1.next_cursor!)}`,
         headers: { 'x-user-email': 'chat-user@example.com' },
       });
 
@@ -183,14 +183,14 @@ describe('Chat Session CRUD API (#1942)', () => {
       // End session 1
       await app.inject({
         method: 'POST',
-        url: `/api/chat/sessions/${session1.id}/end`,
+        url: `/chat/sessions/${session1.id}/end`,
         headers: { 'x-user-email': 'chat-user@example.com' },
       });
 
       // Filter active only
       const res = await app.inject({
         method: 'GET',
-        url: '/api/chat/sessions?status=active',
+        url: '/chat/sessions?status=active',
         headers: { 'x-user-email': 'chat-user@example.com' },
       });
 
@@ -202,7 +202,7 @@ describe('Chat Session CRUD API (#1942)', () => {
     it('rejects invalid status filter', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/chat/sessions?status=invalid',
+        url: '/chat/sessions?status=invalid',
         headers: { 'x-user-email': 'chat-user@example.com' },
       });
 
@@ -215,7 +215,7 @@ describe('Chat Session CRUD API (#1942)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/chat/sessions',
+        url: '/chat/sessions',
         headers: { 'x-user-email': 'other@example.com' },
       });
 
@@ -226,14 +226,14 @@ describe('Chat Session CRUD API (#1942)', () => {
   });
 
   // ================================================================
-  // GET /api/chat/sessions/:id — Get session details
+  // GET /chat/sessions/:id — Get session details
   // ================================================================
 
-  describe('GET /api/chat/sessions/:id', () => {
+  describe('GET /chat/sessions/:id', () => {
     it('returns session details', async () => {
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/chat/sessions',
+        url: '/chat/sessions',
         headers: { 'x-user-email': 'chat-user@example.com' },
         payload: { agent_id: 'agent-1', title: 'Test Session' },
       });
@@ -241,7 +241,7 @@ describe('Chat Session CRUD API (#1942)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/chat/sessions/${session.id}`,
+        url: `/chat/sessions/${session.id}`,
         headers: { 'x-user-email': 'chat-user@example.com' },
       });
 
@@ -255,7 +255,7 @@ describe('Chat Session CRUD API (#1942)', () => {
     it('returns 404 for non-existent session', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/chat/sessions/00000000-0000-0000-0000-000000000000',
+        url: '/chat/sessions/00000000-0000-0000-0000-000000000000',
         headers: { 'x-user-email': 'chat-user@example.com' },
       });
 
@@ -265,7 +265,7 @@ describe('Chat Session CRUD API (#1942)', () => {
     it('rejects invalid UUID', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/chat/sessions/not-a-uuid',
+        url: '/chat/sessions/not-a-uuid',
         headers: { 'x-user-email': 'chat-user@example.com' },
       });
 
@@ -275,7 +275,7 @@ describe('Chat Session CRUD API (#1942)', () => {
     it('returns 404 for different user', async () => {
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/chat/sessions',
+        url: '/chat/sessions',
         headers: { 'x-user-email': 'chat-user@example.com' },
         payload: { agent_id: 'agent-1' },
       });
@@ -284,7 +284,7 @@ describe('Chat Session CRUD API (#1942)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/chat/sessions/${session.id}`,
+        url: `/chat/sessions/${session.id}`,
         headers: { 'x-user-email': 'other@example.com' },
       });
 
@@ -293,14 +293,14 @@ describe('Chat Session CRUD API (#1942)', () => {
   });
 
   // ================================================================
-  // PATCH /api/chat/sessions/:id — Update title
+  // PATCH /chat/sessions/:id — Update title
   // ================================================================
 
-  describe('PATCH /api/chat/sessions/:id', () => {
+  describe('PATCH /chat/sessions/:id', () => {
     it('updates session title with correct version', async () => {
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/chat/sessions',
+        url: '/chat/sessions',
         headers: { 'x-user-email': 'chat-user@example.com' },
         payload: { agent_id: 'agent-1' },
       });
@@ -308,7 +308,7 @@ describe('Chat Session CRUD API (#1942)', () => {
 
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/chat/sessions/${session.id}`,
+        url: `/chat/sessions/${session.id}`,
         headers: { 'x-user-email': 'chat-user@example.com' },
         payload: { title: 'Updated Title', version: 1 },
       });
@@ -322,7 +322,7 @@ describe('Chat Session CRUD API (#1942)', () => {
     it('rejects update with wrong version', async () => {
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/chat/sessions',
+        url: '/chat/sessions',
         headers: { 'x-user-email': 'chat-user@example.com' },
         payload: { agent_id: 'agent-1' },
       });
@@ -330,7 +330,7 @@ describe('Chat Session CRUD API (#1942)', () => {
 
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/chat/sessions/${session.id}`,
+        url: `/chat/sessions/${session.id}`,
         headers: { 'x-user-email': 'chat-user@example.com' },
         payload: { title: 'New Title', version: 99 },
       });
@@ -343,7 +343,7 @@ describe('Chat Session CRUD API (#1942)', () => {
     it('rejects missing version', async () => {
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/chat/sessions',
+        url: '/chat/sessions',
         headers: { 'x-user-email': 'chat-user@example.com' },
         payload: { agent_id: 'agent-1' },
       });
@@ -351,7 +351,7 @@ describe('Chat Session CRUD API (#1942)', () => {
 
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/chat/sessions/${session.id}`,
+        url: `/chat/sessions/${session.id}`,
         headers: { 'x-user-email': 'chat-user@example.com' },
         payload: { title: 'New Title' },
       });
@@ -362,7 +362,7 @@ describe('Chat Session CRUD API (#1942)', () => {
     it('rejects empty title', async () => {
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/chat/sessions',
+        url: '/chat/sessions',
         headers: { 'x-user-email': 'chat-user@example.com' },
         payload: { agent_id: 'agent-1' },
       });
@@ -370,7 +370,7 @@ describe('Chat Session CRUD API (#1942)', () => {
 
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/chat/sessions/${session.id}`,
+        url: `/chat/sessions/${session.id}`,
         headers: { 'x-user-email': 'chat-user@example.com' },
         payload: { title: '   ', version: 1 },
       });
@@ -381,7 +381,7 @@ describe('Chat Session CRUD API (#1942)', () => {
     it('allows clearing title with null', async () => {
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/chat/sessions',
+        url: '/chat/sessions',
         headers: { 'x-user-email': 'chat-user@example.com' },
         payload: { agent_id: 'agent-1', title: 'My Chat' },
       });
@@ -389,7 +389,7 @@ describe('Chat Session CRUD API (#1942)', () => {
 
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/chat/sessions/${session.id}`,
+        url: `/chat/sessions/${session.id}`,
         headers: { 'x-user-email': 'chat-user@example.com' },
         payload: { title: null, version: 1 },
       });
@@ -401,14 +401,14 @@ describe('Chat Session CRUD API (#1942)', () => {
   });
 
   // ================================================================
-  // POST /api/chat/sessions/:id/end — End session
+  // POST /chat/sessions/:id/end — End session
   // ================================================================
 
-  describe('POST /api/chat/sessions/:id/end', () => {
+  describe('POST /chat/sessions/:id/end', () => {
     it('ends an active session', async () => {
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/chat/sessions',
+        url: '/chat/sessions',
         headers: { 'x-user-email': 'chat-user@example.com' },
         payload: { agent_id: 'agent-1' },
       });
@@ -416,7 +416,7 @@ describe('Chat Session CRUD API (#1942)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/chat/sessions/${session.id}/end`,
+        url: `/chat/sessions/${session.id}/end`,
         headers: { 'x-user-email': 'chat-user@example.com' },
       });
 
@@ -429,7 +429,7 @@ describe('Chat Session CRUD API (#1942)', () => {
     it('rejects ending already-ended session', async () => {
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/chat/sessions',
+        url: '/chat/sessions',
         headers: { 'x-user-email': 'chat-user@example.com' },
         payload: { agent_id: 'agent-1' },
       });
@@ -437,13 +437,13 @@ describe('Chat Session CRUD API (#1942)', () => {
 
       await app.inject({
         method: 'POST',
-        url: `/api/chat/sessions/${session.id}/end`,
+        url: `/chat/sessions/${session.id}/end`,
         headers: { 'x-user-email': 'chat-user@example.com' },
       });
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/chat/sessions/${session.id}/end`,
+        url: `/chat/sessions/${session.id}/end`,
         headers: { 'x-user-email': 'chat-user@example.com' },
       });
 
@@ -453,7 +453,7 @@ describe('Chat Session CRUD API (#1942)', () => {
     it('returns 404 for non-existent session', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/chat/sessions/00000000-0000-0000-0000-000000000000/end',
+        url: '/chat/sessions/00000000-0000-0000-0000-000000000000/end',
         headers: { 'x-user-email': 'chat-user@example.com' },
       });
 
@@ -463,7 +463,7 @@ describe('Chat Session CRUD API (#1942)', () => {
     it('rejects invalid UUID', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/chat/sessions/bad-id/end',
+        url: '/chat/sessions/bad-id/end',
         headers: { 'x-user-email': 'chat-user@example.com' },
       });
 

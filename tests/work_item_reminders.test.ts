@@ -2,9 +2,9 @@
  * Tests for issue #1321: Todo reminders — due dates not saved and no internal_job created.
  *
  * Verifies:
- * - POST /api/work-items accepts and persists not_before and not_after
+ * - POST /work-items accepts and persists not_before and not_after
  * - Creating a work item with dates creates internal_job entries
- * - PATCH /api/work-items/:id/dates also creates/updates internal_job entries
+ * - PATCH /work-items/:id/dates also creates/updates internal_job entries
  * - Clearing dates removes corresponding jobs
  * - Idempotency: same dates don't duplicate jobs
  */
@@ -51,11 +51,11 @@ describe('Work item reminders (Issue #1321)', () => {
     await pool.end();
   });
 
-  describe('POST /api/work-items — date persistence', () => {
+  describe('POST /work-items — date persistence', () => {
     it('saves and returns not_before when provided', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: {
           title: 'Call mom',
           not_before: '2026-03-01T09:00:00Z',
@@ -72,7 +72,7 @@ describe('Work item reminders (Issue #1321)', () => {
     it('saves and returns not_after when provided', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: {
           title: 'Buy groceries',
           not_after: '2026-03-15T17:00:00Z',
@@ -88,7 +88,7 @@ describe('Work item reminders (Issue #1321)', () => {
     it('saves both not_before and not_after', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: {
           title: 'Project milestone',
           not_before: '2026-03-01T00:00:00Z',
@@ -107,7 +107,7 @@ describe('Work item reminders (Issue #1321)', () => {
     it('rejects not_before after not_after', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: {
           title: 'Backwards dates',
           not_before: '2026-06-15T00:00:00Z',
@@ -123,7 +123,7 @@ describe('Work item reminders (Issue #1321)', () => {
     it('rejects invalid not_before date', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: {
           title: 'Bad date',
           not_before: 'not-a-date',
@@ -136,7 +136,7 @@ describe('Work item reminders (Issue #1321)', () => {
     it('rejects invalid not_after date', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: {
           title: 'Bad date',
           not_after: 'not-a-date',
@@ -149,7 +149,7 @@ describe('Work item reminders (Issue #1321)', () => {
     it('works without dates (backwards compatibility)', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: {
           title: 'No dates',
         },
@@ -163,11 +163,11 @@ describe('Work item reminders (Issue #1321)', () => {
     });
   });
 
-  describe('POST /api/work-items — internal_job creation', () => {
+  describe('POST /work-items — internal_job creation', () => {
     it('creates a reminder job when not_before is set', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: {
           title: 'Reminder task',
           not_before: '2026-06-01T09:00:00Z',
@@ -196,7 +196,7 @@ describe('Work item reminders (Issue #1321)', () => {
     it('creates a nudge job when not_after is set', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: {
           title: 'Deadline task',
           not_after: '2026-06-15T17:00:00Z',
@@ -222,7 +222,7 @@ describe('Work item reminders (Issue #1321)', () => {
     it('creates both jobs when both dates are set', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: {
           title: 'Both dates',
           not_before: '2026-06-01T09:00:00Z',
@@ -255,7 +255,7 @@ describe('Work item reminders (Issue #1321)', () => {
     it('does not create jobs when no dates are provided', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: {
           title: 'No dates, no jobs',
         },
@@ -276,12 +276,12 @@ describe('Work item reminders (Issue #1321)', () => {
     });
   });
 
-  describe('PATCH /api/work-items/:id/dates — internal_job creation', () => {
+  describe('PATCH /work-items/:id/dates — internal_job creation', () => {
     it('creates a reminder job when startDate is set', async () => {
       // Create work item without dates
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: { title: 'Patch start date' },
       });
       const { id } = createRes.json() as { id: string };
@@ -289,7 +289,7 @@ describe('Work item reminders (Issue #1321)', () => {
       // Set startDate
       const patchRes = await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${id}/dates`,
+        url: `/work-items/${id}/dates`,
         payload: { start_date: '2026-07-01' },
       });
 
@@ -309,14 +309,14 @@ describe('Work item reminders (Issue #1321)', () => {
     it('creates a nudge job when endDate is set', async () => {
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: { title: 'Patch end date' },
       });
       const { id } = createRes.json() as { id: string };
 
       const patchRes = await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${id}/dates`,
+        url: `/work-items/${id}/dates`,
         payload: { end_date: '2026-07-15' },
       });
 
@@ -337,7 +337,7 @@ describe('Work item reminders (Issue #1321)', () => {
       // Create with start date
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: {
           title: 'Clear start date',
           not_before: '2026-07-01T00:00:00Z',
@@ -359,7 +359,7 @@ describe('Work item reminders (Issue #1321)', () => {
       // Clear startDate
       await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${id}/dates`,
+        url: `/work-items/${id}/dates`,
         payload: { start_date: null },
       });
 
@@ -380,7 +380,7 @@ describe('Work item reminders (Issue #1321)', () => {
     it('removes nudge job when endDate is cleared', async () => {
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: {
           title: 'Clear end date',
           not_after: '2026-07-15T00:00:00Z',
@@ -402,7 +402,7 @@ describe('Work item reminders (Issue #1321)', () => {
       // Clear endDate
       await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${id}/dates`,
+        url: `/work-items/${id}/dates`,
         payload: { end_date: null },
       });
 
@@ -423,7 +423,7 @@ describe('Work item reminders (Issue #1321)', () => {
     it('updates job run_at when dates change (idempotency)', async () => {
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: {
           title: 'Update dates',
           not_before: '2026-07-01T00:00:00Z',
@@ -434,7 +434,7 @@ describe('Work item reminders (Issue #1321)', () => {
       // Update to a new date
       const patchRes = await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${id}/dates`,
+        url: `/work-items/${id}/dates`,
         payload: { start_date: '2026-08-01' },
       });
 

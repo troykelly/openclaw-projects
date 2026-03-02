@@ -27,11 +27,11 @@ describe('Memory Search API', () => {
     await pool.end();
   });
 
-  describe('GET /api/memories/search', () => {
+  describe('GET /memories/search', () => {
     it('returns 400 when query is missing', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/memories/search',
+        url: '/memories/search',
       });
 
       expect(res.statusCode).toBe(400);
@@ -56,7 +56,7 @@ describe('Memory Search API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/memories/search?q=completely_unrelated_xyz123',
+        url: '/memories/search?q=completely_unrelated_xyz123',
       });
 
       expect(res.statusCode).toBe(200);
@@ -77,7 +77,7 @@ describe('Memory Search API', () => {
       // Create memory via API (which generates embedding)
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/memory',
+        url: '/memory',
         payload: {
           title: 'Dark Mode Preference',
           content: 'User prefers dark mode for reduced eye strain',
@@ -90,7 +90,7 @@ describe('Memory Search API', () => {
       // Search for it
       const searchRes = await app.inject({
         method: 'GET',
-        url: '/api/memories/search?q=theme+settings',
+        url: '/memories/search?q=theme+settings',
       });
 
       expect(searchRes.statusCode).toBe(200);
@@ -101,7 +101,7 @@ describe('Memory Search API', () => {
     });
   });
 
-  describe('POST /api/memory with embedding', () => {
+  describe('POST /memory with embedding', () => {
     it.skipIf(!hasApiKey)('creates memory with embedding', async () => {
       // Create a work item
       const workItem = await pool.query(
@@ -113,7 +113,7 @@ describe('Memory Search API', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: '/api/memory',
+        url: '/memory',
         payload: {
           title: 'Test Memory',
           content: 'Test content for embedding',
@@ -128,7 +128,7 @@ describe('Memory Search API', () => {
     });
   });
 
-  describe('PUT /api/memory/:id with embedding regeneration', () => {
+  describe('PUT /memory/:id with embedding regeneration', () => {
     it.skipIf(!hasApiKey)('regenerates embedding on update', async () => {
       // Create a work item
       const workItem = await pool.query(
@@ -150,7 +150,7 @@ describe('Memory Search API', () => {
       // Update via API
       const res = await app.inject({
         method: 'PUT',
-        url: `/api/memory/${memory_id}`,
+        url: `/memory/${memory_id}`,
         payload: {
           title: 'Updated Title',
           content: 'Updated content about something new',
@@ -165,7 +165,7 @@ describe('Memory Search API', () => {
     });
   });
 
-  describe('POST /api/admin/embeddings/backfill', () => {
+  describe('POST /admin/embeddings/backfill', () => {
     it('backfills embeddings for memories', async () => {
       // Create a work item
       const workItem = await pool.query(
@@ -185,7 +185,7 @@ describe('Memory Search API', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: '/api/admin/embeddings/backfill',
+        url: '/admin/embeddings/backfill',
         payload: {
           batch_size: 10,
         },
@@ -198,11 +198,11 @@ describe('Memory Search API', () => {
     });
   });
 
-  describe('GET /api/health with embedding status', () => {
+  describe('GET /health with embedding status', () => {
     it('includes embedding health in response', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/health',
+        url: '/health',
       });
 
       expect(res.statusCode).toBe(200);
@@ -213,11 +213,11 @@ describe('Memory Search API', () => {
     });
   });
 
-  describe('GET /api/admin/embeddings/status', () => {
+  describe('GET /admin/embeddings/status', () => {
     it('returns embedding configuration and stats', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/admin/embeddings/status',
+        url: '/admin/embeddings/status',
       });
 
       expect(res.statusCode).toBe(200);

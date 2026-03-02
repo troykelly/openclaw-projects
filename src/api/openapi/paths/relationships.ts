@@ -112,7 +112,7 @@ export function relationshipsPaths(): OpenApiDomainModule {
 
     paths: {
       // -- Relationship Types ---------------------------------------------------
-      '/api/relationship-types': {
+      '/relationship-types': {
         get: {
           operationId: 'listRelationshipTypes',
           summary: 'List all relationship types with optional filters',
@@ -165,7 +165,7 @@ export function relationshipsPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/relationship-types/match': {
+      '/relationship-types/match': {
         get: {
           operationId: 'matchRelationshipTypes',
           summary: 'Find relationship types matching a query string',
@@ -200,7 +200,7 @@ export function relationshipsPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/relationship-types/{id}': {
+      '/relationship-types/{id}': {
         parameters: [uuidParam('id', 'Relationship type UUID')],
         get: {
           operationId: 'getRelationshipType',
@@ -214,7 +214,7 @@ export function relationshipsPaths(): OpenApiDomainModule {
       },
 
       // -- Relationships --------------------------------------------------------
-      '/api/relationships': {
+      '/relationships': {
         get: {
           operationId: 'listRelationships',
           summary: 'List relationships with optional filters',
@@ -269,7 +269,7 @@ export function relationshipsPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/relationships/set': {
+      '/relationships/set': {
         post: {
           operationId: 'setRelationship',
           summary: 'Smart relationship creation -- resolves contacts and types by name or UUID',
@@ -297,7 +297,7 @@ export function relationshipsPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/relationships/{id}': {
+      '/relationships/{id}': {
         parameters: [uuidParam('id', 'Relationship UUID')],
         get: {
           operationId: 'getRelationship',

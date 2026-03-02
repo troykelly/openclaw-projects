@@ -41,10 +41,10 @@ beforeEach(() => {
   vi.clearAllMocks();
   // Mock providers list (empty) and current location (null)
   mockedGet.mockImplementation((path: string) => {
-    if (path === '/api/geolocation/providers') {
+    if (path === '/geolocation/providers') {
       return Promise.resolve({ providers: [] });
     }
-    if (path === '/api/geolocation/current') {
+    if (path === '/geolocation/current') {
       return Promise.resolve({ location: null });
     }
     return Promise.resolve({});

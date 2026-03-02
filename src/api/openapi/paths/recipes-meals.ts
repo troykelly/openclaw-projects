@@ -1,10 +1,10 @@
 /**
  * OpenAPI path definitions for recipe and meal log endpoints.
- * Routes: POST /api/recipes, GET /api/recipes, GET /api/recipes/:id,
- *         PATCH /api/recipes/:id, DELETE /api/recipes/:id,
- *         POST /api/recipes/:id/to-shopping-list,
- *         POST /api/meal-log, GET /api/meal-log, GET /api/meal-log/stats,
- *         GET /api/meal-log/:id, PATCH /api/meal-log/:id, DELETE /api/meal-log/:id
+ * Routes: POST /recipes, GET /recipes, GET /recipes/:id,
+ *         PATCH /recipes/:id, DELETE /recipes/:id,
+ *         POST /recipes/:id/to-shopping-list,
+ *         POST /meal-log, GET /meal-log, GET /meal-log/stats,
+ *         GET /meal-log/:id, PATCH /meal-log/:id, DELETE /meal-log/:id
  */
 import type { OpenApiDomainModule } from '../types.ts';
 import { errorResponses, jsonBody, jsonResponse, uuidParam } from '../helpers.ts';
@@ -338,7 +338,7 @@ export function recipesMealsPaths(): OpenApiDomainModule {
       },
     },
     paths: {
-      '/api/recipes': {
+      '/recipes': {
         post: {
           operationId: 'createRecipe',
           summary: 'Create a recipe',
@@ -590,7 +590,7 @@ export function recipesMealsPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/recipes/{id}': {
+      '/recipes/{id}': {
         get: {
           operationId: 'getRecipe',
           summary: 'Get a recipe with ingredients and steps',
@@ -732,7 +732,7 @@ export function recipesMealsPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/recipes/{id}/to-shopping-list': {
+      '/recipes/{id}/to-shopping-list': {
         post: {
           operationId: 'recipeToShoppingList',
           summary: 'Push recipe ingredients to a shopping list',
@@ -767,7 +767,7 @@ export function recipesMealsPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/meal-log': {
+      '/meal-log': {
         post: {
           operationId: 'logMeal',
           summary: 'Log a meal',
@@ -909,7 +909,7 @@ export function recipesMealsPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/meal-log/stats': {
+      '/meal-log/stats': {
         get: {
           operationId: 'getMealStats',
           summary: 'Get meal statistics',
@@ -985,7 +985,7 @@ export function recipesMealsPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/meal-log/{id}': {
+      '/meal-log/{id}': {
         get: {
           operationId: 'getMeal',
           summary: 'Get a meal log entry',

@@ -192,13 +192,13 @@ describe('context_search tool', () => {
       };
 
       const mockGet = vi.fn().mockImplementation((url: string) => {
-        if (url.includes('/api/memories/search')) {
+        if (url.includes('/memories/search')) {
           return Promise.resolve(memoriesResponse);
         }
-        if (url.includes('/api/search') && url.includes('types=message')) {
+        if (url.includes('/search') && url.includes('types=message')) {
           return Promise.resolve(messageSearchResponse);
         }
-        if (url.includes('/api/search')) {
+        if (url.includes('/search')) {
           return Promise.resolve(searchResponse);
         }
         return Promise.resolve({ success: false, error: { status: 404, message: 'Not found' } });
@@ -221,9 +221,9 @@ describe('context_search tool', () => {
       const mockGet = (client as unknown as { get: ReturnType<typeof vi.fn> }).get;
       expect(mockGet).toHaveBeenCalledTimes(3);
       const calls = mockGet.mock.calls.map((c: unknown[]) => c[0] as string);
-      expect(calls.some((url: string) => url.includes('/api/memories/search'))).toBe(true);
-      expect(calls.some((url: string) => url.includes('/api/search') && url.includes('types=work_item'))).toBe(true);
-      expect(calls.some((url: string) => url.includes('/api/search') && url.includes('types=message'))).toBe(true);
+      expect(calls.some((url: string) => url.includes('/memories/search'))).toBe(true);
+      expect(calls.some((url: string) => url.includes('/search') && url.includes('types=work_item'))).toBe(true);
+      expect(calls.some((url: string) => url.includes('/search') && url.includes('types=message'))).toBe(true);
     });
 
     it('should only call /api/memories/search when entity_types is ["memory"]', async () => {
@@ -240,7 +240,7 @@ describe('context_search tool', () => {
       const mockGet = (client as unknown as { get: ReturnType<typeof vi.fn> }).get;
       expect(mockGet).toHaveBeenCalledTimes(1);
       const calls = mockGet.mock.calls.map((c: unknown[]) => c[0] as string);
-      expect(calls[0]).toContain('/api/memories/search');
+      expect(calls[0]).toContain('/memories/search');
     });
 
     it('should only call /api/search when entity_types is ["todo"]', async () => {
@@ -257,7 +257,7 @@ describe('context_search tool', () => {
       const mockGet = (client as unknown as { get: ReturnType<typeof vi.fn> }).get;
       expect(mockGet).toHaveBeenCalledTimes(1);
       const calls = mockGet.mock.calls.map((c: unknown[]) => c[0] as string);
-      expect(calls[0]).toContain('/api/search');
+      expect(calls[0]).toContain('/search');
     });
 
     it('should only call /api/search when entity_types is ["project"]', async () => {
@@ -274,7 +274,7 @@ describe('context_search tool', () => {
       const mockGet = (client as unknown as { get: ReturnType<typeof vi.fn> }).get;
       expect(mockGet).toHaveBeenCalledTimes(1);
       const calls = mockGet.mock.calls.map((c: unknown[]) => c[0] as string);
-      expect(calls[0]).toContain('/api/search');
+      expect(calls[0]).toContain('/search');
     });
 
     it('should call both APIs when entity_types includes todo and memory', async () => {
@@ -306,7 +306,7 @@ describe('context_search tool', () => {
       const mockGet = (client as unknown as { get: ReturnType<typeof vi.fn> }).get;
       expect(mockGet).toHaveBeenCalledTimes(1);
       const calls = mockGet.mock.calls.map((c: unknown[]) => c[0] as string);
-      expect(calls[0]).toContain('/api/search');
+      expect(calls[0]).toContain('/search');
       expect(calls[0]).toContain('types=message');
     });
 
@@ -324,7 +324,7 @@ describe('context_search tool', () => {
       const mockGet = (client as unknown as { get: ReturnType<typeof vi.fn> }).get;
       expect(mockGet).toHaveBeenCalledTimes(2);
       const calls = mockGet.mock.calls.map((c: unknown[]) => c[0] as string);
-      expect(calls.some((url: string) => url.includes('/api/memories/search'))).toBe(true);
+      expect(calls.some((url: string) => url.includes('/memories/search'))).toBe(true);
       expect(calls.some((url: string) => url.includes('types=message'))).toBe(true);
     });
 
@@ -357,7 +357,7 @@ describe('context_search tool', () => {
       await tool.execute({ query: 'test' });
 
       const mockGet = (client as unknown as { get: ReturnType<typeof vi.fn> }).get;
-      const searchCall = mockGet.mock.calls.find((c: unknown[]) => (c[0] as string).includes('/api/search'));
+      const searchCall = mockGet.mock.calls.find((c: unknown[]) => (c[0] as string).includes('/search'));
       expect(searchCall).toBeDefined();
       expect(searchCall![0]).toContain('user_email=user%40example.com');
     });
@@ -374,7 +374,7 @@ describe('context_search tool', () => {
       await tool.execute({ query: 'test' });
 
       const mockGet = (client as unknown as { get: ReturnType<typeof vi.fn> }).get;
-      const memoryCall = mockGet.mock.calls.find((c: unknown[]) => (c[0] as string).includes('/api/memories/search'));
+      const memoryCall = mockGet.mock.calls.find((c: unknown[]) => (c[0] as string).includes('/memories/search'));
       expect(memoryCall).toBeDefined();
       expect(memoryCall![0]).toContain('user_email=user%40example.com');
     });
@@ -383,19 +383,19 @@ describe('context_search tool', () => {
   describe('score normalization and merging', () => {
     function createMockClient(memoriesResults: unknown[], searchResults: unknown[], messageResults?: unknown[]) {
       const mockGet = vi.fn().mockImplementation((url: string) => {
-        if (url.includes('/api/memories/search')) {
+        if (url.includes('/memories/search')) {
           return Promise.resolve({
             success: true,
             data: { results: memoriesResults, search_type: 'hybrid' },
           });
         }
-        if (url.includes('/api/search') && url.includes('types=message')) {
+        if (url.includes('/search') && url.includes('types=message')) {
           return Promise.resolve({
             success: true,
             data: { results: messageResults ?? [], search_type: 'hybrid', total: (messageResults ?? []).length },
           });
         }
-        if (url.includes('/api/search')) {
+        if (url.includes('/search')) {
           return Promise.resolve({
             success: true,
             data: { results: searchResults, search_type: 'hybrid', total: searchResults.length },
@@ -814,16 +814,16 @@ describe('context_search tool', () => {
   describe('graceful degradation', () => {
     it('should return results from work items when memory search fails', async () => {
       const mockGet = vi.fn().mockImplementation((url: string) => {
-        if (url.includes('/api/memories/search')) {
+        if (url.includes('/memories/search')) {
           return Promise.reject(new Error('Memory service unavailable'));
         }
-        if (url.includes('/api/search') && url.includes('types=message')) {
+        if (url.includes('/search') && url.includes('types=message')) {
           return Promise.resolve({
             success: true,
             data: { results: [], search_type: 'text', total: 0 },
           });
         }
-        if (url.includes('/api/search')) {
+        if (url.includes('/search')) {
           return Promise.resolve({
             success: true,
             data: {
@@ -856,7 +856,7 @@ describe('context_search tool', () => {
 
     it('should return results from memories when work item search fails', async () => {
       const mockGet = vi.fn().mockImplementation((url: string) => {
-        if (url.includes('/api/memories/search')) {
+        if (url.includes('/memories/search')) {
           return Promise.resolve({
             success: true,
             data: {
@@ -865,13 +865,13 @@ describe('context_search tool', () => {
             },
           });
         }
-        if (url.includes('/api/search') && url.includes('types=message')) {
+        if (url.includes('/search') && url.includes('types=message')) {
           return Promise.resolve({
             success: true,
             data: { results: [], search_type: 'text', total: 0 },
           });
         }
-        if (url.includes('/api/search')) {
+        if (url.includes('/search')) {
           return Promise.reject(new Error('Search service unavailable'));
         }
         return Promise.resolve({ success: false, error: { status: 404, message: 'Not found' } });
@@ -896,19 +896,19 @@ describe('context_search tool', () => {
 
     it('should return API error results as warnings', async () => {
       const mockGet = vi.fn().mockImplementation((url: string) => {
-        if (url.includes('/api/memories/search')) {
+        if (url.includes('/memories/search')) {
           return Promise.resolve({
             success: false,
             error: { status: 500, message: 'Internal error', code: 'SERVER_ERROR' },
           });
         }
-        if (url.includes('/api/search') && url.includes('types=message')) {
+        if (url.includes('/search') && url.includes('types=message')) {
           return Promise.resolve({
             success: true,
             data: { results: [], search_type: 'text', total: 0 },
           });
         }
-        if (url.includes('/api/search')) {
+        if (url.includes('/search')) {
           return Promise.resolve({
             success: true,
             data: { results: [], search_type: 'text', total: 0 },
@@ -935,16 +935,16 @@ describe('context_search tool', () => {
 
     it('should sanitize error messages in warnings', async () => {
       const mockGet = vi.fn().mockImplementation((url: string) => {
-        if (url.includes('/api/memories/search')) {
+        if (url.includes('/memories/search')) {
           return Promise.reject(new Error('Connection to postgres://admin:secret@db:5432/prod failed'));
         }
-        if (url.includes('/api/search') && url.includes('types=message')) {
+        if (url.includes('/search') && url.includes('types=message')) {
           return Promise.resolve({
             success: true,
             data: { results: [], search_type: 'text', total: 0 },
           });
         }
-        if (url.includes('/api/search')) {
+        if (url.includes('/search')) {
           return Promise.resolve({
             success: true,
             data: { results: [], search_type: 'text', total: 0 },
@@ -974,7 +974,7 @@ describe('context_search tool', () => {
 
     it('should return results from other searches when message search fails', async () => {
       const mockGet = vi.fn().mockImplementation((url: string) => {
-        if (url.includes('/api/memories/search')) {
+        if (url.includes('/memories/search')) {
           return Promise.resolve({
             success: true,
             data: {
@@ -983,10 +983,10 @@ describe('context_search tool', () => {
             },
           });
         }
-        if (url.includes('/api/search') && url.includes('types=message')) {
+        if (url.includes('/search') && url.includes('types=message')) {
           return Promise.reject(new Error('Message search unavailable'));
         }
-        if (url.includes('/api/search')) {
+        if (url.includes('/search')) {
           return Promise.resolve({
             success: true,
             data: { results: [], search_type: 'text', total: 0 },
@@ -1031,7 +1031,7 @@ describe('context_search tool', () => {
   describe('formatted output', () => {
     it('should format results as text with entity type annotations', async () => {
       const mockGet = vi.fn().mockImplementation((url: string) => {
-        if (url.includes('/api/memories/search')) {
+        if (url.includes('/memories/search')) {
           return Promise.resolve({
             success: true,
             data: {
@@ -1040,13 +1040,13 @@ describe('context_search tool', () => {
             },
           });
         }
-        if (url.includes('/api/search') && url.includes('types=message')) {
+        if (url.includes('/search') && url.includes('types=message')) {
           return Promise.resolve({
             success: true,
             data: { results: [], search_type: 'hybrid', total: 0 },
           });
         }
-        if (url.includes('/api/search')) {
+        if (url.includes('/search')) {
           return Promise.resolve({
             success: true,
             data: {
@@ -1098,13 +1098,13 @@ describe('context_search tool', () => {
 
     it('should format message results with [message] annotation and channel info', async () => {
       const mockGet = vi.fn().mockImplementation((url: string) => {
-        if (url.includes('/api/memories/search')) {
+        if (url.includes('/memories/search')) {
           return Promise.resolve({
             success: true,
             data: { results: [], search_type: 'hybrid' },
           });
         }
-        if (url.includes('/api/search') && url.includes('types=message')) {
+        if (url.includes('/search') && url.includes('types=message')) {
           return Promise.resolve({
             success: true,
             data: {
@@ -1123,7 +1123,7 @@ describe('context_search tool', () => {
             },
           });
         }
-        if (url.includes('/api/search')) {
+        if (url.includes('/search')) {
           return Promise.resolve({
             success: true,
             data: { results: [], search_type: 'hybrid', total: 0 },
@@ -1151,7 +1151,7 @@ describe('context_search tool', () => {
 
     it('should include no matching results message that covers messages too', async () => {
       const mockGet = vi.fn().mockImplementation((url: string) => {
-        if (url.includes('/api/memories/search')) {
+        if (url.includes('/memories/search')) {
           return Promise.resolve({
             success: true,
             data: { results: [], search_type: 'text' },
@@ -1183,7 +1183,7 @@ describe('context_search tool', () => {
   describe('query sanitization', () => {
     it('should sanitize control characters from query', async () => {
       const mockGet = vi.fn().mockImplementation((url: string) => {
-        if (url.includes('/api/memories/search')) {
+        if (url.includes('/memories/search')) {
           return Promise.resolve({
             success: true,
             data: { results: [], search_type: 'text' },

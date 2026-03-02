@@ -59,7 +59,7 @@ Fallback names (for backward compatibility): `GOOGLE_CLOUD_CLIENT_ID`, `GOOGLE_C
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `OAUTH_REDIRECT_URI` | No | Override the callback URL. Default: `http://localhost:3000/api/oauth/callback` |
+| `OAUTH_REDIRECT_URI` | No | Override the callback URL. Default: `http://localhost:3000/oauth/callback` |
 | `OAUTH_TOKEN_ENCRYPTION_KEY` | **Yes (production)** | 64-char hex string (32 bytes). Encrypts tokens at rest. |
 
 Provider-specific redirect URI overrides are also supported: `MS365_REDIRECT_URI`, `GOOGLE_REDIRECT_URI`.
@@ -132,7 +132,7 @@ For agents or automated setup with the Azure CLI (`az`).
 ```bash
 # Variables — adjust these
 APP_NAME="openclaw-projects"
-REDIRECT_URI="https://api.yourdomain.com/api/oauth/callback"
+REDIRECT_URI="https://api.yourdomain.com/oauth/callback"
 
 # 1. Create the app registration
 APP_ID=$(az ad app create \
@@ -244,7 +244,7 @@ For agents or automated setup with the `gcloud` CLI.
 # Variables — adjust these
 PROJECT_ID="your-gcp-project-id"
 APP_NAME="openclaw-projects"
-REDIRECT_URI="https://api.yourdomain.com/api/oauth/callback"
+REDIRECT_URI="https://api.yourdomain.com/oauth/callback"
 
 # 1. Set the active project
 gcloud config set project "$PROJECT_ID"
@@ -343,16 +343,16 @@ migration path — plan key rotation carefully.
 
 ## Redirect URI Configuration
 
-The OAuth callback endpoint is: `/api/oauth/callback`
+The OAuth callback endpoint is: `/oauth/callback`
 
 The full redirect URI depends on your deployment mode:
 
 | Deployment | Redirect URI | Env var |
 |------------|-------------|---------|
-| Quickstart (localhost) | `http://localhost:3000/api/oauth/callback` | Default (no config needed) |
-| `docker-compose.yml` (basic) | `http://localhost:3000/api/oauth/callback` | Default or set `OAUTH_REDIRECT_URI` |
-| `docker-compose.traefik.yml` | `https://api.yourdomain.com/api/oauth/callback` | `OAUTH_REDIRECT_URI=https://api.DOMAIN/api/oauth/callback` |
-| `docker-compose.full.yml` | `https://api.yourdomain.com/api/oauth/callback` | `OAUTH_REDIRECT_URI=https://api.DOMAIN/api/oauth/callback` |
+| Quickstart (localhost) | `http://localhost:3000/oauth/callback` | Default (no config needed) |
+| `docker-compose.yml` (basic) | `http://localhost:3000/oauth/callback` | Default or set `OAUTH_REDIRECT_URI` |
+| `docker-compose.traefik.yml` | `https://api.yourdomain.com/oauth/callback` | `OAUTH_REDIRECT_URI=https://api.DOMAIN/oauth/callback` |
+| `docker-compose.full.yml` | `https://api.yourdomain.com/oauth/callback` | `OAUTH_REDIRECT_URI=https://api.DOMAIN/oauth/callback` |
 
 **The redirect URI must exactly match** what is registered in the Azure portal or Google
 Cloud Console. A mismatch causes OAuth to fail with a redirect_uri_mismatch error.
@@ -361,7 +361,7 @@ You can also set provider-specific overrides:
 - `MS365_REDIRECT_URI` — only for Microsoft
 - `GOOGLE_REDIRECT_URI` — only for Google
 
-Priority: provider-specific → `OAUTH_REDIRECT_URI` → default (`http://localhost:3000/api/oauth/callback`)
+Priority: provider-specific → `OAUTH_REDIRECT_URI` → default (`http://localhost:3000/oauth/callback`)
 
 ---
 

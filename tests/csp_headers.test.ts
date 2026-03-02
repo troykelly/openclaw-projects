@@ -99,7 +99,7 @@ describe('CSP headers', () => {
     it('API JSON responses do not include nonce-based CSP', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/health',
+        url: '/health',
       });
       const csp = getCsp(res.headers);
       if (csp) {

@@ -310,8 +310,8 @@ describe('Twilio SMS API endpoint integration', () => {
   // These tests require the full server to be running
   // They will be run as part of the integration test suite
 
-  it.todo('POST /api/twilio/sms/send returns queued status');
-  it.todo('POST /api/twilio/sms/send handles idempotency');
-  it.todo('POST /api/twilio/sms/send validates phone number');
-  it.todo('POST /api/twilio/sms/send requires auth');
+  it.todo('POST /twilio/sms/send returns queued status');
+  it.todo('POST /twilio/sms/send handles idempotency');
+  it.todo('POST /twilio/sms/send validates phone number');
+  it.todo('POST /twilio/sms/send requires auth');
 });

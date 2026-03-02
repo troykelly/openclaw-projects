@@ -139,7 +139,7 @@ export class ApiSourceService {
     options?: RequestOptions,
   ): Promise<ApiResponse<{ data: OnboardResultResponse }>> {
     return this.client.post<{ data: OnboardResultResponse }>(
-      '/api/api-sources',
+      '/api-sources',
       params,
       options,
     );
@@ -161,7 +161,7 @@ export class ApiSourceService {
     if (params.tags && params.tags.length > 0) searchParams.set('tags', params.tags.join(','));
 
     return this.client.get<{ data: ApiMemorySearchResultResponse[]; limit: number; offset: number }>(
-      `/api/api-memories/search?${searchParams}`,
+      `/api-memories/search?${searchParams}`,
       options,
     );
   }
@@ -174,7 +174,7 @@ export class ApiSourceService {
     options?: RequestOptions,
   ): Promise<ApiResponse<{ data: ApiSourceResponse }>> {
     return this.client.get<{ data: ApiSourceResponse }>(
-      `/api/api-sources/${encodeURIComponent(id)}`,
+      `/api-sources/${encodeURIComponent(id)}`,
       options,
     );
   }
@@ -192,7 +192,7 @@ export class ApiSourceService {
     if (params?.status) searchParams.set('status', params.status);
 
     const qs = searchParams.toString();
-    const path = qs ? `/api/api-sources?${qs}` : '/api/api-sources';
+    const path = qs ? `/api-sources?${qs}` : '/api-sources';
 
     return this.client.get<{ data: ApiSourceResponse[]; limit: number; offset: number }>(
       path,
@@ -209,7 +209,7 @@ export class ApiSourceService {
     options?: RequestOptions,
   ): Promise<ApiResponse<{ data: ApiSourceResponse }>> {
     return this.client.patch<{ data: ApiSourceResponse }>(
-      `/api/api-sources/${encodeURIComponent(id)}`,
+      `/api-sources/${encodeURIComponent(id)}`,
       params,
       options,
     );
@@ -223,7 +223,7 @@ export class ApiSourceService {
     params: CredentialManageParams,
     options?: RequestOptions,
   ): Promise<ApiResponse<{ data: ApiCredentialResponse } | void>> {
-    const basePath = `/api/api-sources/${encodeURIComponent(sourceId)}/credentials`;
+    const basePath = `/api-sources/${encodeURIComponent(sourceId)}/credentials`;
 
     if (params.action === 'add') {
       return this.client.post<{ data: ApiCredentialResponse }>(basePath, {
@@ -273,7 +273,7 @@ export class ApiSourceService {
     options?: RequestOptions,
   ): Promise<ApiResponse<{ data: RefreshResultResponse }>> {
     return this.client.post<{ data: RefreshResultResponse }>(
-      `/api/api-sources/${encodeURIComponent(id)}/refresh`,
+      `/api-sources/${encodeURIComponent(id)}/refresh`,
       undefined,
       options,
     );
@@ -287,7 +287,7 @@ export class ApiSourceService {
     options?: RequestOptions,
   ): Promise<ApiResponse<void>> {
     return this.client.delete<void>(
-      `/api/api-sources/${encodeURIComponent(id)}`,
+      `/api-sources/${encodeURIComponent(id)}`,
       options,
     );
   }
@@ -300,7 +300,7 @@ export class ApiSourceService {
     options?: RequestOptions,
   ): Promise<ApiResponse<{ data: ApiSourceResponse }>> {
     return this.client.post<{ data: ApiSourceResponse }>(
-      `/api/api-sources/${encodeURIComponent(id)}/restore`,
+      `/api-sources/${encodeURIComponent(id)}/restore`,
       undefined,
       options,
     );

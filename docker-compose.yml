@@ -507,8 +507,8 @@ services:
       api:
         condition: service_healthy
     environment:
-      # API proxy configuration for nginx
-      # Nginx proxies /api/* requests to the API container
+      # Note: Nginx no longer proxies API requests. The frontend calls
+      # the API directly. These vars are kept for envsubst compatibility.
       API_HOST: api
       API_PORT: "3000"
     ports:

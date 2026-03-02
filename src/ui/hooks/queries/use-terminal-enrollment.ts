@@ -14,7 +14,7 @@ export const terminalEnrollmentKeys = {
 export function useTerminalEnrollmentTokens() {
   return useQuery({
     queryKey: terminalEnrollmentKeys.list(),
-    queryFn: ({ signal }) => apiClient.get<TerminalEnrollmentTokensResponse>('/api/terminal/enrollment-tokens', { signal }),
+    queryFn: ({ signal }) => apiClient.get<TerminalEnrollmentTokensResponse>('/terminal/enrollment-tokens', { signal }),
   });
 }
 
@@ -22,7 +22,7 @@ export function useCreateTerminalEnrollmentToken() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data: { label: string; max_uses?: number; expires_at?: string; allowed_tags?: string[] }) =>
-      apiClient.post<TerminalEnrollmentToken>('/api/terminal/enrollment-tokens', data),
+      apiClient.post<TerminalEnrollmentToken>('/terminal/enrollment-tokens', data),
     onSuccess: () => { void queryClient.invalidateQueries({ queryKey: terminalEnrollmentKeys.all }); },
   });
 }
@@ -30,7 +30,7 @@ export function useCreateTerminalEnrollmentToken() {
 export function useDeleteTerminalEnrollmentToken() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => apiClient.delete(`/api/terminal/enrollment-tokens/${id}`),
+    mutationFn: (id: string) => apiClient.delete(`/terminal/enrollment-tokens/${id}`),
     onSuccess: () => { void queryClient.invalidateQueries({ queryKey: terminalEnrollmentKeys.all }); },
   });
 }

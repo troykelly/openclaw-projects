@@ -289,7 +289,7 @@ export class ApiClient {
   async healthCheck(): Promise<HealthCheckResult> {
     const start = Date.now();
 
-    const result = await this.get<{ status: string }>('/api/health');
+    const result = await this.get<{ status: string }>('/health');
 
     const latencyMs = Date.now() - start;
 

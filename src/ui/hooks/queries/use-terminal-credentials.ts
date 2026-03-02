@@ -23,7 +23,7 @@ export const terminalCredentialKeys = {
 export function useTerminalCredentials() {
   return useQuery({
     queryKey: terminalCredentialKeys.list(),
-    queryFn: ({ signal }) => apiClient.get<TerminalCredentialsResponse>('/api/terminal/credentials', { signal }),
+    queryFn: ({ signal }) => apiClient.get<TerminalCredentialsResponse>('/terminal/credentials', { signal }),
   });
 }
 
@@ -31,7 +31,7 @@ export function useTerminalCredentials() {
 export function useTerminalCredential(id: string) {
   return useQuery({
     queryKey: terminalCredentialKeys.detail(id),
-    queryFn: ({ signal }) => apiClient.get<TerminalCredential>(`/api/terminal/credentials/${id}`, { signal }),
+    queryFn: ({ signal }) => apiClient.get<TerminalCredential>(`/terminal/credentials/${id}`, { signal }),
     enabled: !!id,
   });
 }
@@ -42,7 +42,7 @@ export function useCreateTerminalCredential() {
 
   return useMutation({
     mutationFn: (data: { name: string; kind: string; value?: string; command?: string; command_timeout_s?: number; cache_ttl_s?: number }) =>
-      apiClient.post<TerminalCredential>('/api/terminal/credentials', data),
+      apiClient.post<TerminalCredential>('/terminal/credentials', data),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: terminalCredentialKeys.all });
     },
@@ -55,7 +55,7 @@ export function useUpdateTerminalCredential() {
 
   return useMutation({
     mutationFn: ({ id, ...data }: { id: string; name?: string; command?: string; command_timeout_s?: number; cache_ttl_s?: number }) =>
-      apiClient.patch<TerminalCredential>(`/api/terminal/credentials/${id}`, data),
+      apiClient.patch<TerminalCredential>(`/terminal/credentials/${id}`, data),
     onSuccess: (_data, variables) => {
       void queryClient.invalidateQueries({ queryKey: terminalCredentialKeys.detail(variables.id) });
       void queryClient.invalidateQueries({ queryKey: terminalCredentialKeys.lists() });
@@ -68,7 +68,7 @@ export function useDeleteTerminalCredential() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (id: string) => apiClient.delete(`/api/terminal/credentials/${id}`),
+    mutationFn: (id: string) => apiClient.delete(`/terminal/credentials/${id}`),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: terminalCredentialKeys.all });
     },
@@ -81,7 +81,7 @@ export function useGenerateTerminalKeyPair() {
 
   return useMutation({
     mutationFn: (data: { name: string; key_type?: string }) =>
-      apiClient.post<TerminalKeyPairResponse>('/api/terminal/credentials/generate', data),
+      apiClient.post<TerminalKeyPairResponse>('/terminal/credentials/generate', data),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: terminalCredentialKeys.all });
     },

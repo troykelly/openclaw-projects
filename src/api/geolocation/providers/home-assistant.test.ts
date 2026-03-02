@@ -237,7 +237,7 @@ describe('homeAssistantPlugin', () => {
       globalThis.fetch = vi.fn().mockImplementation(() => {
         callCount++;
         if (callCount === 1) {
-          // /api/ call for version check
+          // / call for version check
           return Promise.resolve({
             ok: true,
             status: 200,
@@ -245,7 +245,7 @@ describe('homeAssistantPlugin', () => {
             text: () => Promise.resolve('{}'),
           } as unknown as Response);
         }
-        // /api/states call
+        // /states call
         return Promise.resolve({
           ok: true,
           status: 200,

@@ -158,7 +158,7 @@ export function createTodoSearchTool(options: TodoSearchToolOptions): TodoSearch
           }>;
           search_type: string;
           total: number;
-        }>(`/api/search?${queryParams.toString()}`, { user_id });
+        }>(`/search?${queryParams.toString()}`, { user_id });
 
         if (!response.success) {
           logger.error('todo_search API error', {

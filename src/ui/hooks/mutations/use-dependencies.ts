@@ -19,7 +19,7 @@ export function useAddDependency(workItemId: string) {
 
   return useMutation({
     mutationFn: (body: CreateDependencyBody) =>
-      apiClient.post(`/api/work-items/${workItemId}/dependencies`, body),
+      apiClient.post(`/work-items/${workItemId}/dependencies`, body),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: workItemKeys.detail(workItemId) });
       queryClient.invalidateQueries({ queryKey: workItemKeys.lists() });
@@ -33,7 +33,7 @@ export function useRemoveDependency(workItemId: string) {
 
   return useMutation({
     mutationFn: (depId: string) =>
-      apiClient.delete(`/api/work-items/${workItemId}/dependencies/${depId}`),
+      apiClient.delete(`/work-items/${workItemId}/dependencies/${depId}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: workItemKeys.detail(workItemId) });
       queryClient.invalidateQueries({ queryKey: workItemKeys.lists() });

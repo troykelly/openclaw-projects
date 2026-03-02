@@ -44,7 +44,7 @@ describe.skipIf(!RUN_E2E)('OAuth Providers API', () => {
   });
 
   it('should list configured and unconfigured providers', async () => {
-    const res = await rawFetch(context.config.apiUrl, '/api/oauth/providers');
+    const res = await rawFetch(context.config.apiUrl, '/oauth/providers');
     expect(res.ok).toBe(true);
 
     const body = (await res.json()) as {
@@ -70,7 +70,7 @@ describe.skipIf(!RUN_E2E)('OAuth Providers API', () => {
   });
 
   it('should list connections (initially may be empty)', async () => {
-    const res = await rawFetch(context.config.apiUrl, '/api/oauth/connections');
+    const res = await rawFetch(context.config.apiUrl, '/oauth/connections');
     expect(res.ok).toBe(true);
 
     const body = (await res.json()) as { connections: Array<{ id: string }> };
@@ -79,7 +79,7 @@ describe.skipIf(!RUN_E2E)('OAuth Providers API', () => {
   });
 
   it('should filter connections by provider', async () => {
-    const res = await rawFetch(context.config.apiUrl, '/api/oauth/connections?provider=google');
+    const res = await rawFetch(context.config.apiUrl, '/oauth/connections?provider=google');
     expect(res.ok).toBe(true);
 
     const body = (await res.json()) as { connections: Array<{ id: string; provider: string }> };
@@ -106,7 +106,7 @@ describe.skipIf(!RUN_E2E)('OAuth Authorization URL', () => {
     if (!available) return;
 
     // Discover which providers are configured so we can skip appropriately
-    const res = await rawFetch(context.config.apiUrl, '/api/oauth/providers');
+    const res = await rawFetch(context.config.apiUrl, '/oauth/providers');
     const body = (await res.json()) as {
       providers: Array<{ name: string }>;
     };
@@ -114,7 +114,7 @@ describe.skipIf(!RUN_E2E)('OAuth Authorization URL', () => {
   });
 
   it('should reject unknown provider', async () => {
-    const res = await rawFetch(context.config.apiUrl, '/api/oauth/authorize/unknown');
+    const res = await rawFetch(context.config.apiUrl, '/oauth/authorize/unknown');
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error: string };
     expect(body.error).toMatch(/unknown/i);
@@ -123,7 +123,7 @@ describe.skipIf(!RUN_E2E)('OAuth Authorization URL', () => {
   it('should reject invalid permission level', async () => {
     // Pick whichever provider is configured, or default to google
     const provider = configuredProviders[0] || 'google';
-    const res = await rawFetch(context.config.apiUrl, `/api/oauth/authorize/${provider}?permission_level=admin`);
+    const res = await rawFetch(context.config.apiUrl, `/oauth/authorize/${provider}?permission_level=admin`);
     // If provider is not configured, we get 503. If configured, we get 400.
     if (configuredProviders.includes(provider)) {
       expect(res.status).toBe(400);
@@ -136,7 +136,7 @@ describe.skipIf(!RUN_E2E)('OAuth Authorization URL', () => {
 
   it('should reject invalid features', async () => {
     const provider = configuredProviders[0] || 'google';
-    const res = await rawFetch(context.config.apiUrl, `/api/oauth/authorize/${provider}?features=invalid_feature`);
+    const res = await rawFetch(context.config.apiUrl, `/oauth/authorize/${provider}?features=invalid_feature`);
     if (configuredProviders.includes(provider)) {
       expect(res.status).toBe(400);
       const body = (await res.json()) as { error: string };
@@ -155,7 +155,7 @@ describe.skipIf(!RUN_E2E)('OAuth Authorization URL', () => {
     const provider = configuredProviders[0];
     const token = await signTestJwt();
     const res = await fetch(
-      `${context.config.apiUrl}/api/oauth/authorize/${provider}?features=contacts&permission_level=read`,
+      `${context.config.apiUrl}/oauth/authorize/${provider}?features=contacts&permission_level=read`,
       {
         headers: { Authorization: `Bearer ${token}` },
         redirect: 'manual',
@@ -183,7 +183,7 @@ describe.skipIf(!RUN_E2E)('OAuth Authorization URL', () => {
       return;
     }
 
-    const res = await rawFetch(context.config.apiUrl, `/api/oauth/authorize/${unconfigured}`);
+    const res = await rawFetch(context.config.apiUrl, `/oauth/authorize/${unconfigured}`);
     expect(res.status).toBe(503);
     const body = (await res.json()) as { error: string };
     expect(body.error).toMatch(/not configured/i);
@@ -202,7 +202,7 @@ describe.skipIf(!RUN_E2E)('OAuth Callback Error Handling', () => {
   });
 
   it('should reject callback with error parameter', async () => {
-    const res = await rawFetch(context.config.apiUrl, '/api/oauth/callback?error=access_denied');
+    const res = await rawFetch(context.config.apiUrl, '/oauth/callback?error=access_denied');
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error: string; details: string };
     expect(body.error).toMatch(/failed/i);
@@ -210,21 +210,21 @@ describe.skipIf(!RUN_E2E)('OAuth Callback Error Handling', () => {
   });
 
   it('should reject callback with missing code', async () => {
-    const res = await rawFetch(context.config.apiUrl, '/api/oauth/callback?state=abc123');
+    const res = await rawFetch(context.config.apiUrl, '/oauth/callback?state=abc123');
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error: string };
     expect(body.error).toMatch(/missing.*code/i);
   });
 
   it('should reject callback with missing state', async () => {
-    const res = await rawFetch(context.config.apiUrl, '/api/oauth/callback?code=abc123');
+    const res = await rawFetch(context.config.apiUrl, '/oauth/callback?code=abc123');
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error: string };
     expect(body.error).toMatch(/missing.*state/i);
   });
 
   it('should reject callback with invalid/expired state', async () => {
-    const res = await rawFetch(context.config.apiUrl, '/api/oauth/callback?code=abc123&state=invalid_state_value');
+    const res = await rawFetch(context.config.apiUrl, '/oauth/callback?code=abc123&state=invalid_state_value');
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error: string; code: string };
     expect(body.code).toBe('INVALID_STATE');
@@ -251,7 +251,7 @@ describe.skipIf(!RUN_E2E)('OAuth Connection Lifecycle', () => {
     // Clean up any connections created during tests
     for (const id of createdConnectionIds) {
       try {
-        await rawFetch(context.config.apiUrl, `/api/oauth/connections/${id}`, {
+        await rawFetch(context.config.apiUrl, `/oauth/connections/${id}`, {
           method: 'DELETE',
         });
       } catch {
@@ -263,7 +263,7 @@ describe.skipIf(!RUN_E2E)('OAuth Connection Lifecycle', () => {
 
   it('should return 404 when deleting non-existent connection', async () => {
     const fakeUUID = '00000000-0000-0000-0000-000000000000';
-    const res = await rawFetch(context.config.apiUrl, `/api/oauth/connections/${fakeUUID}`, {
+    const res = await rawFetch(context.config.apiUrl, `/oauth/connections/${fakeUUID}`, {
       method: 'DELETE',
     });
     expect(res.status).toBe(404);
@@ -271,7 +271,7 @@ describe.skipIf(!RUN_E2E)('OAuth Connection Lifecycle', () => {
 
   it('should return 404 when updating non-existent connection', async () => {
     const fakeUUID = '00000000-0000-0000-0000-000000000000';
-    const res = await rawFetch(context.config.apiUrl, `/api/oauth/connections/${fakeUUID}`, {
+    const res = await rawFetch(context.config.apiUrl, `/oauth/connections/${fakeUUID}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ label: 'test' }),
@@ -283,7 +283,7 @@ describe.skipIf(!RUN_E2E)('OAuth Connection Lifecycle', () => {
     // We need a real connection to test label validation.
     // Use a fake UUID — the label validation runs before the DB lookup.
     const fakeUUID = '00000000-0000-0000-0000-000000000001';
-    const res = await rawFetch(context.config.apiUrl, `/api/oauth/connections/${fakeUUID}`, {
+    const res = await rawFetch(context.config.apiUrl, `/oauth/connections/${fakeUUID}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ label: '   ' }),
@@ -295,7 +295,7 @@ describe.skipIf(!RUN_E2E)('OAuth Connection Lifecycle', () => {
 
   it('should reject invalid permission level on update', async () => {
     const fakeUUID = '00000000-0000-0000-0000-000000000002';
-    const res = await rawFetch(context.config.apiUrl, `/api/oauth/connections/${fakeUUID}`, {
+    const res = await rawFetch(context.config.apiUrl, `/oauth/connections/${fakeUUID}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ permission_level: 'admin' }),
@@ -307,7 +307,7 @@ describe.skipIf(!RUN_E2E)('OAuth Connection Lifecycle', () => {
 
   it('should reject invalid features on update', async () => {
     const fakeUUID = '00000000-0000-0000-0000-000000000003';
-    const res = await rawFetch(context.config.apiUrl, `/api/oauth/connections/${fakeUUID}`, {
+    const res = await rawFetch(context.config.apiUrl, `/oauth/connections/${fakeUUID}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ enabled_features: ['invalid_feature'] }),
@@ -330,14 +330,14 @@ describe.skipIf(!RUN_E2E)('Drive API Error Handling', () => {
   });
 
   it('should require connection_id for file listing', async () => {
-    const res = await rawFetch(context.config.apiUrl, '/api/drive/files');
+    const res = await rawFetch(context.config.apiUrl, '/drive/files');
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error: string };
     expect(body.error).toMatch(/connection_id/i);
   });
 
   it('should reject invalid UUID for connection_id in file listing', async () => {
-    const res = await rawFetch(context.config.apiUrl, '/api/drive/files?connection_id=not-a-uuid');
+    const res = await rawFetch(context.config.apiUrl, '/drive/files?connection_id=not-a-uuid');
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error: string };
     expect(body.error).toMatch(/valid UUID/i);
@@ -345,19 +345,19 @@ describe.skipIf(!RUN_E2E)('Drive API Error Handling', () => {
 
   it('should return 404 for non-existent connection in file listing', async () => {
     const fakeUUID = '00000000-0000-0000-0000-000000000000';
-    const res = await rawFetch(context.config.apiUrl, `/api/drive/files?connection_id=${fakeUUID}`);
+    const res = await rawFetch(context.config.apiUrl, `/drive/files?connection_id=${fakeUUID}`);
     expect(res.status).toBe(404);
   });
 
   it('should require connection_id for file search', async () => {
-    const res = await rawFetch(context.config.apiUrl, '/api/drive/files/search?q=test');
+    const res = await rawFetch(context.config.apiUrl, '/drive/files/search?q=test');
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error: string };
     expect(body.error).toMatch(/connection_id/i);
   });
 
   it('should reject invalid UUID for connection_id in file search', async () => {
-    const res = await rawFetch(context.config.apiUrl, '/api/drive/files/search?connection_id=not-a-uuid&q=test');
+    const res = await rawFetch(context.config.apiUrl, '/drive/files/search?connection_id=not-a-uuid&q=test');
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error: string };
     expect(body.error).toMatch(/valid UUID/i);
@@ -365,21 +365,21 @@ describe.skipIf(!RUN_E2E)('Drive API Error Handling', () => {
 
   it('should require search query for file search', async () => {
     const fakeUUID = '00000000-0000-0000-0000-000000000000';
-    const res = await rawFetch(context.config.apiUrl, `/api/drive/files/search?connection_id=${fakeUUID}`);
+    const res = await rawFetch(context.config.apiUrl, `/drive/files/search?connection_id=${fakeUUID}`);
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error: string };
     expect(body.error).toMatch(/search query/i);
   });
 
   it('should require connection_id for single file get', async () => {
-    const res = await rawFetch(context.config.apiUrl, '/api/drive/files/some-file-id');
+    const res = await rawFetch(context.config.apiUrl, '/drive/files/some-file-id');
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error: string };
     expect(body.error).toMatch(/connection_id/i);
   });
 
   it('should reject invalid UUID for connection_id in single file get', async () => {
-    const res = await rawFetch(context.config.apiUrl, '/api/drive/files/some-file-id?connection_id=not-a-uuid');
+    const res = await rawFetch(context.config.apiUrl, '/drive/files/some-file-id?connection_id=not-a-uuid');
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error: string };
     expect(body.error).toMatch(/valid UUID/i);
@@ -398,42 +398,42 @@ describe.skipIf(!RUN_E2E)('Email API Error Handling', () => {
   });
 
   it('should require connection_id for message listing', async () => {
-    const res = await rawFetch(context.config.apiUrl, '/api/email/messages');
+    const res = await rawFetch(context.config.apiUrl, '/email/messages');
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error: string };
     expect(body.error).toMatch(/connection_id/i);
   });
 
   it('should require connection_id for single message get', async () => {
-    const res = await rawFetch(context.config.apiUrl, '/api/email/messages/some-msg-id');
+    const res = await rawFetch(context.config.apiUrl, '/email/messages/some-msg-id');
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error: string };
     expect(body.error).toMatch(/connection_id/i);
   });
 
   it('should require connection_id for thread listing', async () => {
-    const res = await rawFetch(context.config.apiUrl, '/api/email/threads');
+    const res = await rawFetch(context.config.apiUrl, '/email/threads');
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error: string };
     expect(body.error).toMatch(/connection_id/i);
   });
 
   it('should require connection_id for single thread get', async () => {
-    const res = await rawFetch(context.config.apiUrl, '/api/email/threads/some-thread-id');
+    const res = await rawFetch(context.config.apiUrl, '/email/threads/some-thread-id');
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error: string };
     expect(body.error).toMatch(/connection_id/i);
   });
 
   it('should require connection_id for folder listing', async () => {
-    const res = await rawFetch(context.config.apiUrl, '/api/email/folders');
+    const res = await rawFetch(context.config.apiUrl, '/email/folders');
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error: string };
     expect(body.error).toMatch(/connection_id/i);
   });
 
   it('should require connection_id for sending email', async () => {
-    const res = await rawFetch(context.config.apiUrl, '/api/email/messages/send', {
+    const res = await rawFetch(context.config.apiUrl, '/email/messages/send', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ to: 'test@example.com', subject: 'test', body: 'test' }),
@@ -444,7 +444,7 @@ describe.skipIf(!RUN_E2E)('Email API Error Handling', () => {
   });
 
   it('should require connection_id for creating draft', async () => {
-    const res = await rawFetch(context.config.apiUrl, '/api/email/drafts', {
+    const res = await rawFetch(context.config.apiUrl, '/email/drafts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ subject: 'test', body: 'test' }),

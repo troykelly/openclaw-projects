@@ -18,7 +18,7 @@ export function useSetRecurrence(workItemId: string) {
 
   return useMutation({
     mutationFn: (body: SetRecurrenceBody) =>
-      apiClient.put(`/api/work-items/${workItemId}/recurrence`, body),
+      apiClient.put(`/work-items/${workItemId}/recurrence`, body),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: recurrenceKeys.rule(workItemId) });
       queryClient.invalidateQueries({ queryKey: recurrenceKeys.instances(workItemId) });
@@ -32,7 +32,7 @@ export function useDeleteRecurrence(workItemId: string) {
 
   return useMutation({
     mutationFn: () =>
-      apiClient.delete(`/api/work-items/${workItemId}/recurrence`),
+      apiClient.delete(`/work-items/${workItemId}/recurrence`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: recurrenceKeys.rule(workItemId) });
       queryClient.invalidateQueries({ queryKey: recurrenceKeys.instances(workItemId) });

@@ -99,13 +99,13 @@ describe('Contact Communication Preferences (Issue #1269)', () => {
     });
   });
 
-  // ── POST /api/contacts with comm prefs ──────────────────
+  // ── POST /contacts with comm prefs ──────────────────
 
-  describe('POST /api/contacts with comm prefs', () => {
+  describe('POST /contacts with comm prefs', () => {
     it('creates a contact with preferred_channel', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: {
           display_name: 'Troy',
           preferred_channel: 'telegram',
@@ -120,7 +120,7 @@ describe('Contact Communication Preferences (Issue #1269)', () => {
     it('creates a contact with quiet hours', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: {
           display_name: 'Alex',
           quiet_hours_start: '23:00',
@@ -139,7 +139,7 @@ describe('Contact Communication Preferences (Issue #1269)', () => {
     it('creates a contact with all comm pref fields', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: {
           display_name: 'Jordan',
           preferred_channel: 'email',
@@ -164,7 +164,7 @@ describe('Contact Communication Preferences (Issue #1269)', () => {
     it('creates a contact without comm prefs (backward compatible)', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: { display_name: 'Legacy Contact' },
       });
 
@@ -181,7 +181,7 @@ describe('Contact Communication Preferences (Issue #1269)', () => {
     it('rejects invalid preferred_channel', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: {
           display_name: 'Bad Channel',
           preferred_channel: 'carrier_pigeon',
@@ -196,7 +196,7 @@ describe('Contact Communication Preferences (Issue #1269)', () => {
     it('rejects invalid urgency_override_channel', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: {
           display_name: 'Bad Override',
           urgency_override_channel: 'fax',
@@ -209,13 +209,13 @@ describe('Contact Communication Preferences (Issue #1269)', () => {
     });
   });
 
-  // ── GET /api/contacts/:id returns comm prefs ────────────
+  // ── GET /contacts/:id returns comm prefs ────────────
 
-  describe('GET /api/contacts/:id returns comm prefs', () => {
+  describe('GET /contacts/:id returns comm prefs', () => {
     it('returns all comm pref fields', async () => {
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: {
           display_name: 'Comm Prefs Test',
           preferred_channel: 'sms',
@@ -230,7 +230,7 @@ describe('Contact Communication Preferences (Issue #1269)', () => {
 
       const getRes = await app.inject({
         method: 'GET',
-        url: `/api/contacts/${contact_id}`,
+        url: `/contacts/${contact_id}`,
       });
 
       expect(getRes.statusCode).toBe(200);
@@ -244,20 +244,20 @@ describe('Contact Communication Preferences (Issue #1269)', () => {
     });
   });
 
-  // ── PATCH /api/contacts/:id updates comm prefs ──────────
+  // ── PATCH /contacts/:id updates comm prefs ──────────
 
-  describe('PATCH /api/contacts/:id updates comm prefs', () => {
+  describe('PATCH /contacts/:id updates comm prefs', () => {
     it('updates preferred_channel', async () => {
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: { display_name: 'Update Test', preferred_channel: 'email' },
       });
       const contact_id = createRes.json().id;
 
       const patchRes = await app.inject({
         method: 'PATCH',
-        url: `/api/contacts/${contact_id}`,
+        url: `/contacts/${contact_id}`,
         payload: { preferred_channel: 'telegram' },
       });
 
@@ -268,14 +268,14 @@ describe('Contact Communication Preferences (Issue #1269)', () => {
     it('updates quiet hours', async () => {
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: { display_name: 'Quiet Hours Test' },
       });
       const contact_id = createRes.json().id;
 
       const patchRes = await app.inject({
         method: 'PATCH',
-        url: `/api/contacts/${contact_id}`,
+        url: `/contacts/${contact_id}`,
         payload: {
           quiet_hours_start: '23:00',
           quiet_hours_end: '07:00',
@@ -293,14 +293,14 @@ describe('Contact Communication Preferences (Issue #1269)', () => {
     it('clears preferred_channel by setting to null', async () => {
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: { display_name: 'Clear Test', preferred_channel: 'sms' },
       });
       const contact_id = createRes.json().id;
 
       const patchRes = await app.inject({
         method: 'PATCH',
-        url: `/api/contacts/${contact_id}`,
+        url: `/contacts/${contact_id}`,
         payload: { preferred_channel: null },
       });
 
@@ -311,14 +311,14 @@ describe('Contact Communication Preferences (Issue #1269)', () => {
     it('updates notification_notes', async () => {
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: { display_name: 'Notes Test' },
       });
       const contact_id = createRes.json().id;
 
       const patchRes = await app.inject({
         method: 'PATCH',
-        url: `/api/contacts/${contact_id}`,
+        url: `/contacts/${contact_id}`,
         payload: { notification_notes: 'Prefers morning messages' },
       });
 
@@ -329,14 +329,14 @@ describe('Contact Communication Preferences (Issue #1269)', () => {
     it('rejects invalid channel on update', async () => {
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: { display_name: 'Invalid Update' },
       });
       const contact_id = createRes.json().id;
 
       const patchRes = await app.inject({
         method: 'PATCH',
-        url: `/api/contacts/${contact_id}`,
+        url: `/contacts/${contact_id}`,
         payload: { preferred_channel: 'invalid_channel' },
       });
 
@@ -350,7 +350,7 @@ describe('Contact Communication Preferences (Issue #1269)', () => {
     it('requires both start and end when one is provided', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: {
           display_name: 'Partial Quiet Hours',
           quiet_hours_start: '23:00',

@@ -11,7 +11,7 @@ import { createTestPool, truncateAllTables } from './helpers/db.ts';
  * - Activity events on item create/update/delete
  * - Activity events on schedule trigger
  * - Activity events on bulk operations (summary events)
- * - Events appear in /api/activity endpoint
+ * - Events appear in /activity endpoint
  * - Events include skill_id, collection, operation type
  */
 describe('Skill Store Activity Feed (Issue #808)', () => {
@@ -76,7 +76,7 @@ describe('Skill Store Activity Feed (Issue #808)', () => {
     it('emits activity event when item is created', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: {
           skill_id: 'test-skill',
           collection: 'articles',
@@ -103,7 +103,7 @@ describe('Skill Store Activity Feed (Issue #808)', () => {
       // Create item
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: {
           skill_id: 'test-skill',
           collection: 'articles',
@@ -115,7 +115,7 @@ describe('Skill Store Activity Feed (Issue #808)', () => {
       // Update item
       const updateRes = await app.inject({
         method: 'PATCH',
-        url: `/api/skill-store/items/${item_id}`,
+        url: `/skill-store/items/${item_id}`,
         payload: { title: 'Updated Title' },
       });
       expect(updateRes.statusCode).toBe(200);
@@ -135,7 +135,7 @@ describe('Skill Store Activity Feed (Issue #808)', () => {
       // Create item
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: {
           skill_id: 'test-skill',
           collection: 'articles',
@@ -147,7 +147,7 @@ describe('Skill Store Activity Feed (Issue #808)', () => {
       // Delete item
       const deleteRes = await app.inject({
         method: 'DELETE',
-        url: `/api/skill-store/items/${item_id}`,
+        url: `/skill-store/items/${item_id}`,
       });
       expect(deleteRes.statusCode).toBe(204);
 
@@ -165,7 +165,7 @@ describe('Skill Store Activity Feed (Issue #808)', () => {
     it('emits summary event for bulk create (not N individual events)', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items/bulk',
+        url: '/skill-store/items/bulk',
         payload: {
           items: [
             { skill_id: 'test-skill', collection: 'articles', title: 'Item 1' },
@@ -191,7 +191,7 @@ describe('Skill Store Activity Feed (Issue #808)', () => {
       // Create items first
       await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items/bulk',
+        url: '/skill-store/items/bulk',
         payload: {
           items: [
             { skill_id: 'test-skill', collection: 'articles', title: 'Item 1' },
@@ -205,7 +205,7 @@ describe('Skill Store Activity Feed (Issue #808)', () => {
 
       const res = await app.inject({
         method: 'DELETE',
-        url: '/api/skill-store/items/bulk',
+        url: '/skill-store/items/bulk',
         payload: {
           skill_id: 'test-skill',
           collection: 'articles',
@@ -228,7 +228,7 @@ describe('Skill Store Activity Feed (Issue #808)', () => {
       // Create a schedule
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/skill-store/schedules',
+        url: '/skill-store/schedules',
         payload: {
           skill_id: 'test-skill',
           collection: 'articles',
@@ -241,7 +241,7 @@ describe('Skill Store Activity Feed (Issue #808)', () => {
       // Trigger it
       const triggerRes = await app.inject({
         method: 'POST',
-        url: `/api/skill-store/schedules/${scheduleId}/trigger`,
+        url: `/skill-store/schedules/${scheduleId}/trigger`,
       });
       expect(triggerRes.statusCode).toBe(202);
 
@@ -257,11 +257,11 @@ describe('Skill Store Activity Feed (Issue #808)', () => {
   });
 
   describe('Activity feed API includes skill store events', () => {
-    it('includes skill store events in /api/activity', async () => {
+    it('includes skill store events in /activity', async () => {
       // Create a skill store item to generate activity
       await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: {
           skill_id: 'test-skill',
           collection: 'articles',
@@ -271,7 +271,7 @@ describe('Skill Store Activity Feed (Issue #808)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/activity',
+        url: '/activity',
       });
 
       expect(res.statusCode).toBe(200);
@@ -285,7 +285,7 @@ describe('Skill Store Activity Feed (Issue #808)', () => {
       // Create activity
       await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: {
           skill_id: 'test-skill',
           collection: 'articles',
@@ -295,7 +295,7 @@ describe('Skill Store Activity Feed (Issue #808)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/activity?entity_type=skill_store',
+        url: '/activity?entity_type=skill_store',
       });
 
       expect(res.statusCode).toBe(200);
@@ -311,7 +311,7 @@ describe('Skill Store Activity Feed (Issue #808)', () => {
     it('emits activity on pause', async () => {
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/skill-store/schedules',
+        url: '/skill-store/schedules',
         payload: {
           skill_id: 'test-skill',
           cron_expression: '0 9 * * *',
@@ -322,7 +322,7 @@ describe('Skill Store Activity Feed (Issue #808)', () => {
 
       await app.inject({
         method: 'POST',
-        url: `/api/skill-store/schedules/${scheduleId}/pause`,
+        url: `/skill-store/schedules/${scheduleId}/pause`,
       });
 
       const activity = await pool.query(
@@ -336,7 +336,7 @@ describe('Skill Store Activity Feed (Issue #808)', () => {
     it('emits activity on resume', async () => {
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/skill-store/schedules',
+        url: '/skill-store/schedules',
         payload: {
           skill_id: 'test-skill',
           cron_expression: '0 9 * * *',
@@ -348,7 +348,7 @@ describe('Skill Store Activity Feed (Issue #808)', () => {
 
       await app.inject({
         method: 'POST',
-        url: `/api/skill-store/schedules/${scheduleId}/resume`,
+        url: `/skill-store/schedules/${scheduleId}/resume`,
       });
 
       const activity = await pool.query(
@@ -367,7 +367,7 @@ describe('Skill Store Activity Feed (Issue #808)', () => {
     it('does NOT emit activity when item creation fails (400)', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: { title: 'Missing skill_id' },
       });
       expect(res.statusCode).toBe(400);
@@ -380,7 +380,7 @@ describe('Skill Store Activity Feed (Issue #808)', () => {
       const fakeId = '00000000-0000-0000-0000-000000000000';
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/skill-store/items/${fakeId}`,
+        url: `/skill-store/items/${fakeId}`,
         payload: { title: 'Nope' },
       });
       expect(res.statusCode).toBe(404);
@@ -393,7 +393,7 @@ describe('Skill Store Activity Feed (Issue #808)', () => {
       const fakeId = '00000000-0000-0000-0000-000000000001';
       const res = await app.inject({
         method: 'DELETE',
-        url: `/api/skill-store/items/${fakeId}`,
+        url: `/skill-store/items/${fakeId}`,
       });
       expect(res.statusCode).toBe(404);
 

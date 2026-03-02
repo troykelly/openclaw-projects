@@ -34,31 +34,31 @@ describe('Health API endpoints', () => {
     await pool.end();
   });
 
-  describe('GET /api/health/live', () => {
+  describe('GET /health/live', () => {
     it('returns 200 with status ok (liveness probe)', async () => {
-      const res = await app.inject({ method: 'GET', url: '/api/health/live' });
+      const res = await app.inject({ method: 'GET', url: '/health/live' });
       expect(res.statusCode).toBe(200);
       expect(res.json()).toEqual({ status: 'ok' });
     });
 
     it('does not perform any database checks', async () => {
       // Liveness should be instant - just verify it works without DB
-      const res = await app.inject({ method: 'GET', url: '/api/health/live' });
+      const res = await app.inject({ method: 'GET', url: '/health/live' });
       expect(res.statusCode).toBe(200);
     });
   });
 
-  describe('GET /api/health/ready', () => {
+  describe('GET /health/ready', () => {
     it('returns 200 with status ok when database is available', async () => {
-      const res = await app.inject({ method: 'GET', url: '/api/health/ready' });
+      const res = await app.inject({ method: 'GET', url: '/health/ready' });
       expect(res.statusCode).toBe(200);
       expect(res.json()).toEqual({ status: 'ok' });
     });
   });
 
-  describe('GET /api/health', () => {
+  describe('GET /health', () => {
     it('returns comprehensive health status', async () => {
-      const res = await app.inject({ method: 'GET', url: '/api/health' });
+      const res = await app.inject({ method: 'GET', url: '/health' });
       expect(res.statusCode).toBe(200);
 
       const body = res.json();
@@ -69,7 +69,7 @@ describe('Health API endpoints', () => {
     });
 
     it('includes database component with status and latency', async () => {
-      const res = await app.inject({ method: 'GET', url: '/api/health' });
+      const res = await app.inject({ method: 'GET', url: '/health' });
       const body = res.json();
 
       expect(body.components.database).toBeDefined();
@@ -79,7 +79,7 @@ describe('Health API endpoints', () => {
     });
 
     it('includes database pool details', async () => {
-      const res = await app.inject({ method: 'GET', url: '/api/health' });
+      const res = await app.inject({ method: 'GET', url: '/health' });
       const body = res.json();
 
       const details = body.components.database.details;
@@ -90,12 +90,4 @@ describe('Health API endpoints', () => {
     });
   });
 
-  describe('backward compatibility', () => {
-    it('GET /health still works (legacy endpoint)', async () => {
-      const res = await app.inject({ method: 'GET', url: '/health' });
-      expect(res.statusCode).toBe(200);
-      // Legacy format for backward compatibility
-      expect(res.json()).toEqual({ ok: true });
-    });
-  });
 });

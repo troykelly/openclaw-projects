@@ -69,24 +69,24 @@ async function signTestM2MToken(serviceId: string, scopes: string[] = ['api:full
 
 describe.skipIf(!RUN_E2E)('JWT Auth E2E', () => {
   beforeAll(async () => {
-    await waitForService(`${AUTH_API_URL}/api/health`, 30, 2000);
+    await waitForService(`${AUTH_API_URL}/health`, 30, 2000);
   });
 
   describe('Unauthenticated Access', () => {
     it('should return 401 for API calls without a token', async () => {
-      const response = await authFetch('/api/work-items');
+      const response = await authFetch('/work-items');
       expect(response.status).toBe(401);
       const body = await response.json();
       expect(body.error).toBe('unauthorized');
     });
 
     it('should allow access to health endpoints without auth', async () => {
-      const response = await authFetch('/api/health');
+      const response = await authFetch('/health');
       expect(response.ok).toBe(true);
     });
 
     it('should allow access to capabilities endpoint without auth', async () => {
-      const response = await authFetch('/api/capabilities');
+      const response = await authFetch('/capabilities');
       expect(response.ok).toBe(true);
     });
   });
@@ -98,7 +98,7 @@ describe.skipIf(!RUN_E2E)('JWT Auth E2E', () => {
     const testEmail = testData.uniqueEmail();
 
     it('should request a magic link', async () => {
-      const response = await authFetch('/api/auth/request-link', {
+      const response = await authFetch('/auth/request-link', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: testEmail }),
@@ -117,7 +117,7 @@ describe.skipIf(!RUN_E2E)('JWT Auth E2E', () => {
     });
 
     it('should consume the magic link and return a JWT', async () => {
-      const response = await authFetch('/api/auth/consume', {
+      const response = await authFetch('/auth/consume', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token: magicLinkToken }),
@@ -136,7 +136,7 @@ describe.skipIf(!RUN_E2E)('JWT Auth E2E', () => {
     });
 
     it('should reject a consumed magic link token', async () => {
-      const response = await authFetch('/api/auth/consume', {
+      const response = await authFetch('/auth/consume', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token: magicLinkToken }),
@@ -148,7 +148,7 @@ describe.skipIf(!RUN_E2E)('JWT Auth E2E', () => {
     });
 
     it('should make authenticated API calls with the JWT', async () => {
-      const response = await authFetch('/api/work-items', {
+      const response = await authFetch('/work-items', {
         headers: { Authorization: `Bearer ${access_token}` },
       });
 
@@ -158,7 +158,7 @@ describe.skipIf(!RUN_E2E)('JWT Auth E2E', () => {
     });
 
     it('should return user identity via /api/me', async () => {
-      const response = await authFetch('/api/me', {
+      const response = await authFetch('/me', {
         headers: { Authorization: `Bearer ${access_token}` },
       });
 
@@ -175,7 +175,7 @@ describe.skipIf(!RUN_E2E)('JWT Auth E2E', () => {
 
     beforeAll(async () => {
       // Get initial tokens via magic link flow
-      const linkRes = await authFetch('/api/auth/request-link', {
+      const linkRes = await authFetch('/auth/request-link', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: testEmail }),
@@ -183,7 +183,7 @@ describe.skipIf(!RUN_E2E)('JWT Auth E2E', () => {
       const linkBody = await linkRes.json();
       const token = new URL(linkBody.loginUrl).searchParams.get('token')!;
 
-      const consumeRes = await authFetch('/api/auth/consume', {
+      const consumeRes = await authFetch('/auth/consume', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token }),
@@ -194,7 +194,7 @@ describe.skipIf(!RUN_E2E)('JWT Auth E2E', () => {
     });
 
     it('should refresh the access token using the refresh cookie', async () => {
-      const response = await authFetch('/api/auth/refresh', {
+      const response = await authFetch('/auth/refresh', {
         method: 'POST',
         headers: {
           Cookie: `projects_refresh=${refreshCookie}`,
@@ -214,14 +214,14 @@ describe.skipIf(!RUN_E2E)('JWT Auth E2E', () => {
       expect(newCookie).not.toBe(refreshCookie);
 
       // New access token should work
-      const apiRes = await authFetch('/api/work-items', {
+      const apiRes = await authFetch('/work-items', {
         headers: { Authorization: `Bearer ${body.access_token}` },
       });
       expect(apiRes.ok).toBe(true);
     });
 
     it('should reject refresh without a cookie', async () => {
-      const response = await authFetch('/api/auth/refresh', {
+      const response = await authFetch('/auth/refresh', {
         method: 'POST',
       });
 
@@ -231,7 +231,7 @@ describe.skipIf(!RUN_E2E)('JWT Auth E2E', () => {
     });
 
     it('should reject refresh with an invalid cookie', async () => {
-      const response = await authFetch('/api/auth/refresh', {
+      const response = await authFetch('/auth/refresh', {
         method: 'POST',
         headers: {
           Cookie: 'projects_refresh=invalid-token-value',
@@ -247,7 +247,7 @@ describe.skipIf(!RUN_E2E)('JWT Auth E2E', () => {
 
     beforeAll(async () => {
       const testEmail = testData.uniqueEmail();
-      const linkRes = await authFetch('/api/auth/request-link', {
+      const linkRes = await authFetch('/auth/request-link', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: testEmail }),
@@ -255,7 +255,7 @@ describe.skipIf(!RUN_E2E)('JWT Auth E2E', () => {
       const linkBody = await linkRes.json();
       const token = new URL(linkBody.loginUrl).searchParams.get('token')!;
 
-      const consumeRes = await authFetch('/api/auth/consume', {
+      const consumeRes = await authFetch('/auth/consume', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token }),
@@ -264,7 +264,7 @@ describe.skipIf(!RUN_E2E)('JWT Auth E2E', () => {
     });
 
     it('should revoke the refresh token family (logout)', async () => {
-      const response = await authFetch('/api/auth/revoke', {
+      const response = await authFetch('/auth/revoke', {
         method: 'POST',
         headers: {
           Cookie: `projects_refresh=${refreshCookie}`,
@@ -282,7 +282,7 @@ describe.skipIf(!RUN_E2E)('JWT Auth E2E', () => {
     });
 
     it('should reject refresh after revocation', async () => {
-      const response = await authFetch('/api/auth/refresh', {
+      const response = await authFetch('/auth/refresh', {
         method: 'POST',
         headers: {
           Cookie: `projects_refresh=${refreshCookie}`,
@@ -293,7 +293,7 @@ describe.skipIf(!RUN_E2E)('JWT Auth E2E', () => {
     });
 
     it('should handle revoke with no cookie gracefully', async () => {
-      const response = await authFetch('/api/auth/revoke', {
+      const response = await authFetch('/auth/revoke', {
         method: 'POST',
       });
 
@@ -307,7 +307,7 @@ describe.skipIf(!RUN_E2E)('JWT Auth E2E', () => {
     it('should authenticate with a valid M2M token', async () => {
       const m2mToken = await signTestM2MToken('e2e-test-service');
 
-      const response = await authFetch('/api/work-items', {
+      const response = await authFetch('/work-items', {
         headers: { Authorization: `Bearer ${m2mToken}` },
       });
 
@@ -327,7 +327,7 @@ describe.skipIf(!RUN_E2E)('JWT Auth E2E', () => {
         .setJti(crypto.randomUUID())
         .sign(wrongSecret);
 
-      const response = await authFetch('/api/work-items', {
+      const response = await authFetch('/work-items', {
         headers: { Authorization: `Bearer ${badToken}` },
       });
 
@@ -345,7 +345,7 @@ describe.skipIf(!RUN_E2E)('JWT Auth E2E', () => {
         .setJti(crypto.randomUUID())
         .sign(secret);
 
-      const response = await authFetch('/api/work-items', {
+      const response = await authFetch('/work-items', {
         headers: { Authorization: `Bearer ${expiredToken}` },
       });
 
@@ -363,7 +363,7 @@ describe.skipIf(!RUN_E2E)('JWT Auth E2E', () => {
         .setJti(crypto.randomUUID())
         .sign(secret);
 
-      const response = await authFetch('/api/work-items', {
+      const response = await authFetch('/work-items', {
         headers: { Authorization: `Bearer ${badIssuerToken}` },
       });
 
@@ -373,7 +373,7 @@ describe.skipIf(!RUN_E2E)('JWT Auth E2E', () => {
 
   describe('Invalid Token Handling', () => {
     it('should reject a malformed JWT', async () => {
-      const response = await authFetch('/api/work-items', {
+      const response = await authFetch('/work-items', {
         headers: { Authorization: 'Bearer not-a-jwt' },
       });
 
@@ -381,7 +381,7 @@ describe.skipIf(!RUN_E2E)('JWT Auth E2E', () => {
     });
 
     it('should reject an empty Bearer token', async () => {
-      const response = await authFetch('/api/work-items', {
+      const response = await authFetch('/work-items', {
         headers: { Authorization: 'Bearer ' },
       });
 
@@ -389,7 +389,7 @@ describe.skipIf(!RUN_E2E)('JWT Auth E2E', () => {
     });
 
     it('should reject non-Bearer authorization', async () => {
-      const response = await authFetch('/api/work-items', {
+      const response = await authFetch('/work-items', {
         headers: { Authorization: 'Basic dGVzdDp0ZXN0' },
       });
 
@@ -399,7 +399,7 @@ describe.skipIf(!RUN_E2E)('JWT Auth E2E', () => {
 
   describe('Magic Link Edge Cases', () => {
     it('should reject consume with no token', async () => {
-      const response = await authFetch('/api/auth/consume', {
+      const response = await authFetch('/auth/consume', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
@@ -411,7 +411,7 @@ describe.skipIf(!RUN_E2E)('JWT Auth E2E', () => {
     });
 
     it('should reject consume with an invalid token', async () => {
-      const response = await authFetch('/api/auth/consume', {
+      const response = await authFetch('/auth/consume', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token: 'completely-invalid-token' }),
@@ -423,7 +423,7 @@ describe.skipIf(!RUN_E2E)('JWT Auth E2E', () => {
     });
 
     it('should reject request-link with invalid email', async () => {
-      const response = await authFetch('/api/auth/request-link', {
+      const response = await authFetch('/auth/request-link', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: 'not-an-email' }),
@@ -433,7 +433,7 @@ describe.skipIf(!RUN_E2E)('JWT Auth E2E', () => {
     });
 
     it('should reject request-link with no email', async () => {
-      const response = await authFetch('/api/auth/request-link', {
+      const response = await authFetch('/auth/request-link', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),

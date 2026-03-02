@@ -73,7 +73,7 @@ export function terminalKnownHostsPaths(): OpenApiDomainModule {
     },
 
     paths: {
-      '/api/terminal/known-hosts': {
+      '/terminal/known-hosts': {
         get: {
           operationId: 'listTerminalKnownHosts',
           summary: 'List trusted host keys',
@@ -120,7 +120,7 @@ export function terminalKnownHostsPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/terminal/known-hosts/approve': {
+      '/terminal/known-hosts/approve': {
         post: {
           operationId: 'approveTerminalHostKey',
           summary: 'Approve pending host verification',
@@ -143,7 +143,7 @@ export function terminalKnownHostsPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/terminal/known-hosts/{id}': {
+      '/terminal/known-hosts/{id}': {
         parameters: [uuidParam('id', 'Known host UUID')],
         delete: {
           operationId: 'revokeTerminalKnownHost',

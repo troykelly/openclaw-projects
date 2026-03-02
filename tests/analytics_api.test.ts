@@ -26,7 +26,7 @@ describe('Analytics API', () => {
     await pool.end();
   });
 
-  describe('GET /api/analytics/project-health', () => {
+  describe('GET /analytics/project-health', () => {
     it('returns health metrics for all projects', async () => {
       // Create a project with work items
       const projectRes = await pool.query(
@@ -48,7 +48,7 @@ describe('Analytics API', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: '/api/analytics/project-health',
+        url: '/analytics/project-health',
       });
 
       expect(response.statusCode).toBe(200);
@@ -86,7 +86,7 @@ describe('Analytics API', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: `/api/analytics/project-health?project_id=${project1Id}`,
+        url: `/analytics/project-health?project_id=${project1Id}`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -96,11 +96,11 @@ describe('Analytics API', () => {
     });
   });
 
-  describe('GET /api/analytics/velocity', () => {
+  describe('GET /analytics/velocity', () => {
     it('returns velocity data', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/analytics/velocity',
+        url: '/analytics/velocity',
       });
 
       expect(response.statusCode).toBe(200);
@@ -118,7 +118,7 @@ describe('Analytics API', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: '/api/analytics/velocity?weeks=4',
+        url: '/analytics/velocity?weeks=4',
       });
 
       expect(response.statusCode).toBe(200);
@@ -127,7 +127,7 @@ describe('Analytics API', () => {
     });
   });
 
-  describe('GET /api/analytics/effort', () => {
+  describe('GET /analytics/effort', () => {
     it('returns effort summary', async () => {
       // Create a work item with effort estimate
       await pool.query(
@@ -137,7 +137,7 @@ describe('Analytics API', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: '/api/analytics/effort',
+        url: '/analytics/effort',
       });
 
       expect(response.statusCode).toBe(200);
@@ -156,7 +156,7 @@ describe('Analytics API', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: '/api/analytics/effort',
+        url: '/analytics/effort',
       });
 
       expect(response.statusCode).toBe(200);
@@ -165,7 +165,7 @@ describe('Analytics API', () => {
     });
   });
 
-  describe('GET /api/analytics/burndown/:id', () => {
+  describe('GET /analytics/burndown/:id', () => {
     it('returns burndown data for an epic', async () => {
       // Create an epic with child issues
       const epicRes = await pool.query(
@@ -186,7 +186,7 @@ describe('Analytics API', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: `/api/analytics/burndown/${epicId}`,
+        url: `/analytics/burndown/${epicId}`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -199,7 +199,7 @@ describe('Analytics API', () => {
     it('returns 404 for non-existent work item', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/analytics/burndown/00000000-0000-0000-0000-000000000000',
+        url: '/analytics/burndown/00000000-0000-0000-0000-000000000000',
       });
 
       expect(response.statusCode).toBe(404);
@@ -208,7 +208,7 @@ describe('Analytics API', () => {
     it('returns 400 for non-UUID id like "default"', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/analytics/burndown/default',
+        url: '/analytics/burndown/default',
       });
 
       expect(response.statusCode).toBe(400);
@@ -216,7 +216,7 @@ describe('Analytics API', () => {
     });
   });
 
-  describe('GET /api/analytics/overdue', () => {
+  describe('GET /analytics/overdue', () => {
     it('returns overdue items', async () => {
       // Create an overdue work item (not_after in the past)
       await pool.query(
@@ -226,7 +226,7 @@ describe('Analytics API', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: '/api/analytics/overdue',
+        url: '/analytics/overdue',
       });
 
       expect(response.statusCode).toBe(200);
@@ -245,7 +245,7 @@ describe('Analytics API', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: '/api/analytics/overdue',
+        url: '/analytics/overdue',
       });
 
       expect(response.statusCode).toBe(200);
@@ -255,7 +255,7 @@ describe('Analytics API', () => {
     });
   });
 
-  describe('GET /api/analytics/blocked', () => {
+  describe('GET /analytics/blocked', () => {
     it('returns blocked items', async () => {
       // Create blocking relationship
       const blockingRes = await pool.query(
@@ -280,7 +280,7 @@ describe('Analytics API', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: '/api/analytics/blocked',
+        url: '/analytics/blocked',
       });
 
       expect(response.statusCode).toBe(200);
@@ -290,7 +290,7 @@ describe('Analytics API', () => {
     });
   });
 
-  describe('GET /api/analytics/activity-summary', () => {
+  describe('GET /analytics/activity-summary', () => {
     it('returns activity counts by day', async () => {
       // Create some activity by creating work items
       await pool.query(
@@ -300,7 +300,7 @@ describe('Analytics API', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: '/api/analytics/activity-summary?days=7',
+        url: '/analytics/activity-summary?days=7',
       });
 
       expect(response.statusCode).toBe(200);

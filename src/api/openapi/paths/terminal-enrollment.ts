@@ -95,7 +95,7 @@ export function terminalEnrollmentPaths(): OpenApiDomainModule {
     },
 
     paths: {
-      '/api/terminal/enrollment-tokens': {
+      '/terminal/enrollment-tokens': {
         get: {
           operationId: 'listTerminalEnrollmentTokens',
           summary: 'List enrollment tokens',
@@ -129,7 +129,7 @@ export function terminalEnrollmentPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/terminal/enrollment-tokens/{id}': {
+      '/terminal/enrollment-tokens/{id}': {
         parameters: [uuidParam('id', 'Enrollment token UUID')],
         delete: {
           operationId: 'revokeTerminalEnrollmentToken',
@@ -144,7 +144,7 @@ export function terminalEnrollmentPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/terminal/enroll': {
+      '/terminal/enroll': {
         post: {
           operationId: 'enrollTerminalServer',
           summary: 'Self-register a remote server',

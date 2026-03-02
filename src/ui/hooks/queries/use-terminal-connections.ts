@@ -21,7 +21,7 @@ export function useTerminalConnections(search?: string) {
 
   return useQuery({
     queryKey: terminalConnectionKeys.list(search),
-    queryFn: ({ signal }) => apiClient.get<TerminalConnectionsResponse>(`/api/terminal/connections${qs}`, { signal }),
+    queryFn: ({ signal }) => apiClient.get<TerminalConnectionsResponse>(`/terminal/connections${qs}`, { signal }),
   });
 }
 
@@ -29,7 +29,7 @@ export function useTerminalConnections(search?: string) {
 export function useTerminalConnection(id: string) {
   return useQuery({
     queryKey: terminalConnectionKeys.detail(id),
-    queryFn: ({ signal }) => apiClient.get<TerminalConnection>(`/api/terminal/connections/${id}`, { signal }),
+    queryFn: ({ signal }) => apiClient.get<TerminalConnection>(`/terminal/connections/${id}`, { signal }),
     enabled: !!id,
   });
 }
@@ -40,7 +40,7 @@ export function useCreateTerminalConnection() {
 
   return useMutation({
     mutationFn: (data: Partial<TerminalConnection>) =>
-      apiClient.post<TerminalConnection>('/api/terminal/connections', data),
+      apiClient.post<TerminalConnection>('/terminal/connections', data),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: terminalConnectionKeys.all });
     },
@@ -53,7 +53,7 @@ export function useUpdateTerminalConnection() {
 
   return useMutation({
     mutationFn: ({ id, ...data }: { id: string } & Partial<TerminalConnection>) =>
-      apiClient.patch<TerminalConnection>(`/api/terminal/connections/${id}`, data),
+      apiClient.patch<TerminalConnection>(`/terminal/connections/${id}`, data),
     onSuccess: (_data, variables) => {
       void queryClient.invalidateQueries({ queryKey: terminalConnectionKeys.detail(variables.id) });
       void queryClient.invalidateQueries({ queryKey: terminalConnectionKeys.lists() });
@@ -66,7 +66,7 @@ export function useDeleteTerminalConnection() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (id: string) => apiClient.delete(`/api/terminal/connections/${id}`),
+    mutationFn: (id: string) => apiClient.delete(`/terminal/connections/${id}`),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: terminalConnectionKeys.all });
     },
@@ -77,7 +77,7 @@ export function useDeleteTerminalConnection() {
 export function useTestTerminalConnection() {
   return useMutation({
     mutationFn: (id: string) =>
-      apiClient.post<{ success: boolean; message: string }>(`/api/terminal/connections/${id}/test`, {}),
+      apiClient.post<{ success: boolean; message: string }>(`/terminal/connections/${id}/test`, {}),
   });
 }
 
@@ -87,7 +87,7 @@ export function useImportSshConfig() {
 
   return useMutation({
     mutationFn: (config: string) =>
-      apiClient.post<{ connections: TerminalConnection[] }>('/api/terminal/connections/import-ssh-config', { config }),
+      apiClient.post<{ connections: TerminalConnection[] }>('/terminal/connections/import-ssh-config', { config }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: terminalConnectionKeys.all });
     },

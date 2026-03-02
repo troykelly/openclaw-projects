@@ -1,6 +1,6 @@
 /**
  * Tests that shared note/notebook endpoints skip JWT auth.
- * Issue #1549: /api/shared/notes/:token and /api/shared/notebooks/:token
+ * Issue #1549: /shared/notes/:token and /shared/notebooks/:token
  * must be accessible without authentication (public share links).
  */
 
@@ -25,10 +25,10 @@ describe('Shared endpoint auth skip (Issue #1549)', () => {
     await app.close();
   });
 
-  it('GET /api/shared/notes/:token does NOT return 401', async () => {
+  it('GET /shared/notes/:token does NOT return 401', async () => {
     const res = await app.inject({
       method: 'GET',
-      url: '/api/shared/notes/some-test-token',
+      url: '/shared/notes/some-test-token',
       // No Authorization header
     });
 
@@ -38,30 +38,30 @@ describe('Shared endpoint auth skip (Issue #1549)', () => {
     expect(res.statusCode).not.toBe(401);
   });
 
-  it('GET /api/shared/notebooks/:token does NOT return 401', async () => {
+  it('GET /shared/notebooks/:token does NOT return 401', async () => {
     const res = await app.inject({
       method: 'GET',
-      url: '/api/shared/notebooks/some-test-token',
+      url: '/shared/notebooks/some-test-token',
       // No Authorization header
     });
 
     expect(res.statusCode).not.toBe(401);
   });
 
-  it('GET /api/files/shared/:token does NOT return 401 (existing skip)', async () => {
+  it('GET /files/shared/:token does NOT return 401 (existing skip)', async () => {
     const res = await app.inject({
       method: 'GET',
-      url: '/api/files/shared/some-test-token',
+      url: '/files/shared/some-test-token',
       // No Authorization header
     });
 
     expect(res.statusCode).not.toBe(401);
   });
 
-  it('GET /api/notes (authenticated endpoint) returns 401 without auth', async () => {
+  it('GET /notes (authenticated endpoint) returns 401 without auth', async () => {
     const res = await app.inject({
       method: 'GET',
-      url: '/api/notes',
+      url: '/notes',
       // No Authorization header
     });
 

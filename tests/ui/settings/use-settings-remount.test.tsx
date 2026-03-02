@@ -130,7 +130,7 @@ describe('useSettings mountedRef reset on remount (#1738)', () => {
     });
 
     // PATCH should have been called
-    expect(mockedApiClient.patch).toHaveBeenCalledWith('/api/settings', { theme: 'light' });
+    expect(mockedApiClient.patch).toHaveBeenCalledWith('/settings', { theme: 'light' });
 
     // The save should succeed
     expect(result).toBe(true);

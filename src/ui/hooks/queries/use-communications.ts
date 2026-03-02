@@ -22,7 +22,7 @@ export const communicationsKeys = {
 export function useWorkItemCommunications(work_item_id: string) {
   return useQuery({
     queryKey: communicationsKeys.forWorkItem(work_item_id),
-    queryFn: ({ signal }) => apiClient.get<CommunicationsResponse>(`/api/work-items/${work_item_id}/communications`, { signal }),
+    queryFn: ({ signal }) => apiClient.get<CommunicationsResponse>(`/work-items/${work_item_id}/communications`, { signal }),
     enabled: !!work_item_id,
   });
 }

@@ -93,7 +93,7 @@ export function getEndpointRateLimitCategory(method: string, url: string): RateL
   }
 
   // Webhook endpoints (external services calling our API)
-  if ((path.startsWith('/api/twilio/sms') && !path.includes('/send')) || path.startsWith('/api/postmark/') || path.startsWith('/api/cloudflare/email')) {
+  if ((path.startsWith('/twilio/sms') && !path.includes('/send')) || path.startsWith('/postmark/') || path.startsWith('/cloudflare/email')) {
     return 'webhook';
   }
 

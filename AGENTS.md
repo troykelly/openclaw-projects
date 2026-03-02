@@ -29,10 +29,10 @@ If you are an automated agent (including dev-major/dev-adhoc, Claude Code, Codex
 
 ### Example Interactions
 
-- User says "Add milk to my shopping list" → Agent calls POST `/api/work-items` with parent=shopping-list
+- User says "Add milk to my shopping list" → Agent calls POST `/work-items` with parent=shopping-list
 - User says "Remind me about the dentist Tuesday" → Agent creates work item with `not_before` date
 - SMS arrives from unknown number → System creates contact, links thread, notifies agent via hook
-- Agent needs context → Queries `/api/memories/search` with embedding for semantic match
+- Agent needs context → Queries `/memories/search` with embedding for semantic match
 
 ---
 

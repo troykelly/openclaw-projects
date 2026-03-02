@@ -1,5 +1,5 @@
 /**
- * Unit tests for GET /api/terminal/health endpoint.
+ * Unit tests for GET /terminal/health endpoint.
  *
  * Issue #1908 — Terminal worker health check.
  */
@@ -90,7 +90,7 @@ async function buildApp(): Promise<FastifyInstance> {
   return app;
 }
 
-describe('GET /api/terminal/health', () => {
+describe('GET /terminal/health', () => {
   let app: FastifyInstance;
 
   beforeEach(async () => {
@@ -108,7 +108,7 @@ describe('GET /api/terminal/health', () => {
 
     const res = await app.inject({
       method: 'GET',
-      url: '/api/terminal/health',
+      url: '/terminal/health',
     });
 
     expect(res.statusCode).toBe(200);
@@ -126,7 +126,7 @@ describe('GET /api/terminal/health', () => {
 
     const res = await app.inject({
       method: 'GET',
-      url: '/api/terminal/health',
+      url: '/terminal/health',
     });
 
     expect(res.statusCode).toBe(503);

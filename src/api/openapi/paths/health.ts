@@ -1,7 +1,7 @@
 /**
  * OpenAPI path definitions for health checks, capabilities, and spec endpoints.
- * Routes: GET /api/health, GET /api/health/live, GET /api/health/ready,
- *         GET /api/capabilities, GET /api/openapi.json
+ * Routes: GET /health, GET /health/live, GET /health/ready,
+ *         GET /capabilities, GET /openapi.json
  */
 import type { OpenApiDomainModule } from '../types.ts';
 import { errorResponses, jsonResponse } from '../helpers.ts';
@@ -164,7 +164,7 @@ export function healthPaths(): OpenApiDomainModule {
                       path: {
                         type: 'string',
                         description: 'URL path for the endpoint',
-                        example: '/api/work-items',
+                        example: '/work-items',
                       },
                       description: {
                         type: 'string',
@@ -203,7 +203,7 @@ export function healthPaths(): OpenApiDomainModule {
                   type: 'array',
                   items: { type: 'string' },
                   description: 'Ordered list of steps in the workflow',
-                  example: ['POST /api/work-items', 'PATCH /api/work-items/{id}'],
+                  example: ['POST /work-items', 'PATCH /work-items/{id}'],
                 },
               },
             },
@@ -212,7 +212,7 @@ export function healthPaths(): OpenApiDomainModule {
       },
     },
     paths: {
-      '/api/health': {
+      '/health': {
         get: {
           operationId: 'getHealth',
           summary: 'Detailed health check',
@@ -225,7 +225,7 @@ export function healthPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/health/live': {
+      '/health/live': {
         get: {
           operationId: 'getLiveness',
           summary: 'Liveness probe',
@@ -237,7 +237,7 @@ export function healthPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/health/ready': {
+      '/health/ready': {
         get: {
           operationId: 'getReadiness',
           summary: 'Readiness probe',
@@ -250,7 +250,7 @@ export function healthPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/capabilities': {
+      '/capabilities': {
         get: {
           operationId: 'getCapabilities',
           summary: 'API capabilities discovery',
@@ -262,7 +262,7 @@ export function healthPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/openapi.json': {
+      '/openapi.json': {
         get: {
           operationId: 'getOpenApiSpec',
           summary: 'OpenAPI specification',

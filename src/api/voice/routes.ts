@@ -158,7 +158,7 @@ export async function voiceRoutesPlugin(
   // ============================================================
 
   // GET /api/voice/config — get voice routing config for namespace
-  app.get('/api/voice/config', async (req: FastifyRequest, reply: FastifyReply) => {
+  app.get('/voice/config', async (req: FastifyRequest, reply: FastifyReply) => {
     const namespaces = getQueryNamespaces(req);
     if (!namespaces) return reply.code(403).send({ error: 'Namespace access denied' });
 
@@ -173,7 +173,7 @@ export async function voiceRoutesPlugin(
   });
 
   // PUT /api/voice/config — update voice routing config
-  app.put('/api/voice/config', async (req: FastifyRequest, reply: FastifyReply) => {
+  app.put('/voice/config', async (req: FastifyRequest, reply: FastifyReply) => {
     const namespace = getNamespace(req, reply);
     if (!namespace) return;
 
@@ -224,7 +224,7 @@ export async function voiceRoutesPlugin(
   // ============================================================
 
   // GET /api/voice/conversations — list recent conversations
-  app.get('/api/voice/conversations', async (req: FastifyRequest, reply: FastifyReply) => {
+  app.get('/voice/conversations', async (req: FastifyRequest, reply: FastifyReply) => {
     const namespaces = getQueryNamespaces(req);
     if (!namespaces) return reply.code(403).send({ error: 'Namespace access denied' });
 
@@ -255,7 +255,7 @@ export async function voiceRoutesPlugin(
   });
 
   // GET /api/voice/conversations/:id — get conversation with messages
-  app.get('/api/voice/conversations/:id', async (req: FastifyRequest, reply: FastifyReply) => {
+  app.get('/voice/conversations/:id', async (req: FastifyRequest, reply: FastifyReply) => {
     const { id } = req.params as IdParams;
     if (!isValidUUID(id)) {
       return reply.code(400).send({ error: 'Invalid conversation ID' });
@@ -287,7 +287,7 @@ export async function voiceRoutesPlugin(
   });
 
   // DELETE /api/voice/conversations/:id — delete conversation
-  app.delete('/api/voice/conversations/:id', async (req: FastifyRequest, reply: FastifyReply) => {
+  app.delete('/voice/conversations/:id', async (req: FastifyRequest, reply: FastifyReply) => {
     const { id } = req.params as IdParams;
     if (!isValidUUID(id)) {
       return reply.code(400).send({ error: 'Invalid conversation ID' });

@@ -1,15 +1,15 @@
 /**
  * OpenAPI path definitions for webhooks and notifications.
- * Routes: GET /api/webhooks/outbox, POST /api/webhooks/:id/retry,
- *         GET /api/webhooks/status, POST /api/webhooks/process,
- *         POST /api/webhooks/:webhook_id,
- *         GET /api/notifications, GET /api/notifications/unread-count,
- *         POST /api/notifications/:id/read, POST /api/notifications/read-all,
- *         DELETE /api/notifications/:id,
- *         GET /api/notifications/preferences, PATCH /api/notifications/preferences,
- *         POST /api/projects/:id/webhooks, GET /api/projects/:id/webhooks,
- *         DELETE /api/projects/:id/webhooks/:webhook_id,
- *         GET /api/projects/:id/events
+ * Routes: GET /webhooks/outbox, POST /webhooks/:id/retry,
+ *         GET /webhooks/status, POST /webhooks/process,
+ *         POST /webhooks/:webhook_id,
+ *         GET /notifications, GET /notifications/unread-count,
+ *         POST /notifications/:id/read, POST /notifications/read-all,
+ *         DELETE /notifications/:id,
+ *         GET /notifications/preferences, PATCH /notifications/preferences,
+ *         POST /projects/:id/webhooks, GET /projects/:id/webhooks,
+ *         DELETE /projects/:id/webhooks/:webhook_id,
+ *         GET /projects/:id/events
  */
 import type { OpenApiDomainModule } from '../types.ts';
 import { errorResponses, jsonBody, jsonResponse, paginationParams, ref, uuidParam } from '../helpers.ts';
@@ -449,7 +449,7 @@ export function webhooksNotificationsPaths(): OpenApiDomainModule {
       },
     },
     paths: {
-      '/api/webhooks/outbox': {
+      '/webhooks/outbox': {
         get: {
           operationId: 'listWebhookOutbox',
           summary: 'List webhook outbox entries',
@@ -491,7 +491,7 @@ export function webhooksNotificationsPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/webhooks/{id}/retry': {
+      '/webhooks/{id}/retry': {
         post: {
           operationId: 'retryWebhook',
           summary: 'Retry a failed webhook',
@@ -519,7 +519,7 @@ export function webhooksNotificationsPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/webhooks/status': {
+      '/webhooks/status': {
         get: {
           operationId: 'getWebhookStatus',
           summary: 'Get webhook configuration status',
@@ -531,7 +531,7 @@ export function webhooksNotificationsPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/webhooks/process': {
+      '/webhooks/process': {
         post: {
           operationId: 'processWebhooks',
           summary: 'Manually trigger webhook processing',
@@ -554,7 +554,7 @@ export function webhooksNotificationsPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/webhooks/{webhook_id}': {
+      '/webhooks/{webhook_id}': {
         post: {
           operationId: 'ingestProjectWebhook',
           summary: 'Public webhook ingestion endpoint',
@@ -584,7 +584,7 @@ export function webhooksNotificationsPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/notifications': {
+      '/notifications': {
         get: {
           operationId: 'listNotifications',
           summary: 'List notifications',
@@ -647,7 +647,7 @@ export function webhooksNotificationsPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/notifications/unread-count': {
+      '/notifications/unread-count': {
         get: {
           operationId: 'getUnreadNotificationCount',
           summary: 'Get unread notification count',
@@ -685,7 +685,7 @@ export function webhooksNotificationsPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/notifications/{id}/read': {
+      '/notifications/{id}/read': {
         post: {
           operationId: 'markNotificationRead',
           summary: 'Mark a notification as read',
@@ -717,7 +717,7 @@ export function webhooksNotificationsPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/notifications/read-all': {
+      '/notifications/read-all': {
         post: {
           operationId: 'markAllNotificationsRead',
           summary: 'Mark all notifications as read',
@@ -748,7 +748,7 @@ export function webhooksNotificationsPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/notifications/{id}': {
+      '/notifications/{id}': {
         delete: {
           operationId: 'dismissNotification',
           summary: 'Dismiss a notification',
@@ -780,7 +780,7 @@ export function webhooksNotificationsPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/notifications/preferences': {
+      '/notifications/preferences': {
         get: {
           operationId: 'getNotificationPreferences',
           summary: 'Get notification preferences',
@@ -862,7 +862,7 @@ export function webhooksNotificationsPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/projects/{id}/webhooks': {
+      '/projects/{id}/webhooks': {
         post: {
           operationId: 'createProjectWebhook',
           summary: 'Create a project webhook',
@@ -906,7 +906,7 @@ export function webhooksNotificationsPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/projects/{id}/webhooks/{webhook_id}': {
+      '/projects/{id}/webhooks/{webhook_id}': {
         delete: {
           operationId: 'deleteProjectWebhook',
           summary: 'Delete a project webhook',
@@ -922,7 +922,7 @@ export function webhooksNotificationsPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/projects/{id}/events': {
+      '/projects/{id}/events': {
         get: {
           operationId: 'listProjectEvents',
           summary: 'List project events',

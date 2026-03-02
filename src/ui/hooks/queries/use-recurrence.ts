@@ -4,10 +4,10 @@
  * Issue #1710: Recurring tasks.
  * Issue #1839: Fixed to match actual API response shapes.
  *
- * GET /api/work-items/:id/recurrence returns:
+ * GET /work-items/:id/recurrence returns:
  *   { rule, rule_description, end, parent_id, is_template, next_occurrence }
  *
- * GET /api/work-items/:id/instances returns:
+ * GET /work-items/:id/instances returns:
  *   { instances: [{ id, title, status, scheduled_date, created_at, completed_at }], count }
  */
 import { useQuery } from '@tanstack/react-query';
@@ -51,7 +51,7 @@ export function useRecurrenceRule(workItemId: string) {
   return useQuery({
     queryKey: recurrenceKeys.rule(workItemId),
     queryFn: ({ signal }) =>
-      apiClient.get<RecurrenceRule>(`/api/work-items/${workItemId}/recurrence`, { signal }),
+      apiClient.get<RecurrenceRule>(`/work-items/${workItemId}/recurrence`, { signal }),
     enabled: !!workItemId,
   });
 }
@@ -61,7 +61,7 @@ export function useRecurrenceInstances(workItemId: string) {
   return useQuery({
     queryKey: recurrenceKeys.instances(workItemId),
     queryFn: ({ signal }) =>
-      apiClient.get<RecurrenceInstancesResponse>(`/api/work-items/${workItemId}/instances`, { signal }),
+      apiClient.get<RecurrenceInstancesResponse>(`/work-items/${workItemId}/instances`, { signal }),
     enabled: !!workItemId,
   });
 }

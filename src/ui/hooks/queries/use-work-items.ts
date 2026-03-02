@@ -29,7 +29,7 @@ export function useWorkItems(filters?: Record<string, string>) {
 
   return useQuery({
     queryKey: workItemKeys.list(filters),
-    queryFn: ({ signal }) => apiClient.get<WorkItemsResponse>(`/api/work-items${queryString}`, { signal, schema: workItemsResponseSchema }),
+    queryFn: ({ signal }) => apiClient.get<WorkItemsResponse>(`/work-items${queryString}`, { signal, schema: workItemsResponseSchema }),
   });
 }
 
@@ -42,7 +42,7 @@ export function useWorkItems(filters?: Record<string, string>) {
 export function useWorkItem(id: string) {
   return useQuery({
     queryKey: workItemKeys.detail(id),
-    queryFn: ({ signal }) => apiClient.get<WorkItemDetail>(`/api/work-items/${id}`, { signal }),
+    queryFn: ({ signal }) => apiClient.get<WorkItemDetail>(`/work-items/${id}`, { signal }),
     enabled: !!id,
   });
 }
@@ -55,6 +55,6 @@ export function useWorkItem(id: string) {
 export function useWorkItemTree() {
   return useQuery({
     queryKey: workItemKeys.tree(),
-    queryFn: ({ signal }) => apiClient.get<WorkItemTreeResponse>('/api/work-items/tree', { signal, schema: workItemTreeResponseSchema }),
+    queryFn: ({ signal }) => apiClient.get<WorkItemTreeResponse>('/work-items/tree', { signal, schema: workItemTreeResponseSchema }),
   });
 }

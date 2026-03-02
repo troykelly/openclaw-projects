@@ -107,7 +107,7 @@ describe('memory_store tool', () => {
       const result = await tool.execute({ text: 'User prefers dark mode' });
       expect(result.success).toBe(true);
       expect(mockPost).toHaveBeenCalledWith(
-        '/api/memories/unified',
+        '/memories/unified',
         expect.objectContaining({ content: 'User prefers dark mode' }),
         expect.any(Object),
       );
@@ -327,7 +327,7 @@ describe('memory_store tool', () => {
       });
 
       expect(mockPost).toHaveBeenCalledWith(
-        '/api/memories/unified',
+        '/memories/unified',
         expect.objectContaining({
           content: 'User likes coffee',
           memory_type: 'preference',
@@ -354,7 +354,7 @@ describe('memory_store tool', () => {
       await tool.execute({ content: 'Some info' });
 
       expect(mockPost).toHaveBeenCalledWith(
-        '/api/memories/unified',
+        '/memories/unified',
         expect.objectContaining({
           memory_type: 'note',
         }),
@@ -379,7 +379,7 @@ describe('memory_store tool', () => {
       await tool.execute({ content: 'Some info' });
 
       expect(mockPost).toHaveBeenCalledWith(
-        '/api/memories/unified',
+        '/memories/unified',
         expect.objectContaining({
           importance: 0.7,
         }),
@@ -404,7 +404,7 @@ describe('memory_store tool', () => {
       await tool.execute({ content: 'test', category: 'decision' });
 
       expect(mockPost).toHaveBeenCalledWith(
-        '/api/memories/unified',
+        '/memories/unified',
         expect.objectContaining({ memory_type: 'decision' }),
         expect.any(Object),
       );
@@ -602,7 +602,7 @@ describe('memory_store tool', () => {
       });
       expect(result.success).toBe(true);
       expect(mockPost).toHaveBeenCalledWith(
-        '/api/memories/unified',
+        '/memories/unified',
         expect.objectContaining({
           lat: -33.8688,
           lng: 151.2093,
@@ -633,7 +633,7 @@ describe('memory_store tool', () => {
       });
       expect(result.success).toBe(true);
       expect(mockPost).toHaveBeenCalledWith(
-        '/api/memories/unified',
+        '/memories/unified',
         expect.objectContaining({
           lat: 40.7128,
           lng: -74.006,

@@ -65,13 +65,13 @@ describe('Agent Identity API (Issue #1287)', () => {
     });
   });
 
-  // ─── GET /api/identity ─────────────────────────────────────────────────
+  // ─── GET /identity ─────────────────────────────────────────────────
 
-  describe('GET /api/identity', () => {
+  describe('GET /identity', () => {
     it('returns the current identity (or 404 if none exists)', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/identity',
+        url: '/identity',
         headers: { 'x-user-email': TEST_EMAIL },
       });
 
@@ -80,13 +80,13 @@ describe('Agent Identity API (Issue #1287)', () => {
     });
   });
 
-  // ─── PUT /api/identity ─────────────────────────────────────────────────
+  // ─── PUT /identity ─────────────────────────────────────────────────
 
-  describe('PUT /api/identity', () => {
+  describe('PUT /identity', () => {
     it('creates or updates the identity', async () => {
       const res = await app.inject({
         method: 'PUT',
-        url: '/api/identity',
+        url: '/identity',
         headers: { 'content-type': 'application/json', 'x-user-email': TEST_EMAIL },
         payload: {
           name: 'test-quasar',
@@ -110,7 +110,7 @@ describe('Agent Identity API (Issue #1287)', () => {
     it('returns 400 when name is missing', async () => {
       const res = await app.inject({
         method: 'PUT',
-        url: '/api/identity',
+        url: '/identity',
         headers: { 'content-type': 'application/json', 'x-user-email': TEST_EMAIL },
         payload: { display_name: 'No Name' },
       });
@@ -119,14 +119,14 @@ describe('Agent Identity API (Issue #1287)', () => {
     });
   });
 
-  // ─── PATCH /api/identity ───────────────────────────────────────────────
+  // ─── PATCH /identity ───────────────────────────────────────────────
 
-  describe('PATCH /api/identity', () => {
+  describe('PATCH /identity', () => {
     it('updates identity fields and bumps version', async () => {
       // Ensure identity exists
       await app.inject({
         method: 'PUT',
-        url: '/api/identity',
+        url: '/identity',
         headers: { 'content-type': 'application/json', 'x-user-email': TEST_EMAIL },
         payload: {
           name: 'test-patch',
@@ -137,7 +137,7 @@ describe('Agent Identity API (Issue #1287)', () => {
 
       const res = await app.inject({
         method: 'PATCH',
-        url: '/api/identity',
+        url: '/identity',
         headers: { 'content-type': 'application/json', 'x-user-email': TEST_EMAIL },
         payload: {
           name: 'test-patch',
@@ -156,7 +156,7 @@ describe('Agent Identity API (Issue #1287)', () => {
     it('returns 404 for non-existent identity', async () => {
       const res = await app.inject({
         method: 'PATCH',
-        url: '/api/identity',
+        url: '/identity',
         headers: { 'content-type': 'application/json', 'x-user-email': TEST_EMAIL },
         payload: {
           name: 'does-not-exist-999',
@@ -168,14 +168,14 @@ describe('Agent Identity API (Issue #1287)', () => {
     });
   });
 
-  // ─── POST /api/identity/proposals ──────────────────────────────────────
+  // ─── POST /identity/proposals ──────────────────────────────────────
 
-  describe('POST /api/identity/proposals', () => {
+  describe('POST /identity/proposals', () => {
     it('creates a proposal for an identity change', async () => {
       // Ensure identity exists
       await app.inject({
         method: 'PUT',
-        url: '/api/identity',
+        url: '/identity',
         headers: { 'content-type': 'application/json', 'x-user-email': TEST_EMAIL },
         payload: {
           name: 'test-proposals',
@@ -186,7 +186,7 @@ describe('Agent Identity API (Issue #1287)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: '/api/identity/proposals',
+        url: '/identity/proposals',
         headers: { 'content-type': 'application/json', 'x-user-email': TEST_EMAIL },
         payload: {
           name: 'test-proposals',
@@ -207,7 +207,7 @@ describe('Agent Identity API (Issue #1287)', () => {
     it('returns 404 for non-existent identity', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/identity/proposals',
+        url: '/identity/proposals',
         headers: { 'content-type': 'application/json', 'x-user-email': TEST_EMAIL },
         payload: {
           name: 'does-not-exist-999',
@@ -221,14 +221,14 @@ describe('Agent Identity API (Issue #1287)', () => {
     });
   });
 
-  // ─── POST /api/identity/proposals/:id/approve ─────────────────────────
+  // ─── POST /identity/proposals/:id/approve ─────────────────────────
 
-  describe('POST /api/identity/proposals/:id/approve', () => {
+  describe('POST /identity/proposals/:id/approve', () => {
     it('approves a pending proposal and updates the identity', async () => {
       // Ensure identity
       await app.inject({
         method: 'PUT',
-        url: '/api/identity',
+        url: '/identity',
         headers: { 'content-type': 'application/json', 'x-user-email': TEST_EMAIL },
         payload: {
           name: 'test-approve',
@@ -241,7 +241,7 @@ describe('Agent Identity API (Issue #1287)', () => {
       // Create a proposal
       const proposalRes = await app.inject({
         method: 'POST',
-        url: '/api/identity/proposals',
+        url: '/identity/proposals',
         headers: { 'content-type': 'application/json', 'x-user-email': TEST_EMAIL },
         payload: {
           name: 'test-approve',
@@ -256,7 +256,7 @@ describe('Agent Identity API (Issue #1287)', () => {
       // Approve it
       const res = await app.inject({
         method: 'POST',
-        url: `/api/identity/proposals/${proposalId}/approve`,
+        url: `/identity/proposals/${proposalId}/approve`,
         headers: { 'content-type': 'application/json', 'x-user-email': TEST_EMAIL },
         payload: {},
       });
@@ -270,7 +270,7 @@ describe('Agent Identity API (Issue #1287)', () => {
     it('returns 404 for non-existent proposal', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/identity/proposals/00000000-0000-0000-0000-000000000099/approve',
+        url: '/identity/proposals/00000000-0000-0000-0000-000000000099/approve',
         headers: { 'content-type': 'application/json', 'x-user-email': TEST_EMAIL },
         payload: {},
       });
@@ -279,14 +279,14 @@ describe('Agent Identity API (Issue #1287)', () => {
     });
   });
 
-  // ─── POST /api/identity/proposals/:id/reject ──────────────────────────
+  // ─── POST /identity/proposals/:id/reject ──────────────────────────
 
-  describe('POST /api/identity/proposals/:id/reject', () => {
+  describe('POST /identity/proposals/:id/reject', () => {
     it('rejects a pending proposal', async () => {
       // Ensure identity
       await app.inject({
         method: 'PUT',
-        url: '/api/identity',
+        url: '/identity',
         headers: { 'content-type': 'application/json', 'x-user-email': TEST_EMAIL },
         payload: {
           name: 'test-reject',
@@ -298,7 +298,7 @@ describe('Agent Identity API (Issue #1287)', () => {
       // Create a proposal
       const proposalRes = await app.inject({
         method: 'POST',
-        url: '/api/identity/proposals',
+        url: '/identity/proposals',
         headers: { 'content-type': 'application/json', 'x-user-email': TEST_EMAIL },
         payload: {
           name: 'test-reject',
@@ -312,7 +312,7 @@ describe('Agent Identity API (Issue #1287)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/identity/proposals/${proposalId}/reject`,
+        url: `/identity/proposals/${proposalId}/reject`,
         headers: { 'content-type': 'application/json', 'x-user-email': TEST_EMAIL },
         payload: { reason: 'Not aligned with personality' },
       });
@@ -323,14 +323,14 @@ describe('Agent Identity API (Issue #1287)', () => {
     });
   });
 
-  // ─── GET /api/identity/history ─────────────────────────────────────────
+  // ─── GET /identity/history ─────────────────────────────────────────
 
-  describe('GET /api/identity/history', () => {
+  describe('GET /identity/history', () => {
     it('returns version history for an identity', async () => {
       // Ensure we have an identity with some history
       await app.inject({
         method: 'PUT',
-        url: '/api/identity',
+        url: '/identity',
         headers: { 'content-type': 'application/json', 'x-user-email': TEST_EMAIL },
         payload: {
           name: 'test-history',
@@ -341,7 +341,7 @@ describe('Agent Identity API (Issue #1287)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/identity/history?name=test-history',
+        url: '/identity/history?name=test-history',
         headers: { 'x-user-email': TEST_EMAIL },
       });
 
@@ -353,14 +353,14 @@ describe('Agent Identity API (Issue #1287)', () => {
     });
   });
 
-  // ─── POST /api/identity/rollback ───────────────────────────────────────
+  // ─── POST /identity/rollback ───────────────────────────────────────
 
-  describe('POST /api/identity/rollback', () => {
+  describe('POST /identity/rollback', () => {
     it('rolls back to a previous version', async () => {
       // Create identity
       await app.inject({
         method: 'PUT',
-        url: '/api/identity',
+        url: '/identity',
         headers: { 'content-type': 'application/json', 'x-user-email': TEST_EMAIL },
         payload: {
           name: 'test-rollback',
@@ -372,7 +372,7 @@ describe('Agent Identity API (Issue #1287)', () => {
       // Update to v2
       await app.inject({
         method: 'PATCH',
-        url: '/api/identity',
+        url: '/identity',
         headers: { 'content-type': 'application/json', 'x-user-email': TEST_EMAIL },
         payload: {
           name: 'test-rollback',
@@ -383,7 +383,7 @@ describe('Agent Identity API (Issue #1287)', () => {
       // Rollback to v1
       const res = await app.inject({
         method: 'POST',
-        url: '/api/identity/rollback',
+        url: '/identity/rollback',
         headers: { 'content-type': 'application/json', 'x-user-email': TEST_EMAIL },
         payload: { name: 'test-rollback', version: 1 },
       });
@@ -396,7 +396,7 @@ describe('Agent Identity API (Issue #1287)', () => {
     it('returns 404 for non-existent identity', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/identity/rollback',
+        url: '/identity/rollback',
         headers: { 'content-type': 'application/json', 'x-user-email': TEST_EMAIL },
         payload: { name: 'does-not-exist-999', version: 1 },
       });

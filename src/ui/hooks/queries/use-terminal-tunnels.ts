@@ -14,7 +14,7 @@ export const terminalTunnelKeys = {
 export function useTerminalTunnels() {
   return useQuery({
     queryKey: terminalTunnelKeys.list(),
-    queryFn: ({ signal }) => apiClient.get<TerminalTunnelsResponse>('/api/terminal/tunnels', { signal }),
+    queryFn: ({ signal }) => apiClient.get<TerminalTunnelsResponse>('/terminal/tunnels', { signal }),
   });
 }
 
@@ -22,7 +22,7 @@ export function useCreateTerminalTunnel() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data: { connection_id: string; direction: string; bind_host?: string; bind_port: number; target_host?: string; target_port?: number }) =>
-      apiClient.post<TerminalTunnel>('/api/terminal/tunnels', data),
+      apiClient.post<TerminalTunnel>('/terminal/tunnels', data),
     onSuccess: () => { void queryClient.invalidateQueries({ queryKey: terminalTunnelKeys.all }); },
   });
 }
@@ -30,7 +30,7 @@ export function useCreateTerminalTunnel() {
 export function useDeleteTerminalTunnel() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => apiClient.delete(`/api/terminal/tunnels/${id}`),
+    mutationFn: (id: string) => apiClient.delete(`/terminal/tunnels/${id}`),
     onSuccess: () => { void queryClient.invalidateQueries({ queryKey: terminalTunnelKeys.all }); },
   });
 }

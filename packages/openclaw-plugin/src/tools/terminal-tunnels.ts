@@ -140,7 +140,7 @@ export function createTerminalTunnelCreateTool(options: TerminalTunnelToolOption
         if (target_port !== undefined) body.target_port = target_port;
         if (bind_host) body.bind_host = bind_host;
 
-        const response = await client.post<TerminalTunnel>('/api/terminal/tunnels', body, { user_id });
+        const response = await client.post<TerminalTunnel>('/terminal/tunnels', body, { user_id });
 
         if (!response.success) {
           logger.error('terminal_tunnel_create API error', {
@@ -262,7 +262,7 @@ export function createTerminalTunnelListTool(options: TerminalTunnelToolOptions)
         if (status) queryParams.set('status', status);
 
         const queryString = queryParams.toString();
-        const path = `/api/terminal/tunnels${queryString ? `?${queryString}` : ''}`;
+        const path = `/terminal/tunnels${queryString ? `?${queryString}` : ''}`;
         const response = await client.get<{ tunnels?: TerminalTunnel[]; items?: TerminalTunnel[]; total?: number }>(path, { user_id });
 
         if (!response.success) {
@@ -375,7 +375,7 @@ export function createTerminalTunnelCloseTool(options: TerminalTunnelToolOptions
       logger.info('terminal_tunnel_close invoked', { user_id, tunnelId: id });
 
       try {
-        const response = await client.delete<void>(`/api/terminal/tunnels/${id}`, { user_id });
+        const response = await client.delete<void>(`/terminal/tunnels/${id}`, { user_id });
 
         if (!response.success) {
           if (response.error.code === 'NOT_FOUND') {

@@ -30,7 +30,7 @@ export function useDevSessions(filters?: { status?: string; node?: string; proje
   if (filters?.node) params.set('node', filters.node);
   if (filters?.project_id) params.set('project_id', filters.project_id);
   const qs = params.toString();
-  const url = `/api/dev-sessions${qs ? `?${qs}` : ''}`;
+  const url = `/dev-sessions${qs ? `?${qs}` : ''}`;
 
   return useQuery({
     queryKey: devSessionKeys.list(filters),
@@ -44,7 +44,7 @@ export function useDevSessions(filters?: { status?: string; node?: string; proje
 export function useDevSession(id: string) {
   return useQuery({
     queryKey: devSessionKeys.detail(id),
-    queryFn: ({ signal }) => apiClient.get<DevSession>(`/api/dev-sessions/${id}`, { signal }),
+    queryFn: ({ signal }) => apiClient.get<DevSession>(`/dev-sessions/${id}`, { signal }),
     enabled: !!id,
   });
 }
@@ -57,7 +57,7 @@ export function useCreateDevSession() {
 
   return useMutation({
     mutationFn: (body: CreateDevSessionBody) =>
-      apiClient.post<DevSession>('/api/dev-sessions', body),
+      apiClient.post<DevSession>('/dev-sessions', body),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: devSessionKeys.all });
     },
@@ -72,7 +72,7 @@ export function useUpdateDevSession() {
 
   return useMutation({
     mutationFn: ({ id, body }: { id: string; body: UpdateDevSessionBody }) =>
-      apiClient.patch<DevSession>(`/api/dev-sessions/${id}`, body),
+      apiClient.patch<DevSession>(`/dev-sessions/${id}`, body),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: devSessionKeys.all });
     },
@@ -87,7 +87,7 @@ export function useCompleteDevSession() {
 
   return useMutation({
     mutationFn: ({ id, completionSummary }: { id: string; completionSummary?: string }) =>
-      apiClient.post<DevSession>(`/api/dev-sessions/${id}/complete`, {
+      apiClient.post<DevSession>(`/dev-sessions/${id}/complete`, {
         completion_summary: completionSummary,
       }),
     onSuccess: () => {
@@ -103,7 +103,7 @@ export function useDeleteDevSession() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (id: string) => apiClient.delete(`/api/dev-sessions/${id}`),
+    mutationFn: (id: string) => apiClient.delete(`/dev-sessions/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: devSessionKeys.all });
     },

@@ -3,7 +3,7 @@
  * Part of Issue #781 - Documents and verifies the single-use token security behavior
  *
  * IMPORTANT: Magic link tokens are SINGLE-USE by design.
- * - Tokens are consumed on first use (via POST /api/auth/consume endpoint)
+ * - Tokens are consumed on first use (via POST /auth/consume endpoint)
  * - Attempting to reuse a consumed token returns 400 (invalid/expired token)
  * - This is a critical security feature - do not change without security review
  *
@@ -50,7 +50,7 @@ describe('Magic Link Single-Use Security (Issue #781)', () => {
       // Step 1: Request a magic link
       const requestRes = await app.inject({
         method: 'POST',
-        url: '/api/auth/request-link',
+        url: '/auth/request-link',
         payload: { email: testEmail },
       });
 
@@ -61,7 +61,7 @@ describe('Magic Link Single-Use Security (Issue #781)', () => {
       // Step 2: First use - should succeed (POST with token in body)
       const firstUse = await app.inject({
         method: 'POST',
-        url: '/api/auth/consume',
+        url: '/auth/consume',
         payload: { token },
       });
 
@@ -72,7 +72,7 @@ describe('Magic Link Single-Use Security (Issue #781)', () => {
       // Step 3: Second use - should fail (token already consumed)
       const secondUse = await app.inject({
         method: 'POST',
-        url: '/api/auth/consume',
+        url: '/auth/consume',
         payload: { token },
       });
 
@@ -87,7 +87,7 @@ describe('Magic Link Single-Use Security (Issue #781)', () => {
       // Request a link
       const requestRes = await app.inject({
         method: 'POST',
-        url: '/api/auth/request-link',
+        url: '/auth/request-link',
         payload: { email: testEmail },
       });
 
@@ -100,7 +100,7 @@ describe('Magic Link Single-Use Security (Issue #781)', () => {
       // Try to use expired token
       const res = await app.inject({
         method: 'POST',
-        url: '/api/auth/consume',
+        url: '/auth/consume',
         payload: { token },
       });
 
@@ -111,7 +111,7 @@ describe('Magic Link Single-Use Security (Issue #781)', () => {
     it('invalid tokens are rejected', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/auth/consume',
+        url: '/auth/consume',
         payload: { token: 'invalid-token-that-does-not-exist' },
       });
 
@@ -123,7 +123,7 @@ describe('Magic Link Single-Use Security (Issue #781)', () => {
     it('missing token parameter returns error', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/auth/consume',
+        url: '/auth/consume',
         payload: {},
       });
 
@@ -138,7 +138,7 @@ describe('Magic Link Single-Use Security (Issue #781)', () => {
       // Request a link
       const requestRes = await app.inject({
         method: 'POST',
-        url: '/api/auth/request-link',
+        url: '/auth/request-link',
         payload: { email: testEmail },
       });
 
@@ -148,7 +148,7 @@ describe('Magic Link Single-Use Security (Issue #781)', () => {
       // Consume token
       const res = await app.inject({
         method: 'POST',
-        url: '/api/auth/consume',
+        url: '/auth/consume',
         payload: { token },
       });
 
@@ -164,7 +164,7 @@ describe('Magic Link Single-Use Security (Issue #781)', () => {
       // Request a link
       const requestRes = await app.inject({
         method: 'POST',
-        url: '/api/auth/request-link',
+        url: '/auth/request-link',
         payload: { email: testEmail },
       });
 
@@ -174,7 +174,7 @@ describe('Magic Link Single-Use Security (Issue #781)', () => {
       // Consume token
       const res = await app.inject({
         method: 'POST',
-        url: '/api/auth/consume',
+        url: '/auth/consume',
         payload: { token },
       });
 
@@ -196,7 +196,7 @@ describe('Magic Link Single-Use Security (Issue #781)', () => {
         .map(() =>
           app.inject({
             method: 'POST',
-            url: '/api/auth/request-link',
+            url: '/auth/request-link',
             payload: { email: testEmail },
           }),
         );

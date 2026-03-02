@@ -105,7 +105,7 @@ describe('auth-manager', () => {
   });
 
   describe('refreshAccessToken', () => {
-    it('should call POST /api/auth/refresh and store the new token', async () => {
+    it('should call POST /auth/refresh and store the new token', async () => {
       const newToken = fakeJwt({ sub: 'user@example.com', exp: Math.floor(Date.now() / 1000) + 900 });
       const fetchMock = mockFetch({
         ok: true,
@@ -116,7 +116,7 @@ describe('auth-manager', () => {
       const result = await refreshAccessToken();
 
       expect(fetchMock).toHaveBeenCalledWith(
-        expect.stringContaining('/api/auth/refresh'),
+        expect.stringContaining('/auth/refresh'),
         expect.objectContaining({
           method: 'POST',
           credentials: 'include',

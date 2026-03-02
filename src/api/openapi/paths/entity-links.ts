@@ -1,7 +1,7 @@
 /**
  * OpenAPI path definitions for entity link endpoints.
- * Routes: POST /api/entity-links, GET /api/entity-links,
- *         GET /api/entity-links/:id, DELETE /api/entity-links/:id
+ * Routes: POST /entity-links, GET /entity-links,
+ *         GET /entity-links/:id, DELETE /entity-links/:id
  */
 import type { OpenApiDomainModule } from '../types.ts';
 import { errorResponses, jsonBody, jsonResponse, uuidParam } from '../helpers.ts';
@@ -29,7 +29,7 @@ export function entityLinksPaths(): OpenApiDomainModule {
       },
     },
     paths: {
-      '/api/entity-links': {
+      '/entity-links': {
         post: {
           operationId: 'createEntityLink',
           summary: 'Create an entity link',
@@ -76,7 +76,7 @@ export function entityLinksPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/entity-links/{id}': {
+      '/entity-links/{id}': {
         get: {
           operationId: 'getEntityLink',
           summary: 'Get a single entity link',

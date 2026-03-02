@@ -76,8 +76,8 @@ const mockConnections: TerminalConnectionsResponse = {
 
 const mockApiClient = {
   get: vi.fn().mockImplementation((path: string) => {
-    if (path.includes('/api/terminal/credentials')) return Promise.resolve(mockCredentials);
-    if (path.includes('/api/terminal/connections')) return Promise.resolve(mockConnections);
+    if (path.includes('/terminal/credentials')) return Promise.resolve(mockCredentials);
+    if (path.includes('/terminal/connections')) return Promise.resolve(mockConnections);
     return Promise.reject(new Error(`Unknown endpoint: ${path}`));
   }),
   post: vi.fn().mockResolvedValue({}),
@@ -133,8 +133,8 @@ describe('CredentialsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockApiClient.get.mockImplementation((path: string) => {
-      if (path.includes('/api/terminal/credentials')) return Promise.resolve(mockCredentials);
-      if (path.includes('/api/terminal/connections')) return Promise.resolve(mockConnections);
+      if (path.includes('/terminal/credentials')) return Promise.resolve(mockCredentials);
+      if (path.includes('/terminal/connections')) return Promise.resolve(mockConnections);
       return Promise.reject(new Error(`Unknown endpoint: ${path}`));
     });
   });
@@ -176,8 +176,8 @@ describe('CredentialsPage', () => {
 
   it('shows empty state when no credentials', async () => {
     mockApiClient.get.mockImplementation((path: string) => {
-      if (path.includes('/api/terminal/credentials')) return Promise.resolve({ credentials: [] });
-      if (path.includes('/api/terminal/connections')) return Promise.resolve({ connections: [] });
+      if (path.includes('/terminal/credentials')) return Promise.resolve({ credentials: [] });
+      if (path.includes('/terminal/connections')) return Promise.resolve({ connections: [] });
       return Promise.reject(new Error(`Unknown endpoint: ${path}`));
     });
 

@@ -182,8 +182,8 @@ const RECALL_GUIDANCE_NOTE =
 /**
  * Fetch context from the backend API using semantic memory search.
  *
- * Uses the existing `/api/memories/search` endpoint (which works)
- * instead of the non-existent `/api/context` endpoint.
+ * Uses the existing `/memories/search` endpoint (which works)
+ * instead of the non-existent `/context` endpoint.
  * The user's actual prompt is passed as the search query for semantic matching.
  * Filters results by minRecallScore with graceful degradation (#1926).
  */
@@ -203,7 +203,7 @@ async function fetchContext(client: ApiClient, user_id: string, prompt: string, 
       category: string;
       score?: number;
     }>;
-  }>(`/api/memories/search?${queryParams.toString()}`, { user_id });
+  }>(`/memories/search?${queryParams.toString()}`, { user_id });
 
   if (!response.success) {
     logger.error('auto-recall API error', {
@@ -354,7 +354,7 @@ async function captureContext(client: ApiClient, user_id: string, messages: Auto
   const conversationSummary = filteredMessages.map((msg) => filterSensitiveContent(extractTextContent(msg.content))).join('\n');
 
   const response = await client.post<{ captured: number }>(
-    '/api/context/capture',
+    '/context/capture',
     {
       conversation: conversationSummary,
       message_count: filteredMessages.length,
@@ -479,7 +479,7 @@ async function fetchGraphAwareContext(client: ApiClient, user_id: string, prompt
 
   // Try graph-aware endpoint first
   const graphResponse = await client.post<GraphAwareContextApiResponse>(
-    '/api/context/graph-aware',
+    '/context/graph-aware',
     {
       prompt: searchPrompt,
       maxMemories: max_results,

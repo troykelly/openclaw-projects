@@ -107,18 +107,18 @@ const mockEntityLinks = {
 
 const mockApiClient = {
   get: vi.fn().mockImplementation((path: string) => {
-    if (path.includes('/api/work-items/item-1/comments')) return Promise.resolve(mockComments);
-    if (path.includes('/api/work-items/item-1/attachments')) return Promise.resolve(mockAttachments);
-    if (path.includes('/api/work-items/item-1/rollup')) return Promise.resolve(mockRollup);
-    if (path.includes('/api/work-items/item-1/recurrence')) return Promise.resolve(mockRecurrence);
-    if (path.includes('/api/work-items/item-1/instances')) return Promise.resolve(mockInstances);
-    if (path.includes('/api/work-items/item-1/contacts')) return Promise.resolve(mockLinkedContacts);
-    if (path.includes('/api/work-items/item-1/communications')) return Promise.resolve({ emails: [], calendar_events: [] });
-    if (path.includes('/api/work-items/item-1/memories')) return Promise.resolve({ memories: [] });
-    if (path.includes('/api/work-items/item-1') && !path.includes('/')) return Promise.resolve(mockWorkItem);
-    if (path.match(/\/api\/work-items\/item-1$/)) return Promise.resolve(mockWorkItem);
-    if (path.includes('/api/work-items/item-1')) return Promise.resolve(mockWorkItem);
-    if (path.includes('/api/entity-links')) return Promise.resolve(mockEntityLinks);
+    if (path.includes('/work-items/item-1/comments')) return Promise.resolve(mockComments);
+    if (path.includes('/work-items/item-1/attachments')) return Promise.resolve(mockAttachments);
+    if (path.includes('/work-items/item-1/rollup')) return Promise.resolve(mockRollup);
+    if (path.includes('/work-items/item-1/recurrence')) return Promise.resolve(mockRecurrence);
+    if (path.includes('/work-items/item-1/instances')) return Promise.resolve(mockInstances);
+    if (path.includes('/work-items/item-1/contacts')) return Promise.resolve(mockLinkedContacts);
+    if (path.includes('/work-items/item-1/communications')) return Promise.resolve({ emails: [], calendar_events: [] });
+    if (path.includes('/work-items/item-1/memories')) return Promise.resolve({ memories: [] });
+    if (path.includes('/work-items/item-1') && !path.includes('/')) return Promise.resolve(mockWorkItem);
+    if (path.match(/\/work-items\/item-1$/)) return Promise.resolve(mockWorkItem);
+    if (path.includes('/work-items/item-1')) return Promise.resolve(mockWorkItem);
+    if (path.includes('/entity-links')) return Promise.resolve(mockEntityLinks);
     if (path.includes('/activity')) return Promise.resolve({ items: [] });
     return Promise.resolve({});
   }),
@@ -198,7 +198,7 @@ describe('Work Items Integration', () => {
       if (path.includes('/memories')) return Promise.resolve({ memories: [] });
       if (path.includes('/entity-links')) return Promise.resolve(mockEntityLinks);
       if (path.includes('/activity')) return Promise.resolve({ items: [] });
-      if (path.match(/\/api\/work-items\/item-1(\?|$)/)) return Promise.resolve(mockWorkItem);
+      if (path.match(/\/work-items\/item-1(\?|$)/)) return Promise.resolve(mockWorkItem);
       return Promise.resolve({});
     });
   });

@@ -139,13 +139,13 @@ describe('useChatWebSocket', () => {
       await vi.runAllTimersAsync();
     });
 
-    expect(apiClient.post).toHaveBeenCalledWith('/api/chat/ws/ticket', {
+    expect(apiClient.post).toHaveBeenCalledWith('/chat/ws/ticket', {
       session_id: sessionId,
     });
 
     // A WebSocket should have been created
     expect(mockWsInstances).toHaveLength(1);
-    expect(mockWsInstances[0].url).toContain('ws://localhost:3000/api/chat/ws');
+    expect(mockWsInstances[0].url).toContain('ws://localhost:3000/chat/ws');
     expect(mockWsInstances[0].url).toContain('ticket=test-ticket-123');
     expect(mockWsInstances[0].url).toContain(`session_id=${sessionId}`);
 

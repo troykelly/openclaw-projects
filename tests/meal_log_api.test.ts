@@ -48,13 +48,13 @@ describe('Meal Log API (Issue #1279)', () => {
     });
   });
 
-  // ─── POST /api/meal-log ─────────────────────────────────────────────
+  // ─── POST /meal-log ─────────────────────────────────────────────
 
-  describe('POST /api/meal-log', () => {
+  describe('POST /meal-log', () => {
     it('logs a meal', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/meal-log',
+        url: '/meal-log',
         headers: { 'content-type': 'application/json', 'x-user-email': TEST_EMAIL },
         payload: {
           meal_date: '2026-02-15',
@@ -79,7 +79,7 @@ describe('Meal Log API (Issue #1279)', () => {
     it('returns 400 when title is missing', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/meal-log',
+        url: '/meal-log',
         headers: { 'content-type': 'application/json', 'x-user-email': TEST_EMAIL },
         payload: { meal_date: '2026-02-15', meal_type: 'lunch', source: 'home_cooked' },
       });
@@ -90,7 +90,7 @@ describe('Meal Log API (Issue #1279)', () => {
     it('logs a home-cooked meal', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/meal-log',
+        url: '/meal-log',
         headers: { 'content-type': 'application/json', 'x-user-email': TEST_EMAIL },
         payload: {
           meal_date: '2026-02-14',
@@ -110,13 +110,13 @@ describe('Meal Log API (Issue #1279)', () => {
     });
   });
 
-  // ─── GET /api/meal-log ──────────────────────────────────────────────
+  // ─── GET /meal-log ──────────────────────────────────────────────
 
-  describe('GET /api/meal-log', () => {
+  describe('GET /meal-log', () => {
     it('lists recent meals', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/meal-log',
+        url: '/meal-log',
         headers: { 'x-user-email': TEST_EMAIL },
       });
 
@@ -129,7 +129,7 @@ describe('Meal Log API (Issue #1279)', () => {
     it('filters by cuisine', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/meal-log?cuisine=thai',
+        url: '/meal-log?cuisine=thai',
         headers: { 'x-user-email': TEST_EMAIL },
       });
 
@@ -144,7 +144,7 @@ describe('Meal Log API (Issue #1279)', () => {
     it('filters by source', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/meal-log?source=home_cooked',
+        url: '/meal-log?source=home_cooked',
         headers: { 'x-user-email': TEST_EMAIL },
       });
 
@@ -157,7 +157,7 @@ describe('Meal Log API (Issue #1279)', () => {
     it('filters by meal_type', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/meal-log?meal_type=dinner',
+        url: '/meal-log?meal_type=dinner',
         headers: { 'x-user-email': TEST_EMAIL },
       });
 
@@ -168,13 +168,13 @@ describe('Meal Log API (Issue #1279)', () => {
     });
   });
 
-  // ─── GET /api/meal-log/:id ──────────────────────────────────────────
+  // ─── GET /meal-log/:id ──────────────────────────────────────────
 
-  describe('GET /api/meal-log/:id', () => {
+  describe('GET /meal-log/:id', () => {
     it('returns a specific meal entry', async () => {
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/meal-log',
+        url: '/meal-log',
         headers: { 'content-type': 'application/json', 'x-user-email': TEST_EMAIL },
         payload: {
           meal_date: '2026-02-13',
@@ -188,7 +188,7 @@ describe('Meal Log API (Issue #1279)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/meal-log/${mealId}`,
+        url: `/meal-log/${mealId}`,
         headers: { 'x-user-email': TEST_EMAIL },
       });
 
@@ -200,7 +200,7 @@ describe('Meal Log API (Issue #1279)', () => {
     it('returns 404 for non-existent meal', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/meal-log/00000000-0000-0000-0000-000000000099',
+        url: '/meal-log/00000000-0000-0000-0000-000000000099',
         headers: { 'x-user-email': TEST_EMAIL },
       });
 
@@ -208,13 +208,13 @@ describe('Meal Log API (Issue #1279)', () => {
     });
   });
 
-  // ─── PATCH /api/meal-log/:id ────────────────────────────────────────
+  // ─── PATCH /meal-log/:id ────────────────────────────────────────
 
-  describe('PATCH /api/meal-log/:id', () => {
+  describe('PATCH /meal-log/:id', () => {
     it('updates meal fields', async () => {
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/meal-log',
+        url: '/meal-log',
         headers: { 'content-type': 'application/json', 'x-user-email': TEST_EMAIL },
         payload: {
           meal_date: '2026-02-12',
@@ -227,7 +227,7 @@ describe('Meal Log API (Issue #1279)', () => {
 
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/meal-log/${mealId}`,
+        url: `/meal-log/${mealId}`,
         headers: { 'content-type': 'application/json', 'x-user-email': TEST_EMAIL },
         payload: { rating: 3, notes: 'Pretty good actually' },
       });
@@ -238,13 +238,13 @@ describe('Meal Log API (Issue #1279)', () => {
     });
   });
 
-  // ─── DELETE /api/meal-log/:id ───────────────────────────────────────
+  // ─── DELETE /meal-log/:id ───────────────────────────────────────
 
-  describe('DELETE /api/meal-log/:id', () => {
+  describe('DELETE /meal-log/:id', () => {
     it('deletes a meal entry', async () => {
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/meal-log',
+        url: '/meal-log',
         headers: { 'content-type': 'application/json', 'x-user-email': TEST_EMAIL },
         payload: {
           meal_date: '2026-02-11',
@@ -257,7 +257,7 @@ describe('Meal Log API (Issue #1279)', () => {
 
       const res = await app.inject({
         method: 'DELETE',
-        url: `/api/meal-log/${mealId}`,
+        url: `/meal-log/${mealId}`,
         headers: { 'x-user-email': TEST_EMAIL },
       });
 
@@ -267,7 +267,7 @@ describe('Meal Log API (Issue #1279)', () => {
     it('returns 404 for non-existent meal', async () => {
       const res = await app.inject({
         method: 'DELETE',
-        url: '/api/meal-log/00000000-0000-0000-0000-000000000099',
+        url: '/meal-log/00000000-0000-0000-0000-000000000099',
         headers: { 'x-user-email': TEST_EMAIL },
       });
 
@@ -275,13 +275,13 @@ describe('Meal Log API (Issue #1279)', () => {
     });
   });
 
-  // ─── GET /api/meal-log/stats ────────────────────────────────────────
+  // ─── GET /meal-log/stats ────────────────────────────────────────
 
-  describe('GET /api/meal-log/stats', () => {
+  describe('GET /meal-log/stats', () => {
     it('returns meal statistics', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/meal-log/stats',
+        url: '/meal-log/stats',
         headers: { 'x-user-email': TEST_EMAIL },
       });
 

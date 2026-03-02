@@ -130,7 +130,7 @@ describe('Notification Service', () => {
 
       // Should have polled immediately without waiting for interval
       expect(mockApiClient.get).toHaveBeenCalledTimes(1);
-      expect(mockApiClient.get).toHaveBeenCalledWith(expect.stringContaining('/api/notifications'), expect.anything());
+      expect(mockApiClient.get).toHaveBeenCalledWith(expect.stringContaining('/notifications'), expect.anything());
     });
 
     it('should stop service cleanly', async () => {

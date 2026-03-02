@@ -32,7 +32,7 @@ describe('OAuth API Endpoints', () => {
     await app.close();
   });
 
-  describe('GET /api/oauth/providers', () => {
+  describe('GET /oauth/providers', () => {
     it('lists no providers when none configured', async () => {
       delete process.env.MS365_CLIENT_ID;
       delete process.env.MS365_CLIENT_SECRET;
@@ -45,7 +45,7 @@ describe('OAuth API Endpoints', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: '/api/oauth/providers',
+        url: '/oauth/providers',
       });
 
       expect(response.statusCode).toBe(200);
@@ -64,7 +64,7 @@ describe('OAuth API Endpoints', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: '/api/oauth/providers',
+        url: '/oauth/providers',
       });
 
       expect(response.statusCode).toBe(200);
@@ -73,7 +73,7 @@ describe('OAuth API Endpoints', () => {
     });
   });
 
-  describe('GET /api/oauth/authorize/:provider', () => {
+  describe('GET /oauth/authorize/:provider', () => {
     it('returns error when provider not configured', async () => {
       delete process.env.MS365_CLIENT_ID;
       delete process.env.MS365_CLIENT_SECRET;
@@ -82,7 +82,7 @@ describe('OAuth API Endpoints', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: '/api/oauth/authorize/microsoft',
+        url: '/oauth/authorize/microsoft',
       });
 
       expect(response.statusCode).toBe(503);
@@ -99,7 +99,7 @@ describe('OAuth API Endpoints', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: '/api/oauth/authorize/microsoft',
+        url: '/oauth/authorize/microsoft',
       });
 
       expect(response.statusCode).toBe(302);
@@ -110,18 +110,18 @@ describe('OAuth API Endpoints', () => {
     it('returns error for invalid provider', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/oauth/authorize/invalid',
+        url: '/oauth/authorize/invalid',
       });
 
       expect(response.statusCode).toBe(400);
     });
   });
 
-  describe('GET /api/oauth/callback', () => {
+  describe('GET /oauth/callback', () => {
     it('returns error when authorization failed', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/oauth/callback?error=access_denied',
+        url: '/oauth/callback?error=access_denied',
       });
 
       expect(response.statusCode).toBe(400);
@@ -132,7 +132,7 @@ describe('OAuth API Endpoints', () => {
     it('returns error when code is missing', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/oauth/callback',
+        url: '/oauth/callback',
       });
 
       expect(response.statusCode).toBe(400);
@@ -143,7 +143,7 @@ describe('OAuth API Endpoints', () => {
     it('returns error when state is missing', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/oauth/callback?code=test-code',
+        url: '/oauth/callback?code=test-code',
       });
 
       expect(response.statusCode).toBe(400);
@@ -154,7 +154,7 @@ describe('OAuth API Endpoints', () => {
     it('returns error when state is invalid', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/oauth/callback?code=test-code&state=invalid-state',
+        url: '/oauth/callback?code=test-code&state=invalid-state',
       });
 
       expect(response.statusCode).toBe(400);
@@ -163,11 +163,11 @@ describe('OAuth API Endpoints', () => {
     });
   });
 
-  describe('GET /api/oauth/connections', () => {
+  describe('GET /oauth/connections', () => {
     it('returns empty list when no connections', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/oauth/connections',
+        url: '/oauth/connections',
       });
 
       expect(response.statusCode).toBe(200);
@@ -184,7 +184,7 @@ describe('OAuth API Endpoints', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: '/api/oauth/connections?user_email=test@example.com',
+        url: '/oauth/connections?user_email=test@example.com',
       });
 
       expect(response.statusCode).toBe(200);
@@ -194,7 +194,7 @@ describe('OAuth API Endpoints', () => {
     });
   });
 
-  describe('DELETE /api/oauth/connections/:id', () => {
+  describe('DELETE /oauth/connections/:id', () => {
     it('deletes existing connection', async () => {
       const insertResult = await pool.query(
         `INSERT INTO oauth_connection (user_email, provider, access_token, scopes)
@@ -205,7 +205,7 @@ describe('OAuth API Endpoints', () => {
 
       const response = await app.inject({
         method: 'DELETE',
-        url: `/api/oauth/connections/${connection_id}`,
+        url: `/oauth/connections/${connection_id}`,
       });
 
       expect(response.statusCode).toBe(204);
@@ -218,18 +218,18 @@ describe('OAuth API Endpoints', () => {
     it('returns 404 for non-existent connection', async () => {
       const response = await app.inject({
         method: 'DELETE',
-        url: '/api/oauth/connections/00000000-0000-0000-0000-000000000000',
+        url: '/oauth/connections/00000000-0000-0000-0000-000000000000',
       });
 
       expect(response.statusCode).toBe(404);
     });
   });
 
-  describe('POST /api/sync/contacts', () => {
+  describe('POST /sync/contacts', () => {
     it('returns error when no connection exists', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: '/api/sync/contacts',
+        url: '/sync/contacts',
         payload: {
           connection_id: '00000000-0000-0000-0000-000000000000',
         },
@@ -243,7 +243,7 @@ describe('OAuth API Endpoints', () => {
     it('returns error when connection_id is missing', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: '/api/sync/contacts',
+        url: '/sync/contacts',
         payload: {},
       });
 

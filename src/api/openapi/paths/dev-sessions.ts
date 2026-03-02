@@ -1,8 +1,8 @@
 /**
  * OpenAPI path definitions for dev session endpoints.
- * Routes: POST /api/dev-sessions, GET /api/dev-sessions,
- *         GET /api/dev-sessions/:id, PATCH /api/dev-sessions/:id,
- *         POST /api/dev-sessions/:id/complete, DELETE /api/dev-sessions/:id
+ * Routes: POST /dev-sessions, GET /dev-sessions,
+ *         GET /dev-sessions/:id, PATCH /dev-sessions/:id,
+ *         POST /dev-sessions/:id/complete, DELETE /dev-sessions/:id
  */
 import type { OpenApiDomainModule } from '../types.ts';
 import { errorResponses, jsonBody, jsonResponse, paginationParams, uuidParam } from '../helpers.ts';
@@ -159,7 +159,7 @@ export function devSessionsPaths(): OpenApiDomainModule {
       },
     },
     paths: {
-      '/api/dev-sessions': {
+      '/dev-sessions': {
         post: {
           operationId: 'createDevSession',
           summary: 'Create a dev session',
@@ -296,7 +296,7 @@ export function devSessionsPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/dev-sessions/{id}': {
+      '/dev-sessions/{id}': {
         get: {
           operationId: 'getDevSession',
           summary: 'Get a dev session',
@@ -437,7 +437,7 @@ export function devSessionsPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/dev-sessions/{id}/complete': {
+      '/dev-sessions/{id}/complete': {
         post: {
           operationId: 'completeDevSession',
           summary: 'Mark a dev session as completed',

@@ -278,7 +278,7 @@ skill_store_search({
 Create recurring schedules that fire webhooks to your gateway for periodic skill processing:
 
 ```bash
-curl -X POST https://api.your-domain.com/api/skill-store/schedules \
+curl -X POST https://api.your-domain.com/skill-store/schedules \
   -H "Authorization: Bearer $API_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{

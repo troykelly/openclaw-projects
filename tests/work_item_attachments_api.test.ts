@@ -23,7 +23,7 @@ describe('Work Item Attachments and Dependencies API (issue #109)', () => {
     // Create a work item
     const wi = await app.inject({
       method: 'POST',
-      url: '/api/work-items',
+      url: '/work-items',
       payload: { title: 'Test Project', kind: 'project' },
     });
     work_item_id = (wi.json() as { id: string }).id;
@@ -31,7 +31,7 @@ describe('Work Item Attachments and Dependencies API (issue #109)', () => {
     // Create a contact
     const contact = await app.inject({
       method: 'POST',
-      url: '/api/contacts',
+      url: '/contacts',
       payload: { display_name: 'John Doe' },
     });
     contact_id = (contact.json() as { id: string }).id;
@@ -42,11 +42,11 @@ describe('Work Item Attachments and Dependencies API (issue #109)', () => {
     await pool.end();
   });
 
-  describe('GET /api/work-items/:id with attachments', () => {
+  describe('GET /work-items/:id with attachments', () => {
     it('returns empty attachments array when no attachments exist', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${work_item_id}`,
+        url: `/work-items/${work_item_id}`,
       });
       expect(res.statusCode).toBe(200);
 
@@ -58,14 +58,14 @@ describe('Work Item Attachments and Dependencies API (issue #109)', () => {
       // Create a memory
       const memory = await app.inject({
         method: 'POST',
-        url: `/api/work-items/${work_item_id}/memories`,
+        url: `/work-items/${work_item_id}/memories`,
         payload: { title: 'Important Note', content: 'Content here', type: 'note' },
       });
       const memory_id = (memory.json() as { id: string }).id;
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${work_item_id}`,
+        url: `/work-items/${work_item_id}`,
       });
       expect(res.statusCode).toBe(200);
 
@@ -88,13 +88,13 @@ describe('Work Item Attachments and Dependencies API (issue #109)', () => {
       // Link a contact
       await app.inject({
         method: 'POST',
-        url: `/api/work-items/${work_item_id}/contacts`,
+        url: `/work-items/${work_item_id}/contacts`,
         payload: { contact_id, relationship: 'owner' },
       });
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${work_item_id}`,
+        url: `/work-items/${work_item_id}`,
       });
       expect(res.statusCode).toBe(200);
 
@@ -117,20 +117,20 @@ describe('Work Item Attachments and Dependencies API (issue #109)', () => {
       // Create a memory
       await app.inject({
         method: 'POST',
-        url: `/api/work-items/${work_item_id}/memories`,
+        url: `/work-items/${work_item_id}/memories`,
         payload: { title: 'Memory 1', content: 'Content', type: 'note' },
       });
 
       // Link a contact
       await app.inject({
         method: 'POST',
-        url: `/api/work-items/${work_item_id}/contacts`,
+        url: `/work-items/${work_item_id}/contacts`,
         payload: { contact_id, relationship: 'assignee' },
       });
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${work_item_id}`,
+        url: `/work-items/${work_item_id}`,
       });
       expect(res.statusCode).toBe(200);
 
@@ -144,7 +144,7 @@ describe('Work Item Attachments and Dependencies API (issue #109)', () => {
     });
   });
 
-  describe('GET /api/work-items/:id with dependencies', () => {
+  describe('GET /work-items/:id with dependencies', () => {
     let blockedWorkItemId: string;
     let blockingWorkItemId: string;
 
@@ -152,14 +152,14 @@ describe('Work Item Attachments and Dependencies API (issue #109)', () => {
       // Create an initiative under the project
       const init1 = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: { title: 'Initiative 1', kind: 'initiative', parent_id: work_item_id },
       });
       blockedWorkItemId = (init1.json() as { id: string }).id;
 
       const init2 = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: { title: 'Initiative 2', kind: 'initiative', parent_id: work_item_id },
       });
       blockingWorkItemId = (init2.json() as { id: string }).id;
@@ -175,7 +175,7 @@ describe('Work Item Attachments and Dependencies API (issue #109)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${blockedWorkItemId}`,
+        url: `/work-items/${blockedWorkItemId}`,
       });
       expect(res.statusCode).toBe(200);
 
@@ -209,7 +209,7 @@ describe('Work Item Attachments and Dependencies API (issue #109)', () => {
       // Check from the blocking item's perspective
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${blockingWorkItemId}`,
+        url: `/work-items/${blockingWorkItemId}`,
       });
       expect(res.statusCode).toBe(200);
 

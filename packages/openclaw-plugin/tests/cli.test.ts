@@ -242,7 +242,7 @@ describe('CLI Commands', () => {
 
       expect(result.success).toBe(true);
       expect(result.data?.memories).toHaveLength(2);
-      expect(mockGet).toHaveBeenCalledWith(expect.stringContaining('/api/memories/search'), expect.any(Object));
+      expect(mockGet).toHaveBeenCalledWith(expect.stringContaining('/memories/search'), expect.any(Object));
     });
 
     it('should use q= parameter for the search query', async () => {

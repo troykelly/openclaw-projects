@@ -46,7 +46,7 @@ export function useWorkItemContacts(workItemId: string) {
   return useQuery({
     queryKey: workItemContactKeys.forWorkItem(workItemId),
     queryFn: ({ signal }) =>
-      apiClient.get<WorkItemContactsResponse>(`/api/work-items/${workItemId}/contacts`, { signal }),
+      apiClient.get<WorkItemContactsResponse>(`/work-items/${workItemId}/contacts`, { signal }),
     enabled: !!workItemId,
   });
 }
@@ -56,7 +56,7 @@ export function useContactWorkItems(contactId: string) {
   return useQuery({
     queryKey: workItemContactKeys.forContact(contactId),
     queryFn: ({ signal }) =>
-      apiClient.get<ContactWorkItemsResponse>(`/api/contacts/${contactId}/work-items`, { signal }),
+      apiClient.get<ContactWorkItemsResponse>(`/contacts/${contactId}/work-items`, { signal }),
     enabled: !!contactId,
   });
 }

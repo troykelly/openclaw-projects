@@ -145,7 +145,7 @@ export function createThreadListTool(options: ThreadToolOptions): ThreadListTool
           queryParams.set('contact_id', contact_id);
         }
 
-        const response = await client.get<ThreadListApiResponse>(`/api/threads?${queryParams}`, { user_id });
+        const response = await client.get<ThreadListApiResponse>(`/threads?${queryParams}`, { user_id });
 
         if (!response.success) {
           logger.error('thread_list API error', {
@@ -332,7 +332,7 @@ export function createThreadGetTool(options: ThreadToolOptions): ThreadGetTool {
         const queryParams = new URLSearchParams();
         queryParams.set('limit', String(messageLimit));
 
-        const response = await client.get<ThreadHistoryApiResponse>(`/api/threads/${thread_id}/history?${queryParams}`, { user_id });
+        const response = await client.get<ThreadHistoryApiResponse>(`/threads/${thread_id}/history?${queryParams}`, { user_id });
 
         if (!response.success) {
           logger.error('thread_get API error', {

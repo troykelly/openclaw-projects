@@ -23,7 +23,7 @@ export const notificationKeys = {
 export function useNotifications() {
   return useQuery({
     queryKey: notificationKeys.list(),
-    queryFn: ({ signal }) => apiClient.get<NotificationsResponse>('/api/notifications', { signal, schema: notificationsResponseSchema }),
+    queryFn: ({ signal }) => apiClient.get<NotificationsResponse>('/notifications', { signal, schema: notificationsResponseSchema }),
   });
 }
 
@@ -37,7 +37,7 @@ export function useNotifications() {
 export function useUnreadNotificationCount() {
   return useQuery({
     queryKey: notificationKeys.unread_count(),
-    queryFn: ({ signal }) => apiClient.get<UnreadCountResponse>('/api/notifications/unread-count', { signal, schema: unreadCountResponseSchema }),
+    queryFn: ({ signal }) => apiClient.get<UnreadCountResponse>('/notifications/unread-count', { signal, schema: unreadCountResponseSchema }),
     refetchInterval: 30_000,
   });
 }

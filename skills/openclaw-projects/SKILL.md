@@ -29,7 +29,7 @@ All API requests require a Bearer token:
 
 ```bash
 curl -H "Authorization: Bearer $OPENCLAW_API_TOKEN" \
-     "$OPENCLAW_PROJECTS_URL/api/work-items"
+     "$OPENCLAW_PROJECTS_URL/work-items"
 ```
 
 Alternative secret sources:
@@ -43,7 +43,7 @@ Alternative secret sources:
 ### Add an item to a list
 
 ```bash
-POST $OPENCLAW_PROJECTS_URL/api/work-items
+POST $OPENCLAW_PROJECTS_URL/work-items
 Content-Type: application/json
 Authorization: Bearer $OPENCLAW_API_TOKEN
 
@@ -57,7 +57,7 @@ Authorization: Bearer $OPENCLAW_API_TOKEN
 ### Set a reminder
 
 ```bash
-POST $OPENCLAW_PROJECTS_URL/api/work-items
+POST $OPENCLAW_PROJECTS_URL/work-items
 Content-Type: application/json
 
 {
@@ -72,7 +72,7 @@ The `not_before` date triggers a hook to OpenClaw when the time arrives.
 ### Store a memory
 
 ```bash
-POST $OPENCLAW_PROJECTS_URL/api/memory
+POST $OPENCLAW_PROJECTS_URL/memory
 Content-Type: application/json
 
 {
@@ -85,14 +85,14 @@ Content-Type: application/json
 ### Search memories
 
 ```bash
-GET $OPENCLAW_PROJECTS_URL/api/memory?search=notification+preferences
+GET $OPENCLAW_PROJECTS_URL/memory?search=notification+preferences
 ```
 
 ### Create a project with hierarchy
 
 ```bash
 # Create project
-POST $OPENCLAW_PROJECTS_URL/api/work-items
+POST $OPENCLAW_PROJECTS_URL/work-items
 {
   "title": "Tiny Home Build",
   "kind": "project",
@@ -100,7 +100,7 @@ POST $OPENCLAW_PROJECTS_URL/api/work-items
 }
 
 # Create epic under project
-POST $OPENCLAW_PROJECTS_URL/api/work-items
+POST $OPENCLAW_PROJECTS_URL/work-items
 {
   "title": "Electrical System",
   "kind": "epic",
@@ -108,7 +108,7 @@ POST $OPENCLAW_PROJECTS_URL/api/work-items
 }
 
 # Create issue under epic
-POST $OPENCLAW_PROJECTS_URL/api/work-items
+POST $OPENCLAW_PROJECTS_URL/work-items
 {
   "title": "Install solar panels",
   "kind": "issue",
@@ -127,7 +127,7 @@ Work items are the core data model - representing projects, epics, initiatives, 
 #### Create Work Item
 
 ```
-POST /api/work-items
+POST /work-items
 ```
 
 | Field | Type | Required | Description |
@@ -146,7 +146,7 @@ POST /api/work-items
 #### List Work Items
 
 ```
-GET /api/work-items
+GET /work-items
 ```
 
 Returns flat list of all work items.
@@ -154,7 +154,7 @@ Returns flat list of all work items.
 #### Get Work Item Tree
 
 ```
-GET /api/work-items/tree
+GET /work-items/tree
 ```
 
 Query params:
@@ -166,7 +166,7 @@ Returns hierarchical structure with children nested.
 #### Get Single Work Item
 
 ```
-GET /api/work-items/:id
+GET /work-items/:id
 ```
 
 Returns full work item with all fields.
@@ -174,7 +174,7 @@ Returns full work item with all fields.
 #### Update Work Item
 
 ```
-PUT /api/work-items/:id
+PUT /work-items/:id
 ```
 
 All fields are optional - only include fields to update.
@@ -182,7 +182,7 @@ All fields are optional - only include fields to update.
 #### Update Work Item Status
 
 ```
-PATCH /api/work-items/:id/status
+PATCH /work-items/:id/status
 ```
 
 ```json
@@ -192,7 +192,7 @@ PATCH /api/work-items/:id/status
 #### Update Work Item Dates
 
 ```
-PATCH /api/work-items/:id/dates
+PATCH /work-items/:id/dates
 ```
 
 ```json
@@ -205,7 +205,7 @@ PATCH /api/work-items/:id/dates
 #### Delete Work Item
 
 ```
-DELETE /api/work-items/:id
+DELETE /work-items/:id
 ```
 
 ### Work Item Hierarchy
@@ -213,7 +213,7 @@ DELETE /api/work-items/:id
 #### Reparent Work Item
 
 ```
-PATCH /api/work-items/:id/reparent
+PATCH /work-items/:id/reparent
 ```
 
 ```json
@@ -223,7 +223,7 @@ PATCH /api/work-items/:id/reparent
 #### Reorder Work Item
 
 ```
-PATCH /api/work-items/:id/reorder
+PATCH /work-items/:id/reorder
 ```
 
 ```json
@@ -233,7 +233,7 @@ PATCH /api/work-items/:id/reorder
 ### Work Item Rollups
 
 ```
-GET /api/work-items/:id/rollup
+GET /work-items/:id/rollup
 ```
 
 Returns aggregated data from children:
@@ -250,7 +250,7 @@ Store and retrieve contextual memories for agents.
 #### Create Memory
 
 ```
-POST /api/memory
+POST /memory
 ```
 
 | Field | Type | Required | Description |
@@ -264,7 +264,7 @@ POST /api/memory
 #### List/Search Memories
 
 ```
-GET /api/memory
+GET /memory
 ```
 
 Query params:
@@ -276,20 +276,20 @@ Query params:
 #### Update Memory
 
 ```
-PUT /api/memory/:id
+PUT /memory/:id
 ```
 
 #### Delete Memory
 
 ```
-DELETE /api/memory/:id
+DELETE /memory/:id
 ```
 
 #### Memories for Work Item
 
 ```
-GET /api/work-items/:id/memories
-POST /api/work-items/:id/memories
+GET /work-items/:id/memories
+POST /work-items/:id/memories
 ```
 
 ---
@@ -301,7 +301,7 @@ Manage people and their communication endpoints.
 #### Create Contact
 
 ```
-POST /api/contacts
+POST /contacts
 ```
 
 ```json
@@ -327,7 +327,7 @@ POST /api/contacts
 #### List Contacts
 
 ```
-GET /api/contacts
+GET /contacts
 ```
 
 Query params:
@@ -339,7 +339,7 @@ Query params:
 #### Get Contact
 
 ```
-GET /api/contacts/:id
+GET /contacts/:id
 ```
 
 Returns contact with all endpoints and `contact_kind`.
@@ -347,7 +347,7 @@ Returns contact with all endpoints and `contact_kind`.
 #### Update Contact
 
 ```
-PATCH /api/contacts/:id
+PATCH /contacts/:id
 ```
 
 Supports updating `contactKind` along with other fields.
@@ -355,13 +355,13 @@ Supports updating `contactKind` along with other fields.
 #### Delete Contact
 
 ```
-DELETE /api/contacts/:id
+DELETE /contacts/:id
 ```
 
 #### Add Contact Endpoint
 
 ```
-POST /api/contacts/:id/endpoints
+POST /contacts/:id/endpoints
 ```
 
 ```json
@@ -376,13 +376,13 @@ Endpoint types: `email`, `phone`, `telegram`, `whatsapp`, `slack`, `discord`
 #### Contact's Work Items
 
 ```
-GET /api/contacts/:id/work-items
+GET /contacts/:id/work-items
 ```
 
 #### Link Contact to Work Item
 
 ```
-POST /api/work-items/:id/contacts
+POST /work-items/:id/contacts
 ```
 
 ```json
@@ -398,13 +398,13 @@ Simple checklist items within work items.
 #### List Todos
 
 ```
-GET /api/work-items/:id/todos
+GET /work-items/:id/todos
 ```
 
 #### Create Todo
 
 ```
-POST /api/work-items/:id/todos
+POST /work-items/:id/todos
 ```
 
 ```json
@@ -417,7 +417,7 @@ POST /api/work-items/:id/todos
 #### Update Todo
 
 ```
-PATCH /api/work-items/:id/todos/:todoId
+PATCH /work-items/:id/todos/:todoId
 ```
 
 ```json
@@ -427,7 +427,7 @@ PATCH /api/work-items/:id/todos/:todoId
 #### Delete Todo
 
 ```
-DELETE /api/work-items/:id/todos/:todoId
+DELETE /work-items/:id/todos/:todoId
 ```
 
 ---
@@ -439,13 +439,13 @@ Threaded comments on work items.
 #### List Comments
 
 ```
-GET /api/work-items/:id/comments
+GET /work-items/:id/comments
 ```
 
 #### Create Comment
 
 ```
-POST /api/work-items/:id/comments
+POST /work-items/:id/comments
 ```
 
 ```json
@@ -458,19 +458,19 @@ POST /api/work-items/:id/comments
 #### Update Comment
 
 ```
-PUT /api/work-items/:id/comments/:commentId
+PUT /work-items/:id/comments/:commentId
 ```
 
 #### Delete Comment
 
 ```
-DELETE /api/work-items/:id/comments/:commentId
+DELETE /work-items/:id/comments/:commentId
 ```
 
 #### React to Comment
 
 ```
-POST /api/work-items/:id/comments/:commentId/reactions
+POST /work-items/:id/comments/:commentId/reactions
 ```
 
 ```json
@@ -486,7 +486,7 @@ Track all changes across the system.
 #### Get Activity
 
 ```
-GET /api/activity
+GET /activity
 ```
 
 Query params:
@@ -499,7 +499,7 @@ Query params:
 #### Activity Stream (SSE)
 
 ```
-GET /api/activity/stream
+GET /activity/stream
 ```
 
 Real-time Server-Sent Events for live updates.
@@ -507,8 +507,8 @@ Real-time Server-Sent Events for live updates.
 #### Mark Activity Read
 
 ```
-POST /api/activity/:id/read
-POST /api/activity/read-all
+POST /activity/:id/read
+POST /activity/read-all
 ```
 
 ---
@@ -520,7 +520,7 @@ User notifications from agent actions and system events.
 #### List Notifications
 
 ```
-GET /api/notifications
+GET /notifications
 ```
 
 Query params:
@@ -530,27 +530,27 @@ Query params:
 #### Unread Count
 
 ```
-GET /api/notifications/unread-count
+GET /notifications/unread-count
 ```
 
 #### Mark Read
 
 ```
-POST /api/notifications/:id/read
-POST /api/notifications/read-all
+POST /notifications/:id/read
+POST /notifications/read-all
 ```
 
 #### Dismiss Notification
 
 ```
-DELETE /api/notifications/:id
+DELETE /notifications/:id
 ```
 
 #### Notification Preferences
 
 ```
-GET /api/notifications/preferences
-PATCH /api/notifications/preferences
+GET /notifications/preferences
+PATCH /notifications/preferences
 ```
 
 ---
@@ -560,7 +560,7 @@ PATCH /api/notifications/preferences
 Global search across all entities.
 
 ```
-GET /api/search
+GET /search
 ```
 
 Query params:
@@ -574,7 +574,7 @@ Query params:
 Visual timeline of work items with dates.
 
 ```
-GET /api/timeline
+GET /timeline
 ```
 
 Query params:
@@ -583,7 +583,7 @@ Query params:
 - `kind` - Filter by work item kind
 
 ```
-GET /api/work-items/:id/timeline
+GET /work-items/:id/timeline
 ```
 
 Timeline for specific item and descendants.
@@ -595,13 +595,13 @@ Timeline for specific item and descendants.
 Project health and progress metrics.
 
 ```
-GET /api/analytics/project-health
-GET /api/analytics/velocity
-GET /api/analytics/effort
-GET /api/analytics/burndown/:id
-GET /api/analytics/overdue
-GET /api/analytics/blocked
-GET /api/analytics/activity-summary
+GET /analytics/project-health
+GET /analytics/velocity
+GET /analytics/effort
+GET /analytics/burndown/:id
+GET /analytics/overdue
+GET /analytics/blocked
+GET /analytics/activity-summary
 ```
 
 ---
@@ -613,13 +613,13 @@ Track dependencies between work items.
 #### List Dependencies
 
 ```
-GET /api/work-items/:id/dependencies
+GET /work-items/:id/dependencies
 ```
 
 #### Add Dependency
 
 ```
-POST /api/work-items/:id/dependencies
+POST /work-items/:id/dependencies
 ```
 
 ```json
@@ -634,7 +634,7 @@ Types: `blocks`, `relates_to`, `duplicates`
 #### Dependency Graph
 
 ```
-GET /api/work-items/:id/dependency-graph
+GET /work-items/:id/dependency-graph
 ```
 
 Returns full graph of connected items.
@@ -648,13 +648,13 @@ External links attached to work items.
 #### List Links
 
 ```
-GET /api/work-items/:id/links
+GET /work-items/:id/links
 ```
 
 #### Add Link
 
 ```
-POST /api/work-items/:id/links
+POST /work-items/:id/links
 ```
 
 ```json
@@ -672,7 +672,7 @@ POST /api/work-items/:id/links
 Batch updates for efficiency.
 
 ```
-PATCH /api/work-items/bulk
+PATCH /work-items/bulk
 ```
 
 ```json
@@ -691,7 +691,7 @@ PATCH /api/work-items/bulk
 Ingest messages from external sources (SMS, email).
 
 ```
-POST /api/ingest/external-message
+POST /ingest/external-message
 ```
 
 ```json
@@ -710,9 +710,9 @@ POST /api/ingest/external-message
 
 ```
 GET /health              # Basic health
-GET /api/health/live     # Kubernetes liveness
-GET /api/health/ready    # Kubernetes readiness (checks DB)
-GET /api/health          # Detailed status with components
+GET /health/live     # Kubernetes liveness
+GET /health/ready    # Kubernetes readiness (checks DB)
+GET /health          # Detailed status with components
 ```
 
 ---
@@ -723,19 +723,19 @@ GET /api/health          # Detailed status with components
 
 1. **Create a shopping list:**
    ```
-   POST /api/work-items
+   POST /work-items
    { "title": "Shopping List", "kind": "project" }
    ```
 
 2. **Add items:**
    ```
-   POST /api/work-items
+   POST /work-items
    { "title": "Milk", "parent_work_item_id": "<list-id>", "kind": "issue" }
    ```
 
 3. **Check off item:**
    ```
-   PATCH /api/work-items/:id/status
+   PATCH /work-items/:id/status
    { "status": "done" }
    ```
 
@@ -743,7 +743,7 @@ GET /api/health          # Detailed status with components
 
 1. **Create reminder:**
    ```
-   POST /api/work-items
+   POST /work-items
    {
      "title": "Take medication",
      "not_before": "2026-02-02T08:00:00Z",
@@ -757,7 +757,7 @@ GET /api/health          # Detailed status with components
 
 1. **Store preference:**
    ```
-   POST /api/memory
+   POST /memory
    {
      "memory_type": "preference",
      "title": "Timezone",
@@ -767,7 +767,7 @@ GET /api/health          # Detailed status with components
 
 2. **Retrieve for context:**
    ```
-   GET /api/memory?search=timezone
+   GET /memory?search=timezone
    ```
 
 ### Project Planning
@@ -777,11 +777,11 @@ GET /api/health          # Detailed status with components
 
 2. **Track effort:**
    - Set `estimated_effort_minutes` on items
-   - GET `/api/work-items/:project-id/rollup` for totals
+   - GET `/work-items/:project-id/rollup` for totals
 
 3. **Monitor progress:**
-   - GET `/api/analytics/velocity` for throughput
-   - GET `/api/analytics/burndown/:id` for burndown
+   - GET `/analytics/velocity` for throughput
+   - GET `/analytics/burndown/:id` for burndown
 
 ---
 

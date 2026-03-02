@@ -45,7 +45,7 @@ const mockConnection: OAuthConnectionSummary = {
 
 function createFetchMock(patchResponse: Record<string, unknown>) {
   return vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
-    if (opts?.method === 'PATCH' && typeof url === 'string' && url.includes('/api/oauth/connections/')) {
+    if (opts?.method === 'PATCH' && typeof url === 'string' && url.includes('/oauth/connections/')) {
       return Promise.resolve({
         ok: true,
         status: 200,

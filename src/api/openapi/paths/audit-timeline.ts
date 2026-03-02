@@ -1,8 +1,8 @@
 /**
  * OpenAPI path definitions for audit log and timeline endpoints.
- * Routes: GET /api/audit-log, GET /api/audit-log/entity/{type}/{id},
- *         POST /api/audit-log/purge,
- *         GET /api/timeline, GET /api/work-items/{id}/timeline
+ * Routes: GET /audit-log, GET /audit-log/entity/{type}/{id},
+ *         POST /audit-log/purge,
+ *         GET /timeline, GET /work-items/{id}/timeline
  */
 import type { OpenApiDomainModule } from '../types.ts';
 import { ref, uuidParam, errorResponses, jsonBody, jsonResponse, namespaceParam } from '../helpers.ts';
@@ -134,7 +134,7 @@ export function auditTimelinePaths(): OpenApiDomainModule {
     },
 
     paths: {
-      '/api/audit-log': {
+      '/audit-log': {
         get: {
           operationId: 'listAuditLog',
           summary: 'List audit log entries',
@@ -212,7 +212,7 @@ export function auditTimelinePaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/audit-log/entity/{type}/{id}': {
+      '/audit-log/entity/{type}/{id}': {
         parameters: [
           {
             name: 'type',
@@ -252,7 +252,7 @@ export function auditTimelinePaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/audit-log/purge': {
+      '/audit-log/purge': {
         post: {
           operationId: 'purgeAuditLog',
           summary: 'Purge old audit log entries',
@@ -266,7 +266,7 @@ export function auditTimelinePaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/timeline': {
+      '/timeline': {
         get: {
           operationId: 'getGlobalTimeline',
           summary: 'Get global timeline',
@@ -310,7 +310,7 @@ export function auditTimelinePaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/work-items/{id}/timeline': {
+      '/work-items/{id}/timeline': {
         parameters: [uuidParam('id', 'Root work item UUID')],
         get: {
           operationId: 'getWorkItemTimeline',

@@ -28,12 +28,12 @@ describe('Context Retrieval API', () => {
     await pool.end();
   });
 
-  describe('POST /api/v1/context', () => {
+  describe('POST /v1/context', () => {
     describe('input validation', () => {
       it('should require prompt field', async () => {
         const response = await app.inject({
           method: 'POST',
-          url: '/api/v1/context',
+          url: '/v1/context',
           payload: {},
         });
 
@@ -45,7 +45,7 @@ describe('Context Retrieval API', () => {
       it('should reject empty prompt', async () => {
         const response = await app.inject({
           method: 'POST',
-          url: '/api/v1/context',
+          url: '/v1/context',
           payload: { prompt: '' },
         });
 
@@ -57,7 +57,7 @@ describe('Context Retrieval API', () => {
       it('should reject prompt exceeding max length', async () => {
         const response = await app.inject({
           method: 'POST',
-          url: '/api/v1/context',
+          url: '/v1/context',
           payload: { prompt: 'a'.repeat(2001) },
         });
 
@@ -69,7 +69,7 @@ describe('Context Retrieval API', () => {
       it('should reject invalid max_memories value', async () => {
         const response = await app.inject({
           method: 'POST',
-          url: '/api/v1/context',
+          url: '/v1/context',
           payload: { prompt: 'test', max_memories: 100 },
         });
 
@@ -81,7 +81,7 @@ describe('Context Retrieval API', () => {
       it('should reject invalid max_context_length value', async () => {
         const response = await app.inject({
           method: 'POST',
-          url: '/api/v1/context',
+          url: '/v1/context',
           payload: { prompt: 'test', max_context_length: 50 },
         });
 
@@ -95,7 +95,7 @@ describe('Context Retrieval API', () => {
       it('should return context structure with valid prompt', async () => {
         const response = await app.inject({
           method: 'POST',
-          url: '/api/v1/context',
+          url: '/v1/context',
           payload: { prompt: 'What are my preferences?' },
         });
 
@@ -119,7 +119,7 @@ describe('Context Retrieval API', () => {
       it('should return null context when nothing relevant found', async () => {
         const response = await app.inject({
           method: 'POST',
-          url: '/api/v1/context',
+          url: '/v1/context',
           payload: { prompt: 'completely irrelevant query xyz123abc' },
         });
 
@@ -135,7 +135,7 @@ describe('Context Retrieval API', () => {
       it('should respect max_memories parameter', async () => {
         const response = await app.inject({
           method: 'POST',
-          url: '/api/v1/context',
+          url: '/v1/context',
           payload: { prompt: 'test', max_memories: 3 },
         });
 
@@ -147,7 +147,7 @@ describe('Context Retrieval API', () => {
       it('should respect max_context_length parameter', async () => {
         const response = await app.inject({
           method: 'POST',
-          url: '/api/v1/context',
+          url: '/v1/context',
           payload: { prompt: 'test', max_context_length: 500 },
         });
 
@@ -162,7 +162,7 @@ describe('Context Retrieval API', () => {
       it('should include projects when include_projects is true', async () => {
         const response = await app.inject({
           method: 'POST',
-          url: '/api/v1/context',
+          url: '/v1/context',
           payload: { prompt: 'test', include_projects: true },
         });
 
@@ -175,7 +175,7 @@ describe('Context Retrieval API', () => {
       it('should include todos when include_todos is true', async () => {
         const response = await app.inject({
           method: 'POST',
-          url: '/api/v1/context',
+          url: '/v1/context',
           payload: { prompt: 'test', include_todos: true },
         });
 
@@ -190,7 +190,7 @@ describe('Context Retrieval API', () => {
       it('should accept user_id in request body', async () => {
         const response = await app.inject({
           method: 'POST',
-          url: '/api/v1/context',
+          url: '/v1/context',
           payload: { prompt: 'test', user_id: 'test-user-123' },
         });
 
@@ -202,7 +202,7 @@ describe('Context Retrieval API', () => {
       it('should include search type in metadata', async () => {
         const response = await app.inject({
           method: 'POST',
-          url: '/api/v1/context',
+          url: '/v1/context',
           payload: { prompt: 'test' },
         });
 
@@ -215,7 +215,7 @@ describe('Context Retrieval API', () => {
       it('should include truncated flag in metadata', async () => {
         const response = await app.inject({
           method: 'POST',
-          url: '/api/v1/context',
+          url: '/v1/context',
           payload: { prompt: 'test' },
         });
 
@@ -232,7 +232,7 @@ describe('Context Retrieval API', () => {
 
         const response = await app.inject({
           method: 'POST',
-          url: '/api/v1/context',
+          url: '/v1/context',
           payload: { prompt: 'test' },
         });
 

@@ -21,7 +21,7 @@ describe('Work Item Dates API (issue #113)', () => {
     // Create a work item
     const created = await app.inject({
       method: 'POST',
-      url: '/api/work-items',
+      url: '/work-items',
       payload: { title: 'Work item with dates' },
     });
     work_item_id = (created.json() as { id: string }).id;
@@ -32,11 +32,11 @@ describe('Work Item Dates API (issue #113)', () => {
     await pool.end();
   });
 
-  describe('PATCH /api/work-items/:id/dates', () => {
+  describe('PATCH /work-items/:id/dates', () => {
     it('updates dates with valid startDate and endDate', async () => {
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${work_item_id}/dates`,
+        url: `/work-items/${work_item_id}/dates`,
         payload: {
           start_date: '2026-03-01',
           end_date: '2026-03-15',
@@ -63,7 +63,7 @@ describe('Work Item Dates API (issue #113)', () => {
     it('updates only startDate when endDate is omitted', async () => {
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${work_item_id}/dates`,
+        url: `/work-items/${work_item_id}/dates`,
         payload: {
           start_date: '2026-03-01',
         },
@@ -82,7 +82,7 @@ describe('Work Item Dates API (issue #113)', () => {
     it('updates only endDate when startDate is omitted', async () => {
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${work_item_id}/dates`,
+        url: `/work-items/${work_item_id}/dates`,
         payload: {
           end_date: '2026-03-15',
         },
@@ -102,14 +102,14 @@ describe('Work Item Dates API (issue #113)', () => {
       // First set dates
       await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${work_item_id}/dates`,
+        url: `/work-items/${work_item_id}/dates`,
         payload: { start_date: '2026-03-01', end_date: '2026-03-15' },
       });
 
       // Then clear them
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${work_item_id}/dates`,
+        url: `/work-items/${work_item_id}/dates`,
         payload: { start_date: null, end_date: null },
       });
       expect(res.statusCode).toBe(200);
@@ -125,7 +125,7 @@ describe('Work Item Dates API (issue #113)', () => {
     it('returns 400 when startDate is after endDate', async () => {
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${work_item_id}/dates`,
+        url: `/work-items/${work_item_id}/dates`,
         payload: {
           start_date: '2026-03-15',
           end_date: '2026-03-01',
@@ -138,7 +138,7 @@ describe('Work Item Dates API (issue #113)', () => {
     it('returns 400 when no date fields provided', async () => {
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${work_item_id}/dates`,
+        url: `/work-items/${work_item_id}/dates`,
         payload: {},
       });
       expect(res.statusCode).toBe(400);
@@ -148,7 +148,7 @@ describe('Work Item Dates API (issue #113)', () => {
     it('returns 400 for invalid date format', async () => {
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${work_item_id}/dates`,
+        url: `/work-items/${work_item_id}/dates`,
         payload: {
           start_date: 'invalid-date',
         },
@@ -160,7 +160,7 @@ describe('Work Item Dates API (issue #113)', () => {
     it('returns 404 for non-existent work item', async () => {
       const res = await app.inject({
         method: 'PATCH',
-        url: '/api/work-items/00000000-0000-0000-0000-000000000000/dates',
+        url: '/work-items/00000000-0000-0000-0000-000000000000/dates',
         payload: {
           start_date: '2026-03-01',
         },
@@ -173,14 +173,14 @@ describe('Work Item Dates API (issue #113)', () => {
       // First set endDate only
       await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${work_item_id}/dates`,
+        url: `/work-items/${work_item_id}/dates`,
         payload: { end_date: '2026-03-01' },
       });
 
       // Try to set startDate after existing endDate
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${work_item_id}/dates`,
+        url: `/work-items/${work_item_id}/dates`,
         payload: { start_date: '2026-03-15' },
       });
       expect(res.statusCode).toBe(400);
@@ -191,14 +191,14 @@ describe('Work Item Dates API (issue #113)', () => {
       // First set startDate only
       await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${work_item_id}/dates`,
+        url: `/work-items/${work_item_id}/dates`,
         payload: { start_date: '2026-03-15' },
       });
 
       // Try to set endDate before existing startDate
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${work_item_id}/dates`,
+        url: `/work-items/${work_item_id}/dates`,
         payload: { end_date: '2026-03-01' },
       });
       expect(res.statusCode).toBe(400);
@@ -208,7 +208,7 @@ describe('Work Item Dates API (issue #113)', () => {
     it('allows equal startDate and endDate', async () => {
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${work_item_id}/dates`,
+        url: `/work-items/${work_item_id}/dates`,
         payload: {
           start_date: '2026-03-15',
           end_date: '2026-03-15',

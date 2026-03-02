@@ -60,7 +60,7 @@ describe('Memory Relationships API', () => {
     return (result.rows[0] as { id: string }).id;
   }
 
-  describe('POST /api/memories/:id/contacts', () => {
+  describe('POST /memories/:id/contacts', () => {
     it('links a memory to a contact', async () => {
       const work_item_id = await createWorkItem();
       const memory_id = await createMemory(work_item_id, 'Test Memory', 'Test content');
@@ -68,7 +68,7 @@ describe('Memory Relationships API', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/memories/${memory_id}/contacts`,
+        url: `/memories/${memory_id}/contacts`,
         payload: {
           contact_id,
           relationship_type: 'about',
@@ -90,7 +90,7 @@ describe('Memory Relationships API', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/memories/${memory_id}/contacts`,
+        url: `/memories/${memory_id}/contacts`,
         payload: {},
       });
 
@@ -105,7 +105,7 @@ describe('Memory Relationships API', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/memories/${memory_id}/contacts`,
+        url: `/memories/${memory_id}/contacts`,
         payload: {
           contact_id,
           relationship_type: 'invalid_type',
@@ -121,7 +121,7 @@ describe('Memory Relationships API', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: '/api/memories/00000000-0000-0000-0000-000000000000/contacts',
+        url: '/memories/00000000-0000-0000-0000-000000000000/contacts',
         payload: { contact_id },
       });
 
@@ -135,7 +135,7 @@ describe('Memory Relationships API', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/memories/${memory_id}/contacts`,
+        url: `/memories/${memory_id}/contacts`,
         payload: {
           contact_id: '00000000-0000-0000-0000-000000000000',
         },
@@ -153,7 +153,7 @@ describe('Memory Relationships API', () => {
       // First create
       await app.inject({
         method: 'POST',
-        url: `/api/memories/${memory_id}/contacts`,
+        url: `/memories/${memory_id}/contacts`,
         payload: {
           contact_id,
           relationship_type: 'about',
@@ -164,7 +164,7 @@ describe('Memory Relationships API', () => {
       // Update with same relationship type
       const res = await app.inject({
         method: 'POST',
-        url: `/api/memories/${memory_id}/contacts`,
+        url: `/memories/${memory_id}/contacts`,
         payload: {
           contact_id,
           relationship_type: 'about',
@@ -177,7 +177,7 @@ describe('Memory Relationships API', () => {
     });
   });
 
-  describe('GET /api/memories/:id/contacts', () => {
+  describe('GET /memories/:id/contacts', () => {
     it('returns linked contacts', async () => {
       const work_item_id = await createWorkItem();
       const memory_id = await createMemory(work_item_id, 'Test Memory', 'Test content');
@@ -193,7 +193,7 @@ describe('Memory Relationships API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/memories/${memory_id}/contacts`,
+        url: `/memories/${memory_id}/contacts`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -217,7 +217,7 @@ describe('Memory Relationships API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/memories/${memory_id}/contacts?relationship_type=about`,
+        url: `/memories/${memory_id}/contacts?relationship_type=about`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -229,14 +229,14 @@ describe('Memory Relationships API', () => {
     it('returns 404 for non-existent memory', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/memories/00000000-0000-0000-0000-000000000000/contacts',
+        url: '/memories/00000000-0000-0000-0000-000000000000/contacts',
       });
 
       expect(res.statusCode).toBe(404);
     });
   });
 
-  describe('DELETE /api/memories/:memory_id/contacts/:contact_id', () => {
+  describe('DELETE /memories/:memory_id/contacts/:contact_id', () => {
     it('removes memory-contact link', async () => {
       const work_item_id = await createWorkItem();
       const memory_id = await createMemory(work_item_id, 'Test Memory', 'Test content');
@@ -250,7 +250,7 @@ describe('Memory Relationships API', () => {
 
       const res = await app.inject({
         method: 'DELETE',
-        url: `/api/memories/${memory_id}/contacts/${contact_id}`,
+        url: `/memories/${memory_id}/contacts/${contact_id}`,
       });
 
       expect(res.statusCode).toBe(204);
@@ -263,14 +263,14 @@ describe('Memory Relationships API', () => {
     it('returns 404 when relationship does not exist', async () => {
       const res = await app.inject({
         method: 'DELETE',
-        url: '/api/memories/00000000-0000-0000-0000-000000000000/contacts/00000000-0000-0000-0000-000000000001',
+        url: '/memories/00000000-0000-0000-0000-000000000000/contacts/00000000-0000-0000-0000-000000000001',
       });
 
       expect(res.statusCode).toBe(404);
     });
   });
 
-  describe('GET /api/contacts/:id/memories', () => {
+  describe('GET /contacts/:id/memories', () => {
     it('returns memories linked to a contact', async () => {
       const work_item_id = await createWorkItem();
       const memory1Id = await createMemory(work_item_id, 'Memory 1', 'Content 1');
@@ -285,7 +285,7 @@ describe('Memory Relationships API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/contacts/${contact_id}/memories`,
+        url: `/contacts/${contact_id}/memories`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -296,14 +296,14 @@ describe('Memory Relationships API', () => {
     it('returns 404 for non-existent contact', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/contacts/00000000-0000-0000-0000-000000000000/memories',
+        url: '/contacts/00000000-0000-0000-0000-000000000000/memories',
       });
 
       expect(res.statusCode).toBe(404);
     });
   });
 
-  describe('POST /api/memories/:id/related', () => {
+  describe('POST /memories/:id/related', () => {
     it('links two memories together', async () => {
       const work_item_id = await createWorkItem();
       const memory1Id = await createMemory(work_item_id, 'Memory 1', 'Content 1');
@@ -311,7 +311,7 @@ describe('Memory Relationships API', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/memories/${memory1Id}/related`,
+        url: `/memories/${memory1Id}/related`,
         payload: {
           related_memory_id: memory2Id,
           relationship_type: 'supports',
@@ -332,7 +332,7 @@ describe('Memory Relationships API', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/memories/${memory_id}/related`,
+        url: `/memories/${memory_id}/related`,
         payload: {},
       });
 
@@ -346,7 +346,7 @@ describe('Memory Relationships API', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/memories/${memory_id}/related`,
+        url: `/memories/${memory_id}/related`,
         payload: {
           related_memory_id: memory_id,
         },
@@ -363,7 +363,7 @@ describe('Memory Relationships API', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/memories/${memory1Id}/related`,
+        url: `/memories/${memory1Id}/related`,
         payload: {
           related_memory_id: memory2Id,
           relationship_type: 'invalid_type',
@@ -380,7 +380,7 @@ describe('Memory Relationships API', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/memories/${memory_id}/related`,
+        url: `/memories/${memory_id}/related`,
         payload: {
           related_memory_id: '00000000-0000-0000-0000-000000000000',
         },
@@ -391,7 +391,7 @@ describe('Memory Relationships API', () => {
     });
   });
 
-  describe('GET /api/memories/:id/related', () => {
+  describe('GET /memories/:id/related', () => {
     it('returns related memories in both directions', async () => {
       const work_item_id = await createWorkItem();
       const memory1Id = await createMemory(work_item_id, 'Memory 1', 'Content 1');
@@ -414,7 +414,7 @@ describe('Memory Relationships API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/memories/${memory1Id}/related`,
+        url: `/memories/${memory1Id}/related`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -445,7 +445,7 @@ describe('Memory Relationships API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/memories/${memory1Id}/related?direction=outgoing`,
+        url: `/memories/${memory1Id}/related?direction=outgoing`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -457,14 +457,14 @@ describe('Memory Relationships API', () => {
     it('returns 404 for non-existent memory', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/memories/00000000-0000-0000-0000-000000000000/related',
+        url: '/memories/00000000-0000-0000-0000-000000000000/related',
       });
 
       expect(res.statusCode).toBe(404);
     });
   });
 
-  describe('DELETE /api/memories/:memory_id/related/:relatedMemoryId', () => {
+  describe('DELETE /memories/:memory_id/related/:relatedMemoryId', () => {
     it('removes memory relationship in either direction', async () => {
       const work_item_id = await createWorkItem();
       const memory1Id = await createMemory(work_item_id, 'Memory 1', 'Content 1');
@@ -479,7 +479,7 @@ describe('Memory Relationships API', () => {
       // Delete using reverse order (should still work)
       const res = await app.inject({
         method: 'DELETE',
-        url: `/api/memories/${memory2Id}/related/${memory1Id}`,
+        url: `/memories/${memory2Id}/related/${memory1Id}`,
       });
 
       expect(res.statusCode).toBe(204);
@@ -492,18 +492,18 @@ describe('Memory Relationships API', () => {
     it('returns 404 when relationship does not exist', async () => {
       const res = await app.inject({
         method: 'DELETE',
-        url: '/api/memories/00000000-0000-0000-0000-000000000000/related/00000000-0000-0000-0000-000000000001',
+        url: '/memories/00000000-0000-0000-0000-000000000000/related/00000000-0000-0000-0000-000000000001',
       });
 
       expect(res.statusCode).toBe(404);
     });
   });
 
-  describe('GET /api/memories/:id/similar', () => {
+  describe('GET /memories/:id/similar', () => {
     it('returns 404 for non-existent memory', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/memories/00000000-0000-0000-0000-000000000000/similar',
+        url: '/memories/00000000-0000-0000-0000-000000000000/similar',
       });
 
       expect(res.statusCode).toBe(404);
@@ -515,7 +515,7 @@ describe('Memory Relationships API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/memories/${memory_id}/similar`,
+        url: `/memories/${memory_id}/similar`,
       });
 
       expect(res.statusCode).toBe(400);
@@ -528,7 +528,7 @@ describe('Memory Relationships API', () => {
       // Create memories via API to generate embeddings
       const create1 = await app.inject({
         method: 'POST',
-        url: '/api/memory',
+        url: '/memory',
         payload: {
           title: 'Dark Mode Preference',
           content: 'User prefers dark mode for reduced eye strain',
@@ -540,7 +540,7 @@ describe('Memory Relationships API', () => {
 
       const create2 = await app.inject({
         method: 'POST',
-        url: '/api/memory',
+        url: '/memory',
         payload: {
           title: 'Theme Settings',
           content: 'User likes dark themes with low contrast',
@@ -551,7 +551,7 @@ describe('Memory Relationships API', () => {
 
       const create3 = await app.inject({
         method: 'POST',
-        url: '/api/memory',
+        url: '/memory',
         payload: {
           title: 'Grocery List',
           content: 'Need to buy milk, eggs, and bread',
@@ -563,7 +563,7 @@ describe('Memory Relationships API', () => {
       // Search for similar memories
       const res = await app.inject({
         method: 'GET',
-        url: `/api/memories/${memory1Id}/similar?threshold=0.5`,
+        url: `/memories/${memory1Id}/similar?threshold=0.5`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -576,11 +576,11 @@ describe('Memory Relationships API', () => {
     });
   });
 
-  describe('GET /api/work-items/:id/related-entities', () => {
+  describe('GET /work-items/:id/related-entities', () => {
     it('returns 404 for non-existent work item', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/work-items/00000000-0000-0000-0000-000000000000/related-entities',
+        url: '/work-items/00000000-0000-0000-0000-000000000000/related-entities',
       });
 
       expect(res.statusCode).toBe(404);
@@ -600,7 +600,7 @@ describe('Memory Relationships API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${work_item_id}/related-entities`,
+        url: `/work-items/${work_item_id}/related-entities`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -627,7 +627,7 @@ describe('Memory Relationships API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${work_item_id}/related-entities`,
+        url: `/work-items/${work_item_id}/related-entities`,
       });
 
       expect(res.statusCode).toBe(200);

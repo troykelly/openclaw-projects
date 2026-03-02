@@ -252,7 +252,7 @@ describe('OpenClaw 2026 API Registration', () => {
         }
 
         // Verify the search API was called with the user's actual prompt
-        const memorySearchCalls = fetchCalls.filter((url) => url.includes('/api/memories/search'));
+        const memorySearchCalls = fetchCalls.filter((url) => url.includes('/memories/search'));
         expect(memorySearchCalls.length).toBeGreaterThan(0);
         expect(memorySearchCalls[0]).toContain('food+preferences');
       } finally {
@@ -315,7 +315,7 @@ describe('OpenClaw 2026 API Registration', () => {
         await hook({ prompt: 'What are my food preferences?' }, { agentId: 'agent-1', sessionKey: 'session-1' });
 
         // The API call should contain the user's actual prompt, not 'relevant context for this conversation'
-        const memorySearchCalls = fetchCalls.filter((url) => url.includes('/api/memories/search'));
+        const memorySearchCalls = fetchCalls.filter((url) => url.includes('/memories/search'));
         expect(memorySearchCalls.length).toBeGreaterThan(0);
 
         const searchUrl = memorySearchCalls[0];
@@ -441,7 +441,7 @@ describe('OpenClaw 2026 API Registration', () => {
         );
 
         // Should have made a capture API call
-        const captureCalls = fetchCalls.filter((c) => c.url.includes('/api/context/capture'));
+        const captureCalls = fetchCalls.filter((c) => c.url.includes('/context/capture'));
         expect(captureCalls.length).toBeGreaterThan(0);
       } finally {
         globalThis.fetch = originalFetch;
@@ -928,8 +928,8 @@ describe('OpenClaw 2026 API Registration', () => {
         // Should call /api/postmark/email/send (not /api/email/messages/send)
         const emailCalls = fetchCalls.filter((c) => c.url.includes('/email/'));
         expect(emailCalls.length).toBeGreaterThan(0);
-        expect(emailCalls[0].url).toContain('/api/postmark/email/send');
-        expect(emailCalls[0].url).not.toContain('/api/email/messages/send');
+        expect(emailCalls[0].url).toContain('/postmark/email/send');
+        expect(emailCalls[0].url).not.toContain('/email/messages/send');
 
         // Result should be successful
         expect(result.content[0].text).toContain('MSG-TEST-1177');
@@ -963,7 +963,7 @@ describe('OpenClaw 2026 API Registration', () => {
         // Call with no completed param (should NOT send status=pending)
         await todoList!.execute('test-id', {}, undefined, undefined);
 
-        const workItemCalls = fetchCalls.filter((c) => c.url.includes('/api/work-items'));
+        const workItemCalls = fetchCalls.filter((c) => c.url.includes('/work-items'));
         expect(workItemCalls.length).toBeGreaterThan(0);
         const url = workItemCalls[0].url;
 
@@ -994,7 +994,7 @@ describe('OpenClaw 2026 API Registration', () => {
         const todoList = registeredTools.find((t) => t.name === 'todo_list');
         await todoList!.execute('test-id', { completed: false }, undefined, undefined);
 
-        const workItemCalls = fetchCalls.filter((c) => c.url.includes('/api/work-items'));
+        const workItemCalls = fetchCalls.filter((c) => c.url.includes('/work-items'));
         expect(workItemCalls.length).toBeGreaterThan(0);
         expect(workItemCalls[0].url).toContain('status=active');
       } finally {
@@ -1020,7 +1020,7 @@ describe('OpenClaw 2026 API Registration', () => {
         const todoList = registeredTools.find((t) => t.name === 'todo_list');
         await todoList!.execute('test-id', { completed: true }, undefined, undefined);
 
-        const workItemCalls = fetchCalls.filter((c) => c.url.includes('/api/work-items'));
+        const workItemCalls = fetchCalls.filter((c) => c.url.includes('/work-items'));
         expect(workItemCalls.length).toBeGreaterThan(0);
         expect(workItemCalls[0].url).toContain('status=completed');
       } finally {
@@ -1110,7 +1110,7 @@ describe('OpenClaw 2026 API Registration', () => {
       const originalFetch = globalThis.fetch;
       globalThis.fetch = vi.fn().mockImplementation(async (url: string) => {
         fetchCalls.push({ url });
-        if (url.includes(`/api/contacts/${testUuid}/relationships`)) {
+        if (url.includes(`/contacts/${testUuid}/relationships`)) {
           return {
             ok: true,
             status: 200,
@@ -1140,7 +1140,7 @@ describe('OpenClaw 2026 API Registration', () => {
         // Should call /api/contacts/<uuid>/relationships, NOT /api/relationships?contact_id=<uuid>
         const relCalls = fetchCalls.filter((c) => c.url.includes('/relationships'));
         expect(relCalls.length).toBeGreaterThan(0);
-        expect(relCalls[0].url).toContain(`/api/contacts/${testUuid}/relationships`);
+        expect(relCalls[0].url).toContain(`/contacts/${testUuid}/relationships`);
         expect(relCalls[0].url).not.toContain('contact_id=');
       } finally {
         globalThis.fetch = originalFetch;
@@ -1152,7 +1152,7 @@ describe('OpenClaw 2026 API Registration', () => {
       const originalFetch = globalThis.fetch;
       globalThis.fetch = vi.fn().mockImplementation(async (url: string) => {
         fetchCalls.push({ url });
-        if (url.includes('/api/contacts?') || url.includes('/api/contacts%3F')) {
+        if (url.includes('/contacts?') || url.includes('/contacts%3F')) {
           return {
             ok: true,
             status: 200,
@@ -1161,7 +1161,7 @@ describe('OpenClaw 2026 API Registration', () => {
             }),
           };
         }
-        if (url.includes('/api/contacts/resolved-uuid-456/relationships')) {
+        if (url.includes('/contacts/resolved-uuid-456/relationships')) {
           return {
             ok: true,
             status: 200,
@@ -1197,12 +1197,12 @@ describe('OpenClaw 2026 API Registration', () => {
         const result = await relQuery!.execute('test-id', { contact: 'John Doe' }, undefined, undefined);
 
         // Should have searched contacts first (name is not a UUID)
-        const contactSearchCalls = fetchCalls.filter((c) => c.url.includes('/api/contacts?'));
+        const contactSearchCalls = fetchCalls.filter((c) => c.url.includes('/contacts?'));
         expect(contactSearchCalls.length).toBeGreaterThan(0);
         expect(contactSearchCalls[0].url).toContain('search=John');
 
         // Then should have called graph traversal with the resolved UUID
-        const relCalls = fetchCalls.filter((c) => c.url.includes('/api/contacts/resolved-uuid-456/relationships'));
+        const relCalls = fetchCalls.filter((c) => c.url.includes('/contacts/resolved-uuid-456/relationships'));
         expect(relCalls.length).toBe(1);
 
         // Result should contain formatted relationships
@@ -1255,7 +1255,7 @@ describe('OpenClaw 2026 API Registration', () => {
         const result = await projectSearch!.execute('test-id', { query: 'renovation' }, undefined, undefined);
 
         // Should call the search API
-        const searchCalls = fetchCalls.filter((c) => c.url.includes('/api/search'));
+        const searchCalls = fetchCalls.filter((c) => c.url.includes('/search'));
         expect(searchCalls.length).toBeGreaterThan(0);
         expect(searchCalls[0].url).toContain('types=work_item');
         expect(searchCalls[0].url).toContain('semantic=true');

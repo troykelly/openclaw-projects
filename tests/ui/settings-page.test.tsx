@@ -76,13 +76,13 @@ const defaultEmbeddingSettings: EmbeddingSettings = {
 
 function createMockFetch(userSettings = defaultSettings, embeddingSettings = defaultEmbeddingSettings) {
   return (url: string) => {
-    if (url === '/api/settings') {
+    if (url === '/settings') {
       return Promise.resolve({
         ok: true,
         json: () => Promise.resolve(userSettings),
       });
     }
-    if (url === '/api/settings/embeddings') {
+    if (url === '/settings/embeddings') {
       return Promise.resolve({
         ok: true,
         json: () => Promise.resolve(embeddingSettings),
@@ -112,8 +112,8 @@ describe('SettingsPage', () => {
     vi.mocked(apiClient.get).mockReset();
     vi.mocked(apiClient.patch).mockReset();
     vi.mocked(apiClient.get).mockImplementation((path: string) => {
-      if (path === '/api/settings') return Promise.resolve(defaultSettings);
-      if (path === '/api/settings/embeddings') return Promise.resolve(defaultEmbeddingSettings);
+      if (path === '/settings') return Promise.resolve(defaultSettings);
+      if (path === '/settings/embeddings') return Promise.resolve(defaultEmbeddingSettings);
       return Promise.reject(new Error('Not found'));
     });
     vi.mocked(apiClient.patch).mockImplementation((_path: string, data: unknown) => {
@@ -138,10 +138,10 @@ describe('SettingsPage', () => {
     it('shows loading skeleton initially', () => {
       // User settings never resolves (loading state), but embedding settings resolves
       vi.mocked(apiClient.get).mockImplementation((path: string) => {
-        if (path === '/api/settings') {
+        if (path === '/settings') {
           return new Promise(() => {}); // Never resolves
         }
-        if (path === '/api/settings/embeddings') {
+        if (path === '/settings/embeddings') {
           return Promise.resolve(defaultEmbeddingSettings);
         }
         return Promise.reject(new Error('Not found'));
@@ -157,10 +157,10 @@ describe('SettingsPage', () => {
     it('shows error state on fetch failure', async () => {
       const { ApiRequestError } = await import('@/ui/lib/api-client');
       vi.mocked(apiClient.get).mockImplementation((path: string) => {
-        if (path === '/api/settings') {
+        if (path === '/settings') {
           return Promise.reject(new ApiRequestError(500, 'Internal Server Error'));
         }
-        if (path === '/api/settings/embeddings') {
+        if (path === '/settings/embeddings') {
           return Promise.resolve(defaultEmbeddingSettings);
         }
         return Promise.reject(new Error('Not found'));
@@ -176,10 +176,10 @@ describe('SettingsPage', () => {
     it('shows unauthorized message on 401', async () => {
       const { ApiRequestError } = await import('@/ui/lib/api-client');
       vi.mocked(apiClient.get).mockImplementation((path: string) => {
-        if (path === '/api/settings') {
+        if (path === '/settings') {
           return Promise.reject(new ApiRequestError(401, 'Unauthorized'));
         }
-        if (path === '/api/settings/embeddings') {
+        if (path === '/settings/embeddings') {
           return Promise.resolve(defaultEmbeddingSettings);
         }
         return Promise.reject(new Error('Not found'));
@@ -274,8 +274,8 @@ describe('SettingsPage', () => {
     it('displays initials from compound email', async () => {
       const customSettings = { ...defaultSettings, email: 'john.doe@example.com' };
       vi.mocked(apiClient.get).mockImplementation((path: string) => {
-        if (path === '/api/settings') return Promise.resolve(customSettings);
-        if (path === '/api/settings/embeddings') return Promise.resolve(defaultEmbeddingSettings);
+        if (path === '/settings') return Promise.resolve(customSettings);
+        if (path === '/settings/embeddings') return Promise.resolve(defaultEmbeddingSettings);
         return Promise.reject(new Error('Not found'));
       });
 
@@ -337,7 +337,7 @@ describe('SettingsPage', () => {
       fireEvent.click(screen.getByLabelText('Dark'));
 
       await waitFor(() => {
-        expect(vi.mocked(apiClient.patch)).toHaveBeenCalledWith('/api/settings', { theme: 'dark' });
+        expect(vi.mocked(apiClient.patch)).toHaveBeenCalledWith('/settings', { theme: 'dark' });
       });
     });
 
@@ -351,7 +351,7 @@ describe('SettingsPage', () => {
       fireEvent.click(screen.getByLabelText('OLED'));
 
       await waitFor(() => {
-        expect(vi.mocked(apiClient.patch)).toHaveBeenCalledWith('/api/settings', { theme: 'oled' });
+        expect(vi.mocked(apiClient.patch)).toHaveBeenCalledWith('/settings', { theme: 'oled' });
       });
     });
   });
@@ -411,7 +411,7 @@ describe('SettingsPage', () => {
       fireEvent.click(toggle);
 
       await waitFor(() => {
-        expect(vi.mocked(apiClient.patch)).toHaveBeenCalledWith('/api/settings', { sidebar_collapsed: true });
+        expect(vi.mocked(apiClient.patch)).toHaveBeenCalledWith('/settings', { sidebar_collapsed: true });
       });
     });
   });
@@ -614,8 +614,8 @@ describe('useSettings hook behavior', () => {
     vi.mocked(apiClient.get).mockReset();
     vi.mocked(apiClient.patch).mockReset();
     vi.mocked(apiClient.get).mockImplementation((path: string) => {
-      if (path === '/api/settings') return Promise.resolve(defaultSettings);
-      if (path === '/api/settings/embeddings') return Promise.resolve(defaultEmbeddingSettings);
+      if (path === '/settings') return Promise.resolve(defaultSettings);
+      if (path === '/settings/embeddings') return Promise.resolve(defaultEmbeddingSettings);
       return Promise.reject(new Error('Not found'));
     });
     vi.mocked(apiClient.patch).mockImplementation((_path: string, data: unknown) => {
@@ -632,7 +632,7 @@ describe('useSettings hook behavior', () => {
     render(<SettingsPage />);
 
     await waitFor(() => {
-      expect(vi.mocked(apiClient.get)).toHaveBeenCalledWith('/api/settings');
+      expect(vi.mocked(apiClient.get)).toHaveBeenCalledWith('/settings');
     });
   });
 

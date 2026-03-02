@@ -129,7 +129,7 @@ export function createMemoryForgetTool(options: MemoryForgetToolOptions): Memory
  * Delete a memory by ID.
  */
 async function deleteById(client: ApiClient, logger: Logger, user_id: string, memory_id: string): Promise<MemoryForgetResult> {
-  const response = await client.delete(`/api/memories/${memory_id}`, { user_id });
+  const response = await client.delete(`/memories/${memory_id}`, { user_id });
 
   if (!response.success) {
     // Handle not found gracefully
@@ -202,7 +202,7 @@ async function deleteByQuery(client: ApiClient, logger: Logger, user_id: string,
   });
 
   const searchResponse = await client.get<{ results: Array<{ id: string; content: string; similarity?: number }> }>(
-    `/api/memories/search?${queryParams.toString()}`,
+    `/memories/search?${queryParams.toString()}`,
     { user_id },
   );
 
@@ -233,7 +233,7 @@ async function deleteByQuery(client: ApiClient, logger: Logger, user_id: string,
 
   // Single match (any confidence) → auto-delete to avoid user having to copy/paste UUID
   if (memories.length === 1) {
-    const deleteResponse = await client.delete(`/api/memories/${memories[0].id}`, { user_id });
+    const deleteResponse = await client.delete(`/memories/${memories[0].id}`, { user_id });
     if (!deleteResponse.success) {
       return { success: false, error: deleteResponse.error.message || 'Failed to delete memory' };
     }

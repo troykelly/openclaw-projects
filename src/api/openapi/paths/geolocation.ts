@@ -1,12 +1,12 @@
 /**
  * OpenAPI path definitions for geolocation endpoints.
- * Routes: POST /api/geolocation/providers, GET /api/geolocation/providers,
- *         GET /api/geolocation/providers/:id, PATCH /api/geolocation/providers/:id,
- *         DELETE /api/geolocation/providers/:id,
- *         POST /api/geolocation/providers/:id/verify,
- *         GET /api/geolocation/providers/:id/entities,
- *         GET /api/geolocation/subscriptions, PATCH /api/geolocation/subscriptions/:id,
- *         GET /api/geolocation/current, GET /api/geolocation/history
+ * Routes: POST /geolocation/providers, GET /geolocation/providers,
+ *         GET /geolocation/providers/:id, PATCH /geolocation/providers/:id,
+ *         DELETE /geolocation/providers/:id,
+ *         POST /geolocation/providers/:id/verify,
+ *         GET /geolocation/providers/:id/entities,
+ *         GET /geolocation/subscriptions, PATCH /geolocation/subscriptions/:id,
+ *         GET /geolocation/current, GET /geolocation/history
  */
 import type { OpenApiDomainModule } from '../types.ts';
 import { errorResponses, jsonBody, jsonResponse, uuidParam } from '../helpers.ts';
@@ -235,7 +235,7 @@ export function geolocationPaths(): OpenApiDomainModule {
       },
     },
     paths: {
-      '/api/geolocation/providers': {
+      '/geolocation/providers': {
         post: {
           operationId: 'createGeoProvider',
           summary: 'Create a geolocation provider',
@@ -319,7 +319,7 @@ export function geolocationPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/geolocation/providers/{id}': {
+      '/geolocation/providers/{id}': {
         get: {
           operationId: 'getGeoProvider',
           summary: 'Get a geolocation provider',
@@ -400,7 +400,7 @@ export function geolocationPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/geolocation/providers/{id}/verify': {
+      '/geolocation/providers/{id}/verify': {
         post: {
           operationId: 'verifyGeoProvider',
           summary: 'Test provider connection',
@@ -413,7 +413,7 @@ export function geolocationPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/geolocation/providers/ha/authorize': {
+      '/geolocation/providers/ha/authorize': {
         post: {
           operationId: 'authorizeHaProvider',
           summary: 'Initiate Home Assistant OAuth flow',
@@ -457,7 +457,7 @@ export function geolocationPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/geolocation/providers/{id}/entities': {
+      '/geolocation/providers/{id}/entities': {
         get: {
           operationId: 'discoverGeoEntities',
           summary: 'Discover trackable entities',
@@ -473,7 +473,7 @@ export function geolocationPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/geolocation/subscriptions': {
+      '/geolocation/subscriptions': {
         get: {
           operationId: 'listGeoSubscriptions',
           summary: 'List geolocation subscriptions',
@@ -488,7 +488,7 @@ export function geolocationPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/geolocation/subscriptions/{id}': {
+      '/geolocation/subscriptions/{id}': {
         patch: {
           operationId: 'updateGeoSubscription',
           summary: 'Update a geolocation subscription',
@@ -523,7 +523,7 @@ export function geolocationPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/geolocation/current': {
+      '/geolocation/current': {
         get: {
           operationId: 'getCurrentLocation',
           summary: 'Get current location',
@@ -535,7 +535,7 @@ export function geolocationPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/geolocation/history': {
+      '/geolocation/history': {
         get: {
           operationId: 'getLocationHistory',
           summary: 'Query location history',

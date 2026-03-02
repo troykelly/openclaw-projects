@@ -153,7 +153,7 @@ export function createContactSearchTool(options: ContactToolOptions): ContactSea
           limit: String(limit),
         });
 
-        const response = await client.get<{ contacts?: Contact[]; items?: Contact[]; total?: number }>(`/api/contacts?${queryParams.toString()}`, {
+        const response = await client.get<{ contacts?: Contact[]; items?: Contact[]; total?: number }>(`/contacts?${queryParams.toString()}`, {
           user_id,
         });
 
@@ -269,7 +269,7 @@ export function createContactGetTool(options: ContactToolOptions): ContactGetToo
       logger.info('contact_get invoked', { user_id, contact_id: id });
 
       try {
-        const response = await client.get<Contact>(`/api/contacts/${id}`, { user_id });
+        const response = await client.get<Contact>(`/contacts/${id}`, { user_id });
 
         if (!response.success) {
           if (response.error.code === 'NOT_FOUND') {
@@ -394,7 +394,7 @@ export function createContactCreateTool(options: ContactToolOptions): ContactCre
           body.contact_kind = contact_kind;
         }
 
-        const response = await client.post<{ id: string; display_name?: string }>('/api/contacts', body, { user_id });
+        const response = await client.post<{ id: string; display_name?: string }>('/contacts', body, { user_id });
 
         if (!response.success) {
           logger.error('contact_create API error', {

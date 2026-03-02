@@ -134,7 +134,7 @@ export function terminalSessionsPaths(): OpenApiDomainModule {
     },
 
     paths: {
-      '/api/terminal/sessions': {
+      '/terminal/sessions': {
         get: {
           operationId: 'listTerminalSessions',
           summary: 'List terminal sessions',
@@ -184,7 +184,7 @@ export function terminalSessionsPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/terminal/sessions/{id}': {
+      '/terminal/sessions/{id}': {
         parameters: [uuidParam('id', 'Session UUID')],
         get: {
           operationId: 'getTerminalSession',
@@ -222,7 +222,7 @@ export function terminalSessionsPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/terminal/sessions/{id}/resize': {
+      '/terminal/sessions/{id}/resize': {
         parameters: [uuidParam('id', 'Session UUID')],
         post: {
           operationId: 'resizeTerminalSession',
@@ -241,7 +241,7 @@ export function terminalSessionsPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/terminal/sessions/{id}/annotate': {
+      '/terminal/sessions/{id}/annotate': {
         parameters: [uuidParam('id', 'Session UUID')],
         post: {
           operationId: 'annotateTerminalSession',
@@ -257,7 +257,7 @@ export function terminalSessionsPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/terminal/sessions/{id}/attach': {
+      '/terminal/sessions/{id}/attach': {
         parameters: [uuidParam('id', 'Session UUID')],
         get: {
           operationId: 'attachTerminalSession',
@@ -282,7 +282,7 @@ export function terminalSessionsPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/terminal/sessions/{id}/windows': {
+      '/terminal/sessions/{id}/windows': {
         parameters: [uuidParam('id', 'Session UUID')],
         post: {
           operationId: 'createTerminalWindow',
@@ -303,7 +303,7 @@ export function terminalSessionsPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/terminal/sessions/{sid}/windows/{wid}': {
+      '/terminal/sessions/{sid}/windows/{wid}': {
         parameters: [
           uuidParam('sid', 'Session UUID'),
           {
@@ -327,7 +327,7 @@ export function terminalSessionsPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/terminal/sessions/{sid}/windows/{wid}/split': {
+      '/terminal/sessions/{sid}/windows/{wid}/split': {
         parameters: [
           uuidParam('sid', 'Session UUID'),
           {
@@ -362,7 +362,7 @@ export function terminalSessionsPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/terminal/sessions/{sid}/panes/{pid}': {
+      '/terminal/sessions/{sid}/panes/{pid}': {
         parameters: [
           uuidParam('sid', 'Session UUID'),
           {

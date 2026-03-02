@@ -15,13 +15,13 @@ describe('HA OAuth: buildAuthorizationUrl', () => {
     const result = buildAuthorizationUrl(
       'https://ha.example.com',
       'https://myapp.example.com',
-      'https://myapp.example.com/api/oauth/callback',
+      'https://myapp.example.com/oauth/callback',
       'test-state-123',
     );
     expect(result.url).toBe(
       'https://ha.example.com/auth/authorize?' +
       'client_id=https%3A%2F%2Fmyapp.example.com&' +
-      'redirect_uri=https%3A%2F%2Fmyapp.example.com%2Fapi%2Foauth%2Fcallback&' +
+      'redirect_uri=https%3A%2F%2Fmyapp.example.com%2Foauth%2Fcallback&' +
       'state=test-state-123'
     );
   });
@@ -31,7 +31,7 @@ describe('HA OAuth: buildAuthorizationUrl', () => {
     const result = buildAuthorizationUrl(
       'https://ha.example.com/',
       'https://myapp.example.com',
-      'https://myapp.example.com/api/oauth/callback',
+      'https://myapp.example.com/oauth/callback',
       'state',
     );
     expect(result.url).toContain('https://ha.example.com/auth/authorize?');

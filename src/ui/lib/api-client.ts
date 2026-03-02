@@ -66,7 +66,7 @@ function buildHeaders(base: Record<string, string>, extra?: Record<string, strin
 }
 
 /** Auth endpoint prefix — 401s on these paths are NOT retried to prevent loops. */
-const AUTH_PATH_PREFIX = '/api/auth/';
+const AUTH_PATH_PREFIX = '/auth/';
 
 /**
  * Parse an API error response body into a structured error.
@@ -197,7 +197,7 @@ export const apiClient = {
    * Perform a GET request and return the parsed JSON body.
    *
    * @typeParam T - Expected response shape
-   * @param path - API path starting with `/api/...`
+   * @param path - API path (e.g. `"/settings"`)
    * @param opts - Optional request configuration
    * @returns Parsed JSON response
    * @throws {ApiRequestError} on non-2xx responses
@@ -211,7 +211,7 @@ export const apiClient = {
    * Perform a POST request with a JSON body.
    *
    * @typeParam T - Expected response shape
-   * @param path - API path starting with `/api/...`
+   * @param path - API path (e.g. `"/settings"`)
    * @param body - Request body (will be serialised to JSON)
    * @param opts - Optional request configuration
    * @returns Parsed JSON response
@@ -231,7 +231,7 @@ export const apiClient = {
    * Perform a PUT request with a JSON body.
    *
    * @typeParam T - Expected response shape
-   * @param path - API path starting with `/api/...`
+   * @param path - API path (e.g. `"/settings"`)
    * @param body - Request body (will be serialised to JSON)
    * @param opts - Optional request configuration
    * @returns Parsed JSON response
@@ -251,7 +251,7 @@ export const apiClient = {
    * Perform a PATCH request with a JSON body.
    *
    * @typeParam T - Expected response shape
-   * @param path - API path starting with `/api/...`
+   * @param path - API path (e.g. `"/settings"`)
    * @param body - Partial update body (will be serialised to JSON)
    * @param opts - Optional request configuration
    * @returns Parsed JSON response
@@ -271,7 +271,7 @@ export const apiClient = {
    * Perform a DELETE request, optionally with a JSON body.
    *
    * @typeParam T - Expected response shape (often void / empty)
-   * @param path - API path starting with `/api/...`
+   * @param path - API path (e.g. `"/settings"`)
    * @param body - Optional request body (will be serialised to JSON)
    * @param opts - Optional request configuration
    * @returns Parsed JSON response (or undefined for 204 No Content)

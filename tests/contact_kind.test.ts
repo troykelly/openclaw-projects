@@ -93,11 +93,11 @@ describe('Contact Kind (Issue #489)', () => {
     });
   });
 
-  describe('POST /api/contacts', () => {
+  describe('POST /contacts', () => {
     it('creates a contact with default contact_kind (person)', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: { display_name: 'Default Person' },
       });
 
@@ -114,7 +114,7 @@ describe('Contact Kind (Issue #489)', () => {
       ] as const) {
         const res = await app.inject({
           method: 'POST',
-          url: '/api/contacts',
+          url: '/contacts',
           payload: { display_name: name, contact_kind: kind },
         });
 
@@ -127,7 +127,7 @@ describe('Contact Kind (Issue #489)', () => {
     it('rejects invalid contact_kind', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: { display_name: 'Bad Kind', contact_kind: 'robot' },
       });
 
@@ -135,17 +135,17 @@ describe('Contact Kind (Issue #489)', () => {
     });
   });
 
-  describe('GET /api/contacts', () => {
+  describe('GET /contacts', () => {
     it('returns contact_kind in list response', async () => {
       await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: { display_name: 'Listed Contact', contact_kind: 'organisation' },
       });
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/contacts',
+        url: '/contacts',
       });
 
       expect(res.statusCode).toBe(200);
@@ -167,7 +167,7 @@ describe('Contact Kind (Issue #489)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/contacts?contact_kind=organisation',
+        url: '/contacts?contact_kind=organisation',
       });
 
       expect(res.statusCode).toBe(200);
@@ -191,7 +191,7 @@ describe('Contact Kind (Issue #489)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/contacts?contact_kind=person,group',
+        url: '/contacts?contact_kind=person,group',
       });
 
       expect(res.statusCode).toBe(200);
@@ -205,18 +205,18 @@ describe('Contact Kind (Issue #489)', () => {
     });
   });
 
-  describe('GET /api/contacts/:id', () => {
+  describe('GET /contacts/:id', () => {
     it('returns contact_kind in single contact response', async () => {
       const created = await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: { display_name: 'Agent Smith', contact_kind: 'agent' },
       });
       const { id } = created.json() as { id: string };
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/contacts/${id}`,
+        url: `/contacts/${id}`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -225,18 +225,18 @@ describe('Contact Kind (Issue #489)', () => {
     });
   });
 
-  describe('PATCH /api/contacts/:id', () => {
+  describe('PATCH /contacts/:id', () => {
     it('updates contact_kind', async () => {
       const created = await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: { display_name: 'Will Become Org' },
       });
       const { id } = created.json() as { id: string };
 
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/contacts/${id}`,
+        url: `/contacts/${id}`,
         payload: { contact_kind: 'organisation' },
       });
 
@@ -248,14 +248,14 @@ describe('Contact Kind (Issue #489)', () => {
     it('rejects invalid contact_kind on update', async () => {
       const created = await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: { display_name: 'Update Test' },
       });
       const { id } = created.json() as { id: string };
 
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/contacts/${id}`,
+        url: `/contacts/${id}`,
         payload: { contact_kind: 'invalid' },
       });
 
@@ -263,11 +263,11 @@ describe('Contact Kind (Issue #489)', () => {
     });
   });
 
-  describe('POST /api/contacts/bulk', () => {
+  describe('POST /contacts/bulk', () => {
     it('supports contact_kind in bulk create', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/contacts/bulk',
+        url: '/contacts/bulk',
         payload: {
           contacts: [
             { display_name: 'Person Bulk', contact_kind: 'person' },

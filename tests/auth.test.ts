@@ -41,7 +41,7 @@ describe('Magic-link auth (JWT)', () => {
 
     const consume = await app.inject({
       method: 'POST',
-      url: '/api/auth/consume',
+      url: '/auth/consume',
       payload: { token },
     });
 
@@ -49,10 +49,10 @@ describe('Magic-link auth (JWT)', () => {
     const body = consume.json() as { access_token?: string };
     expect(body.access_token).toBeTruthy();
 
-    // Verify the access token works for /api/me
+    // Verify the access token works for /me
     const me = await app.inject({
       method: 'GET',
-      url: '/api/me',
+      url: '/me',
       headers: {
         authorization: `Bearer ${body.access_token}`,
       },
@@ -68,7 +68,7 @@ describe('Magic-link auth (JWT)', () => {
     // First use should succeed
     const firstConsume = await app.inject({
       method: 'POST',
-      url: '/api/auth/consume',
+      url: '/auth/consume',
       payload: { token },
     });
     expect(firstConsume.statusCode).toBe(200);
@@ -76,7 +76,7 @@ describe('Magic-link auth (JWT)', () => {
     // Second use should fail
     const secondConsume = await app.inject({
       method: 'POST',
-      url: '/api/auth/consume',
+      url: '/auth/consume',
       payload: { token },
     });
     expect(secondConsume.statusCode).toBe(400);
@@ -97,7 +97,7 @@ describe('Magic-link auth (JWT)', () => {
 
     const consume = await app.inject({
       method: 'POST',
-      url: '/api/auth/consume',
+      url: '/auth/consume',
       payload: { token },
     });
     expect(consume.statusCode).toBe(400);
@@ -109,7 +109,7 @@ describe('Magic-link auth (JWT)', () => {
 
     const consume = await app.inject({
       method: 'POST',
-      url: '/api/auth/consume',
+      url: '/auth/consume',
       payload: { token },
     });
 
@@ -127,7 +127,7 @@ describe('Magic-link auth (JWT)', () => {
     // Verify security attributes
     expect(cookieLower).toContain('httponly');
     expect(cookieLower).toContain('samesite=strict');
-    expect(cookieLower).toContain('path=/api/auth');
+    expect(cookieLower).toContain('path=/auth');
 
     // Verify 7-day max-age (604800 seconds)
     expect(refreshCookie).toMatch(/max-age=604800/i);
@@ -136,7 +136,7 @@ describe('Magic-link auth (JWT)', () => {
   it('rejects requests without valid email', async () => {
     const noEmail = await app.inject({
       method: 'POST',
-      url: '/api/auth/request-link',
+      url: '/auth/request-link',
       payload: {},
     });
     expect(noEmail.statusCode).toBe(400);
@@ -144,7 +144,7 @@ describe('Magic-link auth (JWT)', () => {
 
     const badEmail = await app.inject({
       method: 'POST',
-      url: '/api/auth/request-link',
+      url: '/auth/request-link',
       payload: { email: 'notanemail' },
     });
     expect(badEmail.statusCode).toBe(400);
@@ -154,17 +154,17 @@ describe('Magic-link auth (JWT)', () => {
   it('rejects consume requests without token', async () => {
     const noToken = await app.inject({
       method: 'POST',
-      url: '/api/auth/consume',
+      url: '/auth/consume',
       payload: {},
     });
     expect(noToken.statusCode).toBe(400);
     expect(noToken.json()).toEqual({ error: 'token is required' });
   });
 
-  it('rejects /api/me without session', async () => {
+  it('rejects /me without session', async () => {
     const me = await app.inject({
       method: 'GET',
-      url: '/api/me',
+      url: '/me',
     });
     expect(me.statusCode).toBe(401);
     expect(me.json()).toEqual({ error: 'unauthorized' });

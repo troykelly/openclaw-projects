@@ -297,7 +297,7 @@ describe('useNotePresence hook', () => {
 
     await waitForHook(() => {
       expect(mockApiPost).toHaveBeenCalledWith(
-        '/api/notes/test-note-123/presence',
+        '/notes/test-note-123/presence',
         { user_email: 'user@example.com' },
       );
     });
@@ -329,7 +329,7 @@ describe('useNotePresence hook', () => {
     // Wait for leave to be called (async cleanup after unmount)
     await waitForHook(() => {
       expect(mockApiDelete).toHaveBeenCalledWith(
-        '/api/notes/test-note-456/presence',
+        '/notes/test-note-456/presence',
         undefined,
         expect.objectContaining({
           headers: { 'X-User-Email': 'user@example.com' },
@@ -395,7 +395,7 @@ describe('useNotePresence hook', () => {
 
     // Verify cursor update was called
     expect(vi.mocked(mockClient.put)).toHaveBeenCalledWith(
-      '/api/notes/cursor-test-note/presence/cursor',
+      '/notes/cursor-test-note/presence/cursor',
       {
         user_email: 'user@example.com',
         cursor_position: { line: 10, column: 5 },

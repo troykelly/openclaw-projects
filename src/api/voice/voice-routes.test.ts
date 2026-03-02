@@ -141,12 +141,12 @@ describe('voiceRoutesPlugin', () => {
 
   // ── Voice Config ──────────────────────────────────────────
 
-  describe('GET /api/voice/config', () => {
+  describe('GET /voice/config', () => {
     it('returns config when exists', async () => {
       const row = makeConfigRow();
       queryFn.mockResolvedValueOnce({ rows: [row], rowCount: 1 });
 
-      const res = await app.inject({ method: 'GET', url: '/api/voice/config' });
+      const res = await app.inject({ method: 'GET', url: '/voice/config' });
       expect(res.statusCode).toBe(200);
 
       const body = JSON.parse(res.payload);
@@ -157,7 +157,7 @@ describe('voiceRoutesPlugin', () => {
     it('returns null data when no config', async () => {
       queryFn.mockResolvedValueOnce({ rows: [], rowCount: 0 });
 
-      const res = await app.inject({ method: 'GET', url: '/api/voice/config' });
+      const res = await app.inject({ method: 'GET', url: '/voice/config' });
       expect(res.statusCode).toBe(200);
 
       const body = JSON.parse(res.payload);
@@ -166,19 +166,19 @@ describe('voiceRoutesPlugin', () => {
 
     it('returns 403 without namespace context', async () => {
       const noCtxApp = await buildAppNoContext(queryFn);
-      const res = await noCtxApp.inject({ method: 'GET', url: '/api/voice/config' });
+      const res = await noCtxApp.inject({ method: 'GET', url: '/voice/config' });
       expect(res.statusCode).toBe(403);
     });
   });
 
-  describe('PUT /api/voice/config', () => {
+  describe('PUT /voice/config', () => {
     it('creates/updates config', async () => {
       const row = makeConfigRow({ timeout_ms: 20000 });
       queryFn.mockResolvedValueOnce({ rows: [row], rowCount: 1 });
 
       const res = await app.inject({
         method: 'PUT',
-        url: '/api/voice/config',
+        url: '/voice/config',
         payload: { timeout_ms: 20000 },
       });
       expect(res.statusCode).toBe(200);
@@ -190,7 +190,7 @@ describe('voiceRoutesPlugin', () => {
     it('rejects invalid timeout_ms', async () => {
       const res = await app.inject({
         method: 'PUT',
-        url: '/api/voice/config',
+        url: '/voice/config',
         payload: { timeout_ms: -1 },
       });
       expect(res.statusCode).toBe(400);
@@ -199,7 +199,7 @@ describe('voiceRoutesPlugin', () => {
     it('rejects invalid idle_timeout_s', async () => {
       const res = await app.inject({
         method: 'PUT',
-        url: '/api/voice/config',
+        url: '/voice/config',
         payload: { idle_timeout_s: 100000 },
       });
       expect(res.statusCode).toBe(400);
@@ -208,7 +208,7 @@ describe('voiceRoutesPlugin', () => {
     it('rejects invalid retention_days', async () => {
       const res = await app.inject({
         method: 'PUT',
-        url: '/api/voice/config',
+        url: '/voice/config',
         payload: { retention_days: 0 },
       });
       expect(res.statusCode).toBe(400);
@@ -217,7 +217,7 @@ describe('voiceRoutesPlugin', () => {
     it('rejects invalid service_allowlist', async () => {
       const res = await app.inject({
         method: 'PUT',
-        url: '/api/voice/config',
+        url: '/voice/config',
         payload: { service_allowlist: 'not-an-array' },
       });
       expect(res.statusCode).toBe(400);
@@ -226,7 +226,7 @@ describe('voiceRoutesPlugin', () => {
     it('rejects empty body', async () => {
       const res = await app.inject({
         method: 'PUT',
-        url: '/api/voice/config',
+        url: '/voice/config',
         payload: null,
       });
       expect(res.statusCode).toBe(400);
@@ -236,7 +236,7 @@ describe('voiceRoutesPlugin', () => {
       const noCtxApp = await buildAppNoContext(queryFn);
       const res = await noCtxApp.inject({
         method: 'PUT',
-        url: '/api/voice/config',
+        url: '/voice/config',
         payload: { timeout_ms: 5000 },
       });
       expect(res.statusCode).toBe(403);
@@ -246,7 +246,7 @@ describe('voiceRoutesPlugin', () => {
       const obsApp = await buildAppObserver(queryFn);
       const res = await obsApp.inject({
         method: 'PUT',
-        url: '/api/voice/config',
+        url: '/voice/config',
         payload: { timeout_ms: 5000 },
       });
       expect(res.statusCode).toBe(403);
@@ -256,7 +256,7 @@ describe('voiceRoutesPlugin', () => {
       const memApp = await buildAppMember(queryFn);
       const res = await memApp.inject({
         method: 'PUT',
-        url: '/api/voice/config',
+        url: '/voice/config',
         payload: { timeout_ms: 5000 },
       });
       expect(res.statusCode).toBe(403);
@@ -265,14 +265,14 @@ describe('voiceRoutesPlugin', () => {
 
   // ── Conversation History ──────────────────────────────────
 
-  describe('GET /api/voice/conversations', () => {
+  describe('GET /voice/conversations', () => {
     it('returns paginated conversations', async () => {
       const row = makeConversationRow();
       queryFn
         .mockResolvedValueOnce({ rows: [row], rowCount: 1 })
         .mockResolvedValueOnce({ rows: [{ total: '1' }], rowCount: 1 });
 
-      const res = await app.inject({ method: 'GET', url: '/api/voice/conversations' });
+      const res = await app.inject({ method: 'GET', url: '/voice/conversations' });
       expect(res.statusCode).toBe(200);
 
       const body = JSON.parse(res.payload);
@@ -289,7 +289,7 @@ describe('voiceRoutesPlugin', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/voice/conversations?limit=10&offset=20',
+        url: '/voice/conversations?limit=10&offset=20',
       });
       expect(res.statusCode).toBe(200);
 
@@ -300,12 +300,12 @@ describe('voiceRoutesPlugin', () => {
 
     it('returns 403 without namespace context', async () => {
       const noCtxApp = await buildAppNoContext(queryFn);
-      const res = await noCtxApp.inject({ method: 'GET', url: '/api/voice/conversations' });
+      const res = await noCtxApp.inject({ method: 'GET', url: '/voice/conversations' });
       expect(res.statusCode).toBe(403);
     });
   });
 
-  describe('GET /api/voice/conversations/:id', () => {
+  describe('GET /voice/conversations/:id', () => {
     it('returns conversation with messages', async () => {
       const conv = makeConversationRow();
       const msg = makeMessageRow();
@@ -315,7 +315,7 @@ describe('voiceRoutesPlugin', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/voice/conversations/${VALID_UUID}`,
+        url: `/voice/conversations/${VALID_UUID}`,
       });
       expect(res.statusCode).toBe(200);
 
@@ -329,7 +329,7 @@ describe('voiceRoutesPlugin', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/voice/conversations/${VALID_UUID}`,
+        url: `/voice/conversations/${VALID_UUID}`,
       });
       expect(res.statusCode).toBe(404);
     });
@@ -337,19 +337,19 @@ describe('voiceRoutesPlugin', () => {
     it('rejects invalid UUID', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/voice/conversations/not-a-uuid',
+        url: '/voice/conversations/not-a-uuid',
       });
       expect(res.statusCode).toBe(400);
     });
   });
 
-  describe('DELETE /api/voice/conversations/:id', () => {
+  describe('DELETE /voice/conversations/:id', () => {
     it('deletes conversation', async () => {
       queryFn.mockResolvedValueOnce({ rows: [{ id: VALID_UUID }], rowCount: 1 });
 
       const res = await app.inject({
         method: 'DELETE',
-        url: `/api/voice/conversations/${VALID_UUID}`,
+        url: `/voice/conversations/${VALID_UUID}`,
       });
       expect(res.statusCode).toBe(204);
     });
@@ -359,7 +359,7 @@ describe('voiceRoutesPlugin', () => {
 
       const res = await app.inject({
         method: 'DELETE',
-        url: `/api/voice/conversations/${VALID_UUID}`,
+        url: `/voice/conversations/${VALID_UUID}`,
       });
       expect(res.statusCode).toBe(404);
     });
@@ -367,7 +367,7 @@ describe('voiceRoutesPlugin', () => {
     it('rejects invalid UUID', async () => {
       const res = await app.inject({
         method: 'DELETE',
-        url: '/api/voice/conversations/not-a-uuid',
+        url: '/voice/conversations/not-a-uuid',
       });
       expect(res.statusCode).toBe(400);
     });
@@ -376,7 +376,7 @@ describe('voiceRoutesPlugin', () => {
       const noCtxApp = await buildAppNoContext(queryFn);
       const res = await noCtxApp.inject({
         method: 'DELETE',
-        url: `/api/voice/conversations/${VALID_UUID}`,
+        url: `/voice/conversations/${VALID_UUID}`,
       });
       expect(res.statusCode).toBe(403);
     });
@@ -385,7 +385,7 @@ describe('voiceRoutesPlugin', () => {
       const obsApp = await buildAppObserver(queryFn);
       const res = await obsApp.inject({
         method: 'DELETE',
-        url: `/api/voice/conversations/${VALID_UUID}`,
+        url: `/voice/conversations/${VALID_UUID}`,
       });
       expect(res.statusCode).toBe(403);
     });

@@ -227,7 +227,7 @@ describe('terminal connection tools', () => {
         expect(result.data.details.id).toBe('new-conn-1');
       }
       expect(mockPost).toHaveBeenCalledWith(
-        '/api/terminal/connections',
+        '/terminal/connections',
         expect.objectContaining({
           name: 'prod-web',
           host: '10.0.0.1',
@@ -321,7 +321,7 @@ describe('terminal connection tools', () => {
 
       expect(result.success).toBe(true);
       expect(mockPatch).toHaveBeenCalledWith(
-        '/api/terminal/connections/123e4567-e89b-12d3-a456-426614174000',
+        '/terminal/connections/123e4567-e89b-12d3-a456-426614174000',
         expect.objectContaining({ name: 'updated-name', port: 2222 }),
         expect.any(Object),
       );
@@ -365,7 +365,7 @@ describe('terminal connection tools', () => {
       const result = await tool.execute({ id: '123e4567-e89b-12d3-a456-426614174000' });
       expect(result.success).toBe(true);
       expect(mockDelete).toHaveBeenCalledWith(
-        '/api/terminal/connections/123e4567-e89b-12d3-a456-426614174000',
+        '/terminal/connections/123e4567-e89b-12d3-a456-426614174000',
         expect.objectContaining({ user_id: 'agent-1' }),
       );
     });
@@ -443,7 +443,7 @@ describe('terminal connection tools', () => {
 
       await tool.execute({ id: '123e4567-e89b-12d3-a456-426614174000' });
       expect(mockPost).toHaveBeenCalledWith(
-        '/api/terminal/connections/123e4567-e89b-12d3-a456-426614174000/test',
+        '/terminal/connections/123e4567-e89b-12d3-a456-426614174000/test',
         undefined,
         expect.objectContaining({ user_id: 'agent-1' }),
       );
@@ -509,7 +509,7 @@ describe('terminal connection tools', () => {
       });
 
       expect(mockPost).toHaveBeenCalledWith(
-        '/api/terminal/credentials',
+        '/terminal/credentials',
         expect.objectContaining({
           name: 'op-key',
           kind: 'command',
@@ -655,7 +655,7 @@ describe('terminal connection tools', () => {
         expect(result.data.content).toContain('deleted');
       }
       expect(mockDelete).toHaveBeenCalledWith(
-        '/api/terminal/credentials/123e4567-e89b-12d3-a456-426614174000',
+        '/terminal/credentials/123e4567-e89b-12d3-a456-426614174000',
         expect.objectContaining({ user_id: 'agent-1' }),
       );
     });

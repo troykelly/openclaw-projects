@@ -53,13 +53,13 @@ describe('Thread History API (Issue #226)', () => {
     return { contact_id, endpointId, thread_id };
   }
 
-  describe('GET /api/threads/:id/history', () => {
+  describe('GET /threads/:id/history', () => {
     it('returns thread info with contact details', async () => {
       const { thread_id } = await createTestThread();
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/threads/${thread_id}/history`,
+        url: `/threads/${thread_id}/history`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -75,7 +75,7 @@ describe('Thread History API (Issue #226)', () => {
     it('returns 404 for non-existent thread', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/threads/00000000-0000-0000-0000-000000000000/history',
+        url: '/threads/00000000-0000-0000-0000-000000000000/history',
       });
 
       expect(res.statusCode).toBe(404);
@@ -96,7 +96,7 @@ describe('Thread History API (Issue #226)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/threads/${thread_id}/history`,
+        url: `/threads/${thread_id}/history`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -124,7 +124,7 @@ describe('Thread History API (Issue #226)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/threads/${thread_id}/history?limit=3`,
+        url: `/threads/${thread_id}/history?limit=3`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -162,7 +162,7 @@ describe('Thread History API (Issue #226)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/threads/${thread_id}/history`,
+        url: `/threads/${thread_id}/history`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -186,7 +186,7 @@ describe('Thread History API (Issue #226)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/threads/${thread_id}/history`,
+        url: `/threads/${thread_id}/history`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -203,7 +203,7 @@ describe('Thread History API (Issue #226)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/threads/${thread_id}/history?include_work_items=false`,
+        url: `/threads/${thread_id}/history?include_work_items=false`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -223,7 +223,7 @@ describe('Thread History API (Issue #226)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/threads/${thread_id}/history?include_memories=false`,
+        url: `/threads/${thread_id}/history?include_memories=false`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -246,7 +246,7 @@ describe('Thread History API (Issue #226)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/threads/${thread_id}/history?before=2026-01-01T12:00:00Z`,
+        url: `/threads/${thread_id}/history?before=2026-01-01T12:00:00Z`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -271,7 +271,7 @@ describe('Thread History API (Issue #226)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/threads/${thread_id}/history?after=2026-01-01T10:00:00Z`,
+        url: `/threads/${thread_id}/history?after=2026-01-01T10:00:00Z`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -293,7 +293,7 @@ describe('Thread History API (Issue #226)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/threads/${thread_id}/history`,
+        url: `/threads/${thread_id}/history`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -339,7 +339,7 @@ describe('Thread History API (Issue #226)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/threads/${thread_id}/history`,
+        url: `/threads/${thread_id}/history`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -352,10 +352,10 @@ describe('Thread History API (Issue #226)', () => {
   });
 
   describe('API Capabilities', () => {
-    it('includes threads capability in /api/capabilities', async () => {
+    it('includes threads capability in /capabilities', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/capabilities',
+        url: '/capabilities',
       });
 
       expect(res.statusCode).toBe(200);
@@ -364,7 +364,7 @@ describe('Thread History API (Issue #226)', () => {
       const threadsCapability = body.capabilities.find((c: { name: string }) => c.name === 'threads');
 
       expect(threadsCapability).toBeDefined();
-      expect(threadsCapability.endpoints[0].path).toBe('/api/threads/:id/history');
+      expect(threadsCapability.endpoints[0].path).toBe('/threads/:id/history');
     });
   });
 });

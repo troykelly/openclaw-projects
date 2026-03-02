@@ -31,7 +31,7 @@ export function useWorkItemAttachments(workItemId: string) {
   return useQuery({
     queryKey: attachmentKeys.forWorkItem(workItemId),
     queryFn: ({ signal }) =>
-      apiClient.get<AttachmentsResponse>(`/api/work-items/${workItemId}/attachments`, { signal }),
+      apiClient.get<AttachmentsResponse>(`/work-items/${workItemId}/attachments`, { signal }),
     enabled: !!workItemId,
   });
 }

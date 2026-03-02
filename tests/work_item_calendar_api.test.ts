@@ -23,7 +23,7 @@ describe('Work Item Calendar API (issue #125)', () => {
     // Create a work item
     const wi = await app.inject({
       method: 'POST',
-      url: '/api/work-items',
+      url: '/work-items',
       payload: { title: 'Test Project', kind: 'project' },
     });
     work_item_id = (wi.json() as { id: string }).id;
@@ -31,7 +31,7 @@ describe('Work Item Calendar API (issue #125)', () => {
     // Create a contact with a webhook endpoint (used for calendar sync)
     const contact = await app.inject({
       method: 'POST',
-      url: '/api/contacts',
+      url: '/contacts',
       payload: { display_name: 'John Doe' },
     });
     contact_id = (contact.json() as { id: string }).id;
@@ -39,7 +39,7 @@ describe('Work Item Calendar API (issue #125)', () => {
     // Use webhook endpoint type for calendar (since 'calendar' is not in the enum)
     const endpoint = await app.inject({
       method: 'POST',
-      url: `/api/contacts/${contact_id}/endpoints`,
+      url: `/contacts/${contact_id}/endpoints`,
       payload: { endpoint_type: 'webhook', endpoint_value: 'calendar-sync' },
     });
     endpointId = (endpoint.json() as { id: string }).id;
@@ -105,11 +105,11 @@ describe('Work Item Calendar API (issue #125)', () => {
     );
   }
 
-  describe('GET /api/work-items/:id/calendar', () => {
+  describe('GET /work-items/:id/calendar', () => {
     it('returns empty array when no calendar events linked', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${work_item_id}/calendar`,
+        url: `/work-items/${work_item_id}/calendar`,
       });
       expect(res.statusCode).toBe(200);
       expect(res.json()).toEqual({ events: [] });
@@ -138,7 +138,7 @@ describe('Work Item Calendar API (issue #125)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${work_item_id}/calendar`,
+        url: `/work-items/${work_item_id}/calendar`,
       });
       expect(res.statusCode).toBe(200);
 
@@ -174,7 +174,7 @@ describe('Work Item Calendar API (issue #125)', () => {
     it('returns 404 for non-existent work item', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/work-items/00000000-0000-0000-0000-000000000000/calendar',
+        url: '/work-items/00000000-0000-0000-0000-000000000000/calendar',
       });
       expect(res.statusCode).toBe(404);
       expect(res.json()).toEqual({ error: 'not found' });
@@ -192,7 +192,7 @@ describe('Work Item Calendar API (issue #125)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${work_item_id}/calendar`,
+        url: `/work-items/${work_item_id}/calendar`,
       });
       expect(res.statusCode).toBe(200);
 
@@ -223,7 +223,7 @@ describe('Work Item Calendar API (issue #125)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${work_item_id}/calendar`,
+        url: `/work-items/${work_item_id}/calendar`,
       });
       expect(res.statusCode).toBe(200);
 
@@ -256,7 +256,7 @@ describe('Work Item Calendar API (issue #125)', () => {
       // Create a regular message on the same thread (no calendar type)
       const wi2 = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: { title: 'Test Project 2', kind: 'project' },
       });
       const workItemId2 = (wi2.json() as { id: string }).id;
@@ -272,7 +272,7 @@ describe('Work Item Calendar API (issue #125)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${work_item_id}/calendar`,
+        url: `/work-items/${work_item_id}/calendar`,
       });
       expect(res.statusCode).toBe(200);
 

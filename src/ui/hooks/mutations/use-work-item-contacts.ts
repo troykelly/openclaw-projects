@@ -16,7 +16,7 @@ export function useLinkContact(workItemId: string) {
 
   return useMutation({
     mutationFn: ({ contactId, relationship }: { contactId: string; relationship?: ContactRelationshipType }) =>
-      apiClient.post(`/api/work-items/${workItemId}/contacts`, {
+      apiClient.post(`/work-items/${workItemId}/contacts`, {
         contact_id: contactId,
         relationship: relationship || 'stakeholder',
       }),
@@ -32,7 +32,7 @@ export function useUnlinkContact(workItemId: string) {
 
   return useMutation({
     mutationFn: (linkId: string) =>
-      apiClient.delete(`/api/work-items/${workItemId}/contacts/${linkId}`),
+      apiClient.delete(`/work-items/${workItemId}/contacts/${linkId}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: workItemContactKeys.forWorkItem(workItemId) });
     },

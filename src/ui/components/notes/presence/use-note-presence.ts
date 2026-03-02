@@ -94,7 +94,7 @@ export function useNotePresence({ noteId, user_email, autoJoin = true }: UseNote
     if (hasJoinedRef.current) return;
 
     try {
-      const data = await apiClient.post<{ collaborators?: NotePresenceUser[] }>(`/api/notes/${noteId}/presence`, { user_email });
+      const data = await apiClient.post<{ collaborators?: NotePresenceUser[] }>(`/notes/${noteId}/presence`, { user_email });
       setViewers(data.collaborators || []);
       setIsConnected(true);
       hasJoinedRef.current = true;
@@ -113,7 +113,7 @@ export function useNotePresence({ noteId, user_email, autoJoin = true }: UseNote
     if (!hasJoinedRef.current) return;
 
     try {
-      await apiClient.delete(`/api/notes/${noteId}/presence`, undefined, { headers: { 'X-User-Email': user_email } });
+      await apiClient.delete(`/notes/${noteId}/presence`, undefined, { headers: { 'X-User-Email': user_email } });
       hasJoinedRef.current = false;
       setIsConnected(false);
     } catch (err) {
@@ -133,7 +133,7 @@ export function useNotePresence({ noteId, user_email, autoJoin = true }: UseNote
   const updateCursor = useCallback(
     async (position: { line: number; column: number }) => {
       try {
-        await apiClient.put(`/api/notes/${noteId}/presence/cursor`, { user_email, cursor_position: position });
+        await apiClient.put(`/notes/${noteId}/presence/cursor`, { user_email, cursor_position: position });
       } catch (err) {
         // Don't throw on cursor update errors - cursor updates are non-critical
         // Log in development only to avoid information leakage in production (#693)

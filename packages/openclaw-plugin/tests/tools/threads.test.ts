@@ -204,7 +204,7 @@ describe('thread tools', () => {
           limit: 30,
         });
 
-        expect(mockClient.get).toHaveBeenCalledWith(expect.stringContaining('/api/threads'), { user_id });
+        expect(mockClient.get).toHaveBeenCalledWith(expect.stringContaining('/threads'), { user_id });
         const callUrl = (mockClient.get as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
         expect(callUrl).toContain('channel=sms');
         expect(callUrl).toContain('contact_id=123e4567-e89b-12d3-a456-426614174000');
@@ -403,7 +403,7 @@ describe('thread tools', () => {
           message_limit: 75,
         });
 
-        expect(mockClient.get).toHaveBeenCalledWith(expect.stringContaining('/api/threads/123e4567-e89b-12d3-a456-426614174000/history'), { user_id });
+        expect(mockClient.get).toHaveBeenCalledWith(expect.stringContaining('/threads/123e4567-e89b-12d3-a456-426614174000/history'), { user_id });
         const callUrl = (mockClient.get as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
         expect(callUrl).toContain('limit=75');
       });

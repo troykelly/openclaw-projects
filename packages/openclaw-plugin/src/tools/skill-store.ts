@@ -243,7 +243,7 @@ export function createSkillStorePutTool(options: SkillStoreToolOptions): SkillSt
       });
 
       try {
-        const response = await client.post<SkillStoreItem>('/api/skill-store/items', payload, { user_id });
+        const response = await client.post<SkillStoreItem>('/skill-store/items', payload, { user_id });
 
         if (!response.success) {
           logger.error('skill_store_put API error', {
@@ -326,7 +326,7 @@ export function createSkillStoreGetTool(options: SkillStoreToolOptions): SkillSt
         let response: ApiResponse<SkillStoreItem>;
 
         if (validated.id) {
-          response = await client.get<SkillStoreItem>(`/api/skill-store/items/${validated.id}`, { user_id });
+          response = await client.get<SkillStoreItem>(`/skill-store/items/${validated.id}`, { user_id });
         } else {
           // Guard above ensures skill_id and key are defined when id is absent
           const skillId = validated.skill_id as string;
@@ -338,7 +338,7 @@ export function createSkillStoreGetTool(options: SkillStoreToolOptions): SkillSt
           if (validated.collection) {
             queryParams.set('collection', validated.collection);
           }
-          response = await client.get<SkillStoreItem>(`/api/skill-store/items/by-key?${queryParams}`, { user_id });
+          response = await client.get<SkillStoreItem>(`/skill-store/items/by-key?${queryParams}`, { user_id });
         }
 
         if (!response.success) {
@@ -428,7 +428,7 @@ export function createSkillStoreListTool(options: SkillStoreToolOptions): SkillS
           items: SkillStoreItem[];
           total: number;
           has_more: boolean;
-        }>(`/api/skill-store/items?${queryParams}`, { user_id });
+        }>(`/skill-store/items?${queryParams}`, { user_id });
 
         if (!response.success) {
           return {
@@ -508,7 +508,7 @@ export function createSkillStoreDeleteTool(options: SkillStoreToolOptions): Skil
       try {
         if (validated.id) {
           // Delete by ID
-          const response = await client.delete(`/api/skill-store/items/${validated.id}`, { user_id });
+          const response = await client.delete(`/skill-store/items/${validated.id}`, { user_id });
 
           if (!response.success) {
             if (response.error.status === 404) {
@@ -541,7 +541,7 @@ export function createSkillStoreDeleteTool(options: SkillStoreToolOptions): Skil
           queryParams.set('collection', validated.collection);
         }
 
-        const getResponse = await client.get<SkillStoreItem>(`/api/skill-store/items/by-key?${queryParams}`, { user_id });
+        const getResponse = await client.get<SkillStoreItem>(`/skill-store/items/by-key?${queryParams}`, { user_id });
 
         if (!getResponse.success) {
           if (getResponse.error.status === 404) {
@@ -555,7 +555,7 @@ export function createSkillStoreDeleteTool(options: SkillStoreToolOptions): Skil
 
         const item_id = getResponse.data.id;
 
-        const deleteResponse = await client.delete(`/api/skill-store/items/${item_id}`, { user_id });
+        const deleteResponse = await client.delete(`/skill-store/items/${item_id}`, { user_id });
 
         if (!deleteResponse.success) {
           return {
@@ -782,7 +782,7 @@ export function createSkillStoreSearchTool(options: SkillStoreToolOptions): Skil
         if (useSemantic) {
           if (validated.min_similarity !== undefined) body.min_similarity = validated.min_similarity;
 
-          const response = await client.post<SemanticSearchApiResponse>('/api/skill-store/search/semantic', body, { user_id });
+          const response = await client.post<SemanticSearchApiResponse>('/skill-store/search/semantic', body, { user_id });
 
           if (!response.success) {
             logger.error('skill_store_search semantic API error', {
@@ -815,7 +815,7 @@ export function createSkillStoreSearchTool(options: SkillStoreToolOptions): Skil
         }
 
         // Full-text search
-        const response = await client.post<FullTextSearchApiResponse>('/api/skill-store/search', body, { user_id });
+        const response = await client.post<FullTextSearchApiResponse>('/skill-store/search', body, { user_id });
 
         if (!response.success) {
           logger.error('skill_store_search API error', {
@@ -885,7 +885,7 @@ export function createSkillStoreCollectionsTool(options: SkillStoreToolOptions):
           queryParams.set('user_email', validated.user_email);
         }
 
-        const response = await client.get<CollectionsApiResponse>(`/api/skill-store/collections?${queryParams}`, { user_id });
+        const response = await client.get<CollectionsApiResponse>(`/skill-store/collections?${queryParams}`, { user_id });
 
         if (!response.success) {
           logger.error('skill_store_collections API error', {
@@ -973,7 +973,7 @@ export function createSkillStoreAggregateTool(options: SkillStoreToolOptions): S
         if (validated.until) queryParams.set('until', validated.until);
         if (validated.user_email) queryParams.set('user_email', validated.user_email);
 
-        const response = await client.get<AggregateApiResponse>(`/api/skill-store/aggregate?${queryParams}`, { user_id });
+        const response = await client.get<AggregateApiResponse>(`/skill-store/aggregate?${queryParams}`, { user_id });
 
         if (!response.success) {
           logger.error('skill_store_aggregate API error', {

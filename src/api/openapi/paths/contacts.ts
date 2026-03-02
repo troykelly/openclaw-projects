@@ -40,7 +40,7 @@ export function contactsPaths(): OpenApiDomainModule {
           notes: { type: 'string', nullable: true, description: 'Free-text notes about the contact', example: 'Met at the conference in March' },
           contact_kind: { type: 'string', enum: ['person', 'organisation', 'group', 'agent'], description: 'The kind of entity this contact represents', example: 'person' },
           custom_fields: { type: 'array', description: 'Custom key-value fields (max 50)', items: { type: 'object', required: ['key', 'value'], properties: { key: { type: 'string' }, value: { type: 'string' } } } },
-          photo_url: { type: 'string', nullable: true, description: 'URL to the contact photo', example: '/api/files/abc-123' },
+          photo_url: { type: 'string', nullable: true, description: 'URL to the contact photo', example: '/files/abc-123' },
           preferred_channel: { type: 'string', nullable: true, description: 'Preferred communication channel', example: 'email' },
           quiet_hours_start: { type: 'string', nullable: true, description: 'Start time for quiet hours in HH:MM format', example: '22:00' },
           quiet_hours_end: { type: 'string', nullable: true, description: 'End time for quiet hours in HH:MM format', example: '08:00' },
@@ -291,7 +291,7 @@ export function contactsPaths(): OpenApiDomainModule {
     },
 
     paths: {
-      '/api/contacts': {
+      '/contacts': {
         post: {
           operationId: 'createContact',
           summary: 'Create a contact',
@@ -346,7 +346,7 @@ export function contactsPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/contacts/bulk': {
+      '/contacts/bulk': {
         post: {
           operationId: 'bulkCreateContacts',
           summary: 'Bulk create contacts with optional endpoints',
@@ -360,11 +360,11 @@ export function contactsPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/contacts/search': {
+      '/contacts/search': {
         get: {
           operationId: 'searchContacts',
-          summary: 'Search contacts (alias redirecting to /api/contacts?search=)',
-          description: 'Redirects to GET /api/contacts with the search parameter. Prevents route collision with /:id.',
+          summary: 'Search contacts (alias redirecting to /contacts?search=)',
+          description: 'Redirects to GET /contacts with the search parameter. Prevents route collision with /:id.',
           tags: ['Contacts'],
           parameters: [
             {
@@ -377,13 +377,13 @@ export function contactsPaths(): OpenApiDomainModule {
             ...paginationParams(),
           ],
           responses: {
-            '301': { description: 'Redirects to /api/contacts?search=...' },
+            '301': { description: 'Redirects to /contacts?search=...' },
             ...errorResponses(401),
           },
         },
       },
 
-      '/api/contacts/suggest-match': {
+      '/contacts/suggest-match': {
         get: {
           operationId: 'suggestContactMatch',
           summary: 'Fuzzy contact matching by phone, email, or name',
@@ -426,7 +426,7 @@ export function contactsPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/contacts/{id}': {
+      '/contacts/{id}': {
         parameters: [uuidParam('id', 'Contact UUID')],
         get: {
           operationId: 'getContact',
@@ -483,7 +483,7 @@ export function contactsPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/contacts/{id}/restore': {
+      '/contacts/{id}/restore': {
         parameters: [uuidParam('id', 'Contact UUID')],
         post: {
           operationId: 'restoreContact',
@@ -504,7 +504,7 @@ export function contactsPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/contacts/{id}/work-items': {
+      '/contacts/{id}/work-items': {
         parameters: [uuidParam('id', 'Contact UUID')],
         get: {
           operationId: 'listContactWorkItems',
@@ -538,7 +538,7 @@ export function contactsPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/contacts/{id}/endpoints': {
+      '/contacts/{id}/endpoints': {
         parameters: [uuidParam('id', 'Contact UUID')],
         post: {
           operationId: 'addContactEndpoint',
@@ -577,7 +577,7 @@ export function contactsPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/contacts/{id}/memories': {
+      '/contacts/{id}/memories': {
         parameters: [uuidParam('id', 'Contact UUID')],
         get: {
           operationId: 'listContactMemories',
@@ -626,7 +626,7 @@ export function contactsPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/contacts/{id}/similar-memories': {
+      '/contacts/{id}/similar-memories': {
         parameters: [uuidParam('id', 'Contact UUID')],
         get: {
           operationId: 'findContactSimilarMemories',
@@ -682,7 +682,7 @@ export function contactsPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/contacts/{id}/relationships': {
+      '/contacts/{id}/relationships': {
         parameters: [uuidParam('id', 'Contact UUID')],
         get: {
           operationId: 'listContactRelationships',
@@ -705,7 +705,7 @@ export function contactsPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/contacts/{id}/groups': {
+      '/contacts/{id}/groups': {
         parameters: [uuidParam('id', 'Contact UUID')],
         get: {
           operationId: 'listContactGroups',
@@ -737,7 +737,7 @@ export function contactsPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/contacts/{id}/members': {
+      '/contacts/{id}/members': {
         parameters: [uuidParam('id', 'Contact UUID (group)')],
         get: {
           operationId: 'listGroupMembers',
@@ -773,7 +773,7 @@ export function contactsPaths(): OpenApiDomainModule {
       // ============================================================
       // Address CRUD (#1583)
       // ============================================================
-      '/api/contacts/{id}/addresses': {
+      '/contacts/{id}/addresses': {
         parameters: [uuidParam('id', 'Contact UUID')],
         get: {
           operationId: 'listContactAddresses',
@@ -789,7 +789,7 @@ export function contactsPaths(): OpenApiDomainModule {
           responses: { '201': jsonResponse('Created address', ref('ContactAddress')), ...errorResponses(400, 401, 404, 500) },
         },
       },
-      '/api/contacts/{id}/addresses/{addr_id}': {
+      '/contacts/{id}/addresses/{addr_id}': {
         parameters: [uuidParam('id', 'Contact UUID'), uuidParam('addr_id', 'Address UUID')],
         patch: {
           operationId: 'updateContactAddress',
@@ -809,7 +809,7 @@ export function contactsPaths(): OpenApiDomainModule {
       // ============================================================
       // Date CRUD (#1584)
       // ============================================================
-      '/api/contacts/{id}/dates': {
+      '/contacts/{id}/dates': {
         parameters: [uuidParam('id', 'Contact UUID')],
         get: {
           operationId: 'listContactDates',
@@ -825,7 +825,7 @@ export function contactsPaths(): OpenApiDomainModule {
           responses: { '201': jsonResponse('Created date', ref('ContactDate')), ...errorResponses(400, 401, 404, 500) },
         },
       },
-      '/api/contacts/{id}/dates/{date_id}': {
+      '/contacts/{id}/dates/{date_id}': {
         parameters: [uuidParam('id', 'Contact UUID'), uuidParam('date_id', 'Date UUID')],
         patch: {
           operationId: 'updateContactDate',
@@ -845,7 +845,7 @@ export function contactsPaths(): OpenApiDomainModule {
       // ============================================================
       // Endpoint Management (#1585)
       // ============================================================
-      '/api/contacts/{id}/endpoints/{ep_id}': {
+      '/contacts/{id}/endpoints/{ep_id}': {
         parameters: [uuidParam('id', 'Contact UUID'), uuidParam('ep_id', 'Endpoint UUID')],
         patch: {
           operationId: 'updateContactEndpoint',
@@ -865,7 +865,7 @@ export function contactsPaths(): OpenApiDomainModule {
       // ============================================================
       // Tag Management (#1586)
       // ============================================================
-      '/api/contacts/{id}/tags': {
+      '/contacts/{id}/tags': {
         parameters: [uuidParam('id', 'Contact UUID')],
         get: {
           operationId: 'listContactTags',
@@ -881,7 +881,7 @@ export function contactsPaths(): OpenApiDomainModule {
           responses: { '201': jsonResponse('Updated tag list', { type: 'array', items: { type: 'object', properties: { tag: { type: 'string' }, created_at: { type: 'string', format: 'date-time' } } } }), ...errorResponses(400, 401, 404, 500) },
         },
       },
-      '/api/contacts/{id}/tags/{tag}': {
+      '/contacts/{id}/tags/{tag}': {
         parameters: [uuidParam('id', 'Contact UUID'), { name: 'tag', in: 'path', required: true, schema: { type: 'string' }, description: 'Tag name (URL-encoded)' }],
         delete: {
           operationId: 'deleteContactTag',
@@ -890,7 +890,7 @@ export function contactsPaths(): OpenApiDomainModule {
           responses: { '204': { description: 'Tag removed' }, ...errorResponses(401, 404, 500) },
         },
       },
-      '/api/tags': {
+      '/tags': {
         get: {
           operationId: 'listAllTags',
           summary: 'List all tags with contact counts',
@@ -903,7 +903,7 @@ export function contactsPaths(): OpenApiDomainModule {
       // ============================================================
       // Photo Upload (#1587)
       // ============================================================
-      '/api/contacts/{id}/photo': {
+      '/contacts/{id}/photo': {
         parameters: [uuidParam('id', 'Contact UUID')],
         post: {
           operationId: 'uploadContactPhoto',
@@ -923,7 +923,7 @@ export function contactsPaths(): OpenApiDomainModule {
       // ============================================================
       // Contact Merge (#1588)
       // ============================================================
-      '/api/contacts/merge': {
+      '/contacts/merge': {
         post: {
           operationId: 'mergeContacts',
           summary: 'Merge two contacts',
@@ -937,7 +937,7 @@ export function contactsPaths(): OpenApiDomainModule {
       // ============================================================
       // Import/Export (#1589)
       // ============================================================
-      '/api/contacts/export': {
+      '/contacts/export': {
         get: {
           operationId: 'exportContacts',
           summary: 'Export contacts',
@@ -950,7 +950,7 @@ export function contactsPaths(): OpenApiDomainModule {
           responses: { '200': { description: 'Exported contacts (CSV or JSON)', content: { 'text/csv': { schema: { type: 'string' } }, 'application/json': { schema: { type: 'array', items: ref('Contact') } } } }, ...errorResponses(400, 401, 500) },
         },
       },
-      '/api/contacts/import': {
+      '/contacts/import': {
         post: {
           operationId: 'importContacts',
           summary: 'Import contacts',

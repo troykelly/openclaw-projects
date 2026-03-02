@@ -206,7 +206,7 @@ describe('terminal tunnel tools', () => {
       }
 
       expect(mockPost).toHaveBeenCalledWith(
-        '/api/terminal/tunnels',
+        '/terminal/tunnels',
         expect.objectContaining({
           connection_id: '123e4567-e89b-12d3-a456-426614174000',
           direction: 'remote',
@@ -339,7 +339,7 @@ describe('terminal tunnel tools', () => {
         expect(result.data.content).toContain('closed');
       }
       expect(mockDelete).toHaveBeenCalledWith(
-        '/api/terminal/tunnels/123e4567-e89b-12d3-a456-426614174000',
+        '/terminal/tunnels/123e4567-e89b-12d3-a456-426614174000',
         expect.objectContaining({ user_id: 'agent-1' }),
       );
     });

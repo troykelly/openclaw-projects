@@ -19,7 +19,7 @@ export function useMarkNotificationRead() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (id: string) => apiClient.post<void>(`/api/notifications/${id}/read`, {}),
+    mutationFn: (id: string) => apiClient.post<void>(`/notifications/${id}/read`, {}),
 
     onMutate: async (id: string) => {
       await queryClient.cancelQueries({ queryKey: notificationKeys.list() });
@@ -70,7 +70,7 @@ export function useMarkAllNotificationsRead() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: () => apiClient.post<void>('/api/notifications/read-all', {}),
+    mutationFn: () => apiClient.post<void>('/notifications/read-all', {}),
 
     onMutate: async () => {
       await queryClient.cancelQueries({ queryKey: notificationKeys.list() });
@@ -117,7 +117,7 @@ export function useDismissNotification() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (id: string) => apiClient.delete(`/api/notifications/${id}`),
+    mutationFn: (id: string) => apiClient.delete(`/notifications/${id}`),
 
     onMutate: async (id: string) => {
       await queryClient.cancelQueries({ queryKey: notificationKeys.list() });

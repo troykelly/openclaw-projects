@@ -122,7 +122,7 @@ describe('lifecycle hooks', () => {
 
         await hook({ prompt: 'Tell me about my preferences' });
 
-        expect(mockGet).toHaveBeenCalledWith(expect.stringContaining('/api/memories/search'), expect.any(Object));
+        expect(mockGet).toHaveBeenCalledWith(expect.stringContaining('/memories/search'), expect.any(Object));
         // Verify the prompt is passed as the search query
         const callUrl = mockGet.mock.calls[0][0] as string;
         expect(callUrl).toContain('q=Tell+me+about+my+preferences');
@@ -441,7 +441,7 @@ describe('lifecycle hooks', () => {
           ],
         });
 
-        expect(mockPost).toHaveBeenCalledWith(expect.stringContaining('/api/context/capture'), expect.any(Object), expect.any(Object));
+        expect(mockPost).toHaveBeenCalledWith(expect.stringContaining('/context/capture'), expect.any(Object), expect.any(Object));
       });
 
       it('should handle API errors gracefully', async () => {
@@ -617,7 +617,7 @@ describe('lifecycle hooks', () => {
         });
 
         expect(mockPost).toHaveBeenCalledWith(
-          expect.stringContaining('/api/context/capture'),
+          expect.stringContaining('/context/capture'),
           expect.objectContaining({
             conversation: 'Remember I like dark mode',
           }),

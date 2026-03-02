@@ -20,32 +20,32 @@ describe('Cursor Rate Limiting (Issue #690)', () => {
 
   describe('getEndpointRateLimitCategory', () => {
     it('returns "cursor" category for cursor update endpoints', () => {
-      expect(getEndpointRateLimitCategory('PUT', '/api/notes/123/presence/cursor')).toBe('cursor');
+      expect(getEndpointRateLimitCategory('PUT', '/notes/123/presence/cursor')).toBe('cursor');
     });
 
     it('returns "cursor" category for cursor endpoint with query params', () => {
-      expect(getEndpointRateLimitCategory('PUT', '/api/notes/123/presence/cursor?foo=bar')).toBe('cursor');
+      expect(getEndpointRateLimitCategory('PUT', '/notes/123/presence/cursor?foo=bar')).toBe('cursor');
     });
 
     it('returns "cursor" category regardless of HTTP method', () => {
       // Even though we expect PUT, the category detection should still work
-      expect(getEndpointRateLimitCategory('POST', '/api/notes/123/presence/cursor')).toBe('cursor');
-      expect(getEndpointRateLimitCategory('GET', '/api/notes/123/presence/cursor')).toBe('cursor');
+      expect(getEndpointRateLimitCategory('POST', '/notes/123/presence/cursor')).toBe('cursor');
+      expect(getEndpointRateLimitCategory('GET', '/notes/123/presence/cursor')).toBe('cursor');
     });
 
     it('returns "cursor" for work-item presence cursor (if present)', () => {
-      expect(getEndpointRateLimitCategory('PUT', '/api/work-items/123/presence/cursor')).toBe('cursor');
+      expect(getEndpointRateLimitCategory('PUT', '/work-items/123/presence/cursor')).toBe('cursor');
     });
 
     it('does not return "cursor" for regular presence endpoints', () => {
-      expect(getEndpointRateLimitCategory('POST', '/api/notes/123/presence')).toBe('write');
-      expect(getEndpointRateLimitCategory('GET', '/api/notes/123/presence')).toBe('read');
-      expect(getEndpointRateLimitCategory('DELETE', '/api/notes/123/presence')).toBe('write');
+      expect(getEndpointRateLimitCategory('POST', '/notes/123/presence')).toBe('write');
+      expect(getEndpointRateLimitCategory('GET', '/notes/123/presence')).toBe('read');
+      expect(getEndpointRateLimitCategory('DELETE', '/notes/123/presence')).toBe('write');
     });
 
     it('prioritizes cursor over write for cursor endpoints', () => {
       // cursor endpoints use PUT which would normally be "write"
-      expect(getEndpointRateLimitCategory('PUT', '/api/notes/123/presence/cursor')).toBe('cursor');
+      expect(getEndpointRateLimitCategory('PUT', '/notes/123/presence/cursor')).toBe('cursor');
     });
   });
 

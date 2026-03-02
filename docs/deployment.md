@@ -976,7 +976,7 @@ FILE_SHARE_MODE=proxy
 
 This mode:
 - Generates unique tokens stored in the database
-- Creates URLs like `https://api.example.com/api/files/shared/{token}`
+- Creates URLs like `https://api.example.com/files/shared/{token}`
 - Supports download limits (`max_downloads` parameter)
 - Proxies file content through the API server
 
@@ -1449,7 +1449,7 @@ docker volume inspect openclaw-projects_db_data
 3. If you have OAuth redirect URIs registered with a provider, verify they use the API subdomain:
 
    ```bash
-   OAUTH_REDIRECT_URI=https://api.yourdomain.com/api/oauth/callback
+   OAUTH_REDIRECT_URI=https://api.yourdomain.com/oauth/callback
    ```
 
 **Routing summary (unchanged):**
@@ -1459,4 +1459,4 @@ docker volume inspect openclaw-projects_db_data
 | `https://DOMAIN/` | Frontend SPA (React app) |
 | `https://DOMAIN/app/*` | Frontend SPA routes |
 | `https://api.DOMAIN/*` | API server (via ModSecurity WAF) |
-| `https://DOMAIN/api/*` | Redirected to `https://api.DOMAIN/api/*` (307) |
+| `https://DOMAIN/api/*` | Redirected to `https://api.DOMAIN/*` (307, strips `/api` prefix) |

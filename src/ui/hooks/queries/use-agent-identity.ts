@@ -25,7 +25,7 @@ export const identityKeys = {
  * Fetch the current agent identity.
  */
 export function useAgentIdentity(name?: string) {
-  const url = name ? `/api/identity?name=${encodeURIComponent(name)}` : '/api/identity';
+  const url = name ? `/identity?name=${encodeURIComponent(name)}` : '/identity';
   return useQuery({
     queryKey: identityKeys.current(name),
     queryFn: ({ signal }) => apiClient.get<AgentIdentity>(url, { signal }),
@@ -39,7 +39,7 @@ export function useAgentIdentityHistory(name: string) {
   return useQuery({
     queryKey: identityKeys.history(name),
     queryFn: ({ signal }) =>
-      apiClient.get<AgentIdentityHistoryResponse>(`/api/identity/history?name=${encodeURIComponent(name)}`, { signal }),
+      apiClient.get<AgentIdentityHistoryResponse>(`/identity/history?name=${encodeURIComponent(name)}`, { signal }),
     enabled: !!name,
   });
 }
@@ -52,7 +52,7 @@ export function useSaveAgentIdentity() {
 
   return useMutation({
     mutationFn: (body: CreateAgentIdentityBody) =>
-      apiClient.put<AgentIdentity>('/api/identity', body),
+      apiClient.put<AgentIdentity>('/identity', body),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: identityKeys.all });
     },
@@ -67,7 +67,7 @@ export function useUpdateAgentIdentity() {
 
   return useMutation({
     mutationFn: (body: Record<string, unknown> & { name: string }) =>
-      apiClient.patch<AgentIdentity>('/api/identity', body),
+      apiClient.patch<AgentIdentity>('/identity', body),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: identityKeys.all });
     },
@@ -82,7 +82,7 @@ export function useProposeIdentityChange() {
 
   return useMutation({
     mutationFn: (body: ProposeIdentityChangeBody) =>
-      apiClient.post<AgentIdentityHistoryEntry>('/api/identity/proposals', body),
+      apiClient.post<AgentIdentityHistoryEntry>('/identity/proposals', body),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: identityKeys.all });
     },
@@ -97,7 +97,7 @@ export function useApproveProposal() {
 
   return useMutation({
     mutationFn: (proposalId: string) =>
-      apiClient.post<AgentIdentityHistoryEntry>(`/api/identity/proposals/${proposalId}/approve`, {}),
+      apiClient.post<AgentIdentityHistoryEntry>(`/identity/proposals/${proposalId}/approve`, {}),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: identityKeys.all });
     },
@@ -112,7 +112,7 @@ export function useRejectProposal() {
 
   return useMutation({
     mutationFn: ({ proposalId, reason }: { proposalId: string; reason?: string }) =>
-      apiClient.post<AgentIdentityHistoryEntry>(`/api/identity/proposals/${proposalId}/reject`, { reason }),
+      apiClient.post<AgentIdentityHistoryEntry>(`/identity/proposals/${proposalId}/reject`, { reason }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: identityKeys.all });
     },
@@ -127,7 +127,7 @@ export function useRollbackIdentity() {
 
   return useMutation({
     mutationFn: ({ name, version }: { name: string; version: number }) =>
-      apiClient.post<AgentIdentity>('/api/identity/rollback', { name, version }),
+      apiClient.post<AgentIdentity>('/identity/rollback', { name, version }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: identityKeys.all });
     },

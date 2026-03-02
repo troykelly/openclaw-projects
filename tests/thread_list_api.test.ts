@@ -71,11 +71,11 @@ describe('Thread List API (Issue #1139)', () => {
     return { contact_id, endpointId, thread_id };
   }
 
-  describe('GET /api/threads', () => {
+  describe('GET /threads', () => {
     it('returns empty list when no threads exist', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/threads',
+        url: '/threads',
       });
 
       expect(res.statusCode).toBe(200);
@@ -95,7 +95,7 @@ describe('Thread List API (Issue #1139)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/threads',
+        url: '/threads',
       });
 
       expect(res.statusCode).toBe(200);
@@ -122,7 +122,7 @@ describe('Thread List API (Issue #1139)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/threads?limit=2',
+        url: '/threads?limit=2',
       });
 
       expect(res.statusCode).toBe(200);
@@ -140,7 +140,7 @@ describe('Thread List API (Issue #1139)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/threads?limit=2&offset=1',
+        url: '/threads?limit=2&offset=1',
       });
 
       expect(res.statusCode).toBe(200);
@@ -157,7 +157,7 @@ describe('Thread List API (Issue #1139)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/threads?channel=email',
+        url: '/threads?channel=email',
       });
 
       expect(res.statusCode).toBe(200);
@@ -173,7 +173,7 @@ describe('Thread List API (Issue #1139)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/threads?contact_id=${contact_id}`,
+        url: `/threads?contact_id=${contact_id}`,
       });
 
       expect(res.statusCode).toBe(200);

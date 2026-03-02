@@ -50,7 +50,7 @@ describe('api-client auth integration', () => {
       });
       globalThis.fetch = fetchMock;
 
-      await apiClient.get('/api/work-items');
+      await apiClient.get('/work-items');
 
       expect(fetchMock).toHaveBeenCalledWith(
         expect.any(String),
@@ -70,7 +70,7 @@ describe('api-client auth integration', () => {
       });
       globalThis.fetch = fetchMock;
 
-      await apiClient.get('/api/work-items');
+      await apiClient.get('/work-items');
 
       const callHeaders = fetchMock.mock.calls[0][1].headers as Record<string, string>;
       expect(callHeaders.authorization).toBeUndefined();
@@ -87,7 +87,7 @@ describe('api-client auth integration', () => {
       });
       globalThis.fetch = fetchMock;
 
-      await apiClient.post('/api/work-items', { title: 'Test' });
+      await apiClient.post('/work-items', { title: 'Test' });
 
       expect(fetchMock).toHaveBeenCalledWith(
         expect.any(String),
@@ -129,7 +129,7 @@ describe('api-client auth integration', () => {
         });
       globalThis.fetch = fetchMock;
 
-      const result = await apiClient.get<{ items: Array<{ id: string }> }>('/api/work-items');
+      const result = await apiClient.get<{ items: Array<{ id: string }> }>('/work-items');
 
       expect(result.items).toHaveLength(1);
       expect(fetchMock).toHaveBeenCalledTimes(3); // original + refresh + retry
@@ -148,7 +148,7 @@ describe('api-client auth integration', () => {
       });
       globalThis.fetch = fetchMock;
 
-      await expect(apiClient.get('/api/admin')).rejects.toThrow(ApiRequestError);
+      await expect(apiClient.get('/admin')).rejects.toThrow(ApiRequestError);
       expect(fetchMock).toHaveBeenCalledTimes(1); // no retry
     });
 
@@ -174,7 +174,7 @@ describe('api-client auth integration', () => {
         });
       globalThis.fetch = fetchMock;
 
-      await expect(apiClient.get('/api/work-items')).rejects.toThrow();
+      await expect(apiClient.get('/work-items')).rejects.toThrow();
       expect(getAccessToken()).toBeNull();
       expect(window.location.href).toBe('/app/login');
     });
@@ -191,7 +191,7 @@ describe('api-client auth integration', () => {
       });
       globalThis.fetch = fetchMock;
 
-      await expect(apiClient.post('/api/auth/refresh', {})).rejects.toThrow(ApiRequestError);
+      await expect(apiClient.post('/auth/refresh', {})).rejects.toThrow(ApiRequestError);
       // Should NOT retry — only 1 fetch call
       expect(fetchMock).toHaveBeenCalledTimes(1);
     });

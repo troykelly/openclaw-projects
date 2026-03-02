@@ -161,11 +161,11 @@ describe('Notifications API', () => {
     });
   });
 
-  describe('GET /api/notifications', () => {
+  describe('GET /notifications', () => {
     it('returns empty array when no notifications', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notifications?user_email=${encodeURIComponent(user_email)}`,
+        url: `/notifications?user_email=${encodeURIComponent(user_email)}`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -183,7 +183,7 @@ describe('Notifications API', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notifications?user_email=${encodeURIComponent(user_email)}`,
+        url: `/notifications?user_email=${encodeURIComponent(user_email)}`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -208,7 +208,7 @@ describe('Notifications API', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notifications?user_email=${encodeURIComponent(user_email)}&unread_only=true`,
+        url: `/notifications?user_email=${encodeURIComponent(user_email)}&unread_only=true`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -228,7 +228,7 @@ describe('Notifications API', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notifications?user_email=${encodeURIComponent(user_email)}&limit=2&offset=1`,
+        url: `/notifications?user_email=${encodeURIComponent(user_email)}&limit=2&offset=1`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -252,7 +252,7 @@ describe('Notifications API', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notifications?user_email=${encodeURIComponent(user_email)}`,
+        url: `/notifications?user_email=${encodeURIComponent(user_email)}`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -262,7 +262,7 @@ describe('Notifications API', () => {
     });
   });
 
-  describe('POST /api/notifications/:id/read', () => {
+  describe('POST /notifications/:id/read', () => {
     it('marks a notification as read', async () => {
       const insertRes = await pool.query(
         `INSERT INTO notification (user_email, notification_type, title, message)
@@ -274,7 +274,7 @@ describe('Notifications API', () => {
 
       const response = await app.inject({
         method: 'POST',
-        url: `/api/notifications/${notificationId}/read?user_email=${encodeURIComponent(user_email)}`,
+        url: `/notifications/${notificationId}/read?user_email=${encodeURIComponent(user_email)}`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -286,7 +286,7 @@ describe('Notifications API', () => {
     it('returns 404 for non-existent notification', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: `/api/notifications/00000000-0000-0000-0000-000000000000/read?user_email=${encodeURIComponent(user_email)}`,
+        url: `/notifications/00000000-0000-0000-0000-000000000000/read?user_email=${encodeURIComponent(user_email)}`,
       });
 
       expect(response.statusCode).toBe(404);
@@ -305,14 +305,14 @@ describe('Notifications API', () => {
 
       const response = await app.inject({
         method: 'POST',
-        url: `/api/notifications/${notificationId}/read?user_email=${encodeURIComponent(user_email)}`,
+        url: `/notifications/${notificationId}/read?user_email=${encodeURIComponent(user_email)}`,
       });
 
       expect(response.statusCode).toBe(404);
     });
   });
 
-  describe('POST /api/notifications/read-all', () => {
+  describe('POST /notifications/read-all', () => {
     it('marks all unread notifications as read', async () => {
       await pool.query(
         `INSERT INTO notification (user_email, notification_type, title, message)
@@ -324,7 +324,7 @@ describe('Notifications API', () => {
 
       const response = await app.inject({
         method: 'POST',
-        url: `/api/notifications/read-all?user_email=${encodeURIComponent(user_email)}`,
+        url: `/notifications/read-all?user_email=${encodeURIComponent(user_email)}`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -336,7 +336,7 @@ describe('Notifications API', () => {
     });
   });
 
-  describe('DELETE /api/notifications/:id', () => {
+  describe('DELETE /notifications/:id', () => {
     it('dismisses a notification', async () => {
       const insertRes = await pool.query(
         `INSERT INTO notification (user_email, notification_type, title, message)
@@ -348,7 +348,7 @@ describe('Notifications API', () => {
 
       const response = await app.inject({
         method: 'DELETE',
-        url: `/api/notifications/${notificationId}?user_email=${encodeURIComponent(user_email)}`,
+        url: `/notifications/${notificationId}?user_email=${encodeURIComponent(user_email)}`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -358,11 +358,11 @@ describe('Notifications API', () => {
     });
   });
 
-  describe('GET /api/notifications/preferences', () => {
+  describe('GET /notifications/preferences', () => {
     it('returns default preferences when none set', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notifications/preferences?user_email=${encodeURIComponent(user_email)}`,
+        url: `/notifications/preferences?user_email=${encodeURIComponent(user_email)}`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -381,7 +381,7 @@ describe('Notifications API', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notifications/preferences?user_email=${encodeURIComponent(user_email)}`,
+        url: `/notifications/preferences?user_email=${encodeURIComponent(user_email)}`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -390,11 +390,11 @@ describe('Notifications API', () => {
     });
   });
 
-  describe('PATCH /api/notifications/preferences', () => {
+  describe('PATCH /notifications/preferences', () => {
     it('updates notification preferences', async () => {
       const response = await app.inject({
         method: 'PATCH',
-        url: `/api/notifications/preferences?user_email=${encodeURIComponent(user_email)}`,
+        url: `/notifications/preferences?user_email=${encodeURIComponent(user_email)}`,
         payload: {
           assigned: { in_app: false, email: true },
           mentioned: { in_app: true, email: true },
@@ -423,7 +423,7 @@ describe('Notifications API', () => {
     it('validates notification type', async () => {
       const response = await app.inject({
         method: 'PATCH',
-        url: `/api/notifications/preferences?user_email=${encodeURIComponent(user_email)}`,
+        url: `/notifications/preferences?user_email=${encodeURIComponent(user_email)}`,
         payload: {
           invalid_type: { in_app: false, email: true },
         },
@@ -433,7 +433,7 @@ describe('Notifications API', () => {
     });
   });
 
-  describe('GET /api/notifications/unread-count', () => {
+  describe('GET /notifications/unread-count', () => {
     it('returns unread count', async () => {
       await pool.query(
         `INSERT INTO notification (user_email, notification_type, title, message, read_at)
@@ -449,7 +449,7 @@ describe('Notifications API', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notifications/unread-count?user_email=${encodeURIComponent(user_email)}`,
+        url: `/notifications/unread-count?user_email=${encodeURIComponent(user_email)}`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -467,7 +467,7 @@ describe('Notifications API', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notifications/unread-count?user_email=${encodeURIComponent(user_email)}&namespaces=home`,
+        url: `/notifications/unread-count?user_email=${encodeURIComponent(user_email)}&namespaces=home`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -510,7 +510,7 @@ describe('Notifications API', () => {
       ).rejects.toThrow();
     });
 
-    describe('GET /api/notifications with namespaces filter', () => {
+    describe('GET /notifications with namespaces filter', () => {
       beforeEach(async () => {
         // Insert notifications in different namespaces
         await pool.query(
@@ -525,7 +525,7 @@ describe('Notifications API', () => {
       it('returns all namespaces when no filter', async () => {
         const response = await app.inject({
           method: 'GET',
-          url: `/api/notifications?user_email=${encodeURIComponent(user_email)}`,
+          url: `/notifications?user_email=${encodeURIComponent(user_email)}`,
         });
 
         expect(response.statusCode).toBe(200);
@@ -536,7 +536,7 @@ describe('Notifications API', () => {
       it('filters by single namespace', async () => {
         const response = await app.inject({
           method: 'GET',
-          url: `/api/notifications?user_email=${encodeURIComponent(user_email)}&namespaces=home`,
+          url: `/notifications?user_email=${encodeURIComponent(user_email)}&namespaces=home`,
         });
 
         expect(response.statusCode).toBe(200);
@@ -549,7 +549,7 @@ describe('Notifications API', () => {
       it('filters by multiple namespaces (comma-separated)', async () => {
         const response = await app.inject({
           method: 'GET',
-          url: `/api/notifications?user_email=${encodeURIComponent(user_email)}&namespaces=home,work`,
+          url: `/notifications?user_email=${encodeURIComponent(user_email)}&namespaces=home,work`,
         });
 
         expect(response.statusCode).toBe(200);
@@ -562,7 +562,7 @@ describe('Notifications API', () => {
       it('returns empty when filtering by non-matching namespace', async () => {
         const response = await app.inject({
           method: 'GET',
-          url: `/api/notifications?user_email=${encodeURIComponent(user_email)}&namespaces=nonexistent`,
+          url: `/notifications?user_email=${encodeURIComponent(user_email)}&namespaces=nonexistent`,
         });
 
         expect(response.statusCode).toBe(200);
@@ -579,7 +579,7 @@ describe('Notifications API', () => {
 
         const response = await app.inject({
           method: 'GET',
-          url: `/api/notifications?user_email=${encodeURIComponent(user_email)}&namespaces=home,work`,
+          url: `/notifications?user_email=${encodeURIComponent(user_email)}&namespaces=home,work`,
         });
 
         expect(response.statusCode).toBe(200);
@@ -590,7 +590,7 @@ describe('Notifications API', () => {
     });
 
     describe('namespace field in notification responses', () => {
-      it('includes namespace in GET /api/notifications response', async () => {
+      it('includes namespace in GET /notifications response', async () => {
         await pool.query(
           `INSERT INTO notification (user_email, notification_type, title, message, namespace)
            VALUES ($1, 'assigned', 'Title', 'Message', 'household')`,
@@ -599,7 +599,7 @@ describe('Notifications API', () => {
 
         const response = await app.inject({
           method: 'GET',
-          url: `/api/notifications?user_email=${encodeURIComponent(user_email)}`,
+          url: `/notifications?user_email=${encodeURIComponent(user_email)}`,
         });
 
         expect(response.statusCode).toBe(200);
@@ -647,7 +647,7 @@ describe('Notifications API', () => {
       });
     });
 
-    describe('POST /api/notifications/read-all with namespace filter', () => {
+    describe('POST /notifications/read-all with namespace filter', () => {
       it('marks all as read respects user_email scope', async () => {
         const otherEmail = 'other-user@example.com';
         // Insert notifications for current user and another user
@@ -668,7 +668,7 @@ describe('Notifications API', () => {
 
         const response = await app.inject({
           method: 'POST',
-          url: `/api/notifications/read-all?user_email=${encodeURIComponent(user_email)}`,
+          url: `/notifications/read-all?user_email=${encodeURIComponent(user_email)}`,
         });
 
         expect(response.statusCode).toBe(200);

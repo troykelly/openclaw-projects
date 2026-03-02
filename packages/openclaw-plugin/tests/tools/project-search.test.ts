@@ -202,7 +202,7 @@ describe('project_search tool', () => {
 
       expect(mockGet).toHaveBeenCalledTimes(1);
       const callUrl = mockGet.mock.calls[0][0] as string;
-      expect(callUrl).toContain('/api/search');
+      expect(callUrl).toContain('/search');
       expect(callUrl).toContain('types=work_item');
       expect(callUrl).toContain('semantic=true');
       expect(callUrl).toContain('q=home+renovation');

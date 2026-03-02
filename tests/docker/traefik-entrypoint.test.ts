@@ -176,12 +176,12 @@ describe('Traefik dynamic config: api-redirect-router', () => {
     const match = re.exec('https://test.example.com/api/work-items');
     expect(match).not.toBeNull();
     expect(match![1]).toBe('test.example.com');
-    expect(match![2]).toBe('/api/work-items');
+    expect(match![2]).toBe('/work-items');
 
     // Traefik uses Go regex ${N} syntax for capture groups; convert to JS $N for testing
     const jsReplacement = replacement.replace(/\$\{(\d+)\}/g, '$$$1');
     const redirectUrl = 'https://test.example.com/api/work-items'.replace(re, jsReplacement);
-    expect(redirectUrl).toBe('https://api.test.example.com/api/work-items');
+    expect(redirectUrl).toBe('https://api.test.example.com/work-items');
   });
 
   it('api-redirect regex handles www prefix', () => {
@@ -193,12 +193,12 @@ describe('Traefik dynamic config: api-redirect-router', () => {
     expect(match).not.toBeNull();
     // www. is consumed by the non-capturing group, so $1 is the base domain
     expect(match![1]).toBe('test.example.com');
-    expect(match![2]).toBe('/api/auth/login');
+    expect(match![2]).toBe('/auth/login');
 
     // Traefik uses Go regex ${N} syntax for capture groups; convert to JS $N for testing
     const jsReplacement = replacement.replace(/\$\{(\d+)\}/g, '$$$1');
     const redirectUrl = 'https://www.test.example.com/api/auth/login'.replace(re, jsReplacement);
-    expect(redirectUrl).toBe('https://api.test.example.com/api/auth/login');
+    expect(redirectUrl).toBe('https://api.test.example.com/auth/login');
   });
 
   it('api-redirect regex handles bare /api path without trailing slash', () => {
@@ -209,11 +209,12 @@ describe('Traefik dynamic config: api-redirect-router', () => {
     const match = re.exec('https://test.example.com/api');
     expect(match).not.toBeNull();
     expect(match![1]).toBe('test.example.com');
-    expect(match![2]).toBe('/api');
+    // /api is consumed by the literal in the regex; group 2 (/.*) is optional and empty
+    expect(match![2]).toBeUndefined();
 
     const jsReplacement = replacement.replace(/\$\{(\d+)\}/g, '$$$1');
     const redirectUrl = 'https://test.example.com/api'.replace(re, jsReplacement);
-    expect(redirectUrl).toBe('https://api.test.example.com/api');
+    expect(redirectUrl).toBe('https://api.test.example.com');
   });
 
   it('preserves root-redirect-router and app-router', () => {

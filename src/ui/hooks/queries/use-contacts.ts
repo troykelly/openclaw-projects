@@ -27,7 +27,7 @@ export function useContacts(search?: string) {
 
   return useQuery({
     queryKey: contactKeys.list(search),
-    queryFn: ({ signal }) => apiClient.get<ContactsResponse>(`/api/contacts${queryString}`, { signal, schema: contactsResponseSchema }),
+    queryFn: ({ signal }) => apiClient.get<ContactsResponse>(`/contacts${queryString}`, { signal, schema: contactsResponseSchema }),
   });
 }
 
@@ -41,7 +41,7 @@ export function useContactDetail(id: string, include?: string) {
   const params = new URLSearchParams();
   if (include) params.set('include', include);
   const qs = params.toString();
-  const url = `/api/contacts/${id}${qs ? `?${qs}` : ''}`;
+  const url = `/contacts/${id}${qs ? `?${qs}` : ''}`;
 
   return useQuery({
     queryKey: include ? contactKeys.detailIncludes(id, include) : contactKeys.detail(id),
@@ -56,6 +56,6 @@ export function useContactDetail(id: string, include?: string) {
 export function useContactTags() {
   return useQuery({
     queryKey: contactKeys.tags(),
-    queryFn: ({ signal }) => apiClient.get<TagCount[]>('/api/tags', { signal, schema: tagCountArraySchema }),
+    queryFn: ({ signal }) => apiClient.get<TagCount[]>('/tags', { signal, schema: tagCountArraySchema }),
   });
 }

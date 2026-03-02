@@ -53,7 +53,7 @@ describe('Namespace scoping (Epic #1418, replaces user_email scoping #1172)', ()
       // Create item with user_email in payload (accepted but ignored for scoping)
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: { title: 'Alice task', user_email: USER_A },
       });
       expect(createRes.statusCode).toBe(201);
@@ -62,7 +62,7 @@ describe('Namespace scoping (Epic #1418, replaces user_email scoping #1172)', ()
       // Item is visible without any user_email filter
       const listAll = await app.inject({
         method: 'GET',
-        url: '/api/work-items',
+        url: '/work-items',
       });
       expect(listAll.statusCode).toBe(200);
       const items = (listAll.json() as { items: Array<{ id: string }> }).items;
@@ -72,7 +72,7 @@ describe('Namespace scoping (Epic #1418, replaces user_email scoping #1172)', ()
     it('items without user_email are visible in default namespace', async () => {
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: { title: 'Global task' },
       });
       expect(createRes.statusCode).toBe(201);
@@ -80,17 +80,17 @@ describe('Namespace scoping (Epic #1418, replaces user_email scoping #1172)', ()
 
       const listAll = await app.inject({
         method: 'GET',
-        url: '/api/work-items',
+        url: '/work-items',
       });
       expect(listAll.statusCode).toBe(200);
       const items = (listAll.json() as { items: Array<{ id: string }> }).items;
       expect(items.some((i) => i.id === item_id)).toBe(true);
     });
 
-    it('GET /api/work-items/:id returns item regardless of user_email param', async () => {
+    it('GET /work-items/:id returns item regardless of user_email param', async () => {
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: { title: 'Scoped item', user_email: USER_A },
       });
       const { id } = createRes.json() as { id: string };
@@ -98,22 +98,22 @@ describe('Namespace scoping (Epic #1418, replaces user_email scoping #1172)', ()
       // Accessible without user_email
       const fetch = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${id}`,
+        url: `/work-items/${id}`,
       });
       expect(fetch.statusCode).toBe(200);
 
       // Also accessible with a different user_email (param is ignored)
       const fetchB = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${id}?user_email=${encodeURIComponent(USER_B)}`,
+        url: `/work-items/${id}?user_email=${encodeURIComponent(USER_B)}`,
       });
       expect(fetchB.statusCode).toBe(200);
     });
 
-    it('DELETE /api/work-items/:id works regardless of user_email param', async () => {
+    it('DELETE /work-items/:id works regardless of user_email param', async () => {
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: { title: 'Delete target', user_email: USER_A },
       });
       const { id } = createRes.json() as { id: string };
@@ -121,22 +121,22 @@ describe('Namespace scoping (Epic #1418, replaces user_email scoping #1172)', ()
       // Delete works regardless of user_email (no per-user scoping)
       const deleteRes = await app.inject({
         method: 'DELETE',
-        url: `/api/work-items/${id}`,
+        url: `/work-items/${id}`,
       });
       expect(deleteRes.statusCode).toBe(204);
     });
 
-    it('PATCH /api/work-items/:id/status works regardless of user_email param', async () => {
+    it('PATCH /work-items/:id/status works regardless of user_email param', async () => {
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: { title: 'Status target', user_email: USER_A },
       });
       const { id } = createRes.json() as { id: string };
 
       const patchRes = await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${id}/status`,
+        url: `/work-items/${id}/status`,
         payload: { status: 'completed' },
       });
       expect(patchRes.statusCode).toBe(200);
@@ -146,7 +146,7 @@ describe('Namespace scoping (Epic #1418, replaces user_email scoping #1172)', ()
     it('work items store namespace in the database', async () => {
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: { title: 'Namespace check' },
       });
       expect(createRes.statusCode).toBe(201);
@@ -175,7 +175,7 @@ describe('Namespace scoping (Epic #1418, replaces user_email scoping #1172)', ()
     it('contacts created with user_email param are visible to all (scoping by namespace)', async () => {
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: { display_name: 'Alice Contact', user_email: USER_A },
       });
       expect(createRes.statusCode).toBe(201);
@@ -184,17 +184,17 @@ describe('Namespace scoping (Epic #1418, replaces user_email scoping #1172)', ()
       // Visible without any user_email filter
       const listAll = await app.inject({
         method: 'GET',
-        url: '/api/contacts',
+        url: '/contacts',
       });
       expect(listAll.statusCode).toBe(200);
       const contacts = (listAll.json() as { contacts: Array<{ id: string }> }).contacts;
       expect(contacts.some((c) => c.id === contact_id)).toBe(true);
     });
 
-    it('GET /api/contacts/:id returns contact regardless of user_email param', async () => {
+    it('GET /contacts/:id returns contact regardless of user_email param', async () => {
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: { display_name: 'Scoped Contact', user_email: USER_A },
       });
       const { id } = createRes.json() as { id: string };
@@ -202,29 +202,29 @@ describe('Namespace scoping (Epic #1418, replaces user_email scoping #1172)', ()
       // Accessible without user_email
       const fetch = await app.inject({
         method: 'GET',
-        url: `/api/contacts/${id}`,
+        url: `/contacts/${id}`,
       });
       expect(fetch.statusCode).toBe(200);
 
       // Also accessible with a different user_email (param is ignored)
       const fetchB = await app.inject({
         method: 'GET',
-        url: `/api/contacts/${id}?user_email=${encodeURIComponent(USER_B)}`,
+        url: `/contacts/${id}?user_email=${encodeURIComponent(USER_B)}`,
       });
       expect(fetchB.statusCode).toBe(200);
     });
 
-    it('DELETE /api/contacts/:id works regardless of user_email param', async () => {
+    it('DELETE /contacts/:id works regardless of user_email param', async () => {
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: { display_name: 'Delete Contact', user_email: USER_A },
       });
       const { id } = createRes.json() as { id: string };
 
       const deleteRes = await app.inject({
         method: 'DELETE',
-        url: `/api/contacts/${id}`,
+        url: `/contacts/${id}`,
       });
       expect(deleteRes.statusCode).toBe(204);
     });
@@ -232,7 +232,7 @@ describe('Namespace scoping (Epic #1418, replaces user_email scoping #1172)', ()
     it('contacts without user_email are visible to all', async () => {
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: { display_name: 'Global Contact' },
       });
       expect(createRes.statusCode).toBe(201);
@@ -240,7 +240,7 @@ describe('Namespace scoping (Epic #1418, replaces user_email scoping #1172)', ()
 
       const listAll = await app.inject({
         method: 'GET',
-        url: '/api/contacts',
+        url: '/contacts',
       });
       expect(listAll.statusCode).toBe(200);
       const contacts = (listAll.json() as { contacts: Array<{ id: string }> }).contacts;
@@ -250,7 +250,7 @@ describe('Namespace scoping (Epic #1418, replaces user_email scoping #1172)', ()
     it('contacts store namespace in the database', async () => {
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: { display_name: 'Namespace check' },
       });
       expect(createRes.statusCode).toBe(201);
@@ -275,16 +275,16 @@ describe('Namespace scoping (Epic #1418, replaces user_email scoping #1172)', ()
       expect(cols).not.toContain('user_email');
     });
 
-    it('relationships are visible via GET /api/relationships (namespace-based)', async () => {
+    it('relationships are visible via GET /relationships (namespace-based)', async () => {
       // Create two contacts
       const contactARes = await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: { display_name: 'Rel Contact A' },
       });
       const contactBRes = await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: { display_name: 'Rel Contact B' },
       });
       const contact_a_id = (contactARes.json() as { id: string }).id;
@@ -293,7 +293,7 @@ describe('Namespace scoping (Epic #1418, replaces user_email scoping #1172)', ()
       // Get relationship types
       const typesRes = await app.inject({
         method: 'GET',
-        url: '/api/relationship-types',
+        url: '/relationship-types',
       });
       const types = typesRes.json() as { types?: Array<{ id: string }> };
       if (!types.types || types.types.length === 0) {
@@ -304,7 +304,7 @@ describe('Namespace scoping (Epic #1418, replaces user_email scoping #1172)', ()
       // Create relationship
       const relRes = await app.inject({
         method: 'POST',
-        url: '/api/relationships',
+        url: '/relationships',
         payload: {
           contact_a_id: contact_a_id,
           contact_b_id: contact_b_id,
@@ -318,7 +318,7 @@ describe('Namespace scoping (Epic #1418, replaces user_email scoping #1172)', ()
         // Relationship visible without user_email filter
         const listAll = await app.inject({
           method: 'GET',
-          url: '/api/relationships',
+          url: '/relationships',
         });
         expect(listAll.statusCode).toBe(200);
         const rels = (listAll.json() as { relationships: Array<{ id: string }> }).relationships;
@@ -326,16 +326,16 @@ describe('Namespace scoping (Epic #1418, replaces user_email scoping #1172)', ()
       }
     });
 
-    it('POST /api/relationships/set stores namespace (not user_email)', async () => {
+    it('POST /relationships/set stores namespace (not user_email)', async () => {
       // Create two contacts
       const contactARes = await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: { display_name: 'SetRelA' },
       });
       const contactBRes = await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: { display_name: 'SetRelB' },
       });
       expect(contactARes.statusCode).toBe(201);
@@ -344,7 +344,7 @@ describe('Namespace scoping (Epic #1418, replaces user_email scoping #1172)', ()
       // Use relationship_set (user_email accepted but ignored for scoping)
       const setRes = await app.inject({
         method: 'POST',
-        url: '/api/relationships/set',
+        url: '/relationships/set',
         payload: {
           contact_a: 'SetRelA',
           contact_b: 'SetRelB',

@@ -8,17 +8,17 @@ import { buildServer } from '../src/api/server.ts';
  * Tests for Skill Store CRUD API endpoints (issue #797).
  *
  * Covers:
- * - POST /api/skill-store/items (create + upsert)
- * - GET /api/skill-store/items/:id
- * - GET /api/skill-store/items/by-key
- * - GET /api/skill-store/items (list)
- * - PATCH /api/skill-store/items/:id
- * - DELETE /api/skill-store/items/:id (soft + hard)
- * - POST /api/skill-store/items/bulk
- * - DELETE /api/skill-store/items/bulk
- * - GET /api/skill-store/collections
- * - DELETE /api/skill-store/collections/:name
- * - POST /api/skill-store/items/:id/archive
+ * - POST /skill-store/items (create + upsert)
+ * - GET /skill-store/items/:id
+ * - GET /skill-store/items/by-key
+ * - GET /skill-store/items (list)
+ * - PATCH /skill-store/items/:id
+ * - DELETE /skill-store/items/:id (soft + hard)
+ * - POST /skill-store/items/bulk
+ * - DELETE /skill-store/items/bulk
+ * - GET /skill-store/collections
+ * - DELETE /skill-store/collections/:name
+ * - POST /skill-store/items/:id/archive
  */
 describe('Skill Store CRUD API (Issue #797)', () => {
   const app = buildServer();
@@ -39,13 +39,13 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     await pool.end();
   });
 
-  // ── POST /api/skill-store/items ──────────────────────────────────────
+  // ── POST /skill-store/items ──────────────────────────────────────
 
-  describe('POST /api/skill-store/items', () => {
+  describe('POST /skill-store/items', () => {
     it('creates a new item and returns 201', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: {
           skill_id: 'my-skill',
           collection: 'notes',
@@ -73,7 +73,7 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     it('returns 201 with defaults when only skill_id provided', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: { skill_id: 'my-skill' },
       });
       expect(res.statusCode).toBe(201);
@@ -86,7 +86,7 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     it('returns 400 when skill_id is missing', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: { title: 'No skill' },
       });
       expect(res.statusCode).toBe(400);
@@ -96,7 +96,7 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     it('rejects data exceeding 1MB (framework 413 or validation 400)', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: {
           skill_id: 'my-skill',
           data: { payload: 'x'.repeat(1048577) },
@@ -110,7 +110,7 @@ describe('Skill Store CRUD API (Issue #797)', () => {
       // Create
       const create = await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: {
           skill_id: 'my-skill',
           collection: 'config',
@@ -125,7 +125,7 @@ describe('Skill Store CRUD API (Issue #797)', () => {
       // Upsert
       const upsert = await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: {
           skill_id: 'my-skill',
           collection: 'config',
@@ -144,7 +144,7 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     it('creates new item when key differs', async () => {
       await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: {
           skill_id: 'my-skill',
           collection: 'config',
@@ -155,7 +155,7 @@ describe('Skill Store CRUD API (Issue #797)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: {
           skill_id: 'my-skill',
           collection: 'config',
@@ -169,7 +169,7 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     it('accepts user_email field without error (ignored, scoping via namespace)', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: {
           skill_id: 'my-skill',
           user_email: 'alice@example.com',
@@ -184,7 +184,7 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     it('supports priority field', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: {
           skill_id: 'my-skill',
           priority: 5,
@@ -198,7 +198,7 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     it('supports media and source URL fields', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: {
           skill_id: 'my-skill',
           media_url: 'https://example.com/image.png',
@@ -214,20 +214,20 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     });
   });
 
-  // ── GET /api/skill-store/items/:id ──────────────────────────────────
+  // ── GET /skill-store/items/:id ──────────────────────────────────
 
-  describe('GET /api/skill-store/items/:id', () => {
+  describe('GET /skill-store/items/:id', () => {
     it('returns item by UUID', async () => {
       const created = await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: { skill_id: 'my-skill', title: 'Test' },
       });
       const id = created.json().id;
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/skill-store/items/${id}`,
+        url: `/skill-store/items/${id}`,
       });
       expect(res.statusCode).toBe(200);
       expect(res.json().id).toBe(id);
@@ -237,7 +237,7 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     it('returns 404 for non-existent id', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/skill-store/items/00000000-0000-0000-0000-000000000000',
+        url: '/skill-store/items/00000000-0000-0000-0000-000000000000',
       });
       expect(res.statusCode).toBe(404);
     });
@@ -245,7 +245,7 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     it('returns 400 for invalid UUID', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/skill-store/items/not-a-uuid',
+        url: '/skill-store/items/not-a-uuid',
       });
       expect(res.statusCode).toBe(400);
     });
@@ -253,7 +253,7 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     it('excludes soft-deleted items by default', async () => {
       const created = await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: { skill_id: 'my-skill', title: 'To Delete' },
       });
       const id = created.json().id;
@@ -261,12 +261,12 @@ describe('Skill Store CRUD API (Issue #797)', () => {
       // Soft delete
       await app.inject({
         method: 'DELETE',
-        url: `/api/skill-store/items/${id}`,
+        url: `/skill-store/items/${id}`,
       });
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/skill-store/items/${id}`,
+        url: `/skill-store/items/${id}`,
       });
       expect(res.statusCode).toBe(404);
     });
@@ -274,32 +274,32 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     it('includes soft-deleted when include_deleted=true', async () => {
       const created = await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: { skill_id: 'my-skill', title: 'Deleted' },
       });
       const id = created.json().id;
 
       await app.inject({
         method: 'DELETE',
-        url: `/api/skill-store/items/${id}`,
+        url: `/skill-store/items/${id}`,
       });
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/skill-store/items/${id}?include_deleted=true`,
+        url: `/skill-store/items/${id}?include_deleted=true`,
       });
       expect(res.statusCode).toBe(200);
       expect(res.json().deleted_at).toBeTruthy();
     });
   });
 
-  // ── GET /api/skill-store/items/by-key ──────────────────────────────
+  // ── GET /skill-store/items/by-key ──────────────────────────────
 
-  describe('GET /api/skill-store/items/by-key', () => {
+  describe('GET /skill-store/items/by-key', () => {
     it('returns item by composite key', async () => {
       await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: {
           skill_id: 'my-skill',
           collection: 'config',
@@ -310,7 +310,7 @@ describe('Skill Store CRUD API (Issue #797)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/skill-store/items/by-key?skill_id=my-skill&collection=config&key=theme',
+        url: '/skill-store/items/by-key?skill_id=my-skill&collection=config&key=theme',
       });
       expect(res.statusCode).toBe(200);
       expect(res.json().data).toEqual({ color: 'blue' });
@@ -319,7 +319,7 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     it('returns 400 when skill_id is missing', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/skill-store/items/by-key?collection=config&key=theme',
+        url: '/skill-store/items/by-key?collection=config&key=theme',
       });
       expect(res.statusCode).toBe(400);
     });
@@ -327,7 +327,7 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     it('returns 400 when key is missing', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/skill-store/items/by-key?skill_id=my-skill&collection=config',
+        url: '/skill-store/items/by-key?skill_id=my-skill&collection=config',
       });
       expect(res.statusCode).toBe(400);
     });
@@ -335,7 +335,7 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     it('returns 404 when not found', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/skill-store/items/by-key?skill_id=my-skill&collection=config&key=nonexistent',
+        url: '/skill-store/items/by-key?skill_id=my-skill&collection=config&key=nonexistent',
       });
       expect(res.statusCode).toBe(404);
     });
@@ -343,7 +343,7 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     it('excludes soft-deleted items', async () => {
       const created = await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: {
           skill_id: 'my-skill',
           collection: 'config',
@@ -353,24 +353,24 @@ describe('Skill Store CRUD API (Issue #797)', () => {
 
       await app.inject({
         method: 'DELETE',
-        url: `/api/skill-store/items/${created.json().id}`,
+        url: `/skill-store/items/${created.json().id}`,
       });
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/skill-store/items/by-key?skill_id=my-skill&collection=config&key=deleted-key',
+        url: '/skill-store/items/by-key?skill_id=my-skill&collection=config&key=deleted-key',
       });
       expect(res.statusCode).toBe(404);
     });
   });
 
-  // ── GET /api/skill-store/items (list) ────────────────────────────────
+  // ── GET /skill-store/items (list) ────────────────────────────────
 
-  describe('GET /api/skill-store/items', () => {
+  describe('GET /skill-store/items', () => {
     it('returns 400 when skill_id is missing', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
       });
       expect(res.statusCode).toBe(400);
     });
@@ -378,23 +378,23 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     it('lists items for a skill', async () => {
       await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: { skill_id: 'my-skill', title: 'Item 1' },
       });
       await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: { skill_id: 'my-skill', title: 'Item 2' },
       });
       await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: { skill_id: 'other-skill', title: 'Other' },
       });
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/skill-store/items?skill_id=my-skill',
+        url: '/skill-store/items?skill_id=my-skill',
       });
       expect(res.statusCode).toBe(200);
       const body = res.json();
@@ -405,18 +405,18 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     it('filters by collection', async () => {
       await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: { skill_id: 's1', collection: 'notes', title: 'A' },
       });
       await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: { skill_id: 's1', collection: 'config', title: 'B' },
       });
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/skill-store/items?skill_id=s1&collection=notes',
+        url: '/skill-store/items?skill_id=s1&collection=notes',
       });
       expect(res.json().items).toHaveLength(1);
       expect(res.json().items[0].title).toBe('A');
@@ -425,23 +425,23 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     it('filters by status', async () => {
       await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: { skill_id: 's1', title: 'Active' },
       });
       const archived = await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: { skill_id: 's1', title: 'Archived' },
       });
       // Archive the item
       await app.inject({
         method: 'POST',
-        url: `/api/skill-store/items/${archived.json().id}/archive`,
+        url: `/skill-store/items/${archived.json().id}/archive`,
       });
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/skill-store/items?skill_id=s1&status=archived',
+        url: '/skill-store/items?skill_id=s1&status=archived',
       });
       expect(res.json().items).toHaveLength(1);
       expect(res.json().items[0].title).toBe('Archived');
@@ -450,18 +450,18 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     it('filters by tags', async () => {
       await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: { skill_id: 's1', title: 'Tagged', tags: ['important', 'urgent'] },
       });
       await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: { skill_id: 's1', title: 'Untagged' },
       });
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/skill-store/items?skill_id=s1&tags=important',
+        url: '/skill-store/items?skill_id=s1&tags=important',
       });
       expect(res.json().items).toHaveLength(1);
       expect(res.json().items[0].title).toBe('Tagged');
@@ -470,19 +470,19 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     it('user_email query param is ignored for filtering (scoping via namespace)', async () => {
       await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: { skill_id: 's1', title: 'Alice', user_email: 'alice@example.com' },
       });
       await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: { skill_id: 's1', title: 'Bob', user_email: 'bob@example.com' },
       });
 
       // user_email filter was removed (Epic #1418); all items in same namespace are returned
       const res = await app.inject({
         method: 'GET',
-        url: '/api/skill-store/items?skill_id=s1',
+        url: '/skill-store/items?skill_id=s1',
       });
       expect(res.json().items).toHaveLength(2);
     });
@@ -491,14 +491,14 @@ describe('Skill Store CRUD API (Issue #797)', () => {
       for (let i = 0; i < 5; i++) {
         await app.inject({
           method: 'POST',
-          url: '/api/skill-store/items',
+          url: '/skill-store/items',
           payload: { skill_id: 's1', title: `Item ${i}` },
         });
       }
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/skill-store/items?skill_id=s1&limit=2&offset=0',
+        url: '/skill-store/items?skill_id=s1&limit=2&offset=0',
       });
       const body = res.json();
       expect(body.items).toHaveLength(2);
@@ -509,13 +509,13 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     it('enforces max limit of 200', async () => {
       await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: { skill_id: 's1', title: 'Test' },
       });
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/skill-store/items?skill_id=s1&limit=500',
+        url: '/skill-store/items?skill_id=s1&limit=500',
       });
       // Should succeed but cap at 200
       expect(res.statusCode).toBe(200);
@@ -524,23 +524,23 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     it('excludes soft-deleted items by default', async () => {
       const created = await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: { skill_id: 's1', title: 'To Delete' },
       });
       await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: { skill_id: 's1', title: 'Active' },
       });
 
       await app.inject({
         method: 'DELETE',
-        url: `/api/skill-store/items/${created.json().id}`,
+        url: `/skill-store/items/${created.json().id}`,
       });
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/skill-store/items?skill_id=s1',
+        url: '/skill-store/items?skill_id=s1',
       });
       expect(res.json().items).toHaveLength(1);
       expect(res.json().items[0].title).toBe('Active');
@@ -560,22 +560,22 @@ describe('Skill Store CRUD API (Issue #797)', () => {
       const since = new Date(Date.now() - 86400000).toISOString(); // 1 day ago
       const res = await app.inject({
         method: 'GET',
-        url: `/api/skill-store/items?skill_id=s1&since=${since}`,
+        url: `/skill-store/items?skill_id=s1&since=${since}`,
       });
       expect(res.json().items).toHaveLength(1);
       expect(res.json().items[0].title).toBe('Recent');
     });
   });
 
-  // ── PATCH /api/skill-store/items/:id ─────────────────────────────────
+  // ── PATCH /skill-store/items/:id ─────────────────────────────────
 
-  describe('PATCH /api/skill-store/items/:id', () => {
+  describe('PATCH /skill-store/items/:id', () => {
     let item_id: string;
 
     beforeEach(async () => {
       const created = await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: {
           skill_id: 'my-skill',
           title: 'Original',
@@ -589,7 +589,7 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     it('partially updates title', async () => {
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/skill-store/items/${item_id}`,
+        url: `/skill-store/items/${item_id}`,
         payload: { title: 'Updated' },
       });
       expect(res.statusCode).toBe(200);
@@ -600,7 +600,7 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     it('partially updates data', async () => {
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/skill-store/items/${item_id}`,
+        url: `/skill-store/items/${item_id}`,
         payload: { data: { v: 2 } },
       });
       expect(res.statusCode).toBe(200);
@@ -611,7 +611,7 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     it('partially updates tags', async () => {
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/skill-store/items/${item_id}`,
+        url: `/skill-store/items/${item_id}`,
         payload: { tags: ['new', 'tags'] },
       });
       expect(res.statusCode).toBe(200);
@@ -621,7 +621,7 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     it('returns 404 for non-existent id', async () => {
       const res = await app.inject({
         method: 'PATCH',
-        url: '/api/skill-store/items/00000000-0000-0000-0000-000000000000',
+        url: '/skill-store/items/00000000-0000-0000-0000-000000000000',
         payload: { title: 'Nope' },
       });
       expect(res.statusCode).toBe(404);
@@ -630,7 +630,7 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     it('returns 400 for invalid UUID', async () => {
       const res = await app.inject({
         method: 'PATCH',
-        url: '/api/skill-store/items/not-a-uuid',
+        url: '/skill-store/items/not-a-uuid',
         payload: { title: 'Nope' },
       });
       expect(res.statusCode).toBe(400);
@@ -639,7 +639,7 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     it('rejects data exceeding 1MB (framework 413 or validation 400)', async () => {
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/skill-store/items/${item_id}`,
+        url: `/skill-store/items/${item_id}`,
         payload: { data: { big: 'x'.repeat(1048577) } },
       });
       expect([400, 413]).toContain(res.statusCode);
@@ -648,7 +648,7 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     it('updates pinned status', async () => {
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/skill-store/items/${item_id}`,
+        url: `/skill-store/items/${item_id}`,
         payload: { pinned: true },
       });
       expect(res.statusCode).toBe(200);
@@ -656,20 +656,20 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     });
   });
 
-  // ── DELETE /api/skill-store/items/:id ────────────────────────────────
+  // ── DELETE /skill-store/items/:id ────────────────────────────────
 
-  describe('DELETE /api/skill-store/items/:id', () => {
+  describe('DELETE /skill-store/items/:id', () => {
     it('soft deletes an item and returns 204', async () => {
       const created = await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: { skill_id: 'my-skill', title: 'To Delete' },
       });
       const id = created.json().id;
 
       const res = await app.inject({
         method: 'DELETE',
-        url: `/api/skill-store/items/${id}`,
+        url: `/skill-store/items/${id}`,
       });
       expect(res.statusCode).toBe(204);
 
@@ -682,14 +682,14 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     it('hard deletes with permanent=true', async () => {
       const created = await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: { skill_id: 'my-skill', title: 'Permanent Delete' },
       });
       const id = created.json().id;
 
       const res = await app.inject({
         method: 'DELETE',
-        url: `/api/skill-store/items/${id}?permanent=true`,
+        url: `/skill-store/items/${id}?permanent=true`,
       });
       expect(res.statusCode).toBe(204);
 
@@ -701,7 +701,7 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     it('returns 404 for non-existent id', async () => {
       const res = await app.inject({
         method: 'DELETE',
-        url: '/api/skill-store/items/00000000-0000-0000-0000-000000000000',
+        url: '/skill-store/items/00000000-0000-0000-0000-000000000000',
       });
       expect(res.statusCode).toBe(404);
     });
@@ -709,19 +709,19 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     it('returns 400 for invalid UUID', async () => {
       const res = await app.inject({
         method: 'DELETE',
-        url: '/api/skill-store/items/not-a-uuid',
+        url: '/skill-store/items/not-a-uuid',
       });
       expect(res.statusCode).toBe(400);
     });
   });
 
-  // ── POST /api/skill-store/items/bulk ─────────────────────────────────
+  // ── POST /skill-store/items/bulk ─────────────────────────────────
 
-  describe('POST /api/skill-store/items/bulk', () => {
+  describe('POST /skill-store/items/bulk', () => {
     it('creates multiple items', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items/bulk',
+        url: '/skill-store/items/bulk',
         payload: {
           items: [
             { skill_id: 's1', title: 'Bulk 1' },
@@ -740,13 +740,13 @@ describe('Skill Store CRUD API (Issue #797)', () => {
       // Create initial
       await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: { skill_id: 's1', collection: 'c', key: 'k1', title: 'v1' },
       });
 
       const res = await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items/bulk',
+        url: '/skill-store/items/bulk',
         payload: {
           items: [
             { skill_id: 's1', collection: 'c', key: 'k1', title: 'v2' },
@@ -761,7 +761,7 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     it('returns 400 when items array is empty', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items/bulk',
+        url: '/skill-store/items/bulk',
         payload: { items: [] },
       });
       expect(res.statusCode).toBe(400);
@@ -774,7 +774,7 @@ describe('Skill Store CRUD API (Issue #797)', () => {
       }));
       const res = await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items/bulk',
+        url: '/skill-store/items/bulk',
         payload: { items },
       });
       expect(res.statusCode).toBe(400);
@@ -784,7 +784,7 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     it('rejects when any item has data exceeding 1MB (framework 413 or validation 400)', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items/bulk',
+        url: '/skill-store/items/bulk',
         payload: {
           items: [
             { skill_id: 's1', title: 'Small' },
@@ -798,7 +798,7 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     it('returns 400 when any item is missing skill_id', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items/bulk',
+        url: '/skill-store/items/bulk',
         payload: {
           items: [{ skill_id: 's1', title: 'OK' }, { title: 'Missing skill_id' }],
         },
@@ -807,23 +807,23 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     });
   });
 
-  // ── DELETE /api/skill-store/items/bulk ────────────────────────────────
+  // ── DELETE /skill-store/items/bulk ────────────────────────────────
 
-  describe('DELETE /api/skill-store/items/bulk', () => {
+  describe('DELETE /skill-store/items/bulk', () => {
     beforeEach(async () => {
       await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: { skill_id: 's1', collection: 'notes', title: 'N1', tags: ['cleanup'] },
       });
       await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: { skill_id: 's1', collection: 'notes', title: 'N2', tags: ['cleanup'] },
       });
       await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: { skill_id: 's1', collection: 'config', title: 'C1' },
       });
     });
@@ -831,7 +831,7 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     it('bulk soft deletes by skill_id + collection', async () => {
       const res = await app.inject({
         method: 'DELETE',
-        url: '/api/skill-store/items/bulk',
+        url: '/skill-store/items/bulk',
         payload: { skill_id: 's1', collection: 'notes' },
       });
       expect(res.statusCode).toBe(200);
@@ -845,7 +845,7 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     it('returns 400 when skill_id is missing', async () => {
       const res = await app.inject({
         method: 'DELETE',
-        url: '/api/skill-store/items/bulk',
+        url: '/skill-store/items/bulk',
         payload: { collection: 'notes' },
       });
       expect(res.statusCode).toBe(400);
@@ -854,7 +854,7 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     it('returns 400 when no additional filter provided', async () => {
       const res = await app.inject({
         method: 'DELETE',
-        url: '/api/skill-store/items/bulk',
+        url: '/skill-store/items/bulk',
         payload: { skill_id: 's1' },
       });
       expect(res.statusCode).toBe(400);
@@ -864,7 +864,7 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     it('filters by tags', async () => {
       const res = await app.inject({
         method: 'DELETE',
-        url: '/api/skill-store/items/bulk',
+        url: '/skill-store/items/bulk',
         payload: { skill_id: 's1', tags: ['cleanup'] },
       });
       expect(res.statusCode).toBe(200);
@@ -872,13 +872,13 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     });
   });
 
-  // ── GET /api/skill-store/collections ─────────────────────────────────
+  // ── GET /skill-store/collections ─────────────────────────────────
 
-  describe('GET /api/skill-store/collections', () => {
+  describe('GET /skill-store/collections', () => {
     it('returns 400 when skill_id is missing', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/skill-store/collections',
+        url: '/skill-store/collections',
       });
       expect(res.statusCode).toBe(400);
     });
@@ -886,23 +886,23 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     it('lists collections with counts', async () => {
       await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: { skill_id: 's1', collection: 'notes', title: 'A' },
       });
       await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: { skill_id: 's1', collection: 'notes', title: 'B' },
       });
       await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: { skill_id: 's1', collection: 'config', title: 'C' },
       });
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/skill-store/collections?skill_id=s1',
+        url: '/skill-store/collections?skill_id=s1',
       });
       expect(res.statusCode).toBe(200);
       const collections = res.json().collections;
@@ -918,47 +918,47 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     it('excludes soft-deleted items from counts', async () => {
       const created = await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: { skill_id: 's1', collection: 'notes', title: 'A' },
       });
       await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: { skill_id: 's1', collection: 'notes', title: 'B' },
       });
 
       await app.inject({
         method: 'DELETE',
-        url: `/api/skill-store/items/${created.json().id}`,
+        url: `/skill-store/items/${created.json().id}`,
       });
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/skill-store/collections?skill_id=s1',
+        url: '/skill-store/collections?skill_id=s1',
       });
       const notes = res.json().collections.find((c: { collection: string }) => c.collection === 'notes');
       expect(notes.count).toBe(1);
     });
   });
 
-  // ── DELETE /api/skill-store/collections/:name ────────────────────────
+  // ── DELETE /skill-store/collections/:name ────────────────────────
 
-  describe('DELETE /api/skill-store/collections/:name', () => {
+  describe('DELETE /skill-store/collections/:name', () => {
     it('soft deletes all items in collection', async () => {
       await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: { skill_id: 's1', collection: 'temp', title: 'A' },
       });
       await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: { skill_id: 's1', collection: 'temp', title: 'B' },
       });
 
       const res = await app.inject({
         method: 'DELETE',
-        url: '/api/skill-store/collections/temp?skill_id=s1',
+        url: '/skill-store/collections/temp?skill_id=s1',
       });
       expect(res.statusCode).toBe(200);
       expect(res.json().deleted).toBe(2);
@@ -967,7 +967,7 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     it('returns 400 when skill_id is missing', async () => {
       const res = await app.inject({
         method: 'DELETE',
-        url: '/api/skill-store/collections/temp',
+        url: '/skill-store/collections/temp',
       });
       expect(res.statusCode).toBe(400);
     });
@@ -975,27 +975,27 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     it('returns 200 with count 0 when collection is empty', async () => {
       const res = await app.inject({
         method: 'DELETE',
-        url: '/api/skill-store/collections/nonexistent?skill_id=s1',
+        url: '/skill-store/collections/nonexistent?skill_id=s1',
       });
       expect(res.statusCode).toBe(200);
       expect(res.json().deleted).toBe(0);
     });
   });
 
-  // ── POST /api/skill-store/items/:id/archive ──────────────────────────
+  // ── POST /skill-store/items/:id/archive ──────────────────────────
 
-  describe('POST /api/skill-store/items/:id/archive', () => {
+  describe('POST /skill-store/items/:id/archive', () => {
     it('sets status to archived', async () => {
       const created = await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: { skill_id: 'my-skill', title: 'To Archive' },
       });
       const id = created.json().id;
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/skill-store/items/${id}/archive`,
+        url: `/skill-store/items/${id}/archive`,
       });
       expect(res.statusCode).toBe(200);
       expect(res.json().status).toBe('archived');
@@ -1004,7 +1004,7 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     it('returns 404 for non-existent id', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items/00000000-0000-0000-0000-000000000000/archive',
+        url: '/skill-store/items/00000000-0000-0000-0000-000000000000/archive',
       });
       expect(res.statusCode).toBe(404);
     });
@@ -1012,7 +1012,7 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     it('returns 400 for invalid UUID', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items/not-a-uuid/archive',
+        url: '/skill-store/items/not-a-uuid/archive',
       });
       expect(res.statusCode).toBe(400);
     });
@@ -1026,7 +1026,7 @@ describe('Skill Store CRUD API (Issue #797)', () => {
       // Create item in skill-A
       const create = await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: { skill_id: 'skill-a', title: 'Owned by A' },
       });
       expect(create.statusCode).toBe(201);
@@ -1036,7 +1036,7 @@ describe('Skill Store CRUD API (Issue #797)', () => {
       // scoping on PATCH by UUID. This test DOCUMENTS the current behavior.
       const patch = await app.inject({
         method: 'PATCH',
-        url: `/api/skill-store/items/${item_id}`,
+        url: `/skill-store/items/${item_id}`,
         payload: { title: 'Changed by anyone' },
       });
       // Current behavior: PATCH by UUID succeeds regardless of skill_id
@@ -1048,7 +1048,7 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     it('DELETE by UUID succeeds regardless of skill_id (documents behavior)', async () => {
       const create = await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: { skill_id: 'skill-b', title: 'Owned by B' },
       });
       expect(create.statusCode).toBe(201);
@@ -1057,7 +1057,7 @@ describe('Skill Store CRUD API (Issue #797)', () => {
       // DELETE using UUID — no skill_id scoping
       const del = await app.inject({
         method: 'DELETE',
-        url: `/api/skill-store/items/${item_id}`,
+        url: `/skill-store/items/${item_id}`,
       });
       expect([200, 204]).toContain(del.statusCode);
     });
@@ -1065,26 +1065,26 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     it('GET by-key enforces skill_id scope', async () => {
       await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: { skill_id: 'skill-x', collection: 'c', key: 'shared-key', title: 'X item' },
       });
       await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: { skill_id: 'skill-y', collection: 'c', key: 'shared-key', title: 'Y item' },
       });
 
       // Each skill sees only its own item
       const resX = await app.inject({
         method: 'GET',
-        url: '/api/skill-store/items/by-key?skill_id=skill-x&collection=c&key=shared-key',
+        url: '/skill-store/items/by-key?skill_id=skill-x&collection=c&key=shared-key',
       });
       expect(resX.statusCode).toBe(200);
       expect(resX.json().title).toBe('X item');
 
       const resY = await app.inject({
         method: 'GET',
-        url: '/api/skill-store/items/by-key?skill_id=skill-y&collection=c&key=shared-key',
+        url: '/skill-store/items/by-key?skill_id=skill-y&collection=c&key=shared-key',
       });
       expect(resY.statusCode).toBe(200);
       expect(resY.json().title).toBe('Y item');
@@ -1099,7 +1099,7 @@ describe('Skill Store CRUD API (Issue #797)', () => {
       // Create item with all fields
       const create = await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: {
           skill_id: 'my-skill',
           collection: 'config',
@@ -1119,7 +1119,7 @@ describe('Skill Store CRUD API (Issue #797)', () => {
       // Non-provided fields reset to their defaults (null, empty array, 0)
       const upsert = await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: {
           skill_id: 'my-skill',
           collection: 'config',
@@ -1141,7 +1141,7 @@ describe('Skill Store CRUD API (Issue #797)', () => {
       // Create item with all fields
       const create = await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: {
           skill_id: 'my-skill',
           collection: 'config',
@@ -1160,7 +1160,7 @@ describe('Skill Store CRUD API (Issue #797)', () => {
       // PATCH with ONLY title change — other fields should be preserved
       const patch = await app.inject({
         method: 'PATCH',
-        url: `/api/skill-store/items/${item_id}`,
+        url: `/skill-store/items/${item_id}`,
         payload: { title: 'Updated Title' },
       });
       expect(patch.statusCode).toBe(200);
@@ -1182,13 +1182,13 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     it('rejects negative offset', async () => {
       await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: { skill_id: 'paginate-skill', title: 'Item 1' },
       });
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/skill-store/items?skill_id=paginate-skill&offset=-5',
+        url: '/skill-store/items?skill_id=paginate-skill&offset=-5',
       });
       // Negative offset causes a database error (not clamped)
       expect([400, 500]).toContain(res.statusCode);
@@ -1197,13 +1197,13 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     it('clamps limit=0 to at least 1', async () => {
       await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: { skill_id: 'paginate-skill', title: 'Item 1' },
       });
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/skill-store/items?skill_id=paginate-skill&limit=0',
+        url: '/skill-store/items?skill_id=paginate-skill&limit=0',
       });
       expect(res.statusCode).toBe(200);
       // Should either return items (clamped to 1+) or return 400
@@ -1213,13 +1213,13 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     it('returns empty array when offset exceeds total', async () => {
       await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: { skill_id: 'paginate-skill', title: 'Item 1' },
       });
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/skill-store/items?skill_id=paginate-skill&offset=9999',
+        url: '/skill-store/items?skill_id=paginate-skill&offset=9999',
       });
       expect(res.statusCode).toBe(200);
       expect(res.json().items).toHaveLength(0);
@@ -1233,7 +1233,7 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     it('rejects empty string skill_id', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: { skill_id: '', title: 'Bad' },
       });
       expect(res.statusCode).toBe(400);
@@ -1242,7 +1242,7 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     it('rejects whitespace-only skill_id', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items',
+        url: '/skill-store/items',
         payload: { skill_id: '   ', title: 'Bad' },
       });
       expect(res.statusCode).toBe(400);
@@ -1251,7 +1251,7 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     it('rejects empty skill_id on GET items', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/skill-store/items?skill_id=',
+        url: '/skill-store/items?skill_id=',
       });
       expect(res.statusCode).toBe(400);
     });

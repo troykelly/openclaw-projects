@@ -16,7 +16,7 @@ The messaging system provides:
 
 ```typescript
 // Send an SMS
-const response = await fetch('/api/twilio/sms/send', {
+const response = await fetch('/twilio/sms/send', {
   method: 'POST',
   headers: {
     'Authorization': `Bearer ${apiToken}`,
@@ -37,7 +37,7 @@ const result = await response.json();
 
 ```typescript
 // Send an email
-const response = await fetch('/api/postmark/email/send', {
+const response = await fetch('/postmark/email/send', {
   method: 'POST',
   headers: {
     'Authorization': `Bearer ${apiToken}`,
@@ -76,8 +76,8 @@ idempotency_key: uuidv4()
 ### Webhook Configuration
 
 Configure your Twilio and Postmark accounts to send delivery status webhooks to:
-- SMS: `https://your-domain/api/twilio/sms/status`
-- Email: `https://your-domain/api/postmark/email/status`
+- SMS: `https://your-domain/twilio/sms/status`
+- Email: `https://your-domain/postmark/email/status`
 
 ### Status Flow
 
@@ -95,7 +95,7 @@ Configure your Twilio and Postmark accounts to send delivery status webhooks to:
 
 ```typescript
 // Get message by ID
-const message = await fetch(`/api/messages/${message_id}`, {
+const message = await fetch(`/messages/${message_id}`, {
   headers: { 'Authorization': `Bearer ${apiToken}` }
 });
 
@@ -160,7 +160,7 @@ Messages are automatically embedded for semantic search. Use the unified search 
 
 ```typescript
 // Search messages by meaning
-const results = await fetch('/api/search?' + new URLSearchParams({
+const results = await fetch('/search?' + new URLSearchParams({
   query: 'conversations about the renovation project',
   types: 'message',
   limit: '10'
@@ -209,7 +209,7 @@ Messages are automatically threaded by conversation.
 
 ```typescript
 // List all threads, optionally filtered by channel or contact
-const threads = await fetch('/api/threads?channel=sms&limit=20', {
+const threads = await fetch('/threads?channel=sms&limit=20', {
   headers: { 'Authorization': `Bearer ${apiToken}` }
 });
 // Returns { threads: [...], total: N, pagination: { limit, offset, has_more } }
@@ -219,7 +219,7 @@ const threads = await fetch('/api/threads?channel=sms&limit=20', {
 
 ```typescript
 // Get full thread with messages, related work items, and contact memories
-const history = await fetch(`/api/threads/${thread_id}/history?limit=50`, {
+const history = await fetch(`/threads/${thread_id}/history?limit=50`, {
   headers: { 'Authorization': `Bearer ${apiToken}` }
 });
 // Returns { thread, messages, related_work_items, contact_memories, pagination }
@@ -229,7 +229,7 @@ const history = await fetch(`/api/threads/${thread_id}/history?limit=50`, {
 
 ```typescript
 // Reply to existing thread
-const response = await fetch('/api/postmark/email/send', {
+const response = await fetch('/postmark/email/send', {
   method: 'POST',
   headers: { /* ... */ },
   body: JSON.stringify({

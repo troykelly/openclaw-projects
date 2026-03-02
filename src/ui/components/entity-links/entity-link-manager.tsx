@@ -36,7 +36,7 @@ export function EntityLinkManager({ entity_type, entity_id, direction, onLinkCli
 
   const handleRemove = async (link_id: string) => {
     try {
-      await apiClient.delete(`/api/entity-links/${link_id}`);
+      await apiClient.delete(`/entity-links/${link_id}`);
       query.refetch();
     } catch (err) {
       console.error('Failed to remove entity link:', err);
@@ -144,7 +144,7 @@ function CreateEntityLinkDialog({ open, onOpenChange, entity_type, entity_id, di
               link_type: linkType,
             };
 
-      await apiClient.post('/api/entity-links', body);
+      await apiClient.post('/entity-links', body);
       onCreated();
       onOpenChange(false);
       setTargetId('');

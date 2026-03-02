@@ -232,7 +232,7 @@ describe('email_send tool', () => {
       });
 
       expect(mockClient.post).toHaveBeenCalledWith(
-        '/api/postmark/email/send',
+        '/postmark/email/send',
         {
           to: 'recipient@example.com',
           subject: 'Test Subject',
@@ -365,7 +365,7 @@ describe('email_send tool', () => {
       // Should succeed — the API handles Postmark auth, not the plugin
       expect(result.success).toBe(true);
       expect(mockClient.post).toHaveBeenCalledWith(
-        '/api/postmark/email/send',
+        '/postmark/email/send',
         expect.objectContaining({
           to: 'recipient@example.com',
           subject: 'Test Subject',

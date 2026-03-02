@@ -115,7 +115,7 @@ describe('terminal session tools', () => {
       }
 
       expect(mockPost).toHaveBeenCalledWith(
-        '/api/terminal/sessions',
+        '/terminal/sessions',
         expect.objectContaining({
           connection_id: '123e4567-e89b-12d3-a456-426614174000',
           tmux_session_name: 'deploy',
@@ -244,7 +244,7 @@ describe('terminal session tools', () => {
         expect(result.data.content).toContain('terminated');
       }
       expect(mockDelete).toHaveBeenCalledWith(
-        '/api/terminal/sessions/123e4567-e89b-12d3-a456-426614174000',
+        '/terminal/sessions/123e4567-e89b-12d3-a456-426614174000',
         expect.objectContaining({ user_id: 'agent-1' }),
       );
     });
@@ -392,7 +392,7 @@ describe('terminal session tools', () => {
       }
 
       expect(mockPost).toHaveBeenCalledWith(
-        '/api/terminal/sessions/123e4567-e89b-12d3-a456-426614174000/send-command',
+        '/terminal/sessions/123e4567-e89b-12d3-a456-426614174000/send-command',
         expect.objectContaining({ command: 'echo hello world', timeout_s: 30 }),
         expect.any(Object),
       );
@@ -517,7 +517,7 @@ describe('terminal session tools', () => {
       }
 
       expect(mockPost).toHaveBeenCalledWith(
-        '/api/terminal/sessions/123e4567-e89b-12d3-a456-426614174000/send-keys',
+        '/terminal/sessions/123e4567-e89b-12d3-a456-426614174000/send-keys',
         expect.objectContaining({ keys: 'C-c' }),
         expect.any(Object),
       );

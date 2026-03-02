@@ -28,11 +28,11 @@ describe('Recurrence API Endpoints', () => {
     await pool.end();
   });
 
-  describe('POST /api/work-items with recurrence', () => {
+  describe('POST /work-items with recurrence', () => {
     it('creates a recurring work item with recurrence_rule', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: {
           title: 'Daily Standup',
           recurrence_rule: 'RRULE:FREQ=DAILY;BYHOUR=9;BYMINUTE=0',
@@ -49,7 +49,7 @@ describe('Recurrence API Endpoints', () => {
     it('creates a recurring work item with recurrence_natural', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: {
           title: 'Morning Review',
           recurrence_natural: 'every weekday at 9am',
@@ -66,7 +66,7 @@ describe('Recurrence API Endpoints', () => {
     it('creates a non-recurring work item when recurrence_natural is not recurring', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: {
           title: 'One-time Task',
           recurrence_natural: 'tomorrow',
@@ -85,7 +85,7 @@ describe('Recurrence API Endpoints', () => {
 
       const response = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: {
           title: 'Limited Recurrence',
           recurrence_rule: 'RRULE:FREQ=WEEKLY',
@@ -101,7 +101,7 @@ describe('Recurrence API Endpoints', () => {
     it('returns 400 for invalid recurrence_end', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: {
           title: 'Bad End Date',
           recurrence_rule: 'RRULE:FREQ=DAILY',
@@ -114,12 +114,12 @@ describe('Recurrence API Endpoints', () => {
     });
   });
 
-  describe('GET /api/work-items/:id/recurrence', () => {
+  describe('GET /work-items/:id/recurrence', () => {
     it('returns recurrence info for a template', async () => {
       // Create a template
       const createResponse = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: {
           title: 'Recurring Task',
           recurrence_rule: 'RRULE:FREQ=DAILY',
@@ -129,7 +129,7 @@ describe('Recurrence API Endpoints', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${templateId}/recurrence`,
+        url: `/work-items/${templateId}/recurrence`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -144,14 +144,14 @@ describe('Recurrence API Endpoints', () => {
       // Create a non-recurring work item
       const createResponse = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: { title: 'Regular Task' },
       });
       const taskId = createResponse.json().id;
 
       const response = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${taskId}/recurrence`,
+        url: `/work-items/${taskId}/recurrence`,
       });
 
       expect(response.statusCode).toBe(404);
@@ -160,19 +160,19 @@ describe('Recurrence API Endpoints', () => {
     it('returns 404 for non-existent work item', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/work-items/00000000-0000-0000-0000-000000000000/recurrence',
+        url: '/work-items/00000000-0000-0000-0000-000000000000/recurrence',
       });
 
       expect(response.statusCode).toBe(404);
     });
   });
 
-  describe('PUT /api/work-items/:id/recurrence', () => {
+  describe('PUT /work-items/:id/recurrence', () => {
     it('updates recurrence rule', async () => {
       // Create a template
       const createResponse = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: {
           title: 'Recurring Task',
           recurrence_rule: 'RRULE:FREQ=DAILY',
@@ -182,7 +182,7 @@ describe('Recurrence API Endpoints', () => {
 
       const response = await app.inject({
         method: 'PUT',
-        url: `/api/work-items/${templateId}/recurrence`,
+        url: `/work-items/${templateId}/recurrence`,
         payload: {
           recurrence_rule: 'RRULE:FREQ=WEEKLY',
         },
@@ -198,7 +198,7 @@ describe('Recurrence API Endpoints', () => {
       // Create a template
       const createResponse = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: {
           title: 'Recurring Task',
           recurrence_rule: 'RRULE:FREQ=DAILY',
@@ -208,7 +208,7 @@ describe('Recurrence API Endpoints', () => {
 
       const response = await app.inject({
         method: 'PUT',
-        url: `/api/work-items/${templateId}/recurrence`,
+        url: `/work-items/${templateId}/recurrence`,
         payload: {
           recurrence_natural: 'every Monday at 10am',
         },
@@ -224,7 +224,7 @@ describe('Recurrence API Endpoints', () => {
       // Create a template
       const createResponse = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: {
           title: 'Recurring Task',
           recurrence_rule: 'RRULE:FREQ=DAILY',
@@ -237,7 +237,7 @@ describe('Recurrence API Endpoints', () => {
 
       const response = await app.inject({
         method: 'PUT',
-        url: `/api/work-items/${templateId}/recurrence`,
+        url: `/work-items/${templateId}/recurrence`,
         payload: {
           recurrence_end: endDate.toISOString(),
         },
@@ -253,7 +253,7 @@ describe('Recurrence API Endpoints', () => {
       // Create a template
       const createResponse = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: {
           title: 'Recurring Task',
           recurrence_rule: 'RRULE:FREQ=DAILY',
@@ -263,7 +263,7 @@ describe('Recurrence API Endpoints', () => {
 
       const response = await app.inject({
         method: 'PUT',
-        url: `/api/work-items/${templateId}/recurrence`,
+        url: `/work-items/${templateId}/recurrence`,
         payload: {
           recurrence_natural: 'random gibberish',
         },
@@ -274,12 +274,12 @@ describe('Recurrence API Endpoints', () => {
     });
   });
 
-  describe('DELETE /api/work-items/:id/recurrence', () => {
+  describe('DELETE /work-items/:id/recurrence', () => {
     it('stops recurrence for a template', async () => {
       // Create a template
       const createResponse = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: {
           title: 'Recurring Task',
           recurrence_rule: 'RRULE:FREQ=DAILY',
@@ -289,7 +289,7 @@ describe('Recurrence API Endpoints', () => {
 
       const response = await app.inject({
         method: 'DELETE',
-        url: `/api/work-items/${templateId}/recurrence`,
+        url: `/work-items/${templateId}/recurrence`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -298,7 +298,7 @@ describe('Recurrence API Endpoints', () => {
       // Verify it's no longer a template
       const checkResponse = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${templateId}/recurrence`,
+        url: `/work-items/${templateId}/recurrence`,
       });
       expect(checkResponse.statusCode).toBe(404);
     });
@@ -306,19 +306,19 @@ describe('Recurrence API Endpoints', () => {
     it('returns 404 for non-existent work item', async () => {
       const response = await app.inject({
         method: 'DELETE',
-        url: '/api/work-items/00000000-0000-0000-0000-000000000000/recurrence',
+        url: '/work-items/00000000-0000-0000-0000-000000000000/recurrence',
       });
 
       expect(response.statusCode).toBe(404);
     });
   });
 
-  describe('GET /api/work-items/:id/instances', () => {
+  describe('GET /work-items/:id/instances', () => {
     it('returns instances of a template', async () => {
       // Create a template
       const createResponse = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: {
           title: 'Recurring Task',
           recurrence_rule: 'RRULE:FREQ=DAILY',
@@ -329,13 +329,13 @@ describe('Recurrence API Endpoints', () => {
       // Generate instances
       await app.inject({
         method: 'POST',
-        url: '/api/recurrence/generate',
+        url: '/recurrence/generate',
         payload: { daysAhead: 3 },
       });
 
       const response = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${templateId}/instances`,
+        url: `/work-items/${templateId}/instances`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -349,14 +349,14 @@ describe('Recurrence API Endpoints', () => {
       // Create a non-recurring work item
       const createResponse = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: { title: 'Regular Task' },
       });
       const taskId = createResponse.json().id;
 
       const response = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${taskId}/instances`,
+        url: `/work-items/${taskId}/instances`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -364,12 +364,12 @@ describe('Recurrence API Endpoints', () => {
     });
   });
 
-  describe('GET /api/recurrence/templates', () => {
+  describe('GET /recurrence/templates', () => {
     it('returns all recurrence templates', async () => {
       // Create some templates
       await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: {
           title: 'Template 1',
           recurrence_rule: 'RRULE:FREQ=DAILY',
@@ -377,7 +377,7 @@ describe('Recurrence API Endpoints', () => {
       });
       await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: {
           title: 'Template 2',
           recurrence_rule: 'RRULE:FREQ=WEEKLY',
@@ -386,7 +386,7 @@ describe('Recurrence API Endpoints', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: '/api/recurrence/templates',
+        url: '/recurrence/templates',
       });
 
       expect(response.statusCode).toBe(200);
@@ -400,7 +400,7 @@ describe('Recurrence API Endpoints', () => {
       for (let i = 0; i < 5; i++) {
         await app.inject({
           method: 'POST',
-          url: '/api/work-items',
+          url: '/work-items',
           payload: {
             title: `Template ${i}`,
             recurrence_rule: 'RRULE:FREQ=DAILY',
@@ -410,7 +410,7 @@ describe('Recurrence API Endpoints', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: '/api/recurrence/templates?limit=2&offset=0',
+        url: '/recurrence/templates?limit=2&offset=0',
       });
 
       expect(response.statusCode).toBe(200);
@@ -418,12 +418,12 @@ describe('Recurrence API Endpoints', () => {
     });
   });
 
-  describe('POST /api/recurrence/generate', () => {
+  describe('POST /recurrence/generate', () => {
     it('generates upcoming instances', async () => {
       // Create a template
       await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: {
           title: 'Daily Task',
           recurrence_rule: 'RRULE:FREQ=DAILY',
@@ -432,7 +432,7 @@ describe('Recurrence API Endpoints', () => {
 
       const response = await app.inject({
         method: 'POST',
-        url: '/api/recurrence/generate',
+        url: '/recurrence/generate',
         payload: { daysAhead: 3 },
       });
 
@@ -447,7 +447,7 @@ describe('Recurrence API Endpoints', () => {
       // Create a template
       await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: {
           title: 'Daily Task',
           recurrence_rule: 'RRULE:FREQ=DAILY',
@@ -456,7 +456,7 @@ describe('Recurrence API Endpoints', () => {
 
       const response = await app.inject({
         method: 'POST',
-        url: '/api/recurrence/generate',
+        url: '/recurrence/generate',
         payload: {},
       });
 

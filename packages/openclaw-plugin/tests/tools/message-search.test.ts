@@ -232,7 +232,7 @@ describe('message_search tool', () => {
         limit: 15,
       });
 
-      expect(mockClient.get).toHaveBeenCalledWith(expect.stringContaining('/api/search'), { user_id });
+      expect(mockClient.get).toHaveBeenCalledWith(expect.stringContaining('/search'), { user_id });
       const callUrl = (mockClient.get as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
       expect(callUrl).toContain('q=meeting+notes');
       expect(callUrl).toContain('types=message');

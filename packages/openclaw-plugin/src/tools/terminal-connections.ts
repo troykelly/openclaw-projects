@@ -137,7 +137,7 @@ export function createTerminalConnectionListTool(options: TerminalConnectionTool
         if (is_local !== undefined) queryParams.set('is_local', String(is_local));
 
         const queryString = queryParams.toString();
-        const path = `/api/terminal/connections${queryString ? `?${queryString}` : ''}`;
+        const path = `/terminal/connections${queryString ? `?${queryString}` : ''}`;
         const response = await client.get<{ connections?: TerminalConnection[]; items?: TerminalConnection[]; total?: number }>(path, { user_id });
 
         if (!response.success) {
@@ -280,7 +280,7 @@ export function createTerminalConnectionCreateTool(options: TerminalConnectionTo
         if (tags) body.tags = tags.split(',').map((t) => t.trim()).filter(Boolean);
         if (notes) body.notes = stripHtml(notes);
 
-        const response = await client.post<{ id: string; name?: string }>('/api/terminal/connections', body, { user_id });
+        const response = await client.post<{ id: string; name?: string }>('/terminal/connections', body, { user_id });
 
         if (!response.success) {
           logger.error('terminal_connection_create API error', {
@@ -389,7 +389,7 @@ export function createTerminalConnectionUpdateTool(options: TerminalConnectionTo
         if (tags) body.tags = tags.split(',').map((t) => t.trim()).filter(Boolean);
         if (notes) body.notes = stripHtml(notes);
 
-        const response = await client.patch<{ id: string }>(`/api/terminal/connections/${id}`, body, { user_id });
+        const response = await client.patch<{ id: string }>(`/terminal/connections/${id}`, body, { user_id });
 
         if (!response.success) {
           if (response.error.code === 'NOT_FOUND') {
@@ -480,7 +480,7 @@ export function createTerminalConnectionDeleteTool(options: TerminalConnectionTo
       logger.info('terminal_connection_delete invoked', { user_id, connectionId: id });
 
       try {
-        const response = await client.delete<void>(`/api/terminal/connections/${id}`, { user_id });
+        const response = await client.delete<void>(`/terminal/connections/${id}`, { user_id });
 
         if (!response.success) {
           if (response.error.code === 'NOT_FOUND') {
@@ -583,7 +583,7 @@ export function createTerminalConnectionTestTool(options: TerminalConnectionTool
       logger.info('terminal_connection_test invoked', { user_id, connectionId: id });
 
       try {
-        const response = await client.post<ConnectionTestResponse>(`/api/terminal/connections/${id}/test`, undefined, { user_id });
+        const response = await client.post<ConnectionTestResponse>(`/terminal/connections/${id}/test`, undefined, { user_id });
 
         if (!response.success) {
           if (response.error.code === 'NOT_FOUND') {
@@ -714,7 +714,7 @@ export function createTerminalCredentialCreateTool(options: TerminalConnectionTo
         if (command_timeout_s !== undefined) body.command_timeout_s = command_timeout_s;
 
         const response = await client.post<{ id: string; name?: string; kind?: string; fingerprint?: string }>(
-          '/api/terminal/credentials',
+          '/terminal/credentials',
           body,
           { user_id },
         );
@@ -811,7 +811,7 @@ export function createTerminalCredentialListTool(options: TerminalConnectionTool
         if (kind) queryParams.set('kind', kind);
 
         const queryString = queryParams.toString();
-        const path = `/api/terminal/credentials${queryString ? `?${queryString}` : ''}`;
+        const path = `/terminal/credentials${queryString ? `?${queryString}` : ''}`;
         const response = await client.get<{ credentials?: TerminalCredential[]; items?: TerminalCredential[]; total?: number }>(path, { user_id });
 
         if (!response.success) {
@@ -920,7 +920,7 @@ export function createTerminalCredentialDeleteTool(options: TerminalConnectionTo
       logger.info('terminal_credential_delete invoked', { user_id, credentialId: id });
 
       try {
-        const response = await client.delete<void>(`/api/terminal/credentials/${id}`, { user_id });
+        const response = await client.delete<void>(`/terminal/credentials/${id}`, { user_id });
 
         if (!response.success) {
           if (response.error.code === 'NOT_FOUND') {

@@ -8,11 +8,11 @@ import { buildServer } from '../src/api/server.ts';
  * Tests for Skill Store Admin API endpoints (Issue #804).
  *
  * Covers:
- * - GET /api/admin/skill-store/stats
- * - GET /api/admin/skill-store/skills
- * - GET /api/admin/skill-store/skills/:skill_id
- * - GET /api/admin/skill-store/embeddings/status (already exists from #799, verify integration)
- * - DELETE /api/admin/skill-store/skills/:skill_id (hard purge)
+ * - GET /admin/skill-store/stats
+ * - GET /admin/skill-store/skills
+ * - GET /admin/skill-store/skills/:skill_id
+ * - GET /admin/skill-store/embeddings/status (already exists from #799, verify integration)
+ * - DELETE /admin/skill-store/skills/:skill_id (hard purge)
  */
 describe('Skill Store Admin API (Issue #804)', () => {
   const app = buildServer();
@@ -71,13 +71,13 @@ describe('Skill Store Admin API (Issue #804)', () => {
     return result.rows[0];
   }
 
-  // ── GET /api/admin/skill-store/stats ──────────────────────────────────
+  // ── GET /admin/skill-store/stats ──────────────────────────────────
 
-  describe('GET /api/admin/skill-store/stats', () => {
+  describe('GET /admin/skill-store/stats', () => {
     it('returns global stats with empty database', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/admin/skill-store/stats',
+        url: '/admin/skill-store/stats',
       });
       expect(res.statusCode).toBe(200);
       const body = res.json();
@@ -96,7 +96,7 @@ describe('Skill Store Admin API (Issue #804)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/admin/skill-store/stats',
+        url: '/admin/skill-store/stats',
       });
       expect(res.statusCode).toBe(200);
       const body = res.json();
@@ -113,7 +113,7 @@ describe('Skill Store Admin API (Issue #804)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/admin/skill-store/stats',
+        url: '/admin/skill-store/stats',
       });
       expect(res.statusCode).toBe(200);
       const body = res.json();
@@ -130,7 +130,7 @@ describe('Skill Store Admin API (Issue #804)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/admin/skill-store/stats',
+        url: '/admin/skill-store/stats',
       });
       expect(res.statusCode).toBe(200);
       const body = res.json();
@@ -142,7 +142,7 @@ describe('Skill Store Admin API (Issue #804)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/admin/skill-store/stats',
+        url: '/admin/skill-store/stats',
       });
       expect(res.statusCode).toBe(200);
       const body = res.json();
@@ -151,13 +151,13 @@ describe('Skill Store Admin API (Issue #804)', () => {
     });
   });
 
-  // ── GET /api/admin/skill-store/skills ─────────────────────────────────
+  // ── GET /admin/skill-store/skills ─────────────────────────────────
 
-  describe('GET /api/admin/skill-store/skills', () => {
+  describe('GET /admin/skill-store/skills', () => {
     it('returns empty array when no skills exist', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/admin/skill-store/skills',
+        url: '/admin/skill-store/skills',
       });
       expect(res.statusCode).toBe(200);
       const body = res.json();
@@ -172,7 +172,7 @@ describe('Skill Store Admin API (Issue #804)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/admin/skill-store/skills',
+        url: '/admin/skill-store/skills',
       });
       expect(res.statusCode).toBe(200);
       const body = res.json();
@@ -191,7 +191,7 @@ describe('Skill Store Admin API (Issue #804)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/admin/skill-store/skills',
+        url: '/admin/skill-store/skills',
       });
       expect(res.statusCode).toBe(200);
       const body = res.json();
@@ -206,7 +206,7 @@ describe('Skill Store Admin API (Issue #804)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/admin/skill-store/skills',
+        url: '/admin/skill-store/skills',
       });
       expect(res.statusCode).toBe(200);
       const body = res.json();
@@ -214,13 +214,13 @@ describe('Skill Store Admin API (Issue #804)', () => {
     });
   });
 
-  // ── GET /api/admin/skill-store/skills/:skill_id ────────────────────────
+  // ── GET /admin/skill-store/skills/:skill_id ────────────────────────
 
-  describe('GET /api/admin/skill-store/skills/:skill_id', () => {
+  describe('GET /admin/skill-store/skills/:skill_id', () => {
     it('returns 404 for non-existent skill', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/admin/skill-store/skills/nonexistent',
+        url: '/admin/skill-store/skills/nonexistent',
       });
       expect(res.statusCode).toBe(404);
     });
@@ -232,7 +232,7 @@ describe('Skill Store Admin API (Issue #804)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/admin/skill-store/skills/detail-skill',
+        url: '/admin/skill-store/skills/detail-skill',
       });
       expect(res.statusCode).toBe(200);
       const body = res.json();
@@ -250,7 +250,7 @@ describe('Skill Store Admin API (Issue #804)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/admin/skill-store/skills/x',
+        url: '/admin/skill-store/skills/x',
       });
       expect(res.statusCode).toBe(200);
       const body = res.json();
@@ -268,7 +268,7 @@ describe('Skill Store Admin API (Issue #804)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/admin/skill-store/skills/emb',
+        url: '/admin/skill-store/skills/emb',
       });
       expect(res.statusCode).toBe(200);
       const body = res.json();
@@ -283,7 +283,7 @@ describe('Skill Store Admin API (Issue #804)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/admin/skill-store/skills/sched-skill',
+        url: '/admin/skill-store/skills/sched-skill',
       });
       expect(res.statusCode).toBe(200);
       const body = res.json();
@@ -298,7 +298,7 @@ describe('Skill Store Admin API (Issue #804)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/admin/skill-store/skills/del-skill',
+        url: '/admin/skill-store/skills/del-skill',
       });
       expect(res.statusCode).toBe(200);
       const body = res.json();
@@ -306,13 +306,13 @@ describe('Skill Store Admin API (Issue #804)', () => {
     });
   });
 
-  // ── GET /api/admin/skill-store/embeddings/status ─────────────────────
+  // ── GET /admin/skill-store/embeddings/status ─────────────────────
 
-  describe('GET /api/admin/skill-store/embeddings/status', () => {
+  describe('GET /admin/skill-store/embeddings/status', () => {
     it('returns embedding statistics', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/admin/skill-store/embeddings/status',
+        url: '/admin/skill-store/embeddings/status',
       });
       expect(res.statusCode).toBe(200);
       const body = res.json();
@@ -321,15 +321,15 @@ describe('Skill Store Admin API (Issue #804)', () => {
     });
   });
 
-  // ── DELETE /api/admin/skill-store/skills/:skill_id ─────────────────────
+  // ── DELETE /admin/skill-store/skills/:skill_id ─────────────────────
 
-  describe('DELETE /api/admin/skill-store/skills/:skill_id', () => {
+  describe('DELETE /admin/skill-store/skills/:skill_id', () => {
     it('requires X-Confirm-Delete header', async () => {
       await insertItem({ skill_id: 'purge-skill' });
 
       const res = await app.inject({
         method: 'DELETE',
-        url: '/api/admin/skill-store/skills/purge-skill',
+        url: '/admin/skill-store/skills/purge-skill',
       });
       expect(res.statusCode).toBe(400);
       const body = res.json();
@@ -341,7 +341,7 @@ describe('Skill Store Admin API (Issue #804)', () => {
 
       const res = await app.inject({
         method: 'DELETE',
-        url: '/api/admin/skill-store/skills/purge-skill',
+        url: '/admin/skill-store/skills/purge-skill',
         headers: { 'x-confirm-delete': 'false' },
       });
       expect(res.statusCode).toBe(400);
@@ -354,7 +354,7 @@ describe('Skill Store Admin API (Issue #804)', () => {
 
       const res = await app.inject({
         method: 'DELETE',
-        url: '/api/admin/skill-store/skills/purge-me',
+        url: '/admin/skill-store/skills/purge-me',
         headers: { 'x-confirm-delete': 'true' },
       });
       expect(res.statusCode).toBe(200);
@@ -377,7 +377,7 @@ describe('Skill Store Admin API (Issue #804)', () => {
 
       const res = await app.inject({
         method: 'DELETE',
-        url: '/api/admin/skill-store/skills/sched-purge',
+        url: '/admin/skill-store/skills/sched-purge',
         headers: { 'x-confirm-delete': 'true' },
       });
       expect(res.statusCode).toBe(200);
@@ -389,7 +389,7 @@ describe('Skill Store Admin API (Issue #804)', () => {
     it('returns 404 for non-existent skill', async () => {
       const res = await app.inject({
         method: 'DELETE',
-        url: '/api/admin/skill-store/skills/nonexistent',
+        url: '/admin/skill-store/skills/nonexistent',
         headers: { 'x-confirm-delete': 'true' },
       });
       expect(res.statusCode).toBe(404);
@@ -402,7 +402,7 @@ describe('Skill Store Admin API (Issue #804)', () => {
 
       const res = await app.inject({
         method: 'DELETE',
-        url: '/api/admin/skill-store/skills/full-purge',
+        url: '/admin/skill-store/skills/full-purge',
         headers: { 'x-confirm-delete': 'true' },
       });
       expect(res.statusCode).toBe(200);
@@ -416,13 +416,13 @@ describe('Skill Store Admin API (Issue #804)', () => {
   });
 
   // ===========================================================================
-  // Issue #831: HTTP test for POST /api/admin/skill-store/embeddings/backfill
+  // Issue #831: HTTP test for POST /admin/skill-store/embeddings/backfill
   // ===========================================================================
-  describe('POST /api/admin/skill-store/embeddings/backfill (Issue #831)', () => {
+  describe('POST /admin/skill-store/embeddings/backfill (Issue #831)', () => {
     it('returns 202 with default batch_size', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/admin/skill-store/embeddings/backfill',
+        url: '/admin/skill-store/embeddings/backfill',
         payload: {},
       });
       expect(res.statusCode).toBe(202);
@@ -435,7 +435,7 @@ describe('Skill Store Admin API (Issue #804)', () => {
     it('clamps batch_size below 1 to 1', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/admin/skill-store/embeddings/backfill',
+        url: '/admin/skill-store/embeddings/backfill',
         payload: { batch_size: -10 },
       });
       expect(res.statusCode).toBe(202);
@@ -444,7 +444,7 @@ describe('Skill Store Admin API (Issue #804)', () => {
     it('clamps batch_size above 1000 to 1000', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/admin/skill-store/embeddings/backfill',
+        url: '/admin/skill-store/embeddings/backfill',
         payload: { batch_size: 5000 },
       });
       expect(res.statusCode).toBe(202);
@@ -456,7 +456,7 @@ describe('Skill Store Admin API (Issue #804)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: '/api/admin/skill-store/embeddings/backfill',
+        url: '/admin/skill-store/embeddings/backfill',
         payload: { batch_size: 10 },
       });
       expect(res.statusCode).toBe(202);

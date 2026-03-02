@@ -170,7 +170,7 @@ export async function terminalRoutesPlugin(
   // ================================================================
 
   // GET /api/terminal/health — Check if tmux worker is reachable
-  app.get('/api/terminal/health', async (_req, reply) => {
+  app.get('/terminal/health', async (_req, reply) => {
     try {
       const client = grpcClient.getGrpcClient();
       await new Promise<void>((resolve, reject) => {
@@ -191,7 +191,7 @@ export async function terminalRoutesPlugin(
   // ================================================================
 
   // GET /api/terminal/connections — List connections
-  app.get('/api/terminal/connections', async (req, reply) => {
+  app.get('/terminal/connections', async (req, reply) => {
     const query = req.query as {
       limit?: string;
       offset?: string;
@@ -262,7 +262,7 @@ export async function terminalRoutesPlugin(
   });
 
   // POST /api/terminal/connections — Create connection
-  app.post('/api/terminal/connections', async (req, reply) => {
+  app.post('/terminal/connections', async (req, reply) => {
     const body = req.body as {
       name?: string;
       host?: string | null;
@@ -362,7 +362,7 @@ export async function terminalRoutesPlugin(
   });
 
   // GET /api/terminal/connections/:id — Get connection details
-  app.get('/api/terminal/connections/:id', async (req, reply) => {
+  app.get('/terminal/connections/:id', async (req, reply) => {
     const params = req.params as { id: string };
     if (!UUID_REGEX.test(params.id)) {
       return reply.code(400).send({ error: 'Invalid connection ID format' });
@@ -389,7 +389,7 @@ export async function terminalRoutesPlugin(
   });
 
   // PATCH /api/terminal/connections/:id — Update connection
-  app.patch('/api/terminal/connections/:id', async (req, reply) => {
+  app.patch('/terminal/connections/:id', async (req, reply) => {
     const params = req.params as { id: string };
     if (!UUID_REGEX.test(params.id)) {
       return reply.code(400).send({ error: 'Invalid connection ID format' });
@@ -457,7 +457,7 @@ export async function terminalRoutesPlugin(
   });
 
   // DELETE /api/terminal/connections/:id — Soft delete
-  app.delete('/api/terminal/connections/:id', async (req, reply) => {
+  app.delete('/terminal/connections/:id', async (req, reply) => {
     const params = req.params as { id: string };
     if (!UUID_REGEX.test(params.id)) {
       return reply.code(400).send({ error: 'Invalid connection ID format' });
@@ -484,7 +484,7 @@ export async function terminalRoutesPlugin(
   });
 
   // POST /api/terminal/connections/:id/test — Test connectivity
-  app.post('/api/terminal/connections/:id/test', async (req, reply) => {
+  app.post('/terminal/connections/:id/test', async (req, reply) => {
     const params = req.params as { id: string };
     if (!UUID_REGEX.test(params.id)) {
       return reply.code(400).send({ error: 'Invalid connection ID format' });
@@ -525,7 +525,7 @@ export async function terminalRoutesPlugin(
   });
 
   // POST /api/terminal/connections/import-ssh-config — Import from SSH config
-  app.post('/api/terminal/connections/import-ssh-config', async (req, reply) => {
+  app.post('/terminal/connections/import-ssh-config', async (req, reply) => {
     const body = req.body as { config_text?: string };
     if (!body?.config_text?.trim()) {
       return reply.code(400).send({ error: 'config_text is required' });
@@ -577,7 +577,7 @@ export async function terminalRoutesPlugin(
   // ================================================================
 
   // GET /api/terminal/credentials — List credentials (metadata only)
-  app.get('/api/terminal/credentials', async (req, reply) => {
+  app.get('/terminal/credentials', async (req, reply) => {
     const query = req.query as { limit?: string; offset?: string };
     const { limit, offset } = parsePagination(query);
     const namespaces = getEffectiveNamespaces(req);
@@ -607,7 +607,7 @@ export async function terminalRoutesPlugin(
   });
 
   // POST /api/terminal/credentials — Create credential
-  app.post('/api/terminal/credentials', async (req, reply) => {
+  app.post('/terminal/credentials', async (req, reply) => {
     const body = req.body as {
       name?: string;
       kind?: string;
@@ -684,7 +684,7 @@ export async function terminalRoutesPlugin(
   });
 
   // GET /api/terminal/credentials/:id — Get credential metadata
-  app.get('/api/terminal/credentials/:id', async (req, reply) => {
+  app.get('/terminal/credentials/:id', async (req, reply) => {
     const params = req.params as { id: string };
     if (!UUID_REGEX.test(params.id)) {
       return reply.code(400).send({ error: 'Invalid credential ID format' });
@@ -710,7 +710,7 @@ export async function terminalRoutesPlugin(
   });
 
   // PATCH /api/terminal/credentials/:id — Update credential
-  app.patch('/api/terminal/credentials/:id', async (req, reply) => {
+  app.patch('/terminal/credentials/:id', async (req, reply) => {
     const params = req.params as { id: string };
     if (!UUID_REGEX.test(params.id)) {
       return reply.code(400).send({ error: 'Invalid credential ID format' });
@@ -806,7 +806,7 @@ export async function terminalRoutesPlugin(
   });
 
   // DELETE /api/terminal/credentials/:id — Soft delete
-  app.delete('/api/terminal/credentials/:id', async (req, reply) => {
+  app.delete('/terminal/credentials/:id', async (req, reply) => {
     const params = req.params as { id: string };
     if (!UUID_REGEX.test(params.id)) {
       return reply.code(400).send({ error: 'Invalid credential ID format' });
@@ -833,7 +833,7 @@ export async function terminalRoutesPlugin(
   });
 
   // POST /api/terminal/credentials/generate — Generate SSH key pair
-  app.post('/api/terminal/credentials/generate', async (req, reply) => {
+  app.post('/terminal/credentials/generate', async (req, reply) => {
     const body = req.body as {
       name?: string;
       type?: string;
@@ -905,7 +905,7 @@ export async function terminalRoutesPlugin(
   // ================================================================
 
   // GET /api/terminal/sessions — List sessions
-  app.get('/api/terminal/sessions', async (req, reply) => {
+  app.get('/terminal/sessions', async (req, reply) => {
     const query = req.query as {
       limit?: string;
       offset?: string;
@@ -962,7 +962,7 @@ export async function terminalRoutesPlugin(
   });
 
   // POST /api/terminal/sessions — Create session via gRPC
-  app.post('/api/terminal/sessions', async (req, reply) => {
+  app.post('/terminal/sessions', async (req, reply) => {
     const body = req.body as {
       connection_id?: string;
       tmux_session_name?: string;
@@ -1022,7 +1022,7 @@ export async function terminalRoutesPlugin(
   });
 
   // GET /api/terminal/sessions/:id — Get session details
-  app.get('/api/terminal/sessions/:id', async (req, reply) => {
+  app.get('/terminal/sessions/:id', async (req, reply) => {
     const params = req.params as { id: string };
     if (!UUID_REGEX.test(params.id)) {
       return reply.code(400).send({ error: 'Invalid session ID format' });
@@ -1078,7 +1078,7 @@ export async function terminalRoutesPlugin(
   });
 
   // PATCH /api/terminal/sessions/:id — Update notes/tags (DB only)
-  app.patch('/api/terminal/sessions/:id', async (req, reply) => {
+  app.patch('/terminal/sessions/:id', async (req, reply) => {
     const params = req.params as { id: string };
     if (!UUID_REGEX.test(params.id)) {
       return reply.code(400).send({ error: 'Invalid session ID format' });
@@ -1134,7 +1134,7 @@ export async function terminalRoutesPlugin(
   });
 
   // DELETE /api/terminal/sessions/:id — Terminate session via gRPC
-  app.delete('/api/terminal/sessions/:id', async (req, reply) => {
+  app.delete('/terminal/sessions/:id', async (req, reply) => {
     const params = req.params as { id: string };
     if (!UUID_REGEX.test(params.id)) {
       return reply.code(400).send({ error: 'Invalid session ID format' });
@@ -1164,7 +1164,7 @@ export async function terminalRoutesPlugin(
   });
 
   // POST /api/terminal/sessions/:id/resize — Resize terminal via gRPC
-  app.post('/api/terminal/sessions/:id/resize', async (req, reply) => {
+  app.post('/terminal/sessions/:id/resize', async (req, reply) => {
     const params = req.params as { id: string };
     if (!UUID_REGEX.test(params.id)) {
       return reply.code(400).send({ error: 'Invalid session ID format' });
@@ -1209,7 +1209,7 @@ export async function terminalRoutesPlugin(
   });
 
   // POST /api/terminal/sessions/:id/annotate — Add annotation entry
-  app.post('/api/terminal/sessions/:id/annotate', async (req, reply) => {
+  app.post('/terminal/sessions/:id/annotate', async (req, reply) => {
     const params = req.params as { id: string };
     if (!UUID_REGEX.test(params.id)) {
       return reply.code(400).send({ error: 'Invalid session ID format' });
@@ -1265,7 +1265,7 @@ export async function terminalRoutesPlugin(
   // ================================================================
 
   // WS /api/terminal/sessions/:id/attach — WebSocket terminal attach
-  app.get('/api/terminal/sessions/:id/attach', { websocket: true }, async (socket: WebSocket, req: FastifyRequest) => {
+  app.get('/terminal/sessions/:id/attach', { websocket: true }, async (socket: WebSocket, req: FastifyRequest) => {
     const params = req.params as { id: string };
     const query = req.query as { token?: string };
 
@@ -1385,7 +1385,7 @@ export async function terminalRoutesPlugin(
   // ================================================================
 
   // POST /api/terminal/sessions/:id/send-command — Send command and wait for output
-  app.post('/api/terminal/sessions/:id/send-command', async (req, reply) => {
+  app.post('/terminal/sessions/:id/send-command', async (req, reply) => {
     const params = req.params as { id: string };
     if (!UUID_REGEX.test(params.id)) {
       return reply.code(400).send({ error: 'Invalid session ID format' });
@@ -1436,7 +1436,7 @@ export async function terminalRoutesPlugin(
   });
 
   // POST /api/terminal/sessions/:id/send-keys — Send raw keystrokes
-  app.post('/api/terminal/sessions/:id/send-keys', async (req, reply) => {
+  app.post('/terminal/sessions/:id/send-keys', async (req, reply) => {
     const params = req.params as { id: string };
     if (!UUID_REGEX.test(params.id)) {
       return reply.code(400).send({ error: 'Invalid session ID format' });
@@ -1477,7 +1477,7 @@ export async function terminalRoutesPlugin(
   });
 
   // GET /api/terminal/sessions/:id/capture — Capture pane content
-  app.get('/api/terminal/sessions/:id/capture', async (req, reply) => {
+  app.get('/terminal/sessions/:id/capture', async (req, reply) => {
     const params = req.params as { id: string };
     const query = req.query as { pane_id?: string; lines?: string };
 
@@ -1510,7 +1510,7 @@ export async function terminalRoutesPlugin(
   // ================================================================
 
   // GET /api/terminal/enrollment-tokens — List tokens (metadata only)
-  app.get('/api/terminal/enrollment-tokens', async (req, reply) => {
+  app.get('/terminal/enrollment-tokens', async (req, reply) => {
     const query = req.query as { limit?: string; offset?: string };
     const { limit, offset } = parsePagination(query);
     const namespaces = getEffectiveNamespaces(req);
@@ -1537,7 +1537,7 @@ export async function terminalRoutesPlugin(
   });
 
   // POST /api/terminal/enrollment-tokens — Create token
-  app.post('/api/terminal/enrollment-tokens', async (req, reply) => {
+  app.post('/terminal/enrollment-tokens', async (req, reply) => {
     const namespace = getStoreNamespace(req);
     const body = req.body as {
       label?: string;
@@ -1594,12 +1594,12 @@ export async function terminalRoutesPlugin(
     return reply.code(201).send({
       ...token,
       token: plaintextToken,
-      enrollment_script: `curl -sSL "$API_BASE_URL/api/terminal/enroll" -H "Content-Type: application/json" -d '{"token":"${plaintextToken}","hostname":"$(hostname)"}'`,
+      enrollment_script: `curl -sSL "$API_BASE_URL/terminal/enroll" -H "Content-Type: application/json" -d '{"token":"${plaintextToken}","hostname":"$(hostname)"}'`,
     });
   });
 
   // DELETE /api/terminal/enrollment-tokens/:id — Revoke token
-  app.delete('/api/terminal/enrollment-tokens/:id', async (req, reply) => {
+  app.delete('/terminal/enrollment-tokens/:id', async (req, reply) => {
     const params = req.params as { id: string };
     if (!UUID_REGEX.test(params.id)) {
       return reply.code(400).send({ error: 'Invalid token ID format' });
@@ -1631,7 +1631,7 @@ export async function terminalRoutesPlugin(
   });
 
   // POST /api/terminal/enroll — Remote self-registration
-  app.post('/api/terminal/enroll', async (req, reply) => {
+  app.post('/terminal/enroll', async (req, reply) => {
     const body = req.body as {
       token?: string;
       hostname?: string;
@@ -1754,7 +1754,7 @@ export async function terminalRoutesPlugin(
   // ================================================================
 
   // GET /api/terminal/activity — Query audit trail
-  app.get('/api/terminal/activity', async (req, reply) => {
+  app.get('/terminal/activity', async (req, reply) => {
     const query = req.query as {
       limit?: string;
       offset?: string;
@@ -1843,7 +1843,7 @@ export async function terminalRoutesPlugin(
   // ================================================================
 
   // PATCH /api/terminal/settings — Update terminal settings (retention)
-  app.patch('/api/terminal/settings', async (req, reply) => {
+  app.patch('/terminal/settings', async (req, reply) => {
     const namespace = getStoreNamespace(req);
     const body = req.body as {
       entry_retention_days?: number;
@@ -1878,7 +1878,7 @@ export async function terminalRoutesPlugin(
   });
 
   // GET /api/terminal/settings — Get terminal settings
-  app.get('/api/terminal/settings', async (req, reply) => {
+  app.get('/terminal/settings', async (req, reply) => {
     const namespaces = getEffectiveNamespaces(req);
     if (namespaces.length === 0) {
       return reply.code(403).send({ error: 'No namespace access' });
@@ -1898,7 +1898,7 @@ export async function terminalRoutesPlugin(
   // ================================================================
 
   // POST /api/terminal/sessions/:id/windows — Create window
-  app.post('/api/terminal/sessions/:id/windows', async (req, reply) => {
+  app.post('/terminal/sessions/:id/windows', async (req, reply) => {
     const params = req.params as { id: string };
     if (!UUID_REGEX.test(params.id)) {
       return reply.code(400).send({ error: 'Invalid session ID format' });
@@ -1934,7 +1934,7 @@ export async function terminalRoutesPlugin(
   });
 
   // DELETE /api/terminal/sessions/:sid/windows/:wid — Close window
-  app.delete('/api/terminal/sessions/:sid/windows/:wid', async (req, reply) => {
+  app.delete('/terminal/sessions/:sid/windows/:wid', async (req, reply) => {
     const params = req.params as { sid: string; wid: string };
     if (!UUID_REGEX.test(params.sid)) {
       return reply.code(400).send({ error: 'Invalid session ID format' });
@@ -1973,7 +1973,7 @@ export async function terminalRoutesPlugin(
   });
 
   // POST /api/terminal/sessions/:sid/windows/:wid/split — Split pane
-  app.post('/api/terminal/sessions/:sid/windows/:wid/split', async (req, reply) => {
+  app.post('/terminal/sessions/:sid/windows/:wid/split', async (req, reply) => {
     const params = req.params as { sid: string; wid: string };
     if (!UUID_REGEX.test(params.sid)) {
       return reply.code(400).send({ error: 'Invalid session ID format' });
@@ -2016,7 +2016,7 @@ export async function terminalRoutesPlugin(
   });
 
   // DELETE /api/terminal/sessions/:sid/panes/:pid — Close pane
-  app.delete('/api/terminal/sessions/:sid/panes/:pid', async (req, reply) => {
+  app.delete('/terminal/sessions/:sid/panes/:pid', async (req, reply) => {
     const params = req.params as { sid: string; pid: string };
     if (!UUID_REGEX.test(params.sid)) {
       return reply.code(400).send({ error: 'Invalid session ID format' });
@@ -2063,7 +2063,7 @@ export async function terminalRoutesPlugin(
   const VALID_TUNNEL_STATUSES = ['active', 'failed', 'closed'] as const;
 
   // GET /api/terminal/tunnels — List tunnels
-  app.get('/api/terminal/tunnels', async (req, reply) => {
+  app.get('/terminal/tunnels', async (req, reply) => {
     const query = req.query as {
       limit?: string;
       offset?: string;
@@ -2126,7 +2126,7 @@ export async function terminalRoutesPlugin(
   });
 
   // POST /api/terminal/tunnels — Create tunnel
-  app.post('/api/terminal/tunnels', async (req, reply) => {
+  app.post('/terminal/tunnels', async (req, reply) => {
     const body = req.body as {
       connection_id?: string;
       session_id?: string;
@@ -2211,7 +2211,7 @@ export async function terminalRoutesPlugin(
   });
 
   // DELETE /api/terminal/tunnels/:id — Close tunnel
-  app.delete('/api/terminal/tunnels/:id', async (req, reply) => {
+  app.delete('/terminal/tunnels/:id', async (req, reply) => {
     const params = req.params as { id: string };
     if (!UUID_REGEX.test(params.id)) {
       return reply.code(400).send({ error: 'Invalid tunnel ID format' });
@@ -2245,7 +2245,7 @@ export async function terminalRoutesPlugin(
   // ================================================================
 
   // GET /api/terminal/known-hosts — List trusted hosts
-  app.get('/api/terminal/known-hosts', async (req, reply) => {
+  app.get('/terminal/known-hosts', async (req, reply) => {
     const query = req.query as {
       limit?: string;
       offset?: string;
@@ -2300,7 +2300,7 @@ export async function terminalRoutesPlugin(
   });
 
   // POST /api/terminal/known-hosts — Manually trust a host key
-  app.post('/api/terminal/known-hosts', async (req, reply) => {
+  app.post('/terminal/known-hosts', async (req, reply) => {
     const body = req.body as {
       connection_id?: string;
       host?: string;
@@ -2376,7 +2376,7 @@ export async function terminalRoutesPlugin(
   });
 
   // POST /api/terminal/known-hosts/approve — Approve pending host verification
-  app.post('/api/terminal/known-hosts/approve', async (req, reply) => {
+  app.post('/terminal/known-hosts/approve', async (req, reply) => {
     const body = req.body as {
       session_id?: string;
       host?: string;
@@ -2442,7 +2442,7 @@ export async function terminalRoutesPlugin(
   });
 
   // DELETE /api/terminal/known-hosts/:id — Revoke trust
-  app.delete('/api/terminal/known-hosts/:id', async (req, reply) => {
+  app.delete('/terminal/known-hosts/:id', async (req, reply) => {
     const params = req.params as { id: string };
     if (!UUID_REGEX.test(params.id)) {
       return reply.code(400).send({ error: 'Invalid known host ID format' });
@@ -2470,7 +2470,7 @@ export async function terminalRoutesPlugin(
   // ================================================================
 
   // GET /api/terminal/sessions/:id/entries — List entries (paginated)
-  app.get('/api/terminal/sessions/:id/entries', async (req, reply) => {
+  app.get('/terminal/sessions/:id/entries', async (req, reply) => {
     const params = req.params as { id: string };
     const query = req.query as {
       limit?: string;
@@ -2538,7 +2538,7 @@ export async function terminalRoutesPlugin(
   });
 
   // GET /api/terminal/sessions/:id/entries/export — Export entries
-  app.get('/api/terminal/sessions/:id/entries/export', async (req, reply) => {
+  app.get('/terminal/sessions/:id/entries/export', async (req, reply) => {
     const params = req.params as { id: string };
     const query = req.query as { format?: string };
 
@@ -2635,7 +2635,7 @@ export async function terminalRoutesPlugin(
 
   // POST /api/terminal/search — Semantic search across entries
   // Issue #1862: pgvector cosine similarity with ILIKE fallback
-  app.post('/api/terminal/search', async (req, reply) => {
+  app.post('/terminal/search', async (req, reply) => {
     const body = req.body as {
       query?: string;
       connection_id?: string;
@@ -2804,7 +2804,7 @@ export async function terminalRoutesPlugin(
   // ================================================================
 
   // GET /api/terminal/stats — Aggregate stats for dashboard
-  app.get('/api/terminal/stats', async (req, reply) => {
+  app.get('/terminal/stats', async (req, reply) => {
     const namespaces = getEffectiveNamespaces(req);
     if (namespaces.length === 0) {
       return reply.code(403).send({ error: 'No namespace access' });
@@ -2848,7 +2848,7 @@ export async function terminalRoutesPlugin(
   // ================================================================
 
   // POST /api/terminal/known-hosts/reject — Reject pending host key verification
-  app.post('/api/terminal/known-hosts/reject', async (req, reply) => {
+  app.post('/terminal/known-hosts/reject', async (req, reply) => {
     const body = req.body as {
       session_id?: string;
     };
@@ -2900,7 +2900,7 @@ export async function terminalRoutesPlugin(
   // ================================================================
 
   // GET /api/terminal/worker/status — Get worker status and health
-  app.get('/api/terminal/worker/status', async (_req, reply) => {
+  app.get('/terminal/worker/status', async (_req, reply) => {
     try {
       const client = grpcClient.getGrpcClient();
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic gRPC method access

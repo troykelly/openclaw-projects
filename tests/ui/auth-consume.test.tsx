@@ -5,7 +5,7 @@
  *
  * Covers: loading state, success flow with redirect, error flow,
  * missing credentials, deep link preservation via sessionStorage,
- * and OAuth code exchange via POST /api/auth/exchange.
+ * and OAuth code exchange via POST /auth/exchange.
  */
 
 import { render, screen, waitFor } from '@testing-library/react';
@@ -137,7 +137,7 @@ describe('AuthConsumePage (issues #1333, #1335)', () => {
     expect(screen.getByRole('status')).toBeInTheDocument(); // <output> element
   });
 
-  it('calls POST /api/auth/consume with the token', async () => {
+  it('calls POST /auth/consume with the token', async () => {
     fetchSpy.mockResolvedValue(
       new Response(JSON.stringify({ access_token: 'jwt.token.here' }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
     );
@@ -146,7 +146,7 @@ describe('AuthConsumePage (issues #1333, #1335)', () => {
 
     await waitFor(() => {
       expect(fetchSpy).toHaveBeenCalledWith(
-        '/api/auth/consume',
+        '/auth/consume',
         expect.objectContaining({
           method: 'POST',
           credentials: 'include',
@@ -228,7 +228,7 @@ describe('AuthConsumePage (issues #1333, #1335)', () => {
 
   // ── OAuth code exchange flow (issue #1335) ───────────────────────
 
-  it('calls POST /api/auth/exchange with the code parameter', async () => {
+  it('calls POST /auth/exchange with the code parameter', async () => {
     fetchSpy.mockResolvedValue(
       new Response(JSON.stringify({ access_token: 'jwt.oauth.token' }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
     );
@@ -237,7 +237,7 @@ describe('AuthConsumePage (issues #1333, #1335)', () => {
 
     await waitFor(() => {
       expect(fetchSpy).toHaveBeenCalledWith(
-        '/api/auth/exchange',
+        '/auth/exchange',
         expect.objectContaining({
           method: 'POST',
           credentials: 'include',
@@ -288,7 +288,7 @@ describe('AuthConsumePage (issues #1333, #1335)', () => {
 
     await waitFor(() => {
       expect(fetchSpy).toHaveBeenCalledWith(
-        '/api/auth/consume',
+        '/auth/consume',
         expect.objectContaining({
           body: JSON.stringify({ token: 'magic-token' }),
         }),

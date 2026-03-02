@@ -397,7 +397,7 @@ services:
       # OAuth integration (Microsoft 365 / Google)
       # Required for contacts, email, drive/files, calendar features
       # See docs/guides/oauth-setup.md for credential setup
-      # Set OAUTH_REDIRECT_URI=https://api.${DOMAIN}/api/oauth/callback
+      # Set OAUTH_REDIRECT_URI=https://api.${DOMAIN}/oauth/callback
       MS365_CLIENT_ID: ${MS365_CLIENT_ID:-}
       MS365_CLIENT_SECRET: ${MS365_CLIENT_SECRET:-}
       AZURE_TENANT_ID: ${AZURE_TENANT_ID:-}

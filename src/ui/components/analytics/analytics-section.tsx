@@ -18,7 +18,7 @@ import { apiClient } from '@/ui/lib/api-client';
 // Types — matching actual API response shapes
 // ---------------------------------------------------------------------------
 
-/** Raw velocity row from GET /api/analytics/velocity → { weeks: VelocityWeek[] } */
+/** Raw velocity row from GET /analytics/velocity → { weeks: VelocityWeek[] } */
 interface VelocityWeek {
   week_start: string;
   completed_count: number;
@@ -26,7 +26,7 @@ interface VelocityWeek {
 }
 
 /**
- * Raw project health row from GET /api/analytics/project-health
+ * Raw project health row from GET /analytics/project-health
  * → { projects: ApiProjectHealth[] }
  */
 interface ApiProjectHealth {
@@ -190,8 +190,8 @@ export function AnalyticsSection(): React.JSX.Element {
     async function load() {
       try {
         const results = await Promise.allSettled([
-          apiClient.get<{ weeks: VelocityWeek[] }>('/api/analytics/velocity'),
-          apiClient.get<{ projects: ApiProjectHealth[] }>('/api/analytics/project-health'),
+          apiClient.get<{ weeks: VelocityWeek[] }>('/analytics/velocity'),
+          apiClient.get<{ projects: ApiProjectHealth[] }>('/analytics/project-health'),
         ]);
 
         if (!alive) return;

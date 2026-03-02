@@ -195,7 +195,7 @@ describe('sms_send tool', () => {
       });
 
       expect(mockClient.post).toHaveBeenCalledWith(
-        '/api/twilio/sms/send',
+        '/twilio/sms/send',
         {
           to: '+15559876543',
           body: 'Test message',

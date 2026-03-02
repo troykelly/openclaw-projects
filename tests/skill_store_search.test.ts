@@ -363,7 +363,7 @@ describe('Skill Store Search (Issue #798)', () => {
   });
 
   describe('API endpoint integration', () => {
-    it('POST /api/skill-store/search returns full-text results', async () => {
+    it('POST /skill-store/search returns full-text results', async () => {
       const { buildServer } = await import('../src/api/server.ts');
       const app = buildServer({ logger: false });
 
@@ -371,7 +371,7 @@ describe('Skill Store Search (Issue #798)', () => {
 
       const response = await app.inject({
         method: 'POST',
-        url: '/api/skill-store/search',
+        url: '/skill-store/search',
         payload: {
           skill_id: 'sk1',
           query: 'API test',
@@ -386,13 +386,13 @@ describe('Skill Store Search (Issue #798)', () => {
       await app.close();
     });
 
-    it('POST /api/skill-store/search requires skill_id', async () => {
+    it('POST /skill-store/search requires skill_id', async () => {
       const { buildServer } = await import('../src/api/server.ts');
       const app = buildServer({ logger: false });
 
       const response = await app.inject({
         method: 'POST',
-        url: '/api/skill-store/search',
+        url: '/skill-store/search',
         payload: {
           query: 'test',
         },
@@ -403,7 +403,7 @@ describe('Skill Store Search (Issue #798)', () => {
       await app.close();
     });
 
-    it('POST /api/skill-store/search/semantic returns results', async () => {
+    it('POST /skill-store/search/semantic returns results', async () => {
       const { buildServer } = await import('../src/api/server.ts');
       const app = buildServer({ logger: false });
 
@@ -411,7 +411,7 @@ describe('Skill Store Search (Issue #798)', () => {
 
       const response = await app.inject({
         method: 'POST',
-        url: '/api/skill-store/search/semantic',
+        url: '/skill-store/search/semantic',
         payload: {
           skill_id: 'sk1',
           query: 'semantic test',
@@ -426,13 +426,13 @@ describe('Skill Store Search (Issue #798)', () => {
       await app.close();
     });
 
-    it('POST /api/skill-store/search/semantic requires skill_id', async () => {
+    it('POST /skill-store/search/semantic requires skill_id', async () => {
       const { buildServer } = await import('../src/api/server.ts');
       const app = buildServer({ logger: false });
 
       const response = await app.inject({
         method: 'POST',
-        url: '/api/skill-store/search/semantic',
+        url: '/skill-store/search/semantic',
         payload: {
           query: 'test',
         },
@@ -476,7 +476,7 @@ describe('Skill Store Search (Issue #798)', () => {
       // semantic_weight > 1 should be clamped to 1
       const response = await app.inject({
         method: 'POST',
-        url: '/api/skill-store/search/semantic',
+        url: '/skill-store/search/semantic',
         payload: {
           skill_id: 'sk1',
           query: 'weight test',
@@ -489,7 +489,7 @@ describe('Skill Store Search (Issue #798)', () => {
       // semantic_weight < 0 should be clamped to 0
       const response2 = await app.inject({
         method: 'POST',
-        url: '/api/skill-store/search/semantic',
+        url: '/skill-store/search/semantic',
         payload: {
           skill_id: 'sk1',
           query: 'weight test',
@@ -510,7 +510,7 @@ describe('Skill Store Search (Issue #798)', () => {
       // that might cause issues
       const response = await app.inject({
         method: 'POST',
-        url: '/api/skill-store/search',
+        url: '/skill-store/search',
         payload: {
           skill_id: 'sk1',
           query: 'test',
@@ -526,13 +526,13 @@ describe('Skill Store Search (Issue #798)', () => {
       await app.close();
     });
 
-    it('GET /api/skill-store/schedules requires skill_id', async () => {
+    it('GET /skill-store/schedules requires skill_id', async () => {
       const { buildServer } = await import('../src/api/server.ts');
       const app = buildServer({ logger: false });
 
       const response = await app.inject({
         method: 'GET',
-        url: '/api/skill-store/schedules',
+        url: '/skill-store/schedules',
       });
 
       expect(response.statusCode).toBe(400);
@@ -548,7 +548,7 @@ describe('Skill Store Search (Issue #798)', () => {
 
       const response = await app.inject({
         method: 'POST',
-        url: '/api/skill-store/schedules',
+        url: '/skill-store/schedules',
         payload: {
           skill_id: 'sk1',
           cron_expression: '0 9 * * 1',
@@ -566,14 +566,14 @@ describe('Skill Store Search (Issue #798)', () => {
       await app.close();
     });
 
-    it('POST /api/skill-store/items/bulk enforces quotas', async () => {
+    it('POST /skill-store/items/bulk enforces quotas', async () => {
       const { buildServer } = await import('../src/api/server.ts');
       const app = buildServer({ logger: false });
 
       // The bulk endpoint should validate items (won't hit quota in test, but verifies it processes)
       const response = await app.inject({
         method: 'POST',
-        url: '/api/skill-store/items/bulk',
+        url: '/skill-store/items/bulk',
         payload: {
           items: [
             { skill_id: 'sk1', title: 'Bulk Item 1' },

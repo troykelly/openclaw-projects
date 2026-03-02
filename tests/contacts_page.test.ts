@@ -71,7 +71,7 @@ describe('Contacts Page', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/contacts',
+        url: '/contacts',
       });
 
       expect(res.statusCode).toBe(200);
@@ -83,7 +83,7 @@ describe('Contacts Page', () => {
     it('allows creating a contact from the page', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/contacts',
+        url: '/contacts',
         payload: {
           display_name: 'New Contact',
           notes: 'Some notes',
@@ -106,7 +106,7 @@ describe('Contacts Page', () => {
 
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/contacts/${contact_id}`,
+        url: `/contacts/${contact_id}`,
         payload: {
           display_name: 'Updated Name',
           notes: 'Added notes',
@@ -129,7 +129,7 @@ describe('Contacts Page', () => {
 
       const res = await app.inject({
         method: 'DELETE',
-        url: `/api/contacts/${contact_id}`,
+        url: `/contacts/${contact_id}`,
       });
 
       expect(res.statusCode).toBe(204);
@@ -137,7 +137,7 @@ describe('Contacts Page', () => {
       // Verify deleted
       const checkRes = await app.inject({
         method: 'GET',
-        url: `/api/contacts/${contact_id}`,
+        url: `/contacts/${contact_id}`,
       });
       expect(checkRes.statusCode).toBe(404);
     });
@@ -160,7 +160,7 @@ describe('Contacts Page', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/contacts/${contact_id}`,
+        url: `/contacts/${contact_id}`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -192,7 +192,7 @@ describe('Contacts Page', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/contacts?search=acme',
+        url: '/contacts?search=acme',
       });
 
       expect(res.statusCode).toBe(200);
@@ -246,7 +246,7 @@ describe('Contacts Page', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/contacts/${contact_id}/work-items`,
+        url: `/contacts/${contact_id}/work-items`,
       });
 
       expect(res.statusCode).toBe(200);

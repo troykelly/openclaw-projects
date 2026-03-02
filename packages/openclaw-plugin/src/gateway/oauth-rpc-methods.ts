@@ -98,7 +98,7 @@ async function resolveConnection(
   logger: Logger,
   connection_id: string,
 ): Promise<BackendConnection | null> {
-  const response = await apiClient.get<{ connections: BackendConnection[] }>('/api/oauth/connections', { user_id });
+  const response = await apiClient.get<{ connections: BackendConnection[] }>('/oauth/connections', { user_id });
   if (!response.success) {
     logger.error('Failed to fetch OAuth connections', { user_id, error: response.error.message });
     return null;
@@ -288,7 +288,7 @@ export function createOAuthGatewayMethods(options: OAuthGatewayMethodsOptions): 
       if (params.user_email) qs.set('user_email', params.user_email);
       if (params.provider) qs.set('provider', params.provider);
       const qsStr = qs.toString();
-      const path = `/api/oauth/connections${qsStr ? `?${qsStr}` : ''}`;
+      const path = `/oauth/connections${qsStr ? `?${qsStr}` : ''}`;
 
       const response = await apiClient.get<{ connections: BackendConnection[] }>(path, { user_id });
       if (!response.success) {
@@ -328,7 +328,7 @@ export function createOAuthGatewayMethods(options: OAuthGatewayMethodsOptions): 
       if (params.page_token) qs.set('page_token', params.page_token);
 
       const response = await apiClient.get<{ contacts: Array<Record<string, unknown>>; next_page_token?: string }>(
-        `/api/contacts?${qs}`,
+        `/contacts?${qs}`,
         { user_id },
       );
 
@@ -364,7 +364,7 @@ export function createOAuthGatewayMethods(options: OAuthGatewayMethodsOptions): 
       if (params.page_token) qs.set('page_token', params.page_token);
 
       const response = await apiClient.get<{ messages: Array<Record<string, unknown>>; next_page_token?: string }>(
-        `/api/email/messages?${qs}`,
+        `/email/messages?${qs}`,
         { user_id },
       );
 
@@ -396,7 +396,7 @@ export function createOAuthGatewayMethods(options: OAuthGatewayMethodsOptions): 
 
       const qs = new URLSearchParams({ connection_id: params.connection_id });
       const response = await apiClient.get<Record<string, unknown>>(
-        `/api/email/messages/${encodeURIComponent(params.message_id)}?${qs}`,
+        `/email/messages/${encodeURIComponent(params.message_id)}?${qs}`,
         { user_id },
       );
 
@@ -429,7 +429,7 @@ export function createOAuthGatewayMethods(options: OAuthGatewayMethodsOptions): 
       if (params.page_token) qs.set('page_token', params.page_token);
 
       const response = await apiClient.get<{ files: Array<Record<string, unknown>>; next_page_token?: string }>(
-        `/api/drive/files?${qs}`,
+        `/drive/files?${qs}`,
         { user_id },
       );
 
@@ -463,7 +463,7 @@ export function createOAuthGatewayMethods(options: OAuthGatewayMethodsOptions): 
       if (params.page_token) qs.set('page_token', params.page_token);
 
       const response = await apiClient.get<{ files: Array<Record<string, unknown>>; next_page_token?: string }>(
-        `/api/drive/files/search?${qs}`,
+        `/drive/files/search?${qs}`,
         { user_id },
       );
 
@@ -495,7 +495,7 @@ export function createOAuthGatewayMethods(options: OAuthGatewayMethodsOptions): 
 
       const qs = new URLSearchParams({ connection_id: params.connection_id });
       const response = await apiClient.get<Record<string, unknown>>(
-        `/api/drive/files/${encodeURIComponent(params.file_id)}?${qs}`,
+        `/drive/files/${encodeURIComponent(params.file_id)}?${qs}`,
         { user_id },
       );
 
@@ -530,7 +530,7 @@ export function createOAuthGatewayMethods(options: OAuthGatewayMethodsOptions): 
       if (params.page_token) qs.set('page_token', params.page_token);
 
       const response = await apiClient.get<{ events: Array<Record<string, unknown>>; next_page_token?: string }>(
-        `/api/calendar/events/live?${qs}`,
+        `/calendar/events/live?${qs}`,
         { user_id },
       );
 
@@ -564,7 +564,7 @@ export function createOAuthGatewayMethods(options: OAuthGatewayMethodsOptions): 
       if (params.time_max) body.time_max = params.time_max;
 
       const response = await apiClient.post<Record<string, unknown>>(
-        '/api/sync/calendar',
+        '/sync/calendar',
         body,
         { user_id },
       );
@@ -610,7 +610,7 @@ export function createOAuthGatewayMethods(options: OAuthGatewayMethodsOptions): 
       if (params.all_day !== undefined) body.all_day = params.all_day;
 
       const response = await apiClient.post<{ event: Record<string, unknown> }>(
-        '/api/calendar/events',
+        '/calendar/events',
         body,
         { user_id },
       );

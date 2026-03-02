@@ -169,7 +169,7 @@ export function createRecallCommand(ctx: CliContext): (options: RecallOptions) =
         limit: String(limit),
       });
 
-      const response = await client.get<{ memories: MemoryItem[] }>(`/api/memories/search?${queryParams.toString()}`, { user_id });
+      const response = await client.get<{ memories: MemoryItem[] }>(`/memories/search?${queryParams.toString()}`, { user_id });
 
       if (!response.success) {
         logger.error('CLI recall command API error', {

@@ -37,7 +37,7 @@ describe('Work Item Type Handling (Issue #1135)', () => {
     it('should create a project when type=project is sent', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: {
           title: 'Test Project',
           type: 'project',
@@ -52,7 +52,7 @@ describe('Work Item Type Handling (Issue #1135)', () => {
     it('should create a task when type=task is sent', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: {
           title: 'Test Task',
           type: 'task',
@@ -68,7 +68,7 @@ describe('Work Item Type Handling (Issue #1135)', () => {
       // First create a project
       const projectResponse = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: {
           title: 'Parent Project',
           type: 'project',
@@ -79,7 +79,7 @@ describe('Work Item Type Handling (Issue #1135)', () => {
       // Then create an initiative under it
       const initiativeResponse = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: {
           title: 'Parent Initiative',
           type: 'initiative',
@@ -91,7 +91,7 @@ describe('Work Item Type Handling (Issue #1135)', () => {
       // Finally create an epic under the initiative
       const epicResponse = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: {
           title: 'Test Epic',
           type: 'epic',
@@ -108,7 +108,7 @@ describe('Work Item Type Handling (Issue #1135)', () => {
     it('should still support kind parameter for backwards compatibility', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: {
           title: 'Test Issue with kind',
           kind: 'issue',
@@ -130,7 +130,7 @@ describe('Work Item Type Handling (Issue #1135)', () => {
       // Create a project
       const projectResponse = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: {
           title: 'Filter Test Project',
           type: 'project',
@@ -142,7 +142,7 @@ describe('Work Item Type Handling (Issue #1135)', () => {
       // Create a task
       const taskResponse = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: {
           title: 'Filter Test Task',
           type: 'task',
@@ -154,7 +154,7 @@ describe('Work Item Type Handling (Issue #1135)', () => {
       // Create an issue
       const issueResponse = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: {
           title: 'Filter Test Issue',
           type: 'issue',
@@ -167,7 +167,7 @@ describe('Work Item Type Handling (Issue #1135)', () => {
     it('should return only projects when item_type=project', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/work-items?item_type=project',
+        url: '/work-items?item_type=project',
       });
       expect(response.statusCode).toBe(200);
       const data = response.json() as { items: Array<{ kind: string; id: string }> };
@@ -188,7 +188,7 @@ describe('Work Item Type Handling (Issue #1135)', () => {
     it('should return only tasks when item_type=task', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/work-items?item_type=task',
+        url: '/work-items?item_type=task',
       });
       expect(response.statusCode).toBe(200);
       const data = response.json() as { items: Array<{ kind: string; id: string }> };
@@ -209,7 +209,7 @@ describe('Work Item Type Handling (Issue #1135)', () => {
     it('should return only issues when item_type=issue', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/work-items?item_type=issue',
+        url: '/work-items?item_type=issue',
       });
       expect(response.statusCode).toBe(200);
       const data = response.json() as { items: Array<{ kind: string; id: string }> };
@@ -229,7 +229,7 @@ describe('Work Item Type Handling (Issue #1135)', () => {
     it('should return all items when no item_type filter is provided', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/work-items',
+        url: '/work-items',
       });
       expect(response.statusCode).toBe(200);
       const data = response.json() as { items: Array<{ kind: string; id: string }> };
@@ -253,7 +253,7 @@ describe('Work Item Type Handling (Issue #1135)', () => {
     it('should reject invalid type values', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: {
           title: 'Invalid Type',
           type: 'invalid-type',

@@ -40,7 +40,7 @@ describe.skipIf(!RUN_E2E)('Plugin Memory Tool Round-Trip (Issue #1098)', () => {
 
   beforeAll(async () => {
     // Wait for the backend to be healthy
-    await waitForService(`${apiUrl}/api/health`, defaultConfig.healthCheckRetries);
+    await waitForService(`${apiUrl}/health`, defaultConfig.healthCheckRetries);
 
     // Build a minimal PluginConfig for the E2E backend (auth disabled)
     pluginConfig = PluginConfigSchema.parse({
@@ -65,7 +65,7 @@ describe.skipIf(!RUN_E2E)('Plugin Memory Tool Round-Trip (Issue #1098)', () => {
     // Clean up all memories created during tests
     for (const id of createdMemoryIds) {
       try {
-        await cleanupClient.delete(`/api/memories/${id}`);
+        await cleanupClient.delete(`/memories/${id}`);
       } catch {
         // Ignore cleanup errors — memory may already be deleted
       }

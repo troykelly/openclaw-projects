@@ -82,7 +82,7 @@ export function useNotebooks(params?: ListNotebooksParams, options?: { enabled?:
   return useQuery({
     queryKey: notebookKeys.list(params),
     queryFn: ({ signal }) =>
-      apiClient.get<NotebooksResponse>(`/api/notebooks${queryString}`, {
+      apiClient.get<NotebooksResponse>(`/notebooks${queryString}`, {
         signal,
       }),
     enabled: (options?.enabled ?? true) && !!user_email,
@@ -121,7 +121,7 @@ export function useNotebook(
 
   return useQuery({
     queryKey: notebookKeys.detail(id),
-    queryFn: ({ signal }) => apiClient.get<Notebook>(`/api/notebooks/${encodeURIComponent(id)}${queryString ? `?${queryString}` : ''}`, { signal }),
+    queryFn: ({ signal }) => apiClient.get<Notebook>(`/notebooks/${encodeURIComponent(id)}${queryString ? `?${queryString}` : ''}`, { signal }),
     enabled: (options?.enabled ?? true) && !!id && !!user_email,
     staleTime: options?.staleTime ?? NOTEBOOK_STALE_TIME,
   });
@@ -147,7 +147,7 @@ export function useNotebooksTree(include_note_counts = false, options?: { staleT
 
   return useQuery({
     queryKey: notebookKeys.tree(),
-    queryFn: ({ signal }) => apiClient.get<NotebookTreeNode[]>(`/api/notebooks/tree${queryString ? `?${queryString}` : ''}`, { signal }),
+    queryFn: ({ signal }) => apiClient.get<NotebookTreeNode[]>(`/notebooks/tree${queryString ? `?${queryString}` : ''}`, { signal }),
     enabled: !!user_email,
     staleTime: options?.staleTime ?? NOTEBOOK_TREE_STALE_TIME,
   });
@@ -163,7 +163,7 @@ export function useNotebooksTree(include_note_counts = false, options?: { staleT
 export function useNotebookShares(id: string, options?: { staleTime?: number }) {
   return useQuery({
     queryKey: notebookKeys.shares(id),
-    queryFn: ({ signal }) => apiClient.get<NotebookSharesResponse>(`/api/notebooks/${encodeURIComponent(id)}/shares`, { signal }),
+    queryFn: ({ signal }) => apiClient.get<NotebookSharesResponse>(`/notebooks/${encodeURIComponent(id)}/shares`, { signal }),
     enabled: !!id,
     staleTime: options?.staleTime ?? NOTEBOOK_SHARES_STALE_TIME,
   });
@@ -179,7 +179,7 @@ export function useNotebooksSharedWithMe(options?: { staleTime?: number }) {
   return useQuery({
     queryKey: notebookKeys.sharedWithMe(),
     queryFn: ({ signal }) =>
-      apiClient.get<SharedWithMeResponse>('/api/notebooks/shared-with-me', {
+      apiClient.get<SharedWithMeResponse>('/notebooks/shared-with-me', {
         signal,
       }),
     staleTime: options?.staleTime ?? NOTEBOOK_SHARES_STALE_TIME,

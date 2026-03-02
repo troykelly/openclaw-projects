@@ -66,11 +66,11 @@ describe('Twilio SMS Webhook', () => {
     await pool.end();
   });
 
-  describe('POST /api/twilio/sms', () => {
+  describe('POST /twilio/sms', () => {
     it('returns 400 for missing required fields', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: '/api/twilio/sms',
+        url: '/twilio/sms',
         payload: toUrlEncoded({ Body: 'Hello' }), // Missing MessageSid, From, To
         headers: { 'content-type': 'application/x-www-form-urlencoded' },
       });
@@ -84,7 +84,7 @@ describe('Twilio SMS Webhook', () => {
 
       const response = await app.inject({
         method: 'POST',
-        url: '/api/twilio/sms',
+        url: '/twilio/sms',
         payload: toUrlEncoded(payload as unknown as Record<string, string>),
         headers: { 'content-type': 'application/x-www-form-urlencoded' },
       });
@@ -114,7 +114,7 @@ describe('Twilio SMS Webhook', () => {
 
       await app.inject({
         method: 'POST',
-        url: '/api/twilio/sms',
+        url: '/twilio/sms',
         payload: toUrlEncoded(payload1 as unknown as Record<string, string>),
         headers: { 'content-type': 'application/x-www-form-urlencoded' },
       });
@@ -130,7 +130,7 @@ describe('Twilio SMS Webhook', () => {
 
       await app.inject({
         method: 'POST',
-        url: '/api/twilio/sms',
+        url: '/twilio/sms',
         payload: toUrlEncoded(payload2 as unknown as Record<string, string>),
         headers: { 'content-type': 'application/x-www-form-urlencoded' },
       });
@@ -149,7 +149,7 @@ describe('Twilio SMS Webhook', () => {
 
       await app.inject({
         method: 'POST',
-        url: '/api/twilio/sms',
+        url: '/twilio/sms',
         payload: toUrlEncoded(payload as unknown as Record<string, string>),
         headers: { 'content-type': 'application/x-www-form-urlencoded' },
       });
@@ -175,7 +175,7 @@ describe('Twilio SMS Webhook', () => {
 
       await app.inject({
         method: 'POST',
-        url: '/api/twilio/sms',
+        url: '/twilio/sms',
         payload: toUrlEncoded(payload as unknown as Record<string, string>),
         headers: { 'content-type': 'application/x-www-form-urlencoded' },
       });
@@ -194,7 +194,7 @@ describe('Twilio SMS Webhook', () => {
 
       await app.inject({
         method: 'POST',
-        url: '/api/twilio/sms',
+        url: '/twilio/sms',
         payload: toUrlEncoded(payload as unknown as Record<string, string>),
         headers: { 'content-type': 'application/x-www-form-urlencoded' },
       });
@@ -213,7 +213,7 @@ describe('Twilio SMS Webhook', () => {
 
       await app.inject({
         method: 'POST',
-        url: '/api/twilio/sms',
+        url: '/twilio/sms',
         payload: toUrlEncoded(payload as unknown as Record<string, string>),
         headers: { 'content-type': 'application/x-www-form-urlencoded' },
       });
@@ -234,7 +234,7 @@ describe('Twilio SMS Webhook', () => {
 
       const response = await app.inject({
         method: 'POST',
-        url: '/api/twilio/sms',
+        url: '/twilio/sms',
         payload: toUrlEncoded(payload as unknown as Record<string, string>),
         headers: { 'content-type': 'application/x-www-form-urlencoded' },
       });
@@ -249,14 +249,14 @@ describe('Twilio SMS Webhook', () => {
       // Send same message twice
       await app.inject({
         method: 'POST',
-        url: '/api/twilio/sms',
+        url: '/twilio/sms',
         payload: toUrlEncoded(payload as unknown as Record<string, string>),
         headers: { 'content-type': 'application/x-www-form-urlencoded' },
       });
 
       const response = await app.inject({
         method: 'POST',
-        url: '/api/twilio/sms',
+        url: '/twilio/sms',
         payload: toUrlEncoded(payload as unknown as Record<string, string>), // Same MessageSid
         headers: { 'content-type': 'application/x-www-form-urlencoded' },
       });
@@ -280,7 +280,7 @@ describe('Twilio SMS Webhook', () => {
 
       const response = await app.inject({
         method: 'POST',
-        url: '/api/twilio/sms',
+        url: '/twilio/sms',
         payload: toUrlEncoded(payload as unknown as Record<string, string>),
         headers: {
           'content-type': 'application/x-www-form-urlencoded',
@@ -296,7 +296,7 @@ describe('Twilio SMS Webhook', () => {
 
       const response = await app.inject({
         method: 'POST',
-        url: '/api/twilio/sms',
+        url: '/twilio/sms',
         payload: toUrlEncoded(payload as unknown as Record<string, string>),
         headers: {
           'content-type': 'application/x-www-form-urlencoded',
@@ -315,7 +315,7 @@ describe('Twilio SMS Webhook', () => {
 
       const response = await app.inject({
         method: 'POST',
-        url: '/api/twilio/sms',
+        url: '/twilio/sms',
         payload: toUrlEncoded(payload as unknown as Record<string, string>),
         headers: {
           'content-type': 'application/x-www-form-urlencoded',
@@ -333,7 +333,7 @@ describe('Twilio SMS Webhook', () => {
 
       const response = await app.inject({
         method: 'POST',
-        url: '/api/twilio/sms',
+        url: '/twilio/sms',
         payload: toUrlEncoded(payload as unknown as Record<string, string>),
         headers: {
           'content-type': 'application/x-www-form-urlencoded',

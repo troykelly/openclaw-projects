@@ -160,36 +160,36 @@ describe.skipIf(!RUN_E2E)('Namespace-based scope isolation (E2E)', () => {
   const cleanupContactsDefault: string[] = [];
 
   beforeAll(async () => {
-    await waitForService(`${config.apiUrl}/api/health`, config.healthCheckRetries);
+    await waitForService(`${config.apiUrl}/health`, config.healthCheckRetries);
 
     // Create the two namespaces via the raw (unscoped) M2M client.
     // 409 is acceptable if the namespace already exists from a previous run.
-    const nsARes = await raw.post('/api/namespaces', { name: NS_A });
+    const nsARes = await raw.post('/namespaces', { name: NS_A });
     expect([201, 409]).toContain(nsARes.status);
 
-    const nsBRes = await raw.post('/api/namespaces', { name: NS_B });
+    const nsBRes = await raw.post('/namespaces', { name: NS_B });
     expect([201, 409]).toContain(nsBRes.status);
   });
 
   afterAll(async () => {
     // Best-effort cleanup; ignore errors (items may already be deleted by tests).
     for (const id of cleanupWorkItemsA) {
-      try { await nsA.delete(`/api/work-items/${id}?permanent=true`); } catch { /* ignore */ }
+      try { await nsA.delete(`/work-items/${id}?permanent=true`); } catch { /* ignore */ }
     }
     for (const id of cleanupWorkItemsB) {
-      try { await nsB.delete(`/api/work-items/${id}?permanent=true`); } catch { /* ignore */ }
+      try { await nsB.delete(`/work-items/${id}?permanent=true`); } catch { /* ignore */ }
     }
     for (const id of cleanupWorkItemsDefault) {
-      try { await raw.delete(`/api/work-items/${id}?permanent=true`); } catch { /* ignore */ }
+      try { await raw.delete(`/work-items/${id}?permanent=true`); } catch { /* ignore */ }
     }
     for (const id of cleanupContactsA) {
-      try { await nsA.delete(`/api/contacts/${id}?permanent=true`); } catch { /* ignore */ }
+      try { await nsA.delete(`/contacts/${id}?permanent=true`); } catch { /* ignore */ }
     }
     for (const id of cleanupContactsB) {
-      try { await nsB.delete(`/api/contacts/${id}?permanent=true`); } catch { /* ignore */ }
+      try { await nsB.delete(`/contacts/${id}?permanent=true`); } catch { /* ignore */ }
     }
     for (const id of cleanupContactsDefault) {
-      try { await raw.delete(`/api/contacts/${id}?permanent=true`); } catch { /* ignore */ }
+      try { await raw.delete(`/contacts/${id}?permanent=true`); } catch { /* ignore */ }
     }
   });
 
@@ -199,7 +199,7 @@ describe.skipIf(!RUN_E2E)('Namespace-based scope isolation (E2E)', () => {
     let itemIdA: string;
 
     beforeAll(async () => {
-      const res = await postWithRetry(nsA, '/api/work-items', {
+      const res = await postWithRetry(nsA, '/work-items', {
         title: `E2E NS-A WI ${Date.now()}`,
         kind: 'issue',
         user_email: USER_A,
@@ -211,26 +211,26 @@ describe.skipIf(!RUN_E2E)('Namespace-based scope isolation (E2E)', () => {
     });
 
     it('namespace A can list the item', async () => {
-      const res = await nsA.get('/api/work-items');
+      const res = await nsA.get('/work-items');
       expect(res.status).toBe(200);
       const body = (await res.json()) as { items: Array<{ id: string }> };
       expect(body.items.some((i) => i.id === itemIdA)).toBe(true);
     });
 
     it('namespace B cannot list the item', async () => {
-      const res = await nsB.get('/api/work-items');
+      const res = await nsB.get('/work-items');
       expect(res.status).toBe(200);
       const body = (await res.json()) as { items: Array<{ id: string }> };
       expect(body.items.some((i) => i.id === itemIdA)).toBe(false);
     });
 
     it('namespace A can GET the item by id', async () => {
-      const res = await nsA.get(`/api/work-items/${itemIdA}`);
+      const res = await nsA.get(`/work-items/${itemIdA}`);
       expect(res.status).toBe(200);
     });
 
     it('namespace B gets 404 for GET by id', async () => {
-      const res = await nsB.get(`/api/work-items/${itemIdA}`);
+      const res = await nsB.get(`/work-items/${itemIdA}`);
       expect(res.status).toBe(404);
     });
   });
@@ -241,7 +241,7 @@ describe.skipIf(!RUN_E2E)('Namespace-based scope isolation (E2E)', () => {
     let contactIdA: string;
 
     beforeAll(async () => {
-      const res = await postWithRetry(nsA, '/api/contacts', {
+      const res = await postWithRetry(nsA, '/contacts', {
         display_name: `E2E NS-A Contact ${Date.now()}`,
         user_email: USER_A,
       });
@@ -252,26 +252,26 @@ describe.skipIf(!RUN_E2E)('Namespace-based scope isolation (E2E)', () => {
     });
 
     it('namespace A can list the contact', async () => {
-      const res = await nsA.get('/api/contacts');
+      const res = await nsA.get('/contacts');
       expect(res.status).toBe(200);
       const body = (await res.json()) as { contacts: Array<{ id: string }> };
       expect(body.contacts.some((c) => c.id === contactIdA)).toBe(true);
     });
 
     it('namespace B cannot list the contact', async () => {
-      const res = await nsB.get('/api/contacts');
+      const res = await nsB.get('/contacts');
       expect(res.status).toBe(200);
       const body = (await res.json()) as { contacts: Array<{ id: string }> };
       expect(body.contacts.some((c) => c.id === contactIdA)).toBe(false);
     });
 
     it('namespace A can GET the contact by id', async () => {
-      const res = await nsA.get(`/api/contacts/${contactIdA}`);
+      const res = await nsA.get(`/contacts/${contactIdA}`);
       expect(res.status).toBe(200);
     });
 
     it('namespace B gets 404 for GET contact by id', async () => {
-      const res = await nsB.get(`/api/contacts/${contactIdA}`);
+      const res = await nsB.get(`/contacts/${contactIdA}`);
       expect(res.status).toBe(404);
     });
   });
@@ -286,14 +286,14 @@ describe.skipIf(!RUN_E2E)('Namespace-based scope isolation (E2E)', () => {
       const uniqueTag = Date.now().toString();
 
       // Ensure a relationship type exists for this test
-      const typeRes = await raw.post('/api/relationship-types', {
+      const typeRes = await raw.post('/relationship-types', {
         name: relTypeName,
         label: 'E2E Colleague',
       });
       expect([201, 409]).toContain(typeRes.status);
 
       // Create two contacts in namespace A
-      const c1 = await postWithRetry(nsA, '/api/contacts', {
+      const c1 = await postWithRetry(nsA, '/contacts', {
         display_name: `E2E RelA1 ${uniqueTag}`,
         user_email: USER_A,
       });
@@ -301,7 +301,7 @@ describe.skipIf(!RUN_E2E)('Namespace-based scope isolation (E2E)', () => {
       contactA1 = ((await c1.json()) as { id: string }).id;
       cleanupContactsA.push(contactA1);
 
-      const c2 = await postWithRetry(nsA, '/api/contacts', {
+      const c2 = await postWithRetry(nsA, '/contacts', {
         display_name: `E2E RelA2 ${uniqueTag}`,
         user_email: USER_A,
       });
@@ -310,7 +310,7 @@ describe.skipIf(!RUN_E2E)('Namespace-based scope isolation (E2E)', () => {
       cleanupContactsA.push(contactA2);
 
       // Create relationship via namespace A scoped client
-      const relRes = await postWithRetry(nsA, '/api/relationships/set', {
+      const relRes = await postWithRetry(nsA, '/relationships/set', {
         contact_a: `E2E RelA1 ${uniqueTag}`,
         contact_b: `E2E RelA2 ${uniqueTag}`,
         relationship_type: relTypeName,
@@ -320,14 +320,14 @@ describe.skipIf(!RUN_E2E)('Namespace-based scope isolation (E2E)', () => {
     });
 
     it('namespace A can list relationships', async () => {
-      const res = await nsA.get(`/api/relationships?contact_id=${contactA1}`);
+      const res = await nsA.get(`/relationships?contact_id=${contactA1}`);
       expect(res.status).toBe(200);
       const body = (await res.json()) as { relationships: Array<{ id: string }> };
       expect(body.relationships.length).toBeGreaterThan(0);
     });
 
     it('namespace B cannot see namespace A relationships', async () => {
-      const res = await nsB.get(`/api/relationships?contact_id=${contactA1}`);
+      const res = await nsB.get(`/relationships?contact_id=${contactA1}`);
       expect(res.status).toBe(200);
       const body = (await res.json()) as { relationships: Array<{ id: string }> };
       expect(body.relationships.length).toBe(0);
@@ -343,7 +343,7 @@ describe.skipIf(!RUN_E2E)('Namespace-based scope isolation (E2E)', () => {
     it('work items created without explicit namespace go to default', async () => {
       // Use the raw client (no X-Namespace header). M2M without requested
       // namespace resolves to 'default'.
-      const res = await postWithRetry(raw, '/api/work-items', {
+      const res = await postWithRetry(raw, '/work-items', {
         title: `E2E Unscoped WI ${Date.now()}`,
         kind: 'issue',
       });
@@ -352,21 +352,21 @@ describe.skipIf(!RUN_E2E)('Namespace-based scope isolation (E2E)', () => {
       cleanupWorkItemsDefault.push(unscopedItemId);
 
       // Listing without namespace header (also defaults to 'default') should include it
-      const listRes = await raw.get('/api/work-items');
+      const listRes = await raw.get('/work-items');
       expect(listRes.status).toBe(200);
       const body = (await listRes.json()) as { items: Array<{ id: string }> };
       expect(body.items.some((i) => i.id === unscopedItemId)).toBe(true);
     });
 
     it('contacts created without explicit namespace go to default', async () => {
-      const res = await postWithRetry(raw, '/api/contacts', {
+      const res = await postWithRetry(raw, '/contacts', {
         display_name: `E2E Unscoped Contact ${Date.now()}`,
       });
       expect(res.status).toBe(201);
       unscopedContactId = ((await res.json()) as { id: string }).id;
       cleanupContactsDefault.push(unscopedContactId);
 
-      const listRes = await raw.get('/api/contacts');
+      const listRes = await raw.get('/contacts');
       expect(listRes.status).toBe(200);
       const body = (await listRes.json()) as { contacts: Array<{ id: string }> };
       expect(body.contacts.some((c) => c.id === unscopedContactId)).toBe(true);
@@ -380,7 +380,7 @@ describe.skipIf(!RUN_E2E)('Namespace-based scope isolation (E2E)', () => {
       let protectedItemId: string;
 
       beforeAll(async () => {
-        const res = await postWithRetry(nsA, '/api/work-items', {
+        const res = await postWithRetry(nsA, '/work-items', {
           title: `E2E Protected WI ${Date.now()}`,
           kind: 'issue',
           user_email: USER_A,
@@ -392,20 +392,20 @@ describe.skipIf(!RUN_E2E)('Namespace-based scope isolation (E2E)', () => {
 
       it('namespace B cannot update namespace A work item status', async () => {
         const res = await nsB.patch(
-          `/api/work-items/${protectedItemId}/status`,
+          `/work-items/${protectedItemId}/status`,
           { status: 'completed' },
         );
         expect(res.status).toBe(404);
       });
 
       it('namespace B cannot delete namespace A work item', async () => {
-        const res = await nsB.delete(`/api/work-items/${protectedItemId}`);
+        const res = await nsB.delete(`/work-items/${protectedItemId}`);
         expect(res.status).toBe(404);
       });
 
       it('namespace A can update their own work item status', async () => {
         const res = await nsA.patch(
-          `/api/work-items/${protectedItemId}/status`,
+          `/work-items/${protectedItemId}/status`,
           { status: 'completed' },
         );
         expect(res.status).toBe(200);
@@ -414,7 +414,7 @@ describe.skipIf(!RUN_E2E)('Namespace-based scope isolation (E2E)', () => {
       });
 
       it('namespace A can delete their own work item', async () => {
-        const res = await nsA.delete(`/api/work-items/${protectedItemId}`);
+        const res = await nsA.delete(`/work-items/${protectedItemId}`);
         expect(res.status).toBe(204);
         // Remove from cleanup since already deleted
         const idx = cleanupWorkItemsA.indexOf(protectedItemId);
@@ -426,7 +426,7 @@ describe.skipIf(!RUN_E2E)('Namespace-based scope isolation (E2E)', () => {
       let protectedContactId: string;
 
       beforeAll(async () => {
-        const res = await postWithRetry(nsA, '/api/contacts', {
+        const res = await postWithRetry(nsA, '/contacts', {
           display_name: `E2E Protected Contact ${Date.now()}`,
           user_email: USER_A,
         });
@@ -437,27 +437,27 @@ describe.skipIf(!RUN_E2E)('Namespace-based scope isolation (E2E)', () => {
 
       it('namespace B cannot update namespace A contact', async () => {
         const res = await nsB.patch(
-          `/api/contacts/${protectedContactId}`,
+          `/contacts/${protectedContactId}`,
           { display_name: 'Hacked' },
         );
         expect(res.status).toBe(404);
       });
 
       it('namespace B cannot delete namespace A contact', async () => {
-        const res = await nsB.delete(`/api/contacts/${protectedContactId}`);
+        const res = await nsB.delete(`/contacts/${protectedContactId}`);
         expect(res.status).toBe(404);
       });
 
       it('namespace A can update their own contact', async () => {
         const res = await nsA.patch(
-          `/api/contacts/${protectedContactId}`,
+          `/contacts/${protectedContactId}`,
           { display_name: 'Updated Name' },
         );
         expect(res.status).toBe(200);
       });
 
       it('namespace A can delete their own contact', async () => {
-        const res = await nsA.delete(`/api/contacts/${protectedContactId}`);
+        const res = await nsA.delete(`/contacts/${protectedContactId}`);
         expect(res.status).toBe(204);
         const idx = cleanupContactsA.indexOf(protectedContactId);
         if (idx >= 0) cleanupContactsA.splice(idx, 1);
@@ -476,7 +476,7 @@ describe.skipIf(!RUN_E2E)('Namespace-based scope isolation (E2E)', () => {
 
       beforeAll(async () => {
         // Create a work item in namespace B
-        const res = await postWithRetry(nsB, '/api/work-items', {
+        const res = await postWithRetry(nsB, '/work-items', {
           title: `E2E PB Item ${Date.now()}`,
           kind: 'issue',
           user_email: USER_B,
@@ -488,7 +488,7 @@ describe.skipIf(!RUN_E2E)('Namespace-based scope isolation (E2E)', () => {
       });
 
       it('namespace A client listing does not include namespace B item', async () => {
-        const res = await nsA.get('/api/work-items');
+        const res = await nsA.get('/work-items');
         expect(res.status).toBe(200);
         const body = (await res.json()) as { items: Array<{ id: string }> };
         // Should NOT see namespace B's item
@@ -496,7 +496,7 @@ describe.skipIf(!RUN_E2E)('Namespace-based scope isolation (E2E)', () => {
       });
 
       it('namespace A client cannot GET namespace B item by id', async () => {
-        const res = await nsA.get(`/api/work-items/${itemForB}`);
+        const res = await nsA.get(`/work-items/${itemForB}`);
         // Namespace scoping prevents access — item is in namespace B
         expect(res.status).toBe(404);
       });
@@ -506,7 +506,7 @@ describe.skipIf(!RUN_E2E)('Namespace-based scope isolation (E2E)', () => {
       let itemForA: string;
 
       beforeAll(async () => {
-        const res = await postWithRetry(nsA, '/api/work-items', {
+        const res = await postWithRetry(nsA, '/work-items', {
           title: `E2E M2M NS Item ${Date.now()}`,
           kind: 'issue',
           user_email: USER_A,
@@ -517,14 +517,14 @@ describe.skipIf(!RUN_E2E)('Namespace-based scope isolation (E2E)', () => {
       });
 
       it('M2M client targeting namespace A can list namespace A items', async () => {
-        const res = await nsA.get('/api/work-items');
+        const res = await nsA.get('/work-items');
         expect(res.status).toBe(200);
         const body = (await res.json()) as { items: Array<{ id: string }> };
         expect(body.items.some((i) => i.id === itemForA)).toBe(true);
       });
 
       it('M2M client targeting namespace B gets empty list for namespace B', async () => {
-        const res = await nsB.get('/api/work-items');
+        const res = await nsB.get('/work-items');
         expect(res.status).toBe(200);
         // This should succeed (even if empty), not error
         const body = (await res.json()) as { items: Array<{ id: string }> };

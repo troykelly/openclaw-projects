@@ -80,7 +80,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       // The API requires a title - auto-naming is a frontend responsibility
       const res = await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: {
           user_email: testUser,
           title: '',
@@ -94,7 +94,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
     it('returns 400 for whitespace-only title', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: {
           user_email: testUser,
           title: '   ',
@@ -109,7 +109,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       const customTitle = 'My Custom Note Title';
       const res = await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: {
           user_email: testUser,
           title: customTitle,
@@ -127,7 +127,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       const autoTitle = `Untitled Note - ${new Date().toLocaleString()}`;
       const res = await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: {
           user_email: testUser,
           title: autoTitle,
@@ -143,7 +143,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       // Create note with initial title
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: {
           user_email: testUser,
           title: 'Original Title',
@@ -156,7 +156,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       const newTitle = `Untitled Note - ${new Date().toLocaleString()}`;
       const updateRes = await app.inject({
         method: 'PUT',
-        url: `/api/notes/${noteId}`,
+        url: `/notes/${noteId}`,
         payload: {
           user_email: testUser,
           title: newTitle,
@@ -177,7 +177,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       // Create initial note
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: {
           user_email: testUser,
           title: 'Autosave Test',
@@ -200,7 +200,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       for (const content of updates) {
         const updateRes = await app.inject({
           method: 'PUT',
-          url: `/api/notes/${noteId}`,
+          url: `/notes/${noteId}`,
           payload: {
             user_email: testUser,
             content,
@@ -213,7 +213,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       // Verify final content persisted
       const getRes = await app.inject({
         method: 'GET',
-        url: `/api/notes/${noteId}`,
+        url: `/notes/${noteId}`,
         query: { user_email: testUser },
       });
 
@@ -225,7 +225,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       // Create initial note
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: {
           user_email: testUser,
           title: 'Original Title',
@@ -238,7 +238,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       // Update title and content simultaneously
       const updateRes = await app.inject({
         method: 'PUT',
-        url: `/api/notes/${noteId}`,
+        url: `/notes/${noteId}`,
         payload: {
           user_email: testUser,
           title: 'Updated Title',
@@ -256,7 +256,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       // Create initial note
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: {
           user_email: testUser,
           title: 'Version Test',
@@ -269,7 +269,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       // Make several updates
       await app.inject({
         method: 'PUT',
-        url: `/api/notes/${noteId}`,
+        url: `/notes/${noteId}`,
         payload: {
           user_email: testUser,
           content: 'Version 2 content',
@@ -278,7 +278,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
 
       await app.inject({
         method: 'PUT',
-        url: `/api/notes/${noteId}`,
+        url: `/notes/${noteId}`,
         payload: {
           user_email: testUser,
           content: 'Version 3 content',
@@ -288,7 +288,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       // Check version history
       const versionsRes = await app.inject({
         method: 'GET',
-        url: `/api/notes/${noteId}/versions`,
+        url: `/notes/${noteId}/versions`,
         query: { user_email: testUser },
       });
 
@@ -307,7 +307,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       // Create note
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: {
           user_email: testUser,
           title: 'Persistence Test',
@@ -320,7 +320,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       // Update content
       await app.inject({
         method: 'PUT',
-        url: `/api/notes/${noteId}`,
+        url: `/notes/${noteId}`,
         payload: {
           user_email: testUser,
           content: 'Updated content that should persist',
@@ -330,7 +330,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       // "Reload" - fetch the note fresh
       const reloadRes = await app.inject({
         method: 'GET',
-        url: `/api/notes/${noteId}`,
+        url: `/notes/${noteId}`,
         query: { user_email: testUser },
       });
 
@@ -342,7 +342,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       // Create note
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: {
           user_email: testUser,
           title: 'Rapid Save Test',
@@ -360,7 +360,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
         .map((_, i) =>
           app.inject({
             method: 'PUT',
-            url: `/api/notes/${noteId}`,
+            url: `/notes/${noteId}`,
             payload: {
               user_email: testUser,
               content: `Content version ${i + 1}`,
@@ -376,7 +376,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       // Verify final state
       const finalRes = await app.inject({
         method: 'GET',
-        url: `/api/notes/${noteId}`,
+        url: `/notes/${noteId}`,
         query: { user_email: testUser },
       });
 
@@ -391,7 +391,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       // Create note with content
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: {
           user_email: testUser,
           title: 'Empty Content Test',
@@ -404,7 +404,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       // Clear the content (autosave of cleared content)
       const clearRes = await app.inject({
         method: 'PUT',
-        url: `/api/notes/${noteId}`,
+        url: `/notes/${noteId}`,
         payload: {
           user_email: testUser,
           content: '',
@@ -417,7 +417,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       // Verify empty content persists
       const getRes = await app.inject({
         method: 'GET',
-        url: `/api/notes/${noteId}`,
+        url: `/notes/${noteId}`,
         query: { user_email: testUser },
       });
 
@@ -435,7 +435,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
 
       const res = await app.inject({
         method: 'PUT',
-        url: `/api/notes/${fakeId}`,
+        url: `/notes/${fakeId}`,
         payload: {
           user_email: testUser,
           content: 'Attempting to save to non-existent note',
@@ -450,7 +450,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       // Create note as one user
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: {
           user_email: testUser,
           title: 'Auth Test',
@@ -464,7 +464,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       // Try to update as different user
       const updateRes = await app.inject({
         method: 'PUT',
-        url: `/api/notes/${noteId}`,
+        url: `/notes/${noteId}`,
         payload: {
           user_email: 'other-user@example.com',
           content: 'Unauthorized update attempt',
@@ -478,7 +478,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       // Create note
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: {
           user_email: testUser,
           title: 'To Be Deleted',
@@ -491,14 +491,14 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       // Delete the note
       await app.inject({
         method: 'DELETE',
-        url: `/api/notes/${noteId}`,
+        url: `/notes/${noteId}`,
         query: { user_email: testUser },
       });
 
       // Try to update deleted note (simulating stale autosave)
       const updateRes = await app.inject({
         method: 'PUT',
-        url: `/api/notes/${noteId}`,
+        url: `/notes/${noteId}`,
         payload: {
           user_email: testUser,
           content: 'Update to deleted note',
@@ -513,7 +513,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       // Create, delete, restore workflow
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: {
           user_email: testUser,
           title: 'Restore Test',
@@ -526,14 +526,14 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       // Delete
       await app.inject({
         method: 'DELETE',
-        url: `/api/notes/${noteId}`,
+        url: `/notes/${noteId}`,
         query: { user_email: testUser },
       });
 
       // Restore
       const restoreRes = await app.inject({
         method: 'POST',
-        url: `/api/notes/${noteId}/restore`,
+        url: `/notes/${noteId}/restore`,
         payload: { user_email: testUser },
       });
 
@@ -542,7 +542,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       // Update should now work (autosave after restore)
       const updateRes = await app.inject({
         method: 'PUT',
-        url: `/api/notes/${noteId}`,
+        url: `/notes/${noteId}`,
         payload: {
           user_email: testUser,
           content: 'Content after restore',
@@ -563,7 +563,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       // Create note
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: {
           user_email: testUser,
           title: 'Large Content Test',
@@ -578,7 +578,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
 
       const updateRes = await app.inject({
         method: 'PUT',
-        url: `/api/notes/${noteId}`,
+        url: `/notes/${noteId}`,
         payload: {
           user_email: testUser,
           content: largeContent,
@@ -590,7 +590,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       // Verify content persisted
       const getRes = await app.inject({
         method: 'GET',
-        url: `/api/notes/${noteId}`,
+        url: `/notes/${noteId}`,
         query: { user_email: testUser },
       });
 
@@ -616,7 +616,7 @@ const x = "test";
 
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: {
           user_email: testUser,
           title: 'Special Chars Test',
@@ -630,7 +630,7 @@ const x = "test";
       // Verify retrieval
       const getRes = await app.inject({
         method: 'GET',
-        url: `/api/notes/${noteId}`,
+        url: `/notes/${noteId}`,
         query: { user_email: testUser },
       });
 
@@ -648,7 +648,7 @@ const x = "test";
       // Create notebook
       const nbRes = await app.inject({
         method: 'POST',
-        url: '/api/notebooks',
+        url: '/notebooks',
         payload: {
           user_email: testUser,
           name: 'Test Notebook',
@@ -659,7 +659,7 @@ const x = "test";
       // Create note in notebook
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: {
           user_email: testUser,
           title: 'Note in Notebook',
@@ -676,7 +676,7 @@ const x = "test";
       // Create notebook
       const nbRes = await app.inject({
         method: 'POST',
-        url: '/api/notebooks',
+        url: '/notebooks',
         payload: {
           user_email: testUser,
           name: 'Persistent Notebook',
@@ -687,7 +687,7 @@ const x = "test";
       // Create note in notebook
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/notes',
+        url: '/notes',
         payload: {
           user_email: testUser,
           title: 'Notebook Note',
@@ -700,20 +700,20 @@ const x = "test";
       // Multiple content updates
       await app.inject({
         method: 'PUT',
-        url: `/api/notes/${noteId}`,
+        url: `/notes/${noteId}`,
         payload: { user_email: testUser, content: 'V2' },
       });
 
       await app.inject({
         method: 'PUT',
-        url: `/api/notes/${noteId}`,
+        url: `/notes/${noteId}`,
         payload: { user_email: testUser, content: 'V3' },
       });
 
       // Verify notebook association persisted
       const getRes = await app.inject({
         method: 'GET',
-        url: `/api/notes/${noteId}`,
+        url: `/notes/${noteId}`,
         query: { user_email: testUser },
       });
 

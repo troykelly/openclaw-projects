@@ -24,7 +24,7 @@ describe('Work Item Emails API (issue #124)', () => {
     // Create a work item
     const wi = await app.inject({
       method: 'POST',
-      url: '/api/work-items',
+      url: '/work-items',
       payload: { title: 'Test Project', kind: 'project' },
     });
     work_item_id = (wi.json() as { id: string }).id;
@@ -32,14 +32,14 @@ describe('Work Item Emails API (issue #124)', () => {
     // Create a contact with an email endpoint
     const contact = await app.inject({
       method: 'POST',
-      url: '/api/contacts',
+      url: '/contacts',
       payload: { display_name: 'John Doe' },
     });
     contact_id = (contact.json() as { id: string }).id;
 
     const endpoint = await app.inject({
       method: 'POST',
-      url: `/api/contacts/${contact_id}/endpoints`,
+      url: `/contacts/${contact_id}/endpoints`,
       payload: { endpoint_type: 'email', endpoint_value: 'john@example.com' },
     });
     endpointId = (endpoint.json() as { id: string }).id;
@@ -97,11 +97,11 @@ describe('Work Item Emails API (issue #124)', () => {
     );
   }
 
-  describe('GET /api/work-items/:id/emails', () => {
+  describe('GET /work-items/:id/emails', () => {
     it('returns empty array when no emails linked', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${work_item_id}/emails`,
+        url: `/work-items/${work_item_id}/emails`,
       });
       expect(res.statusCode).toBe(200);
       expect(res.json()).toEqual({ emails: [] });
@@ -122,7 +122,7 @@ describe('Work Item Emails API (issue #124)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${work_item_id}/emails`,
+        url: `/work-items/${work_item_id}/emails`,
       });
       expect(res.statusCode).toBe(200);
 
@@ -168,7 +168,7 @@ describe('Work Item Emails API (issue #124)', () => {
       // Create a second work item to link the second email (can't link multiple emails to same work item)
       const wi2 = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: { title: 'Test Project 2', kind: 'project' },
       });
       const workItemId2 = (wi2.json() as { id: string }).id;
@@ -182,7 +182,7 @@ describe('Work Item Emails API (issue #124)', () => {
       // Test the first work item - only has older email
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${work_item_id}/emails`,
+        url: `/work-items/${work_item_id}/emails`,
       });
       expect(res.statusCode).toBe(200);
 
@@ -196,7 +196,7 @@ describe('Work Item Emails API (issue #124)', () => {
     it('returns 404 for non-existent work item', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/work-items/00000000-0000-0000-0000-000000000000/emails',
+        url: '/work-items/00000000-0000-0000-0000-000000000000/emails',
       });
       expect(res.statusCode).toBe(404);
       expect(res.json()).toEqual({ error: 'not found' });
@@ -213,7 +213,7 @@ describe('Work Item Emails API (issue #124)', () => {
       // Create a calendar event thread in a separate work item
       const wi2 = await app.inject({
         method: 'POST',
-        url: '/api/work-items',
+        url: '/work-items',
         payload: { title: 'Test Project 2', kind: 'project' },
       });
       const workItemId2 = (wi2.json() as { id: string }).id;
@@ -221,7 +221,7 @@ describe('Work Item Emails API (issue #124)', () => {
       // Create calendar endpoint
       const calendarEndpoint = await app.inject({
         method: 'POST',
-        url: `/api/contacts/${contact_id}/endpoints`,
+        url: `/contacts/${contact_id}/endpoints`,
         payload: { endpoint_type: 'webhook', endpoint_value: 'calendar-webhook' },
       });
       const calendarEndpointId = (calendarEndpoint.json() as { id: string }).id;
@@ -231,7 +231,7 @@ describe('Work Item Emails API (issue #124)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${work_item_id}/emails`,
+        url: `/work-items/${work_item_id}/emails`,
       });
       expect(res.statusCode).toBe(200);
 
@@ -255,7 +255,7 @@ describe('Work Item Emails API (issue #124)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${work_item_id}/emails`,
+        url: `/work-items/${work_item_id}/emails`,
       });
       expect(res.statusCode).toBe(200);
 

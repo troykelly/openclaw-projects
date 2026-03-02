@@ -1,7 +1,7 @@
 /**
  * TanStack Query hook for the activity feed.
  *
- * Fetches recent activity items from GET /api/activity.
+ * Fetches recent activity items from GET /activity.
  */
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/ui/lib/api-client.ts';
@@ -22,6 +22,6 @@ export const activityKeys = {
 export function useActivity(limit = 50) {
   return useQuery({
     queryKey: activityKeys.list(limit),
-    queryFn: ({ signal }) => apiClient.get<ActivityResponse>(`/api/activity?limit=${limit}`, { signal }),
+    queryFn: ({ signal }) => apiClient.get<ActivityResponse>(`/activity?limit=${limit}`, { signal }),
   });
 }

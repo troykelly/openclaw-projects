@@ -1,8 +1,8 @@
 /**
  * Hook for managing chat notification preferences (Issue #1958).
  *
- * Reads from GET /api/chat/preferences and updates via
- * PATCH /api/chat/preferences. Uses optimistic updates with rollback.
+ * Reads from GET /chat/preferences and updates via
+ * PATCH /chat/preferences. Uses optimistic updates with rollback.
  */
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { apiClient } from '@/ui/lib/api-client';
@@ -83,7 +83,7 @@ export function useChatNotificationPrefs(): UseChatNotificationPrefsReturn {
 
     async function fetch() {
       try {
-        const data = await apiClient.get<Record<string, unknown>>('/api/chat/preferences');
+        const data = await apiClient.get<Record<string, unknown>>('/chat/preferences');
         if (!alive) return;
         setPrefs(normalizePrefs(data));
       } catch (err) {
@@ -110,7 +110,7 @@ export function useChatNotificationPrefs(): UseChatNotificationPrefsReturn {
       setIsSaving(true);
 
       try {
-        const data = await apiClient.patch<Record<string, unknown>>('/api/chat/preferences', updates);
+        const data = await apiClient.patch<Record<string, unknown>>('/chat/preferences', updates);
         if (!mountedRef.current) return true;
         setPrefs(normalizePrefs(data));
         return true;
