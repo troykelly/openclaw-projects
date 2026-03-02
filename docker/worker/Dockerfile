@@ -19,6 +19,7 @@ RUN pnpm install --frozen-lockfile
 # Copy source files (respecting .dockerignore)
 COPY src/api/ ./src/api/
 COPY src/db.ts ./src/db.ts
+COPY src/instrument.ts ./src/instrument.ts
 COPY src/email/ ./src/email/
 COPY src/worker/ ./src/worker/
 COPY tsconfig.json ./
@@ -72,12 +73,14 @@ COPY --from=deps /app/package.json ./
 # Copy source files (API shared modules, db, email, and worker)
 COPY --from=builder /app/src/api/ ./src/api/
 COPY --from=builder /app/src/db.ts ./src/db.ts
+COPY --from=builder /app/src/instrument.ts ./src/instrument.ts
 COPY --from=builder /app/src/email/ ./src/email/
 COPY --from=builder /app/src/worker/ ./src/worker/
 
 # Set environment variables
 ENV NODE_ENV=production
 ENV WORKER_HEALTH_PORT=9000
+ENV SENTRY_SERVER_NAME=worker
 
 # Expose health/metrics port
 EXPOSE 9000
@@ -86,4 +89,4 @@ EXPOSE 9000
 USER node
 
 # Use Node 25's native TypeScript support
-CMD ["node", "--experimental-transform-types", "--experimental-detect-module", "src/worker/run.ts"]
+CMD ["node", "--experimental-transform-types", "--experimental-detect-module", "--import", "./src/instrument.ts", "src/worker/run.ts"]

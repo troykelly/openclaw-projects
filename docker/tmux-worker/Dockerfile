@@ -19,6 +19,7 @@ RUN pnpm install --frozen-lockfile
 # Copy source files needed by the tmux worker
 COPY src/tmux-worker/ ./src/tmux-worker/
 COPY src/db.ts ./src/db.ts
+COPY src/instrument.ts ./src/instrument.ts
 COPY proto/ ./proto/
 COPY tsconfig.json ./
 COPY tsconfig.build.json ./
@@ -75,11 +76,13 @@ COPY --from=deps /app/package.json ./
 # Copy source files (tmux worker, shared db module, proto definitions)
 COPY --from=builder /app/src/tmux-worker/ ./src/tmux-worker/
 COPY --from=builder /app/src/db.ts ./src/db.ts
+COPY --from=builder /app/src/instrument.ts ./src/instrument.ts
 COPY --from=builder /app/proto/ ./proto/
 
 # Set environment variables
 ENV NODE_ENV=production
 ENV GRPC_PORT=50051
+ENV SENTRY_SERVER_NAME=tmux-worker
 ENV ENROLLMENT_SSH_PORT=2222
 ENV TMUX_WORKER_HEALTH_PORT=9002
 
@@ -90,4 +93,4 @@ EXPOSE 50051 2222 9002
 USER node
 
 # Use Node 25's native TypeScript support
-CMD ["node", "--experimental-transform-types", "--experimental-detect-module", "src/tmux-worker/run.ts"]
+CMD ["node", "--experimental-transform-types", "--experimental-detect-module", "--import", "./src/instrument.ts", "src/tmux-worker/run.ts"]

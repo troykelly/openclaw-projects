@@ -6,6 +6,7 @@
 
 import type { Pool } from 'pg';
 import type { InternalJob, JobProcessorResult, JobProcessorStats, JobHandler } from './types.ts';
+import { processJobWithSpan } from '../../worker/sentry-integration.ts';
 import { enqueueWebhook } from '../webhooks/dispatcher.ts';
 import { buildReminderDuePayload, buildDeadlineApproachingPayload, getWebhookDestination } from '../webhooks/payloads.ts';
 import { handleSmsSendJob } from '../twilio/sms-outbound.ts';
@@ -378,7 +379,7 @@ export async function processJobs(pool: Pool, limit: number = 10): Promise<JobPr
     }
 
     try {
-      const result = await handler(job);
+      const result = await processJobWithSpan(job, () => handler(job));
 
       if (result.success) {
         await completeJob(pool, job.id, workerId);

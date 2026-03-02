@@ -18,6 +18,8 @@ import { NotifyListener } from './listener.ts';
 import { WORKER_CHANNELS } from './channels.ts';
 import { startHealthServer } from './health.ts';
 import type { HealthStatus } from './health.ts';
+import { closeSentry } from '../instrument.ts';
+import { processJobWithSpan, recordCircuitBreakerBreadcrumb } from './sentry-integration.ts';
 import {
   jobsProcessedTotal,
   jobsDuration,
@@ -78,8 +80,10 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  // 4. Circuit breaker
-  const breaker = new CircuitBreaker();
+  // 4. Circuit breaker (with Sentry breadcrumbs for state changes, #2001)
+  const breaker = new CircuitBreaker({
+    onStateChange: recordCircuitBreakerBreadcrumb,
+  });
 
   // 5. Listener
   const listener = new NotifyListener({
@@ -174,6 +178,9 @@ async function main(): Promise<void> {
     await listener.stop();
     await pool.end();
     healthServer.close();
+
+    // Flush pending Sentry events before exit (#2001)
+    await closeSentry();
 
     console.log('[Worker] Shutdown complete');
     process.exit(0);
