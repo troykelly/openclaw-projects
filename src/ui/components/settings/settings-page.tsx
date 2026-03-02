@@ -9,6 +9,7 @@
 import { Bell, CheckCircle, Clock, Eye, Info, Keyboard, Layout, Link2, MapPin, MessageSquare, Monitor, Moon, Radio, Smartphone, Sun, User, Webhook } from 'lucide-react';
 import * as React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { Skeleton } from '@/ui/components/feedback';
 import { Badge } from '@/ui/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/ui/components/ui/card';
@@ -496,8 +497,10 @@ function AboutSection() {
 
 export function SettingsPage() {
   const { state, isSaving, updateSettings } = useSettings();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [activeSection, setActiveSection] = useState<SectionId>('profile');
   const [showSaveConfirmation, setShowSaveConfirmation] = useState(false);
+  const [haConnectedBanner, setHaConnectedBanner] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sectionRefs = useRef<Record<SectionId, HTMLDivElement | null>>({
     profile: null,
@@ -580,6 +583,29 @@ export function SettingsPage() {
       el.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   }, []);
+
+  // Handle ha_connected query param from OAuth callback redirect
+  useEffect(() => {
+    const providerId = searchParams.get('ha_connected');
+    if (!providerId) return;
+
+    // Show success banner and scroll to location section
+    setHaConnectedBanner(true);
+    setActiveSection('location');
+    const el = sectionRefs.current.location;
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    // Remove the query param to keep URL clean
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('ha_connected');
+      return next;
+    }, { replace: true });
+
+    // Auto-dismiss after 6 seconds
+    const timer = setTimeout(() => setHaConnectedBanner(false), 6000);
+    return () => clearTimeout(timer);
+  }, [searchParams, setSearchParams]);
 
   // Clean up save timer on unmount
   useEffect(() => {
@@ -705,6 +731,15 @@ export function SettingsPage() {
                 sectionRefs.current.location = el;
               }}
             >
+              {haConnectedBanner && (
+                <div
+                  data-testid="ha-connected-banner"
+                  className="mb-4 flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800 dark:border-green-800 dark:bg-green-950 dark:text-green-200"
+                >
+                  <CheckCircle className="size-4 shrink-0" />
+                  Home Assistant connected successfully. The connector will begin syncing location data shortly.
+                </div>
+              )}
               <LocationSection
                 geoAutoInject={settings.geo_auto_inject}
                 geoHighResRetentionHours={settings.geo_high_res_retention_hours}
