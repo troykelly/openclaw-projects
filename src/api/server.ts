@@ -21837,15 +21837,18 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }
 
       // Issue #1988: terminate linked terminal sessions if requested
+      // Scoped to same namespace as the dev session for authorization safety
       if (terminateTerminals) {
+        const devNs = result.rows[0].namespace;
         await pool.query(
           `UPDATE terminal_session
            SET status = 'terminated', terminated_at = now(), updated_at = now()
            WHERE id IN (
              SELECT terminal_session_id FROM dev_session_terminal WHERE dev_session_id = $1
            )
+           AND namespace = $2
            AND status NOT IN ('terminated', 'error')`,
-          [id],
+          [id, devNs],
         );
       }
 
@@ -21884,6 +21887,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     if (!email) return reply.code(400).send({ error: 'user_email is required' });
 
     const { id } = req.params as { id: string };
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+      return reply.code(400).send({ error: 'Invalid dev session ID format' });
+    }
+
     const body = req.body as Record<string, unknown> | null;
     if (!body) return reply.code(400).send({ error: 'Body required' });
 
@@ -21894,19 +21901,20 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
     try {
-      // Verify dev session exists and belongs to user
+      // Verify dev session exists, belongs to user, and get its namespace
       const devSessionCheck = await pool.query(
-        `SELECT id FROM dev_session WHERE id = $1 AND user_email = $2`,
+        `SELECT id, namespace FROM dev_session WHERE id = $1 AND user_email = $2`,
         [id, email],
       );
       if (devSessionCheck.rows.length === 0) {
         return reply.code(404).send({ error: 'Dev session not found' });
       }
+      const devNamespace = devSessionCheck.rows[0].namespace;
 
-      // Verify terminal session exists
+      // Verify terminal session exists in the same namespace
       const termSessionCheck = await pool.query(
-        `SELECT id FROM terminal_session WHERE id = $1`,
-        [terminalSessionId],
+        `SELECT id FROM terminal_session WHERE id = $1 AND namespace = $2`,
+        [terminalSessionId, devNamespace],
       );
       if (termSessionCheck.rows.length === 0) {
         return reply.code(404).send({ error: 'Terminal session not found' });
@@ -21937,6 +21945,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     if (!email) return reply.code(400).send({ error: 'user_email is required' });
 
     const { id } = req.params as { id: string };
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+      return reply.code(400).send({ error: 'Invalid dev session ID format' });
+    }
+
     const pool = createPool();
     try {
       // Verify dev session exists and belongs to user
@@ -21971,6 +21983,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     if (!email) return reply.code(400).send({ error: 'user_email is required' });
 
     const { id, terminal_id } = req.params as { id: string; terminal_id: string };
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id) ||
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(terminal_id)) {
+      return reply.code(400).send({ error: 'Invalid ID format' });
+    }
+
     const pool = createPool();
     try {
       // Verify dev session belongs to user
