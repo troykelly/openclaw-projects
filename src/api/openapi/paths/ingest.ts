@@ -1,6 +1,6 @@
 /**
  * OpenAPI path definitions for the message ingestion endpoint.
- * Routes: POST /api/ingest/external-message
+ * Routes: POST /ingest/external-message
  */
 import type { OpenApiDomainModule } from '../types.ts';
 import { errorResponses, jsonBody, jsonResponse } from '../helpers.ts';
@@ -43,7 +43,7 @@ export function ingestPaths(): OpenApiDomainModule {
       },
     },
     paths: {
-      '/api/ingest/external-message': {
+      '/ingest/external-message': {
         post: {
           operationId: 'ingestExternalMessage',
           summary: 'Ingest an external message',

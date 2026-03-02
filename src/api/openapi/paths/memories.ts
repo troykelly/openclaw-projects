@@ -1,7 +1,7 @@
 /**
  * OpenAPI path definitions for the Memories domain.
  *
- * Covers legacy /api/memory endpoints, unified /api/memories endpoints,
+ * Covers legacy /memory endpoints, unified /memories endpoints,
  * bulk operations, memory-contact links, memory-memory relationships,
  * similarity search, attachments, project-scoped memories,
  * and admin embedding management.
@@ -21,7 +21,7 @@ export function memoriesPaths(): OpenApiDomainModule {
   return {
     tags: [
       { name: 'Memories', description: 'Memory storage, search, and relationship management' },
-      { name: 'Memories (Legacy)', description: 'Legacy /api/memory endpoints — prefer unified /api/memories' },
+      { name: 'Memories (Legacy)', description: 'Legacy /memory endpoints — prefer unified /memories' },
       { name: 'Admin - Embeddings', description: 'Embedding backfill and status endpoints' },
     ],
 
@@ -260,8 +260,8 @@ export function memoriesPaths(): OpenApiDomainModule {
     },
 
     paths: {
-      // -- Legacy Memory API (/api/memory) --------------------------------------
-      '/api/memory': {
+      // -- Legacy Memory API (/memory) --------------------------------------
+      '/memory': {
         get: {
           operationId: 'listMemoriesLegacy',
           summary: 'List memory items with pagination and search (legacy)',
@@ -334,7 +334,7 @@ export function memoriesPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/memory/{id}': {
+      '/memory/{id}': {
         parameters: [uuidParam('id', 'Memory UUID')],
         put: {
           operationId: 'updateMemoryLegacy',
@@ -366,8 +366,8 @@ export function memoriesPaths(): OpenApiDomainModule {
         },
       },
 
-      // -- Memory search (/api/memories/search) --------------------------------
-      '/api/memories/search': {
+      // -- Memory search (/memories/search) --------------------------------
+      '/memories/search': {
         get: {
           operationId: 'searchMemories',
           summary: 'Semantic search across memories using embeddings',
@@ -433,8 +433,8 @@ export function memoriesPaths(): OpenApiDomainModule {
         },
       },
 
-      // -- Unified Memory API (/api/memories) -----------------------------------
-      '/api/memories/global': {
+      // -- Unified Memory API (/memories) -----------------------------------
+      '/memories/global': {
         get: {
           operationId: 'listGlobalMemories',
           summary: 'List global memories (no work item or contact scope)',
@@ -464,7 +464,7 @@ export function memoriesPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/memories/unified': {
+      '/memories/unified': {
         post: {
           operationId: 'createMemoryUnified',
           summary: 'Create a memory with flexible scoping',
@@ -569,7 +569,7 @@ export function memoriesPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/memories/bulk': {
+      '/memories/bulk': {
         post: {
           operationId: 'bulkCreateMemories',
           summary: 'Bulk create memories',
@@ -593,7 +593,7 @@ export function memoriesPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/memories/{id}/supersede': {
+      '/memories/{id}/supersede': {
         parameters: [uuidParam('id', 'Memory UUID to supersede')],
         post: {
           operationId: 'supersedeMemory',
@@ -625,7 +625,7 @@ export function memoriesPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/memories/{id}': {
+      '/memories/{id}': {
         parameters: [uuidParam('id', 'Memory UUID')],
         patch: {
           operationId: 'updateMemory',
@@ -656,7 +656,7 @@ export function memoriesPaths(): OpenApiDomainModule {
       },
 
       // -- Memory-Contact links -------------------------------------------------
-      '/api/memories/{id}/contacts': {
+      '/memories/{id}/contacts': {
         parameters: [uuidParam('id', 'Memory UUID')],
         post: {
           operationId: 'linkMemoryToContact',
@@ -722,7 +722,7 @@ export function memoriesPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/memories/{memory_id}/contacts/{contact_id}': {
+      '/memories/{memory_id}/contacts/{contact_id}': {
         parameters: [
           uuidParam('memory_id', 'Memory UUID'),
           uuidParam('contact_id', 'Contact UUID'),
@@ -748,7 +748,7 @@ export function memoriesPaths(): OpenApiDomainModule {
       },
 
       // -- Memory-Memory relationships ------------------------------------------
-      '/api/memories/{id}/related': {
+      '/memories/{id}/related': {
         parameters: [uuidParam('id', 'Memory UUID')],
         post: {
           operationId: 'linkRelatedMemories',
@@ -828,7 +828,7 @@ export function memoriesPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/memories/{memory_id}/related/{related_memory_id}': {
+      '/memories/{memory_id}/related/{related_memory_id}': {
         parameters: [
           uuidParam('memory_id', 'Memory UUID'),
           uuidParam('related_memory_id', 'Related memory UUID'),
@@ -845,7 +845,7 @@ export function memoriesPaths(): OpenApiDomainModule {
       },
 
       // -- Similar memories -----------------------------------------------------
-      '/api/memories/{id}/similar': {
+      '/memories/{id}/similar': {
         parameters: [uuidParam('id', 'Memory UUID')],
         get: {
           operationId: 'findSimilarMemories',
@@ -900,7 +900,7 @@ export function memoriesPaths(): OpenApiDomainModule {
       },
 
       // -- Attachments ----------------------------------------------------------
-      '/api/memories/{id}/attachments': {
+      '/memories/{id}/attachments': {
         parameters: [uuidParam('id', 'Memory UUID')],
         post: {
           operationId: 'attachFileToMemory',
@@ -943,7 +943,7 @@ export function memoriesPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/memories/{memory_id}/attachments/{file_id}': {
+      '/memories/{memory_id}/attachments/{file_id}': {
         parameters: [
           uuidParam('memory_id', 'Memory UUID'),
           uuidParam('file_id', 'File attachment UUID'),
@@ -960,7 +960,7 @@ export function memoriesPaths(): OpenApiDomainModule {
       },
 
       // -- Cleanup --------------------------------------------------------------
-      '/api/memories/cleanup-expired': {
+      '/memories/cleanup-expired': {
         delete: {
           operationId: 'cleanupExpiredMemories',
           summary: 'Delete all expired memories',
@@ -979,7 +979,7 @@ export function memoriesPaths(): OpenApiDomainModule {
       },
 
       // -- Project-scoped memories ----------------------------------------------
-      '/api/projects/{id}/memories': {
+      '/projects/{id}/memories': {
         parameters: [uuidParam('id', 'Project (work item) UUID')],
         get: {
           operationId: 'listProjectMemories',
@@ -1010,7 +1010,7 @@ export function memoriesPaths(): OpenApiDomainModule {
       },
 
       // -- Admin: Embeddings ----------------------------------------------------
-      '/api/admin/embeddings/backfill': {
+      '/admin/embeddings/backfill': {
         post: {
           operationId: 'backfillMemoryEmbeddings',
           summary: 'Backfill embeddings for memories',
@@ -1029,7 +1029,7 @@ export function memoriesPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/admin/embeddings/backfill-work-items': {
+      '/admin/embeddings/backfill-work-items': {
         post: {
           operationId: 'backfillWorkItemEmbeddings',
           summary: 'Backfill embeddings for work items',
@@ -1048,7 +1048,7 @@ export function memoriesPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/admin/embeddings/status': {
+      '/admin/embeddings/status': {
         get: {
           operationId: 'getEmbeddingStatus',
           summary: 'Get embedding configuration and statistics',

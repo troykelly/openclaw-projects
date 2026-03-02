@@ -101,7 +101,7 @@ export function notebooksPaths(): OpenApiDomainModule {
 
     paths: {
       // -- Notebook CRUD --------------------------------------------------------
-      '/api/notebooks': {
+      '/notebooks': {
         get: {
           operationId: 'listNotebooks',
           summary: 'List notebooks with filters',
@@ -164,7 +164,7 @@ export function notebooksPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/notebooks/tree': {
+      '/notebooks/tree': {
         get: {
           operationId: 'getNotebooksTree',
           summary: 'Get notebooks as a tree hierarchy',
@@ -216,7 +216,7 @@ export function notebooksPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/notebooks/{id}': {
+      '/notebooks/{id}': {
         parameters: [uuidParam('id', 'Notebook UUID')],
         get: {
           operationId: 'getNotebook',
@@ -275,7 +275,7 @@ export function notebooksPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/notebooks/{id}/archive': {
+      '/notebooks/{id}/archive': {
         parameters: [uuidParam('id', 'Notebook UUID')],
         post: {
           operationId: 'archiveNotebook',
@@ -295,7 +295,7 @@ export function notebooksPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/notebooks/{id}/unarchive': {
+      '/notebooks/{id}/unarchive': {
         parameters: [uuidParam('id', 'Notebook UUID')],
         post: {
           operationId: 'unarchiveNotebook',
@@ -315,7 +315,7 @@ export function notebooksPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/notebooks/{id}/notes': {
+      '/notebooks/{id}/notes': {
         parameters: [uuidParam('id', 'Notebook UUID')],
         post: {
           operationId: 'moveNotesToNotebook',
@@ -357,7 +357,7 @@ export function notebooksPaths(): OpenApiDomainModule {
       },
 
       // -- Notebook Sharing -----------------------------------------------------
-      '/api/notebooks/{id}/share': {
+      '/notebooks/{id}/share': {
         parameters: [uuidParam('id', 'Notebook UUID')],
         post: {
           operationId: 'shareNotebookWithUser',
@@ -380,7 +380,7 @@ export function notebooksPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/notebooks/{id}/share/link': {
+      '/notebooks/{id}/share/link': {
         parameters: [uuidParam('id', 'Notebook UUID')],
         post: {
           operationId: 'createNotebookShareLink',
@@ -402,7 +402,7 @@ export function notebooksPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/notebooks/{id}/shares': {
+      '/notebooks/{id}/shares': {
         parameters: [uuidParam('id', 'Notebook UUID')],
         get: {
           operationId: 'listNotebookShares',
@@ -422,7 +422,7 @@ export function notebooksPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/notebooks/{id}/shares/{share_id}': {
+      '/notebooks/{id}/shares/{share_id}': {
         parameters: [
           uuidParam('id', 'Notebook UUID'),
           uuidParam('share_id', 'Share UUID'),
@@ -457,7 +457,7 @@ export function notebooksPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/notebooks/shared-with-me': {
+      '/notebooks/shared-with-me': {
         get: {
           operationId: 'listNotebooksSharedWithMe',
           summary: 'List notebooks shared with the current user',
@@ -476,7 +476,7 @@ export function notebooksPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/shared/notebooks/{token}': {
+      '/shared/notebooks/{token}': {
         parameters: [
           {
             name: 'token',

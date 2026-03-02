@@ -1,7 +1,7 @@
 /**
  * OpenAPI path definitions for bulk work item operations.
- * Routes: POST /api/work-items/bulk, DELETE /api/work-items/bulk,
- *         PATCH /api/work-items/bulk
+ * Routes: POST /work-items/bulk, DELETE /work-items/bulk,
+ *         PATCH /work-items/bulk
  */
 import type { OpenApiDomainModule } from '../types.ts';
 import { ref, errorResponses, jsonBody, jsonResponse, namespaceParam } from '../helpers.ts';
@@ -143,7 +143,7 @@ export function bulkOperationsPaths(): OpenApiDomainModule {
     },
 
     paths: {
-      '/api/work-items/bulk': {
+      '/work-items/bulk': {
         post: {
           operationId: 'bulkCreateWorkItems',
           summary: 'Bulk create work items',

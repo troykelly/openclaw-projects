@@ -47,7 +47,7 @@ export function terminalEntriesPaths(): OpenApiDomainModule {
     },
 
     paths: {
-      '/api/terminal/sessions/{id}/entries': {
+      '/terminal/sessions/{id}/entries': {
         parameters: [uuidParam('id', 'Session UUID')],
         get: {
           operationId: 'listTerminalEntries',
@@ -90,7 +90,7 @@ export function terminalEntriesPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/terminal/sessions/{id}/entries/export': {
+      '/terminal/sessions/{id}/entries/export': {
         parameters: [uuidParam('id', 'Session UUID')],
         get: {
           operationId: 'exportTerminalEntries',

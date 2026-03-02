@@ -27,7 +27,7 @@ export function namespaceMovesPaths(): OpenApiDomainModule {
   const paths: Record<string, Record<string, unknown>> = {};
 
   for (const [entityName, tag, basePath] of NAMESPACE_MOVE_ENTITIES) {
-    paths[`/api/${basePath}/{id}/namespace`] = {
+    paths[`/${basePath}/{id}/namespace`] = {
       parameters: [uuidParam('id', `${entityName} UUID`)],
       patch: {
         operationId: `move${entityName.replace(/\s+/g, '')}Namespace`,

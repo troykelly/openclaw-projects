@@ -1,9 +1,9 @@
 /**
  * OpenAPI path definitions for bootstrap, context, and settings endpoints.
- * Routes: GET /api/bootstrap, POST /api/v1/context, POST /api/context/capture,
- *         GET /api/settings, PATCH /api/settings,
- *         GET /api/settings/embeddings, PATCH /api/settings/embeddings,
- *         POST /api/settings/embeddings/test
+ * Routes: GET /bootstrap, POST /v1/context, POST /context/capture,
+ *         GET /settings, PATCH /settings,
+ *         GET /settings/embeddings, PATCH /settings/embeddings,
+ *         POST /settings/embeddings/test
  */
 import type { OpenApiDomainModule } from '../types.ts';
 import { ref, errorResponses, jsonBody, jsonResponse, namespaceParam } from '../helpers.ts';
@@ -658,7 +658,7 @@ export function bootstrapPaths(): OpenApiDomainModule {
       },
     },
     paths: {
-      '/api/bootstrap': {
+      '/bootstrap': {
         get: {
           operationId: 'getBootstrapContext',
           summary: 'Get agent bootstrap context',
@@ -694,7 +694,7 @@ export function bootstrapPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/v1/context': {
+      '/v1/context': {
         post: {
           operationId: 'retrieveContext',
           summary: 'Retrieve agent context',
@@ -707,7 +707,7 @@ export function bootstrapPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/context/capture': {
+      '/context/capture': {
         post: {
           operationId: 'captureContext',
           summary: 'Capture context from conversation',
@@ -720,7 +720,7 @@ export function bootstrapPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/settings': {
+      '/settings': {
         get: {
           operationId: 'getSettings',
           summary: 'Get user settings',
@@ -743,7 +743,7 @@ export function bootstrapPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/settings/embeddings': {
+      '/settings/embeddings': {
         get: {
           operationId: 'getEmbeddingSettings',
           summary: 'Get embedding settings',
@@ -766,7 +766,7 @@ export function bootstrapPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/settings/embeddings/test': {
+      '/settings/embeddings/test': {
         post: {
           operationId: 'testEmbeddingProvider',
           summary: 'Test embedding provider connection',

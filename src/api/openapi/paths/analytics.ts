@@ -1,9 +1,9 @@
 /**
  * OpenAPI path definitions for analytics endpoints.
- * Routes: GET /api/analytics/project-health, GET /api/analytics/velocity,
- *         GET /api/analytics/effort, GET /api/analytics/burndown/:id,
- *         GET /api/analytics/overdue, GET /api/analytics/blocked,
- *         GET /api/analytics/activity-summary
+ * Routes: GET /analytics/project-health, GET /analytics/velocity,
+ *         GET /analytics/effort, GET /analytics/burndown/:id,
+ *         GET /analytics/overdue, GET /analytics/blocked,
+ *         GET /analytics/activity-summary
  */
 import type { OpenApiDomainModule } from '../types.ts';
 import { errorResponses, jsonResponse, uuidParam } from '../helpers.ts';
@@ -223,7 +223,7 @@ export function analyticsPaths(): OpenApiDomainModule {
       },
     },
     paths: {
-      '/api/analytics/project-health': {
+      '/analytics/project-health': {
         get: {
           operationId: 'getProjectHealth',
           summary: 'Get project health metrics',
@@ -253,7 +253,7 @@ export function analyticsPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/analytics/velocity': {
+      '/analytics/velocity': {
         get: {
           operationId: 'getVelocity',
           summary: 'Get velocity data',
@@ -290,7 +290,7 @@ export function analyticsPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/analytics/effort': {
+      '/analytics/effort': {
         get: {
           operationId: 'getEffort',
           summary: 'Get effort summary',
@@ -330,7 +330,7 @@ export function analyticsPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/analytics/burndown/{id}': {
+      '/analytics/burndown/{id}': {
         get: {
           operationId: 'getBurndown',
           summary: 'Get burndown data for a work item',
@@ -343,7 +343,7 @@ export function analyticsPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/analytics/overdue': {
+      '/analytics/overdue': {
         get: {
           operationId: 'getOverdueItems',
           summary: 'Get overdue items',
@@ -373,7 +373,7 @@ export function analyticsPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/analytics/blocked': {
+      '/analytics/blocked': {
         get: {
           operationId: 'getBlockedItems',
           summary: 'Get blocked items',
@@ -403,7 +403,7 @@ export function analyticsPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/analytics/activity-summary': {
+      '/analytics/activity-summary': {
         get: {
           operationId: 'getActivitySummary',
           summary: 'Get activity summary by day',

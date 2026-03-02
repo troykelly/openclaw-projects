@@ -1,6 +1,6 @@
 /**
  * OpenAPI path definitions for work item CRUD and sub-resources.
- * Routes: /api/work-items, /api/work-items/tree, /api/work-items/{id},
+ * Routes: /work-items, /work-items/tree, /work-items/{id},
  *         and all sub-resource endpoints (status, hierarchy, reparent, reorder,
  *         dates, rollup, activity, todos, comments, presence, contacts,
  *         memories, attachments, communications, emails, calendar, related-entities).
@@ -518,7 +518,7 @@ export function workItemsPaths(): OpenApiDomainModule {
 
     paths: {
       // ==================== Collection routes ====================
-      '/api/work-items': {
+      '/work-items': {
         get: {
           operationId: 'listWorkItems',
           summary: 'List work items',
@@ -599,7 +599,7 @@ export function workItemsPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/work-items/tree': {
+      '/work-items/tree': {
         get: {
           operationId: 'getWorkItemTree',
           summary: 'Get hierarchical work item tree',
@@ -634,7 +634,7 @@ export function workItemsPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/work-items/calendar': {
+      '/work-items/calendar': {
         get: {
           operationId: 'listWorkItemsCalendar',
           summary: 'List work items as calendar entries',
@@ -684,7 +684,7 @@ export function workItemsPaths(): OpenApiDomainModule {
       },
 
       // ==================== Single item routes ====================
-      '/api/work-items/{id}': {
+      '/work-items/{id}': {
         parameters: [workItemIdParam],
         get: {
           operationId: 'getWorkItem',
@@ -737,7 +737,7 @@ export function workItemsPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/work-items/{id}/restore': {
+      '/work-items/{id}/restore': {
         parameters: [workItemIdParam],
         post: {
           operationId: 'restoreWorkItem',
@@ -760,7 +760,7 @@ export function workItemsPaths(): OpenApiDomainModule {
       },
 
       // ==================== Patch operations ====================
-      '/api/work-items/{id}/status': {
+      '/work-items/{id}/status': {
         parameters: [workItemIdParam],
         patch: {
           operationId: 'updateWorkItemStatus',
@@ -791,7 +791,7 @@ export function workItemsPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/work-items/{id}/hierarchy': {
+      '/work-items/{id}/hierarchy': {
         parameters: [workItemIdParam],
         patch: {
           operationId: 'updateWorkItemHierarchy',
@@ -813,7 +813,7 @@ export function workItemsPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/work-items/{id}/reparent': {
+      '/work-items/{id}/reparent': {
         parameters: [workItemIdParam],
         patch: {
           operationId: 'reparentWorkItem',
@@ -841,7 +841,7 @@ export function workItemsPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/work-items/{id}/reorder': {
+      '/work-items/{id}/reorder': {
         parameters: [workItemIdParam],
         patch: {
           operationId: 'reorderWorkItem',
@@ -879,7 +879,7 @@ export function workItemsPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/work-items/{id}/dates': {
+      '/work-items/{id}/dates': {
         parameters: [workItemIdParam],
         patch: {
           operationId: 'updateWorkItemDates',
@@ -917,7 +917,7 @@ export function workItemsPaths(): OpenApiDomainModule {
       },
 
       // ==================== Rollup & Activity ====================
-      '/api/work-items/{id}/rollup': {
+      '/work-items/{id}/rollup': {
         parameters: [workItemIdParam],
         get: {
           operationId: 'getWorkItemRollup',
@@ -931,7 +931,7 @@ export function workItemsPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/work-items/{id}/activity': {
+      '/work-items/{id}/activity': {
         parameters: [workItemIdParam],
         get: {
           operationId: 'listWorkItemActivity',
@@ -967,7 +967,7 @@ export function workItemsPaths(): OpenApiDomainModule {
       },
 
       // ==================== Todos ====================
-      '/api/work-items/{id}/todos': {
+      '/work-items/{id}/todos': {
         parameters: [workItemIdParam],
         get: {
           operationId: 'listWorkItemTodos',
@@ -997,7 +997,7 @@ export function workItemsPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/work-items/{id}/todos/{todo_id}': {
+      '/work-items/{id}/todos/{todo_id}': {
         parameters: [
           workItemIdParam,
           uuidParam('todo_id', 'Todo UUID'),
@@ -1026,7 +1026,7 @@ export function workItemsPaths(): OpenApiDomainModule {
       },
 
       // ==================== Comments ====================
-      '/api/work-items/{id}/comments': {
+      '/work-items/{id}/comments': {
         parameters: [workItemIdParam],
         get: {
           operationId: 'listWorkItemComments',
@@ -1056,7 +1056,7 @@ export function workItemsPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/work-items/{id}/comments/{comment_id}': {
+      '/work-items/{id}/comments/{comment_id}': {
         parameters: [
           workItemIdParam,
           uuidParam('comment_id', 'Comment UUID'),
@@ -1094,7 +1094,7 @@ export function workItemsPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/work-items/{id}/comments/{comment_id}/reactions': {
+      '/work-items/{id}/comments/{comment_id}/reactions': {
         parameters: [
           workItemIdParam,
           uuidParam('comment_id', 'Comment UUID'),
@@ -1122,7 +1122,7 @@ export function workItemsPaths(): OpenApiDomainModule {
       },
 
       // ==================== Presence ====================
-      '/api/work-items/{id}/presence': {
+      '/work-items/{id}/presence': {
         parameters: [workItemIdParam],
         get: {
           operationId: 'getWorkItemPresence',
@@ -1173,7 +1173,7 @@ export function workItemsPaths(): OpenApiDomainModule {
       },
 
       // ==================== Contacts ====================
-      '/api/work-items/{id}/contacts': {
+      '/work-items/{id}/contacts': {
         parameters: [workItemIdParam],
         get: {
           operationId: 'listWorkItemContacts',
@@ -1212,7 +1212,7 @@ export function workItemsPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/work-items/{id}/contacts/{contact_id}': {
+      '/work-items/{id}/contacts/{contact_id}': {
         parameters: [
           workItemIdParam,
           uuidParam('contact_id', 'Contact UUID'),
@@ -1230,7 +1230,7 @@ export function workItemsPaths(): OpenApiDomainModule {
       },
 
       // ==================== Memories ====================
-      '/api/work-items/{id}/memories': {
+      '/work-items/{id}/memories': {
         parameters: [workItemIdParam],
         get: {
           operationId: 'listWorkItemMemories',
@@ -1261,7 +1261,7 @@ export function workItemsPaths(): OpenApiDomainModule {
       },
 
       // ==================== Attachments ====================
-      '/api/work-items/{id}/attachments': {
+      '/work-items/{id}/attachments': {
         parameters: [workItemIdParam],
         get: {
           operationId: 'listWorkItemAttachments',
@@ -1281,7 +1281,7 @@ export function workItemsPaths(): OpenApiDomainModule {
         post: {
           operationId: 'attachFileToWorkItem',
           summary: 'Attach a file to a work item',
-          description: 'Links an existing file (uploaded via /api/files/upload) to a work item.',
+          description: 'Links an existing file (uploaded via /files/upload) to a work item.',
           tags: ['Work Item Attachments'],
           requestBody: jsonBody(ref('WorkItemAttachmentCreate')),
           responses: {
@@ -1299,7 +1299,7 @@ export function workItemsPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/work-items/{work_item_id}/attachments/{file_id}': {
+      '/work-items/{work_item_id}/attachments/{file_id}': {
         parameters: [
           uuidParam('work_item_id', 'Work item UUID'),
           uuidParam('file_id', 'File attachment UUID'),
@@ -1317,7 +1317,7 @@ export function workItemsPaths(): OpenApiDomainModule {
       },
 
       // ==================== Communications ====================
-      '/api/work-items/{id}/communications': {
+      '/work-items/{id}/communications': {
         parameters: [workItemIdParam],
         get: {
           operationId: 'listWorkItemCommunications',
@@ -1357,7 +1357,7 @@ export function workItemsPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/work-items/{id}/communications/{comm_id}': {
+      '/work-items/{id}/communications/{comm_id}': {
         parameters: [
           workItemIdParam,
           uuidParam('comm_id', 'Communication thread UUID'),
@@ -1375,7 +1375,7 @@ export function workItemsPaths(): OpenApiDomainModule {
       },
 
       // ==================== Emails ====================
-      '/api/work-items/{id}/emails': {
+      '/work-items/{id}/emails': {
         parameters: [workItemIdParam],
         get: {
           operationId: 'listWorkItemEmails',
@@ -1418,7 +1418,7 @@ export function workItemsPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/work-items/{id}/emails/{email_id}': {
+      '/work-items/{id}/emails/{email_id}': {
         parameters: [
           workItemIdParam,
           uuidParam('email_id', 'Email message UUID'),
@@ -1436,7 +1436,7 @@ export function workItemsPaths(): OpenApiDomainModule {
       },
 
       // ==================== Calendar ====================
-      '/api/work-items/{id}/calendar': {
+      '/work-items/{id}/calendar': {
         parameters: [workItemIdParam],
         get: {
           operationId: 'listWorkItemCalendarEvents',
@@ -1479,7 +1479,7 @@ export function workItemsPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/work-items/{id}/calendar/{event_id}': {
+      '/work-items/{id}/calendar/{event_id}': {
         parameters: [
           workItemIdParam,
           uuidParam('event_id', 'Calendar event UUID'),
@@ -1497,7 +1497,7 @@ export function workItemsPaths(): OpenApiDomainModule {
       },
 
       // ==================== Related Entities ====================
-      '/api/work-items/{id}/related-entities': {
+      '/work-items/{id}/related-entities': {
         parameters: [workItemIdParam],
         get: {
           operationId: 'getWorkItemRelatedEntities',

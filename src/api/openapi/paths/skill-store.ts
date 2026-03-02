@@ -789,7 +789,7 @@ export function skillStorePaths(): OpenApiDomainModule {
 
     paths: {
       // ── Skill Store Items ───────────────────────────────────────────────
-      '/api/skill-store/items': {
+      '/skill-store/items': {
         post: {
           operationId: 'createSkillStoreItem',
           summary: 'Create or upsert a skill store item',
@@ -888,7 +888,7 @@ export function skillStorePaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/skill-store/items/by-key': {
+      '/skill-store/items/by-key': {
         get: {
           operationId: 'getSkillStoreItemByKey',
           summary: 'Get a skill store item by composite key (skill_id + collection + key)',
@@ -925,7 +925,7 @@ export function skillStorePaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/skill-store/items/bulk': {
+      '/skill-store/items/bulk': {
         post: {
           operationId: 'bulkCreateSkillStoreItems',
           summary: 'Bulk create or upsert skill store items (max 100)',
@@ -986,7 +986,7 @@ export function skillStorePaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/skill-store/items/{id}': {
+      '/skill-store/items/{id}': {
         parameters: [uuidParam('id', 'Skill store item UUID')],
         get: {
           operationId: 'getSkillStoreItem',
@@ -1036,7 +1036,7 @@ export function skillStorePaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/skill-store/items/{id}/archive': {
+      '/skill-store/items/{id}/archive': {
         parameters: [uuidParam('id', 'Skill store item UUID')],
         post: {
           operationId: 'archiveSkillStoreItem',
@@ -1050,7 +1050,7 @@ export function skillStorePaths(): OpenApiDomainModule {
       },
 
       // ── Skill Store Collections ─────────────────────────────────────────
-      '/api/skill-store/collections': {
+      '/skill-store/collections': {
         get: {
           operationId: 'listSkillStoreCollections',
           summary: 'List collections with item counts for a skill',
@@ -1082,7 +1082,7 @@ export function skillStorePaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/skill-store/collections/{name}': {
+      '/skill-store/collections/{name}': {
         parameters: [
           {
             name: 'name',
@@ -1124,7 +1124,7 @@ export function skillStorePaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/skill-store/aggregate': {
+      '/skill-store/aggregate': {
         get: {
           operationId: 'aggregateSkillStoreItems',
           summary: 'Run aggregate queries on skill store items',
@@ -1205,7 +1205,7 @@ export function skillStorePaths(): OpenApiDomainModule {
       },
 
       // ── Skill Store Schedules ───────────────────────────────────────────
-      '/api/skill-store/schedules': {
+      '/skill-store/schedules': {
         post: {
           operationId: 'createSkillStoreSchedule',
           summary: 'Create a cron-based schedule with webhook delivery',
@@ -1260,7 +1260,7 @@ export function skillStorePaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/skill-store/schedules/{id}': {
+      '/skill-store/schedules/{id}': {
         parameters: [uuidParam('id', 'Schedule UUID')],
         patch: {
           operationId: 'updateSkillStoreSchedule',
@@ -1283,7 +1283,7 @@ export function skillStorePaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/skill-store/schedules/{id}/trigger': {
+      '/skill-store/schedules/{id}/trigger': {
         parameters: [uuidParam('id', 'Schedule UUID')],
         post: {
           operationId: 'triggerSkillStoreSchedule',
@@ -1311,7 +1311,7 @@ export function skillStorePaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/skill-store/schedules/{id}/pause': {
+      '/skill-store/schedules/{id}/pause': {
         parameters: [uuidParam('id', 'Schedule UUID')],
         post: {
           operationId: 'pauseSkillStoreSchedule',
@@ -1324,7 +1324,7 @@ export function skillStorePaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/skill-store/schedules/{id}/resume': {
+      '/skill-store/schedules/{id}/resume': {
         parameters: [uuidParam('id', 'Schedule UUID')],
         post: {
           operationId: 'resumeSkillStoreSchedule',
@@ -1338,7 +1338,7 @@ export function skillStorePaths(): OpenApiDomainModule {
       },
 
       // ── Search ──────────────────────────────────────────────────────────
-      '/api/skill-store/search': {
+      '/skill-store/search': {
         post: {
           operationId: 'searchSkillStoreItems',
           summary: 'Full-text search across skill store items',
@@ -1369,7 +1369,7 @@ export function skillStorePaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/skill-store/search/semantic': {
+      '/skill-store/search/semantic': {
         post: {
           operationId: 'semanticSearchSkillStoreItems',
           summary: 'Semantic (vector) search across skill store items with full-text fallback',
@@ -1416,7 +1416,7 @@ export function skillStorePaths(): OpenApiDomainModule {
       },
 
       // ── Admin — Skill Store Embeddings ──────────────────────────────────
-      '/api/admin/skill-store/embeddings/status': {
+      '/admin/skill-store/embeddings/status': {
         get: {
           operationId: 'getSkillStoreEmbeddingsStatus',
           summary: 'Get skill store embedding statistics',
@@ -1453,7 +1453,7 @@ export function skillStorePaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/admin/skill-store/embeddings/backfill': {
+      '/admin/skill-store/embeddings/backfill': {
         post: {
           operationId: 'backfillSkillStoreEmbeddings',
           summary: 'Backfill skill store item embeddings',
@@ -1496,7 +1496,7 @@ export function skillStorePaths(): OpenApiDomainModule {
       },
 
       // ── Admin — Skill Store Stats & Skills ──────────────────────────────
-      '/api/admin/skill-store/stats': {
+      '/admin/skill-store/stats': {
         get: {
           operationId: 'getSkillStoreStats',
           summary: 'Get global skill store statistics',
@@ -1508,7 +1508,7 @@ export function skillStorePaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/admin/skill-store/skills': {
+      '/admin/skill-store/skills': {
         get: {
           operationId: 'listSkillStoreSkills',
           summary: 'List all skill_ids with item and collection counts',
@@ -1556,7 +1556,7 @@ export function skillStorePaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/admin/skill-store/skills/{skill_id}': {
+      '/admin/skill-store/skills/{skill_id}': {
         parameters: [
           {
             name: 'skill_id',
@@ -1618,7 +1618,7 @@ export function skillStorePaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/admin/skill-store/skills/{skill_id}/quota': {
+      '/admin/skill-store/skills/{skill_id}/quota': {
         parameters: [
           {
             name: 'skill_id',

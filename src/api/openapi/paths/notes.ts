@@ -399,7 +399,7 @@ export function notesPaths(): OpenApiDomainModule {
 
     paths: {
       // ── Notes CRUD ───────────────────────────────────────────────────
-      '/api/notes': {
+      '/notes': {
         get: {
           operationId: 'listNotes',
           summary: 'List notes with filters and pagination',
@@ -491,7 +491,7 @@ export function notesPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/notes/{id}': {
+      '/notes/{id}': {
         parameters: [uuidParam('id', 'Note UUID')],
         get: {
           operationId: 'getNote',
@@ -541,7 +541,7 @@ export function notesPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/notes/{id}/restore': {
+      '/notes/{id}/restore': {
         parameters: [uuidParam('id', 'Note UUID')],
         post: {
           operationId: 'restoreNote',
@@ -566,7 +566,7 @@ export function notesPaths(): OpenApiDomainModule {
       },
 
       // ── Version History ──────────────────────────────────────────────
-      '/api/notes/{id}/versions': {
+      '/notes/{id}/versions': {
         parameters: [uuidParam('id', 'Note UUID')],
         get: {
           operationId: 'listNoteVersions',
@@ -598,7 +598,7 @@ export function notesPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/notes/{id}/versions/compare': {
+      '/notes/{id}/versions/compare': {
         parameters: [uuidParam('id', 'Note UUID')],
         get: {
           operationId: 'compareNoteVersions',
@@ -666,7 +666,7 @@ export function notesPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/notes/{id}/versions/{version_number}': {
+      '/notes/{id}/versions/{version_number}': {
         parameters: [
           uuidParam('id', 'Note UUID'),
           {
@@ -690,7 +690,7 @@ export function notesPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/notes/{id}/versions/{version_number}/restore': {
+      '/notes/{id}/versions/{version_number}/restore': {
         parameters: [
           uuidParam('id', 'Note UUID'),
           {
@@ -715,7 +715,7 @@ export function notesPaths(): OpenApiDomainModule {
       },
 
       // ── Note Sharing ─────────────────────────────────────────────────
-      '/api/notes/{id}/share': {
+      '/notes/{id}/share': {
         parameters: [uuidParam('id', 'Note UUID')],
         post: {
           operationId: 'shareNoteWithUser',
@@ -757,7 +757,7 @@ export function notesPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/notes/{id}/share/link': {
+      '/notes/{id}/share/link': {
         parameters: [uuidParam('id', 'Note UUID')],
         post: {
           operationId: 'createNoteShareLink',
@@ -804,7 +804,7 @@ export function notesPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/notes/{id}/shares': {
+      '/notes/{id}/shares': {
         parameters: [uuidParam('id', 'Note UUID')],
         get: {
           operationId: 'listNoteShares',
@@ -828,7 +828,7 @@ export function notesPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/notes/{id}/shares/{share_id}': {
+      '/notes/{id}/shares/{share_id}': {
         parameters: [
           uuidParam('id', 'Note UUID'),
           uuidParam('share_id', 'Share UUID'),
@@ -878,7 +878,7 @@ export function notesPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/notes/shared-with-me': {
+      '/notes/shared-with-me': {
         get: {
           operationId: 'listNotesSharedWithMe',
           summary: 'List notes shared with the current user',
@@ -901,7 +901,7 @@ export function notesPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/shared/notes/{token}': {
+      '/shared/notes/{token}': {
         parameters: [
           {
             name: 'token',
@@ -926,7 +926,7 @@ export function notesPaths(): OpenApiDomainModule {
       },
 
       // ── Note Presence ────────────────────────────────────────────────
-      '/api/notes/{id}/presence': {
+      '/notes/{id}/presence': {
         parameters: [uuidParam('id', 'Note UUID')],
         post: {
           operationId: 'joinNotePresence',
@@ -1010,7 +1010,7 @@ export function notesPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/notes/{id}/presence/cursor': {
+      '/notes/{id}/presence/cursor': {
         parameters: [uuidParam('id', 'Note UUID')],
         put: {
           operationId: 'updateNoteCursorPosition',
@@ -1036,7 +1036,7 @@ export function notesPaths(): OpenApiDomainModule {
       },
 
       // ── Note Search ──────────────────────────────────────────────────
-      '/api/notes/search/semantic': {
+      '/notes/search/semantic': {
         post: {
           operationId: 'searchNotesSemantic',
           summary: 'Semantic search for notes (legacy endpoint)',
@@ -1113,7 +1113,7 @@ export function notesPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/notes/search': {
+      '/notes/search': {
         get: {
           operationId: 'searchNotesFullText',
           summary: 'Search notes with privacy filtering',
@@ -1205,7 +1205,7 @@ export function notesPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/notes/{id}/similar': {
+      '/notes/{id}/similar': {
         parameters: [uuidParam('id', 'Note UUID')],
         get: {
           operationId: 'findSimilarNotes',
@@ -1256,7 +1256,7 @@ export function notesPaths(): OpenApiDomainModule {
       },
 
       // ── Admin: Note Embeddings ───────────────────────────────────────
-      '/api/admin/embeddings/status/notes': {
+      '/admin/embeddings/status/notes': {
         get: {
           operationId: 'getNoteEmbeddingStatus',
           summary: 'Get note embedding statistics',
@@ -1293,7 +1293,7 @@ export function notesPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/admin/embeddings/backfill/notes': {
+      '/admin/embeddings/backfill/notes': {
         post: {
           operationId: 'backfillNoteEmbeddings',
           summary: 'Backfill note embeddings',

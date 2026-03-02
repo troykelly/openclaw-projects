@@ -1,7 +1,7 @@
 /**
  * OpenAPI path definitions for realtime communication endpoints.
- * Routes: GET /api/ws (WebSocket), GET /api/ws/stats,
- *         GET /api/events (SSE), GET /api/activity/stream (SSE)
+ * Routes: GET /ws (WebSocket), GET /ws/stats,
+ *         GET /events (SSE), GET /activity/stream (SSE)
  */
 import type { OpenApiDomainModule } from '../types.ts';
 import { errorResponses, jsonResponse } from '../helpers.ts';
@@ -111,7 +111,7 @@ export function realtimePaths(): OpenApiDomainModule {
       },
     },
     paths: {
-      '/api/ws': {
+      '/ws': {
         get: {
           operationId: 'connectWebSocket',
           summary: 'WebSocket connection',
@@ -139,7 +139,7 @@ export function realtimePaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/ws/stats': {
+      '/ws/stats': {
         get: {
           operationId: 'getWebSocketStats',
           summary: 'WebSocket connection stats',
@@ -151,7 +151,7 @@ export function realtimePaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/events': {
+      '/events': {
         get: {
           operationId: 'subscribeEvents',
           summary: 'SSE event stream',

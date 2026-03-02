@@ -138,7 +138,7 @@ export function terminalConnectionsPaths(): OpenApiDomainModule {
     },
 
     paths: {
-      '/api/terminal/connections': {
+      '/terminal/connections': {
         get: {
           operationId: 'listTerminalConnections',
           summary: 'List terminal connections',
@@ -187,7 +187,7 @@ export function terminalConnectionsPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/terminal/connections/{id}': {
+      '/terminal/connections/{id}': {
         parameters: [uuidParam('id', 'Connection UUID')],
         get: {
           operationId: 'getTerminalConnection',
@@ -225,7 +225,7 @@ export function terminalConnectionsPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/terminal/connections/{id}/test': {
+      '/terminal/connections/{id}/test': {
         parameters: [uuidParam('id', 'Connection UUID')],
         post: {
           operationId: 'testTerminalConnection',
@@ -240,7 +240,7 @@ export function terminalConnectionsPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/terminal/connections/import-ssh-config': {
+      '/terminal/connections/import-ssh-config': {
         post: {
           operationId: 'importSSHConfig',
           summary: 'Import connections from SSH config',

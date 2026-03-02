@@ -1,11 +1,11 @@
 /**
  * OpenAPI path definitions for shared list endpoints.
- * Routes: POST /api/lists, GET /api/lists, GET /api/lists/:id,
- *         PATCH /api/lists/:id, DELETE /api/lists/:id,
- *         POST /api/lists/:id/items, PATCH /api/lists/:list_id/items/:item_id,
- *         DELETE /api/lists/:list_id/items/:item_id,
- *         POST /api/lists/:id/items/check, POST /api/lists/:id/items/uncheck,
- *         POST /api/lists/:id/reset, POST /api/lists/:id/merge
+ * Routes: POST /lists, GET /lists, GET /lists/:id,
+ *         PATCH /lists/:id, DELETE /lists/:id,
+ *         POST /lists/:id/items, PATCH /lists/:list_id/items/:item_id,
+ *         DELETE /lists/:list_id/items/:item_id,
+ *         POST /lists/:id/items/check, POST /lists/:id/items/uncheck,
+ *         POST /lists/:id/reset, POST /lists/:id/merge
  */
 import type { OpenApiDomainModule } from '../types.ts';
 import { errorResponses, jsonBody, jsonResponse, paginationParams, uuidParam } from '../helpers.ts';
@@ -151,7 +151,7 @@ export function listsPaths(): OpenApiDomainModule {
       },
     },
     paths: {
-      '/api/lists': {
+      '/lists': {
         post: {
           operationId: 'createList',
           summary: 'Create a list',
@@ -231,7 +231,7 @@ export function listsPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/lists/{id}': {
+      '/lists/{id}': {
         get: {
           operationId: 'getList',
           summary: 'Get a list with items',
@@ -329,7 +329,7 @@ export function listsPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/lists/{id}/items': {
+      '/lists/{id}/items': {
         post: {
           operationId: 'addListItem',
           summary: 'Add an item to a list',
@@ -391,7 +391,7 @@ export function listsPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/lists/{list_id}/items/{item_id}': {
+      '/lists/{list_id}/items/{item_id}': {
         patch: {
           operationId: 'updateListItem',
           summary: 'Update a list item',
@@ -459,7 +459,7 @@ export function listsPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/lists/{id}/items/check': {
+      '/lists/{id}/items/check': {
         post: {
           operationId: 'checkListItems',
           summary: 'Check off list items',
@@ -499,7 +499,7 @@ export function listsPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/lists/{id}/items/uncheck': {
+      '/lists/{id}/items/uncheck': {
         post: {
           operationId: 'uncheckListItems',
           summary: 'Uncheck list items',
@@ -534,7 +534,7 @@ export function listsPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/lists/{id}/reset': {
+      '/lists/{id}/reset': {
         post: {
           operationId: 'resetList',
           summary: 'Reset a list after shopping',
@@ -562,7 +562,7 @@ export function listsPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/lists/{id}/merge': {
+      '/lists/{id}/merge': {
         post: {
           operationId: 'mergeListItems',
           summary: 'Merge items into a list',

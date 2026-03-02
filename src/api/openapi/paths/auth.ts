@@ -1,8 +1,8 @@
 /**
  * OpenAPI path definitions for authentication endpoints.
- * Routes: POST /api/auth/request-link, POST /api/auth/consume,
- *         POST /api/auth/refresh, POST /api/auth/revoke,
- *         POST /api/auth/exchange, GET /api/me
+ * Routes: POST /auth/request-link, POST /auth/consume,
+ *         POST /auth/refresh, POST /auth/revoke,
+ *         POST /auth/exchange, GET /me
  */
 import type { OpenApiDomainModule } from '../types.ts';
 import { ref, errorResponses, jsonBody, jsonResponse } from '../helpers.ts';
@@ -99,7 +99,7 @@ export function authPaths(): OpenApiDomainModule {
       },
     },
     paths: {
-      '/api/auth/request-link': {
+      '/auth/request-link': {
         post: {
           operationId: 'requestMagicLink',
           summary: 'Request a magic link',
@@ -113,7 +113,7 @@ export function authPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/auth/consume': {
+      '/auth/consume': {
         post: {
           operationId: 'consumeMagicLink',
           summary: 'Consume a magic link token',
@@ -127,7 +127,7 @@ export function authPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/auth/refresh': {
+      '/auth/refresh': {
         post: {
           operationId: 'refreshToken',
           summary: 'Refresh access token',
@@ -140,7 +140,7 @@ export function authPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/auth/revoke': {
+      '/auth/revoke': {
         post: {
           operationId: 'revokeToken',
           summary: 'Revoke refresh token (logout)',
@@ -153,7 +153,7 @@ export function authPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/auth/exchange': {
+      '/auth/exchange': {
         post: {
           operationId: 'exchangeCode',
           summary: 'Exchange one-time OAuth code for tokens',
@@ -167,7 +167,7 @@ export function authPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/me': {
+      '/me': {
         get: {
           operationId: 'getCurrentUser',
           summary: 'Get current authenticated user',

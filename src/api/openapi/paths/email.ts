@@ -1,13 +1,13 @@
 /**
  * OpenAPI path definitions for email endpoints.
- * Routes: GET /api/email/messages, GET /api/email/messages/:message_id,
- *         GET /api/email/threads, GET /api/email/threads/:thread_id,
- *         GET /api/email/folders, POST /api/email/messages/send,
- *         POST /api/email/drafts, PATCH /api/email/drafts/:draft_id,
- *         PATCH /api/email/messages/:message_id, DELETE /api/email/messages/:message_id,
- *         GET /api/email/messages/:message_id/attachments/:attachment_id,
- *         POST /api/sync/emails,
- *         GET /api/emails, POST /api/emails/send, POST /api/emails/create-work-item
+ * Routes: GET /email/messages, GET /email/messages/:message_id,
+ *         GET /email/threads, GET /email/threads/:thread_id,
+ *         GET /email/folders, POST /email/messages/send,
+ *         POST /email/drafts, PATCH /email/drafts/:draft_id,
+ *         PATCH /email/messages/:message_id, DELETE /email/messages/:message_id,
+ *         GET /email/messages/:message_id/attachments/:attachment_id,
+ *         POST /sync/emails,
+ *         GET /emails, POST /emails/send, POST /emails/create-work-item
  */
 import type { OpenApiDomainModule } from '../types.ts';
 import { errorResponses, jsonBody, jsonResponse } from '../helpers.ts';
@@ -182,7 +182,7 @@ export function emailPaths(): OpenApiDomainModule {
       },
     },
     paths: {
-      '/api/email/messages': {
+      '/email/messages': {
         get: {
           operationId: 'listEmailMessages',
           summary: 'List or search emails via provider API',
@@ -261,7 +261,7 @@ export function emailPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/email/messages/{message_id}': {
+      '/email/messages/{message_id}': {
         get: {
           operationId: 'getEmailMessage',
           summary: 'Get a single email message',
@@ -385,7 +385,7 @@ export function emailPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/email/threads': {
+      '/email/threads': {
         get: {
           operationId: 'listEmailThreads',
           summary: 'List email threads',
@@ -464,7 +464,7 @@ export function emailPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/email/threads/{thread_id}': {
+      '/email/threads/{thread_id}': {
         get: {
           operationId: 'getEmailThread',
           summary: 'Get a full email thread',
@@ -494,7 +494,7 @@ export function emailPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/email/folders': {
+      '/email/folders': {
         get: {
           operationId: 'listEmailFolders',
           summary: 'List email folders/labels',
@@ -525,7 +525,7 @@ export function emailPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/email/messages/send': {
+      '/email/messages/send': {
         post: {
           operationId: 'sendEmail',
           summary: 'Send an email via provider API',
@@ -589,7 +589,7 @@ export function emailPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/email/drafts': {
+      '/email/drafts': {
         post: {
           operationId: 'createEmailDraft',
           summary: 'Create a draft email',
@@ -653,7 +653,7 @@ export function emailPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/email/drafts/{draft_id}': {
+      '/email/drafts/{draft_id}': {
         patch: {
           operationId: 'updateEmailDraft',
           summary: 'Update a draft email',
@@ -722,7 +722,7 @@ export function emailPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/email/messages/{message_id}/attachments/{attachment_id}': {
+      '/email/messages/{message_id}/attachments/{attachment_id}': {
         get: {
           operationId: 'getEmailAttachment',
           summary: 'Download email attachment',
@@ -785,11 +785,11 @@ export function emailPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/sync/emails': {
+      '/sync/emails': {
         post: {
           operationId: 'syncEmails',
           summary: 'Trigger email sync (legacy)',
-          description: 'Legacy endpoint that returns a redirect to the live email API. Email is now accessed live via /api/email/messages.',
+          description: 'Legacy endpoint that returns a redirect to the live email API. Email is now accessed live via /email/messages.',
           tags: ['EmailLegacy'],
           deprecated: true,
           requestBody: jsonBody({
@@ -816,7 +816,7 @@ export function emailPaths(): OpenApiDomainModule {
                 message: {
                   type: 'string',
                   description: 'Human-readable redirect message',
-                  example: 'Email is now accessed live via /api/email/messages. No sync needed.',
+                  example: 'Email is now accessed live via /email/messages. No sync needed.',
                 },
                 connection_id: {
                   type: 'string',
@@ -835,7 +835,7 @@ export function emailPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/emails': {
+      '/emails': {
         get: {
           operationId: 'listEmailsLegacy',
           summary: 'List emails (legacy)',
@@ -910,7 +910,7 @@ export function emailPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/emails/send': {
+      '/emails/send': {
         post: {
           operationId: 'sendEmailLegacy',
           summary: 'Send email (legacy)',
@@ -993,7 +993,7 @@ export function emailPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/emails/create-work-item': {
+      '/emails/create-work-item': {
         post: {
           operationId: 'createWorkItemFromEmail',
           summary: 'Create work item from email',

@@ -1,10 +1,10 @@
 /**
  * OpenAPI path definitions for OAuth, Drive files, and sync endpoints.
- * Routes: GET /api/oauth/connections, GET /api/oauth/authorize/:provider,
- *         GET /api/oauth/callback, GET /api/oauth/providers,
- *         DELETE /api/oauth/connections/:id, PATCH /api/oauth/connections/:id,
- *         GET /api/drive/files, GET /api/drive/files/search, GET /api/drive/files/:id,
- *         POST /api/sync/contacts, GET /api/sync/status/:connection_id
+ * Routes: GET /oauth/connections, GET /oauth/authorize/:provider,
+ *         GET /oauth/callback, GET /oauth/providers,
+ *         DELETE /oauth/connections/:id, PATCH /oauth/connections/:id,
+ *         GET /drive/files, GET /drive/files/search, GET /drive/files/:id,
+ *         POST /sync/contacts, GET /sync/status/:connection_id
  */
 import type { OpenApiDomainModule } from '../types.ts';
 import { errorResponses, jsonBody, jsonResponse, uuidParam } from '../helpers.ts';
@@ -225,7 +225,7 @@ export function oauthDriveSyncPaths(): OpenApiDomainModule {
       },
     },
     paths: {
-      '/api/oauth/connections': {
+      '/oauth/connections': {
         get: {
           operationId: 'listOAuthConnections',
           summary: 'List OAuth connections',
@@ -262,7 +262,7 @@ export function oauthDriveSyncPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/oauth/authorize/{provider}': {
+      '/oauth/authorize/{provider}': {
         get: {
           operationId: 'authorizeOAuth',
           summary: 'Redirect to OAuth provider authorization',
@@ -305,7 +305,7 @@ export function oauthDriveSyncPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/oauth/callback': {
+      '/oauth/callback': {
         get: {
           operationId: 'handleOAuthCallback',
           summary: 'Handle OAuth callback',
@@ -362,7 +362,7 @@ export function oauthDriveSyncPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/oauth/providers': {
+      '/oauth/providers': {
         get: {
           operationId: 'listOAuthProviders',
           summary: 'List configured OAuth providers',
@@ -388,7 +388,7 @@ export function oauthDriveSyncPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/oauth/connections/{id}': {
+      '/oauth/connections/{id}': {
         delete: {
           operationId: 'deleteOAuthConnection',
           summary: 'Remove an OAuth connection',
@@ -463,7 +463,7 @@ export function oauthDriveSyncPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/drive/files': {
+      '/drive/files': {
         get: {
           operationId: 'listDriveFiles',
           summary: 'List files from connected drive',
@@ -514,7 +514,7 @@ export function oauthDriveSyncPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/drive/files/search': {
+      '/drive/files/search': {
         get: {
           operationId: 'searchDriveFiles',
           summary: 'Search files in connected drive',
@@ -566,7 +566,7 @@ export function oauthDriveSyncPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/drive/files/{id}': {
+      '/drive/files/{id}': {
         get: {
           operationId: 'getDriveFile',
           summary: 'Get file metadata',
@@ -604,7 +604,7 @@ export function oauthDriveSyncPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/sync/contacts': {
+      '/sync/contacts': {
         post: {
           operationId: 'syncContacts',
           summary: 'Trigger contact sync from OAuth provider',
@@ -634,7 +634,7 @@ export function oauthDriveSyncPaths(): OpenApiDomainModule {
           },
         },
       },
-      '/api/sync/status/{connection_id}': {
+      '/sync/status/{connection_id}': {
         get: {
           operationId: 'getSyncStatus',
           summary: 'Get sync status for a connection',

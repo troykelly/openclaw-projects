@@ -1,7 +1,7 @@
 /**
  * OpenAPI path definitions for backlog, inbox, and trash endpoints.
- * Routes: GET /api/backlog, GET /api/inbox,
- *         GET /api/trash, POST /api/trash/purge
+ * Routes: GET /backlog, GET /inbox,
+ *         GET /trash, POST /trash/purge
  */
 import type { OpenApiDomainModule } from '../types.ts';
 import { ref, errorResponses, jsonBody, jsonResponse, namespaceParam } from '../helpers.ts';
@@ -97,7 +97,7 @@ export function backlogInboxPaths(): OpenApiDomainModule {
     },
 
     paths: {
-      '/api/backlog': {
+      '/backlog': {
         get: {
           operationId: 'listBacklog',
           summary: 'List backlog items',
@@ -138,7 +138,7 @@ export function backlogInboxPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/inbox': {
+      '/inbox': {
         get: {
           operationId: 'listInbox',
           summary: 'List inbox items',
@@ -156,7 +156,7 @@ export function backlogInboxPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/trash': {
+      '/trash': {
         get: {
           operationId: 'listTrash',
           summary: 'List soft-deleted items',
@@ -192,7 +192,7 @@ export function backlogInboxPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/trash/purge': {
+      '/trash/purge': {
         post: {
           operationId: 'purgeTrash',
           summary: 'Purge old soft-deleted items',

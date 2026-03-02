@@ -1,8 +1,8 @@
 /**
  * OpenAPI path definitions for recurrence management.
- * Routes: GET/PUT/DELETE /api/work-items/{id}/recurrence,
- *         GET /api/work-items/{id}/instances,
- *         GET /api/recurrence/templates, POST /api/recurrence/generate
+ * Routes: GET/PUT/DELETE /work-items/{id}/recurrence,
+ *         GET /work-items/{id}/instances,
+ *         GET /recurrence/templates, POST /recurrence/generate
  */
 import type { OpenApiDomainModule } from '../types.ts';
 import { ref, uuidParam, errorResponses, jsonBody, jsonResponse } from '../helpers.ts';
@@ -105,7 +105,7 @@ export function recurrencePaths(): OpenApiDomainModule {
     },
 
     paths: {
-      '/api/work-items/{id}/recurrence': {
+      '/work-items/{id}/recurrence': {
         parameters: [workItemIdParam],
         get: {
           operationId: 'getWorkItemRecurrence',
@@ -140,7 +140,7 @@ export function recurrencePaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/work-items/{id}/instances': {
+      '/work-items/{id}/instances': {
         parameters: [workItemIdParam],
         get: {
           operationId: 'listRecurrenceInstances',
@@ -177,7 +177,7 @@ export function recurrencePaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/recurrence/templates': {
+      '/recurrence/templates': {
         get: {
           operationId: 'listRecurrenceTemplates',
           summary: 'List all recurrence templates',
@@ -213,7 +213,7 @@ export function recurrencePaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/recurrence/generate': {
+      '/recurrence/generate': {
         post: {
           operationId: 'generateRecurrenceInstances',
           summary: 'Generate upcoming recurrence instances',

@@ -1,9 +1,9 @@
 /**
  * OpenAPI path definitions for file storage and sharing.
- * Routes: POST /api/files/upload, GET /api/files, GET /api/files/share,
- *         GET /api/files/{id}, GET /api/files/{id}/metadata,
- *         GET /api/files/{id}/url, DELETE /api/files/{id},
- *         POST /api/files/{id}/share, GET /api/files/shared/{token}
+ * Routes: POST /files/upload, GET /files, GET /files/share,
+ *         GET /files/{id}, GET /files/{id}/metadata,
+ *         GET /files/{id}/url, DELETE /files/{id},
+ *         POST /files/{id}/share, GET /files/shared/{token}
  */
 import type { OpenApiDomainModule } from '../types.ts';
 import { ref, uuidParam, errorResponses, jsonBody, jsonResponse, namespaceParam } from '../helpers.ts';
@@ -74,7 +74,7 @@ export function filesPaths(): OpenApiDomainModule {
         required: ['token', 'url', 'expires_at'],
         properties: {
           token: { type: 'string', description: 'Unique share token for constructing the download URL', example: 'abc123def456ghi789' },
-          url: { type: 'string', format: 'uri', description: 'Full shareable download URL (no authentication required)', example: 'https://api.example.com/api/files/shared/abc123def456ghi789' },
+          url: { type: 'string', format: 'uri', description: 'Full shareable download URL (no authentication required)', example: 'https://api.example.com/files/shared/abc123def456ghi789' },
           expires_at: { type: 'string', format: 'date-time', description: 'When the share link expires', example: '2026-02-21T15:30:00Z' },
           max_downloads: { type: 'integer', nullable: true, description: 'Maximum downloads allowed, or null for unlimited', example: 10 },
         },
@@ -90,7 +90,7 @@ export function filesPaths(): OpenApiDomainModule {
     },
 
     paths: {
-      '/api/files/upload': {
+      '/files/upload': {
         post: {
           operationId: 'uploadFile',
           summary: 'Upload a file',
@@ -132,7 +132,7 @@ export function filesPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/files': {
+      '/files': {
         get: {
           operationId: 'listFiles',
           summary: 'List files',
@@ -168,11 +168,11 @@ export function filesPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/files/share': {
+      '/files/share': {
         get: {
           operationId: 'getFileShareInfo',
           summary: 'File share endpoint clarification',
-          description: 'Returns an error explaining the correct endpoints for file sharing. Use POST /api/files/{id}/share to create a share link, or GET /api/files/shared/{token} to download.',
+          description: 'Returns an error explaining the correct endpoints for file sharing. Use POST /files/{id}/share to create a share link, or GET /files/shared/{token} to download.',
           tags: ['Files'],
           responses: {
             '400': jsonResponse('Endpoint clarification', {
@@ -180,14 +180,14 @@ export function filesPaths(): OpenApiDomainModule {
               required: ['error', 'message'],
               properties: {
                 error: { type: 'string', description: 'Error code indicating incorrect endpoint usage', example: 'INVALID_ENDPOINT' },
-                message: { type: 'string', description: 'Instructions for using the correct endpoints', example: 'Use POST /api/files/{id}/share to create a share link, or GET /api/files/shared/{token} to download.' },
+                message: { type: 'string', description: 'Instructions for using the correct endpoints', example: 'Use POST /files/{id}/share to create a share link, or GET /files/shared/{token} to download.' },
               },
             }),
           },
         },
       },
 
-      '/api/files/{id}': {
+      '/files/{id}': {
         parameters: [fileIdParam],
         get: {
           operationId: 'downloadFile',
@@ -223,7 +223,7 @@ export function filesPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/files/{id}/metadata': {
+      '/files/{id}/metadata': {
         parameters: [fileIdParam],
         get: {
           operationId: 'getFileMetadata',
@@ -237,7 +237,7 @@ export function filesPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/files/{id}/url': {
+      '/files/{id}/url': {
         parameters: [fileIdParam],
         get: {
           operationId: 'getFileUrl',
@@ -260,7 +260,7 @@ export function filesPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/files/{id}/share': {
+      '/files/{id}/share': {
         parameters: [fileIdParam],
         post: {
           operationId: 'createFileShare',
@@ -275,7 +275,7 @@ export function filesPaths(): OpenApiDomainModule {
         },
       },
 
-      '/api/files/shared/{token}': {
+      '/files/shared/{token}': {
         parameters: [
           {
             name: 'token',
