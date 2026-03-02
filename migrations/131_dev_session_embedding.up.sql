@@ -4,7 +4,8 @@
 -- ── Step 1: Add embedding and search columns ──
 ALTER TABLE dev_session
   ADD COLUMN IF NOT EXISTS embedding        vector(1024),
-  ADD COLUMN IF NOT EXISTS embedding_status  text NOT NULL DEFAULT 'pending',
+  ADD COLUMN IF NOT EXISTS embedding_status  text NOT NULL DEFAULT 'pending'
+    CHECK (embedding_status IN ('pending', 'complete', 'failed', 'skipped')),
   ADD COLUMN IF NOT EXISTS search_vector     tsvector;
 
 -- ── Step 2: HNSW index for cosine similarity search ──

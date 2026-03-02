@@ -22199,14 +22199,18 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         rows = await devSessionTextSearch(pool, namespaces, searchTerm, query.status, limit, offset);
       }
 
-      // Compute total for text mode
+      // Compute total
       let total: number;
       if (!useSemantic) {
         try {
-          const countConditions = ['namespace = ANY($1::text[])', "search_vector @@ plainto_tsquery('english', $2)"];
-          const countParams: unknown[] = [namespaces, searchTerm];
+          const countConditions = [
+            'namespace = ANY($1::text[])',
+            "(search_vector @@ plainto_tsquery('english', $2) OR session_name ILIKE $3 OR task_summary ILIKE $3)",
+          ];
+          const countParams: unknown[] = [namespaces, searchTerm, `%${searchTerm}%`];
+          let countIdx = 4;
           if (query.status) {
-            countConditions.push('status = $3');
+            countConditions.push(`status = $${countIdx}`);
             countParams.push(query.status);
           }
           const countResult = await pool.query(
