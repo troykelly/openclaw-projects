@@ -246,10 +246,11 @@ function wrapMethodHandler<T, R>(
     try {
       const result = await handler(opts.params as T);
       opts.respond(true, result);
-    } catch (error) {
+    } catch (_error) {
+      // Return generic error to clients to avoid leaking internal details
       opts.respond(false, undefined, {
         code: 'INTERNAL_ERROR',
-        message: error instanceof Error ? error.message : String(error),
+        message: 'Internal error',
       });
     }
   };

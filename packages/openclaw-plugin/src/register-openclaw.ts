@@ -5209,8 +5209,11 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
      * Thread ID is extracted from `ctx.conversationId` or `event.metadata.thread_id`. (#2029)
      */
     const messageReceivedHandler = async (event: PluginHookMessageReceivedEvent, ctx: PluginHookMessageContext): Promise<void> => {
+      // Defensive: ctx may be undefined when invoked via legacy registerHook (single-arg)
+      const safeCtx = ctx ?? ({} as Partial<PluginHookMessageContext>);
+
       // Derive thread_id from context conversationId or event metadata
-      const threadId = ctx.conversationId
+      const threadId = safeCtx.conversationId
         ?? (typeof event.metadata?.thread_id === 'string' ? event.metadata.thread_id : undefined);
 
       // Skip if no thread ID (nothing to link to)
