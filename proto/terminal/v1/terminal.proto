@@ -63,6 +63,9 @@ message TestConnectionResponse {
   string message = 2;
   double latency_ms = 3;
   string host_key_fingerprint = 4;
+  // Structured error code for programmatic detection.
+  // e.g. 'HOST_KEY_VERIFICATION_FAILED'
+  string error_code = 5;
 }
 
 // ─── Session lifecycle ──────────────────────────────────────
