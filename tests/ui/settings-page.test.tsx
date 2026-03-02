@@ -672,11 +672,24 @@ describe('useSettings hook behavior', () => {
 
 describe('HA OAuth callback', () => {
   beforeEach(() => {
+    mockFetch.mockReset();
+    mockFetch.mockImplementation(createMockFetch());
+    vi.mocked(apiClient.get).mockReset();
+    vi.mocked(apiClient.patch).mockReset();
     vi.mocked(apiClient.get).mockImplementation((path: string) => {
-      if (path === '/api/settings') return Promise.resolve(defaultSettings);
-      if (path === '/api/settings/embeddings') return Promise.resolve(defaultEmbeddingSettings);
+      if (path === '/settings') return Promise.resolve(defaultSettings);
+      if (path === '/settings/embeddings') return Promise.resolve(defaultEmbeddingSettings);
       return Promise.reject(new Error('Not found'));
     });
+    vi.mocked(apiClient.patch).mockImplementation((_path: string, data: unknown) => {
+      return Promise.resolve({ ...defaultSettings, ...(data as Record<string, unknown>) });
+    });
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.clearAllTimers();
+    vi.restoreAllMocks();
   });
 
   it('shows success banner when ha_connected param is present', async () => {
