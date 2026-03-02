@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useState } from 'react';
-import { Bell, Folder, Users, Brain, MessageSquare, ChefHat, UtensilsCrossed, Code, Home, Warehouse, Mic, Terminal, Package, MoreHorizontal, X } from 'lucide-react';
+import { Bell, Folder, Users, Brain, MessageSquare, ChefHat, UtensilsCrossed, Code, Home, Warehouse, Mic, Terminal, Package, MoreHorizontal, X, StickyNote } from 'lucide-react';
 import { cn } from '@/ui/lib/utils';
 import { PrefetchLink } from '@/ui/components/navigation/PrefetchLink';
 
@@ -32,6 +32,7 @@ const primaryNavItems: MobileNavItem[] = [
  * Includes all remaining nav items from RouterSidebar.
  */
 const overflowNavItems: MobileNavItem[] = [
+  { id: 'notes', label: 'Notes', icon: StickyNote, to: '/notes' },
   { id: 'communications', label: 'Communications', icon: MessageSquare, to: '/communications' },
   { id: 'recipes', label: 'Recipes', icon: ChefHat, to: '/recipes' },
   { id: 'meal-log', label: 'Meal Log', icon: UtensilsCrossed, to: '/meal-log' },

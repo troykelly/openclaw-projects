@@ -16482,14 +16482,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       offset?: string;
     };
 
-    if (!query.user_email) {
-      return reply.code(400).send({ error: 'user_email is required' });
+    const email = await resolveUserEmail(req, query.user_email);
+    if (!email) {
+      return reply.code(401).send({ error: 'unauthorized' });
     }
 
     const pool = createPool();
 
     try {
-      const result = await listNotebooks(pool, query.user_email, {
+      const result = await listNotebooks(pool, email, {
         parent_id: query.parent_id === 'null' ? null : query.parent_id,
         include_archived: query.include_archived === 'true',
         include_note_counts: query.include_note_counts !== 'false',
@@ -16514,14 +16515,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       include_note_counts?: string;
     };
 
-    if (!query.user_email) {
-      return reply.code(400).send({ error: 'user_email is required' });
+    const email = await resolveUserEmail(req, query.user_email);
+    if (!email) {
+      return reply.code(401).send({ error: 'unauthorized' });
     }
 
     const pool = createPool();
 
     try {
-      const notebooks = await getNotebooksTree(pool, query.user_email, query.include_note_counts === 'true', req.namespaceContext?.queryNamespaces);
+      const notebooks = await getNotebooksTree(pool, email, query.include_note_counts === 'true', req.namespaceContext?.queryNamespaces);
 
       return reply.send({ notebooks });
     } finally {
@@ -16540,14 +16542,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       include_children?: string;
     };
 
-    if (!query.user_email) {
-      return reply.code(400).send({ error: 'user_email is required' });
+    const email = await resolveUserEmail(req, query.user_email);
+    if (!email) {
+      return reply.code(401).send({ error: 'unauthorized' });
     }
 
     const pool = createPool();
 
     try {
-      const notebook = await getNotebook(pool, params.id, query.user_email, {
+      const notebook = await getNotebook(pool, params.id, email, {
         include_notes: query.include_notes === 'true',
         include_children: query.include_children === 'true',
       });
@@ -16575,8 +16578,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       parent_notebook_id?: string;
     };
 
-    if (!body?.user_email) {
-      return reply.code(400).send({ error: 'user_email is required' });
+    const email = await resolveUserEmail(req, body?.user_email);
+    if (!email) {
+      return reply.code(401).send({ error: 'unauthorized' });
     }
 
     if (!body?.name?.trim()) {
@@ -16595,7 +16599,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           color: body.color,
           parent_notebook_id: body.parent_notebook_id,
         },
-        body.user_email,
+        email,
         getStoreNamespace(req),
       );
 
@@ -16629,8 +16633,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       sort_order?: number;
     };
 
-    if (!body?.user_email) {
-      return reply.code(400).send({ error: 'user_email is required' });
+    const email = await resolveUserEmail(req, body?.user_email);
+    if (!email) {
+      return reply.code(401).send({ error: 'unauthorized' });
     }
 
     const pool = createPool();
@@ -16647,7 +16652,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           parent_notebook_id: body.parent_notebook_id,
           sort_order: body.sort_order,
         },
-        body.user_email,
+        email,
       );
 
       if (!notebook) {
@@ -16682,14 +16687,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const body = req.body as { user_email?: string };
 
-    if (!body?.user_email) {
-      return reply.code(400).send({ error: 'user_email is required' });
+    const email = await resolveUserEmail(req, body?.user_email);
+    if (!email) {
+      return reply.code(401).send({ error: 'unauthorized' });
     }
 
     const pool = createPool();
 
     try {
-      const notebook = await archiveNotebook(pool, params.id, body.user_email);
+      const notebook = await archiveNotebook(pool, params.id, email);
 
       if (!notebook) {
         return reply.code(404).send({ error: 'Notebook not found' });
@@ -16714,14 +16720,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const body = req.body as { user_email?: string };
 
-    if (!body?.user_email) {
-      return reply.code(400).send({ error: 'user_email is required' });
+    const email = await resolveUserEmail(req, body?.user_email);
+    if (!email) {
+      return reply.code(401).send({ error: 'unauthorized' });
     }
 
     const pool = createPool();
 
     try {
-      const notebook = await unarchiveNotebook(pool, params.id, body.user_email);
+      const notebook = await unarchiveNotebook(pool, params.id, email);
 
       if (!notebook) {
         return reply.code(404).send({ error: 'Notebook not found' });
@@ -16749,14 +16756,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       delete_notes?: string;
     };
 
-    if (!query.user_email) {
-      return reply.code(400).send({ error: 'user_email is required' });
+    const email = await resolveUserEmail(req, query.user_email);
+    if (!email) {
+      return reply.code(401).send({ error: 'unauthorized' });
     }
 
     const pool = createPool();
 
     try {
-      const deleted = await deleteNotebook(pool, params.id, query.user_email, query.delete_notes === 'true');
+      const deleted = await deleteNotebook(pool, params.id, email, query.delete_notes === 'true');
 
       if (!deleted) {
         return reply.code(404).send({ error: 'Notebook not found' });
@@ -16788,8 +16796,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       action?: string;
     };
 
-    if (!body?.user_email) {
-      return reply.code(400).send({ error: 'user_email is required' });
+    const email = await resolveUserEmail(req, body?.user_email);
+    if (!email) {
+      return reply.code(401).send({ error: 'unauthorized' });
     }
 
     if (!body?.note_ids || !Array.isArray(body.note_ids) || body.note_ids.length === 0) {
@@ -16810,7 +16819,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           note_ids: body.note_ids,
           action: body.action as 'move' | 'copy',
         },
-        body.user_email,
+        email,
       );
 
       return reply.send(result);
@@ -16842,8 +16851,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       expires_at?: string;
     };
 
-    if (!body?.user_email) {
-      return reply.code(400).send({ error: 'user_email is required' });
+    const ownerEmail = await resolveUserEmail(req, body?.user_email);
+    if (!ownerEmail) {
+      return reply.code(401).send({ error: 'unauthorized' });
     }
     if (!body?.email) {
       return reply.code(400).send({ error: 'email is required to share with' });
@@ -16860,7 +16870,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           permission: body.permission as 'read' | 'read_write' | undefined,
           expires_at: body.expires_at,
         },
-        body.user_email,
+        ownerEmail,
       );
 
       if (!share) {
@@ -16893,8 +16903,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       expires_at?: string;
     };
 
-    if (!body?.user_email) {
-      return reply.code(400).send({ error: 'user_email is required' });
+    const ownerEmail = await resolveUserEmail(req, body?.user_email);
+    if (!ownerEmail) {
+      return reply.code(401).send({ error: 'unauthorized' });
     }
 
     const pool = createPool();
@@ -16907,7 +16918,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           permission: body.permission as 'read' | 'read_write' | undefined,
           expires_at: body.expires_at,
         },
-        body.user_email,
+        ownerEmail,
       );
 
       if (!share) {
@@ -16933,14 +16944,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const query = req.query as { user_email?: string };
 
-    if (!query.user_email) {
-      return reply.code(400).send({ error: 'user_email is required' });
+    const ownerEmail = await resolveUserEmail(req, query.user_email);
+    if (!ownerEmail) {
+      return reply.code(401).send({ error: 'unauthorized' });
     }
 
     const pool = createPool();
 
     try {
-      const result = await notebookSharing.listShares(pool, params.id, query.user_email);
+      const result = await notebookSharing.listShares(pool, params.id, ownerEmail);
 
       if (!result) {
         return reply.code(404).send({ error: 'Notebook not found' });
@@ -16969,8 +16981,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       expires_at?: string | null;
     };
 
-    if (!body?.user_email) {
-      return reply.code(400).send({ error: 'user_email is required' });
+    const ownerEmail = await resolveUserEmail(req, body?.user_email);
+    if (!ownerEmail) {
+      return reply.code(401).send({ error: 'unauthorized' });
     }
 
     const pool = createPool();
@@ -16984,7 +16997,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           permission: body.permission as 'read' | 'read_write' | undefined,
           expires_at: body.expires_at,
         },
-        body.user_email,
+        ownerEmail,
       );
 
       if (!share) {
@@ -17013,14 +17026,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string; share_id: string };
     const query = req.query as { user_email?: string };
 
-    if (!query.user_email) {
-      return reply.code(400).send({ error: 'user_email is required' });
+    const ownerEmail = await resolveUserEmail(req, query.user_email);
+    if (!ownerEmail) {
+      return reply.code(401).send({ error: 'unauthorized' });
     }
 
     const pool = createPool();
 
     try {
-      await notebookSharing.revokeShare(pool, params.id, params.share_id, query.user_email);
+      await notebookSharing.revokeShare(pool, params.id, params.share_id, ownerEmail);
       return reply.code(204).send();
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
@@ -17045,14 +17059,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const query = req.query as { user_email?: string };
 
-    if (!query.user_email) {
-      return reply.code(400).send({ error: 'user_email is required' });
+    const email = await resolveUserEmail(req, query.user_email);
+    if (!email) {
+      return reply.code(401).send({ error: 'unauthorized' });
     }
 
     const pool = createPool();
 
     try {
-      const notebooks = await notebookSharing.listSharedWithMe(pool, query.user_email);
+      const notebooks = await notebookSharing.listSharedWithMe(pool, email);
       return reply.send({ notebooks });
     } finally {
       await pool.end();

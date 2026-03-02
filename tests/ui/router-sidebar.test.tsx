@@ -27,6 +27,7 @@ function renderSidebarWithRouter(initialPath = '/activity') {
         { path: 'work-items', element: <div data-testid="page-projects">Projects</div> },
         { path: 'contacts', element: <div data-testid="page-contacts">Contacts</div> },
         { path: 'memory', element: <div data-testid="page-memory">Memory</div> },
+        { path: 'notes', element: <div data-testid="page-notes">Notes</div> },
         { path: 'communications', element: <div data-testid="page-communications">Communications</div> },
         { path: 'skill-store', element: <div data-testid="page-skill-store">Skill Store</div> },
         { path: 'settings', element: <div data-testid="page-settings">Settings</div> },
@@ -56,8 +57,15 @@ describe('RouterSidebar', () => {
     renderSidebarWithRouter('/activity');
     const nav = screen.getByRole('navigation', { name: 'Main navigation' });
     const links = nav.querySelectorAll('a');
-    // 13 main nav items: Activity, Projects, People, Memory, Communications, Recipes, Meal Log, Home Automation, Pantry, Voice, Dev Sessions, Skill Store, Terminal
-    expect(links.length).toBe(13);
+    // 14 main nav items: Activity, Projects, People, Memory, Notes, Communications, Recipes, Meal Log, Home Automation, Pantry, Voice, Dev Sessions, Skill Store, Terminal
+    expect(links.length).toBe(14);
+  });
+
+  it('renders a Notes navigation link with route /notes', () => {
+    renderSidebarWithRouter('/activity');
+    const notesLink = screen.getByRole('link', { name: /notes/i });
+    expect(notesLink).toBeInTheDocument();
+    expect(notesLink.getAttribute('href')).toBe('/notes');
   });
 
   it('renders Settings link in the footer', () => {

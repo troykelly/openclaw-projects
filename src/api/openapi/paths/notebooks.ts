@@ -15,13 +15,16 @@ import {
   namespaceParam,
 } from '../helpers.ts';
 
-/** Reusable user_email query parameter required on most notebook routes. */
-function userEmailQuery(required = true) {
+/** Reusable user_email query parameter for notebook routes.
+ *  For user tokens, the email is resolved from the JWT automatically.
+ *  For M2M tokens, this parameter specifies which user to act on behalf of.
+ */
+function userEmailQuery(required = false) {
   return {
     name: 'user_email',
     in: 'query' as const,
     required,
-    description: 'Email of the authenticated user',
+    description: 'Email of the user (resolved from JWT for user tokens; required for M2M tokens)',
     schema: { type: 'string' as const },
     example: 'alice@example.com',
   };
@@ -58,9 +61,9 @@ export function notebooksPaths(): OpenApiDomainModule {
 
       NotebookCreateInput: {
         type: 'object',
-        required: ['user_email', 'name'],
+        required: ['name'],
         properties: {
-          user_email: { type: 'string', description: 'Email of the user creating the notebook', example: 'alice@example.com' },
+          user_email: { type: 'string', description: 'Email of the user creating the notebook (resolved from JWT for user tokens; required for M2M tokens)', example: 'alice@example.com' },
           name: { type: 'string', description: 'Name of the notebook', example: 'Project Ideas' },
           description: { type: 'string', description: 'Optional description of the notebook', example: 'Notes and ideas for upcoming projects' },
           icon: { type: 'string', description: 'Icon identifier or emoji for the notebook', example: 'lightbulb' },
@@ -71,9 +74,8 @@ export function notebooksPaths(): OpenApiDomainModule {
 
       NotebookUpdateInput: {
         type: 'object',
-        required: ['user_email'],
         properties: {
-          user_email: { type: 'string', description: 'Email of the user performing the update', example: 'alice@example.com' },
+          user_email: { type: 'string', description: 'Email of the user performing the update (resolved from JWT for user tokens; required for M2M tokens)', example: 'alice@example.com' },
           name: { type: 'string', description: 'Updated name for the notebook', example: 'Project Ideas (Updated)' },
           description: { type: 'string', nullable: true, description: 'Updated description', example: 'Revised collection of project ideas' },
           icon: { type: 'string', nullable: true, description: 'Updated icon identifier', example: 'star' },
@@ -283,9 +285,8 @@ export function notebooksPaths(): OpenApiDomainModule {
           tags: ['Notebooks'],
           requestBody: jsonBody({
             type: 'object',
-            required: ['user_email'],
             properties: {
-              user_email: { type: 'string', description: 'Email of the user performing the archive', example: 'alice@example.com' },
+              user_email: { type: 'string', description: 'Email of the user performing the archive (resolved from JWT for user tokens)', example: 'alice@example.com' },
             },
           }),
           responses: {
@@ -303,9 +304,8 @@ export function notebooksPaths(): OpenApiDomainModule {
           tags: ['Notebooks'],
           requestBody: jsonBody({
             type: 'object',
-            required: ['user_email'],
             properties: {
-              user_email: { type: 'string', description: 'Email of the user performing the unarchive', example: 'alice@example.com' },
+              user_email: { type: 'string', description: 'Email of the user performing the unarchive (resolved from JWT for user tokens)', example: 'alice@example.com' },
             },
           }),
           responses: {
@@ -323,9 +323,9 @@ export function notebooksPaths(): OpenApiDomainModule {
           tags: ['Notebooks'],
           requestBody: jsonBody({
             type: 'object',
-            required: ['user_email', 'note_ids', 'action'],
+            required: ['note_ids', 'action'],
             properties: {
-              user_email: { type: 'string', description: 'Email of the user performing the operation', example: 'alice@example.com' },
+              user_email: { type: 'string', description: 'Email of the user performing the operation (resolved from JWT for user tokens)', example: 'alice@example.com' },
               note_ids: {
                 type: 'array',
                 items: { type: 'string', format: 'uuid' },
@@ -365,9 +365,9 @@ export function notebooksPaths(): OpenApiDomainModule {
           tags: ['Notebooks'],
           requestBody: jsonBody({
             type: 'object',
-            required: ['user_email', 'email'],
+            required: ['email'],
             properties: {
-              user_email: { type: 'string', description: 'Email of the notebook owner', example: 'alice@example.com' },
+              user_email: { type: 'string', description: 'Email of the notebook owner (resolved from JWT for user tokens)', example: 'alice@example.com' },
               email: { type: 'string', description: 'Email of the user to share with', example: 'bob@example.com' },
               permission: { type: 'string', enum: ['read', 'read_write'], default: 'read', description: 'Permission level to grant', example: 'read' },
               expires_at: { type: 'string', format: 'date-time', description: 'Optional expiration timestamp for the share', example: '2026-03-21T14:30:00Z' },
@@ -388,9 +388,8 @@ export function notebooksPaths(): OpenApiDomainModule {
           tags: ['Notebooks'],
           requestBody: jsonBody({
             type: 'object',
-            required: ['user_email'],
             properties: {
-              user_email: { type: 'string', description: 'Email of the notebook owner', example: 'alice@example.com' },
+              user_email: { type: 'string', description: 'Email of the notebook owner (resolved from JWT for user tokens)', example: 'alice@example.com' },
               permission: { type: 'string', enum: ['read', 'read_write'], default: 'read', description: 'Permission level for the link', example: 'read' },
               expires_at: { type: 'string', format: 'date-time', description: 'Optional expiration timestamp for the share link', example: '2026-03-21T14:30:00Z' },
             },
@@ -433,9 +432,8 @@ export function notebooksPaths(): OpenApiDomainModule {
           tags: ['Notebooks'],
           requestBody: jsonBody({
             type: 'object',
-            required: ['user_email'],
             properties: {
-              user_email: { type: 'string', description: 'Email of the notebook owner', example: 'alice@example.com' },
+              user_email: { type: 'string', description: 'Email of the notebook owner (resolved from JWT for user tokens)', example: 'alice@example.com' },
               permission: { type: 'string', enum: ['read', 'read_write'], description: 'Updated permission level', example: 'read_write' },
               expires_at: { type: 'string', format: 'date-time', nullable: true, description: 'Updated expiration timestamp, or null to remove expiration', example: '2026-04-21T14:30:00Z' },
             },

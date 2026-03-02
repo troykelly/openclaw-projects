@@ -92,15 +92,14 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       expect(res.json().parent_notebook_id).toBe(parent_id);
     });
 
-    it('returns 400 when user_email is missing', async () => {
+    it('returns 401 when user_email cannot be resolved', async () => {
       const res = await app.inject({
         method: 'POST',
         url: '/notebooks',
         payload: { name: 'Test' },
       });
 
-      expect(res.statusCode).toBe(400);
-      expect(res.json().error).toBe('user_email is required');
+      expect(res.statusCode).toBe(401);
     });
 
     it('returns 400 when name is missing', async () => {
@@ -174,13 +173,13 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       expect(body.total).toBe(2);
     });
 
-    it('returns 400 when user_email is missing', async () => {
+    it('returns 401 when user_email cannot be resolved', async () => {
       const res = await app.inject({
         method: 'GET',
         url: '/notebooks',
       });
 
-      expect(res.statusCode).toBe(400);
+      expect(res.statusCode).toBe(401);
     });
 
     it('includes archived notebooks when requested', async () => {
@@ -260,13 +259,13 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       expect(body.notebooks[0].children).toHaveLength(2);
     });
 
-    it('returns 400 when user_email is missing', async () => {
+    it('returns 401 when user_email cannot be resolved', async () => {
       const res = await app.inject({
         method: 'GET',
         url: '/notebooks/tree',
       });
 
-      expect(res.statusCode).toBe(400);
+      expect(res.statusCode).toBe(401);
     });
   });
 
@@ -285,13 +284,13 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       expect(res.json().name).toBe('Test');
     });
 
-    it('returns 400 when user_email is missing', async () => {
+    it('returns 401 when user_email cannot be resolved', async () => {
       const res = await app.inject({
         method: 'GET',
         url: '/notebooks/some-id',
       });
 
-      expect(res.statusCode).toBe(400);
+      expect(res.statusCode).toBe(401);
     });
 
     it('returns 404 for non-existent notebook', async () => {
@@ -379,14 +378,14 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       expect(body.color).toBe('#ff0000');
     });
 
-    it('returns 400 when user_email is missing', async () => {
+    it('returns 401 when user_email cannot be resolved', async () => {
       const res = await app.inject({
         method: 'PUT',
         url: `/notebooks/${notebook_id}`,
         payload: { name: 'New' },
       });
 
-      expect(res.statusCode).toBe(400);
+      expect(res.statusCode).toBe(401);
     });
 
     it('returns 404 for non-existent notebook', async () => {
@@ -467,14 +466,14 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       expect(res.json().is_archived).toBe(true);
     });
 
-    it('returns 400 when user_email is missing', async () => {
+    it('returns 401 when user_email cannot be resolved', async () => {
       const res = await app.inject({
         method: 'POST',
         url: '/notebooks/some-id/archive',
         payload: {},
       });
 
-      expect(res.statusCode).toBe(400);
+      expect(res.statusCode).toBe(401);
     });
 
     it("returns 403 for another user's notebook", async () => {
@@ -553,13 +552,13 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       expect(noteCheck.rows[0].deleted_at).not.toBeNull();
     });
 
-    it('returns 400 when user_email is missing', async () => {
+    it('returns 401 when user_email cannot be resolved', async () => {
       const res = await app.inject({
         method: 'DELETE',
         url: '/notebooks/some-id',
       });
 
-      expect(res.statusCode).toBe(400);
+      expect(res.statusCode).toBe(401);
     });
 
     it('returns 404 for non-existent notebook', async () => {
@@ -665,14 +664,14 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       expect(check.rows[0].notebook_id).toBeNull();
     });
 
-    it('returns 400 when user_email is missing', async () => {
+    it('returns 401 when user_email cannot be resolved', async () => {
       const res = await app.inject({
         method: 'POST',
         url: `/notebooks/${notebook_id}/notes`,
         payload: { note_ids: [noteId], action: 'move' },
       });
 
-      expect(res.statusCode).toBe(400);
+      expect(res.statusCode).toBe(401);
     });
 
     it('returns 400 when note_ids is missing', async () => {
