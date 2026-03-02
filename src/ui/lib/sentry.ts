@@ -27,7 +27,7 @@ interface SentryInitOptions {
  * Safe to call unconditionally — returns immediately when DSN is falsy.
  */
 export function initSentry(options: SentryInitOptions): void {
-  if (!options.dsn) return;
+  if (!options.dsn?.trim()) return;
 
   Sentry.init({
     dsn: options.dsn,

@@ -71,6 +71,11 @@ describe('Sentry frontend initialization', () => {
     expect(Sentry.init).not.toHaveBeenCalled();
   });
 
+  it('initSentry does NOT call Sentry.init when DSN is whitespace-only', () => {
+    initSentry({ dsn: '   ' });
+    expect(Sentry.init).not.toHaveBeenCalled();
+  });
+
   it('initSentry uses correct defaults', () => {
     initSentry({
       dsn: 'https://examplePublicKey@o0.ingest.sentry.io/0',

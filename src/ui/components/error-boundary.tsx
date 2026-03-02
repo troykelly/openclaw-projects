@@ -78,14 +78,19 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     }
 
     // Report to Sentry when initialized (#2002)
+    // Wrapped in try/catch to prevent telemetry failures from breaking the error UI
     if (Sentry.isInitialized()) {
-      Sentry.captureException(error, {
-        contexts: {
-          react: {
-            componentStack: errorInfo.componentStack ?? undefined,
+      try {
+        Sentry.captureException(error, {
+          contexts: {
+            react: {
+              componentStack: errorInfo.componentStack ?? undefined,
+            },
           },
-        },
-      });
+        });
+      } catch {
+        // Telemetry failure must not prevent the error boundary from rendering
+      }
     }
 
     // Call optional error callback
@@ -118,15 +123,19 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     const { feedbackText, error } = this.state;
     if (!feedbackText.trim()) return;
 
-    Sentry.captureMessage('User Feedback', {
-      level: 'info',
-      contexts: {
-        feedback: {
-          message: feedbackText,
-          errorMessage: error?.message,
+    try {
+      Sentry.captureMessage('User Feedback', {
+        level: 'info',
+        contexts: {
+          feedback: {
+            message: feedbackText,
+            errorMessage: error?.message,
+          },
         },
-      },
-    });
+      });
+    } catch {
+      // Telemetry failure should not block the feedback submission UI flow
+    }
 
     this.setState({ feedbackSubmitted: true, showFeedbackModal: false });
   };
