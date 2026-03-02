@@ -490,8 +490,18 @@ export async function terminalRoutesPlugin(
       return reply.code(400).send({ error: 'Invalid connection ID format' });
     }
 
-    if (!(await verifyReadScope(pool, 'terminal_connection', params.id, req))) {
-      return reply.code(404).send({ error: 'Connection not found' });
+    // Write scope required when trusting host keys (mutates known_hosts)
+    const body = req.body as { trust_host_key?: boolean } | undefined;
+    const trustHostKey = body?.trust_host_key === true;
+
+    if (trustHostKey) {
+      if (!(await verifyWriteScope(pool, 'terminal_connection', params.id, req))) {
+        return reply.code(404).send({ error: 'Connection not found' });
+      }
+    } else {
+      if (!(await verifyReadScope(pool, 'terminal_connection', params.id, req))) {
+        return reply.code(404).send({ error: 'Connection not found' });
+      }
     }
 
     const actor = await getActor(req);
@@ -499,11 +509,14 @@ export async function terminalRoutesPlugin(
       namespace: getStoreNamespace(req),
       connection_id: params.id,
       actor,
-      action: 'connection.test',
+      action: trustHostKey ? 'connection.test_and_trust' : 'connection.test',
     });
 
     try {
-      const result = await grpcClient.testConnection({ connection_id: params.id });
+      const result = await grpcClient.testConnection({
+        connection_id: params.id,
+        trust_host_key: trustHostKey,
+      });
       return reply.send(result);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown gRPC error';

@@ -53,6 +53,8 @@ export function fromTimestamp(ts: ProtoTimestamp | null | undefined): string | n
 
 export interface TestConnectionRequest {
   connection_id: string;
+  /** When true, auto-accept and store unknown host keys (TOFU). Issue #1983. */
+  trust_host_key?: boolean;
 }
 
 export interface TestConnectionResponse {

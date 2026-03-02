@@ -53,6 +53,9 @@ service TerminalService {
 
 message TestConnectionRequest {
   string connection_id = 1;
+  // When true, auto-accept and store unknown host keys (TOFU behaviour).
+  // Issue #1983 — allows trusting host keys via the test endpoint.
+  bool trust_host_key = 2;
 }
 
 message TestConnectionResponse {

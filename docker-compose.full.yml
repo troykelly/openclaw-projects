@@ -628,6 +628,23 @@ services:
       - ALL
 
   # =============================================================================
+  # TMux Data Volume Init (ensure /data is writable by non-root worker, Issue #1979)
+  # =============================================================================
+  tmux-data-init:
+    image: alpine:3
+    container_name: openclaw-tmux-data-init
+    restart: "no"
+    command: ["sh", "-c", "chown -R 1000:1000 /data"]
+    volumes:
+      - tmux_data:/data
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+
+  # =============================================================================
   # TMux Worker (terminal session management via gRPC)
   # =============================================================================
   tmux-worker:
@@ -640,6 +657,8 @@ services:
       migrate:
         condition: service_completed_successfully
       tmux-certs:
+        condition: service_completed_successfully
+      tmux-data-init:
         condition: service_completed_successfully
     environment:
       NODE_ENV: production

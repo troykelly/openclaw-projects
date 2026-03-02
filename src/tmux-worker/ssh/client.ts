@@ -229,34 +229,39 @@ async function verifyHostKey(
       return 'accept';
 
     case 'tofu': {
-      // Trust On First Use: accept and store if new, reject if changed
+      // Trust On First Use: accept and store if new, reject if changed.
+      // Uses INSERT ... ON CONFLICT DO NOTHING to avoid race conditions
+      // when concurrent connections both try to trust the same host.
+      const insertResult = await pool.query<{ id: string }>(
+        `INSERT INTO terminal_known_host
+           (id, namespace, connection_id, host, port, key_type, key_fingerprint, public_key, trusted_by)
+         VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, 'tofu')
+         ON CONFLICT (namespace, host, port, key_type) DO NOTHING
+         RETURNING id`,
+        [conn.namespace, conn.id, conn.host, conn.port, keyType, fingerprint, publicKey],
+      );
+
+      if (insertResult.rows.length > 0) {
+        // Successfully inserted — first connection, trusted
+        return 'accept';
+      }
+
+      // Key already exists — compare fingerprints
       const existing = await pool.query<KnownHostRow>(
-        `SELECT id, key_fingerprint, public_key
+        `SELECT key_fingerprint
          FROM terminal_known_host
          WHERE namespace = $1 AND host = $2 AND port = $3 AND key_type = $4`,
         [conn.namespace, conn.host, conn.port, keyType],
       );
 
-      if (existing.rows.length === 0) {
-        // First connection — trust and store
-        await pool.query(
-          `INSERT INTO terminal_known_host
-           (id, namespace, connection_id, host, port, key_type, key_fingerprint, public_key, trusted_by)
-           VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, 'tofu')`,
-          [conn.namespace, conn.id, conn.host, conn.port, keyType, fingerprint, publicKey],
-        );
-        return 'accept';
-      }
-
-      // Key exists — compare fingerprints
-      if (existing.rows[0].key_fingerprint === fingerprint) {
+      if (existing.rows.length > 0 && existing.rows[0].key_fingerprint === fingerprint) {
         return 'accept';
       }
 
       // Key mismatch — possible MITM
       console.error(
         `HOST KEY MISMATCH for ${conn.host}:${conn.port}! ` +
-        `Expected ${existing.rows[0].key_fingerprint}, got ${fingerprint}`,
+        `Expected ${existing.rows[0]?.key_fingerprint ?? 'none'}, got ${fingerprint}`,
       );
       return 'reject';
     }
@@ -290,6 +295,14 @@ async function verifyHostKey(
   }
 }
 
+/** Options for connectSSH to override default behaviour. */
+interface ConnectSSHOptions {
+  /** Override the connection's host_key_policy (e.g. use 'tofu' during test). */
+  hostKeyPolicyOverride?: string;
+  /** Called with the offered host key fingerprint during the SSH handshake. */
+  onHostKeyOffered?: (fingerprint: string, keyType: string, publicKey: string) => void;
+}
+
 /**
  * Connect an SSH2 client with host key verification.
  */
@@ -298,6 +311,7 @@ function connectSSH(
   config: ConnectConfig,
   conn: ConnectionRow,
   pool: pg.Pool,
+  options?: ConnectSSHOptions,
 ): Promise<void> {
   return new Promise<void>((resolve, reject) => {
     const timeout = setTimeout(() => {
@@ -315,18 +329,31 @@ function connectSSH(
       reject(err);
     });
 
+    const effectivePolicy = options?.hostKeyPolicyOverride ?? conn.host_key_policy;
+
     // Build config with host key verification.
     // ssh2 v1.x hostVerifier supports callback pattern for async verification:
     //   hostVerifier(key, callback) where callback(accepted: boolean)
     const fullConfig: ConnectConfig = {
       ...config,
       hostVerifier: (key: Buffer, callback: ((accept: boolean) => void) | undefined) => {
-        if (conn.host_key_policy === 'skip') {
+        // Always capture the offered key fingerprint (Issue #1983)
+        const fingerprint = computeFingerprint(key);
+        const publicKey = key.toString('base64');
+        options?.onHostKeyOffered?.(fingerprint, 'ssh-unknown', publicKey);
+
+        if (effectivePolicy === 'skip') {
           if (callback) { callback(true); return; }
           return true;
         }
+
+        // Use the effective policy for verification
+        const connWithPolicy = effectivePolicy !== conn.host_key_policy
+          ? { ...conn, host_key_policy: effectivePolicy }
+          : conn;
+
         // Async verification via callback
-        verifyHostKey(pool, conn, 'ssh-unknown', key)
+        verifyHostKey(pool, connWithPolicy, 'ssh-unknown', key)
           .then((result) => {
             const accepted = result === 'accept';
             if (callback) { callback(accepted); return; }
@@ -594,12 +621,17 @@ export class SSHConnectionManager {
    * Test connectivity to a connection without using or disrupting the connection pool.
    * Creates a temporary SSH connection, verifies it works, and immediately closes it.
    *
-   * @returns Object with success flag, latency, and optional error message
+   * @param connectionId - The connection to test
+   * @param trustHostKey - When true, use TOFU policy to auto-accept unknown host keys (Issue #1983)
+   * @returns Object with success flag, latency, fingerprint, and optional error message
    */
   async testConnection(
     connectionId: string,
+    trustHostKey = false,
   ): Promise<{ success: boolean; message: string; latencyMs: number; hostKeyFingerprint: string }> {
     const start = Date.now();
+    let capturedFingerprint = '';
+
     try {
       // Fetch connection from DB
       const result = await this.pool.query<ConnectionRow>(
@@ -634,14 +666,19 @@ export class SSHConnectionManager {
 
       const tempClient = new SSH2Client();
       try {
-        await connectSSH(tempClient, sshConfig, conn, this.pool);
+        await connectSSH(tempClient, sshConfig, conn, this.pool, {
+          // When trust_host_key is true, override policy to TOFU so the key
+          // is accepted and stored on first use (Issue #1983)
+          hostKeyPolicyOverride: trustHostKey ? 'tofu' : undefined,
+          onHostKeyOffered: (fp) => { capturedFingerprint = fp; },
+        });
         const latencyMs = Date.now() - start;
         tempClient.end();
         return {
           success: true,
           message: `Connected in ${latencyMs}ms`,
           latencyMs,
-          hostKeyFingerprint: '',
+          hostKeyFingerprint: capturedFingerprint,
         };
       } finally {
         tempClient.end();
@@ -656,7 +693,7 @@ export class SSHConnectionManager {
         [message, connectionId],
       ).catch(() => {});
 
-      return { success: false, message, latencyMs, hostKeyFingerprint: '' };
+      return { success: false, message, latencyMs, hostKeyFingerprint: capturedFingerprint };
     }
   }
 }

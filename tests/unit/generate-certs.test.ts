@@ -129,6 +129,55 @@ describe('generate-certs.js', () => {
     expect(mtime2).toBe(mtime1);
   });
 
+  it('generates key files readable by non-root users (issue #1979)', async () => {
+    const { execFileSync } = await import('node:child_process');
+    execFileSync('node', [
+      path.resolve(__dirname, '../../scripts/generate-certs.cjs'),
+    ], {
+      env: { ...process.env, CERT_OUTPUT_DIR: tmpDir },
+      stdio: 'pipe',
+    });
+
+    for (const keyFile of ['ca-key.pem', 'api-client-key.pem', 'worker-key.pem']) {
+      const filePath = path.join(tmpDir, keyFile);
+      const stat = fs.statSync(filePath);
+      // Mode 0o644 = owner rw, group r, others r — readable by non-root containers
+      const mode = stat.mode & 0o777;
+      expect(mode, `${keyFile} should have mode 0644`).toBe(0o644);
+    }
+  });
+
+  it('fixes permissions on existing key files (issue #1979)', async () => {
+    const { execFileSync } = await import('node:child_process');
+
+    // First run: generate certs
+    execFileSync('node', [
+      path.resolve(__dirname, '../../scripts/generate-certs.cjs'),
+    ], {
+      env: { ...process.env, CERT_OUTPUT_DIR: tmpDir },
+      stdio: 'pipe',
+    });
+
+    // Simulate old deployment: restrict key permissions to 0600
+    for (const keyFile of ['ca-key.pem', 'api-client-key.pem', 'worker-key.pem']) {
+      fs.chmodSync(path.join(tmpDir, keyFile), 0o600);
+    }
+
+    // Second run: should skip generation but fix permissions
+    execFileSync('node', [
+      path.resolve(__dirname, '../../scripts/generate-certs.cjs'),
+    ], {
+      env: { ...process.env, CERT_OUTPUT_DIR: tmpDir },
+      stdio: 'pipe',
+    });
+
+    for (const keyFile of ['ca-key.pem', 'api-client-key.pem', 'worker-key.pem']) {
+      const stat = fs.statSync(path.join(tmpDir, keyFile));
+      const mode = stat.mode & 0o777;
+      expect(mode, `${keyFile} should be fixed to mode 0644`).toBe(0o644);
+    }
+  });
+
   it('does not use openssl CLI (pure Node.js crypto)', async () => {
     const scriptContent = fs.readFileSync(
       path.resolve(__dirname, '../../scripts/generate-certs.cjs'),
