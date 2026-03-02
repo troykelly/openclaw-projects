@@ -1,13 +1,15 @@
 /**
  * React Error Boundary component for graceful error handling.
- * Part of Epic #338, Issue #664.
+ * Part of Epic #338, Issue #664. Extended with Sentry in Issue #2002.
  *
  * Catches JavaScript errors anywhere in the child component tree,
- * logs those errors, and displays a fallback UI.
+ * logs those errors, reports to Sentry when initialized, and displays
+ * a fallback UI with optional user feedback reporting.
  */
 
 import { Component, type ReactNode, type ErrorInfo } from 'react';
-import { AlertCircle, RefreshCw } from 'lucide-react';
+import * as Sentry from '@sentry/react';
+import { AlertCircle, RefreshCw, MessageSquare, Send, X } from 'lucide-react';
 import { Button } from '@/ui/components/ui/button';
 import { Card, CardContent } from '@/ui/components/ui/card';
 
@@ -27,11 +29,18 @@ interface ErrorBoundaryProps {
 interface ErrorBoundaryState {
   hasError: boolean;
   error: Error | null;
+  showFeedbackModal: boolean;
+  feedbackText: string;
+  feedbackSubmitted: boolean;
 }
 
 /**
  * Error Boundary component that catches errors in child components.
  * Required to be a class component per React documentation.
+ *
+ * When Sentry is initialized, captured errors are reported to Sentry
+ * with React component stack context. A "Report Issue" button allows
+ * users to submit additional feedback.
  *
  * @example
  * ```tsx
@@ -47,10 +56,16 @@ interface ErrorBoundaryState {
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
-    this.state = { hasError: false, error: null };
+    this.state = {
+      hasError: false,
+      error: null,
+      showFeedbackModal: false,
+      feedbackText: '',
+      feedbackSubmitted: false,
+    };
   }
 
-  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+  static getDerivedStateFromError(error: Error): Partial<ErrorBoundaryState> {
     // Update state so the next render shows the fallback UI
     return { hasError: true, error };
   }
@@ -62,16 +77,71 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       console.error('[ErrorBoundary] Error caught:', error, errorInfo);
     }
 
+    // Report to Sentry when initialized (#2002)
+    // Wrapped in try/catch to prevent telemetry failures from breaking the error UI
+    if (Sentry.isInitialized()) {
+      try {
+        Sentry.captureException(error, {
+          contexts: {
+            react: {
+              componentStack: errorInfo.componentStack ?? undefined,
+            },
+          },
+        });
+      } catch {
+        // Telemetry failure must not prevent the error boundary from rendering
+      }
+    }
+
     // Call optional error callback
     this.props.onError?.(error, errorInfo);
   }
 
   handleReset = (): void => {
-    this.setState({ hasError: false, error: null });
+    this.setState({
+      hasError: false,
+      error: null,
+      showFeedbackModal: false,
+      feedbackText: '',
+      feedbackSubmitted: false,
+    });
+  };
+
+  handleOpenFeedback = (): void => {
+    this.setState({ showFeedbackModal: true });
+  };
+
+  handleCloseFeedback = (): void => {
+    this.setState({ showFeedbackModal: false });
+  };
+
+  handleFeedbackChange = (event: React.ChangeEvent<HTMLTextAreaElement>): void => {
+    this.setState({ feedbackText: event.target.value });
+  };
+
+  handleSubmitFeedback = (): void => {
+    const { feedbackText, error } = this.state;
+    if (!feedbackText.trim()) return;
+
+    try {
+      Sentry.captureMessage('User Feedback', {
+        level: 'info',
+        contexts: {
+          feedback: {
+            message: feedbackText,
+            errorMessage: error?.message,
+          },
+        },
+      });
+    } catch {
+      // Telemetry failure should not block the feedback submission UI flow
+    }
+
+    this.setState({ feedbackSubmitted: true, showFeedbackModal: false });
   };
 
   render(): ReactNode {
-    const { hasError, error } = this.state;
+    const { hasError, error, showFeedbackModal, feedbackText, feedbackSubmitted } = this.state;
     const { children, fallback, title, description } = this.props;
 
     if (hasError) {
@@ -79,6 +149,8 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       if (fallback) {
         return fallback;
       }
+
+      const sentryActive = Sentry.isInitialized();
 
       // Default error UI
       return (
@@ -101,6 +173,9 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                     </pre>
                   </details>
                 )}
+                {feedbackSubmitted && (
+                  <p className="mb-4 text-sm text-green-600">Thank you for your report.</p>
+                )}
                 <div className="flex gap-2">
                   <Button variant="outline" onClick={this.handleReset} aria-label="Try again">
                     <RefreshCw className="mr-2 size-4" aria-hidden="true" />
@@ -109,7 +184,41 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                   <Button variant="default" onClick={() => window.location.reload()} aria-label="Refresh page">
                     Refresh Page
                   </Button>
+                  {sentryActive && !feedbackSubmitted && (
+                    <Button variant="outline" onClick={this.handleOpenFeedback} aria-label="Report issue">
+                      <MessageSquare className="mr-2 size-4" aria-hidden="true" />
+                      Report Issue
+                    </Button>
+                  )}
                 </div>
+
+                {/* Feedback modal */}
+                {showFeedbackModal && (
+                  <div className="mt-4 w-full rounded border bg-card p-4 text-left">
+                    <div className="mb-2 flex items-center justify-between">
+                      <h3 className="text-sm font-medium">Report this issue</h3>
+                      <Button variant="ghost" size="icon" onClick={this.handleCloseFeedback} aria-label="Close feedback">
+                        <X className="size-4" aria-hidden="true" />
+                      </Button>
+                    </div>
+                    <textarea
+                      className="mb-2 w-full rounded border bg-background p-2 text-sm"
+                      rows={3}
+                      placeholder="Describe what you were doing when this error occurred..."
+                      value={feedbackText}
+                      onChange={this.handleFeedbackChange}
+                    />
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={this.handleSubmitFeedback}
+                      disabled={!feedbackText.trim()}
+                    >
+                      <Send className="mr-2 size-3" aria-hidden="true" />
+                      Submit Report
+                    </Button>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
