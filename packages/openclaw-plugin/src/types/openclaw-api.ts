@@ -47,11 +47,39 @@ export interface JSONSchemaProperty {
   additionalProperties?: JSONSchemaProperty | boolean;
 }
 
-/** Tool execution context */
+/**
+ * Tool execution context.
+ *
+ * Maps to the SDK's OpenClawPluginToolContext with our additional user_id
+ * and requestId fields for internal use. (#2039)
+ */
 export interface ToolContext {
-  user_id?: string;
+  /** OpenClaw config object (opaque to our plugin) */
+  config?: Record<string, unknown>;
+  /** Workspace directory for the current agent */
+  workspaceDir?: string;
+  /** Agent-specific directory */
+  agentDir?: string;
+  /** Agent identifier */
   agentId?: string;
+  /** Session key */
+  sessionKey?: string;
+  /** Message channel (e.g., "telegram", "discord") */
+  messageChannel?: string;
+  /** Agent account identifier */
+  agentAccountId?: string;
+  /** Trusted sender id from inbound context (runtime-provided, not tool args). (#2039) */
+  requesterSenderId?: string;
+  /** Whether the trusted sender is an owner. (#2039) */
+  senderIsOwner?: boolean;
+  /** Whether the tool is running in a sandbox */
+  sandboxed?: boolean;
+  // ── Fields specific to our plugin (not in SDK's OpenClawPluginToolContext) ──
+  /** Internal user identifier for scoping */
+  user_id?: string;
+  /** Session identifier */
   sessionId?: string;
+  /** Request identifier */
   requestId?: string;
 }
 
@@ -125,20 +153,32 @@ export interface ToolDefinition {
 /**
  * Hook names using the actual OpenClaw snake_case convention.
  * Preferred over legacy camelCase names.
+ *
+ * All 24 hook names from the SDK 2026.3.1 contract. (#2030)
  */
 export type PluginHookName =
+  | 'before_model_resolve'
+  | 'before_prompt_build'
   | 'before_agent_start'
+  | 'llm_input'
+  | 'llm_output'
   | 'agent_end'
   | 'before_compaction'
   | 'after_compaction'
+  | 'before_reset'
   | 'message_received'
   | 'message_sending'
   | 'message_sent'
   | 'before_tool_call'
   | 'after_tool_call'
   | 'tool_result_persist'
+  | 'before_message_write'
   | 'session_start'
   | 'session_end'
+  | 'subagent_spawning'
+  | 'subagent_delivery_target'
+  | 'subagent_spawned'
+  | 'subagent_ended'
   | 'gateway_start'
   | 'gateway_stop';
 
@@ -150,20 +190,32 @@ export interface PluginHookBeforeAgentStartEvent {
   messages?: unknown[];
 }
 
-/** Context passed as second argument to hook handlers */
+/** Context passed as second argument to hook handlers (#2035) */
 export interface PluginHookAgentContext {
   agentId?: string;
   sessionKey?: string;
+  /** Session identifier. Added in SDK 2026.3.1. (#2035) */
+  sessionId?: string;
   workspaceDir?: string;
   messageProvider?: string;
 }
 
-/** Return value from before_agent_start hook */
+/**
+ * Return value from before_agent_start hook.
+ *
+ * In the SDK this is defined as:
+ *   PluginHookBeforePromptBuildResult & PluginHookBeforeModelResolveResult
+ * which adds modelOverride and providerOverride. (#2033)
+ */
 export interface PluginHookBeforeAgentStartResult {
   /** Append to the system prompt */
   systemPrompt?: string;
   /** Prepend to conversation context */
   prependContext?: string;
+  /** Override the model for this agent run. E.g. "llama3.3:8b" (#2033) */
+  modelOverride?: string;
+  /** Override the provider for this agent run. E.g. "ollama" (#2033) */
+  providerOverride?: string;
 }
 
 /** Event payload for message_received hook (Issue #1223) */
@@ -210,7 +262,13 @@ export type HookEvent =
 /** Legacy hook handler function */
 export type HookHandler<T = unknown> = (event: T) => Promise<T | null | undefined>;
 
-/** CLI registration callback */
+/**
+ * CLI registration context.
+ *
+ * Aligned with the SDK's OpenClawPluginCliContext. (#2037)
+ * The SDK uses `Commander.Command` for program and `OpenClawConfig` for config;
+ * we use simplified types to avoid pulling in those dependencies.
+ */
 export interface CliRegistrationContext {
   /** Commander program instance */
   program: {
@@ -221,40 +279,94 @@ export interface CliRegistrationContext {
       };
     };
   };
+  /** OpenClaw gateway configuration (opaque to our plugin) */
+  config?: Record<string, unknown>;
+  /** Workspace directory */
+  workspaceDir?: string;
+  /** Logger instance */
+  logger?: {
+    debug?: (message: string) => void;
+    info: (message: string) => void;
+    warn: (message: string) => void;
+    error: (message: string) => void;
+  };
 }
 
-export type CliRegistrationCallback = (context: CliRegistrationContext) => void;
+/**
+ * CLI registration callback.
+ *
+ * Aligned with SDK's OpenClawPluginCliRegistrar: may return void or Promise<void>. (#2037)
+ */
+export type CliRegistrationCallback = (context: CliRegistrationContext) => void | Promise<void>;
 
-/** Service definition for background processes */
+/**
+ * Service definition for background processes.
+ *
+ * Aligned with the SDK's OpenClawPluginService type. (#2036)
+ * The SDK uses OpenClawPluginServiceContext for the ctx parameter;
+ * we use Record<string, unknown> to avoid pulling in OpenClawConfig.
+ */
 export interface ServiceDefinition {
   /** Unique service ID */
   id: string;
   /** Called when plugin starts */
-  start: (ctx?: Record<string, unknown>) => Promise<void>;
-  /** Called when plugin stops */
-  stop: (ctx?: Record<string, unknown>) => Promise<void>;
+  start: (ctx?: Record<string, unknown>) => void | Promise<void>;
+  /** Called when plugin stops (optional per SDK contract) (#2036) */
+  stop?: (ctx?: Record<string, unknown>) => void | Promise<void>;
 }
 
-/** OpenClaw Plugin API provided to plugins */
+/**
+ * OpenClaw Plugin API provided to plugins.
+ *
+ * Aligned with the SDK's OpenClawPluginApi type. (#2034)
+ * Where the SDK uses concrete types (OpenClawConfig, AnyAgentTool, Commander.Command),
+ * we use simplified equivalents to avoid pulling in those dependencies.
+ */
 export interface OpenClawPluginApi {
+  // ── Identity fields (from SDK) (#2034) ────────────────────────────────────
+
+  /** Plugin ID */
+  id: string;
+
+  /** Plugin display name */
+  name: string;
+
+  /** Plugin version (optional) */
+  version?: string;
+
+  /** Plugin description (optional) */
+  description?: string;
+
+  /** Plugin source/origin (e.g., "bundled", "global", "workspace") */
+  source: string;
+
+  // ── Configuration ─────────────────────────────────────────────────────────
+
   /** Full OpenClaw gateway configuration */
   config: Record<string, unknown>;
 
   /** Plugin-specific configuration from plugins.entries.<id>.config */
   pluginConfig?: Record<string, unknown>;
 
+  // ── Runtime ───────────────────────────────────────────────────────────────
+
   /** Logger instance */
   logger: Logger;
 
-  /** Plugin ID */
-  pluginId: string;
+  /**
+   * Plugin runtime utilities.
+   * The SDK exposes this as PluginRuntime with agent, tts, etc.
+   * We use Record<string, unknown> to avoid the full dependency. (#2034)
+   */
+  runtime: Record<string, unknown>;
 
-  /** Runtime utilities */
-  runtime?: {
-    tts?: {
-      textToSpeechTelephony: (text: string, options?: { voice?: string }) => Promise<{ pcm: Buffer; sampleRate: number }>;
-    };
-  };
+  // ── Legacy alias (retained for backward compat within our plugin) ─────────
+  /**
+   * @deprecated Use `id` instead. Kept for backward compatibility.
+   */
+  pluginId?: string;
+
+  // ── Registration methods ──────────────────────────────────────────────────
 
   /**
    * Register a tool with the OpenClaw Gateway.
@@ -271,7 +383,7 @@ export interface OpenClawPluginApi {
    *   return { prependContext: 'some context' }
    * })
    */
-  on?: <K extends PluginHookName>(hookName: K, handler: (...args: unknown[]) => unknown, opts?: { priority?: number }) => void;
+  on: <K extends PluginHookName>(hookName: K, handler: (...args: unknown[]) => unknown, opts?: { priority?: number }) => void;
 
   /**
    * Register a lifecycle hook (legacy method).
@@ -279,13 +391,28 @@ export interface OpenClawPluginApi {
    *
    * @deprecated Use api.on() for modern hook registration with proper typing.
    */
-  registerHook: <T = unknown>(event: HookEvent, handler: HookHandler<T>) => void;
+  registerHook: <T = unknown>(event: HookEvent | string | string[], handler: HookHandler<T>) => void;
+
+  /**
+   * Register an HTTP handler for custom request processing. (#2034)
+   */
+  registerHttpHandler: (handler: (req: unknown, res: unknown) => Promise<boolean> | boolean) => void;
+
+  /**
+   * Register an HTTP route handler at a specific path. (#2034)
+   */
+  registerHttpRoute: (params: { path: string; handler: (req: unknown, res: unknown) => Promise<void> | void }) => void;
+
+  /**
+   * Register a messaging channel plugin. (#2034)
+   */
+  registerChannel: (registration: Record<string, unknown>) => void;
 
   /**
    * Register CLI commands.
    * Commands are available via `openclaw <plugin-id> <command>`.
    */
-  registerCli: (callback: CliRegistrationCallback) => void;
+  registerCli: (callback: CliRegistrationCallback, opts?: { commands?: string[] }) => void;
 
   /**
    * Register a background service.
@@ -298,6 +425,22 @@ export interface OpenClawPluginApi {
    * Methods are exposed as `pluginId.methodName`.
    */
   registerGatewayMethod: <T = unknown, R = unknown>(methodName: string, handler: (params: T) => Promise<R>) => void;
+
+  /**
+   * Register a model provider plugin. (#2034)
+   */
+  registerProvider: (provider: Record<string, unknown>) => void;
+
+  /**
+   * Register a custom command that bypasses the LLM agent. (#2034)
+   * Plugin commands are processed before built-in commands and before agent invocation.
+   */
+  registerCommand: (command: Record<string, unknown>) => void;
+
+  /**
+   * Resolve a relative path against the plugin's context. (#2034)
+   */
+  resolvePath: (input: string) => string;
 }
 
 /** Plugin initialization function signature */
