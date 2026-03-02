@@ -120,7 +120,7 @@ describe('todo tools', () => {
         }
       });
 
-      it('should accept completed filter', async () => {
+      it('should accept completed=true filter and send status=completed', async () => {
         const mockGet = vi.fn().mockResolvedValue({
           success: true,
           data: { items: [], total: 0 },
@@ -136,6 +136,25 @@ describe('todo tools', () => {
 
         await tool.execute({ completed: true });
         expect(mockGet).toHaveBeenCalledWith(expect.stringContaining('status=completed'), expect.any(Object));
+      });
+
+      it('should send status=active when completed=false (#1981)', async () => {
+        const mockGet = vi.fn().mockResolvedValue({
+          success: true,
+          data: { items: [], total: 0 },
+        });
+        const client = { ...mockApiClient, get: mockGet };
+
+        const tool = createTodoListTool({
+          client: client as unknown as ApiClient,
+          logger: mockLogger,
+          config: mockConfig,
+          user_id: 'agent-1',
+        });
+
+        await tool.execute({ completed: false });
+        // 'active' is a server-side meta-status meaning "not completed/closed/done/cancelled"
+        expect(mockGet).toHaveBeenCalledWith(expect.stringContaining('status=active'), expect.any(Object));
       });
 
       it('should accept limit within range', async () => {

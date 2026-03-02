@@ -2206,7 +2206,8 @@ function createToolHandlers(state: PluginState) {
 
         const content = todos
           .map((t) => {
-            const checkbox = t.completed ? '[x]' : '[ ]';
+            const isComplete = t.status === 'completed' || t.status === 'done' || t.status === 'closed';
+            const checkbox = isComplete ? '[x]' : '[ ]';
             const dueStr = t.dueDate ? ` (due: ${t.dueDate})` : '';
             return `- ${checkbox} ${t.title}${dueStr}`;
           })
