@@ -2,21 +2,26 @@
  * Connection Detail Page (Epic #1667, #1692).
  */
 
-import { ArrowLeft, Loader2, Play, Trash2 } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Loader2, Play, Shield, Trash2, XCircle } from 'lucide-react';
 import type * as React from 'react';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { ErrorBanner } from '@/ui/components/feedback/error-state';
 import { ConnectionForm } from '@/ui/components/terminal/connection-form';
 import { ConnectionStatusIndicator } from '@/ui/components/terminal/connection-status-indicator';
+import { HostKeyDialog } from '@/ui/components/terminal/host-key-dialog';
+import { KnownHostCard } from '@/ui/components/terminal/known-host-card';
 import { ProxyChainDiagram } from '@/ui/components/terminal/proxy-chain-diagram';
 import { Badge } from '@/ui/components/ui/badge';
 import { Button } from '@/ui/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/ui/components/ui/card';
 import {
+  type TestConnectionResponse,
   useDeleteTerminalConnection,
+  useDeleteTerminalKnownHost,
   useTerminalConnection,
   useTerminalConnections,
+  useTerminalKnownHosts,
   useTestTerminalConnection,
   useUpdateTerminalConnection,
 } from '@/ui/hooks/queries/use-terminal-connections';
@@ -40,6 +45,13 @@ function formatMutationError(error: unknown, fallback: string): string {
   return fallback;
 }
 
+/** Detect host-key verification failure from test response. */
+function isHostKeyFailure(result: TestConnectionResponse): boolean {
+  if (result.success) return false;
+  const msg = result.message.toLowerCase();
+  return (msg.includes('host denied') || msg.includes('verification')) && !!result.host_key_fingerprint;
+}
+
 export function ConnectionDetailPage(): React.JSX.Element {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -56,11 +68,20 @@ export function ConnectionDetailPage(): React.JSX.Element {
   const workerAvailable = healthQuery.data?.status === 'ok';
 
   const [testError, setTestError] = useState<string | null>(null);
+  const [testResult, setTestResult] = useState<TestConnectionResponse | null>(null);
   const [sessionError, setSessionError] = useState<string | null>(null);
+  const [hostKeyDialog, setHostKeyDialog] = useState<{
+    fingerprint: string;
+    keyType: string;
+  } | null>(null);
 
   const connection = connectionQuery.data;
   const allConnections = Array.isArray(allConnectionsQuery.data?.connections) ? allConnectionsQuery.data.connections : [];
   const credentials = Array.isArray(credentialsQuery.data?.credentials) ? credentialsQuery.data.credentials.map((c) => ({ id: c.id, name: c.name })) : [];
+
+  const knownHostsQuery = useTerminalKnownHosts(connection?.id);
+  const knownHosts = Array.isArray(knownHostsQuery.data?.known_hosts) ? knownHostsQuery.data.known_hosts : [];
+  const deleteKnownHost = useDeleteTerminalKnownHost();
 
   if (connectionQuery.isLoading) {
     return (
@@ -77,6 +98,32 @@ export function ConnectionDetailPage(): React.JSX.Element {
       </div>
     );
   }
+
+  const handleTest = (trustHostKey = false) => {
+    setTestError(null);
+    if (!trustHostKey) setTestResult(null);
+
+    testConnection.mutate(
+      { id: connection.id, trustHostKey },
+      {
+        onSuccess: (result) => {
+          setTestResult(result);
+          if (isHostKeyFailure(result)) {
+            setHostKeyDialog({
+              fingerprint: result.host_key_fingerprint,
+              keyType: result.host_key_fingerprint.split(' ')[0] ?? 'unknown',
+            });
+          }
+        },
+        onError: (err) => setTestError(formatMutationError(err, 'Connection test failed')),
+      },
+    );
+  };
+
+  const handleHostKeyApprove = () => {
+    setHostKeyDialog(null);
+    handleTest(true);
+  };
 
   const handleUpdate = (data: Partial<TerminalConnection>) => {
     updateConnection.mutate(
@@ -125,12 +172,7 @@ export function ConnectionDetailPage(): React.JSX.Element {
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
-            onClick={() => {
-              setTestError(null);
-              testConnection.mutate(connection.id, {
-                onError: (err) => setTestError(formatMutationError(err, 'Connection test failed')),
-              });
-            }}
+            onClick={() => handleTest()}
             disabled={testConnection.isPending || !workerAvailable}
           >
             {testConnection.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Play className="mr-2 size-4" />}
@@ -155,16 +197,18 @@ export function ConnectionDetailPage(): React.JSX.Element {
         </div>
       </div>
 
+      {testResult && !isHostKeyFailure(testResult) && (
+        <div data-testid="test-result-banner" className={`flex items-center gap-2 rounded-md border p-3 text-sm ${testResult.success ? 'border-green-200 bg-green-50 text-green-800' : 'border-red-200 bg-red-50 text-red-800'}`}>
+          {testResult.success ? <CheckCircle className="size-4" /> : <XCircle className="size-4" />}
+          <span>{testResult.success ? `Connection successful (${testResult.latency_ms}ms)` : testResult.message}</span>
+        </div>
+      )}
+
       {testError && (
         <ErrorBanner
           message={testError}
           onDismiss={() => setTestError(null)}
-          onRetry={() => {
-            setTestError(null);
-            testConnection.mutate(connection.id, {
-              onError: (err) => setTestError(formatMutationError(err, 'Connection test failed')),
-            });
-          }}
+          onRetry={() => handleTest()}
         />
       )}
 
@@ -236,6 +280,34 @@ export function ConnectionDetailPage(): React.JSX.Element {
         </Card>
       </div>
 
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-sm">
+            <Shield className="size-4" />
+            Known Hosts
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {knownHostsQuery.isLoading ? (
+            <div className="flex items-center justify-center py-4">
+              <Loader2 className="size-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : knownHosts.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-2">No known hosts for this connection.</p>
+          ) : (
+            <div className="grid gap-3">
+              {knownHosts.map((kh) => (
+                <KnownHostCard
+                  key={kh.id}
+                  knownHost={kh}
+                  onDelete={(khId) => deleteKnownHost.mutate(khId)}
+                />
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <ConnectionForm
         open={editOpen}
         onOpenChange={setEditOpen}
@@ -244,6 +316,20 @@ export function ConnectionDetailPage(): React.JSX.Element {
         isPending={updateConnection.isPending}
         credentials={credentials}
       />
+
+      {hostKeyDialog && (
+        <HostKeyDialog
+          open
+          onOpenChange={(open) => { if (!open) setHostKeyDialog(null); }}
+          host={connection.host ?? 'unknown'}
+          port={connection.port}
+          keyType={hostKeyDialog.keyType}
+          fingerprint={hostKeyDialog.fingerprint}
+          onApprove={handleHostKeyApprove}
+          onReject={() => setHostKeyDialog(null)}
+          isPending={testConnection.isPending}
+        />
+      )}
     </div>
   );
 }
