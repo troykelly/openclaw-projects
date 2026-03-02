@@ -10,6 +10,7 @@
 
 import type { ApiClient } from '../api-client.js';
 import type { Logger } from '../logger.js';
+import type { GatewayMethodHandler, GatewayMethodHandlerOptions } from '../types/openclaw-api.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -629,52 +630,50 @@ export function createOAuthGatewayMethods(options: OAuthGatewayMethodsOptions): 
 }
 
 /**
+ * Wrap a typed method handler into a GatewayRequestHandler.
+ *
+ * The SDK's registerGatewayMethod expects a handler that receives
+ * `(opts: GatewayRequestHandlerOptions)` and calls `opts.respond()`.
+ * Our internal methods use `(params: T) => Promise<R>` for testability.
+ * This wrapper bridges the two contracts. (#2031)
+ */
+function wrapOAuthMethodHandler<T, R>(
+  handler: (params: T) => Promise<R>,
+): GatewayMethodHandler {
+  return async (opts: GatewayMethodHandlerOptions): Promise<void> => {
+    try {
+      const result = await handler(opts.params as T);
+      opts.respond(true, result);
+    } catch (error) {
+      opts.respond(false, undefined, {
+        code: 'INTERNAL_ERROR',
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+  };
+}
+
+/**
  * Register OAuth gateway RPC methods with the OpenClaw plugin API.
+ *
+ * Uses the SDK's GatewayRequestHandler contract: each handler receives
+ * opts with { req, params, respond, client, context } and calls
+ * opts.respond() to send the response. (#2031)
  */
 export function registerOAuthGatewayRpcMethods(
   api: {
-    registerGatewayMethod: <T, R>(name: string, handler: (params: T) => Promise<R>) => void;
+    registerGatewayMethod: (name: string, handler: GatewayMethodHandler) => void;
   },
   methods: OAuthGatewayMethods,
 ): void {
-  api.registerGatewayMethod<OAuthAccountListParams, OAuthAccountListResult>(
-    'oauth.accounts.list',
-    methods.accountsList,
-  );
-  api.registerGatewayMethod<OAuthContactsListParams, OAuthContactsListResult>(
-    'oauth.contacts.list',
-    methods.contactsList,
-  );
-  api.registerGatewayMethod<OAuthEmailListParams, OAuthEmailListResult>(
-    'oauth.email.list',
-    methods.emailList,
-  );
-  api.registerGatewayMethod<OAuthEmailGetParams, OAuthEmailGetResult>(
-    'oauth.email.get',
-    methods.emailGet,
-  );
-  api.registerGatewayMethod<OAuthFilesListParams, OAuthFilesListResult>(
-    'oauth.files.list',
-    methods.filesList,
-  );
-  api.registerGatewayMethod<OAuthFilesSearchParams, OAuthFilesSearchResult>(
-    'oauth.files.search',
-    methods.filesSearch,
-  );
-  api.registerGatewayMethod<OAuthFilesGetParams, OAuthFilesGetResult>(
-    'oauth.files.get',
-    methods.filesGet,
-  );
-  api.registerGatewayMethod<OAuthCalendarListParams, OAuthCalendarListResult>(
-    'oauth.calendar.list',
-    methods.calendarList,
-  );
-  api.registerGatewayMethod<OAuthCalendarSyncParams, OAuthCalendarSyncResult>(
-    'oauth.calendar.sync',
-    methods.calendarSync,
-  );
-  api.registerGatewayMethod<OAuthCalendarCreateParams, OAuthCalendarCreateResult>(
-    'oauth.calendar.create',
-    methods.calendarCreate,
-  );
+  api.registerGatewayMethod('oauth.accounts.list', wrapOAuthMethodHandler(methods.accountsList));
+  api.registerGatewayMethod('oauth.contacts.list', wrapOAuthMethodHandler(methods.contactsList));
+  api.registerGatewayMethod('oauth.email.list', wrapOAuthMethodHandler(methods.emailList));
+  api.registerGatewayMethod('oauth.email.get', wrapOAuthMethodHandler(methods.emailGet));
+  api.registerGatewayMethod('oauth.files.list', wrapOAuthMethodHandler(methods.filesList));
+  api.registerGatewayMethod('oauth.files.search', wrapOAuthMethodHandler(methods.filesSearch));
+  api.registerGatewayMethod('oauth.files.get', wrapOAuthMethodHandler(methods.filesGet));
+  api.registerGatewayMethod('oauth.calendar.list', wrapOAuthMethodHandler(methods.calendarList));
+  api.registerGatewayMethod('oauth.calendar.sync', wrapOAuthMethodHandler(methods.calendarSync));
+  api.registerGatewayMethod('oauth.calendar.create', wrapOAuthMethodHandler(methods.calendarCreate));
 }

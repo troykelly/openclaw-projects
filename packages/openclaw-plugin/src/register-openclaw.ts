@@ -97,6 +97,7 @@ import type {
   PluginHookAgentEndEvent,
   PluginHookBeforeAgentStartEvent,
   PluginHookBeforeAgentStartResult,
+  PluginHookMessageContext,
   PluginHookMessageReceivedEvent,
   PluginInitializer,
   ToolDefinition,
@@ -5114,12 +5115,12 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
 
     if (typeof api.on === 'function') {
       // Modern registration: api.on('before_agent_start', handler)
-      // Cast needed: our typed handler satisfies the runtime contract but
-      // the generic api.on() signature uses (...args: unknown[]) => unknown
-      api.on('before_agent_start', beforeAgentStartHandler as (...args: unknown[]) => unknown);
+      // Handler signature matches PluginHookHandlerMap['before_agent_start'] directly (#2032)
+      api.on('before_agent_start', beforeAgentStartHandler);
     } else {
-      // Legacy fallback: api.registerHook('beforeAgentStart', handler)
-      api.registerHook('beforeAgentStart', beforeAgentStartHandler as (event: unknown) => Promise<unknown>);
+      // Legacy fallback: api.registerHook('before_agent_start', handler)
+      // Uses snake_case to match SDK convention (#2044)
+      api.registerHook('before_agent_start', beforeAgentStartHandler as (event: unknown) => Promise<unknown>);
     }
   }
 
@@ -5181,12 +5182,12 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
 
     if (typeof api.on === 'function') {
       // Modern registration: api.on('agent_end', handler)
-      // Cast needed: our typed handler satisfies the runtime contract but
-      // the generic api.on() signature uses (...args: unknown[]) => unknown
-      api.on('agent_end', agentEndHandler as (...args: unknown[]) => unknown);
+      // Handler signature matches PluginHookHandlerMap['agent_end'] directly (#2032)
+      api.on('agent_end', agentEndHandler);
     } else {
-      // Legacy fallback: api.registerHook('agentEnd', handler)
-      api.registerHook('agentEnd', agentEndHandler as (event: unknown) => Promise<unknown>);
+      // Legacy fallback: api.registerHook('agent_end', handler)
+      // Uses snake_case to match SDK convention (#2044)
+      api.registerHook('agent_end', agentEndHandler as (event: unknown) => Promise<unknown>);
     }
   }
 
@@ -5199,19 +5200,38 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
      * message_received handler: Extracts sender and content info from the
      * inbound message event and runs auto-linking in the background.
      * Failures are logged but never crash message processing.
+     *
+     * SDK contract (2026.3.1):
+     *   event: { from: string; content: string; timestamp?: number; metadata?: Record<string, unknown> }
+     *   ctx:   PluginHookMessageContext { channelId: string; accountId?: string; conversationId?: string }
+     *
+     * Sender info is extracted from `event.from` and `event.metadata`.
+     * Thread ID is extracted from `ctx.conversationId` or `event.metadata.thread_id`. (#2029)
      */
-    const messageReceivedHandler = async (event: PluginHookMessageReceivedEvent, _ctx: PluginHookAgentContext): Promise<void> => {
+    const messageReceivedHandler = async (event: PluginHookMessageReceivedEvent, ctx: PluginHookMessageContext): Promise<void> => {
+      // Derive thread_id from context conversationId or event metadata
+      const threadId = ctx.conversationId
+        ?? (typeof event.metadata?.thread_id === 'string' ? event.metadata.thread_id : undefined);
+
       // Skip if no thread ID (nothing to link to)
-      if (!event.thread_id) {
+      if (!threadId) {
         logger.debug('Auto-link skipped: no thread_id in message_received event');
         return;
       }
 
       // Skip if no content and no sender info (nothing to match on)
-      if (!event.content && !event.senderEmail && !event.senderPhone && !event.sender) {
+      if (!event.content && !event.from) {
         logger.debug('Auto-link skipped: no content or sender info in event');
         return;
       }
+
+      // Extract sender email/phone from event.from and metadata.
+      // event.from is a channel-scoped sender identifier (could be email, phone, or username).
+      // Metadata may contain explicit senderEmail/senderPhone fields from the channel plugin.
+      const senderEmail = (typeof event.metadata?.senderEmail === 'string' ? event.metadata.senderEmail : undefined)
+        ?? (event.from.includes('@') ? event.from : undefined);
+      const senderPhone = (typeof event.metadata?.senderPhone === 'string' ? event.metadata.senderPhone : undefined)
+        ?? (!event.from.includes('@') && /^\+?\d[\d\s-]{5,}$/.test(event.from) ? event.from : undefined);
 
       try {
         await autoLinkInboundMessage({
@@ -5219,9 +5239,9 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
           logger,
           getAgentId: () => state.agentId,
           message: {
-            thread_id: event.thread_id,
-            senderEmail: event.senderEmail ?? (event.sender?.includes('@') ? event.sender : undefined),
-            senderPhone: event.senderPhone ?? (event.sender && !event.sender.includes('@') ? event.sender : undefined),
+            thread_id: threadId,
+            senderEmail,
+            senderPhone,
             content: event.content ?? '',
           },
         });
@@ -5234,9 +5254,11 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     };
 
     if (typeof api.on === 'function') {
-      api.on('message_received', messageReceivedHandler as (...args: unknown[]) => unknown);
+      // Handler signature matches PluginHookHandlerMap['message_received'] directly (#2032)
+      api.on('message_received', messageReceivedHandler);
     } else {
-      api.registerHook('messageReceived', messageReceivedHandler as (event: unknown) => Promise<unknown>);
+      // Legacy fallback: uses snake_case to match SDK convention (#2044)
+      api.registerHook('message_received', messageReceivedHandler as (event: unknown) => Promise<unknown>);
     }
   }
 
