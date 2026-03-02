@@ -41,8 +41,8 @@ export function useConnectedAccounts() {
 
   const fetchData = useCallback(async (signal?: AbortSignal) => {
     const [connectionsRes, providersRes] = await Promise.all([
-      apiClient.get<{ connections: OAuthConnectionSummary[] }>('/api/oauth/connections', { signal }),
-      apiClient.get<{ providers: OAuthProviderInfo[]; unconfigured: OAuthProviderInfo[] }>('/api/oauth/providers', { signal }),
+      apiClient.get<{ connections: OAuthConnectionSummary[] }>('/oauth/connections', { signal }),
+      apiClient.get<{ providers: OAuthProviderInfo[]; unconfigured: OAuthProviderInfo[] }>('/oauth/providers', { signal }),
     ]);
 
     const rawConnections = Array.isArray(connectionsRes?.connections) ? connectionsRes.connections : [];
@@ -90,7 +90,7 @@ export function useConnectedAccounts() {
 
       try {
         const res = await apiClient.patch<{ connection: OAuthConnectionSummary }>(
-          `/api/oauth/connections/${id}`,
+          `/oauth/connections/${id}`,
           updates,
         );
 
@@ -146,7 +146,7 @@ export function useConnectedAccounts() {
       setIsUpdating(true);
 
       try {
-        await apiClient.delete(`/api/oauth/connections/${id}`);
+        await apiClient.delete(`/oauth/connections/${id}`);
 
         setState((prev) => {
           if (prev.kind !== 'loaded') return prev;

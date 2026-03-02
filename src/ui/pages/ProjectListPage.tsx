@@ -135,7 +135,7 @@ export function ProjectListPage(): React.JSX.Element {
   const handleTreeTitleChange = useCallback(
     async (id: string, newTitle: string) => {
       try {
-        await apiClient.patch(`/api/work-items/${id}`, { title: newTitle });
+        await apiClient.patch(`/work-items/${id}`, { title: newTitle });
         queryClient.invalidateQueries({ queryKey: workItemKeys.all });
       } catch {
         // The inline edit component will revert on failure

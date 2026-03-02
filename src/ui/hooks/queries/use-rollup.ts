@@ -4,7 +4,7 @@
  * Issue #1718: Rollup/aggregation display.
  * Issue #1839: Fixed to match actual API response shape.
  *
- * The GET /api/work-items/:id/rollup endpoint returns:
+ * The GET /work-items/:id/rollup endpoint returns:
  *   { work_item_id, total_estimate_minutes, total_actual_minutes }
  */
 import { useQuery } from '@tanstack/react-query';
@@ -28,7 +28,7 @@ export function useWorkItemRollup(workItemId: string) {
   return useQuery({
     queryKey: rollupKeys.forWorkItem(workItemId),
     queryFn: ({ signal }) =>
-      apiClient.get<WorkItemRollup>(`/api/work-items/${workItemId}/rollup`, { signal }),
+      apiClient.get<WorkItemRollup>(`/work-items/${workItemId}/rollup`, { signal }),
     enabled: !!workItemId,
   });
 }

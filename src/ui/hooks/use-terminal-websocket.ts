@@ -64,7 +64,7 @@ export function useTerminalWebSocket({
     const wsProtocol = baseUrl.startsWith('https') ? 'wss' : 'ws';
     const wsBase = baseUrl.replace(/^https?/, wsProtocol);
     const token = getAccessToken();
-    const url = `${wsBase}/api/terminal/sessions/${sessionId}/attach${token ? `?token=${encodeURIComponent(token)}` : ''}`;
+    const url = `${wsBase}/terminal/sessions/${sessionId}/attach${token ? `?token=${encodeURIComponent(token)}` : ''}`;
 
     updateStatus('connecting');
 

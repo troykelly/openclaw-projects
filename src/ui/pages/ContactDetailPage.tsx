@@ -194,14 +194,14 @@ export function ContactDetailPage(): React.JSX.Element {
   const handleDelete = useCallback(async () => {
     if (!contact_id) return;
     try {
-      await apiClient.delete(`/api/contacts/${contact_id}`);
+      await apiClient.delete(`/contacts/${contact_id}`);
       navigate('/contacts');
     } catch (err) {
       console.error('Failed to delete contact:', err);
     }
   }, [contact_id, navigate]);
 
-  /** Save custom fields via PATCH /api/contacts/:id */
+  /** Save custom fields via PATCH /contacts/:id */
   const handleSaveCustomFields = useCallback(
     (fields: CustomField[]) => {
       handleUpdate({ display_name: contact?.display_name ?? '', custom_fields: fields });
@@ -209,12 +209,12 @@ export function ContactDetailPage(): React.JSX.Element {
     [handleUpdate, contact?.display_name],
   );
 
-  /** Add a relationship via POST /api/contacts/:id/relationships */
+  /** Add a relationship via POST /contacts/:id/relationships */
   const handleAddRelationship = useCallback(
     async (data: NewRelationshipData) => {
       if (!contact_id) return;
       try {
-        await apiClient.post(`/api/contacts/${contact_id}/relationships`, {
+        await apiClient.post(`/contacts/${contact_id}/relationships`, {
           to_contact_id: data.relatedContactId,
           relationship_type: data.type,
         });
@@ -231,7 +231,7 @@ export function ContactDetailPage(): React.JSX.Element {
     async (relationshipId: string) => {
       if (!contact_id) return;
       try {
-        await apiClient.delete(`/api/contacts/${contact_id}/relationships/${relationshipId}`);
+        await apiClient.delete(`/contacts/${contact_id}/relationships/${relationshipId}`);
         refetch();
       } catch (err) {
         console.error('Failed to remove relationship:', err);
@@ -245,7 +245,7 @@ export function ContactDetailPage(): React.JSX.Element {
     async (_contactId: string, groupId: string) => {
       if (!contact_id) return;
       try {
-        await apiClient.post(`/api/contacts/${contact_id}/groups/${groupId}`, {});
+        await apiClient.post(`/contacts/${contact_id}/groups/${groupId}`, {});
         refetch();
       } catch (err) {
         console.error('Failed to add to group:', err);
@@ -258,7 +258,7 @@ export function ContactDetailPage(): React.JSX.Element {
     async (_contactId: string, groupId: string) => {
       if (!contact_id) return;
       try {
-        await apiClient.delete(`/api/contacts/${contact_id}/groups/${groupId}`);
+        await apiClient.delete(`/contacts/${contact_id}/groups/${groupId}`);
         refetch();
       } catch (err) {
         console.error('Failed to remove from group:', err);

@@ -46,7 +46,7 @@ export function useChatDeviceSync(options: ChatDeviceSyncOptions): UseChatDevice
     async function performSync() {
       try {
         // Fetch active sessions to check for any updates
-        await apiClient.get('/api/chat/sessions?status=active');
+        await apiClient.get('/chat/sessions?status=active');
         if (!alive || !mountedRef.current) return;
         setSyncState('synced');
       } catch (err) {

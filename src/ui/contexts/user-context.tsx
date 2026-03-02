@@ -2,7 +2,7 @@
  * User context for authentication state.
  *
  * On mount, attempts to refresh the access token (the HttpOnly refresh
- * cookie is sent automatically). If refresh succeeds, fetches `/api/me`
+ * cookie is sent automatically). If refresh succeeds, fetches `/me`
  * to populate user data. If refresh fails, the user is not authenticated.
  *
  * Provides a `logout()` function that revokes the refresh token server-side,
@@ -31,7 +31,7 @@ interface UserContextValue {
   /**
    * Signal that an access token was acquired externally (e.g. by the
    * AuthConsumePage). Resets the bootstrap failure state and triggers
-   * a /api/me fetch so the auth guard lets the user through.
+   * a /me fetch so the auth guard lets the user through.
    */
   signalAuthenticated: () => void;
 }
@@ -42,7 +42,7 @@ const UserContext = createContext<UserContextValue | null>(null);
  * Provider component that bootstraps authentication and provides user state.
  *
  * On mount, calls refreshAccessToken() to establish a session from the
- * HttpOnly refresh cookie. If the refresh succeeds, fetches /api/me for
+ * HttpOnly refresh cookie. If the refresh succeeds, fetches /me for
  * user data. If it fails, the user is unauthenticated.
  */
 export function UserProvider({ children }: { children: React.ReactNode }): React.JSX.Element {
@@ -73,12 +73,12 @@ export function UserProvider({ children }: { children: React.ReactNode }): React
     };
   }, []);
 
-  // Fetch /api/me only after auth bootstrap succeeds
+  // Fetch /me only after auth bootstrap succeeds
   const { data, isLoading: isMeLoading } = useQuery({
     queryKey: ['me'],
     queryFn: async () => {
       try {
-        return await apiClient.get<MeResponse>('/api/me');
+        return await apiClient.get<MeResponse>('/me');
       } catch {
         return null;
       }
@@ -100,7 +100,7 @@ export function UserProvider({ children }: { children: React.ReactNode }): React
 
   const logout = useCallback(async () => {
     try {
-      await apiClient.post('/api/auth/revoke', {});
+      await apiClient.post('/auth/revoke', {});
     } catch {
       // Best-effort revocation — continue with local cleanup even if server call fails
     }

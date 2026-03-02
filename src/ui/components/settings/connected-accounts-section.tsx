@@ -384,7 +384,7 @@ function AddAccountButton({ providers }: AddAccountButtonProps) {
   const handleOAuthRedirect = useCallback(async (providerName: string) => {
     setNavigating(providerName);
     try {
-      const data = await apiClient.get<{ url: string }>(`/api/oauth/authorize/${providerName}`);
+      const data = await apiClient.get<{ url: string }>(`/oauth/authorize/${providerName}`);
       window.location.href = data.url;
     } catch {
       setNavigating(null);

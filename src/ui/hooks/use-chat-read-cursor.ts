@@ -2,7 +2,7 @@
  * Hook for managing chat read cursor with debounced updates (Issue #1959).
  *
  * Tracks the last-read message per session and debounces POST updates
- * to /api/chat/sessions/:id/read. Supports forward-only cursor movement
+ * to /chat/sessions/:id/read. Supports forward-only cursor movement
  * and accepts remote cursor updates from other devices.
  */
 import { useState, useCallback, useRef, useEffect } from 'react';
@@ -54,7 +54,7 @@ export function useChatReadCursor(sessionId: string): UseChatReadCursorReturn {
 
     try {
       const data = await apiClient.post<ReadCursorResponse>(
-        `/api/chat/sessions/${encodeURIComponent(sessionId)}/read`,
+        `/chat/sessions/${encodeURIComponent(sessionId)}/read`,
         { last_read_message_id: messageId },
       );
       if (!mountedRef.current) return;

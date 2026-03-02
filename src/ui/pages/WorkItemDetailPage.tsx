@@ -413,7 +413,7 @@ export function WorkItemDetailPage(): React.JSX.Element {
   const handleDeleteMemory = async (memory: MemoryItem) => {
     if (!confirm(`Delete memory "${memory.title}"?`)) return;
     try {
-      await apiClient.delete(`/api/memories/${memory.id}`);
+      await apiClient.delete(`/memories/${memory.id}`);
       queryClient.invalidateQueries({ queryKey: memoryKeys.forWorkItem(item_id) });
     } catch {
       // Silently fail
@@ -424,7 +424,7 @@ export function WorkItemDetailPage(): React.JSX.Element {
   const handleUnlinkEmail = async (email: LinkedEmail) => {
     if (!confirm('Unlink this email from the work item?')) return;
     try {
-      await apiClient.delete(`/api/work-items/${item_id}/communications/${email.id}`);
+      await apiClient.delete(`/work-items/${item_id}/communications/${email.id}`);
       queryClient.invalidateQueries({ queryKey: communicationsKeys.forWorkItem(item_id) });
     } catch {
       // Silently fail
@@ -433,7 +433,7 @@ export function WorkItemDetailPage(): React.JSX.Element {
   const handleUnlinkEvent = async (event: LinkedCalendarEvent) => {
     if (!confirm('Unlink this event from the work item?')) return;
     try {
-      await apiClient.delete(`/api/work-items/${item_id}/communications/${event.id}`);
+      await apiClient.delete(`/work-items/${item_id}/communications/${event.id}`);
       queryClient.invalidateQueries({ queryKey: communicationsKeys.forWorkItem(item_id) });
     } catch {
       // Silently fail
@@ -739,7 +739,7 @@ export function WorkItemDetailPage(): React.JSX.Element {
                                 variant="ghost"
                                 size="icon"
                                 className="size-7 shrink-0"
-                                onClick={() => window.open(`/api/work-items/${item_id}/attachments/${att.id}/download`, '_blank')}
+                                onClick={() => window.open(`/work-items/${item_id}/attachments/${att.id}/download`, '_blank')}
                               >
                                 <Download className="size-3" />
                                 <span className="sr-only">Download</span>

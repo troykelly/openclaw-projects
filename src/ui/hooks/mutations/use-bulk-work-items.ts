@@ -25,7 +25,7 @@ export function useBulkUpdateWorkItems() {
 
   return useMutation({
     mutationFn: (body: BulkUpdateBody) =>
-      apiClient.patch('/api/work-items/bulk', body),
+      apiClient.patch('/work-items/bulk', body),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: workItemKeys.all });
     },
@@ -38,7 +38,7 @@ export function useBulkDeleteWorkItems() {
 
   return useMutation({
     mutationFn: (body: BulkDeleteBody) =>
-      apiClient.delete('/api/work-items/bulk', body),
+      apiClient.delete('/work-items/bulk', body),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: workItemKeys.all });
     },

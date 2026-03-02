@@ -89,7 +89,7 @@ export const memoryBaseSchema = z.object({
 }).passthrough();
 
 /**
- * GET /api/memory returns `{ items, total }` (not `{ memories }`).
+ * GET /memory returns `{ items, total }` (not `{ memories }`).
  * Each item has at minimum: id, title, content.
  */
 export const memoryListResponseSchema = z.object({
@@ -98,14 +98,14 @@ export const memoryListResponseSchema = z.object({
 }).passthrough();
 
 /**
- * GET /api/work-items/:id/memories returns `{ memories: [{ id, title, content, type, ... }] }`.
+ * GET /work-items/:id/memories returns `{ memories: [{ id, title, content, type, ... }] }`.
  * The shape is a reduced projection — only validate the guaranteed fields.
  */
 export const workItemMemoriesResponseSchema = z.object({
   memories: z.array(memoryBaseSchema),
 }).passthrough();
 
-/** GET /api/memories/search returns `{ results, search_type }`. */
+/** GET /memories/search returns `{ results, search_type }`. */
 export const memorySearchResultSchema = memoryBaseSchema.extend({
   similarity: z.number().optional(),
 }).passthrough();
@@ -116,7 +116,7 @@ export const memorySearchResponseSchema = z.object({
 }).passthrough();
 
 /**
- * GET /api/memories/:id/similar returns `{ source_memory_id, threshold, similar }`.
+ * GET /memories/:id/similar returns `{ source_memory_id, threshold, similar }`.
  * Different shape from search — use a separate schema.
  */
 export const memorySimilarResponseSchema = z.object({

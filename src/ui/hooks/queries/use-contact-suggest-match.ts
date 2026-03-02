@@ -29,7 +29,7 @@ export function useContactSuggestMatch(params: SuggestMatchParams) {
       if (params.email) searchParams.set('email', params.email);
       if (params.name) searchParams.set('name', params.name);
 
-      return apiClient.get<ContactSuggestMatchResponse>(`/api/contacts/suggest-match?${searchParams.toString()}`, {
+      return apiClient.get<ContactSuggestMatchResponse>(`/contacts/suggest-match?${searchParams.toString()}`, {
         signal,
       });
     },

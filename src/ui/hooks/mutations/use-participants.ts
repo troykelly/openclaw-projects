@@ -27,7 +27,7 @@ export function useAddParticipant(workItemId: string) {
 
   return useMutation({
     mutationFn: (body: AddParticipantBody) =>
-      apiClient.post<Participant>(`/api/work-items/${workItemId}/participants`, {
+      apiClient.post<Participant>(`/work-items/${workItemId}/participants`, {
         ...body,
         role: body.role || 'assignee',
       }),
@@ -43,7 +43,7 @@ export function useRemoveParticipant(workItemId: string) {
 
   return useMutation({
     mutationFn: (participantId: string) =>
-      apiClient.delete(`/api/work-items/${workItemId}/participants/${participantId}`),
+      apiClient.delete(`/work-items/${workItemId}/participants/${participantId}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: workItemKeys.detail(workItemId) });
     },

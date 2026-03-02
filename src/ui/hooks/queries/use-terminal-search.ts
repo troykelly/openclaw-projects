@@ -26,6 +26,6 @@ export interface TerminalSearchParams {
 export function useTerminalSearch() {
   return useMutation({
     mutationFn: (params: TerminalSearchParams) =>
-      apiClient.post<TerminalSearchResponse>('/api/terminal/search', params),
+      apiClient.post<TerminalSearchResponse>('/terminal/search', params),
   });
 }

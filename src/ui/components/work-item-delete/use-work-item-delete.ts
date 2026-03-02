@@ -14,7 +14,7 @@ export function useWorkItemDelete(options: UseWorkItemDeleteOptions = {}): UseWo
   const restoreItem = React.useCallback(
     async (id: string) => {
       try {
-        await apiClient.post(`/api/work-items/${id}/restore`, {});
+        await apiClient.post(`/work-items/${id}/restore`, {});
         setUndoState(null);
         deletedItemsRef.current = [];
         onRestored?.();
@@ -37,7 +37,7 @@ export function useWorkItemDelete(options: UseWorkItemDeleteOptions = {}): UseWo
     async (item: { id: string; title: string }) => {
       setIsDeleting(true);
       try {
-        await apiClient.delete(`/api/work-items/${item.id}`);
+        await apiClient.delete(`/work-items/${item.id}`);
 
         deletedItemsRef.current = [item.id];
 
@@ -62,7 +62,7 @@ export function useWorkItemDelete(options: UseWorkItemDeleteOptions = {}): UseWo
       setIsDeleting(true);
       try {
         // Delete items in parallel
-        await Promise.all(items.map((item) => apiClient.delete(`/api/work-items/${item.id}`)));
+        await Promise.all(items.map((item) => apiClient.delete(`/work-items/${item.id}`)));
 
         deletedItemsRef.current = items.map((i) => i.id);
 

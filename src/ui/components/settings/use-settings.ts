@@ -15,7 +15,7 @@ export function useSettings() {
 
     async function fetchSettings(): Promise<void> {
       try {
-        const data = await apiClient.get<UserSettings>('/api/settings');
+        const data = await apiClient.get<UserSettings>('/settings');
         if (!alive) return;
         setState({ kind: 'loaded', data });
       } catch (error) {
@@ -49,7 +49,7 @@ export function useSettings() {
       setIsSaving(true);
 
       try {
-        const data = await apiClient.patch<UserSettings>('/api/settings', updates);
+        const data = await apiClient.patch<UserSettings>('/settings', updates);
         if (!mountedRef.current) return true;
         setState({ kind: 'loaded', data });
         return true;

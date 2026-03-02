@@ -81,7 +81,7 @@ export function WorkItemCreateDialog({ open, onOpenChange, onCreated, defaultPar
     async function loadParents() {
       setLoadingParents(true);
       try {
-        const data = await apiClient.get<{ items: ApiTreeItem[] }>('/api/work-items/tree');
+        const data = await apiClient.get<{ items: ApiTreeItem[] }>('/work-items/tree');
         setParentOptions(flattenTree(data.items));
       } catch {
         // Silently fail - parent selection will just be empty
@@ -155,7 +155,7 @@ export function WorkItemCreateDialog({ open, onOpenChange, onCreated, defaultPar
     };
 
     try {
-      const createdItem = await apiClient.post<CreatedWorkItem>('/api/work-items', payload);
+      const createdItem = await apiClient.post<CreatedWorkItem>('/work-items', payload);
       onCreated?.(createdItem);
       resetForm();
       onOpenChange(false);

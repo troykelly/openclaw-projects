@@ -24,7 +24,7 @@ export function LoginForm(): React.JSX.Element {
     setErrorMessage('');
 
     try {
-      await apiClient.post('/api/auth/request-link', { email: email.trim() });
+      await apiClient.post('/auth/request-link', { email: email.trim() });
       setFormState('sent');
     } catch (err: unknown) {
       setFormState('error');

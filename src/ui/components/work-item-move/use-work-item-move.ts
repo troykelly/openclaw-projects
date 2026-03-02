@@ -11,7 +11,7 @@ export function useWorkItemMove(options: UseWorkItemMoveOptions = {}): UseWorkIt
     async (item: { id: string; title: string }, newParentId: string | null) => {
       setIsMoving(true);
       try {
-        await apiClient.patch(`/api/work-items/${item.id}`, { parent_id: newParentId });
+        await apiClient.patch(`/work-items/${item.id}`, { parent_id: newParentId });
         onMoved?.();
       } catch (error) {
         onError?.(error instanceof Error ? error : new Error('Unknown error'));
@@ -27,7 +27,7 @@ export function useWorkItemMove(options: UseWorkItemMoveOptions = {}): UseWorkIt
       setIsMoving(true);
       try {
         // Move items in parallel
-        await Promise.all(items.map((item) => apiClient.patch(`/api/work-items/${item.id}`, { parent_id: newParentId })));
+        await Promise.all(items.map((item) => apiClient.patch(`/work-items/${item.id}`, { parent_id: newParentId })));
         onMoved?.();
       } catch (error) {
         onError?.(error instanceof Error ? error : new Error('Unknown error'));

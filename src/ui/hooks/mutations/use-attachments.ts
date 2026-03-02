@@ -13,7 +13,7 @@ export function useDeleteAttachment(workItemId: string) {
 
   return useMutation({
     mutationFn: (attachmentId: string) =>
-      apiClient.delete(`/api/work-items/${workItemId}/attachments/${attachmentId}`),
+      apiClient.delete(`/work-items/${workItemId}/attachments/${attachmentId}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: attachmentKeys.forWorkItem(workItemId) });
     },

@@ -15,7 +15,7 @@ export function useEmbeddingSettings() {
 
     async function fetchSettings(): Promise<void> {
       try {
-        const raw = await apiClient.get<EmbeddingSettings>('/api/settings/embeddings');
+        const raw = await apiClient.get<EmbeddingSettings>('/settings/embeddings');
         if (!alive) return;
         // Validate nested objects — apiClient casts JSON as T without runtime checks
         const data: EmbeddingSettings = {
@@ -67,7 +67,7 @@ export function useEmbeddingSettings() {
       setIsSaving(true);
 
       try {
-        const data = await apiClient.patch<EmbeddingSettings>('/api/settings/embeddings', updates);
+        const data = await apiClient.patch<EmbeddingSettings>('/settings/embeddings', updates);
         setState({ kind: 'loaded', data });
         return true;
       } catch {
@@ -85,7 +85,7 @@ export function useEmbeddingSettings() {
     setTestResult(null);
 
     try {
-      const result = await apiClient.post<EmbeddingTestResult>('/api/settings/embeddings/test', {});
+      const result = await apiClient.post<EmbeddingTestResult>('/settings/embeddings/test', {});
       setTestResult(result);
       return result;
     } catch (error) {

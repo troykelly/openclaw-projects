@@ -35,7 +35,7 @@ export const skillStoreKeys = {
 export function useSkillStoreSkills() {
   return useQuery({
     queryKey: skillStoreKeys.skills(),
-    queryFn: ({ signal }) => apiClient.get<SkillStoreSkillsResponse>('/api/admin/skill-store/skills', { signal }),
+    queryFn: ({ signal }) => apiClient.get<SkillStoreSkillsResponse>('/admin/skill-store/skills', { signal }),
   });
 }
 
@@ -48,7 +48,7 @@ export function useSkillStoreSkills() {
 export function useSkillStoreCollections(skillId: string) {
   return useQuery({
     queryKey: skillStoreKeys.collections(skillId),
-    queryFn: ({ signal }) => apiClient.get<SkillStoreCollectionsResponse>(`/api/skill-store/collections?skill_id=${encodeURIComponent(skillId)}`, { signal }),
+    queryFn: ({ signal }) => apiClient.get<SkillStoreCollectionsResponse>(`/skill-store/collections?skill_id=${encodeURIComponent(skillId)}`, { signal }),
     enabled: !!skillId,
   });
 }
@@ -82,7 +82,7 @@ export function useSkillStoreItems(params: UseSkillStoreItemsParams) {
 
   return useQuery({
     queryKey: skillStoreKeys.items(skillId, collection, status, tags, offset),
-    queryFn: ({ signal }) => apiClient.get<SkillStoreItemsResponse>(`/api/skill-store/items?${searchParams.toString()}`, { signal }),
+    queryFn: ({ signal }) => apiClient.get<SkillStoreItemsResponse>(`/skill-store/items?${searchParams.toString()}`, { signal }),
     enabled: !!skillId,
   });
 }
@@ -96,7 +96,7 @@ export function useSkillStoreItems(params: UseSkillStoreItemsParams) {
 export function useSkillStoreItem(id: string) {
   return useQuery({
     queryKey: skillStoreKeys.item(id),
-    queryFn: ({ signal }) => apiClient.get<SkillStoreItem>(`/api/skill-store/items/${id}`, { signal }),
+    queryFn: ({ signal }) => apiClient.get<SkillStoreItem>(`/skill-store/items/${id}`, { signal }),
     enabled: !!id,
   });
 }
@@ -110,7 +110,7 @@ export function useSkillStoreItem(id: string) {
 export function useSkillStoreSchedules(skillId: string) {
   return useQuery({
     queryKey: skillStoreKeys.schedules(skillId),
-    queryFn: ({ signal }) => apiClient.get<SkillStoreSchedulesResponse>(`/api/skill-store/schedules?skill_id=${encodeURIComponent(skillId)}`, { signal }),
+    queryFn: ({ signal }) => apiClient.get<SkillStoreSchedulesResponse>(`/skill-store/schedules?skill_id=${encodeURIComponent(skillId)}`, { signal }),
     enabled: !!skillId,
   });
 }
@@ -124,7 +124,7 @@ export function useDeleteSkillStoreItem() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (id: string) => apiClient.delete(`/api/skill-store/items/${id}`),
+    mutationFn: (id: string) => apiClient.delete(`/skill-store/items/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: skillStoreKeys.all });
     },
@@ -140,7 +140,7 @@ export function useTriggerSchedule() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (id: string) => apiClient.post(`/api/skill-store/schedules/${id}/trigger`, {}),
+    mutationFn: (id: string) => apiClient.post(`/skill-store/schedules/${id}/trigger`, {}),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: skillStoreKeys.all });
     },
@@ -156,7 +156,7 @@ export function usePauseSchedule() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (id: string) => apiClient.post(`/api/skill-store/schedules/${id}/pause`, {}),
+    mutationFn: (id: string) => apiClient.post(`/skill-store/schedules/${id}/pause`, {}),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: skillStoreKeys.all });
     },
@@ -172,7 +172,7 @@ export function useResumeSchedule() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (id: string) => apiClient.post(`/api/skill-store/schedules/${id}/resume`, {}),
+    mutationFn: (id: string) => apiClient.post(`/skill-store/schedules/${id}/resume`, {}),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: skillStoreKeys.all });
     },
@@ -187,6 +187,6 @@ export function useResumeSchedule() {
 export function useSkillStoreSearch() {
   return useMutation({
     mutationFn: (body: { skill_id: string; query: string; collection?: string; limit?: number }) =>
-      apiClient.post<SkillStoreSearchResponse>('/api/skill-store/search', body),
+      apiClient.post<SkillStoreSearchResponse>('/skill-store/search', body),
   });
 }

@@ -311,7 +311,7 @@ export function MemoryPage(): React.JSX.Element {
     try {
       // Delete each selected memory
       await Promise.all(
-        Array.from(selectedIds).map((id) => apiClient.delete(`/api/memories/${id}`)),
+        Array.from(selectedIds).map((id) => apiClient.delete(`/memories/${id}`)),
       );
       setSelectedIds(new Set());
       setBulkDeleteConfirmOpen(false);
@@ -328,7 +328,7 @@ export function MemoryPage(): React.JSX.Element {
       if (selectedIds.size === 0) return;
       setIsSubmitting(true);
       try {
-        await apiClient.patch('/api/memories/bulk', {
+        await apiClient.patch('/memories/bulk', {
           updates: Array.from(selectedIds).map((id) => ({ id, memory_type: newType })),
         });
         setSelectedIds(new Set());
@@ -353,7 +353,7 @@ export function MemoryPage(): React.JSX.Element {
     async (body: CreateMemoryBody) => {
       setIsSubmitting(true);
       try {
-        await apiClient.post('/api/memory', body);
+        await apiClient.post('/memory', body);
         setFormOpen(false);
         setEditingMemory(null);
         refetch();
@@ -371,7 +371,7 @@ export function MemoryPage(): React.JSX.Element {
       if (!editingMemory) return;
       setIsSubmitting(true);
       try {
-        await apiClient.patch(`/api/memories/${editingMemory.id}`, body);
+        await apiClient.patch(`/memories/${editingMemory.id}`, body);
         setFormOpen(false);
         setEditingMemory(null);
         refetch();
@@ -387,7 +387,7 @@ export function MemoryPage(): React.JSX.Element {
   const handleDelete = useCallback(
     async (memory: Memory) => {
       try {
-        await apiClient.delete(`/api/memories/${memory.id}`);
+        await apiClient.delete(`/memories/${memory.id}`);
         setDeleteTarget(null);
         if (expandedId === memory.id) {
           setExpandedId(null);

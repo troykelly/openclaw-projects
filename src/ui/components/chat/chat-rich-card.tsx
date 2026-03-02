@@ -65,7 +65,7 @@ export function ChatRichCard({ data, sessionId, messageId }: ChatRichCardProps):
 
     try {
       await apiClient.post(
-        `/api/chat/sessions/${encodeURIComponent(sessionId)}/messages`,
+        `/chat/sessions/${encodeURIComponent(sessionId)}/messages`,
         {
           content: JSON.stringify({
             action_id: action.id,

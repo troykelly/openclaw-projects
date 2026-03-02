@@ -15,7 +15,7 @@ import { cn } from '@/ui/lib/utils';
 import { apiClient } from '@/ui/lib/api-client';
 
 // ---------------------------------------------------------------------------
-// Types — matches GET /api/webhooks/status response shape
+// Types — matches GET /webhooks/status response shape
 // ---------------------------------------------------------------------------
 
 interface WebhookStatusResponse {
@@ -43,7 +43,7 @@ export function WebhookManagementSection(): React.JSX.Element {
 
   const loadData = useCallback(async () => {
     try {
-      const data = await apiClient.get<WebhookStatusResponse>('/api/webhooks/status');
+      const data = await apiClient.get<WebhookStatusResponse>('/webhooks/status');
       if (data && typeof data.configured === 'boolean') {
         setStatus(data);
       }
@@ -61,7 +61,7 @@ export function WebhookManagementSection(): React.JSX.Element {
   const handleRetryFailed = useCallback(async () => {
     setIsRetrying(true);
     try {
-      await apiClient.post('/api/webhooks/process', {});
+      await apiClient.post('/webhooks/process', {});
       await loadData();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to retry webhooks');

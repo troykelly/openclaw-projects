@@ -133,7 +133,7 @@ export function useCreateNotebook(): UseMutationResult<Notebook, ApiRequestError
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (body: CreateNotebookBody) => apiClient.post<Notebook>('/api/notebooks', body),
+    mutationFn: (body: CreateNotebookBody) => apiClient.post<Notebook>('/notebooks', body),
 
     onSuccess: () => {
       // Invalidate all notebook queries (tree includes lists and details)
@@ -208,7 +208,7 @@ export function useUpdateNotebook(): UseMutationResult<Notebook, ApiRequestError
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, body }: UpdateNotebookVariables) => apiClient.put<Notebook>(`/api/notebooks/${encodeURIComponent(id)}`, body),
+    mutationFn: ({ id, body }: UpdateNotebookVariables) => apiClient.put<Notebook>(`/notebooks/${encodeURIComponent(id)}`, body),
 
     onMutate: async ({ id, body }) => {
       // Cancel outgoing refetches
@@ -322,7 +322,7 @@ export function useArchiveNotebook(): UseMutationResult<Notebook, ApiRequestErro
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (id: string) => apiClient.post<Notebook>(`/api/notebooks/${encodeURIComponent(id)}/archive`, {}),
+    mutationFn: (id: string) => apiClient.post<Notebook>(`/notebooks/${encodeURIComponent(id)}/archive`, {}),
 
     onMutate: async (id) => {
       // Cancel outgoing refetches
@@ -423,7 +423,7 @@ export function useUnarchiveNotebook(): UseMutationResult<Notebook, ApiRequestEr
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (id: string) => apiClient.post<Notebook>(`/api/notebooks/${encodeURIComponent(id)}/unarchive`, {}),
+    mutationFn: (id: string) => apiClient.post<Notebook>(`/notebooks/${encodeURIComponent(id)}/unarchive`, {}),
 
     onSuccess: () => {
       // Invalidate all notebook queries
@@ -504,7 +504,7 @@ export function useDeleteNotebook(): UseMutationResult<void, ApiRequestError, De
 
   return useMutation({
     mutationFn: ({ id, deleteNotes = false }: DeleteNotebookVariables) =>
-      apiClient.delete(`/api/notebooks/${encodeURIComponent(id)}${deleteNotes ? '?delete_notes=true' : ''}`),
+      apiClient.delete(`/notebooks/${encodeURIComponent(id)}${deleteNotes ? '?delete_notes=true' : ''}`),
 
     onMutate: async ({ id }) => {
       // Cancel outgoing refetches
@@ -627,7 +627,7 @@ export function useMoveNotesToNotebook(): UseMutationResult<MoveNotesResponse, A
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ notebook_id, body }: MoveNotesVariables) => apiClient.post<MoveNotesResponse>(`/api/notebooks/${encodeURIComponent(notebook_id)}/notes`, body),
+    mutationFn: ({ notebook_id, body }: MoveNotesVariables) => apiClient.post<MoveNotesResponse>(`/notebooks/${encodeURIComponent(notebook_id)}/notes`, body),
 
     onSuccess: () => {
       // Invalidate all notebook and note queries using prefix invalidation

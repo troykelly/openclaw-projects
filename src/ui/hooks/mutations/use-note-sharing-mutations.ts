@@ -164,7 +164,7 @@ export function useShareNoteWithUser(): UseMutationResult<NoteUserShare, ApiRequ
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ noteId, body }: ShareNoteWithUserVariables) => apiClient.post<NoteUserShare>(`/api/notes/${encodeURIComponent(noteId)}/share`, body),
+    mutationFn: ({ noteId, body }: ShareNoteWithUserVariables) => apiClient.post<NoteUserShare>(`/notes/${encodeURIComponent(noteId)}/share`, body),
 
     onSuccess: (_, { noteId }) => {
       // Invalidate shares and note detail for this note
@@ -240,7 +240,7 @@ export function useCreateNoteShareLink(): UseMutationResult<CreateLinkShareRespo
 
   return useMutation({
     mutationFn: ({ noteId, body }: CreateNoteShareLinkVariables) =>
-      apiClient.post<CreateLinkShareResponse>(`/api/notes/${encodeURIComponent(noteId)}/share/link`, body),
+      apiClient.post<CreateLinkShareResponse>(`/notes/${encodeURIComponent(noteId)}/share/link`, body),
 
     onSuccess: (_, { noteId }) => {
       // Invalidate shares and note detail for this note
@@ -316,7 +316,7 @@ export function useUpdateNoteShare(): UseMutationResult<NoteShare, ApiRequestErr
 
   return useMutation({
     mutationFn: ({ noteId, shareId, body }: UpdateNoteShareVariables) =>
-      apiClient.put<NoteShare>(`/api/notes/${encodeURIComponent(noteId)}/shares/${encodeURIComponent(shareId)}`, body),
+      apiClient.put<NoteShare>(`/notes/${encodeURIComponent(noteId)}/shares/${encodeURIComponent(shareId)}`, body),
 
     onMutate: async ({ noteId, shareId, body }) => {
       // Cancel outgoing refetches
@@ -417,7 +417,7 @@ export function useRevokeNoteShare(): UseMutationResult<void, ApiRequestError, R
 
   return useMutation({
     mutationFn: ({ noteId, shareId }: RevokeNoteShareVariables) =>
-      apiClient.delete(`/api/notes/${encodeURIComponent(noteId)}/shares/${encodeURIComponent(shareId)}`),
+      apiClient.delete(`/notes/${encodeURIComponent(noteId)}/shares/${encodeURIComponent(shareId)}`),
 
     onMutate: async ({ noteId, shareId }) => {
       // Cancel outgoing refetches

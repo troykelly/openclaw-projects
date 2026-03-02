@@ -97,7 +97,7 @@ export function isTokenExpired(): boolean {
 }
 
 /**
- * Refresh the access token by calling `POST /api/auth/refresh`.
+ * Refresh the access token by calling `POST /auth/refresh`.
  *
  * The browser automatically sends the HttpOnly refresh token cookie
  * (via `credentials: 'include'`). On success, the new access token
@@ -118,7 +118,7 @@ export function refreshAccessToken(): Promise<string> {
   const gen = tokenGeneration;
   refreshPromise = (async (): Promise<string> => {
     try {
-      const res = await fetch(`${getApiBaseUrl()}/api/auth/refresh`, {
+      const res = await fetch(`${getApiBaseUrl()}/auth/refresh`, {
         method: 'POST',
         credentials: 'include',
         headers: {
