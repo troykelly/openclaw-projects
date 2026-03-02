@@ -575,6 +575,78 @@ describe('Contacts API', () => {
 
       expect(res.statusCode).toBe(400);
     });
+
+    it('returns 409 when duplicate endpoint_type+value already exists', async () => {
+      const created = await app.inject({
+        method: 'POST',
+        url: '/api/contacts',
+        payload: { display_name: 'Duplicate Test' },
+      });
+      const { id } = created.json() as { id: string };
+
+      // First creation should succeed
+      const res1 = await app.inject({
+        method: 'POST',
+        url: `/api/contacts/${id}/endpoints`,
+        payload: { type: 'phone', value: '+61467660099' },
+      });
+      expect(res1.statusCode).toBe(201);
+
+      // Second creation with same type+value should return 409
+      const res2 = await app.inject({
+        method: 'POST',
+        url: `/api/contacts/${id}/endpoints`,
+        payload: { type: 'phone', value: '+61467660099' },
+      });
+      expect(res2.statusCode).toBe(409);
+      const body = res2.json() as { error: string };
+      expect(body.error).toMatch(/already exists/i);
+    });
+
+    it('returns 400 for invalid endpoint_type enum value', async () => {
+      const created = await app.inject({
+        method: 'POST',
+        url: '/api/contacts',
+        payload: { display_name: 'Invalid Type Test' },
+      });
+      const { id } = created.json() as { id: string };
+
+      const res = await app.inject({
+        method: 'POST',
+        url: `/api/contacts/${id}/endpoints`,
+        payload: { type: 'invalid_type', value: 'something' },
+      });
+
+      expect(res.statusCode).toBe(400);
+      const body = res.json() as { error: string };
+      expect(body.error).toMatch(/invalid.*endpoint.*type/i);
+    });
+
+    it('does not leak pool connections on database error', async () => {
+      const created = await app.inject({
+        method: 'POST',
+        url: '/api/contacts',
+        payload: { display_name: 'Pool Leak Test' },
+      });
+      const { id } = created.json() as { id: string };
+
+      // Create endpoint
+      await app.inject({
+        method: 'POST',
+        url: `/api/contacts/${id}/endpoints`,
+        payload: { type: 'email', value: 'pool-test@example.com' },
+      });
+
+      // Trigger duplicate error multiple times — should not leak connections
+      for (let i = 0; i < 5; i++) {
+        const res = await app.inject({
+          method: 'POST',
+          url: `/api/contacts/${id}/endpoints`,
+          payload: { type: 'email', value: 'pool-test@example.com' },
+        });
+        expect(res.statusCode).toBe(409);
+      }
+    });
   });
 
   describe('GET /api/contacts/:id/work-items', () => {
