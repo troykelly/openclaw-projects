@@ -62,6 +62,8 @@ export interface TestConnectionResponse {
   message: string;
   latency_ms: number;
   host_key_fingerprint: string;
+  /** Structured error code for programmatic detection (e.g. 'HOST_KEY_VERIFICATION_FAILED'). */
+  error_code?: string;
 }
 
 // ─── Session lifecycle ──────────────────────────────────────

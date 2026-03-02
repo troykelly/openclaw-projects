@@ -250,6 +250,7 @@ function buildHandlers(
             message: result.message,
             latency_ms: result.latencyMs,
             host_key_fingerprint: result.hostKeyFingerprint,
+            ...(result.errorCode ? { error_code: result.errorCode } : {}),
           });
         })
         .catch((err) => {
