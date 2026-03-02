@@ -491,8 +491,9 @@ export async function terminalRoutesPlugin(
     }
 
     // Write scope required when trusting host keys (mutates known_hosts)
-    const body = req.body as { trust_host_key?: boolean } | undefined;
+    const body = req.body as { trust_host_key?: boolean; expected_fingerprint?: string } | undefined;
     const trustHostKey = body?.trust_host_key === true;
+    const expectedFingerprint = typeof body?.expected_fingerprint === 'string' ? body.expected_fingerprint : undefined;
 
     if (trustHostKey) {
       if (!(await verifyWriteScope(pool, 'terminal_connection', params.id, req))) {
@@ -516,6 +517,7 @@ export async function terminalRoutesPlugin(
       const result = await grpcClient.testConnection({
         connection_id: params.id,
         trust_host_key: trustHostKey,
+        ...(expectedFingerprint ? { expected_fingerprint: expectedFingerprint } : {}),
       });
       return reply.send(result);
     } catch (err) {

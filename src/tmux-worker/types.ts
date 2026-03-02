@@ -55,6 +55,8 @@ export interface TestConnectionRequest {
   connection_id: string;
   /** When true, auto-accept and store unknown host keys (TOFU). Issue #1983. */
   trust_host_key?: boolean;
+  /** When set with trust_host_key, verify the offered key matches before storing. Issue #2042. */
+  expected_fingerprint?: string;
 }
 
 export interface TestConnectionResponse {
