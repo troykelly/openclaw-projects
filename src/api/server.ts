@@ -19974,7 +19974,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const state = randomBytes(32).toString('base64url');
       const rawBase = process.env.PUBLIC_BASE_URL || 'http://localhost:3000';
       const clientId = rawBase.replace(/\/+$/, '');
-      const redirectUri = `${clientId}/oauth/callback`;
+      const redirectUri = process.env.OAUTH_REDIRECT_URI
+        || `${deriveApiUrl(rawBase).replace(/\/+$/, '')}/oauth/callback`;
 
       const { buildAuthorizationUrl } = await import('./oauth/home-assistant.ts');
       const { url } = buildAuthorizationUrl(body.instance_url, clientId, redirectUri, state);
