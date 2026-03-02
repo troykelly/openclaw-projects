@@ -26,7 +26,9 @@ describe('Backend API service', () => {
   it('exposes /health', async () => {
     const res = await app.inject({ method: 'GET', url: '/health' });
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toEqual({ ok: true });
+    const body = res.json();
+    expect(body.status).toBeDefined();
+    expect(body.timestamp).toBeDefined();
   });
 
   it('can create and fetch a work item', async () => {

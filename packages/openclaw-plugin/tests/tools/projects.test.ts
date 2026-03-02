@@ -411,7 +411,7 @@ describe('project tools', () => {
         await tool.execute({ name: 'New Project', description: 'A new project' });
 
         expect(mockPost).toHaveBeenCalledWith(
-          '/api/work-items',
+          '/work-items',
           expect.objectContaining({
             title: 'New Project',
             description: 'A new project',

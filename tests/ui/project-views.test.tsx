@@ -176,7 +176,7 @@ function setupApiMocks() {
     if (path === '/work-items/tree') {
       return Promise.resolve(mockTreeData);
     }
-    if (path.match(/\/api\/work-items\/proj-1$/)) {
+    if (path.match(/\/work-items\/proj-1$/)) {
       return Promise.resolve(mockProjectDetail);
     }
     if (path.includes('/backlog')) {

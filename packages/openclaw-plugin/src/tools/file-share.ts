@@ -128,7 +128,7 @@ export function createFileShareTool(options: FileShareToolOptions): FileShareToo
       try {
         // Call API
         const response = await client.post<FileShareApiResponse>(
-          `/api/files/${file_id}/share`,
+          `/files/${file_id}/share`,
           {
             expires_in,
             max_downloads,

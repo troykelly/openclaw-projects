@@ -153,7 +153,7 @@ describe('SPA fallback (/static/app/*)', () => {
     });
     expect(res.statusCode).toBe(200);
     const body = res.json();
-    expect(body).toHaveProperty('ok', true);
+    expect(body).toHaveProperty('status');
   });
 
   it('does not intercept POST /auth/request-link', async () => {

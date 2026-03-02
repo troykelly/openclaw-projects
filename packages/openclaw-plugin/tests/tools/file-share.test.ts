@@ -88,7 +88,7 @@ describe('file_share tool', () => {
         success: true,
         data: {
           share_token: 'abc123xyz',
-          url: 'https://example.com/api/files/shared/abc123xyz',
+          url: 'https://example.com/files/shared/abc123xyz',
           expires_at: '2026-02-05T10:00:00Z',
           expires_in: 3600,
           filename: 'document.pdf',
@@ -107,8 +107,8 @@ describe('file_share tool', () => {
       expect(result.success).toBe(true);
       expect(result.data?.content).toContain('document.pdf');
       expect(result.data?.content).toContain('1.0 MB');
-      expect(result.data?.content).toContain('https://example.com/api/files/shared/abc123xyz');
-      expect(result.data?.details?.url).toBe('https://example.com/api/files/shared/abc123xyz');
+      expect(result.data?.content).toContain('https://example.com/files/shared/abc123xyz');
+      expect(result.data?.details?.url).toBe('https://example.com/files/shared/abc123xyz');
     });
 
     it('should return error for API failure', async () => {
@@ -146,7 +146,7 @@ describe('file_share tool', () => {
         success: true,
         data: {
           share_token: 'abc123xyz',
-          url: 'https://example.com/api/files/shared/abc123xyz',
+          url: 'https://example.com/files/shared/abc123xyz',
           expires_at: '2026-02-05T10:00:00Z',
           expires_in: 3600,
           filename: 'document.pdf',
@@ -176,7 +176,7 @@ describe('file_share tool', () => {
         success: true,
         data: {
           share_token: 'abc123xyz',
-          url: 'https://example.com/api/files/shared/abc123xyz',
+          url: 'https://example.com/files/shared/abc123xyz',
           expires_at: '2026-02-05T10:00:00Z',
           expires_in: 3600,
           filename: 'document.pdf',

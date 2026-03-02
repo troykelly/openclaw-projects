@@ -81,7 +81,7 @@ describe('auto-linker', () => {
 
       const client = createMockClient({
         getResponses: {
-          '/api/contacts': {
+          '/contacts': {
             success: true,
             data: {
               contacts: [
@@ -92,7 +92,7 @@ describe('auto-linker', () => {
           },
         },
         postResponses: {
-          '/api/skill-store/items': {
+          '/skill-store/items': {
             success: true,
             data: { id: 'link-1', skill_id: 'entity-links', collection: 'entity_links', key: 'fwd', data: {}, tags: [], status: 'active' },
           },
@@ -120,7 +120,7 @@ describe('auto-linker', () => {
 
       const client = createMockClient({
         getResponses: {
-          '/api/contacts': {
+          '/contacts': {
             success: true,
             data: {
               contacts: [
@@ -131,7 +131,7 @@ describe('auto-linker', () => {
           },
         },
         postResponses: {
-          '/api/skill-store/items': {
+          '/skill-store/items': {
             success: true,
             data: { id: 'link-2', skill_id: 'entity-links', collection: 'entity_links', key: 'fwd', data: {}, tags: [], status: 'active' },
           },
@@ -159,7 +159,7 @@ describe('auto-linker', () => {
 
       const client = createMockClient({
         getResponses: {
-          '/api/contacts': {
+          '/contacts': {
             success: true,
             data: {
               contacts: [
@@ -170,7 +170,7 @@ describe('auto-linker', () => {
           },
         },
         postResponses: {
-          '/api/skill-store/items': {
+          '/skill-store/items': {
             success: true,
             data: { id: 'link-dual', skill_id: 'entity-links', collection: 'entity_links', key: 'fwd', data: {}, tags: [], status: 'active' },
           },
@@ -191,7 +191,7 @@ describe('auto-linker', () => {
 
       // Should have searched twice (once for email, once for phone)
       const getCalls = (client.get as ReturnType<typeof vi.fn>).mock.calls;
-      const contactSearchCalls = getCalls.filter((c: unknown[]) => (c[0] as string).startsWith('/api/contacts'));
+      const contactSearchCalls = getCalls.filter((c: unknown[]) => (c[0] as string).startsWith('/contacts'));
       expect(contactSearchCalls.length).toBe(2);
 
       // But should only create one set of links (deduplicated by ID)
@@ -215,7 +215,7 @@ describe('auto-linker', () => {
       expect(result.matches.contacts).toHaveLength(0);
       // Should not have called contacts API
       expect(client.get).not.toHaveBeenCalledWith(
-        expect.stringContaining('/api/contacts'),
+        expect.stringContaining('/contacts'),
         expect.anything(),
       );
     });
@@ -223,7 +223,7 @@ describe('auto-linker', () => {
     it('should handle no matching contacts gracefully', async () => {
       const client = createMockClient({
         getResponses: {
-          '/api/contacts': {
+          '/contacts': {
             success: true,
             data: { contacts: [], total: 0 },
           },
@@ -248,7 +248,7 @@ describe('auto-linker', () => {
     it('should handle contact search API failure gracefully', async () => {
       const client = createMockClient({
         getResponses: {
-          '/api/contacts': {
+          '/contacts': {
             success: false,
             error: { status: 500, message: 'Internal error', code: 'INTERNAL_ERROR' },
           },
@@ -274,7 +274,7 @@ describe('auto-linker', () => {
     it('should include user_email in contact search params', async () => {
       const client = createMockClient({
         getResponses: {
-          '/api/contacts': {
+          '/contacts': {
             success: true,
             data: { contacts: [], total: 0 },
           },
@@ -293,7 +293,7 @@ describe('auto-linker', () => {
       });
 
       const getCalls = (client.get as ReturnType<typeof vi.fn>).mock.calls;
-      const contactCall = getCalls.find((c: unknown[]) => (c[0] as string).startsWith('/api/contacts'));
+      const contactCall = getCalls.find((c: unknown[]) => (c[0] as string).startsWith('/contacts'));
       expect(contactCall).toBeDefined();
       expect(contactCall![0]).toContain('user_email=user%40test.com');
     });
@@ -306,7 +306,7 @@ describe('auto-linker', () => {
 
       const client = createMockClient({
         getResponses: {
-          '/api/contacts': {
+          '/contacts': {
             success: true,
             data: {
               contacts: [
@@ -317,7 +317,7 @@ describe('auto-linker', () => {
           },
         },
         postResponses: {
-          '/api/skill-store/items': {
+          '/skill-store/items': {
             success: true,
             data: { id: 'link-thread', skill_id: 'entity-links', collection: 'entity_links', key: 'fwd', data: {}, tags: [], status: 'active' },
           },
@@ -337,7 +337,7 @@ describe('auto-linker', () => {
 
       // Check that the skill-store post uses 'url' type with 'thread:' prefix
       const postCalls = (client.post as ReturnType<typeof vi.fn>).mock.calls;
-      const storeCall = postCalls.find((c: unknown[]) => (c[0] as string).startsWith('/api/skill-store'));
+      const storeCall = postCalls.find((c: unknown[]) => (c[0] as string).startsWith('/skill-store'));
       expect(storeCall).toBeDefined();
       const body = storeCall![1] as Record<string, unknown>;
       const data = body.data as Record<string, unknown>;
@@ -351,7 +351,7 @@ describe('auto-linker', () => {
     it('should skip content matching when sender is unknown (no contact match)', async () => {
       const client = createMockClient({
         getResponses: {
-          '/api/contacts': {
+          '/contacts': {
             success: true,
             data: { contacts: [], total: 0 },
           },
@@ -373,7 +373,7 @@ describe('auto-linker', () => {
       expect(result.matches.projects).toHaveLength(0);
       expect(result.matches.todos).toHaveLength(0);
       const getCalls = (client.get as ReturnType<typeof vi.fn>).mock.calls;
-      const searchCalls = getCalls.filter((c: unknown[]) => (c[0] as string).startsWith('/api/search'));
+      const searchCalls = getCalls.filter((c: unknown[]) => (c[0] as string).startsWith('/search'));
       expect(searchCalls).toHaveLength(0);
       expect(mockLogger.debug).toHaveBeenCalledWith(
         expect.stringContaining('skipping content matching'),
@@ -395,7 +395,7 @@ describe('auto-linker', () => {
       });
 
       const getCalls = (client.get as ReturnType<typeof vi.fn>).mock.calls;
-      const searchCalls = getCalls.filter((c: unknown[]) => (c[0] as string).startsWith('/api/search'));
+      const searchCalls = getCalls.filter((c: unknown[]) => (c[0] as string).startsWith('/search'));
       expect(searchCalls).toHaveLength(0);
     });
 
@@ -406,7 +406,7 @@ describe('auto-linker', () => {
 
       const client = createMockClient({
         getResponses: {
-          '/api/contacts': {
+          '/contacts': {
             success: true,
             data: {
               contacts: [
@@ -415,7 +415,7 @@ describe('auto-linker', () => {
               total: 1,
             },
           },
-          '/api/search': {
+          '/search': {
             success: true,
             data: {
               results: [
@@ -434,7 +434,7 @@ describe('auto-linker', () => {
           },
         },
         postResponses: {
-          '/api/skill-store/items': {
+          '/skill-store/items': {
             success: true,
             data: { id: 'link-trusted', skill_id: 'entity-links', collection: 'entity_links', key: 'fwd', data: {}, tags: [], status: 'active' },
           },
@@ -465,7 +465,7 @@ describe('auto-linker', () => {
 
       const client = createMockClient({
         getResponses: {
-          '/api/contacts': {
+          '/contacts': {
             success: true,
             data: {
               contacts: [
@@ -474,7 +474,7 @@ describe('auto-linker', () => {
               total: 1,
             },
           },
-          '/api/search': {
+          '/search': {
             success: true,
             data: {
               results: [
@@ -493,7 +493,7 @@ describe('auto-linker', () => {
           },
         },
         postResponses: {
-          '/api/skill-store/items': {
+          '/skill-store/items': {
             success: true,
             data: { id: 'link-3', skill_id: 'entity-links', collection: 'entity_links', key: 'fwd', data: {}, tags: [], status: 'active' },
           },
@@ -521,7 +521,7 @@ describe('auto-linker', () => {
 
       const client = createMockClient({
         getResponses: {
-          '/api/contacts': {
+          '/contacts': {
             success: true,
             data: {
               contacts: [
@@ -530,7 +530,7 @@ describe('auto-linker', () => {
               total: 1,
             },
           },
-          '/api/search': {
+          '/search': {
             success: true,
             data: {
               results: [
@@ -549,7 +549,7 @@ describe('auto-linker', () => {
           },
         },
         postResponses: {
-          '/api/skill-store/items': {
+          '/skill-store/items': {
             success: true,
             data: { id: 'link-below', skill_id: 'entity-links', collection: 'entity_links', key: 'fwd', data: {}, tags: [], status: 'active' },
           },
@@ -577,7 +577,7 @@ describe('auto-linker', () => {
 
       const client = createMockClient({
         getResponses: {
-          '/api/contacts': {
+          '/contacts': {
             success: true,
             data: {
               contacts: [
@@ -586,7 +586,7 @@ describe('auto-linker', () => {
               total: 1,
             },
           },
-          '/api/search': {
+          '/search': {
             success: true,
             data: {
               results: [
@@ -605,7 +605,7 @@ describe('auto-linker', () => {
           },
         },
         postResponses: {
-          '/api/skill-store/items': {
+          '/skill-store/items': {
             success: true,
             data: { id: 'link-4', skill_id: 'entity-links', collection: 'entity_links', key: 'fwd', data: {}, tags: [], status: 'active' },
           },
@@ -637,7 +637,7 @@ describe('auto-linker', () => {
 
       const client = createMockClient({
         getResponses: {
-          '/api/contacts': {
+          '/contacts': {
             success: true,
             data: {
               contacts: [
@@ -646,7 +646,7 @@ describe('auto-linker', () => {
               total: 1,
             },
           },
-          '/api/search': {
+          '/search': {
             success: true,
             data: {
               results: [
@@ -665,7 +665,7 @@ describe('auto-linker', () => {
           },
         },
         postResponses: {
-          '/api/skill-store/items': {
+          '/skill-store/items': {
             success: true,
             data: { id: 'link-5', skill_id: 'entity-links', collection: 'entity_links', key: 'fwd', data: {}, tags: [], status: 'active' },
           },
@@ -696,7 +696,7 @@ describe('auto-linker', () => {
 
       const client = createMockClient({
         getResponses: {
-          '/api/contacts': {
+          '/contacts': {
             success: true,
             data: {
               contacts: [
@@ -705,7 +705,7 @@ describe('auto-linker', () => {
               total: 1,
             },
           },
-          '/api/search': {
+          '/search': {
             success: true,
             data: {
               results: [
@@ -724,7 +724,7 @@ describe('auto-linker', () => {
           },
         },
         postResponses: {
-          '/api/skill-store/items': {
+          '/skill-store/items': {
             success: true,
             data: { id: 'link-6', skill_id: 'entity-links', collection: 'entity_links', key: 'fwd', data: {}, tags: [], status: 'active' },
           },
@@ -753,7 +753,7 @@ describe('auto-linker', () => {
       const contact_id = '11111111-1111-1111-1111-111111111111';
       const client = createMockClient({
         getResponses: {
-          '/api/contacts': {
+          '/contacts': {
             success: true,
             data: {
               contacts: [
@@ -762,13 +762,13 @@ describe('auto-linker', () => {
               total: 1,
             },
           },
-          '/api/search': {
+          '/search': {
             success: true,
             data: { results: [], search_type: 'semantic', total: 0 },
           },
         },
         postResponses: {
-          '/api/skill-store/items': {
+          '/skill-store/items': {
             success: true,
             data: { id: 'link-sanitize', skill_id: 'entity-links', collection: 'entity_links', key: 'fwd', data: {}, tags: [], status: 'active' },
           },
@@ -788,7 +788,7 @@ describe('auto-linker', () => {
 
       // Search should have been called with sanitized content (no control chars)
       const getCalls = (client.get as ReturnType<typeof vi.fn>).mock.calls;
-      const searchCall = getCalls.find((c: unknown[]) => (c[0] as string).startsWith('/api/search'));
+      const searchCall = getCalls.find((c: unknown[]) => (c[0] as string).startsWith('/search'));
       expect(searchCall).toBeDefined();
       const searchUrl = searchCall![0] as string;
       expect(searchUrl).not.toContain('\x00');
@@ -802,7 +802,7 @@ describe('auto-linker', () => {
 
       const client = createMockClient({
         getResponses: {
-          '/api/contacts': {
+          '/contacts': {
             success: false,
             error: { status: 500, message: 'Server error', code: 'INTERNAL_ERROR' },
           },
@@ -833,7 +833,7 @@ describe('auto-linker', () => {
 
       const client = createMockClient({
         getResponses: {
-          '/api/contacts': {
+          '/contacts': {
             success: true,
             data: {
               contacts: [
@@ -844,7 +844,7 @@ describe('auto-linker', () => {
           },
         },
         postResponses: {
-          '/api/skill-store/items': {
+          '/skill-store/items': {
             success: false,
             error: { status: 500, message: 'Store error', code: 'INTERNAL_ERROR' },
           },
@@ -899,7 +899,7 @@ describe('auto-linker', () => {
       let postCallCount = 0;
       const client = createMockClient({
         getResponses: {
-          '/api/contacts': {
+          '/contacts': {
             success: true,
             data: {
               contacts: [
@@ -915,7 +915,7 @@ describe('auto-linker', () => {
 
       // Forward succeeds, reverse fails
       (client.post as ReturnType<typeof vi.fn>).mockImplementation((path: string) => {
-        if ((path as string).startsWith('/api/skill-store')) {
+        if ((path as string).startsWith('/skill-store')) {
           postCallCount++;
           if (postCallCount === 1) {
             // Forward link succeeds
@@ -961,7 +961,7 @@ describe('auto-linker', () => {
       // skill-store upserts by key, so repeated calls should just overwrite
       const client = createMockClient({
         getResponses: {
-          '/api/contacts': {
+          '/contacts': {
             success: true,
             data: {
               contacts: [
@@ -972,7 +972,7 @@ describe('auto-linker', () => {
           },
         },
         postResponses: {
-          '/api/skill-store/items': {
+          '/skill-store/items': {
             success: true,
             data: { id: 'link-8', skill_id: 'entity-links', collection: 'entity_links', key: 'fwd', data: {}, tags: [], status: 'active' },
           },
@@ -996,7 +996,7 @@ describe('auto-linker', () => {
 
       // Skill store is called with the same key each time (upsert behavior)
       const postCalls = (client.post as ReturnType<typeof vi.fn>).mock.calls
-        .filter((c: unknown[]) => (c[0] as string).startsWith('/api/skill-store'));
+        .filter((c: unknown[]) => (c[0] as string).startsWith('/skill-store'));
       // Each call creates forward+reverse links for 1 contact match
       // Two calls = 4 total posts, but keys are the same so skill_store upserts
       expect(postCalls.length).toBe(4);
@@ -1008,7 +1008,7 @@ describe('auto-linker', () => {
       const contact_id = '11111111-1111-1111-1111-111111111111';
       const client = createMockClient({
         getResponses: {
-          '/api/contacts': {
+          '/contacts': {
             success: true,
             data: {
               contacts: [
@@ -1019,7 +1019,7 @@ describe('auto-linker', () => {
           },
         },
         postResponses: {
-          '/api/skill-store/items': {
+          '/skill-store/items': {
             success: true,
             data: { id: 'link-empty', skill_id: 'entity-links', collection: 'entity_links', key: 'fwd', data: {}, tags: [], status: 'active' },
           },
@@ -1039,7 +1039,7 @@ describe('auto-linker', () => {
 
       // Should not call search API for empty content
       const getCalls = (client.get as ReturnType<typeof vi.fn>).mock.calls;
-      const searchCalls = getCalls.filter((c: unknown[]) => (c[0] as string).startsWith('/api/search'));
+      const searchCalls = getCalls.filter((c: unknown[]) => (c[0] as string).startsWith('/search'));
       expect(searchCalls).toHaveLength(0);
     });
 
@@ -1047,7 +1047,7 @@ describe('auto-linker', () => {
       const contact_id = '11111111-1111-1111-1111-111111111111';
       const client = createMockClient({
         getResponses: {
-          '/api/contacts': {
+          '/contacts': {
             success: true,
             data: {
               contacts: [
@@ -1058,7 +1058,7 @@ describe('auto-linker', () => {
           },
         },
         postResponses: {
-          '/api/skill-store/items': {
+          '/skill-store/items': {
             success: true,
             data: { id: 'link-ws', skill_id: 'entity-links', collection: 'entity_links', key: 'fwd', data: {}, tags: [], status: 'active' },
           },
@@ -1077,7 +1077,7 @@ describe('auto-linker', () => {
       });
 
       const getCalls = (client.get as ReturnType<typeof vi.fn>).mock.calls;
-      const searchCalls = getCalls.filter((c: unknown[]) => (c[0] as string).startsWith('/api/search'));
+      const searchCalls = getCalls.filter((c: unknown[]) => (c[0] as string).startsWith('/search'));
       expect(searchCalls).toHaveLength(0);
     });
   });

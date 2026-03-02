@@ -160,7 +160,7 @@ export function createTerminalSessionStartTool(options: TerminalSessionToolOptio
         if (notes) body.notes = stripHtml(notes);
 
         const response = await client.post<{ id: string; tmux_session_name: string; status: string }>(
-          '/api/terminal/sessions',
+          '/terminal/sessions',
           body,
           { user_id },
         );
@@ -275,7 +275,7 @@ export function createTerminalSessionListTool(options: TerminalSessionToolOption
         if (status) queryParams.set('status', status);
 
         const response = await client.get<{ sessions?: TerminalSession[]; items?: TerminalSession[]; total?: number }>(
-          `/api/terminal/sessions?${queryParams.toString()}`,
+          `/terminal/sessions?${queryParams.toString()}`,
           { user_id },
         );
 
@@ -385,7 +385,7 @@ export function createTerminalSessionTerminateTool(options: TerminalSessionToolO
       logger.info('terminal_session_terminate invoked', { user_id, sessionId: session_id });
 
       try {
-        const response = await client.delete<void>(`/api/terminal/sessions/${session_id}`, { user_id });
+        const response = await client.delete<void>(`/terminal/sessions/${session_id}`, { user_id });
 
         if (!response.success) {
           if (response.error.code === 'NOT_FOUND') {
@@ -476,7 +476,7 @@ export function createTerminalSessionInfoTool(options: TerminalSessionToolOption
       logger.info('terminal_session_info invoked', { user_id, sessionId: session_id });
 
       try {
-        const response = await client.get<TerminalSessionDetail>(`/api/terminal/sessions/${session_id}`, { user_id });
+        const response = await client.get<TerminalSessionDetail>(`/terminal/sessions/${session_id}`, { user_id });
 
         if (!response.success) {
           if (response.error.code === 'NOT_FOUND') {
@@ -618,7 +618,7 @@ export function createTerminalSendCommandTool(options: TerminalSessionToolOption
         if (pane_id) body.pane_id = pane_id;
 
         const response = await client.post<CommandExecutionResponse>(
-          `/api/terminal/sessions/${session_id}/send-command`,
+          `/terminal/sessions/${session_id}/send-command`,
           body,
           { user_id },
         );
@@ -756,7 +756,7 @@ export function createTerminalSendKeysTool(options: TerminalSessionToolOptions):
         if (pane_id) body.pane_id = pane_id;
 
         const response = await client.post<void>(
-          `/api/terminal/sessions/${session_id}/send-keys`,
+          `/terminal/sessions/${session_id}/send-keys`,
           body,
           { user_id },
         );
@@ -876,7 +876,7 @@ export function createTerminalCapturePaneTool(options: TerminalSessionToolOption
         if (lines !== undefined) queryParams.set('lines', String(lines));
 
         const queryString = queryParams.toString();
-        const path = `/api/terminal/sessions/${session_id}/capture${queryString ? `?${queryString}` : ''}`;
+        const path = `/terminal/sessions/${session_id}/capture${queryString ? `?${queryString}` : ''}`;
         const response = await client.get<PaneCaptureResponse>(path, { user_id });
 
         if (!response.success) {

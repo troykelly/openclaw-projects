@@ -128,7 +128,7 @@ export function createSmsSendTool(options: SmsSendToolOptions): SmsSendTool {
       try {
         // Call API
         const response = await client.post<SmsSendApiResponse>(
-          '/api/twilio/sms/send',
+          '/twilio/sms/send',
           {
             to,
             body,

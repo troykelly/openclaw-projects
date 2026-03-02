@@ -203,7 +203,7 @@ export function createLinksSetTool(options: EntityLinkToolOptions): EntityLinkTo
 
         // Create forward link
         const forwardResponse = await client.post<SkillStoreItem>(
-          '/api/skill-store/items',
+          '/skill-store/items',
           {
             skill_id: SKILL_ID,
             collection: COLLECTION,
@@ -228,7 +228,7 @@ export function createLinksSetTool(options: EntityLinkToolOptions): EntityLinkTo
 
         // Create reverse link
         const reverseResponse = await client.post<SkillStoreItem>(
-          '/api/skill-store/items',
+          '/skill-store/items',
           {
             skill_id: SKILL_ID,
             collection: COLLECTION,
@@ -248,7 +248,7 @@ export function createLinksSetTool(options: EntityLinkToolOptions): EntityLinkTo
 
           // Rollback: delete the orphaned forward link
           const rollback = await client.delete(
-            `/api/skill-store/items/${forwardResponse.data.id}`,
+            `/skill-store/items/${forwardResponse.data.id}`,
             { user_id },
           );
 
@@ -358,7 +358,7 @@ export function createLinksQueryTool(options: EntityLinkToolOptions): EntityLink
           items: SkillStoreItem[];
           total: number;
           has_more: boolean;
-        }>(`/api/skill-store/items?${queryParams.toString()}`, { user_id });
+        }>(`/skill-store/items?${queryParams.toString()}`, { user_id });
 
         if (!response.success) {
           logger.error('links_query API error', {
@@ -485,7 +485,7 @@ export function createLinksRemoveTool(options: EntityLinkToolOptions): EntityLin
           collection: COLLECTION,
         });
         const forwardLookup = await client.get<SkillStoreItem>(
-          `/api/skill-store/items/by-key?${forwardLookupParams.toString()}`,
+          `/skill-store/items/by-key?${forwardLookupParams.toString()}`,
           { user_id },
         );
 
@@ -496,7 +496,7 @@ export function createLinksRemoveTool(options: EntityLinkToolOptions): EntityLin
           collection: COLLECTION,
         });
         const reverseLookup = await client.get<SkillStoreItem>(
-          `/api/skill-store/items/by-key?${reverseLookupParams.toString()}`,
+          `/skill-store/items/by-key?${reverseLookupParams.toString()}`,
           { user_id },
         );
 
@@ -536,7 +536,7 @@ export function createLinksRemoveTool(options: EntityLinkToolOptions): EntityLin
         if (forwardLookup.success) {
           expectedCount++;
           const deleteResult = await client.delete(
-            `/api/skill-store/items/${forwardLookup.data.id}`,
+            `/skill-store/items/${forwardLookup.data.id}`,
             { user_id },
           );
           if (deleteResult.success) {
@@ -550,7 +550,7 @@ export function createLinksRemoveTool(options: EntityLinkToolOptions): EntityLin
         if (reverseLookup.success) {
           expectedCount++;
           const deleteResult = await client.delete(
-            `/api/skill-store/items/${reverseLookup.data.id}`,
+            `/skill-store/items/${reverseLookup.data.id}`,
             { user_id },
           );
           if (deleteResult.success) {

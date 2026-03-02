@@ -241,25 +241,14 @@ describe('Nginx Configuration Template', () => {
     });
   });
 
-  describe('API proxy', () => {
-    it('should have API proxy location block', () => {
-      expect(nginxConfigContent).toContain('location /');
+  describe('API routing', () => {
+    it('should NOT have an API proxy block (API uses api.DOMAIN subdomain)', () => {
+      // The /api proxy block was removed — API requests go to api.{domain} directly
+      expect(nginxConfigContent).not.toMatch(/proxy_pass.*\$\{API_HOST\}/);
     });
 
-    it('should proxy to API_HOST and API_PORT', () => {
-      expect(nginxConfigContent).toMatch(/proxy_pass.*\$\{API_HOST\}.*\$\{API_PORT\}/);
-    });
-
-    it('should set proxy headers', () => {
-      expect(nginxConfigContent).toContain('proxy_set_header Host');
-      expect(nginxConfigContent).toContain('proxy_set_header X-Real-IP');
-      expect(nginxConfigContent).toContain('proxy_set_header X-Forwarded-For');
-      expect(nginxConfigContent).toContain('proxy_set_header X-Forwarded-Proto');
-    });
-
-    it('should support WebSocket connections', () => {
-      expect(nginxConfigContent).toContain('proxy_set_header Upgrade');
-      expect(nginxConfigContent).toContain('proxy_set_header Connection');
+    it('should have SPA fallback for unmatched routes', () => {
+      expect(nginxConfigContent).toContain('try_files $uri $uri/ /index.html');
     });
   });
 });

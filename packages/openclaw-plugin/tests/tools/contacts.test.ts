@@ -126,7 +126,7 @@ describe('contact tools', () => {
         });
 
         await tool.execute({ query: 'john' });
-        expect(mockGet).toHaveBeenCalledWith('/api/contacts?search=john&limit=20', expect.any(Object));
+        expect(mockGet).toHaveBeenCalledWith('/contacts?search=john&limit=20', expect.any(Object));
       });
 
       it('should accept limit within range', async () => {
@@ -144,7 +144,7 @@ describe('contact tools', () => {
         });
 
         await tool.execute({ query: 'john', limit: 30 });
-        expect(mockGet).toHaveBeenCalledWith('/api/contacts?search=john&limit=30', expect.any(Object));
+        expect(mockGet).toHaveBeenCalledWith('/contacts?search=john&limit=30', expect.any(Object));
       });
 
       it('should reject limit above 50', async () => {
@@ -401,7 +401,7 @@ describe('contact tools', () => {
         await tool.execute({ name: 'Acme Corp', contact_kind: 'organisation' });
 
         expect(mockPost).toHaveBeenCalledWith(
-          '/api/contacts',
+          '/contacts',
           expect.objectContaining({
             display_name: 'Acme Corp',
             contact_kind: 'organisation',
@@ -447,7 +447,7 @@ describe('contact tools', () => {
         });
 
         expect(mockPost).toHaveBeenCalledWith(
-          '/api/contacts',
+          '/contacts',
           expect.objectContaining({
             display_name: 'John Doe',
             notes: 'Important client',

@@ -124,7 +124,7 @@ describe('terminal search tools', () => {
       }
 
       expect(mockPost).toHaveBeenCalledWith(
-        '/api/terminal/search',
+        '/terminal/search',
         expect.objectContaining({
           query: 'nginx configuration',
           connection_id: '123e4567-e89b-12d3-a456-426614174000',
@@ -280,7 +280,7 @@ describe('terminal search tools', () => {
       }
 
       expect(mockPost).toHaveBeenCalledWith(
-        '/api/terminal/sessions/123e4567-e89b-12d3-a456-426614174000/annotate',
+        '/terminal/sessions/123e4567-e89b-12d3-a456-426614174000/annotate',
         expect.objectContaining({
           content: 'Deployed v2.5 to production. All health checks passing.',
           tags: ['deployment', 'v2.5'],

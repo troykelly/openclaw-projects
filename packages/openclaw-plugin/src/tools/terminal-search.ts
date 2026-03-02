@@ -182,7 +182,7 @@ export function createTerminalSearchTool(options: TerminalSearchToolOptions): Te
         if (date_to) body.date_to = date_to;
 
         const response = await client.post<{ entries?: TerminalSearchEntry[]; items?: TerminalSearchEntry[]; total?: number }>(
-          '/api/terminal/search',
+          '/terminal/search',
           body,
           { user_id },
         );
@@ -313,7 +313,7 @@ export function createTerminalAnnotateTool(options: TerminalSearchToolOptions): 
         if (tags) body.tags = tags.split(',').map((t) => t.trim()).filter(Boolean);
 
         const response = await client.post<{ id: string }>(
-          `/api/terminal/sessions/${session_id}/annotate`,
+          `/terminal/sessions/${session_id}/annotate`,
           body,
           { user_id },
         );

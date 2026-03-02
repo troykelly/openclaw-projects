@@ -148,7 +148,7 @@ export function createMessageSearchTool(options: MessageSearchToolOptions): Mess
         }
 
         // Call API
-        const response = await client.get<SearchApiResponse>(`/api/search?${queryParams}`, { user_id });
+        const response = await client.get<SearchApiResponse>(`/search?${queryParams}`, { user_id });
 
         if (!response.success) {
           logger.error('message_search API error', {

@@ -206,7 +206,7 @@ describe('Skill Store Search Tools (Issue #801)', () => {
 
         expect(result.success).toBe(true);
         expect(mockApiClient.post).toHaveBeenCalledWith(
-          '/api/skill-store/search',
+          '/skill-store/search',
           expect.objectContaining({
             skill_id: 'test',
             query: 'roadmap',
@@ -237,7 +237,7 @@ describe('Skill Store Search Tools (Issue #801)', () => {
         });
 
         expect(mockApiClient.post).toHaveBeenCalledWith(
-          '/api/skill-store/search',
+          '/skill-store/search',
           expect.objectContaining({
             skill_id: 'test',
             query: 'hello',
@@ -288,7 +288,7 @@ describe('Skill Store Search Tools (Issue #801)', () => {
 
         expect(result.success).toBe(true);
         expect(mockApiClient.post).toHaveBeenCalledWith(
-          '/api/skill-store/search/semantic',
+          '/skill-store/search/semantic',
           expect.objectContaining({
             skill_id: 'test',
             query: 'system architecture',
@@ -316,7 +316,7 @@ describe('Skill Store Search Tools (Issue #801)', () => {
         });
 
         expect(mockApiClient.post).toHaveBeenCalledWith(
-          '/api/skill-store/search/semantic',
+          '/skill-store/search/semantic',
           expect.objectContaining({
             min_similarity: 0.8,
           }),

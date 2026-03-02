@@ -175,7 +175,7 @@ async function createEntityLink(
 
   // Create forward link
   const forwardResponse = await client.post<SkillStoreItem>(
-    '/api/skill-store/items',
+    '/skill-store/items',
     {
       skill_id: SKILL_ID,
       collection: COLLECTION,
@@ -198,7 +198,7 @@ async function createEntityLink(
 
   // Create reverse link
   const reverseResponse = await client.post<SkillStoreItem>(
-    '/api/skill-store/items',
+    '/skill-store/items',
     {
       skill_id: SKILL_ID,
       collection: COLLECTION,
@@ -219,7 +219,7 @@ async function createEntityLink(
 
     // Best-effort rollback of orphaned forward link
     const rollbackResponse = await client.delete(
-      `/api/skill-store/items/${forwardResponse.data.id}`,
+      `/skill-store/items/${forwardResponse.data.id}`,
       { user_id },
     );
 
@@ -276,7 +276,7 @@ async function matchSenderToContacts(
       contacts?: ContactResult[];
       items?: ContactResult[];
       total?: number;
-    }>(`/api/contacts?${queryParams.toString()}`, { user_id });
+    }>(`/contacts?${queryParams.toString()}`, { user_id });
 
     if (!response.success) {
       logger.error('auto-linker: contact search failed', {
@@ -381,7 +381,7 @@ async function matchContentToWorkItems(
     results: SearchResultItem[];
     search_type: string;
     total: number;
-  }>(`/api/search?${queryParams.toString()}`, { user_id });
+  }>(`/search?${queryParams.toString()}`, { user_id });
 
   if (!response.success) {
     logger.error('auto-linker: content search failed', {

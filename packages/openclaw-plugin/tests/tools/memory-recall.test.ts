@@ -211,7 +211,7 @@ describe('memory_recall tool', () => {
 
       await tool.execute({ query: 'coffee preferences', limit: 5 });
 
-      expect(mockGet).toHaveBeenCalledWith(expect.stringContaining('/api/memories/search'), expect.objectContaining({ user_id: 'agent-1' }));
+      expect(mockGet).toHaveBeenCalledWith(expect.stringContaining('/memories/search'), expect.objectContaining({ user_id: 'agent-1' }));
     });
 
     it('should include memory_type in API call when category provided', async () => {

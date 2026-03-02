@@ -185,7 +185,7 @@ export function createMemoryStoreTool(options: MemoryStoreToolOptions): MemorySt
           if (location.place_label) payload.place_label = location.place_label;
         }
 
-        const response = await client.post<StoredMemory>('/api/memories/unified', payload, { user_id });
+        const response = await client.post<StoredMemory>('/memories/unified', payload, { user_id });
 
         if (!response.success) {
           logger.error('memory_store API error', {

@@ -458,7 +458,7 @@ describe('OAuth Gateway RPC Methods', () => {
       });
 
       const postCall = (client.post as ReturnType<typeof vi.fn>).mock.calls[0];
-      expect(postCall[0]).toBe('/api/sync/calendar');
+      expect(postCall[0]).toBe('/sync/calendar');
       expect(postCall[1]).toMatchObject({
         connection_id: 'conn-1',
         time_min: '2026-01-01',

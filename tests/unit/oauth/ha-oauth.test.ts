@@ -21,7 +21,7 @@ describe('HA OAuth: buildAuthorizationUrl', () => {
     expect(result.url).toBe(
       'https://ha.example.com/auth/authorize?' +
       'client_id=https%3A%2F%2Fmyapp.example.com&' +
-      'redirect_uri=https%3A%2F%2Fmyapp.example.com%2Fapi%2Foauth%2Fcallback&' +
+      'redirect_uri=https%3A%2F%2Fmyapp.example.com%2Foauth%2Fcallback&' +
       'state=test-state-123'
     );
   });

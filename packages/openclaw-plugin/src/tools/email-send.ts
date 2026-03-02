@@ -117,7 +117,7 @@ export function createEmailSendTool(options: EmailSendToolOptions): EmailSendToo
       try {
         // Call API
         const response = await client.post<EmailSendApiResponse>(
-          '/api/postmark/email/send',
+          '/postmark/email/send',
           {
             to,
             subject,

@@ -412,7 +412,7 @@ describe('todo tools', () => {
         await tool.execute({ title: 'Buy groceries' });
 
         expect(mockPost).toHaveBeenCalledWith(
-          '/api/work-items',
+          '/work-items',
           expect.objectContaining({
             title: 'Buy groceries',
             item_type: 'task',
@@ -552,7 +552,7 @@ describe('todo tools', () => {
 
         await tool.execute({ id: '123e4567-e89b-12d3-a456-426614174000' });
 
-        expect(mockPatch).toHaveBeenCalledWith('/api/work-items/123e4567-e89b-12d3-a456-426614174000/status', { status: 'completed' }, expect.objectContaining({ user_id: 'agent-1' }));
+        expect(mockPatch).toHaveBeenCalledWith('/work-items/123e4567-e89b-12d3-a456-426614174000/status', { status: 'completed' }, expect.objectContaining({ user_id: 'agent-1' }));
       });
     });
 

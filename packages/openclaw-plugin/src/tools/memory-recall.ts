@@ -168,7 +168,7 @@ export function createMemoryRecallTool(options: MemoryRecallToolOptions): Memory
           queryParams.set('relationship_id', relationship_id);
         }
 
-        const path = `/api/memories/search?${queryParams.toString()}`;
+        const path = `/memories/search?${queryParams.toString()}`;
 
         // Call API
         const response = await client.get<{ results: Array<{ id: string; content: string; type: string; tags?: string[]; similarity?: number; created_at?: string; updated_at?: string; lat?: number | null; lng?: number | null; address?: string | null; place_label?: string | null }>; search_type: string }>(path, { user_id });

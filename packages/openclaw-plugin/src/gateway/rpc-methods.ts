@@ -181,7 +181,7 @@ export function createGatewayMethods(options: GatewayMethodsOptions): GatewayMet
         const response = await apiClient.get<{
           notifications: Notification[];
           total: number;
-        }>(`/api/notifications?${queryParams}`, { user_id });
+        }>(`/notifications?${queryParams}`, { user_id });
 
         if (!response.success) {
           logger.error('Gateway getNotifications API error', {

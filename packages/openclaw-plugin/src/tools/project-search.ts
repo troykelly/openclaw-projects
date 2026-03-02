@@ -156,7 +156,7 @@ export function createProjectSearchTool(options: ProjectSearchToolOptions): Proj
           }>;
           search_type: string;
           total: number;
-        }>(`/api/search?${queryParams.toString()}`, { user_id });
+        }>(`/search?${queryParams.toString()}`, { user_id });
 
         if (!response.success) {
           logger.error('project_search API error', {

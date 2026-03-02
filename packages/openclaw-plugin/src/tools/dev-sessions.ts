@@ -164,7 +164,7 @@ export function createDevSessionCreateTool(options: DevSessionToolOptions): DevS
         if (linked_prs) body.linked_prs = linked_prs;
 
         const response = await client.post<DevSession>(
-          '/api/dev-sessions',
+          '/dev-sessions',
           body,
           { user_id },
         );
@@ -281,7 +281,7 @@ export function createDevSessionListTool(options: DevSessionToolOptions): DevSes
         if (project_id) queryParams.set('project_id', project_id);
 
         const response = await client.get<{ sessions?: DevSession[]; items?: DevSession[]; total?: number }>(
-          `/api/dev-sessions?${queryParams.toString()}`,
+          `/dev-sessions?${queryParams.toString()}`,
           { user_id, user_email: user_id },
         );
 
@@ -391,7 +391,7 @@ export function createDevSessionGetTool(options: DevSessionToolOptions): DevSess
       logger.info('dev_session_get invoked', { user_id, sessionId: session_id });
 
       try {
-        const response = await client.get<DevSession>(`/api/dev-sessions/${session_id}`, { user_id, user_email: user_id });
+        const response = await client.get<DevSession>(`/dev-sessions/${session_id}`, { user_id, user_email: user_id });
 
         if (!response.success) {
           if (response.error.code === 'NOT_FOUND') {
@@ -533,7 +533,7 @@ export function createDevSessionUpdateTool(options: DevSessionToolOptions): DevS
         if (updates.webhook_id) body.webhook_id = updates.webhook_id;
 
         const response = await client.patch<DevSession>(
-          `/api/dev-sessions/${session_id}`,
+          `/dev-sessions/${session_id}`,
           body,
           { user_id },
         );
@@ -642,7 +642,7 @@ export function createDevSessionCompleteTool(options: DevSessionToolOptions): De
         if (completion_summary) body.completion_summary = stripHtml(completion_summary);
 
         const response = await client.post<DevSession>(
-          `/api/dev-sessions/${session_id}/complete`,
+          `/dev-sessions/${session_id}/complete`,
           body,
           { user_id },
         );

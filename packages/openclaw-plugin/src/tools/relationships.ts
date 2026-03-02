@@ -146,7 +146,7 @@ export function createRelationshipSetTool(options: RelationshipToolOptions): Rel
           body.notes = sanitizedNotes;
         }
 
-        const response = await client.post<RelationshipSetApiResponse>('/api/relationships/set', body, { user_id });
+        const response = await client.post<RelationshipSetApiResponse>('/relationships/set', body, { user_id });
 
         if (!response.success) {
           logger.error('relationship_set API error', {
@@ -296,7 +296,7 @@ export function createRelationshipQueryTool(options: RelationshipToolOptions): R
           queryParams.set('type_filter', type_filter);
         }
 
-        const response = await client.get<RelationshipQueryApiResponse>(`/api/relationships?${queryParams.toString()}`, { user_id });
+        const response = await client.get<RelationshipQueryApiResponse>(`/relationships?${queryParams.toString()}`, { user_id });
 
         if (!response.success) {
           if (response.error.code === 'NOT_FOUND') {

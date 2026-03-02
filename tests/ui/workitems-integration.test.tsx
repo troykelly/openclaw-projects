@@ -116,7 +116,7 @@ const mockApiClient = {
     if (path.includes('/work-items/item-1/communications')) return Promise.resolve({ emails: [], calendar_events: [] });
     if (path.includes('/work-items/item-1/memories')) return Promise.resolve({ memories: [] });
     if (path.includes('/work-items/item-1') && !path.includes('/')) return Promise.resolve(mockWorkItem);
-    if (path.match(/\/api\/work-items\/item-1$/)) return Promise.resolve(mockWorkItem);
+    if (path.match(/\/work-items\/item-1$/)) return Promise.resolve(mockWorkItem);
     if (path.includes('/work-items/item-1')) return Promise.resolve(mockWorkItem);
     if (path.includes('/entity-links')) return Promise.resolve(mockEntityLinks);
     if (path.includes('/activity')) return Promise.resolve({ items: [] });
@@ -198,7 +198,7 @@ describe('Work Items Integration', () => {
       if (path.includes('/memories')) return Promise.resolve({ memories: [] });
       if (path.includes('/entity-links')) return Promise.resolve(mockEntityLinks);
       if (path.includes('/activity')) return Promise.resolve({ items: [] });
-      if (path.match(/\/api\/work-items\/item-1(\?|$)/)) return Promise.resolve(mockWorkItem);
+      if (path.match(/\/work-items\/item-1(\?|$)/)) return Promise.resolve(mockWorkItem);
       return Promise.resolve({});
     });
   });

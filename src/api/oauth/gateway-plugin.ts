@@ -187,7 +187,7 @@ function requireParam(params: Record<string, unknown>, name: string, respond: Re
 async function resolveConnection(baseUrl: string, apiKey: string | undefined, connection_id: string, respond: RespondFn): Promise<BackendConnection | null> {
   // We fetch all connections and filter — this keeps the plugin simple.
   // For large connection counts a dedicated endpoint would be better.
-  const result = await backendFetch(baseUrl, '/api/oauth/connections');
+  const result = await backendFetch(baseUrl, '/oauth/connections');
   if (!result.ok) {
     respond(false, { error: result.error });
     return null;
@@ -252,7 +252,7 @@ export function createOAuthGatewayPlugin() {
         if (provider) qs.set('provider', provider);
 
         const qsStr = qs.toString();
-        const path = `/api/oauth/connections${qsStr ? `?${qsStr}` : ''}`;
+        const path = `/oauth/connections${qsStr ? `?${qsStr}` : ''}`;
 
         const result = await backendFetch(backendUrl, path, apiKey);
         if (!result.ok) {
@@ -299,7 +299,7 @@ export function createOAuthGatewayPlugin() {
         const page_token = typeof params.page_token === 'string' ? params.page_token : undefined;
         if (page_token) qs.set('page_token', page_token);
 
-        const result = await backendFetch(backendUrl, `/api/contacts?${qs.toString()}`, apiKey);
+        const result = await backendFetch(backendUrl, `/contacts?${qs.toString()}`, apiKey);
         if (!result.ok) {
           respond(false, { error: result.error });
           return;
@@ -338,7 +338,7 @@ export function createOAuthGatewayPlugin() {
         if (typeof params.max_results === 'number') qs.set('max_results', String(params.max_results));
         if (typeof params.page_token === 'string') qs.set('page_token', params.page_token);
 
-        const result = await backendFetch(backendUrl, `/api/email/messages?${qs.toString()}`, apiKey);
+        const result = await backendFetch(backendUrl, `/email/messages?${qs.toString()}`, apiKey);
         if (!result.ok) {
           respond(false, { error: result.error });
           return;
@@ -376,7 +376,7 @@ export function createOAuthGatewayPlugin() {
         }
 
         const qs = new URLSearchParams({ connection_id });
-        const result = await backendFetch(backendUrl, `/api/email/messages/${encodeURIComponent(message_id)}?${qs.toString()}`, apiKey);
+        const result = await backendFetch(backendUrl, `/email/messages/${encodeURIComponent(message_id)}?${qs.toString()}`, apiKey);
         if (!result.ok) {
           respond(false, { error: result.error });
           return;
@@ -410,7 +410,7 @@ export function createOAuthGatewayPlugin() {
         if (typeof params.folder_id === 'string') qs.set('folder_id', params.folder_id);
         if (typeof params.page_token === 'string') qs.set('page_token', params.page_token);
 
-        const result = await backendFetch(backendUrl, `/api/drive/files?${qs.toString()}`, apiKey);
+        const result = await backendFetch(backendUrl, `/drive/files?${qs.toString()}`, apiKey);
         if (!result.ok) {
           respond(false, { error: result.error });
           return;
@@ -450,7 +450,7 @@ export function createOAuthGatewayPlugin() {
         const qs = new URLSearchParams({ connection_id, q: query });
         if (typeof params.page_token === 'string') qs.set('page_token', params.page_token);
 
-        const result = await backendFetch(backendUrl, `/api/drive/files/search?${qs.toString()}`, apiKey);
+        const result = await backendFetch(backendUrl, `/drive/files/search?${qs.toString()}`, apiKey);
         if (!result.ok) {
           respond(false, { error: result.error });
           return;
@@ -488,7 +488,7 @@ export function createOAuthGatewayPlugin() {
         }
 
         const qs = new URLSearchParams({ connection_id });
-        const result = await backendFetch(backendUrl, `/api/drive/files/${encodeURIComponent(fileId)}?${qs.toString()}`, apiKey);
+        const result = await backendFetch(backendUrl, `/drive/files/${encodeURIComponent(fileId)}?${qs.toString()}`, apiKey);
         if (!result.ok) {
           respond(false, { error: result.error });
           return;
@@ -523,7 +523,7 @@ export function createOAuthGatewayPlugin() {
         if (typeof params.max_results === 'number') qs.set('max_results', String(params.max_results));
         if (typeof params.page_token === 'string') qs.set('page_token', params.page_token);
 
-        const result = await backendFetch(backendUrl, `/api/calendar/events/live?${qs.toString()}`, apiKey);
+        const result = await backendFetch(backendUrl, `/calendar/events/live?${qs.toString()}`, apiKey);
         if (!result.ok) {
           respond(false, { error: result.error });
           return;
@@ -561,7 +561,7 @@ export function createOAuthGatewayPlugin() {
         if (typeof params.time_max === 'string') body.time_max = params.time_max;
 
         try {
-          const url = `${backendUrl.replace(/\/+$/, '')}/api/sync/calendar`;
+          const url = `${backendUrl.replace(/\/+$/, '')}/sync/calendar`;
           const headers: Record<string, string> = {
             Accept: 'application/json',
             'Content-Type': 'application/json',

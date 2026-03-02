@@ -90,12 +90,4 @@ describe('Health API endpoints', () => {
     });
   });
 
-  describe('backward compatibility', () => {
-    it('GET /health still works (legacy endpoint)', async () => {
-      const res = await app.inject({ method: 'GET', url: '/health' });
-      expect(res.statusCode).toBe(200);
-      // Legacy format for backward compatibility
-      expect(res.json()).toEqual({ ok: true });
-    });
-  });
 });

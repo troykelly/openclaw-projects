@@ -219,7 +219,7 @@ describe('note tools', () => {
         });
 
         expect(mockApiClient.post).toHaveBeenCalledWith(
-          '/api/notes',
+          '/notes',
           expect.objectContaining({
             title: 'TestNote',
             content: 'Testcontent',
@@ -727,7 +727,7 @@ describe('note tools', () => {
 
         await tool.execute({ query: 'test' });
 
-        expect(mockApiClient.get).toHaveBeenCalledWith(expect.stringContaining('/api/notes/search'), expect.objectContaining({ isAgent: true }));
+        expect(mockApiClient.get).toHaveBeenCalledWith(expect.stringContaining('/notes/search'), expect.objectContaining({ isAgent: true }));
       });
     });
   });

@@ -302,7 +302,7 @@ export async function cleanupResources(context: E2ETestContext): Promise<void> {
   // Cleanup memories
   for (const id of context.createdIds.memories) {
     try {
-      await context.apiClient.delete(`/api/memories/${id}`);
+      await context.apiClient.delete(`/memories/${id}`);
     } catch {
       // Ignore cleanup errors
     }
@@ -311,7 +311,7 @@ export async function cleanupResources(context: E2ETestContext): Promise<void> {
   // Cleanup contacts
   for (const id of context.createdIds.contacts) {
     try {
-      await context.apiClient.delete(`/api/contacts/${id}`);
+      await context.apiClient.delete(`/contacts/${id}`);
     } catch {
       // Ignore cleanup errors
     }
@@ -320,7 +320,7 @@ export async function cleanupResources(context: E2ETestContext): Promise<void> {
   // Cleanup work items
   for (const id of context.createdIds.workItems) {
     try {
-      await context.apiClient.delete(`/api/work-items/${id}`);
+      await context.apiClient.delete(`/work-items/${id}`);
     } catch {
       // Ignore cleanup errors
     }
@@ -329,7 +329,7 @@ export async function cleanupResources(context: E2ETestContext): Promise<void> {
   // Cleanup projects (if not already cleaned via workItems)
   for (const id of context.createdIds.projects) {
     try {
-      await context.apiClient.delete(`/api/work-items/${id}`);
+      await context.apiClient.delete(`/work-items/${id}`);
     } catch {
       // Ignore cleanup errors
     }
@@ -338,7 +338,7 @@ export async function cleanupResources(context: E2ETestContext): Promise<void> {
   // Cleanup skills
   for (const id of context.createdIds.skills) {
     try {
-      await context.apiClient.delete(`/api/skill-store/items/${id}`);
+      await context.apiClient.delete(`/skill-store/items/${id}`);
     } catch {
       // Ignore cleanup errors
     }

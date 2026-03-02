@@ -303,7 +303,7 @@ describe('entity link tools', () => {
         });
 
         expect(mockPost).toHaveBeenCalledWith(
-          '/api/skill-store/items',
+          '/skill-store/items',
           expect.objectContaining({ collection: 'entity_links' }),
           expect.objectContaining({ user_id: 'agent-1' }),
         );
@@ -327,7 +327,7 @@ describe('entity link tools', () => {
 
         // Forward link key: source_type:source_id:target_type:target_ref
         expect(mockPost).toHaveBeenCalledWith(
-          '/api/skill-store/items',
+          '/skill-store/items',
           expect.objectContaining({
             key: 'todo:019c5ae8-0000-0000-0000-000000000001:project:019c5ae8-0000-0000-0000-000000000002',
           }),
@@ -336,7 +336,7 @@ describe('entity link tools', () => {
 
         // Reverse link key: target_type:target_ref:source_type:source_id
         expect(mockPost).toHaveBeenCalledWith(
-          '/api/skill-store/items',
+          '/skill-store/items',
           expect.objectContaining({
             key: 'project:019c5ae8-0000-0000-0000-000000000002:todo:019c5ae8-0000-0000-0000-000000000001',
           }),
@@ -362,7 +362,7 @@ describe('entity link tools', () => {
 
         // Verify forward link data payload
         expect(mockPost).toHaveBeenCalledWith(
-          '/api/skill-store/items',
+          '/skill-store/items',
           expect.objectContaining({
             data: expect.objectContaining({
               source_type: 'todo',
@@ -394,7 +394,7 @@ describe('entity link tools', () => {
 
         // Forward link should have tag for source entity lookup
         expect(mockPost).toHaveBeenCalledWith(
-          '/api/skill-store/items',
+          '/skill-store/items',
           expect.objectContaining({
             key: 'todo:019c5ae8-0000-0000-0000-000000000001:project:019c5ae8-0000-0000-0000-000000000002',
             tags: expect.arrayContaining(['src:todo:019c5ae8-0000-0000-0000-000000000001']),
@@ -505,7 +505,7 @@ describe('entity link tools', () => {
 
         expect(result.success).toBe(false);
         // Should attempt to delete the orphaned forward link
-        expect(mockDelete).toHaveBeenCalledWith('/api/skill-store/items/fwd-1', expect.any(Object));
+        expect(mockDelete).toHaveBeenCalledWith('/skill-store/items/fwd-1', expect.any(Object));
       });
 
       it('should report partial state when rollback also fails', async () => {
@@ -958,8 +958,8 @@ describe('entity link tools', () => {
           target_ref: '019c5ae8-0000-0000-0000-000000000002',
         });
 
-        expect(mockDelete).toHaveBeenCalledWith('/api/skill-store/items/fwd-1', expect.any(Object));
-        expect(mockDelete).toHaveBeenCalledWith('/api/skill-store/items/rev-1', expect.any(Object));
+        expect(mockDelete).toHaveBeenCalledWith('/skill-store/items/fwd-1', expect.any(Object));
+        expect(mockDelete).toHaveBeenCalledWith('/skill-store/items/rev-1', expect.any(Object));
       });
     });
 

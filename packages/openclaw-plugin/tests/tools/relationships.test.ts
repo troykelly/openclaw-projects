@@ -274,7 +274,7 @@ describe('relationship tools', () => {
         });
 
         expect(mockPost).toHaveBeenCalledWith(
-          '/api/relationships/set',
+          '/relationships/set',
           expect.objectContaining({
             contact_a: 'Troy',
             contact_b: 'Alex',
@@ -756,7 +756,7 @@ describe('relationship tools', () => {
 
         await tool.execute({ contact: 'Troy' });
 
-        expect(mockGet).toHaveBeenCalledWith('/api/relationships?contact=Troy', expect.objectContaining({ user_id: 'agent-1' }));
+        expect(mockGet).toHaveBeenCalledWith('/relationships?contact=Troy', expect.objectContaining({ user_id: 'agent-1' }));
       });
     });
 

@@ -29,7 +29,7 @@ describe.skipIf(!RUN_E2E)('Plugin E2E Integration', () => {
 
   describe('Backend Health', () => {
     it('should have a healthy backend', async () => {
-      const response = await context.apiClient.get<{ status: string }>('/api/health');
+      const response = await context.apiClient.get<{ status: string }>('/health');
       // /api/health returns 'healthy', 'degraded', or 'unhealthy' (503)
       expect(['healthy', 'degraded']).toContain(response.status);
     });
@@ -38,7 +38,7 @@ describe.skipIf(!RUN_E2E)('Plugin E2E Integration', () => {
       const response = await context.apiClient.get<{
         status: string;
         components: Record<string, { status: string }>;
-      }>('/api/health');
+      }>('/health');
       expect(response.components.database).toBeDefined();
       expect(response.components.database.status).toBe('healthy');
     });
@@ -52,7 +52,7 @@ describe.skipIf(!RUN_E2E)('Plugin E2E Integration', () => {
         kind: 'issue',
       };
 
-      const response = await context.apiClient.post<{ id: string; title: string }>('/api/work-items', workItem);
+      const response = await context.apiClient.post<{ id: string; title: string }>('/work-items', workItem);
 
       expect(response.id).toBeDefined();
       context.createdIds.workItems.push(response.id);
@@ -60,7 +60,7 @@ describe.skipIf(!RUN_E2E)('Plugin E2E Integration', () => {
 
     it('should list work items', async () => {
       // Response uses 'items' not 'workItems'
-      const response = await context.apiClient.get<{ items: Array<{ id: string; title: string }> }>('/api/work-items');
+      const response = await context.apiClient.get<{ items: Array<{ id: string; title: string }> }>('/work-items');
 
       expect(response.items).toBeDefined();
       expect(Array.isArray(response.items)).toBe(true);
@@ -74,7 +74,7 @@ describe.skipIf(!RUN_E2E)('Plugin E2E Integration', () => {
         display_name: `E2E Test Contact ${Date.now()}`,
       };
 
-      const response = await context.apiClient.post<{ id: string }>('/api/contacts', contact);
+      const response = await context.apiClient.post<{ id: string }>('/contacts', contact);
 
       expect(response.id).toBeDefined();
       context.createdIds.contacts.push(response.id);
@@ -83,7 +83,7 @@ describe.skipIf(!RUN_E2E)('Plugin E2E Integration', () => {
     it('should list contacts', async () => {
       const response = await context.apiClient.get<{
         contacts: Array<{ id: string; display_name: string }>;
-      }>('/api/contacts');
+      }>('/contacts');
 
       expect(response.contacts).toBeDefined();
       expect(Array.isArray(response.contacts)).toBe(true);
@@ -95,7 +95,7 @@ describe.skipIf(!RUN_E2E)('Plugin E2E Integration', () => {
 
     beforeAll(async () => {
       // Memory creation requires a linked work item
-      const workItem = await context.apiClient.post<{ id: string }>('/api/work-items', {
+      const workItem = await context.apiClient.post<{ id: string }>('/work-items', {
         title: `Memory Test Work Item ${Date.now()}`,
         kind: 'issue',
       });
@@ -112,7 +112,7 @@ describe.skipIf(!RUN_E2E)('Plugin E2E Integration', () => {
         type: 'note',
       };
 
-      const response = await context.apiClient.post<{ id: string }>('/api/memory', memory);
+      const response = await context.apiClient.post<{ id: string }>('/memory', memory);
 
       expect(response.id).toBeDefined();
       context.createdIds.memories.push(response.id);
@@ -127,13 +127,13 @@ describe.skipIf(!RUN_E2E)('Plugin E2E Integration', () => {
         type: 'note',
       };
 
-      const created = await context.apiClient.post<{ id: string }>('/api/memory', memory);
+      const created = await context.apiClient.post<{ id: string }>('/memory', memory);
       context.createdIds.memories.push(created.id);
 
       // GET /api/memories/search returns { results: [...] }
       const response = await context.apiClient.get<{
         results: Array<{ id: string; content: string }>;
-      }>('/api/memories/search?q=xyz123');
+      }>('/memories/search?q=xyz123');
 
       expect(response.results).toBeDefined();
       expect(Array.isArray(response.results)).toBe(true);
@@ -142,7 +142,7 @@ describe.skipIf(!RUN_E2E)('Plugin E2E Integration', () => {
 
   describe('Search API', () => {
     it('should perform unified search', async () => {
-      const response = await context.apiClient.get<{ results: Array<unknown> }>('/api/search?q=test');
+      const response = await context.apiClient.get<{ results: Array<unknown> }>('/search?q=test');
 
       expect(response.results).toBeDefined();
       expect(Array.isArray(response.results)).toBe(true);
@@ -162,7 +162,7 @@ describe.skipIf(!RUN_E2E)('Plugin Tool Simulation', () => {
     context = createE2EContext();
 
     // Create a work item for memory tests (linked_item_id is required)
-    const workItem = await context.apiClient.post<{ id: string }>('/api/work-items', {
+    const workItem = await context.apiClient.post<{ id: string }>('/work-items', {
       title: `Tool Simulation Work Item ${Date.now()}`,
       kind: 'issue',
     });
@@ -180,13 +180,13 @@ describe.skipIf(!RUN_E2E)('Plugin Tool Simulation', () => {
         type: 'note',
       };
 
-      const created = await context.apiClient.post<{ id: string }>('/api/memory', memory);
+      const created = await context.apiClient.post<{ id: string }>('/memory', memory);
       context.createdIds.memories.push(created.id);
 
       // Simulate tool invocation by calling search API
       const response = await context.apiClient.get<{
         results: Array<{ id: string; content: string; type: string }>;
-      }>('/api/memories/search?q=morning%20meetings');
+      }>('/memories/search?q=morning%20meetings');
 
       expect(response.results).toBeDefined();
     });
@@ -201,7 +201,7 @@ describe.skipIf(!RUN_E2E)('Plugin Tool Simulation', () => {
         type: 'note',
       };
 
-      const response = await context.apiClient.post<{ id: string }>('/api/memory', memory);
+      const response = await context.apiClient.post<{ id: string }>('/memory', memory);
 
       expect(response.id).toBeDefined();
       context.createdIds.memories.push(response.id);
@@ -215,13 +215,13 @@ describe.skipIf(!RUN_E2E)('Plugin Tool Simulation', () => {
         display_name: 'John Tool Test',
       };
 
-      const created = await context.apiClient.post<{ id: string }>('/api/contacts', contact);
+      const created = await context.apiClient.post<{ id: string }>('/contacts', contact);
       context.createdIds.contacts.push(created.id);
 
       // Use GET /api/contacts?search= to find contacts (no /api/contacts/search endpoint)
       const response = await context.apiClient.get<{
         contacts: Array<{ id: string; display_name: string }>;
-      }>('/api/contacts?search=John%20Tool');
+      }>('/contacts?search=John%20Tool');
 
       expect(response.contacts).toBeDefined();
     });
@@ -235,7 +235,7 @@ describe.skipIf(!RUN_E2E)('Plugin Tool Simulation', () => {
         kind: 'issue',
       };
 
-      const response = await context.apiClient.post<{ id: string }>('/api/work-items', todo);
+      const response = await context.apiClient.post<{ id: string }>('/work-items', todo);
 
       expect(response.id).toBeDefined();
       context.createdIds.workItems.push(response.id);
@@ -245,7 +245,7 @@ describe.skipIf(!RUN_E2E)('Plugin Tool Simulation', () => {
       // Response uses 'items' not 'workItems'
       const response = await context.apiClient.get<{
         items: Array<{ id: string; title: string; status: string }>;
-      }>('/api/work-items');
+      }>('/work-items');
 
       expect(response.items).toBeDefined();
       expect(Array.isArray(response.items)).toBe(true);
@@ -270,7 +270,7 @@ describe.skipIf(!RUN_E2E)('Comprehensive Tool Operations', () => {
     }
 
     // Create a work item for memory tests
-    const workItem = await context.apiClient.post<{ id: string }>('/api/work-items', {
+    const workItem = await context.apiClient.post<{ id: string }>('/work-items', {
       title: `Comprehensive Test Work Item ${Date.now()}`,
       kind: 'issue',
     });
@@ -290,7 +290,7 @@ describe.skipIf(!RUN_E2E)('Comprehensive Tool Operations', () => {
         type: 'note',
       };
 
-      const storeResponse = await context.apiClient.post<{ id: string }>('/api/memory', memory);
+      const storeResponse = await context.apiClient.post<{ id: string }>('/memory', memory);
       expect(storeResponse.id).toBeDefined();
       const memory_id = storeResponse.id;
       context.createdIds.memories.push(memory_id);
@@ -298,18 +298,18 @@ describe.skipIf(!RUN_E2E)('Comprehensive Tool Operations', () => {
       // Recall the memory via GET /api/memories/search
       const recallResponse = await context.apiClient.get<{
         results: Array<{ id: string; content: string }>;
-      }>(`/api/memories/search?q=${uniqueId}`);
+      }>(`/memories/search?q=${uniqueId}`);
 
       expect(recallResponse.results).toBeDefined();
       expect(Array.isArray(recallResponse.results)).toBe(true);
 
       // Forget the memory
-      await context.apiClient.delete(`/api/memories/${memory_id}`);
+      await context.apiClient.delete(`/memories/${memory_id}`);
 
       // Verify deletion
       const verifyResponse = await context.apiClient.get<{
         results: Array<{ id: string }>;
-      }>(`/api/memories/search?q=${uniqueId}`);
+      }>(`/memories/search?q=${uniqueId}`);
 
       const found = verifyResponse.results?.some((m) => m.id === memory_id);
       expect(found).toBe(false);
@@ -327,7 +327,7 @@ describe.skipIf(!RUN_E2E)('Comprehensive Tool Operations', () => {
         tags: ['test', 'e2e', 'automated'],
       };
 
-      const response = await context.apiClient.post<{ id: string; tags?: string[] }>('/api/memory', memory);
+      const response = await context.apiClient.post<{ id: string; tags?: string[] }>('/memory', memory);
 
       expect(response.id).toBeDefined();
       context.createdIds.memories.push(response.id);
@@ -345,7 +345,7 @@ describe.skipIf(!RUN_E2E)('Comprehensive Tool Operations', () => {
         kind: 'project',
       };
 
-      const createResponse = await context.apiClient.post<{ id: string }>('/api/work-items', project);
+      const createResponse = await context.apiClient.post<{ id: string }>('/work-items', project);
       expect(createResponse.id).toBeDefined();
       const project_id = createResponse.id;
       context.createdIds.projects.push(project_id);
@@ -353,7 +353,7 @@ describe.skipIf(!RUN_E2E)('Comprehensive Tool Operations', () => {
       // List work items (response uses 'items')
       const listResponse = await context.apiClient.get<{
         items: Array<{ id: string; title: string }>;
-      }>('/api/work-items');
+      }>('/work-items');
 
       expect(listResponse.items).toBeDefined();
       expect(Array.isArray(listResponse.items)).toBe(true);
@@ -365,7 +365,7 @@ describe.skipIf(!RUN_E2E)('Comprehensive Tool Operations', () => {
         id: string;
         title: string;
         description: string;
-      }>(`/api/work-items/${project_id}`);
+      }>(`/work-items/${project_id}`);
 
       expect(getResponse.id).toBe(project_id);
       expect(getResponse.title).toContain(uniqueId);
@@ -383,7 +383,7 @@ describe.skipIf(!RUN_E2E)('Comprehensive Tool Operations', () => {
         kind: 'issue',
       };
 
-      const createResponse = await context.apiClient.post<{ id: string }>('/api/work-items', todo);
+      const createResponse = await context.apiClient.post<{ id: string }>('/work-items', todo);
       expect(createResponse.id).toBeDefined();
       const todoId = createResponse.id;
       context.createdIds.workItems.push(todoId);
@@ -391,13 +391,13 @@ describe.skipIf(!RUN_E2E)('Comprehensive Tool Operations', () => {
       // List work items
       const listResponse = await context.apiClient.get<{
         items: Array<{ id: string; title: string; status: string }>;
-      }>('/api/work-items');
+      }>('/work-items');
 
       expect(listResponse.items).toBeDefined();
       expect(Array.isArray(listResponse.items)).toBe(true);
 
       // Complete todo (use PUT, title is required)
-      const completeResponse = await context.apiClient.put<{ id: string; status: string }>(`/api/work-items/${todoId}`, {
+      const completeResponse = await context.apiClient.put<{ id: string; status: string }>(`/work-items/${todoId}`, {
         title: `Todo ${uniqueId}`,
         status: 'completed',
       });
@@ -415,7 +415,7 @@ describe.skipIf(!RUN_E2E)('Comprehensive Tool Operations', () => {
         display_name: `Contact ${uniqueId}`,
       };
 
-      const createResponse = await context.apiClient.post<{ id: string }>('/api/contacts', contact);
+      const createResponse = await context.apiClient.post<{ id: string }>('/contacts', contact);
       expect(createResponse.id).toBeDefined();
       const contact_id = createResponse.id;
       context.createdIds.contacts.push(contact_id);
@@ -423,7 +423,7 @@ describe.skipIf(!RUN_E2E)('Comprehensive Tool Operations', () => {
       // List contacts with search filter
       const searchResponse = await context.apiClient.get<{
         contacts: Array<{ id: string; display_name: string }>;
-      }>(`/api/contacts?search=${uniqueId}`);
+      }>(`/contacts?search=${uniqueId}`);
 
       expect(searchResponse.contacts).toBeDefined();
       expect(Array.isArray(searchResponse.contacts)).toBe(true);
@@ -432,7 +432,7 @@ describe.skipIf(!RUN_E2E)('Comprehensive Tool Operations', () => {
       const getResponse = await context.apiClient.get<{
         id: string;
         display_name: string;
-      }>(`/api/contacts/${contact_id}`);
+      }>(`/contacts/${contact_id}`);
 
       expect(getResponse.id).toBe(contact_id);
       expect(getResponse.display_name).toContain(uniqueId);
@@ -453,7 +453,7 @@ describe.skipIf(!RUN_E2E)('Comprehensive Tool Operations', () => {
         tags: ['test', 'e2e'],
       };
 
-      const createResponse = await context.apiClient.post<{ id: string; key: string }>('/api/skill-store/items', skill);
+      const createResponse = await context.apiClient.post<{ id: string; key: string }>('/skill-store/items', skill);
       expect(createResponse.id).toBeDefined();
       const skillItemId = createResponse.id;
       context.createdIds.skills.push(skillItemId);
@@ -463,7 +463,7 @@ describe.skipIf(!RUN_E2E)('Comprehensive Tool Operations', () => {
         id: string;
         key: string;
         data: unknown;
-      }>(`/api/skill-store/items/${skillItemId}`);
+      }>(`/skill-store/items/${skillItemId}`);
 
       expect(getResponse.id).toBe(skillItemId);
       expect(getResponse.key).toBe(skill.key);
@@ -471,13 +471,13 @@ describe.skipIf(!RUN_E2E)('Comprehensive Tool Operations', () => {
       // List skill items via GET /api/skill-store/items?skill_id=...
       const listResponse = await context.apiClient.get<{
         items: Array<{ id: string; collection: string }>;
-      }>(`/api/skill-store/items?skill_id=${encodeURIComponent(skill.skill_id)}&collection=e2e-test`);
+      }>(`/skill-store/items?skill_id=${encodeURIComponent(skill.skill_id)}&collection=e2e-test`);
 
       expect(listResponse.items).toBeDefined();
       expect(Array.isArray(listResponse.items)).toBe(true);
 
       // Delete skill item via DELETE /api/skill-store/items/:id
-      await context.apiClient.delete(`/api/skill-store/items/${skillItemId}`);
+      await context.apiClient.delete(`/skill-store/items/${skillItemId}`);
 
       // Remove from cleanup list since already deleted
       context.createdIds.skills = context.createdIds.skills.filter((id) => id !== skillItemId);
@@ -489,17 +489,17 @@ describe.skipIf(!RUN_E2E)('Comprehensive Tool Operations', () => {
       const uniqueId = `e2e-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
       // Create two contacts
-      const contact1Response = await context.apiClient.post<{ id: string; display_name: string }>('/api/contacts', {
+      const contact1Response = await context.apiClient.post<{ id: string; display_name: string }>('/contacts', {
         display_name: `Contact1 ${uniqueId}`,
       });
-      const contact2Response = await context.apiClient.post<{ id: string; display_name: string }>('/api/contacts', {
+      const contact2Response = await context.apiClient.post<{ id: string; display_name: string }>('/contacts', {
         display_name: `Contact2 ${uniqueId}`,
       });
 
       context.createdIds.contacts.push(contact1Response.id, contact2Response.id);
 
       // Set relationship via POST /api/relationships/set (uses display names)
-      const setResponse = await context.apiClient.post<{ relationship: { id: string }; created: boolean }>('/api/relationships/set', {
+      const setResponse = await context.apiClient.post<{ relationship: { id: string }; created: boolean }>('/relationships/set', {
         contact_a: `Contact1 ${uniqueId}`,
         contact_b: `Contact2 ${uniqueId}`,
         relationship_type: 'colleague',
@@ -509,7 +509,7 @@ describe.skipIf(!RUN_E2E)('Comprehensive Tool Operations', () => {
       // Query relationships via GET /api/relationships?contact_id=...
       const queryResponse = await context.apiClient.get<{
         relationships: Array<{ id: string }>;
-      }>(`/api/relationships?contact_id=${contact1Response.id}`);
+      }>(`/relationships?contact_id=${contact1Response.id}`);
 
       expect(queryResponse.relationships).toBeDefined();
       expect(Array.isArray(queryResponse.relationships)).toBe(true);

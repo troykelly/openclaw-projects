@@ -126,7 +126,7 @@ export function createNoteCreateTool(options: NoteToolOptions): NoteCreateTool {
 
       try {
         const response = await client.post<Note>(
-          '/api/notes',
+          '/notes',
           {
             title: sanitizedTitle,
             content: sanitizedContent,
@@ -253,7 +253,7 @@ export function createNoteGetTool(options: NoteToolOptions): NoteGetTool {
           queryParams.set('include_versions', 'true');
         }
 
-        const response = await client.get<Note>(`/api/notes/${noteId}?${queryParams}`, { user_id });
+        const response = await client.get<Note>(`/notes/${noteId}?${queryParams}`, { user_id });
 
         if (!response.success) {
           if (response.error.status === 404) {
@@ -427,7 +427,7 @@ export function createNoteUpdateTool(options: NoteToolOptions): NoteUpdateTool {
       });
 
       try {
-        const response = await client.put<Note>(`/api/notes/${noteId}`, updateData, { user_id });
+        const response = await client.put<Note>(`/notes/${noteId}`, updateData, { user_id });
 
         if (!response.success) {
           if (response.error.status === 404) {
@@ -535,7 +535,7 @@ export function createNoteDeleteTool(options: NoteToolOptions): NoteDeleteTool {
       });
 
       try {
-        const response = await client.delete<void>(`/api/notes/${noteId}?user_email=${encodeURIComponent(user_id)}`, { user_id });
+        const response = await client.delete<void>(`/notes/${noteId}?user_email=${encodeURIComponent(user_id)}`, { user_id });
 
         if (!response.success) {
           if (response.error.status === 404) {
@@ -687,7 +687,7 @@ export function createNoteSearchTool(options: NoteToolOptions): NoteSearchTool {
           total: number;
           limit: number;
           offset: number;
-        }>(`/api/notes/search?${queryParams}`, { user_id, isAgent: true });
+        }>(`/notes/search?${queryParams}`, { user_id, isAgent: true });
 
         if (!response.success) {
           logger.error('note_search API error', {

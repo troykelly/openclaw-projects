@@ -71,7 +71,7 @@ describe('webhook verification behind proxy', () => {
   it('should fail signature validation without trustProxy when proxy sends X-Forwarded-Proto', async () => {
     await buildTestApp(false);
 
-    const publicUrl = 'https://api.execdesk.ai/api/twilio/sms';
+    const publicUrl = 'https://api.execdesk.ai/twilio/sms';
     const body = { From: '+15551234567', Body: 'Hello' };
 
     // Twilio signs against the public HTTPS URL
@@ -97,7 +97,7 @@ describe('webhook verification behind proxy', () => {
   it('should pass signature validation with trustProxy when proxy sends X-Forwarded-Proto', async () => {
     await buildTestApp(true);
 
-    const publicUrl = 'https://api.execdesk.ai/api/twilio/sms';
+    const publicUrl = 'https://api.execdesk.ai/twilio/sms';
     const body = { From: '+15551234567', Body: 'Hello' };
 
     // Twilio signs against the public HTTPS URL
@@ -126,7 +126,7 @@ describe('webhook verification behind proxy', () => {
     const body = { From: '+15559876543', Body: 'Test' };
 
     // Without proxy headers, inject() defaults to host=localhost:80, protocol=http
-    const directUrl = 'http://localhost:80/api/twilio/sms';
+    const directUrl = 'http://localhost:80/twilio/sms';
     const signature = computeTwilioSignature(directUrl, body);
 
     const response = await app.inject({

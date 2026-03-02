@@ -222,7 +222,7 @@ export function createContextSearchTool(options: ContextSearchToolOptions): Cont
         }
         taggedPromises.push({
           tag: 'memory',
-          promise: client.get<{ results: MemoryApiResult[]; search_type: string }>(`/api/memories/search?${memoryParams.toString()}`, { user_id }),
+          promise: client.get<{ results: MemoryApiResult[]; search_type: string }>(`/memories/search?${memoryParams.toString()}`, { user_id }),
         });
       }
 
@@ -236,7 +236,7 @@ export function createContextSearchTool(options: ContextSearchToolOptions): Cont
         });
         taggedPromises.push({
           tag: 'work_item',
-          promise: client.get<{ results: WorkItemApiResult[]; search_type: string; total: number }>(`/api/search?${searchParams.toString()}`, { user_id }),
+          promise: client.get<{ results: WorkItemApiResult[]; search_type: string; total: number }>(`/search?${searchParams.toString()}`, { user_id }),
         });
       }
 
@@ -250,7 +250,7 @@ export function createContextSearchTool(options: ContextSearchToolOptions): Cont
         });
         taggedPromises.push({
           tag: 'message',
-          promise: client.get<{ results: MessageApiResult[]; search_type: string; total: number }>(`/api/search?${messageParams.toString()}`, { user_id }),
+          promise: client.get<{ results: MessageApiResult[]; search_type: string; total: number }>(`/search?${messageParams.toString()}`, { user_id }),
         });
       }
 

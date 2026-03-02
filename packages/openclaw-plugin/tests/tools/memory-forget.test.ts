@@ -165,7 +165,7 @@ describe('memory_forget tool', () => {
 
       await tool.execute({ memory_id: 'mem-123' });
 
-      expect(mockDelete).toHaveBeenCalledWith('/api/memories/mem-123', expect.objectContaining({ user_id: 'agent-1' }));
+      expect(mockDelete).toHaveBeenCalledWith('/memories/mem-123', expect.objectContaining({ user_id: 'agent-1' }));
     });
 
     it('should return success for deleted memory', async () => {
@@ -234,7 +234,7 @@ describe('memory_forget tool', () => {
       await tool.execute({ query: 'coffee' });
 
       expect(mockGet).toHaveBeenCalledWith(
-        expect.stringMatching(/^\/api\/memories\/search\?q=coffee&limit=5$/),
+        expect.stringMatching(/^\/memories\/search\?q=coffee&limit=5$/),
         expect.objectContaining({ user_id: 'agent-1' }),
       );
     });
@@ -257,7 +257,7 @@ describe('memory_forget tool', () => {
       const result = await tool.execute({ query: 'coffee' });
 
       expect(mockDelete).toHaveBeenCalledTimes(1);
-      expect(mockDelete).toHaveBeenCalledWith('/api/memories/mem-1', expect.objectContaining({ user_id: 'agent-1' }));
+      expect(mockDelete).toHaveBeenCalledWith('/memories/mem-1', expect.objectContaining({ user_id: 'agent-1' }));
       expect(result.success).toBe(true);
       if (result.success) {
         expect(result.data.content).toContain('Forgotten');
@@ -353,7 +353,7 @@ describe('memory_forget tool', () => {
 
       // When there's only 1 candidate, auto-delete it (don't make user copy/paste)
       expect(mockDelete).toHaveBeenCalledTimes(1);
-      expect(mockDelete).toHaveBeenCalledWith('/api/memories/mem-only', expect.objectContaining({ user_id: 'agent-1' }));
+      expect(mockDelete).toHaveBeenCalledWith('/memories/mem-only', expect.objectContaining({ user_id: 'agent-1' }));
       expect(result.success).toBe(true);
       if (result.success) {
         expect(result.data.details.deletedCount).toBe(1);

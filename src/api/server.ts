@@ -857,8 +857,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     reply.code(500).send({ error: 'Internal Server Error' });
   });
 
-  app.get('/health', async () => ({ ok: true }));
-
   // Health check endpoints (Kubernetes-compatible)
   const healthPool = createPool();
   const healthRegistry = new HealthCheckRegistry();
@@ -4890,11 +4888,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     return reply.send(result);
   });
 
-  // GET /api/files/share - Clarify that sharing uses /api/files/shared/:token (Issue #1141)
+  // GET /files/share - Clarify that sharing uses /files/shared/:token (Issue #1141)
   app.get('/files/share', async (_req, reply) => {
     return reply.code(400).send({
       error: 'Invalid endpoint',
-      message: 'To access a shared file, use GET /api/files/shared/:token. To create a share link, use POST /api/files/:id/share.',
+      message: 'To access a shared file, use GET /files/shared/:token. To create a share link, use POST /files/:id/share.',
     });
   });
 
@@ -6934,7 +6932,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const limit = query.limit || '50';
     const offset = query.offset || '0';
 
-    return reply.redirect(`/api/contacts?search=${encodeURIComponent(searchQuery)}&limit=${limit}&offset=${offset}`, 301);
+    return reply.redirect(`/contacts?search=${encodeURIComponent(searchQuery)}&limit=${limit}&offset=${offset}`, 301);
   });
 
   // GET /api/contacts/suggest-match - Fuzzy contact matching (Issue #1270)
@@ -8237,10 +8235,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       // Set photo_url on contact (use the file ID for internal reference)
       await pool.query(
         `UPDATE contact SET photo_url = $1, updated_at = now() WHERE id = $2`,
-        [`/api/files/${uploaded.id}`, params.id],
+        [`/files/${uploaded.id}`, params.id],
       );
       await pool.end();
-      return reply.code(201).send({ photo_url: `/api/files/${uploaded.id}`, file_id: uploaded.id });
+      return reply.code(201).send({ photo_url: `/files/${uploaded.id}`, file_id: uploaded.id });
     } catch (err) {
       await pool.end();
       if (err instanceof FileTooLargeError) {
@@ -14965,7 +14963,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     return reply.code(200).send({
       status: 'live_api',
-      message: 'Email is now accessed live via /api/email/messages. No sync needed.',
+      message: 'Email is now accessed live via /email/messages. No sync needed.',
       connection_id: connection.id,
       provider: connection.provider,
     });
@@ -19906,7 +19904,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const state = randomBytes(32).toString('base64url');
       const rawBase = process.env.PUBLIC_BASE_URL || 'http://localhost:3000';
       const clientId = rawBase.replace(/\/+$/, '');
-      const redirectUri = `${clientId}/api/oauth/callback`;
+      const redirectUri = `${clientId}/oauth/callback`;
 
       const { buildAuthorizationUrl } = await import('./oauth/home-assistant.ts');
       const { url } = buildAuthorizationUrl(body.instance_url, clientId, redirectUri, state);

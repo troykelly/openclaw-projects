@@ -129,7 +129,7 @@ export function createNotificationService(options: NotificationServiceOptions): 
       const response = await apiClient.get<{
         notifications: Notification[];
         total: number;
-      }>(`/api/notifications?${queryParams}`, { user_id });
+      }>(`/notifications?${queryParams}`, { user_id });
 
       if (!response.success) {
         logger.error('Notification poll failed', {

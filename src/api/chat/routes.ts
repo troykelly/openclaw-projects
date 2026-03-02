@@ -743,7 +743,7 @@ export async function chatRoutesPlugin(
             content,
             content_type: contentType,
             user_email: userEmail,
-            streaming_callback_url: `/api/chat/sessions/${session.id}/stream`,
+            streaming_callback_url: `/chat/sessions/${session.id}/stream`,
             stream_secret: session.stream_secret,
           },
         }).catch((err: unknown) => {

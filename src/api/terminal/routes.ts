@@ -1581,7 +1581,7 @@ export async function terminalRoutesPlugin(
     return reply.code(201).send({
       ...token,
       token: plaintextToken,
-      enrollment_script: `curl -sSL "$API_BASE_URL/api/terminal/enroll" -H "Content-Type: application/json" -d '{"token":"${plaintextToken}","hostname":"$(hostname)"}'`,
+      enrollment_script: `curl -sSL "$API_BASE_URL/terminal/enroll" -H "Content-Type: application/json" -d '{"token":"${plaintextToken}","hostname":"$(hostname)"}'`,
     });
   });
 
