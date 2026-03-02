@@ -6,7 +6,7 @@
  * - AppShell renders RouterSidebar instead of old Sidebar
  * - RouterSidebar includes namespace selector
  * - RouterSidebar includes version display
- * - MobileNav uses router-aware links with all 13+ nav items
+ * - MobileNav uses router-aware links with all 14+ nav items
  * - AppShell passes onSearchClick and onCreateClick to RouterSidebar
  * - Keyboard shortcut for search still works
  */
@@ -51,6 +51,7 @@ function renderAppShellWithRouter(initialPath = '/activity', props: Partial<Reac
         { path: 'projects', element: <div data-testid="page-projects">Projects</div> },
         { path: 'contacts', element: <div data-testid="page-contacts">Contacts</div> },
         { path: 'memory', element: <div data-testid="page-memory">Memory</div> },
+        { path: 'notes', element: <div data-testid="page-notes">Notes</div> },
         { path: 'communications', element: <div data-testid="page-comms">Comms</div> },
         { path: 'settings', element: <div data-testid="page-settings">Settings</div> },
         { path: 'terminal', element: <div data-testid="page-terminal">Terminal</div> },
@@ -87,11 +88,11 @@ describe('AppShell uses RouterSidebar (#1875)', () => {
     expect(screen.queryByTestId('sidebar')).not.toBeInTheDocument();
   });
 
-  it('renders all 13 navigation links in the RouterSidebar', () => {
+  it('renders all 14 navigation links in the RouterSidebar', () => {
     renderAppShellWithRouter('/activity');
     const nav = screen.getByRole('navigation', { name: 'Main navigation' });
     const links = nav.querySelectorAll('a');
-    expect(links.length).toBe(13);
+    expect(links.length).toBe(14);
   });
 
   it('renders Settings link in the footer', () => {
