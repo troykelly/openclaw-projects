@@ -117,6 +117,8 @@ const APPLICATION_TABLES = [
   'notification_rate',
   'chat_read_cursor',
   'chat_session',
+  // Dev Prompts (Epic #2011)
+  'dev_prompt',
   // Inbound routing (Epic #1497) — FK children before prompt_template
   'channel_default',
   'inbound_destination',
