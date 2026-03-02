@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Bell, Folder, Users, Search, Settings, ChevronLeft, ChevronRight, Plus, Brain, MessageSquare, Package, ChefHat, UtensilsCrossed, Code, Home, Warehouse, Mic, Terminal, Globe } from 'lucide-react';
+import { Bell, Folder, Users, Search, Settings, ChevronLeft, ChevronRight, Plus, Brain, MessageSquare, Package, ChefHat, UtensilsCrossed, Code, Home, Warehouse, Mic, Terminal, Globe, StickyNote } from 'lucide-react';
 import { cn } from '@/ui/lib/utils';
 import { APP_VERSION } from '@/ui/lib/version';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/ui/components/ui/tooltip';
@@ -25,6 +25,7 @@ const defaultNavItems: RouterNavItem[] = [
   { id: 'projects', label: 'Projects', icon: Folder, to: '/work-items' },
   { id: 'people', label: 'People', icon: Users, to: '/contacts' },
   { id: 'memory', label: 'Memory', icon: Brain, to: '/memory' },
+  { id: 'notes', label: 'Notes', icon: StickyNote, to: '/notes' },
   { id: 'communications', label: 'Communications', icon: MessageSquare, to: '/communications' },
   { id: 'recipes', label: 'Recipes', icon: ChefHat, to: '/recipes' },
   { id: 'meal-log', label: 'Meal Log', icon: UtensilsCrossed, to: '/meal-log' },
