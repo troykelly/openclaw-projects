@@ -67,6 +67,11 @@ export function CreatePromptDialog({ open, onOpenChange }: CreatePromptDialogPro
           <DialogTitle>Create Dev Prompt</DialogTitle>
           <DialogDescription>Create a new user-defined prompt template.</DialogDescription>
         </DialogHeader>
+        {createMutation.error && (
+          <p className="text-sm text-destructive">
+            {createMutation.error.message}
+          </p>
+        )}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1">
             <Label htmlFor="prompt-title">Title</Label>

@@ -14,7 +14,7 @@ export interface PromptListProps {
 }
 
 export function PromptList({ categoryFilter, systemFilter, searchQuery, onEdit }: PromptListProps) {
-  const { data, isLoading } = useDevPrompts({
+  const { data, isLoading, error } = useDevPrompts({
     category: categoryFilter,
     is_system: systemFilter,
     search: searchQuery,
@@ -23,6 +23,14 @@ export function PromptList({ categoryFilter, systemFilter, searchQuery, onEdit }
 
   if (isLoading) {
     return <div className="text-sm text-muted-foreground">Loading prompts...</div>;
+  }
+
+  if (error) {
+    return (
+      <p className="text-sm text-destructive" data-testid="prompt-list-error">
+        Failed to load prompts: {error.message}
+      </p>
+    );
   }
 
   const items = Array.isArray(data?.items) ? data.items : [];

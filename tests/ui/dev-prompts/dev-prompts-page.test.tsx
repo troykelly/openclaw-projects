@@ -240,4 +240,19 @@ describe('DevPromptsPage', () => {
 
     expect(screen.getByText('custom')).toBeInTheDocument();
   });
+
+  it('shows error state when API fails', async () => {
+    mockApiClient.get.mockRejectedValue(new Error('Network error'));
+
+    renderPage();
+
+    await waitFor(
+      () => {
+        expect(screen.getByTestId('prompt-list-error')).toBeInTheDocument();
+      },
+      { timeout: 5000 },
+    );
+
+    expect(screen.getByText(/failed to load prompts/i)).toBeInTheDocument();
+  });
 });

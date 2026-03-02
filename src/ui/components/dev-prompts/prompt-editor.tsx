@@ -92,6 +92,18 @@ export function PromptEditor({ prompt, onClose }: PromptEditorProps) {
         </div>
       </div>
 
+      {/* Mutation error feedback */}
+      {updateMutation.error && (
+        <p className="text-sm text-destructive mb-2">
+          Save failed: {updateMutation.error.message}
+        </p>
+      )}
+      {resetMutation.error && (
+        <p className="text-sm text-destructive mb-2">
+          Reset failed: {resetMutation.error.message}
+        </p>
+      )}
+
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={handleTabChange} className="flex-1 flex flex-col">
         <TabsList>
