@@ -41,6 +41,17 @@ export interface DevSessionToolOptions {
   user_id: string;
 }
 
+/** Linked terminal session info (Issue #1988) */
+export interface LinkedTerminal {
+  terminal_session_id: string;
+  linked_at: string;
+  tmux_session_name?: string;
+  status?: string;
+  connection_id?: string;
+  started_at?: string | null;
+  terminated_at?: string | null;
+}
+
 /** Dev session from API */
 export interface DevSession {
   id: string;
@@ -66,6 +77,7 @@ export interface DevSession {
   completed_at?: string | null;
   created_at?: string;
   updated_at?: string;
+  terminals?: LinkedTerminal[];
 }
 
 /** Failure result */
@@ -90,6 +102,7 @@ export const DevSessionCreateParamsSchema = z.object({
   task_prompt: z.string().max(10000).optional(),
   linked_issues: z.array(z.string()).optional(),
   linked_prs: z.array(z.string()).optional(),
+  connection_id: z.string().optional().describe('Terminal connection UUID. If provided, auto-creates and links a terminal session.'),
 });
 export type DevSessionCreateParams = z.infer<typeof DevSessionCreateParamsSchema>;
 
@@ -134,16 +147,20 @@ export function createDevSessionCreateTool(options: DevSessionToolOptions): DevS
         return { success: false, error: errorMessage };
       }
 
-      const { session_name, node, project_id, container, container_user, repo_org, repo_name, branch, task_summary, task_prompt, linked_issues, linked_prs } = parseResult.data;
+      const { session_name, node, project_id, container, container_user, repo_org, repo_name, branch, task_summary, task_prompt, linked_issues, linked_prs, connection_id } = parseResult.data;
 
       if (project_id && !isValidUuid(project_id)) {
         return { success: false, error: 'Invalid project_id format. Expected UUID.' };
+      }
+      if (connection_id && !isValidUuid(connection_id)) {
+        return { success: false, error: 'Invalid connection_id format. Expected UUID.' };
       }
 
       logger.info('dev_session_create invoked', {
         user_id,
         sessionName: session_name,
         node,
+        hasConnectionId: !!connection_id,
       });
 
       try {
@@ -181,16 +198,59 @@ export function createDevSessionCreateTool(options: DevSessionToolOptions): DevS
 
         const session = response.data;
 
+        // Issue #1988: auto-create and link terminal session if connection_id provided
+        let linkedTerminalId: string | undefined;
+        if (connection_id) {
+          try {
+            const termResponse = await client.post<{ id: string; tmux_session_name: string; status: string }>(
+              '/terminal/sessions',
+              { connection_id, tmux_session_name: `dev-${session.id.slice(0, 8)}` },
+              { user_id },
+            );
+            if (termResponse.success) {
+              linkedTerminalId = termResponse.data.id;
+              // Link terminal session to dev session
+              await client.post(
+                `/dev-sessions/${session.id}/terminals`,
+                { terminal_session_id: linkedTerminalId },
+                { user_id },
+              );
+              logger.debug('dev_session_create linked terminal', {
+                sessionId: session.id,
+                terminalSessionId: linkedTerminalId,
+              });
+            } else {
+              logger.warn('dev_session_create terminal creation failed', {
+                sessionId: session.id,
+                connectionId: connection_id,
+                error: termResponse.error.message,
+              });
+            }
+          } catch (termErr) {
+            logger.warn('dev_session_create terminal auto-link failed', {
+              sessionId: session.id,
+              connectionId: connection_id,
+              error: termErr instanceof Error ? termErr.message : String(termErr),
+            });
+          }
+        }
+
         logger.debug('dev_session_create completed', {
           user_id,
           sessionId: session.id,
           sessionName: session.session_name,
+          linkedTerminalId,
         });
+
+        const contentParts = [`Created dev session "${session.session_name}" on ${node} (ID: ${session.id}) — status: ${session.status}`];
+        if (linkedTerminalId) {
+          contentParts.push(`Linked terminal session: ${linkedTerminalId}`);
+        }
 
         return {
           success: true,
           data: {
-            content: `Created dev session "${session.session_name}" on ${node} (ID: ${session.id}) — status: ${session.status}`,
+            content: contentParts.join('\n'),
             details: {
               session_id: session.id,
               session_name: session.session_name,
@@ -372,7 +432,7 @@ export function createDevSessionGetTool(options: DevSessionToolOptions): DevSess
 
   return {
     name: 'dev_session_get',
-    description: 'Gets detailed information about a specific dev session including task summary, branch, context percentage, and linked issues/PRs. Use to resume or review a session. Read-only.',
+    description: 'Gets detailed information about a specific dev session including task summary, branch, context percentage, linked issues/PRs, and linked terminal sessions. Use to resume or review a session. Read-only.',
     parameters: DevSessionGetParamsSchema,
 
     async execute(params: DevSessionGetParams): Promise<DevSessionGetResult> {
@@ -419,6 +479,14 @@ export function createDevSessionGetTool(options: DevSessionToolOptions): DevSess
         if (session.created_at) lines.push(`Created: ${session.created_at}`);
         if (session.completed_at) lines.push(`Completed: ${session.completed_at}`);
 
+        // Issue #1988: include linked terminal sessions
+        if (session.terminals && session.terminals.length > 0) {
+          lines.push(`Terminals (${session.terminals.length}):`);
+          for (const t of session.terminals) {
+            lines.push(`  - ${t.tmux_session_name ?? t.terminal_session_id} [${t.status ?? 'unknown'}]`);
+          }
+        }
+
         logger.debug('dev_session_get completed', { user_id, sessionId: session_id });
 
         return {
@@ -460,6 +528,7 @@ export const DevSessionUpdateParamsSchema = z.object({
   linked_issues: z.array(z.string()).optional(),
   linked_prs: z.array(z.string()).optional(),
   webhook_id: z.string().max(200).optional(),
+  terminal_session_id: z.string().optional().describe('Terminal session UUID to link to this dev session.'),
 });
 export type DevSessionUpdateParams = z.infer<typeof DevSessionUpdateParamsSchema>;
 
@@ -492,7 +561,7 @@ export function createDevSessionUpdateTool(options: DevSessionToolOptions): DevS
 
   return {
     name: 'dev_session_update',
-    description: 'Updates a dev session with new status, task summary, context percentage, or capture data. Only provided fields are modified. Use to track progress during ongoing work. Does not complete the session (use dev_session_complete).',
+    description: 'Updates a dev session with new status, task summary, context percentage, or capture data. Only provided fields are modified. Optionally links a terminal session. Use to track progress during ongoing work. Does not complete the session (use dev_session_complete).',
     parameters: DevSessionUpdateParamsSchema,
 
     async execute(params: DevSessionUpdateParams): Promise<DevSessionUpdateResult> {
@@ -506,6 +575,9 @@ export function createDevSessionUpdateTool(options: DevSessionToolOptions): DevS
 
       if (!isValidUuid(session_id)) {
         return { success: false, error: 'Invalid session ID format. Expected UUID.' };
+      }
+      if (updates.terminal_session_id && !isValidUuid(updates.terminal_session_id)) {
+        return { success: false, error: 'Invalid terminal_session_id format. Expected UUID.' };
       }
 
       logger.info('dev_session_update invoked', {
@@ -531,6 +603,7 @@ export function createDevSessionUpdateTool(options: DevSessionToolOptions): DevS
         if (updates.linked_issues) body.linked_issues = updates.linked_issues;
         if (updates.linked_prs) body.linked_prs = updates.linked_prs;
         if (updates.webhook_id) body.webhook_id = updates.webhook_id;
+        if (updates.terminal_session_id) body.terminal_session_id = updates.terminal_session_id;
 
         const response = await client.patch<DevSession>(
           `/dev-sessions/${session_id}`,
@@ -583,6 +656,7 @@ export function createDevSessionUpdateTool(options: DevSessionToolOptions): DevS
 export const DevSessionCompleteParamsSchema = z.object({
   session_id: z.string().min(1, 'Session ID is required'),
   completion_summary: z.string().max(5000).optional(),
+  terminate_terminals: z.boolean().optional().describe('If true, terminates all linked terminal sessions when completing.'),
 });
 export type DevSessionCompleteParams = z.infer<typeof DevSessionCompleteParamsSchema>;
 
@@ -615,7 +689,7 @@ export function createDevSessionCompleteTool(options: DevSessionToolOptions): De
 
   return {
     name: 'dev_session_complete',
-    description: 'Marks a dev session as completed and records the completion timestamp. Optionally include a summary of what was accomplished. Use dev_session_update for incremental progress updates instead.',
+    description: 'Marks a dev session as completed and records the completion timestamp. Optionally include a summary and terminate linked terminal sessions. Use dev_session_update for incremental progress updates instead.',
     parameters: DevSessionCompleteParamsSchema,
 
     async execute(params: DevSessionCompleteParams): Promise<DevSessionCompleteResult> {
@@ -625,7 +699,7 @@ export function createDevSessionCompleteTool(options: DevSessionToolOptions): De
         return { success: false, error: errorMessage };
       }
 
-      const { session_id, completion_summary } = parseResult.data;
+      const { session_id, completion_summary, terminate_terminals } = parseResult.data;
 
       if (!isValidUuid(session_id)) {
         return { success: false, error: 'Invalid session ID format. Expected UUID.' };
@@ -635,11 +709,13 @@ export function createDevSessionCompleteTool(options: DevSessionToolOptions): De
         user_id,
         sessionId: session_id,
         hasSummary: !!completion_summary,
+        terminateTerminals: !!terminate_terminals,
       });
 
       try {
         const body: Record<string, unknown> = { user_email: user_id };
         if (completion_summary) body.completion_summary = stripHtml(completion_summary);
+        if (terminate_terminals) body.terminate_terminals = true;
 
         const response = await client.post<DevSession>(
           `/dev-sessions/${session_id}/complete`,

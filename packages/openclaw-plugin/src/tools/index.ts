@@ -540,6 +540,7 @@ export {
   type DevSessionUpdateResult,
   type DevSessionCompleteResult,
   type DevSession,
+  type LinkedTerminal,
   type DevSessionToolOptions,
 } from './dev-sessions.js';
 

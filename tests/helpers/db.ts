@@ -82,6 +82,8 @@ const APPLICATION_TABLES = [
   'agent_identity',
   // Entity links (no FKs, polymorphic references)
   'entity_link',
+  // Dev session terminal links (Issue #1988)
+  'dev_session_terminal',
   // Dev sessions (Issue #1285)
   'dev_session',
   // Recipes (Issue #1278)
