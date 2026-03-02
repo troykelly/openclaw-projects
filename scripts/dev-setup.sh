@@ -150,7 +150,7 @@ if [ -n "$LINK_EMAIL" ]; then
   echo ""
   echo "=============================================="
   echo "  Magic Link (valid for 1 hour):"
-  echo "  http://localhost:3000/api/auth/consume?token=$TOKEN"
+  echo "  http://localhost:3000/auth/consume?token=$TOKEN"
   echo "=============================================="
   echo ""
   echo "  IMPORTANT: This token is SINGLE-USE by design."

@@ -532,7 +532,7 @@ if [ "$CONFIGURE_OAUTH" = "y" ]; then
   # Shared settings
   if [ "$OAUTH_HAS_CREDENTIALS" = true ]; then
     printf "\n  ${BOLD}Shared OAuth settings:${RESET}\n"
-    OAUTH_REDIR="$(prompt_value OAUTH_REDIRECT_URI "Redirect URI" "http://localhost:3000/api/oauth/callback")"
+    OAUTH_REDIR="$(prompt_value OAUTH_REDIRECT_URI "Redirect URI" "http://localhost:3000/oauth/callback")"
     set_env OAUTH_REDIRECT_URI "$OAUTH_REDIR"
   fi
 else

@@ -46,7 +46,7 @@ skill_store_put({
 Using the REST API directly:
 
 ```bash
-curl -X POST https://api.example.com/api/skill-store/items \
+curl -X POST https://api.example.com/skill-store/items \
   -H "Authorization: Bearer $API_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -257,7 +257,7 @@ Returns each collection with its item count, helping you understand your data di
 Soft delete an entire collection:
 
 ```bash
-curl -X DELETE "https://api.example.com/api/skill-store/collections/old-data?skill_id=my-skill" \
+curl -X DELETE "https://api.example.com/skill-store/collections/old-data?skill_id=my-skill" \
   -H "Authorization: Bearer $API_TOKEN"
 ```
 
@@ -310,7 +310,7 @@ skill_store_search({
 Combines full-text and semantic results using Reciprocal Rank Fusion (RRF). Use the REST API directly for hybrid search:
 
 ```bash
-curl -X POST https://api.example.com/api/skill-store/search/semantic \
+curl -X POST https://api.example.com/skill-store/search/semantic \
   -H "Authorization: Bearer $API_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -389,7 +389,7 @@ Items have three statuses:
 Archive an item:
 
 ```bash
-curl -X POST https://api.example.com/api/skill-store/items/{id}/archive \
+curl -X POST https://api.example.com/skill-store/items/{id}/archive \
   -H "Authorization: Bearer $API_TOKEN"
 ```
 
@@ -397,7 +397,7 @@ curl -X POST https://api.example.com/api/skill-store/items/{id}/archive \
 
 Soft-deleted items:
 - Are hidden from list, search, and by-key lookups.
-- Can still be retrieved with `GET /api/skill-store/items/:id?include_deleted=true`.
+- Can still be retrieved with `GET /skill-store/items/:id?include_deleted=true`.
 - Are permanently purged after 30 days by an automatic pgcron job.
 
 ---
@@ -449,7 +449,7 @@ Schedules let you set up recurring cron jobs that fire webhooks to your OpenClaw
 ### Creating a Schedule
 
 ```bash
-curl -X POST https://api.example.com/api/skill-store/schedules \
+curl -X POST https://api.example.com/skill-store/schedules \
   -H "Authorization: Bearer $API_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -525,7 +525,7 @@ When the webhook request fails, the schedule tracks failure count. The `max_retr
 Trigger a schedule immediately for testing or ad-hoc runs:
 
 ```bash
-curl -X POST https://api.example.com/api/skill-store/schedules/{id}/trigger \
+curl -X POST https://api.example.com/skill-store/schedules/{id}/trigger \
   -H "Authorization: Bearer $API_TOKEN"
 ```
 
@@ -535,11 +535,11 @@ This enqueues a job for immediate processing regardless of the cron expression.
 
 ```bash
 # Pause
-curl -X POST https://api.example.com/api/skill-store/schedules/{id}/pause \
+curl -X POST https://api.example.com/skill-store/schedules/{id}/pause \
   -H "Authorization: Bearer $API_TOKEN"
 
 # Resume
-curl -X POST https://api.example.com/api/skill-store/schedules/{id}/resume \
+curl -X POST https://api.example.com/skill-store/schedules/{id}/resume \
   -H "Authorization: Bearer $API_TOKEN"
 ```
 
@@ -577,7 +577,7 @@ skill_store_put({
 ### 2. Set Up Daily Digest Schedule
 
 ```bash
-curl -X POST https://api.example.com/api/skill-store/schedules \
+curl -X POST https://api.example.com/skill-store/schedules \
   -H "Authorization: Bearer $API_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -663,7 +663,7 @@ skill_store_put({
 Or archive old digests:
 
 ```bash
-curl -X POST https://api.example.com/api/skill-store/items/{digest-id}/archive \
+curl -X POST https://api.example.com/skill-store/items/{digest-id}/archive \
   -H "Authorization: Bearer $API_TOKEN"
 ```
 
@@ -704,7 +704,7 @@ When a quota is exceeded, the response includes current usage and the limit:
 ### Checking Your Quota
 
 ```bash
-curl https://api.example.com/api/admin/skill-store/skills/my-skill/quota \
+curl https://api.example.com/admin/skill-store/skills/my-skill/quota \
   -H "Authorization: Bearer $API_TOKEN"
 ```
 
@@ -782,7 +782,7 @@ When an item is created or updated, the system asynchronously enqueues an embedd
 If you deploy the embedding provider after items have been created, backfill existing items:
 
 ```bash
-curl -X POST https://api.example.com/api/admin/skill-store/embeddings/backfill \
+curl -X POST https://api.example.com/admin/skill-store/embeddings/backfill \
   -H "Authorization: Bearer $API_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{ "batch_size": 500 }'

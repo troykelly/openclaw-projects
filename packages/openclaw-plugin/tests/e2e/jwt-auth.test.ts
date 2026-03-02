@@ -69,7 +69,7 @@ async function signTestM2MToken(serviceId: string, scopes: string[] = ['api:full
 
 describe.skipIf(!RUN_E2E)('JWT Auth E2E', () => {
   beforeAll(async () => {
-    await waitForService(`${AUTH_API_URL}/api/health`, 30, 2000);
+    await waitForService(`${AUTH_API_URL}/health`, 30, 2000);
   });
 
   describe('Unauthenticated Access', () => {

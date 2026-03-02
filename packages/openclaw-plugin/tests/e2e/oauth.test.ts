@@ -155,7 +155,7 @@ describe.skipIf(!RUN_E2E)('OAuth Authorization URL', () => {
     const provider = configuredProviders[0];
     const token = await signTestJwt();
     const res = await fetch(
-      `${context.config.apiUrl}/api/oauth/authorize/${provider}?features=contacts&permission_level=read`,
+      `${context.config.apiUrl}/oauth/authorize/${provider}?features=contacts&permission_level=read`,
       {
         headers: { Authorization: `Bearer ${token}` },
         redirect: 'manual',

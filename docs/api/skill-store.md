@@ -22,7 +22,7 @@ All endpoints require authentication via `Authorization: Bearer <token>` header.
 
 ### Create or Upsert Item
 
-**POST** `/api/skill-store/items`
+**POST** `/skill-store/items`
 
 Creates a new item, or updates an existing item if `key` is provided and a matching `(skill_id, collection, key)` already exists.
 
@@ -114,7 +114,7 @@ Same shape as 201, with updated field values.
 
 ### Get Item by ID
 
-**GET** `/api/skill-store/items/:id`
+**GET** `/skill-store/items/:id`
 
 Retrieves a single item by UUID.
 
@@ -159,7 +159,7 @@ Retrieves a single item by UUID.
 
 ### Get Item by Composite Key
 
-**GET** `/api/skill-store/items/by-key`
+**GET** `/skill-store/items/by-key`
 
 Retrieves a single item by its composite key `(skill_id, collection, key)`.
 
@@ -185,7 +185,7 @@ Same shape as Get by ID.
 **Example:**
 
 ```bash
-curl "https://api.example.com/api/skill-store/items/by-key?skill_id=news-collator&collection=articles&key=bbc-2024-01-15-tech" \
+curl "https://api.example.com/skill-store/items/by-key?skill_id=news-collator&collection=articles&key=bbc-2024-01-15-tech" \
   -H "Authorization: Bearer $API_TOKEN"
 ```
 
@@ -193,7 +193,7 @@ curl "https://api.example.com/api/skill-store/items/by-key?skill_id=news-collato
 
 ### List Items
 
-**GET** `/api/skill-store/items`
+**GET** `/skill-store/items`
 
 Lists items with filtering, sorting, and pagination.
 
@@ -244,7 +244,7 @@ Lists items with filtering, sorting, and pagination.
 **Example:**
 
 ```bash
-curl "https://api.example.com/api/skill-store/items?skill_id=news-collator&collection=articles&tags=ai,technology&limit=10" \
+curl "https://api.example.com/skill-store/items?skill_id=news-collator&collection=articles&tags=ai,technology&limit=10" \
   -H "Authorization: Bearer $API_TOKEN"
 ```
 
@@ -252,7 +252,7 @@ curl "https://api.example.com/api/skill-store/items?skill_id=news-collator&colle
 
 ### Update Item
 
-**PATCH** `/api/skill-store/items/:id`
+**PATCH** `/skill-store/items/:id`
 
 Partially updates an existing item. Only provided fields are changed.
 
@@ -299,7 +299,7 @@ Returns the full updated item.
 
 ### Delete Item
 
-**DELETE** `/api/skill-store/items/:id`
+**DELETE** `/skill-store/items/:id`
 
 Soft deletes an item by default. Use `?permanent=true` for hard delete.
 
@@ -322,14 +322,14 @@ Soft deletes an item by default. Use `?permanent=true` for hard delete.
 
 - Item gets a `deleted_at` timestamp but remains in the database.
 - Soft-deleted items are excluded from list, search, and by-key lookups.
-- Items can be viewed with `GET /api/skill-store/items/:id?include_deleted=true`.
+- Items can be viewed with `GET /skill-store/items/:id?include_deleted=true`.
 - A pgcron job permanently purges soft-deleted items after 30 days.
 
 ---
 
 ### Bulk Create/Upsert
 
-**POST** `/api/skill-store/items/bulk`
+**POST** `/skill-store/items/bulk`
 
 Creates or upserts up to 100 items in a single transaction. If any item fails validation, the entire batch is rolled back.
 
@@ -378,7 +378,7 @@ Creates or upserts up to 100 items in a single transaction. If any item fails va
 
 ### Bulk Delete
 
-**DELETE** `/api/skill-store/items/bulk`
+**DELETE** `/skill-store/items/bulk`
 
 Soft deletes multiple items matching filter criteria. Requires `skill_id` plus at least one additional filter to prevent accidental mass deletion.
 
@@ -420,7 +420,7 @@ Soft deletes multiple items matching filter criteria. Requires `skill_id` plus a
 
 ### Archive Item
 
-**POST** `/api/skill-store/items/:id/archive`
+**POST** `/skill-store/items/:id/archive`
 
 Sets an item's status to `archived`. Archived items remain queryable but are logically inactive.
 
@@ -441,7 +441,7 @@ Returns the full updated item with `status: "archived"`.
 
 ### Full-Text Search
 
-**POST** `/api/skill-store/search`
+**POST** `/skill-store/search`
 
 Searches items using PostgreSQL full-text search (tsvector). Results are ranked by relevance using `ts_rank` with weighted fields: title (A), summary (B), content (C).
 
@@ -502,7 +502,7 @@ Searches items using PostgreSQL full-text search (tsvector). Results are ranked 
 
 ### Semantic Search
 
-**POST** `/api/skill-store/search/semantic`
+**POST** `/skill-store/search/semantic`
 
 Searches items using vector similarity (cosine distance) via pgvector. Falls back to ILIKE text search if embeddings are not configured. When `semantic_weight` is provided, uses hybrid search (Reciprocal Rank Fusion combining semantic + full-text results).
 
@@ -591,7 +591,7 @@ Searches items using vector similarity (cosine distance) via pgvector. Falls bac
 
 ### List Collections
 
-**GET** `/api/skill-store/collections`
+**GET** `/skill-store/collections`
 
 Lists all collections for a skill with item counts and last activity timestamps.
 
@@ -631,7 +631,7 @@ Lists all collections for a skill with item counts and last activity timestamps.
 
 ### Delete Collection
 
-**DELETE** `/api/skill-store/collections/:name`
+**DELETE** `/skill-store/collections/:name`
 
 Soft deletes all items in a collection.
 
@@ -661,7 +661,7 @@ Soft deletes all items in a collection.
 
 ### Aggregate Items
 
-**GET** `/api/skill-store/aggregate`
+**GET** `/skill-store/aggregate`
 
 Runs simple aggregation operations on skill store items.
 
@@ -730,7 +730,7 @@ Schedules define recurring cron jobs that fire webhooks to OpenClaw for periodic
 
 ### Create Schedule
 
-**POST** `/api/skill-store/schedules`
+**POST** `/skill-store/schedules`
 
 **Request Body:**
 
@@ -805,7 +805,7 @@ Schedules define recurring cron jobs that fire webhooks to OpenClaw for periodic
 
 ### List Schedules
 
-**GET** `/api/skill-store/schedules`
+**GET** `/skill-store/schedules`
 
 **Query Parameters:**
 
@@ -847,7 +847,7 @@ Schedules define recurring cron jobs that fire webhooks to OpenClaw for periodic
 
 ### Update Schedule
 
-**PATCH** `/api/skill-store/schedules/:id`
+**PATCH** `/skill-store/schedules/:id`
 
 Partially updates a schedule. Only provided fields are changed.
 
@@ -887,7 +887,7 @@ Returns the full updated schedule.
 
 ### Delete Schedule
 
-**DELETE** `/api/skill-store/schedules/:id`
+**DELETE** `/skill-store/schedules/:id`
 
 Permanently deletes a schedule (hard delete).
 
@@ -904,7 +904,7 @@ Permanently deletes a schedule (hard delete).
 
 ### Trigger Schedule
 
-**POST** `/api/skill-store/schedules/:id/trigger`
+**POST** `/skill-store/schedules/:id/trigger`
 
 Manually triggers a schedule immediately, regardless of its cron expression. Enqueues an internal job for processing.
 
@@ -928,7 +928,7 @@ Manually triggers a schedule immediately, regardless of its cron expression. Enq
 
 ### Pause Schedule
 
-**POST** `/api/skill-store/schedules/:id/pause`
+**POST** `/skill-store/schedules/:id/pause`
 
 Disables a schedule (sets `enabled = false`).
 
@@ -947,7 +947,7 @@ Returns the full schedule with `enabled: false`.
 
 ### Resume Schedule
 
-**POST** `/api/skill-store/schedules/:id/resume`
+**POST** `/skill-store/schedules/:id/resume`
 
 Re-enables a paused schedule (sets `enabled = true`).
 
@@ -966,11 +966,11 @@ Returns the full schedule with `enabled: true`.
 
 ## Admin Endpoints
 
-These endpoints provide operational visibility into the Skill Store. They live under `/api/admin/skill-store/` and are intended for platform operators.
+These endpoints provide operational visibility into the Skill Store. They live under `/admin/skill-store/` and are intended for platform operators.
 
 ### Global Stats
 
-**GET** `/api/admin/skill-store/stats`
+**GET** `/admin/skill-store/stats`
 
 Returns aggregate statistics across all skills.
 
@@ -999,7 +999,7 @@ Returns aggregate statistics across all skills.
 
 ### List Skills
 
-**GET** `/api/admin/skill-store/skills`
+**GET** `/admin/skill-store/skills`
 
 Lists all registered skill_ids with item counts, collection counts, and last activity.
 
@@ -1028,7 +1028,7 @@ Lists all registered skill_ids with item counts, collection counts, and last act
 
 ### Skill Detail
 
-**GET** `/api/admin/skill-store/skills/:skill_id`
+**GET** `/admin/skill-store/skills/:skill_id`
 
 Detailed view of a single skill including item status breakdown, collections, embedding status, and schedules.
 
@@ -1079,7 +1079,7 @@ Detailed view of a single skill including item status breakdown, collections, em
 
 ### Skill Quota Usage
 
-**GET** `/api/admin/skill-store/skills/:skill_id/quota`
+**GET** `/admin/skill-store/skills/:skill_id/quota`
 
 Returns quota usage vs. configured limits for a skill.
 
@@ -1117,7 +1117,7 @@ Default quota limits (configurable via environment variables):
 
 ### Purge Skill
 
-**DELETE** `/api/admin/skill-store/skills/:skill_id`
+**DELETE** `/admin/skill-store/skills/:skill_id`
 
 Hard deletes ALL data for a skill (items + schedules). Irreversible. Requires the `X-Confirm-Delete: true` header.
 
@@ -1148,7 +1148,7 @@ Hard deletes ALL data for a skill (items + schedules). Irreversible. Requires th
 
 ### Embedding Status
 
-**GET** `/api/admin/skill-store/embeddings/status`
+**GET** `/admin/skill-store/embeddings/status`
 
 Returns embedding generation statistics across all skill store items.
 
@@ -1171,7 +1171,7 @@ Returns embedding generation statistics across all skill store items.
 
 ### Backfill Embeddings
 
-**POST** `/api/admin/skill-store/embeddings/backfill`
+**POST** `/admin/skill-store/embeddings/backfill`
 
 Enqueues embedding generation jobs for items with `pending` or `failed` embedding status. Items are processed asynchronously by the job processor.
 

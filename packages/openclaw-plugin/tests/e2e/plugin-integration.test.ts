@@ -30,7 +30,7 @@ describe.skipIf(!RUN_E2E)('Plugin E2E Integration', () => {
   describe('Backend Health', () => {
     it('should have a healthy backend', async () => {
       const response = await context.apiClient.get<{ status: string }>('/health');
-      // /api/health returns 'healthy', 'degraded', or 'unhealthy' (503)
+      // /health returns 'healthy', 'degraded', or 'unhealthy' (503)
       expect(['healthy', 'degraded']).toContain(response.status);
     });
 

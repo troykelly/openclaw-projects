@@ -191,7 +191,7 @@ export function createTestApiClient(baseUrl: string) {
  */
 export async function areE2EServicesAvailable(config: E2EConfig = defaultConfig): Promise<boolean> {
   try {
-    await waitForService(`${config.apiUrl}/api/health`, 1, 0);
+    await waitForService(`${config.apiUrl}/health`, 1, 0);
     return true;
   } catch {
     return false;
@@ -282,7 +282,7 @@ export function createE2EContext(config: E2EConfig = defaultConfig): E2ETestCont
 export function setupE2ELifecycle(context: E2ETestContext) {
   beforeAll(async () => {
     // Wait for backend to be available
-    await waitForService(`${context.config.apiUrl}/api/health`, context.config.healthCheckRetries);
+    await waitForService(`${context.config.apiUrl}/health`, context.config.healthCheckRetries);
   });
 
   afterEach(async () => {

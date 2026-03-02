@@ -40,7 +40,7 @@ describe.skipIf(!RUN_E2E)('Plugin Memory Tool Round-Trip (Issue #1098)', () => {
 
   beforeAll(async () => {
     // Wait for the backend to be healthy
-    await waitForService(`${apiUrl}/api/health`, defaultConfig.healthCheckRetries);
+    await waitForService(`${apiUrl}/health`, defaultConfig.healthCheckRetries);
 
     // Build a minimal PluginConfig for the E2E backend (auth disabled)
     pluginConfig = PluginConfigSchema.parse({

@@ -160,7 +160,7 @@ describe.skipIf(!RUN_E2E)('Namespace-based scope isolation (E2E)', () => {
   const cleanupContactsDefault: string[] = [];
 
   beforeAll(async () => {
-    await waitForService(`${config.apiUrl}/api/health`, config.healthCheckRetries);
+    await waitForService(`${config.apiUrl}/health`, config.healthCheckRetries);
 
     // Create the two namespaces via the raw (unscoped) M2M client.
     // 409 is acceptable if the namespace already exists from a previous run.

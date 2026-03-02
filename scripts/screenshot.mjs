@@ -18,7 +18,7 @@ try {
   page.on('pageerror', (err) => errors.push('PAGE ERROR: ' + err.message));
 
   // Get a fresh token
-  const resp = await fetch('http://localhost:3000/api/auth/request-link', {
+  const resp = await fetch('http://localhost:3000/auth/request-link', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email: 'demo@openclaw.dev' }),
