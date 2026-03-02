@@ -211,12 +211,18 @@ function computeFingerprint(key: Buffer): string {
 
 /**
  * Verify a host key against the known_hosts table.
+ *
+ * @param forceReplace - When true and policy is TOFU, replace an existing
+ *   stored key with the offered key instead of rejecting on mismatch.
+ *   Used by testConnection when trust_host_key=true so that users can
+ *   recover from a changed server key (e.g. after a server reinstall).
  */
 async function verifyHostKey(
   pool: pg.Pool,
   conn: ConnectionRow,
   keyType: string,
   keyData: Buffer,
+  forceReplace = false,
 ): Promise<HostKeyVerifyResult> {
   const fingerprint = computeFingerprint(keyData);
   const publicKey = keyData.toString('base64');
@@ -230,19 +236,26 @@ async function verifyHostKey(
 
     case 'tofu': {
       // Trust On First Use: accept and store if new, reject if changed.
-      // Uses INSERT ... ON CONFLICT DO NOTHING to avoid race conditions
-      // when concurrent connections both try to trust the same host.
+      // When forceReplace=true the stored key is replaced on conflict so
+      // users can recover after a server reinstall or key rotation.
+      const onConflict = forceReplace
+        ? `DO UPDATE SET key_fingerprint = EXCLUDED.key_fingerprint,
+                        public_key     = EXCLUDED.public_key,
+                        trusted_at     = NOW(),
+                        trusted_by     = 'tofu'`
+        : 'DO NOTHING';
+
       const insertResult = await pool.query<{ id: string }>(
         `INSERT INTO terminal_known_host
            (id, namespace, connection_id, host, port, key_type, key_fingerprint, public_key, trusted_by)
          VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, 'tofu')
-         ON CONFLICT (namespace, host, port, key_type) DO NOTHING
+         ON CONFLICT (namespace, host, port, key_type) ${onConflict}
          RETURNING id`,
         [conn.namespace, conn.id, conn.host, conn.port, keyType, fingerprint, publicKey],
       );
 
       if (insertResult.rows.length > 0) {
-        // Successfully inserted — first connection, trusted
+        // Inserted or replaced — trusted
         return 'accept';
       }
 
@@ -299,6 +312,8 @@ async function verifyHostKey(
 interface ConnectSSHOptions {
   /** Override the connection's host_key_policy (e.g. use 'tofu' during test). */
   hostKeyPolicyOverride?: string;
+  /** When true, TOFU replaces a mismatched stored key instead of rejecting. */
+  forceReplace?: boolean;
   /** Called with the offered host key fingerprint during the SSH handshake. */
   onHostKeyOffered?: (fingerprint: string, keyType: string, publicKey: string) => void;
 }
@@ -353,7 +368,7 @@ function connectSSH(
           : conn;
 
         // Async verification via callback
-        verifyHostKey(pool, connWithPolicy, 'ssh-unknown', key)
+        verifyHostKey(pool, connWithPolicy, 'ssh-unknown', key, options?.forceReplace)
           .then((result) => {
             const accepted = result === 'accept';
             if (callback) { callback(accepted); return; }
@@ -668,8 +683,10 @@ export class SSHConnectionManager {
       try {
         await connectSSH(tempClient, sshConfig, conn, this.pool, {
           // When trust_host_key is true, override policy to TOFU so the key
-          // is accepted and stored on first use (Issue #1983)
+          // is accepted and stored on first use.  forceReplace ensures a
+          // previously-stored (now stale) key is replaced (Issue #1983).
           hostKeyPolicyOverride: trustHostKey ? 'tofu' : undefined,
+          forceReplace: trustHostKey || undefined,
           onHostKeyOffered: (fp) => { capturedFingerprint = fp; },
         });
         const latencyMs = Date.now() - start;
