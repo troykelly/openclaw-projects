@@ -539,7 +539,8 @@ services:
       PGDATABASE: ${POSTGRES_DB:-openclaw}
       HA_CONNECTOR_HEALTH_PORT: 9001
       HA_CONNECTOR_POOL_MAX: 5
-      GEO_ENCRYPTION_KEY: ${GEO_ENCRYPTION_KEY:-}
+      OAUTH_TOKEN_ENCRYPTION_KEY: ${OAUTH_TOKEN_ENCRYPTION_KEY:-}
+      GEO_TOKEN_ENCRYPTION_KEY: ${GEO_TOKEN_ENCRYPTION_KEY:-}
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:9001/healthz"]
       interval: 10s
