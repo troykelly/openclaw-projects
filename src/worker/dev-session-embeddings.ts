@@ -1,6 +1,5 @@
 /**
- * Dev session embedding worker.
- * Issue #1987 — Dev session semantic search with embeddings.
+ * Dev session embedding worker (Issue #1987).
  *
  * Polls dev_session rows with embedding_status = 'pending',
  * generates embeddings from combined text fields, and writes
