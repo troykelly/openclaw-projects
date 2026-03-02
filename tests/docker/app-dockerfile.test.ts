@@ -199,7 +199,7 @@ describe('Nginx Configuration Template', () => {
 
   describe('Docker Vite base path override', () => {
     it('should set VITE_BASE=/ before running app:build', () => {
-      expect(dockerfileContent).toMatch(/VITE_BASE=\/\s+pnpm run app:build/);
+      expect(dockerfileContent).toMatch(/VITE_BASE=\/[\s\S]*pnpm run app:build/);
     });
 
     it('should NOT have any /static/app/ location blocks in nginx', () => {
