@@ -34,7 +34,17 @@ ARG SENTRY_URL
 
 # Build the frontend app with base=/ for nginx root-relative asset paths.
 # Default Vite base is /static/app/ (for Fastify); Docker/nginx serves from root.
-RUN VITE_BASE=/ pnpm run app:build
+# Sentry env vars are passed inline so @sentry/vite-plugin can upload source maps
+# when configured. ARGs are available during build but must be forwarded explicitly.
+RUN VITE_BASE=/ \
+    VITE_SENTRY_DSN="${VITE_SENTRY_DSN}" \
+    VITE_SENTRY_ENVIRONMENT="${VITE_SENTRY_ENVIRONMENT}" \
+    VITE_SENTRY_RELEASE="${VITE_SENTRY_RELEASE}" \
+    SENTRY_AUTH_TOKEN="${SENTRY_AUTH_TOKEN}" \
+    SENTRY_ORG="${SENTRY_ORG}" \
+    SENTRY_PROJECT="${SENTRY_PROJECT}" \
+    SENTRY_URL="${SENTRY_URL}" \
+    pnpm run app:build
 
 # Pre-compress assets with gzip and brotli for optimal delivery
 # Install brotli tool for compression

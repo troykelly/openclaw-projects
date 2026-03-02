@@ -611,6 +611,9 @@ jobs:
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@e368e328979b113139d6f9068e03accaed98a518 # master
+        # Informational only — do not fail the build if Trivy itself has
+        # transient download/install issues.
+        continue-on-error: true
         with:
           image-ref: ghcr.io/troykelly/openclaw-projects-${{ matrix.image.name }}:${{ needs.validate.outputs.version }}
           format: 'sarif'
@@ -620,6 +623,7 @@ jobs:
 
       - name: Upload Trivy scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@bb471cdcf4dda2c934c5b656f554d43c1434ed13 # v4
+        continue-on-error: true
         with:
           sarif_file: 'trivy-results-${{ matrix.image.name }}.sarif'
         if: always()
