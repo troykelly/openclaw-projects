@@ -5,7 +5,15 @@
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/ui/lib/api-client.ts';
-import type { TerminalConnection, TerminalConnectionsResponse } from '@/ui/lib/api-types.ts';
+import type { TerminalConnection, TerminalConnectionsResponse, TerminalKnownHostsResponse } from '@/ui/lib/api-types.ts';
+
+/** Response from POST /terminal/connections/:id/test */
+export interface TestConnectionResponse {
+  success: boolean;
+  message: string;
+  latency_ms: number;
+  host_key_fingerprint: string;
+}
 
 /** Query key factory for terminal connections. */
 export const terminalConnectionKeys = {
@@ -13,6 +21,12 @@ export const terminalConnectionKeys = {
   lists: () => [...terminalConnectionKeys.all, 'list'] as const,
   list: (search?: string) => [...terminalConnectionKeys.lists(), search] as const,
   detail: (id: string) => [...terminalConnectionKeys.all, 'detail', id] as const,
+};
+
+/** Query key factory for terminal known hosts. */
+export const terminalKnownHostKeys = {
+  all: ['terminal-known-hosts'] as const,
+  list: (connectionId?: string) => [...terminalKnownHostKeys.all, 'list', connectionId] as const,
 };
 
 /** Fetch terminal connections list. */
@@ -76,8 +90,10 @@ export function useDeleteTerminalConnection() {
 /** Test a terminal connection. */
 export function useTestTerminalConnection() {
   return useMutation({
-    mutationFn: (id: string) =>
-      apiClient.post<{ success: boolean; message: string }>(`/terminal/connections/${id}/test`, {}),
+    mutationFn: ({ id, trustHostKey }: { id: string; trustHostKey?: boolean }) =>
+      apiClient.post<TestConnectionResponse>(`/terminal/connections/${id}/test`, {
+        trust_host_key: trustHostKey ?? false,
+      }),
   });
 }
 
@@ -90,6 +106,29 @@ export function useImportSshConfig() {
       apiClient.post<{ connections: TerminalConnection[] }>('/terminal/connections/import-ssh-config', { config }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: terminalConnectionKeys.all });
+    },
+  });
+}
+
+/** Fetch known hosts for a connection. */
+export function useTerminalKnownHosts(connectionId?: string) {
+  const qs = connectionId ? `?connection_id=${encodeURIComponent(connectionId)}` : '';
+
+  return useQuery({
+    queryKey: terminalKnownHostKeys.list(connectionId),
+    queryFn: ({ signal }) => apiClient.get<TerminalKnownHostsResponse>(`/terminal/known-hosts${qs}`, { signal }),
+    enabled: !!connectionId,
+  });
+}
+
+/** Delete a known host entry. */
+export function useDeleteTerminalKnownHost() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => apiClient.delete(`/terminal/known-hosts/${id}`),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: terminalKnownHostKeys.all });
     },
   });
 }
