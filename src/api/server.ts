@@ -21719,7 +21719,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
-  // GET /api/dev-sessions/:id — Get a specific session
+  // GET /api/dev-sessions/:id — Get a specific session (includes linked terminals)
   app.get('/dev-sessions/:id', async (req, reply) => {
     const email = getDevSessionEmail(req);
     if (!email) return reply.code(400).send({ error: 'user_email is required (query param or header)' });
@@ -21734,7 +21734,23 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       if (result.rows.length === 0) {
         return reply.code(404).send({ error: 'Dev session not found' });
       }
-      return reply.send(result.rows[0]);
+
+      // Fetch linked terminal sessions (Issue #1988)
+      const termResult = await pool.query(
+        `SELECT dst.terminal_session_id, dst.linked_at,
+                ts.tmux_session_name, ts.status, ts.connection_id,
+                ts.started_at, ts.terminated_at
+         FROM dev_session_terminal dst
+         JOIN terminal_session ts ON ts.id = dst.terminal_session_id
+         WHERE dst.dev_session_id = $1
+         ORDER BY dst.linked_at`,
+        [id],
+      );
+
+      return reply.send({
+        ...result.rows[0],
+        terminals: termResult.rows,
+      });
     } finally {
       await pool.end();
     }
@@ -21749,6 +21765,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const body = req.body as Record<string, unknown> | null;
     if (!body) return reply.code(400).send({ error: 'Body required' });
 
+    // Issue #1988: optional terminal_session_id to link
+    const terminalSessionId = typeof body.terminal_session_id === 'string' ? body.terminal_session_id : null;
+
     const setClauses: string[] = ['updated_at = now()'];
     const params: unknown[] = [id, email];
     let idx = 3;
@@ -21761,7 +21780,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }
     }
 
-    if (setClauses.length === 1) {
+    if (setClauses.length === 1 && !terminalSessionId) {
       return reply.code(400).send({ error: 'No updatable fields provided' });
     }
 
@@ -21776,6 +21795,17 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       if (result.rows.length === 0) {
         return reply.code(404).send({ error: 'Dev session not found' });
       }
+
+      // Issue #1988: link terminal session if provided
+      if (terminalSessionId) {
+        await pool.query(
+          `INSERT INTO dev_session_terminal (dev_session_id, terminal_session_id)
+           VALUES ($1, $2)
+           ON CONFLICT (dev_session_id, terminal_session_id) DO NOTHING`,
+          [id, terminalSessionId],
+        );
+      }
+
       return reply.send(result.rows[0]);
     } finally {
       await pool.end();
@@ -21790,6 +21820,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const { id } = req.params as { id: string };
     const body = (req.body as Record<string, unknown>) ?? {};
     const completionSummary = typeof body.completion_summary === 'string' ? body.completion_summary : null;
+    const terminateTerminals = body.terminate_terminals === true;
 
     const pool = createPool();
     try {
@@ -21804,6 +21835,20 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       if (result.rows.length === 0) {
         return reply.code(404).send({ error: 'Dev session not found' });
       }
+
+      // Issue #1988: terminate linked terminal sessions if requested
+      if (terminateTerminals) {
+        await pool.query(
+          `UPDATE terminal_session
+           SET status = 'terminated', terminated_at = now(), updated_at = now()
+           WHERE id IN (
+             SELECT terminal_session_id FROM dev_session_terminal WHERE dev_session_id = $1
+           )
+           AND status NOT IN ('terminated', 'error')`,
+          [id],
+        );
+      }
+
       return reply.send(result.rows[0]);
     } finally {
       await pool.end();
@@ -21825,6 +21870,128 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       if (result.rows.length === 0) {
         return reply.code(404).send({ error: 'Dev session not found' });
       }
+      return reply.code(204).send();
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // ── Dev Session Terminal Links (Issue #1988) ─────────────────────────
+
+  // POST /dev-sessions/:id/terminals — Link a terminal session to a dev session
+  app.post('/dev-sessions/:id/terminals', async (req, reply) => {
+    const email = getDevSessionEmail(req);
+    if (!email) return reply.code(400).send({ error: 'user_email is required' });
+
+    const { id } = req.params as { id: string };
+    const body = req.body as Record<string, unknown> | null;
+    if (!body) return reply.code(400).send({ error: 'Body required' });
+
+    const terminalSessionId = typeof body.terminal_session_id === 'string' ? body.terminal_session_id : '';
+    if (!terminalSessionId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(terminalSessionId)) {
+      return reply.code(400).send({ error: 'Valid terminal_session_id is required' });
+    }
+
+    const pool = createPool();
+    try {
+      // Verify dev session exists and belongs to user
+      const devSessionCheck = await pool.query(
+        `SELECT id FROM dev_session WHERE id = $1 AND user_email = $2`,
+        [id, email],
+      );
+      if (devSessionCheck.rows.length === 0) {
+        return reply.code(404).send({ error: 'Dev session not found' });
+      }
+
+      // Verify terminal session exists
+      const termSessionCheck = await pool.query(
+        `SELECT id FROM terminal_session WHERE id = $1`,
+        [terminalSessionId],
+      );
+      if (termSessionCheck.rows.length === 0) {
+        return reply.code(404).send({ error: 'Terminal session not found' });
+      }
+
+      // Insert link (conflict = already linked)
+      const result = await pool.query(
+        `INSERT INTO dev_session_terminal (dev_session_id, terminal_session_id)
+         VALUES ($1, $2)
+         ON CONFLICT (dev_session_id, terminal_session_id) DO NOTHING
+         RETURNING *`,
+        [id, terminalSessionId],
+      );
+
+      if (result.rows.length === 0) {
+        return reply.code(409).send({ error: 'Terminal session already linked to this dev session' });
+      }
+
+      return reply.code(201).send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /dev-sessions/:id/terminals — List linked terminal sessions
+  app.get('/dev-sessions/:id/terminals', async (req, reply) => {
+    const email = getDevSessionEmail(req);
+    if (!email) return reply.code(400).send({ error: 'user_email is required' });
+
+    const { id } = req.params as { id: string };
+    const pool = createPool();
+    try {
+      // Verify dev session exists and belongs to user
+      const devSessionCheck = await pool.query(
+        `SELECT id FROM dev_session WHERE id = $1 AND user_email = $2`,
+        [id, email],
+      );
+      if (devSessionCheck.rows.length === 0) {
+        return reply.code(404).send({ error: 'Dev session not found' });
+      }
+
+      const result = await pool.query(
+        `SELECT dst.terminal_session_id, dst.linked_at,
+                ts.tmux_session_name, ts.status, ts.connection_id,
+                ts.started_at, ts.terminated_at
+         FROM dev_session_terminal dst
+         JOIN terminal_session ts ON ts.id = dst.terminal_session_id
+         WHERE dst.dev_session_id = $1
+         ORDER BY dst.linked_at`,
+        [id],
+      );
+
+      return reply.send({ terminals: result.rows });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // DELETE /dev-sessions/:id/terminals/:terminal_id — Unlink a terminal session
+  app.delete('/dev-sessions/:id/terminals/:terminal_id', async (req, reply) => {
+    const email = getDevSessionEmail(req);
+    if (!email) return reply.code(400).send({ error: 'user_email is required' });
+
+    const { id, terminal_id } = req.params as { id: string; terminal_id: string };
+    const pool = createPool();
+    try {
+      // Verify dev session belongs to user
+      const devSessionCheck = await pool.query(
+        `SELECT id FROM dev_session WHERE id = $1 AND user_email = $2`,
+        [id, email],
+      );
+      if (devSessionCheck.rows.length === 0) {
+        return reply.code(404).send({ error: 'Dev session not found' });
+      }
+
+      const result = await pool.query(
+        `DELETE FROM dev_session_terminal
+         WHERE dev_session_id = $1 AND terminal_session_id = $2
+         RETURNING *`,
+        [id, terminal_id],
+      );
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'Terminal link not found' });
+      }
+
       return reply.code(204).send();
     } finally {
       await pool.end();
