@@ -148,7 +148,11 @@ async function main(): Promise<void> {
       await pool.end();
 
       // Flush pending Sentry events before exit (#2001)
-      await closeSentry();
+      try {
+        await closeSentry();
+      } catch {
+        // Best-effort flush — do not block shutdown
+      }
 
       console.log('[HA-Connector] Shutdown complete');
       process.exit(0);

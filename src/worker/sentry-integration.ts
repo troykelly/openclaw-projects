@@ -19,6 +19,18 @@ interface JobIdentifier {
 }
 
 /**
+ * Strip a destination URL to just its host for safe breadcrumb logging.
+ * Avoids leaking paths/query params that might contain tokens or secrets.
+ */
+function sanitizeDestination(destination: string): string {
+  try {
+    return new URL(destination).host;
+  } catch {
+    return destination;
+  }
+}
+
+/**
  * Wrap a single job's processing in a Sentry tracing span.
  *
  * Creates one span per job (not one per polling batch), providing
@@ -53,12 +65,13 @@ export function recordCircuitBreakerBreadcrumb(
   newState: CircuitState,
   failures: number,
 ): void {
+  const safeDestination = sanitizeDestination(destination);
   Sentry.addBreadcrumb({
     category: 'circuit_breaker',
-    message: `Circuit breaker for ${destination}: ${previousState} -> ${newState}`,
+    message: `Circuit breaker for ${safeDestination}: ${previousState} -> ${newState}`,
     level: newState === 'closed' ? 'info' : 'warning',
     data: {
-      destination,
+      destination: safeDestination,
       previousState,
       newState,
       failures,
