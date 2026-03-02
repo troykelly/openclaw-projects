@@ -61,7 +61,9 @@ export function registerCors(app: FastifyInstance): void {
       return callback(null, false);
     },
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Authorization', 'Content-Type', 'Accept'],
+    // sentry-trace and baggage are required for Sentry distributed tracing
+    // (frontend → backend trace propagation). See Epic #1998, Issue #2000.
+    allowedHeaders: ['Authorization', 'Content-Type', 'Accept', 'sentry-trace', 'baggage'],
     credentials: true,
     maxAge: 86400,
   });
