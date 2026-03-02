@@ -66,9 +66,14 @@ import type {
 type SdkOnMethod = NonNullable<SdkOpenClawPluginApi['on']>;
 type SdkHookNameParam = Parameters<SdkOnMethod>[0];
 
-// Every local PluginHookName value should be assignable to the SDK's parameter type
+// Bidirectional hook name compatibility (#2038):
+// 1. Every local PluginHookName value must be assignable to the SDK's parameter type
 const _localToSdk: SdkHookNameParam = '' as PluginHookName;
 void _localToSdk;
+// 2. Every SDK hook name must be assignable to our local PluginHookName
+// If the SDK adds a new hook that we haven't defined locally, this will produce a type error.
+const _sdkToLocal: PluginHookName = '' as SdkHookNameParam;
+void _sdkToLocal;
 
 describe('SDK Type Compatibility', () => {
   describe('PluginHookName', () => {

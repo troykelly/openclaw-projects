@@ -62,7 +62,7 @@ These tests validate the openclaw-projects plugin at the Gateway integration lev
 
 ## Architecture
 
-Tests import the real Gateway loader directly from the gateway source at `.local/openclaw-gateway/`. The `vitest.config.ts` sets up path aliases:
+Most tests import the real Gateway loader directly from the gateway source at `.local/openclaw-gateway/`. The `vitest.config.ts` sets up path aliases:
 
 ```
 openclaw-gateway/plugins/loader -> .local/openclaw-gateway/src/plugins/loader.ts
@@ -76,10 +76,23 @@ This approach:
 - Is resilient to bundle hash changes in the openclaw npm package
 - Requires the gateway source (available in dev via `.local/openclaw-gateway`)
 
+### Tests that always run (no gateway source needed) (#2043)
+
+| Test | Why it doesn't need gateway source |
+|------|-------------------------------------|
+| `manifest-validation.test.ts` | Only reads local `openclaw.plugin.json` |
+| `plugin-exports.test.ts` | Only imports from `dist/index.js` |
+
+### Tests that require gateway source
+
+All other tests import `loadOpenClawPlugins` or `createHookRunner` from internal
+gateway paths that are NOT part of the openclaw npm package. These are skipped in
+CI with a console warning when `.local/openclaw-gateway` is absent.
+
 ## Running Tests
 
 ```bash
-# Run gateway tests
+# Run gateway tests (only non-gateway-source tests run without .local/openclaw-gateway)
 pnpm test tests/gateway
 
 # Run full test suite
@@ -91,6 +104,6 @@ pnpm run build
 
 ## Prerequisites
 
-- Gateway source symlinked at `.local/openclaw-gateway/`
-- Plugin built (`pnpm run build`) for export verification tests
 - `node_modules` installed via `pnpm install`
+- Plugin built (`pnpm run build`) for export verification tests
+- **Optional**: Gateway source symlinked at `.local/openclaw-gateway/` for full test coverage
