@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
+import { sentryVitePlugin } from '@sentry/vite-plugin';
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -31,7 +32,27 @@ function getAppVersion(): string {
 // Build the frontend directly into the Fastify static directory.
 // Fastify serves `/static/*` from `src/api/static/*`.
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [
+    react(),
+    tailwindcss(),
+    // Sentry source map upload — only active in CI when SENTRY_AUTH_TOKEN is set.
+    // Uses @sentry/vite-plugin with debug IDs for reliable source map association.
+    // GlitchTip compatibility: pin to @sentry/vite-plugin@^2.
+    ...(process.env.SENTRY_AUTH_TOKEN
+      ? [
+          sentryVitePlugin({
+            org: process.env.SENTRY_ORG,
+            project: process.env.SENTRY_PROJECT,
+            authToken: process.env.SENTRY_AUTH_TOKEN,
+            url: process.env.SENTRY_URL,
+            release: { name: getAppVersion() },
+            sourcemaps: {
+              filesToDeleteAfterUpload: ['./src/api/static/app/**/*.map'],
+            },
+          }),
+        ]
+      : []),
+  ],
   root: path.join(__dirname, 'src', 'ui', 'app'),
   base: process.env.VITE_BASE || '/static/app/',
   define: {

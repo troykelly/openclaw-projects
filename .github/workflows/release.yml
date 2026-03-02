@@ -601,6 +601,13 @@ jobs:
             OCI_CREATED=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.created'] }}
             OCI_REVISION=${{ github.sha }}
             OCI_VERSION=${{ needs.validate.outputs.version }}
+            ${{ matrix.image.name == 'app' && format('VITE_SENTRY_DSN={0}', secrets.VITE_SENTRY_DSN) || '' }}
+            ${{ matrix.image.name == 'app' && format('VITE_SENTRY_ENVIRONMENT=production') || '' }}
+            ${{ matrix.image.name == 'app' && format('VITE_SENTRY_RELEASE={0}', needs.validate.outputs.version) || '' }}
+            ${{ matrix.image.name == 'app' && format('SENTRY_AUTH_TOKEN={0}', secrets.SENTRY_AUTH_TOKEN) || '' }}
+            ${{ matrix.image.name == 'app' && format('SENTRY_ORG={0}', secrets.SENTRY_ORG) || '' }}
+            ${{ matrix.image.name == 'app' && format('SENTRY_PROJECT={0}', secrets.SENTRY_PROJECT) || '' }}
+            ${{ matrix.image.name == 'app' && format('SENTRY_URL={0}', secrets.SENTRY_URL) || '' }}
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@e368e328979b113139d6f9068e03accaed98a518 # master
@@ -616,6 +623,48 @@ jobs:
         with:
           sarif_file: 'trivy-results-${{ matrix.image.name }}.sarif'
         if: always()
+
+  # ──────────────────────────────────────────────────────────────
+  # 3d. Finalize Sentry/GlitchTip release (optional)
+  # ──────────────────────────────────────────────────────────────
+  finalize-sentry-release:
+    name: Finalize Sentry release
+    needs: [validate, publish-containers]
+    runs-on: ubuntu-latest
+    # Only run when Sentry secrets are configured
+    if: ${{ secrets.SENTRY_AUTH_TOKEN != '' }}
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Finalize Sentry release
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+          SENTRY_URL: ${{ secrets.SENTRY_URL }}
+          RELEASE_VERSION: ${{ needs.validate.outputs.version }}
+        run: |
+          set -euo pipefail
+          pnpm exec sentry-cli releases new "${RELEASE_VERSION}"
+          pnpm exec sentry-cli releases set-commits "${RELEASE_VERSION}" --auto
+          pnpm exec sentry-cli releases finalize "${RELEASE_VERSION}"
 
   # ──────────────────────────────────────────────────────────────
   # 4. Create GitHub Release with versioned compose files
