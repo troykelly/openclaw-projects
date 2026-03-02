@@ -49,6 +49,11 @@ export default defineConfig({
             sourcemaps: {
               filesToDeleteAfterUpload: ['./src/api/static/app/**/*.map'],
             },
+            // Best-effort: don't fail the build if source map upload fails
+            // (e.g. SSL cert issues in Docker, transient network errors).
+            errorHandler: (err) => {
+              console.warn('[sentry-vite-plugin] Source map upload failed:', err.message);
+            },
           }),
         ]
       : []),
