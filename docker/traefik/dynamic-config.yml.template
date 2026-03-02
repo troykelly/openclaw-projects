@@ -75,6 +75,8 @@ http:
           - Authorization
           - Content-Type
           - Accept
+          - sentry-trace
+          - baggage
         accessControlAllowCredentials: true
         accessControlMaxAge: 86400
         addVaryHeader: true

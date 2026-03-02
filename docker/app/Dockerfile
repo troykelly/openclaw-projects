@@ -21,6 +21,17 @@ COPY src/ ./src/
 COPY vite.config.ts tsconfig.json tsconfig.build.json ./
 COPY components.json ./
 
+# Sentry/GlitchTip source map upload — build ARGs (all optional).
+# When SENTRY_AUTH_TOKEN is set, @sentry/vite-plugin uploads source maps
+# during build and deletes .map files from the output directory.
+ARG VITE_SENTRY_DSN
+ARG VITE_SENTRY_ENVIRONMENT
+ARG VITE_SENTRY_RELEASE
+ARG SENTRY_AUTH_TOKEN
+ARG SENTRY_ORG
+ARG SENTRY_PROJECT
+ARG SENTRY_URL
+
 # Build the frontend app with base=/ for nginx root-relative asset paths.
 # Default Vite base is /static/app/ (for Fastify); Docker/nginx serves from root.
 RUN VITE_BASE=/ pnpm run app:build
@@ -64,6 +75,11 @@ COPY docker/app/nginx.conf.template /etc/nginx/templates/default.conf.template
 
 # Copy built static assets from builder (including pre-compressed files)
 COPY --from=builder /app/src/api/static/app /usr/share/nginx/html
+
+# Safety net: remove any remaining source maps from the production image.
+# The @sentry/vite-plugin deletes .map files after upload, but this ensures
+# they never ship even when the plugin is not active.
+RUN find /usr/share/nginx/html -name "*.map" -delete 2>/dev/null || true
 
 # Create nginx cache directories with correct permissions
 RUN mkdir -p /var/cache/nginx /var/run \
