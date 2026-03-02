@@ -13,6 +13,7 @@
  */
 
 import type { Pool } from 'pg';
+import { closeSentry } from '../instrument.ts';
 import { createPool } from '../db.ts';
 import { bootstrapGeoProviders } from '../api/geolocation/bootstrap.ts';
 import { HaEventRouter } from '../api/geolocation/ha-event-router.ts';
@@ -145,6 +146,14 @@ async function main(): Promise<void> {
       await lifecycle.shutdown();
       healthServer.close();
       await pool.end();
+
+      // Flush pending Sentry events before exit (#2001)
+      try {
+        await closeSentry();
+      } catch {
+        // Best-effort flush — do not block shutdown
+      }
+
       console.log('[HA-Connector] Shutdown complete');
       process.exit(0);
     } catch (err) {

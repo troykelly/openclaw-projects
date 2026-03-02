@@ -9,6 +9,7 @@
  */
 
 import fs from 'node:fs';
+import { closeSentry } from '../instrument.ts';
 import { loadConfig, validateEncryptionKey } from './config.ts';
 import { getPool, closePool } from './db.ts';
 import { startHealthServer, stopHealthServer, setHealthy } from './health.ts';
@@ -127,6 +128,13 @@ async function main(): Promise<void> {
     await stopGrpcServer(grpcServer);
     await stopHealthServer();
     await closePool();
+
+    // Flush pending Sentry events before exit (#2001)
+    try {
+      await closeSentry();
+    } catch {
+      // Best-effort flush — do not block shutdown
+    }
 
     console.log('TMux worker stopped');
     process.exit(0);

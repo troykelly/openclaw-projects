@@ -13,11 +13,21 @@ interface DestinationState {
   openUntil: number | null;
 }
 
+/** Callback fired when a circuit breaker destination changes state. */
+export type CircuitStateChangeCallback = (
+  destination: string,
+  previousState: CircuitState,
+  newState: CircuitState,
+  failures: number,
+) => void;
+
 interface CircuitBreakerOptions {
   /** Number of consecutive failures before opening the circuit. Default: 5. */
   threshold?: number;
   /** Time in ms to keep the circuit open before allowing a probe. Default: 60000. */
   cooldownMs?: number;
+  /** Optional callback when a destination's state changes (#2001). */
+  onStateChange?: CircuitStateChangeCallback;
 }
 
 /**
@@ -36,10 +46,12 @@ export class CircuitBreaker {
   private readonly threshold: number;
   private readonly cooldownMs: number;
   private readonly destinations = new Map<string, DestinationState>();
+  private readonly onStateChange?: CircuitStateChangeCallback;
 
   constructor(options: CircuitBreakerOptions = {}) {
     this.threshold = options.threshold ?? 5;
     this.cooldownMs = options.cooldownMs ?? 60_000;
+    this.onStateChange = options.onStateChange;
   }
 
   private getOrCreate(destination: string): DestinationState {
@@ -64,7 +76,9 @@ export class CircuitBreaker {
     if (s.state === 'open') {
       if (s.openUntil !== null && Date.now() >= s.openUntil) {
         // Cooldown expired -- allow one probe
+        const prev = s.state;
         s.state = 'half_open';
+        this.onStateChange?.(destination, prev, 'half_open', s.failures);
         return false;
       }
       return true;
@@ -79,12 +93,17 @@ export class CircuitBreaker {
    */
   recordSuccess(destination: string): void {
     const key = destinationKey(destination);
+    const prev = this.destinations.get(key);
+    const previousState = prev?.state ?? 'closed';
     this.destinations.set(key, {
       state: 'closed',
       failures: 0,
       lastFailure: null,
       openUntil: null,
     });
+    if (previousState !== 'closed') {
+      this.onStateChange?.(destination, previousState, 'closed', 0);
+    }
   }
 
   /**
@@ -92,12 +111,14 @@ export class CircuitBreaker {
    */
   recordFailure(destination: string): void {
     const s = this.getOrCreate(destination);
+    const previousState = s.state;
     s.failures++;
     s.lastFailure = Date.now();
 
-    if (s.failures >= this.threshold) {
+    if (s.failures >= this.threshold && previousState !== 'open') {
       s.state = 'open';
       s.openUntil = Date.now() + this.cooldownMs;
+      this.onStateChange?.(destination, previousState, 'open', s.failures);
     }
   }
 

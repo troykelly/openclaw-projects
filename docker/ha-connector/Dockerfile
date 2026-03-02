@@ -19,6 +19,7 @@ RUN pnpm install --frozen-lockfile
 # Copy source files (respecting .dockerignore)
 COPY src/api/geolocation/ ./src/api/geolocation/
 COPY src/db.ts ./src/db.ts
+COPY src/instrument.ts ./src/instrument.ts
 COPY src/worker/listener.ts ./src/worker/listener.ts
 COPY src/ha-connector/ ./src/ha-connector/
 COPY tsconfig.json ./
@@ -72,12 +73,14 @@ COPY --from=deps /app/package.json ./
 # Copy source files (geolocation API, db, worker listener, ha-connector)
 COPY --from=builder /app/src/api/geolocation/ ./src/api/geolocation/
 COPY --from=builder /app/src/db.ts ./src/db.ts
+COPY --from=builder /app/src/instrument.ts ./src/instrument.ts
 COPY --from=builder /app/src/worker/listener.ts ./src/worker/listener.ts
 COPY --from=builder /app/src/ha-connector/ ./src/ha-connector/
 
 # Set environment variables
 ENV NODE_ENV=production
 ENV HA_CONNECTOR_HEALTH_PORT=9001
+ENV SENTRY_SERVER_NAME=ha-connector
 
 # Expose health port
 EXPOSE 9001
@@ -86,4 +89,4 @@ EXPOSE 9001
 USER node
 
 # Use Node 25's native TypeScript support
-CMD ["node", "--experimental-transform-types", "--experimental-detect-module", "src/ha-connector/run.ts"]
+CMD ["node", "--experimental-transform-types", "--experimental-detect-module", "--import", "./src/instrument.ts", "src/ha-connector/run.ts"]
