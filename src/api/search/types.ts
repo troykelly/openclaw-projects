@@ -3,7 +3,7 @@
  * Part of Issue #216.
  */
 
-export type SearchEntityType = 'work_item' | 'contact' | 'memory' | 'message';
+export type SearchEntityType = 'work_item' | 'contact' | 'memory' | 'message' | 'dev_session';
 
 export type SearchType = 'hybrid' | 'text' | 'semantic';
 

@@ -66,6 +66,8 @@ import {
   createDevSessionGetTool,
   createDevSessionUpdateTool,
   createDevSessionCompleteTool,
+  // Dev session search (Issue #1987)
+  createDevSessionSearchTool,
   // Note tools (Issue #1921)
   createNoteCreateTool,
   createNoteGetTool,
@@ -4821,6 +4823,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     createDevSessionGetTool,
     createDevSessionUpdateTool,
     createDevSessionCompleteTool,
+    createDevSessionSearchTool,
   ] as const;
 
   for (const factory of devSessionToolFactories) {
@@ -4942,12 +4945,13 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     api_refresh: 'api_management',
     api_remove: 'api_management',
     api_restore: 'api_management',
-    // Dev sessions (5)
+    // Dev sessions (6)
     dev_session_create: 'dev_sessions',
     dev_session_list: 'dev_sessions',
     dev_session_get: 'dev_sessions',
     dev_session_update: 'dev_sessions',
     dev_session_complete: 'dev_sessions',
+    dev_session_search: 'dev_sessions',
     // Outbound comms (2)
     sms_send: 'outbound_comms',
     email_send: 'outbound_comms',

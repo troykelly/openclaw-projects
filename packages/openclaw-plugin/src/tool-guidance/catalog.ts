@@ -849,6 +849,18 @@ export const TOOL_CATALOG: Record<string, ToolGuidance> = {
       { description: 'Complete a session', params: { session_id: '550e8400-e29b-41d4-a716-446655440000', summary: 'Fixed bug #123, all tests passing' } },
     ],
   },
+  dev_session_search: {
+    group: 'dev_sessions',
+    when_to_use: 'When searching past dev sessions by topic, task description, or completion notes. Uses semantic search with embeddings.',
+    when_not_to_use: 'When listing sessions by status/node (use dev_session_list). For cross-entity search (use context_search).',
+    alternatives: ['dev_session_list', 'context_search'],
+    side_effects: [],
+    prerequisites: [],
+    example_calls: [
+      { description: 'Search for sessions about authentication', params: { query: 'authentication bug fix' } },
+      { description: 'Search completed sessions', params: { query: 'database migration', status: 'completed' } },
+    ],
+  },
 
   // ── API management tools ──────────────────────────────────────
   api_onboard: {
@@ -1260,9 +1272,9 @@ export const GROUP_CATALOG: Record<string, GroupGuidance> = {
     related_skills: ['terminal_capture_pane'],
   },
   dev_sessions: {
-    description: 'Development session tracking. Create, update, and complete coding sessions with associated metadata.',
-    tools: ['dev_session_create', 'dev_session_list', 'dev_session_get', 'dev_session_update', 'dev_session_complete'],
-    workflow_tips: 'Create a dev session when starting work on an issue. Update with progress as you work. Complete when done with a summary.',
+    description: 'Development session tracking. Create, update, complete, and search coding sessions with associated metadata.',
+    tools: ['dev_session_create', 'dev_session_list', 'dev_session_get', 'dev_session_update', 'dev_session_complete', 'dev_session_search'],
+    workflow_tips: 'Create a dev session when starting work on an issue. Update with progress as you work. Complete when done with a summary. Search past sessions to find relevant context.',
     related_skills: ['todo_create', 'terminal_session_start'],
   },
   api_management: {

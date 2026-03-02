@@ -5,7 +5,7 @@
  *         POST /dev-sessions/:id/complete, DELETE /dev-sessions/:id
  */
 import type { OpenApiDomainModule } from '../types.ts';
-import { errorResponses, jsonBody, jsonResponse, paginationParams, uuidParam } from '../helpers.ts';
+import { errorResponses, jsonBody, jsonResponse, namespaceParam, paginationParams, uuidParam } from '../helpers.ts';
 
 export function devSessionsPaths(): OpenApiDomainModule {
   return {
@@ -434,6 +434,64 @@ export function devSessionsPaths(): OpenApiDomainModule {
           responses: {
             '204': { description: 'Dev session deleted' },
             ...errorResponses(400, 401, 404, 500),
+          },
+        },
+      },
+      '/dev-sessions/search': {
+        get: {
+          operationId: 'searchDevSessions',
+          summary: 'Search dev sessions',
+          description:
+            'Searches dev sessions using hybrid semantic + text search. ' +
+            'Uses pgvector cosine similarity when embeddings are available, with full-text search as fallback.',
+          tags: ['DevSessions'],
+          parameters: [
+            namespaceParam(),
+            {
+              name: 'q',
+              in: 'query',
+              required: true,
+              schema: { type: 'string', minLength: 1, maxLength: 1000 },
+              description: 'Search query text',
+            },
+            {
+              name: 'status',
+              in: 'query',
+              required: false,
+              schema: { type: 'string', enum: ['active', 'completed', 'abandoned'] },
+              description: 'Filter by session status',
+            },
+            {
+              name: 'limit',
+              in: 'query',
+              required: false,
+              schema: { type: 'integer', default: 20, minimum: 1, maximum: 100 },
+              description: 'Maximum results to return',
+            },
+            {
+              name: 'offset',
+              in: 'query',
+              required: false,
+              schema: { type: 'integer', default: 0, minimum: 0 },
+              description: 'Number of results to skip',
+            },
+          ],
+          responses: {
+            '200': jsonResponse('Search results', {
+              type: 'object',
+              properties: {
+                items: { type: 'array', items: { $ref: '#/components/schemas/DevSession' } },
+                total: { type: 'integer' },
+                limit: { type: 'integer' },
+                offset: { type: 'integer' },
+                search_mode: {
+                  type: 'string',
+                  enum: ['semantic', 'hybrid', 'text'],
+                  description: 'Which search mode was used',
+                },
+              },
+            }),
+            ...errorResponses(400, 401, 403, 500),
           },
         },
       },

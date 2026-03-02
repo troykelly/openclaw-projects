@@ -5719,7 +5719,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           query: '',
           search_type: 'text',
           results: [],
-          facets: { work_item: 0, contact: 0, memory: 0, message: 0 },
+          facets: { work_item: 0, contact: 0, memory: 0, message: 0, dev_session: 0 },
           total: 0,
         });
       }
@@ -5730,7 +5730,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const semantic_weight = Math.min(1, Math.max(0, Number.parseFloat(query.semantic_weight || '0.5')));
 
       // Parse entity types
-      const validTypes = ['work_item', 'contact', 'memory', 'message'] as const;
+      const validTypes = ['work_item', 'contact', 'memory', 'message', 'dev_session'] as const;
       type EntityType = (typeof validTypes)[number];
       let types: EntityType[] | undefined;
       if (query.types) {
@@ -21644,6 +21644,45 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     return null;
   }
 
+  /** Text-only fallback search for dev sessions (Issue #1987). */
+  async function devSessionTextSearch(
+    pool: import('pg').Pool,
+    namespaces: string[],
+    queryText: string,
+    status: string | undefined,
+    limit: number,
+    offset: number,
+  ): Promise<Record<string, unknown>[]> {
+    const conditions = ['namespace = ANY($1::text[])'];
+    const params: unknown[] = [namespaces];
+    let idx = 2;
+
+    if (status) {
+      conditions.push(`status = $${idx}`);
+      params.push(status);
+      idx++;
+    }
+
+    // Try tsvector first, fallback to ILIKE
+    conditions.push(`(search_vector @@ plainto_tsquery('english', $${idx}) OR session_name ILIKE $${idx + 1} OR task_summary ILIKE $${idx + 1})`);
+    params.push(queryText, `%${queryText}%`, limit, offset);
+
+    const sql = `
+      SELECT *,
+        CASE WHEN search_vector IS NOT NULL
+          THEN ts_rank(search_vector, plainto_tsquery('english', $${idx}))
+          ELSE 0.1
+        END AS similarity,
+        'text' AS match_source
+      FROM dev_session
+      WHERE ${conditions.join(' AND ')}
+      ORDER BY similarity DESC, created_at DESC
+      LIMIT $${idx + 2} OFFSET $${idx + 3}`;
+
+    const result = await pool.query(sql, params);
+    return result.rows as Record<string, unknown>[];
+  }
+
   // POST /api/dev-sessions — Create a dev session
   app.post('/dev-sessions', async (req, reply) => {
     const body = req.body as Record<string, unknown> | null;
@@ -21793,16 +21832,26 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params: unknown[] = [id, email];
     let idx = 3;
 
+    // Track whether embeddable text fields changed (Issue #1987)
+    const EMBEDDABLE_FIELDS = ['task_summary', 'task_prompt', 'completion_summary'];
+    let embeddableChanged = false;
+
     for (const field of DEV_SESSION_UPDATABLE) {
       if (field in body) {
         setClauses.push(`${field} = $${idx}`);
         params.push(body[field]);
         idx++;
+        if (EMBEDDABLE_FIELDS.includes(field)) embeddableChanged = true;
       }
     }
 
     if (setClauses.length === 1 && !terminalSessionId) {
       return reply.code(400).send({ error: 'No updatable fields provided' });
+    }
+
+    // Reset embedding_status so the worker re-embeds (Issue #1987)
+    if (embeddableChanged) {
+      setClauses.push(`embedding_status = 'pending'`);
     }
 
     const pool = createPool();
@@ -21848,7 +21897,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const result = await pool.query(
         `UPDATE dev_session
          SET status = 'completed', completed_at = now(), updated_at = now(),
-             completion_summary = COALESCE($3, completion_summary)
+             completion_summary = COALESCE($3, completion_summary),
+             embedding_status = 'pending'
          WHERE id = $1 AND user_email = $2
          RETURNING *`,
         [id, email, completionSummary],
@@ -22031,6 +22081,161 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }
 
       return reply.code(204).send();
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /dev-sessions/search — Semantic + text hybrid search (Issue #1987)
+  app.get('/dev-sessions/search', async (req, reply) => {
+    const query = req.query as { q?: string; status?: string; limit?: string; offset?: string };
+    const searchTerm = query.q?.trim();
+    if (!searchTerm) return reply.code(400).send({ error: 'q (search query) is required' });
+    if (searchTerm.length > 1000) return reply.code(400).send({ error: 'query too long (max 1000 characters)' });
+
+    const namespaces = getEffectiveNamespaces(req);
+    if (namespaces.length === 0) {
+      return reply.code(403).send({ error: 'No namespace access' });
+    }
+
+    const limit = Math.min(Math.max(Number.parseInt(query.limit ?? '', 10) || 20, 1), 100);
+    const offset = Math.max(Number.parseInt(query.offset ?? '', 10) || 0, 0);
+
+    const pool = createPool();
+    try {
+      // Try semantic search first
+      let useSemantic = false;
+      let searchMode: 'semantic' | 'hybrid' | 'text' = 'text';
+      let rows: Record<string, unknown>[];
+
+      const { createEmbeddingService } = await import('./embeddings/service.ts');
+      const embeddingService = createEmbeddingService();
+
+      if (embeddingService.isConfigured()) {
+        // Check if any embedded sessions exist
+        const embCheck = await pool.query(
+          `SELECT 1 FROM dev_session WHERE namespace = ANY($1::text[]) AND embedding IS NOT NULL AND embedding_status = 'complete' LIMIT 1`,
+          [namespaces],
+        );
+
+        if (embCheck.rows.length > 0) {
+          try {
+            const embResult = await embeddingService.embed(searchTerm);
+            if (embResult) {
+              const embeddingStr = JSON.stringify(embResult.embedding);
+
+              // Hybrid: semantic + text
+              const conditions: string[] = [
+                'namespace = ANY($1::text[])',
+              ];
+              const params: unknown[] = [namespaces];
+              let idx = 2;
+
+              if (query.status) {
+                conditions.push(`status = $${idx}`);
+                params.push(query.status);
+                idx++;
+              }
+
+              // Semantic search on embedded sessions
+              const semanticSql = `
+                SELECT *, 1 - (embedding <=> $${idx}::vector) AS similarity, 'semantic' AS match_source
+                FROM dev_session
+                WHERE ${conditions.join(' AND ')} AND embedding IS NOT NULL AND embedding_status = 'complete'
+                ORDER BY embedding <=> $${idx}::vector
+                LIMIT $${idx + 1} OFFSET $${idx + 2}`;
+              params.push(embeddingStr, limit, offset);
+
+              const semanticResult = await pool.query(semanticSql, params);
+
+              // Also do text search for items without embeddings
+              const textConditions = [...conditions, 'search_vector IS NOT NULL'];
+              const textParams: unknown[] = [namespaces];
+              let textIdx = 2;
+              if (query.status) {
+                textParams.push(query.status);
+                textIdx++;
+              }
+              textConditions.push(`search_vector @@ plainto_tsquery('english', $${textIdx})`);
+              textParams.push(searchTerm, limit, offset);
+              textIdx++;
+
+              const textSql = `
+                SELECT *, ts_rank(search_vector, plainto_tsquery('english', $${textIdx - 1})) AS similarity, 'text' AS match_source
+                FROM dev_session
+                WHERE ${textConditions.join(' AND ')}
+                ORDER BY ts_rank(search_vector, plainto_tsquery('english', $${textIdx - 1})) DESC
+                LIMIT $${textIdx} OFFSET $${textIdx + 1}`;
+
+              const textResult = await pool.query(textSql, textParams);
+
+              // Merge: dedup by id, prefer semantic score
+              const seen = new Map<string, Record<string, unknown>>();
+              for (const r of semanticResult.rows as Record<string, unknown>[]) {
+                seen.set(r.id as string, r);
+              }
+              for (const r of textResult.rows as Record<string, unknown>[]) {
+                if (!seen.has(r.id as string)) {
+                  seen.set(r.id as string, r);
+                }
+              }
+
+              rows = Array.from(seen.values())
+                .sort((a, b) => ((b.similarity as number) || 0) - ((a.similarity as number) || 0))
+                .slice(0, limit);
+
+              useSemantic = true;
+              searchMode = 'hybrid';
+            } else {
+              rows = await devSessionTextSearch(pool, namespaces, searchTerm, query.status, limit, offset);
+            }
+          } catch {
+            rows = await devSessionTextSearch(pool, namespaces, searchTerm, query.status, limit, offset);
+          }
+        } else {
+          rows = await devSessionTextSearch(pool, namespaces, searchTerm, query.status, limit, offset);
+        }
+      } else {
+        rows = await devSessionTextSearch(pool, namespaces, searchTerm, query.status, limit, offset);
+      }
+
+      // Compute total
+      let total: number;
+      if (!useSemantic) {
+        try {
+          const countConditions = [
+            'namespace = ANY($1::text[])',
+            "(search_vector @@ plainto_tsquery('english', $2) OR session_name ILIKE $3 OR task_summary ILIKE $3)",
+          ];
+          const countParams: unknown[] = [namespaces, searchTerm, `%${searchTerm}%`];
+          let countIdx = 4;
+          if (query.status) {
+            countConditions.push(`status = $${countIdx}`);
+            countParams.push(query.status);
+          }
+          const countResult = await pool.query(
+            `SELECT COUNT(*) as total FROM dev_session WHERE ${countConditions.join(' AND ')}`,
+            countParams,
+          );
+          total = parseInt((countResult.rows[0] as { total: string }).total, 10);
+        } catch {
+          total = rows.length;
+        }
+      } else {
+        total = offset + rows.length;
+        if (rows.length === limit) total += 1;
+      }
+
+      return reply.send({
+        items: rows,
+        total,
+        limit,
+        offset,
+        search_mode: searchMode,
+      });
+    } catch (err) {
+      console.error('[dev-session-search] Query failed:', (err as Error).message);
+      return reply.code(500).send({ error: 'Search query failed' });
     } finally {
       await pool.end();
     }

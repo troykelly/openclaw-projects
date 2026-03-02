@@ -11,6 +11,7 @@ import { processJobs, getPendingJobCounts } from '../api/jobs/processor.ts';
 import { processPendingWebhooks } from '../api/webhooks/dispatcher.ts';
 import { processGeoGeocode, processGeoEmbeddings } from '../api/geolocation/workers.ts';
 import { processTerminalEmbeddings } from './terminal-embeddings.ts';
+import { processDevSessionEmbeddings } from './dev-session-embeddings.ts';
 import { validateOpenClawConfig, getConfigSummary } from '../api/webhooks/config.ts';
 import { CircuitBreaker } from './circuit-breaker.ts';
 import { NotifyListener } from './listener.ts';
@@ -277,6 +278,17 @@ async function tick(pool: Pool, breaker: CircuitBreaker): Promise<void> {
     }
     if (terminalEmbedded > 0) {
       console.log(`[Worker] Terminal: ${terminalEmbedded} entries embedded`);
+    }
+
+    // ── Process dev session embeddings (Issue #1987) ──
+    let devSessionEmbedded = 0;
+    try {
+      devSessionEmbedded = await processDevSessionEmbeddings(pool);
+    } catch (err) {
+      console.warn('[Worker] Dev session embeddings error:', (err as Error).message);
+    }
+    if (devSessionEmbedded > 0) {
+      console.log(`[Worker] Dev sessions: ${devSessionEmbedded} sessions embedded`);
     }
 
     // ── Update pending gauges ──
