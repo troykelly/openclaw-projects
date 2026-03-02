@@ -9,6 +9,8 @@
  *
  * ThemeProvider wraps the entire tree to manage light/dark/oled/system
  * themes with no flash of wrong theme on page load.
+ *
+ * Sentry is initialized conditionally when VITE_SENTRY_DSN is set (#2002).
  */
 import '../app.css';
 import React from 'react';
@@ -18,7 +20,19 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from '@/ui/providers/ThemeProvider';
 import { UserProvider } from '@/ui/contexts/user-context';
 import { NamespaceProvider } from '@/ui/contexts/namespace-context';
+import { ErrorBoundary } from '@/ui/components/error-boundary';
 import { routes } from '@/ui/routes';
+import { initSentry } from '@/ui/lib/sentry';
+
+// Initialize Sentry — no-op when DSN is unset (#2002)
+initSentry({
+  dsn: import.meta.env.VITE_SENTRY_DSN,
+  environment: import.meta.env.VITE_SENTRY_ENVIRONMENT,
+  release: typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : undefined,
+  tracesSampleRate: import.meta.env.VITE_SENTRY_TRACES_SAMPLE_RATE
+    ? Number.parseFloat(import.meta.env.VITE_SENTRY_TRACES_SAMPLE_RATE)
+    : undefined,
+});
 
 /** Shared QueryClient instance with default stale time and retry policy. */
 const queryClient = new QueryClient({
@@ -41,14 +55,16 @@ if (!el) throw new Error('Missing #root element');
 
 createRoot(el).render(
   <React.StrictMode>
-    <ThemeProvider>
-      <QueryClientProvider client={queryClient}>
-        <UserProvider>
-          <NamespaceProvider>
-            <RouterProvider router={router} />
-          </NamespaceProvider>
-        </UserProvider>
-      </QueryClientProvider>
-    </ThemeProvider>
+    <ErrorBoundary>
+      <ThemeProvider>
+        <QueryClientProvider client={queryClient}>
+          <UserProvider>
+            <NamespaceProvider>
+              <RouterProvider router={router} />
+            </NamespaceProvider>
+          </UserProvider>
+        </QueryClientProvider>
+      </ThemeProvider>
+    </ErrorBoundary>
   </React.StrictMode>,
 );
