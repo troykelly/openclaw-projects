@@ -41,6 +41,11 @@ import type {
   PluginHookBeforeAgentStartEvent,
   PluginHookBeforeAgentStartResult,
   PluginHookAgentEndEvent,
+  PluginHookMessageReceivedEvent,
+  PluginHookMessageContext,
+  PluginHookHandlerMap,
+  GatewayMethodHandler,
+  GatewayMethodHandlerOptions,
   OpenClawPluginApi,
   ToolContext,
   ServiceDefinition,
@@ -184,6 +189,106 @@ describe('SDK Type Compatibility', () => {
     });
   });
 
+  describe('PluginHookMessageReceivedEvent (#2029)', () => {
+    it('should have from, content, and optional timestamp and metadata', () => {
+      const event: PluginHookMessageReceivedEvent = {
+        from: '+61412345678',
+        content: 'Hello from SMS',
+        timestamp: Date.now(),
+        metadata: { thread_id: 'abc-123', senderEmail: 'user@example.com' },
+      };
+      expect(event.from).toBe('+61412345678');
+      expect(event.content).toBe('Hello from SMS');
+      expect(event.timestamp).toBeDefined();
+      expect(event.metadata?.thread_id).toBe('abc-123');
+    });
+
+    it('should require from and content fields', () => {
+      const event: PluginHookMessageReceivedEvent = {
+        from: 'user@example.com',
+        content: 'Email body',
+      };
+      expect(event.from).toBe('user@example.com');
+      expect(event.content).toBe('Email body');
+      expect(event.timestamp).toBeUndefined();
+      expect(event.metadata).toBeUndefined();
+    });
+  });
+
+  describe('PluginHookMessageContext (#2029)', () => {
+    it('should have channelId and optional accountId/conversationId', () => {
+      const ctx: PluginHookMessageContext = {
+        channelId: 'telegram',
+        accountId: 'acct-1',
+        conversationId: 'conv-123',
+      };
+      expect(ctx.channelId).toBe('telegram');
+      expect(ctx.accountId).toBe('acct-1');
+      expect(ctx.conversationId).toBe('conv-123');
+    });
+
+    it('should require only channelId', () => {
+      const ctx: PluginHookMessageContext = {
+        channelId: 'sms',
+      };
+      expect(ctx.channelId).toBe('sms');
+      expect(ctx.accountId).toBeUndefined();
+    });
+  });
+
+  describe('PluginHookHandlerMap (#2032)', () => {
+    it('should type before_agent_start handler correctly', () => {
+      const handler: PluginHookHandlerMap['before_agent_start'] = async (event, ctx) => {
+        void event.prompt;
+        void ctx.agentId;
+        return { prependContext: 'test' };
+      };
+      expect(typeof handler).toBe('function');
+    });
+
+    it('should type message_received handler with PluginHookMessageContext', () => {
+      const handler: PluginHookHandlerMap['message_received'] = async (event, ctx) => {
+        void event.from;
+        void event.content;
+        void ctx.channelId;
+      };
+      expect(typeof handler).toBe('function');
+    });
+
+    it('should type agent_end handler correctly', () => {
+      const handler: PluginHookHandlerMap['agent_end'] = async (event, ctx) => {
+        void event.messages;
+        void event.success;
+        void ctx.agentId;
+      };
+      expect(typeof handler).toBe('function');
+    });
+  });
+
+  describe('GatewayMethodHandler (#2031)', () => {
+    it('should accept opts with params and respond', () => {
+      const handler: GatewayMethodHandler = async (opts) => {
+        const params = opts.params;
+        opts.respond(true, { result: params });
+      };
+      expect(typeof handler).toBe('function');
+    });
+
+    it('should have all required GatewayMethodHandlerOptions fields', () => {
+      const opts: GatewayMethodHandlerOptions = {
+        req: { method: 'test' },
+        params: { key: 'value' },
+        respond: () => {},
+        client: null,
+        isWebchatConnect: () => false,
+        context: {},
+      };
+      expect(opts.req).toBeDefined();
+      expect(opts.params).toBeDefined();
+      expect(typeof opts.respond).toBe('function');
+    });
+  });
+
   describe('ToolContext', () => {
     it('should include requesterSenderId and senderIsOwner (#2039)', () => {
       const ctx: ToolContext = {
@@ -297,6 +402,11 @@ describe('SDK Type Compatibility', () => {
         'PluginHookBeforeAgentStartEvent',
         'PluginHookBeforeAgentStartResult',
         'PluginHookAgentEndEvent',
+        'PluginHookMessageReceivedEvent',  // #2029
+        'PluginHookMessageContext',         // #2029
+        'PluginHookHandlerMap',             // #2032
+        'GatewayMethodHandlerOptions',      // #2031
+        'GatewayMethodHandler',             // #2031
         'HookEvent',
         'HookHandler',
         'CliRegistrationContext',
@@ -307,8 +417,8 @@ describe('SDK Type Compatibility', () => {
         'OpenClawPluginAPI',
       ];
 
-      // All 21 types should be documented as local
-      expect(localTypes).toHaveLength(21);
+      // All 26 types should be documented as local
+      expect(localTypes).toHaveLength(26);
     });
   });
 });

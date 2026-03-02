@@ -4,9 +4,10 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { createGatewayMethods, type SubscribeParams, type GetNotificationsParams, type NotificationEvent } from '../src/gateway/rpc-methods.js';
+import { createGatewayMethods, registerGatewayRpcMethods, type SubscribeParams, type GetNotificationsParams, type NotificationEvent } from '../src/gateway/rpc-methods.js';
 import type { ApiClient } from '../src/api-client.js';
 import type { Logger } from '../src/logger.js';
+import type { GatewayMethodHandler, GatewayMethodHandlerOptions } from '../src/types/openclaw-api.js';
 
 // Mock logger
 function createMockLogger(): Logger {
@@ -242,6 +243,104 @@ describe('Gateway RPC Methods', () => {
       const result = await methods.subscribe({ events: validEvents });
 
       expect(result.subscribed).toEqual(validEvents);
+    });
+  });
+
+  describe('registerGatewayRpcMethods (#2031)', () => {
+    it('should register wrapped handlers that call opts.respond()', async () => {
+      const registeredMethods = new Map<string, GatewayMethodHandler>();
+      const mockRegisterApi = {
+        registerGatewayMethod: (name: string, handler: GatewayMethodHandler) => {
+          registeredMethods.set(name, handler);
+        },
+      };
+
+      const methods = createGatewayMethods({
+        logger: mockLogger,
+        apiClient: mockApiClient,
+        getAgentId: () => 'user@example.com',
+      });
+
+      registerGatewayRpcMethods(mockRegisterApi, methods);
+
+      // All 3 methods should be registered
+      expect(registeredMethods.size).toBe(3);
+      expect(registeredMethods.has('openclaw-projects.subscribe')).toBe(true);
+      expect(registeredMethods.has('openclaw-projects.unsubscribe')).toBe(true);
+      expect(registeredMethods.has('openclaw-projects.getNotifications')).toBe(true);
+    });
+
+    it('should pass params from opts and call respond with result', async () => {
+      const registeredMethods = new Map<string, GatewayMethodHandler>();
+      const mockRegisterApi = {
+        registerGatewayMethod: (name: string, handler: GatewayMethodHandler) => {
+          registeredMethods.set(name, handler);
+        },
+      };
+
+      const methods = createGatewayMethods({
+        logger: mockLogger,
+        apiClient: mockApiClient,
+        getAgentId: () => 'user@example.com',
+      });
+
+      registerGatewayRpcMethods(mockRegisterApi, methods);
+
+      const respondFn = vi.fn();
+      const opts: GatewayMethodHandlerOptions = {
+        req: {},
+        params: { events: ['message.new', 'task.due'] },
+        respond: respondFn,
+        client: null,
+        isWebchatConnect: () => false,
+        context: {},
+      };
+
+      const handler = registeredMethods.get('openclaw-projects.subscribe')!;
+      await handler(opts);
+
+      expect(respondFn).toHaveBeenCalledWith(true, {
+        subscribed: ['message.new', 'task.due'],
+      });
+    });
+
+    it('should call respond with error when handler throws', async () => {
+      const registeredMethods = new Map<string, GatewayMethodHandler>();
+      const mockRegisterApi = {
+        registerGatewayMethod: (name: string, handler: GatewayMethodHandler) => {
+          registeredMethods.set(name, handler);
+        },
+      };
+
+      (mockApiClient.get as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Connection failed'));
+
+      const methods = createGatewayMethods({
+        logger: mockLogger,
+        apiClient: mockApiClient,
+        getAgentId: () => 'user@example.com',
+      });
+
+      registerGatewayRpcMethods(mockRegisterApi, methods);
+
+      const respondFn = vi.fn();
+      const opts: GatewayMethodHandlerOptions = {
+        req: {},
+        params: {},
+        respond: respondFn,
+        client: null,
+        isWebchatConnect: () => false,
+        context: {},
+      };
+
+      const handler = registeredMethods.get('openclaw-projects.getNotifications')!;
+      await handler(opts);
+
+      // The internal getNotifications catches errors and returns empty,
+      // so respond should be called with success
+      expect(respondFn).toHaveBeenCalledWith(true, expect.objectContaining({
+        notifications: [],
+        has_more: false,
+      }));
     });
   });
 

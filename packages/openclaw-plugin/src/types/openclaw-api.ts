@@ -218,20 +218,38 @@ export interface PluginHookBeforeAgentStartResult {
   providerOverride?: string;
 }
 
-/** Event payload for message_received hook (Issue #1223) */
+/**
+ * Event payload for message_received hook.
+ *
+ * Aligned with SDK 2026.3.1 PluginHookMessageReceivedEvent. (#2029)
+ * The SDK shape uses `from` (sender identifier), `content`, `timestamp`,
+ * and `metadata` — NOT the legacy thread_id/senderEmail/senderPhone fields.
+ */
 export interface PluginHookMessageReceivedEvent {
-  /** Thread ID for the message */
-  thread_id?: string;
-  /** Sender identifier (email or phone) */
-  sender?: string;
-  /** Sender email address */
-  senderEmail?: string;
-  /** Sender phone number */
-  senderPhone?: string;
+  /** Sender identifier (channel-scoped, e.g., phone number, email, user ID) */
+  from: string;
   /** Message body content */
-  content?: string;
-  /** Channel the message was received on (sms, email, etc.) */
-  channel?: string;
+  content: string;
+  /** Unix timestamp of the message (optional) */
+  timestamp?: number;
+  /** Additional metadata (may contain channel-specific fields like thread_id, email, phone) */
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * Context passed to message_received, message_sending, and message_sent hooks.
+ *
+ * Aligned with SDK 2026.3.1 PluginHookMessageContext. (#2029)
+ * This is NOT the same as PluginHookAgentContext — message hooks receive
+ * channel-specific context instead of agent session context.
+ */
+export interface PluginHookMessageContext {
+  /** Channel identifier (e.g., "telegram", "discord", "sms") */
+  channelId: string;
+  /** Account identifier for multi-account channels */
+  accountId?: string;
+  /** Conversation/thread identifier */
+  conversationId?: string;
 }
 
 /** Event payload for agent_end hook */
@@ -244,6 +262,76 @@ export interface PluginHookAgentEndEvent {
   error?: string;
   /** Duration of the agent run in milliseconds */
   durationMs?: number;
+}
+
+/**
+ * Options passed to a Gateway RPC method handler.
+ *
+ * Aligned with SDK 2026.3.1 GatewayRequestHandlerOptions. (#2031)
+ * The SDK handler receives a single `opts` object with `req`, `params`,
+ * `respond`, `client`, `isWebchatConnect`, and `context`. We define a
+ * simplified version that uses our own types for the fields we actually access.
+ */
+export interface GatewayMethodHandlerOptions {
+  /** The raw request frame */
+  req: Record<string, unknown>;
+  /** Parsed RPC parameters from the request */
+  params: Record<string, unknown>;
+  /** Function to send the response back to the client */
+  respond: (ok: boolean, payload?: unknown, error?: unknown, meta?: Record<string, unknown>) => void;
+  /** The connected client (may be null for unauthenticated requests) */
+  client: Record<string, unknown> | null;
+  /** Check if the connect params indicate a webchat connection */
+  isWebchatConnect: (params: unknown) => boolean;
+  /** Gateway request context with deps, cron, broadcast, etc. */
+  context: Record<string, unknown>;
+}
+
+/**
+ * Gateway RPC method handler function.
+ *
+ * Aligned with SDK 2026.3.1 GatewayRequestHandler:
+ *   `(opts: GatewayRequestHandlerOptions) => Promise<void> | void`
+ *
+ * The handler is responsible for calling `opts.respond()` to send the
+ * response — it does NOT return a value. (#2031)
+ */
+export type GatewayMethodHandler = (opts: GatewayMethodHandlerOptions) => Promise<void> | void;
+
+/**
+ * Handler type map for plugin hooks.
+ *
+ * Maps each PluginHookName to the correct handler signature.
+ * This is a simplified version of the SDK's PluginHookHandlerMap,
+ * covering only the hooks we currently register. Hooks we don't use
+ * fall through to a generic handler signature. (#2032)
+ */
+export interface PluginHookHandlerMap {
+  before_agent_start: (event: PluginHookBeforeAgentStartEvent, ctx: PluginHookAgentContext) => Promise<PluginHookBeforeAgentStartResult | void> | PluginHookBeforeAgentStartResult | void;
+  agent_end: (event: PluginHookAgentEndEvent, ctx: PluginHookAgentContext) => Promise<void> | void;
+  message_received: (event: PluginHookMessageReceivedEvent, ctx: PluginHookMessageContext) => Promise<void> | void;
+  // ── Hooks we don't currently register but exist in the SDK ──
+  before_model_resolve: (event: Record<string, unknown>, ctx: PluginHookAgentContext) => Promise<Record<string, unknown> | void> | Record<string, unknown> | void;
+  before_prompt_build: (event: Record<string, unknown>, ctx: PluginHookAgentContext) => Promise<Record<string, unknown> | void> | Record<string, unknown> | void;
+  llm_input: (event: Record<string, unknown>, ctx: PluginHookAgentContext) => Promise<void> | void;
+  llm_output: (event: Record<string, unknown>, ctx: PluginHookAgentContext) => Promise<void> | void;
+  before_compaction: (event: Record<string, unknown>, ctx: PluginHookAgentContext) => Promise<void> | void;
+  after_compaction: (event: Record<string, unknown>, ctx: PluginHookAgentContext) => Promise<void> | void;
+  before_reset: (event: Record<string, unknown>, ctx: PluginHookAgentContext) => Promise<void> | void;
+  message_sending: (event: Record<string, unknown>, ctx: PluginHookMessageContext) => Promise<Record<string, unknown> | void> | Record<string, unknown> | void;
+  message_sent: (event: Record<string, unknown>, ctx: PluginHookMessageContext) => Promise<void> | void;
+  before_tool_call: (event: Record<string, unknown>, ctx: Record<string, unknown>) => Promise<Record<string, unknown> | void> | Record<string, unknown> | void;
+  after_tool_call: (event: Record<string, unknown>, ctx: Record<string, unknown>) => Promise<void> | void;
+  tool_result_persist: (event: Record<string, unknown>, ctx: Record<string, unknown>) => Record<string, unknown> | void;
+  before_message_write: (event: Record<string, unknown>, ctx: Record<string, unknown>) => Record<string, unknown> | void;
+  session_start: (event: Record<string, unknown>, ctx: Record<string, unknown>) => Promise<void> | void;
+  session_end: (event: Record<string, unknown>, ctx: Record<string, unknown>) => Promise<void> | void;
+  subagent_spawning: (event: Record<string, unknown>, ctx: Record<string, unknown>) => Promise<Record<string, unknown> | void> | Record<string, unknown> | void;
+  subagent_delivery_target: (event: Record<string, unknown>, ctx: Record<string, unknown>) => Promise<Record<string, unknown> | void> | Record<string, unknown> | void;
+  subagent_spawned: (event: Record<string, unknown>, ctx: Record<string, unknown>) => Promise<void> | void;
+  subagent_ended: (event: Record<string, unknown>, ctx: Record<string, unknown>) => Promise<void> | void;
+  gateway_start: (event: Record<string, unknown>, ctx: Record<string, unknown>) => Promise<void> | void;
+  gateway_stop: (event: Record<string, unknown>, ctx: Record<string, unknown>) => Promise<void> | void;
 }
 
 // ── Legacy Hook Types (kept for backwards compatibility) ─────────────────────
@@ -378,12 +466,15 @@ export interface OpenClawPluginApi {
    * Register a lifecycle hook using the modern api.on() method.
    * Preferred over registerHook(). Uses snake_case hook names.
    *
+   * The handler type is determined by the hook name via PluginHookHandlerMap.
+   * This matches the SDK's `api.on()` signature. (#2032)
+   *
    * @example
    * api.on('before_agent_start', async (event, ctx) => {
    *   return { prependContext: 'some context' }
    * })
    */
-  on: <K extends PluginHookName>(hookName: K, handler: (...args: unknown[]) => unknown, opts?: { priority?: number }) => void;
+  on: <K extends PluginHookName>(hookName: K, handler: PluginHookHandlerMap[K], opts?: { priority?: number }) => void;
 
   /**
    * Register a lifecycle hook (legacy method).
@@ -423,8 +514,11 @@ export interface OpenClawPluginApi {
   /**
    * Register an RPC method for the Gateway.
    * Methods are exposed as `pluginId.methodName`.
+   *
+   * The handler receives GatewayRequestHandlerOptions (with req, params,
+   * respond, client, context) — NOT just params. (#2031)
    */
-  registerGatewayMethod: <T = unknown, R = unknown>(methodName: string, handler: (params: T) => Promise<R>) => void;
+  registerGatewayMethod: (methodName: string, handler: GatewayMethodHandler) => void;
 
   /**
    * Register a model provider plugin. (#2034)

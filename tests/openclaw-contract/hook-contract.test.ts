@@ -58,13 +58,13 @@ describe('OpenClaw Hook Contract Validation', () => {
       expect(content).toContain('event.prompt');
     });
 
-    it('should use api.on for modern hook registration with legacy fallback', () => {
+    it('should use api.on for modern hook registration with legacy snake_case fallback', () => {
       const content = readFileSync(registerPath, 'utf-8');
       // Uses api.on('before_agent_start', ...) with legacy registerHook fallback
       expect(content).toContain('api.on(');
       expect(content).toContain("'before_agent_start'");
-      // Legacy fallback still present for compatibility
-      expect(content).toContain("api.registerHook('beforeAgentStart'");
+      // Legacy fallback uses snake_case to match SDK convention (#2044)
+      expect(content).toContain("api.registerHook('before_agent_start'");
     });
 
     it('should return prependContext (not injectedContext)', () => {

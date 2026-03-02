@@ -172,12 +172,21 @@ describe('OpenClaw 2026 API Registration', () => {
       expect(typeof registeredOnHooks.get('agent_end')).toBe('function');
     });
 
-    it('should NOT use legacy registerHook for hooks', () => {
+    it('should register message_received hook via api.on() for auto-linking', () => {
+      registerOpenClaw(mockApi);
+
+      expect(registeredOnHooks.has('message_received')).toBe(true);
+      expect(typeof registeredOnHooks.get('message_received')).toBe('function');
+    });
+
+    it('should NOT use legacy registerHook for hooks when api.on is available', () => {
       registerOpenClaw(mockApi);
 
       // Should NOT register hooks via the legacy registerHook method
-      expect(registeredHooks.has('beforeAgentStart')).toBe(false);
-      expect(registeredHooks.has('agentEnd')).toBe(false);
+      // when the modern api.on() is available
+      expect(registeredHooks.has('before_agent_start')).toBe(false);
+      expect(registeredHooks.has('agent_end')).toBe(false);
+      expect(registeredHooks.has('message_received')).toBe(false);
     });
 
     it('should not register hooks when disabled', () => {
@@ -210,16 +219,17 @@ describe('OpenClaw 2026 API Registration', () => {
       );
     });
 
-    it('should fall back to registerHook if api.on is not available', () => {
+    it('should fall back to registerHook with snake_case names if api.on is not available', () => {
       // Simulate older OpenClaw runtime without api.on
       const legacyApi = { ...mockApi };
       delete (legacyApi as Record<string, unknown>).on;
 
       registerOpenClaw(legacyApi);
 
-      // Should have fallen back to registerHook
-      expect(registeredHooks.has('beforeAgentStart')).toBe(true);
-      expect(registeredHooks.has('agentEnd')).toBe(true);
+      // Should have fallen back to registerHook using snake_case names (#2044)
+      expect(registeredHooks.has('before_agent_start')).toBe(true);
+      expect(registeredHooks.has('agent_end')).toBe(true);
+      expect(registeredHooks.has('message_received')).toBe(true);
     });
   });
 
