@@ -181,13 +181,14 @@ export async function getDevPrompt(
   if (queryNamespaces) {
     const result = await pool.query(
       `SELECT ${COLUMNS} FROM dev_prompt
-       WHERE id = $1 AND (namespace = ANY($2::text[]) OR (namespace = 'default' AND is_system = true))`,
+       WHERE id = $1 AND deleted_at IS NULL
+         AND (namespace = ANY($2::text[]) OR (namespace = 'default' AND is_system = true))`,
       [id, queryNamespaces],
     );
     return (result.rows[0] as DevPrompt) ?? null;
   }
   const result = await pool.query(
-    `SELECT ${COLUMNS} FROM dev_prompt WHERE id = $1`,
+    `SELECT ${COLUMNS} FROM dev_prompt WHERE id = $1 AND deleted_at IS NULL`,
     [id],
   );
   return (result.rows[0] as DevPrompt) ?? null;
@@ -301,7 +302,7 @@ export async function updateDevPrompt(
 
   values.push(id);
   const result = await pool.query(
-    `UPDATE dev_prompt SET ${updates.join(', ')} WHERE id = $${paramIndex}
+    `UPDATE dev_prompt SET ${updates.join(', ')} WHERE id = $${paramIndex} AND deleted_at IS NULL
      RETURNING ${COLUMNS}`,
     values,
   );
@@ -377,7 +378,7 @@ export async function resetDevPrompt(
   if (!(check.rows[0] as { is_system: boolean }).is_system) return null;
 
   const result = await pool.query(
-    `UPDATE dev_prompt SET body = default_body WHERE id = $1
+    `UPDATE dev_prompt SET body = default_body WHERE id = $1 AND is_system = true AND deleted_at IS NULL
      RETURNING ${COLUMNS}`,
     [id],
   );

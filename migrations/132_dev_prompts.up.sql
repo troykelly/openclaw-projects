@@ -51,6 +51,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS dev_prompt_updated_at ON dev_prompt;
 CREATE TRIGGER dev_prompt_updated_at
   BEFORE UPDATE ON dev_prompt
   FOR EACH ROW

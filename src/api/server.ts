@@ -23163,6 +23163,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       sort_order?: number;
     } | null;
 
+    if (body?.title !== undefined && !body.title.trim()) {
+      return reply.code(400).send({ error: 'title must not be empty or whitespace-only' });
+    }
+
     if (body?.category !== undefined && !isValidCategory(body.category)) {
       return reply.code(400).send({ error: 'category must be one of: identification, creation, triage, shipping, general, custom' });
     }

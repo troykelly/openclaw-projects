@@ -204,6 +204,17 @@ describe('Dev Prompts API (#2014)', () => {
       const res = await app.inject({ method: 'GET', url: '/dev-prompts/not-a-uuid' });
       expect(res.statusCode).toBe(400);
     });
+
+    it('returns 404 for a soft-deleted prompt', async () => {
+      const created = await createUserPrompt();
+      const id = created.json().id;
+      // Soft-delete it
+      const delRes = await app.inject({ method: 'DELETE', url: `/dev-prompts/${id}` });
+      expect(delRes.statusCode).toBe(204);
+      // Now GET should return 404
+      const res = await app.inject({ method: 'GET', url: `/dev-prompts/${id}` });
+      expect(res.statusCode).toBe(404);
+    });
   });
 
   // ── GET /dev-prompts/by-key/:key ───────────────────────────
@@ -322,6 +333,18 @@ describe('Dev Prompts API (#2014)', () => {
         payload: { body: 'x' },
       });
       expect(res.statusCode).toBe(404);
+    });
+
+    it('rejects whitespace-only title', async () => {
+      const created = await createUserPrompt();
+      const id = created.json().id;
+      const res = await app.inject({
+        method: 'PATCH',
+        url: `/dev-prompts/${id}`,
+        payload: { title: '   ' },
+      });
+      expect(res.statusCode).toBe(400);
+      expect(res.json().error).toContain('title');
     });
   });
 
