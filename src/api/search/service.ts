@@ -300,6 +300,132 @@ async function searchMemoriesText(
 }
 
 /**
+ * Search dev sessions using full-text search (Issue #1987).
+ */
+async function searchDevSessionsText(
+  pool: Pool,
+  query: string,
+  options: { limit: number; offset: number; date_from?: Date; date_to?: Date; queryNamespaces?: string[] },
+): Promise<EntitySearchResult[]> {
+  const conditions: string[] = ["search_vector @@ plainto_tsquery('english', $1)"];
+  const params: (string | number | Date | string[])[] = [query];
+  let paramIndex = 2;
+
+  const nsScope = options.queryNamespaces ?? ['default'];
+  conditions.push(`namespace = ANY($${paramIndex}::text[])`);
+  params.push(nsScope);
+  paramIndex++;
+
+  if (options.date_from) {
+    conditions.push(`created_at >= $${paramIndex}`);
+    params.push(options.date_from);
+    paramIndex++;
+  }
+
+  if (options.date_to) {
+    conditions.push(`created_at <= $${paramIndex}`);
+    params.push(options.date_to);
+    paramIndex++;
+  }
+
+  params.push(options.limit, options.offset);
+
+  const result = await pool.query(
+    `SELECT
+       id::text as id,
+       session_name,
+       task_summary,
+       completion_summary,
+       status,
+       branch,
+       repo_org,
+       repo_name,
+       ts_rank(search_vector, plainto_tsquery('english', $1)) as rank
+     FROM dev_session
+     WHERE ${conditions.join(' AND ')}
+     ORDER BY rank DESC
+     LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
+    params,
+  );
+
+  return result.rows.map((row) => ({
+    id: row.id,
+    title: row.session_name,
+    snippet: generateSnippet(row.task_summary || row.completion_summary || ''),
+    text_score: parseFloat(row.rank) || 0,
+    metadata: {
+      status: row.status,
+      branch: row.branch,
+      repo: row.repo_org && row.repo_name ? `${row.repo_org}/${row.repo_name}` : undefined,
+    },
+  }));
+}
+
+/**
+ * Search dev sessions using semantic search (Issue #1987).
+ */
+async function searchDevSessionsSemantic(
+  pool: Pool,
+  queryEmbedding: number[],
+  options: { limit: number; offset: number; date_from?: Date; date_to?: Date; queryNamespaces?: string[] },
+): Promise<EntitySearchResult[]> {
+  const embeddingStr = `[${queryEmbedding.join(',')}]`;
+  const conditions: string[] = ['embedding IS NOT NULL', "embedding_status = 'complete'"];
+  const params: (string | number | Date | string[])[] = [embeddingStr];
+  let paramIndex = 2;
+
+  const nsScope = options.queryNamespaces ?? ['default'];
+  conditions.push(`namespace = ANY($${paramIndex}::text[])`);
+  params.push(nsScope);
+  paramIndex++;
+
+  if (options.date_from) {
+    conditions.push(`created_at >= $${paramIndex}`);
+    params.push(options.date_from);
+    paramIndex++;
+  }
+
+  if (options.date_to) {
+    conditions.push(`created_at <= $${paramIndex}`);
+    params.push(options.date_to);
+    paramIndex++;
+  }
+
+  params.push(options.limit, options.offset);
+
+  const result = await pool.query(
+    `SELECT
+       id::text as id,
+       session_name,
+       task_summary,
+       completion_summary,
+       status,
+       branch,
+       repo_org,
+       repo_name,
+       1 - (embedding <=> $1::vector) as similarity
+     FROM dev_session
+     WHERE ${conditions.join(' AND ')}
+     ORDER BY embedding <=> $1::vector
+     LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
+    params,
+  );
+
+  return result.rows.map((row) => ({
+    id: row.id,
+    title: row.session_name,
+    snippet: generateSnippet(row.task_summary || row.completion_summary || ''),
+    text_score: 0,
+    semantic_score: Number.parseFloat(row.similarity) || 0,
+    metadata: {
+      status: row.status,
+      branch: row.branch,
+      repo: row.repo_org && row.repo_name ? `${row.repo_org}/${row.repo_name}` : undefined,
+    },
+  }));
+}
+
+/**
  * Search messages using full-text search.
  */
 async function searchMessagesText(
@@ -505,7 +631,7 @@ function combineResults(textResults: EntitySearchResult[], semanticResults: Enti
 export async function unifiedSearch(pool: Pool, options: SearchOptions): Promise<SearchResponse> {
   const {
     query,
-    types = ['work_item', 'contact', 'memory', 'message'],
+    types = ['work_item', 'contact', 'memory', 'message', 'dev_session'],
     limit = DEFAULT_LIMIT,
     offset = 0,
     semantic = true,
@@ -548,6 +674,7 @@ export async function unifiedSearch(pool: Pool, options: SearchOptions): Promise
     contact: 0,
     memory: 0,
     message: 0,
+    dev_session: 0,
   };
 
   // Search work items (hybrid if available, Issue #1216)
@@ -658,6 +785,36 @@ export async function unifiedSearch(pool: Pool, options: SearchOptions): Promise
     }
   }
 
+  // Search dev sessions (hybrid if available, Issue #1987)
+  if (types.includes('dev_session')) {
+    try {
+      const textResults = await searchDevSessionsText(pool, query, searchOpts);
+      let devSessionResults: EntitySearchResult[];
+
+      if (search_type === 'hybrid' && queryEmbedding) {
+        const semanticResults = await searchDevSessionsSemantic(pool, queryEmbedding, searchOpts);
+        devSessionResults = combineResults(textResults, semanticResults, semantic_weight);
+      } else {
+        devSessionResults = textResults;
+      }
+
+      facets.dev_session = devSessionResults.length;
+      for (const result of devSessionResults) {
+        const combinedScore = result.text_score + (result.semantic_score || 0);
+        allResults.push({
+          type: 'dev_session',
+          id: result.id,
+          title: result.title,
+          snippet: result.snippet,
+          score: combinedScore,
+          metadata: result.metadata,
+        });
+      }
+    } catch (err) {
+      console.warn('[Search] Dev session search failed:', (err as Error).message);
+    }
+  }
+
   // Sort all results by score
   allResults.sort((a, b) => b.score - a.score);
 
@@ -687,6 +844,7 @@ export async function countSearchResults(
     contact: 0,
     memory: 0,
     message: 0,
+    dev_session: 0,
   };
 
   const dateConditions: string[] = [];
@@ -742,6 +900,19 @@ export async function countSearchResults(
     params,
   );
   counts.message = parseInt((message_count.rows[0] as { count: string }).count, 10);
+
+  // Count dev sessions (Issue #1987)
+  try {
+    const devSessionCount = await pool.query(
+      `SELECT COUNT(*) FROM dev_session
+       WHERE search_vector @@ plainto_tsquery('english', $1) ${workItemWhere}`,
+      params,
+    );
+    counts.dev_session = parseInt((devSessionCount.rows[0] as { count: string }).count, 10);
+  } catch {
+    // dev_session search_vector may not exist in older schemas
+    counts.dev_session = 0;
+  }
 
   return counts;
 }

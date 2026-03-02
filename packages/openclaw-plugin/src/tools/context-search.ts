@@ -15,7 +15,7 @@ import { createBoundaryMarkers, sanitizeMetadataField, wrapExternalMessage } fro
 import { sanitizeErrorMessage } from '../utils/sanitize.js';
 
 /** Supported entity types for cross-entity search */
-export const EntityType = z.enum(['memory', 'todo', 'project', 'message']);
+export const EntityType = z.enum(['memory', 'todo', 'project', 'message', 'dev_session']);
 export type EntityType = z.infer<typeof EntityType>;
 
 /** Parameters for context_search tool */
@@ -105,6 +105,19 @@ interface WorkItemApiResult {
   metadata?: { kind?: string; status?: string };
 }
 
+/** Dev session API result shape (from /dev-sessions/search) */
+interface DevSessionApiResult {
+  id: string;
+  session_name: string;
+  status: string;
+  task_summary?: string | null;
+  completion_summary?: string | null;
+  branch?: string | null;
+  repo_org?: string | null;
+  repo_name?: string | null;
+  similarity?: number;
+}
+
 /** Message API result shape (from /api/search?types=message) */
 interface MessageApiResult {
   id: string;
@@ -145,7 +158,7 @@ function classifyWorkItem(kind?: string): EntityType {
  */
 function formatResultsAsText(results: ContextSearchResultItem[]): string {
   if (results.length === 0) {
-    return 'No matching results found across memories, todos, projects, or messages.';
+    return 'No matching results found across memories, todos, projects, messages, or dev sessions.';
   }
 
   return results
@@ -174,7 +187,7 @@ export function createContextSearchTool(options: ContextSearchToolOptions): Cont
   return {
     name: 'context_search',
     description:
-      'Search across memories, todos, projects, and messages simultaneously. Use when you need broad context about a topic, ' +
+      'Search across memories, todos, projects, messages, and dev sessions simultaneously. Use when you need broad context about a topic, ' +
       'person, or project. Returns a blended ranked list from all entity types. Optionally filter by entity_types to narrow the search.',
     parameters: ContextSearchParamsSchema,
 
@@ -198,6 +211,7 @@ export function createContextSearchTool(options: ContextSearchToolOptions): Cont
       const searchMemories = !entity_types || entity_types.includes('memory');
       const searchWorkItems = !entity_types || entity_types.includes('todo') || entity_types.includes('project');
       const searchMessages = !entity_types || entity_types.includes('message');
+      const searchDevSessions = !entity_types || entity_types.includes('dev_session');
 
       logger.info('context_search invoked', {
         user_id,
@@ -207,7 +221,7 @@ export function createContextSearchTool(options: ContextSearchToolOptions): Cont
       });
 
       // Build tagged promises for parallel fan-out via Promise.allSettled
-      type SearchTag = 'memory' | 'work_item' | 'message';
+      type SearchTag = 'memory' | 'work_item' | 'message' | 'dev_session';
       const taggedPromises: Array<{ tag: SearchTag; promise: Promise<unknown> }> = [];
 
       if (searchMemories) {
@@ -254,6 +268,17 @@ export function createContextSearchTool(options: ContextSearchToolOptions): Cont
         });
       }
 
+      if (searchDevSessions) {
+        const devSessionParams = new URLSearchParams({
+          q: sanitizedQuery,
+          limit: String(limit),
+        });
+        taggedPromises.push({
+          tag: 'dev_session',
+          promise: client.get<{ items?: DevSessionApiResult[]; total?: number }>(`/dev-sessions/search?${devSessionParams.toString()}`, { user_id, user_email: user_id }),
+        });
+      }
+
       const settled = await Promise.allSettled(taggedPromises.map((tp) => tp.promise));
 
       // Process results
@@ -261,6 +286,7 @@ export function createContextSearchTool(options: ContextSearchToolOptions): Cont
       const memoryItems: ContextSearchResultItem[] = [];
       const workItemResults: ContextSearchResultItem[] = [];
       const messageItems: ContextSearchResultItem[] = [];
+      const devSessionItems: ContextSearchResultItem[] = [];
 
       for (let i = 0; i < settled.length; i++) {
         const entry = settled[i];
@@ -317,6 +343,22 @@ export function createContextSearchTool(options: ContextSearchToolOptions): Cont
               metadata: Object.keys(meta).length > 0 ? meta : undefined,
             });
           }
+        } else if (tag === 'dev_session') {
+          const data = response.data as { items?: DevSessionApiResult[] };
+          const rawResults = data.items ?? [];
+          for (const ds of rawResults) {
+            devSessionItems.push({
+              id: ds.id,
+              entity_type: 'dev_session',
+              title: ds.session_name,
+              snippet: ds.task_summary || ds.completion_summary || '',
+              score: ds.similarity ?? 0,
+              metadata: {
+                ...(ds.status ? { status: ds.status } : {}),
+                ...(ds.branch ? { branch: ds.branch } : {}),
+              },
+            });
+          }
         } else {
           const data = response.data as { results: WorkItemApiResult[] };
           const rawResults = data.results ?? [];
@@ -334,7 +376,7 @@ export function createContextSearchTool(options: ContextSearchToolOptions): Cont
       }
 
       // If all searches failed, return error
-      if (memoryItems.length === 0 && workItemResults.length === 0 && messageItems.length === 0 && warnings.length === settled.length && settled.length > 0) {
+      if (memoryItems.length === 0 && workItemResults.length === 0 && messageItems.length === 0 && devSessionItems.length === 0 && warnings.length === settled.length && settled.length > 0) {
         return {
           success: false,
           error: `All searches failed: ${warnings.join('; ')}`,
@@ -345,9 +387,10 @@ export function createContextSearchTool(options: ContextSearchToolOptions): Cont
       normalizeScores(memoryItems);
       normalizeScores(workItemResults);
       normalizeScores(messageItems);
+      normalizeScores(devSessionItems);
 
       // Merge all results
-      let allResults = [...memoryItems, ...workItemResults, ...messageItems];
+      let allResults = [...memoryItems, ...workItemResults, ...messageItems, ...devSessionItems];
 
       // Filter by entity_types if specified
       if (entity_types) {

@@ -544,6 +544,17 @@ export {
   type DevSessionToolOptions,
 } from './dev-sessions.js';
 
+// Dev session search tool (Issue #1987)
+export {
+  createDevSessionSearchTool,
+  DevSessionSearchParamsSchema,
+  type DevSessionSearchParams,
+  type DevSessionSearchTool,
+  type DevSessionSearchResult,
+  type DevSessionSearchItem,
+  type DevSessionSearchToolOptions,
+} from './dev-session-search.js';
+
 // Tool guide meta-tool (Issue #1923)
 export {
   createToolGuideTool,

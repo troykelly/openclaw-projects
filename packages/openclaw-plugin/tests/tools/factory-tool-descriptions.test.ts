@@ -1,5 +1,5 @@
 /**
- * Tests that all 33 factory-defined tool descriptions follow the standard template.
+ * Tests that all 34 factory-defined tool descriptions follow the standard template.
  *
  * Template: <What it does>. <When to use / typical trigger>. <Prefer X when Y>. <Side effects>. <Prerequisites>.
  * Target: 150–250 characters per description.
@@ -51,6 +51,9 @@ import {
   createDevSessionUpdateTool,
   createDevSessionCompleteTool,
 } from '../../src/tools/dev-sessions.js';
+
+// Dev session search (1 tool) — Issue #1987
+import { createDevSessionSearchTool } from '../../src/tools/dev-session-search.js';
 
 // Notes (5 tools)
 import {
@@ -138,12 +141,13 @@ function getAllFactoryTools(): Array<{ name: string; description: string }> {
     // Terminal search (2)
     createTerminalSearchTool(sharedOptions),
     createTerminalAnnotateTool(sharedOptions),
-    // Dev sessions (5)
+    // Dev sessions (6)
     createDevSessionCreateTool(sharedOptions),
     createDevSessionListTool(sharedOptions),
     createDevSessionGetTool(sharedOptions),
     createDevSessionUpdateTool(sharedOptions),
     createDevSessionCompleteTool(sharedOptions),
+    createDevSessionSearchTool(sharedOptions),
     // Notes (5)
     createNoteCreateTool(sharedOptions),
     createNoteGetTool(sharedOptions),
@@ -160,8 +164,8 @@ function getAllFactoryTools(): Array<{ name: string; description: string }> {
 describe('factory tool descriptions', () => {
   const tools = getAllFactoryTools();
 
-  it('should have exactly 33 factory tools', () => {
-    expect(tools).toHaveLength(33);
+  it('should have exactly 34 factory tools', () => {
+    expect(tools).toHaveLength(34);
   });
 
   describe.each(tools.map((t) => [t.name, t.description]))('%s', (name, description) => {
