@@ -80,6 +80,12 @@ import {
   createNotebookGetTool,
   // Tool guide meta-tool (Issue #1923)
   createToolGuideTool,
+  // Dev prompt tools (Epic #2011, Issue #2015)
+  createDevPromptListTool,
+  createDevPromptGetTool,
+  createDevPromptCreateTool,
+  createDevPromptUpdateTool,
+  createDevPromptResetTool,
 } from './tools/index.js';
 import { zodToJsonSchema } from './utils/zod-to-json-schema.js';
 import type {
@@ -4906,6 +4912,32 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     });
   }
 
+  // ── Dev prompt tools (Epic #2011, Issue #2015) ─────────────────
+  // Reuses termToolOpts (same shape: client, logger, config, user_id getter).
+
+  const devPromptToolFactories = [
+    createDevPromptListTool,
+    createDevPromptGetTool,
+    createDevPromptCreateTool,
+    createDevPromptUpdateTool,
+    createDevPromptResetTool,
+  ] as const;
+
+  for (const factory of devPromptToolFactories) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- factory functions have heterogeneous option types that share the same shape
+    const tool = (factory as (opts: typeof termToolOpts) => { name: string; description: string; parameters: unknown; execute: (params: any) => Promise<any> })(termToolOpts);
+
+    tools.push({
+      name: tool.name,
+      description: tool.description,
+      parameters: zodToJsonSchema(tool.parameters as import('zod').ZodTypeAny),
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await tool.execute(params);
+        return toAgentToolResult(result);
+      },
+    });
+  }
+
   // ── Optional tool groups (Issue #1921) ─────────────────────────
   // Mark 61 tools as optional with logical group names.
   // Tools not in this map remain required (core tools like memory, project, todo, etc.)
@@ -4987,6 +5019,12 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     notebook_get: 'notebooks',
     // File share (1)
     file_share: 'file_share',
+    // Dev prompts (5)
+    dev_prompt_list: 'dev_prompts',
+    dev_prompt_get: 'dev_prompts',
+    dev_prompt_create: 'dev_prompts',
+    dev_prompt_update: 'dev_prompts',
+    dev_prompt_reset: 'dev_prompts',
   };
 
   for (const tool of tools) {

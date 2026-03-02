@@ -564,5 +564,36 @@ export {
   type ToolGuideResult,
 } from './tool-guide.js';
 
+// Dev prompt tools (Epic #2011, Issue #2015)
+export {
+  createDevPromptListTool,
+  createDevPromptGetTool,
+  createDevPromptCreateTool,
+  createDevPromptUpdateTool,
+  createDevPromptResetTool,
+  DevPromptListParamsSchema,
+  DevPromptGetParamsSchema,
+  DevPromptCreateParamsSchema,
+  DevPromptUpdateParamsSchema,
+  DevPromptResetParamsSchema,
+  type DevPromptListParams,
+  type DevPromptGetParams,
+  type DevPromptCreateParams,
+  type DevPromptUpdateParams,
+  type DevPromptResetParams,
+  type DevPromptListTool,
+  type DevPromptGetTool,
+  type DevPromptCreateTool,
+  type DevPromptUpdateTool,
+  type DevPromptResetTool,
+  type DevPromptListResult,
+  type DevPromptGetResult,
+  type DevPromptCreateResult,
+  type DevPromptUpdateResult,
+  type DevPromptResetResult,
+  type DevPrompt,
+  type DevPromptToolOptions,
+} from './dev-prompts.js';
+
 /** Tool factory types */
 export type ToolFactoryOptions = Record<string, never>;
