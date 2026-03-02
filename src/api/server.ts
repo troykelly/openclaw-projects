@@ -7749,29 +7749,49 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     const pool = createPool();
+    try {
+      if (!(await verifyWriteScope(pool, 'contact', params.id, req))) {
+        return reply.code(404).send({ error: 'not found' });
+      }
 
-    if (!(await verifyWriteScope(pool, 'contact', params.id, req))) {
+      // Issue #1702: accept label and is_primary on create (not just PATCH)
+      const labelValue = body.label !== undefined ? body.label : null;
+      const isPrimaryValue = body.is_primary !== undefined ? body.is_primary : false;
+      const metadataJson = Object.keys(metadataObj).length > 0 ? JSON.stringify(metadataObj) : null;
+
+      const inserted = await pool.query(
+        `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value, label, is_primary, metadata, namespace)
+         VALUES ($1, $2::contact_endpoint_type, $3, $4, $5, COALESCE($6::jsonb, '{}'::jsonb), $7)
+         RETURNING id::text as id, contact_id::text as contact_id,
+                   endpoint_type::text as type, endpoint_value as value,
+                   normalized_value, label, is_primary, is_login_eligible, metadata,
+                   created_at, updated_at`,
+        [params.id, endpointType, endpointValue, labelValue, isPrimaryValue, metadataJson, getStoreNamespace(req)],
+      );
+
+      return reply.code(201).send(inserted.rows[0]);
+    } catch (err) {
+      const pgErr = err as Error & { code?: string };
+      // 23505 = unique_violation (duplicate endpoint_type + normalized_value)
+      if (pgErr.code === '23505') {
+        return reply.code(409).send({ error: 'An endpoint with this type and value already exists' });
+      }
+      // 22P02 = invalid_text_representation (invalid enum value or malformed input)
+      if (pgErr.code === '22P02') {
+        return reply.code(400).send({ error: 'Invalid input: check endpoint_type and field values' });
+      }
+      // 23503 = foreign_key_violation (contact deleted between scope check and insert)
+      if (pgErr.code === '23503') {
+        return reply.code(404).send({ error: 'not found' });
+      }
+      // 23514 = check_violation (e.g. empty endpoint_value after trim)
+      if (pgErr.code === '23514') {
+        return reply.code(400).send({ error: 'Invalid input: endpoint value must not be empty' });
+      }
+      throw err;
+    } finally {
       await pool.end();
-      return reply.code(404).send({ error: 'not found' });
     }
-
-    // Issue #1702: accept label and is_primary on create (not just PATCH)
-    const labelValue = body.label !== undefined ? body.label : null;
-    const isPrimaryValue = body.is_primary !== undefined ? body.is_primary : false;
-    const metadataJson = Object.keys(metadataObj).length > 0 ? JSON.stringify(metadataObj) : null;
-
-    const inserted = await pool.query(
-      `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value, label, is_primary, metadata, namespace)
-       VALUES ($1, $2::contact_endpoint_type, $3, $4, $5, COALESCE($6::jsonb, '{}'::jsonb), $7)
-       RETURNING id::text as id, contact_id::text as contact_id,
-                 endpoint_type::text as type, endpoint_value as value,
-                 normalized_value, label, is_primary, is_login_eligible, metadata,
-                 created_at, updated_at`,
-      [params.id, endpointType, endpointValue, labelValue, isPrimaryValue, metadataJson, getStoreNamespace(req)],
-    );
-
-    await pool.end();
-    return reply.code(201).send(inserted.rows[0]);
   });
 
   // ============================================================
