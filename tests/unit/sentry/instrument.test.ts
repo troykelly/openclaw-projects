@@ -34,11 +34,13 @@ import {
   scrubBreadcrumbs,
   initSentry,
   closeSentry,
+  _resetForTesting,
 } from '../../../src/instrument.ts';
 
 describe('Sentry Instrument Module (#1999)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    _resetForTesting();
   });
 
   afterEach(() => {
@@ -156,6 +158,37 @@ describe('Sentry Instrument Module (#1999)', () => {
 
       const config = mockInit.mock.calls[0][0];
       expect(config.serverName).toBeUndefined();
+    });
+
+    it('prevents double initialization', () => {
+      process.env.SENTRY_DSN = 'https://key@glitchtip.example.com/1';
+
+      initSentry();
+      initSentry();
+
+      expect(mockInit).toHaveBeenCalledTimes(1);
+    });
+
+    it('falls back to default sample rates when env values are invalid', () => {
+      process.env.SENTRY_DSN = 'https://key@glitchtip.example.com/1';
+      process.env.SENTRY_TRACES_SAMPLE_RATE = 'not-a-number';
+      process.env.SENTRY_SAMPLE_RATE = '2.5'; // out of range
+
+      initSentry();
+
+      const config = mockInit.mock.calls[0][0];
+      expect(config.tracesSampleRate).toBe(0.1);
+      expect(config.sampleRate).toBe(1.0);
+    });
+
+    it('falls back to default when sample rate is negative', () => {
+      process.env.SENTRY_DSN = 'https://key@glitchtip.example.com/1';
+      process.env.SENTRY_TRACES_SAMPLE_RATE = '-0.5';
+
+      initSentry();
+
+      const config = mockInit.mock.calls[0][0];
+      expect(config.tracesSampleRate).toBe(0.1);
     });
   });
 

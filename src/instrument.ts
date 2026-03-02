@@ -53,6 +53,19 @@ const MESSAGE_CATEGORIES = new Set([
 
 const FILTERED = '[Filtered]';
 
+/** Guard against double-initialization. */
+let initialized = false;
+
+/**
+ * Parse a float from an env var, returning the fallback on NaN or out-of-range.
+ */
+function parseSampleRate(value: string | undefined, fallback: number): number {
+  if (value === undefined) return fallback;
+  const parsed = parseFloat(value);
+  if (Number.isNaN(parsed) || parsed < 0 || parsed > 1) return fallback;
+  return parsed;
+}
+
 /**
  * Read the version from package.json at startup.
  * Uses createRequire for CJS-style synchronous resolution in ESM context.
@@ -174,17 +187,22 @@ function scrubEvent<T extends Event>(event: T): T | null {
  * when used via --import.
  */
 export function initSentry(): void {
+  if (initialized) return;
+
   const dsn = process.env.SENTRY_DSN;
   if (!dsn) return;
+
+  initialized = true;
 
   Sentry.init({
     dsn,
     environment: process.env.SENTRY_ENVIRONMENT || 'development',
     release: process.env.SENTRY_RELEASE || getPackageVersion(),
-    tracesSampleRate: parseFloat(
-      process.env.SENTRY_TRACES_SAMPLE_RATE || '0.1',
+    tracesSampleRate: parseSampleRate(
+      process.env.SENTRY_TRACES_SAMPLE_RATE,
+      0.1,
     ),
-    sampleRate: parseFloat(process.env.SENTRY_SAMPLE_RATE || '1.0'),
+    sampleRate: parseSampleRate(process.env.SENTRY_SAMPLE_RATE, 1.0),
     debug: process.env.SENTRY_DEBUG === 'true',
     serverName: process.env.SENTRY_SERVER_NAME,
     sendDefaultPii: false,
@@ -195,6 +213,14 @@ export function initSentry(): void {
       return scrubEvent(event);
     },
   });
+}
+
+/**
+ * Reset initialization state — for testing only.
+ * @internal
+ */
+export function _resetForTesting(): void {
+  initialized = false;
 }
 
 /**
