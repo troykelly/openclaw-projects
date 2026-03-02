@@ -57,8 +57,8 @@ describe('RouterSidebar', () => {
     renderSidebarWithRouter('/activity');
     const nav = screen.getByRole('navigation', { name: 'Main navigation' });
     const links = nav.querySelectorAll('a');
-    // 14 main nav items: Activity, Projects, People, Memory, Notes, Communications, Recipes, Meal Log, Home Automation, Pantry, Voice, Dev Sessions, Skill Store, Terminal
-    expect(links.length).toBe(14);
+    // 15 main nav items: Activity, Projects, People, Memory, Notes, Communications, Recipes, Meal Log, Home Automation, Pantry, Voice, Terminal, Dev Sessions, Dev Prompts, Skill Store
+    expect(links.length).toBe(15);
   });
 
   it('renders a Notes navigation link with route /notes', () => {

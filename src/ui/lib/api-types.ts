@@ -1864,3 +1864,66 @@ export interface SendChatMessageBody {
 export interface UpdateChatSessionBody {
   title?: string;
 }
+
+// ---------------------------------------------------------------------------
+// Dev Prompts (Epic #2011)
+// ---------------------------------------------------------------------------
+
+/** A dev prompt returned from the API. */
+export interface DevPrompt {
+  id: string;
+  namespace: string;
+  prompt_key: string;
+  category: string;
+  is_system: boolean;
+  title: string;
+  description: string;
+  body: string;
+  default_body: string;
+  sort_order: number;
+  is_active: boolean;
+  deleted_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Response from GET /dev-prompts */
+export interface DevPromptsResponse {
+  total: number;
+  limit: number;
+  offset: number;
+  items: DevPrompt[];
+}
+
+/** Body for POST /dev-prompts */
+export interface CreateDevPromptBody {
+  prompt_key: string;
+  title: string;
+  body: string;
+  category?: string;
+  description?: string;
+}
+
+/** Body for PATCH /dev-prompts/:id */
+export interface UpdateDevPromptBody {
+  title?: string;
+  description?: string;
+  body?: string;
+  category?: string;
+  is_active?: boolean;
+  sort_order?: number;
+}
+
+/** Variable definition for template rendering. */
+export interface DevPromptVariableDefinition {
+  name: string;
+  description: string;
+  example: string;
+}
+
+/** Response from POST /dev-prompts/:id/render */
+export interface DevPromptRenderResult {
+  rendered: string;
+  variables_used: string[];
+  available_variables: DevPromptVariableDefinition[];
+}
