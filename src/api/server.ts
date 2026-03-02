@@ -864,11 +864,23 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     // Fastify errors (validation, etc.) have statusCode set
     const statusCode = (error as { statusCode?: number }).statusCode;
     if (statusCode) {
+      // Capture 5xx errors that have an explicit status code (#2000)
+      if (statusCode >= 500) {
+        // Strip query string from URL to avoid PII leakage in Sentry tags
+        const urlPath = req.url.split('?')[0];
+        Sentry.captureException(error, {
+          tags: { method: req.method, url: urlPath, statusCode },
+        });
+        req.log.error(error, 'Server error');
+        return reply.code(statusCode).send({ error: 'Internal Server Error' });
+      }
       return reply.code(statusCode).send({ error: (error as Error).message });
     }
-    // Capture 5xx errors with Sentry including request context (#2000)
+    // Unhandled errors without statusCode are treated as 500 (#2000)
+    // Strip query string from URL to avoid PII leakage in Sentry tags
+    const urlPath = req.url.split('?')[0];
     Sentry.captureException(error, {
-      tags: { method: req.method, url: req.url, statusCode: 500 },
+      tags: { method: req.method, url: urlPath, statusCode: 500 },
     });
     req.log.error(error, 'Unhandled error');
     reply.code(500).send({ error: 'Internal Server Error' });

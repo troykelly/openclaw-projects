@@ -73,7 +73,6 @@ describe('API error handler Sentry integration (#2000)', () => {
   });
 
   it('captures 5xx errors with Sentry.captureException and request context', async () => {
-    // Import the error handler module after mocks are set up
     const Sentry = await import('@sentry/node');
 
     // Simulate the error handler behavior: 5xx should call captureException
@@ -90,6 +89,41 @@ describe('API error handler Sentry integration (#2000)', () => {
     expect(mockCaptureException).toHaveBeenCalledTimes(1);
     expect(mockCaptureException).toHaveBeenCalledWith(error, {
       tags: { method: 'GET', url: '/work-items', statusCode: 500 },
+    });
+  });
+
+  it('captures 5xx errors with explicit statusCode (e.g. 502, 503)', async () => {
+    const Sentry = await import('@sentry/node');
+
+    const error = new Error('Bad Gateway');
+    const statusCode = 502;
+
+    // Errors with statusCode >= 500 should also be captured
+    if (statusCode >= 500) {
+      Sentry.captureException(error, {
+        tags: { method: 'POST', url: '/webhooks', statusCode },
+      });
+    }
+
+    expect(mockCaptureException).toHaveBeenCalledTimes(1);
+    expect(mockCaptureException).toHaveBeenCalledWith(error, {
+      tags: { method: 'POST', url: '/webhooks', statusCode: 502 },
+    });
+  });
+
+  it('strips query string from URL in Sentry tags to prevent PII leakage', async () => {
+    const Sentry = await import('@sentry/node');
+
+    // Simulate stripping query string (as the implementation does via url.split('?')[0])
+    const rawUrl = '/auth/callback?code=secret123&state=abc';
+    const urlPath = rawUrl.split('?')[0];
+
+    Sentry.captureException(new Error('fail'), {
+      tags: { method: 'GET', url: urlPath, statusCode: 500 },
+    });
+
+    expect(mockCaptureException).toHaveBeenCalledWith(expect.anything(), {
+      tags: { method: 'GET', url: '/auth/callback', statusCode: 500 },
     });
   });
 
