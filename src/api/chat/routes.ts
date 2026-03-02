@@ -168,11 +168,44 @@ export async function chatRoutesPlugin(
   const { pool } = opts;
 
   // ================================================================
+  // Issue #1957 — List available agents
+  // ================================================================
+
+  // GET /chat/agents — List available agents
+  app.get('/chat/agents', async (req, reply) => {
+    const identity = await getAuthIdentity(req);
+    if (!identity?.email) return reply.code(401).send({ error: 'Unauthorized' });
+
+    const namespace = getStoreNamespace(req);
+
+    try {
+      const result = await pool.query(
+        `SELECT DISTINCT agent_id FROM chat_session
+         WHERE namespace = $1 AND status != 'expired'
+         ORDER BY agent_id`,
+        [namespace],
+      );
+
+      const agents = result.rows.map((row: { agent_id: string }) => ({
+        id: row.agent_id,
+        name: row.agent_id,
+        display_name: null,
+        avatar_url: null,
+      }));
+
+      return reply.send({ agents });
+    } catch (err) {
+      req.log.error(err, 'Failed to list chat agents');
+      return reply.code(500).send({ error: 'Failed to list agents' });
+    }
+  });
+
+  // ================================================================
   // Issue #1942 — Chat Session CRUD API
   // ================================================================
 
   // POST /api/chat/sessions — Create a new chat session
-  app.post('/api/chat/sessions', async (req, reply) => {
+  app.post('/chat/sessions', async (req, reply) => {
     const userEmail = await getUserEmail(req);
     if (!userEmail) {
       return reply.code(401).send({ error: 'Authentication required' });
@@ -289,7 +322,7 @@ export async function chatRoutesPlugin(
   });
 
   // GET /api/chat/sessions — List sessions (cursor-paginated)
-  app.get('/api/chat/sessions', async (req, reply) => {
+  app.get('/chat/sessions', async (req, reply) => {
     const userEmail = await getUserEmail(req);
     if (!userEmail) {
       return reply.code(401).send({ error: 'Authentication required' });
@@ -351,7 +384,7 @@ export async function chatRoutesPlugin(
   });
 
   // GET /api/chat/sessions/:id — Get session details
-  app.get('/api/chat/sessions/:id', async (req, reply) => {
+  app.get('/chat/sessions/:id', async (req, reply) => {
     const userEmail = await getUserEmail(req);
     if (!userEmail) {
       return reply.code(401).send({ error: 'Authentication required' });
@@ -385,7 +418,7 @@ export async function chatRoutesPlugin(
   });
 
   // PATCH /api/chat/sessions/:id — Update session title (optimistic locking)
-  app.patch('/api/chat/sessions/:id', async (req, reply) => {
+  app.patch('/chat/sessions/:id', async (req, reply) => {
     const userEmail = await getUserEmail(req);
     if (!userEmail) {
       return reply.code(401).send({ error: 'Authentication required' });
@@ -444,7 +477,7 @@ export async function chatRoutesPlugin(
   });
 
   // POST /api/chat/sessions/:id/end — End a session
-  app.post('/api/chat/sessions/:id/end', async (req, reply) => {
+  app.post('/chat/sessions/:id/end', async (req, reply) => {
     const userEmail = await getUserEmail(req);
     if (!userEmail) {
       return reply.code(401).send({ error: 'Authentication required' });
@@ -527,7 +560,7 @@ export async function chatRoutesPlugin(
   // ================================================================
 
   // POST /api/chat/sessions/:id/read — Update read cursor (forward-only)
-  app.post('/api/chat/sessions/:id/read', async (req, reply) => {
+  app.post('/chat/sessions/:id/read', async (req, reply) => {
     const userEmail = await getUserEmail(req);
     if (!userEmail) {
       return reply.code(401).send({ error: 'Authentication required' });
@@ -593,7 +626,7 @@ export async function chatRoutesPlugin(
   // ================================================================
 
   // POST /api/chat/sessions/:id/messages — Send a message
-  app.post('/api/chat/sessions/:id/messages', async (req, reply) => {
+  app.post('/chat/sessions/:id/messages', async (req, reply) => {
     const userEmail = await getUserEmail(req);
     if (!userEmail) {
       return reply.code(401).send({ error: 'Authentication required' });
@@ -744,7 +777,7 @@ export async function chatRoutesPlugin(
   });
 
   // GET /api/chat/sessions/:id/messages — List messages (cursor-paginated)
-  app.get('/api/chat/sessions/:id/messages', async (req, reply) => {
+  app.get('/chat/sessions/:id/messages', async (req, reply) => {
     const userEmail = await getUserEmail(req);
     if (!userEmail) {
       return reply.code(401).send({ error: 'Authentication required' });
@@ -819,7 +852,7 @@ export async function chatRoutesPlugin(
   app.addHook('onClose', () => clearInterval(ticketCleanupInterval));
 
   // POST /api/chat/ws/ticket — Generate a one-time WebSocket ticket
-  app.post('/api/chat/ws/ticket', async (req, reply) => {
+  app.post('/chat/ws/ticket', async (req, reply) => {
     const userEmail = await getUserEmail(req);
     if (!userEmail) {
       return reply.code(401).send({ error: 'Authentication required' });
@@ -858,7 +891,7 @@ export async function chatRoutesPlugin(
   }
 
   // GET /api/chat/ws — WebSocket upgrade with ticket authentication
-  app.get('/api/chat/ws', { websocket: true }, async (socket: WebSocket, req: FastifyRequest) => {
+  app.get('/chat/ws', { websocket: true }, async (socket: WebSocket, req: FastifyRequest) => {
     const query = req.query as { ticket?: string; session_id?: string };
     const ticket = query.ticket;
     const sessionId = query.session_id;
@@ -1058,7 +1091,7 @@ export async function chatRoutesPlugin(
   app.addHook('onClose', () => streamManager.shutdown());
 
   // POST /api/chat/sessions/:id/stream — Agent streams response tokens
-  app.post('/api/chat/sessions/:id/stream', async (req, reply) => {
+  app.post('/chat/sessions/:id/stream', async (req, reply) => {
     const params = req.params as { id: string };
     if (!isValidUUID(params.id)) {
       return reply.code(400).send({ error: 'Invalid session ID format' });
@@ -1329,7 +1362,7 @@ export async function chatRoutesPlugin(
   // ================================================================
 
   // GET /api/chat/preferences — Get chat notification preferences
-  app.get('/api/chat/preferences', async (req, reply) => {
+  app.get('/chat/preferences', async (req, reply) => {
     const userEmail = await getUserEmail(req);
     if (!userEmail) {
       return reply.code(401).send({ error: 'Authentication required' });
@@ -1364,7 +1397,7 @@ export async function chatRoutesPlugin(
   });
 
   // PATCH /api/chat/preferences — Update chat notification preferences
-  app.patch('/api/chat/preferences', async (req, reply) => {
+  app.patch('/chat/preferences', async (req, reply) => {
     const userEmail = await getUserEmail(req);
     if (!userEmail) {
       return reply.code(401).send({ error: 'Authentication required' });
@@ -1436,7 +1469,7 @@ export async function chatRoutesPlugin(
   // ================================================================
 
   // POST /api/push/subscribe — Store browser push subscription
-  app.post('/api/push/subscribe', async (req, reply) => {
+  app.post('/push/subscribe', async (req, reply) => {
     const userEmail = await getUserEmail(req);
     if (!userEmail) {
       return reply.code(401).send({ error: 'Authentication required' });
@@ -1471,7 +1504,7 @@ export async function chatRoutesPlugin(
   // ================================================================
 
   // DELETE /api/chat/data — Delete all chat data for the authenticated user (GDPR)
-  app.delete('/api/chat/data', async (req, reply) => {
+  app.delete('/chat/data', async (req, reply) => {
     const userEmail = await getUserEmail(req);
     if (!userEmail) {
       return reply.code(401).send({ error: 'Authentication required' });
@@ -1496,7 +1529,7 @@ export async function chatRoutesPlugin(
   });
 
   // DELETE /api/chat/sessions/:id — Delete a specific session and all related data
-  app.delete('/api/chat/sessions/:id', async (req, reply) => {
+  app.delete('/chat/sessions/:id', async (req, reply) => {
     const userEmail = await getUserEmail(req);
     if (!userEmail) {
       return reply.code(401).send({ error: 'Authentication required' });
@@ -1541,7 +1574,7 @@ function registerAgentEndpoints(app: FastifyInstance, pool: Pool): void {
    * Auth: Bearer M2M token + X-Stream-Secret header.
    * Rate limit: 10/min per session.
    */
-  app.post('/api/chat/sessions/:id/agent-message', async (req, reply) => {
+  app.post('/chat/sessions/:id/agent-message', async (req, reply) => {
     const params = req.params as { id: string };
     const body = req.body as ChatSendMessageParams & { agent_id?: string };
 
@@ -1630,7 +1663,7 @@ function registerAgentEndpoints(app: FastifyInstance, pool: Pool): void {
    * Auth: Bearer M2M token (x-user-email identifies target user).
    * Rate limit: 3/hour, 10/day per user.
    */
-  app.post('/api/notifications/agent', async (req, reply) => {
+  app.post('/notifications/agent', async (req, reply) => {
     const body = req.body as ChatAttractAttentionParams & { agent_id?: string; user_email?: string };
 
     // Get target user email

@@ -717,30 +717,29 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // (These routes use their own authentication methods)
   const authSkipPaths = new Set([
     '/health',
-    '/api/health',
-    '/api/health/live',
-    '/api/health/ready',
-    '/api/auth/request-link',
-    '/api/auth/consume',
-    '/api/auth/refresh',
-    '/api/auth/revoke',
-    '/api/auth/exchange',
-    '/api/capabilities',
-    '/api/openapi.json',
+    '/health/live',
+    '/health/ready',
+    '/auth/request-link',
+    '/auth/consume',
+    '/auth/refresh',
+    '/auth/revoke',
+    '/auth/exchange',
+    '/capabilities',
+    '/openapi.json',
     // Webhook endpoints use signature verification instead of bearer tokens
-    '/api/twilio/sms',
-    '/api/twilio/sms/status',
-    '/api/postmark/inbound',
-    '/api/postmark/email/status',
-    '/api/cloudflare/email',
+    '/twilio/sms',
+    '/twilio/sms/status',
+    '/postmark/inbound',
+    '/postmark/email/status',
+    '/cloudflare/email',
     // WebSocket endpoint uses its own auth via query params or cookies
-    '/api/ws',
+    '/ws',
     // Voice WebSocket endpoint handles its own auth via JWT query param
     '/ws/conversation',
     // OAuth callback comes from external provider redirect
-    '/api/oauth/callback',
+    '/oauth/callback',
     // Chat WebSocket uses one-time ticket auth (Issue #1944)
-    '/api/chat/ws',
+    '/chat/ws',
   ]);
 
   // JWT authentication hook for API routes
@@ -749,12 +748,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     // Skip auth for public share link downloads (Issue #610, #1549)
     // These URLs contain dynamic tokens, so we use prefix matching
-    if (url.startsWith('/api/files/shared/') || url.startsWith('/api/shared/')) {
+    if (url.startsWith('/files/shared/') || url.startsWith('/shared/')) {
       return;
     }
 
     // Terminal WebSocket endpoint handles its own auth via JWT query param (Epic #1667)
-    if (url.startsWith('/api/terminal/sessions/') && url.endsWith('/attach')) {
+    if (url.startsWith('/terminal/sessions/') && url.endsWith('/attach')) {
       return;
     }
 
@@ -868,10 +867,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   healthRegistry.register(new WebhookHealthChecker());
 
   // Liveness probe - instant, no I/O, always 200
-  app.get('/api/health/live', async () => ({ status: 'ok' }));
+  app.get('/health/live', async () => ({ status: 'ok' }));
 
   // Readiness probe - checks critical dependencies
-  app.get('/api/health/ready', async (_req, reply) => {
+  app.get('/health/ready', async (_req, reply) => {
     const ready = await healthRegistry.isReady();
     if (ready) {
       return { status: 'ok' };
@@ -880,7 +879,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // Detailed health status for monitoring
-  app.get('/api/health', async (_req, reply) => {
+  app.get('/health', async (_req, reply) => {
     const health = await healthRegistry.checkAll();
     const status_code = health.status === 'unhealthy' ? 503 : 200;
     return reply.code(status_code).send(health);
@@ -904,7 +903,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   }
 
   // GET /api/namespaces — list namespaces accessible to current user (or all for M2M)
-  app.get('/api/namespaces', async (req, reply) => {
+  app.get('/namespaces', async (req, reply) => {
     const identity = await getAuthIdentity(req);
     if (!identity) {
       return reply.code(401).send({ error: 'Unauthorized' });
@@ -955,7 +954,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/namespaces — create a new namespace
-  app.post('/api/namespaces', async (req, reply) => {
+  app.post('/namespaces', async (req, reply) => {
     const identity = await getAuthIdentity(req);
     if (!identity) {
       return reply.code(401).send({ error: 'Unauthorized' });
@@ -1023,7 +1022,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/namespaces/:ns — get namespace details + member list
-  app.get('/api/namespaces/:ns', async (req, reply) => {
+  app.get('/namespaces/:ns', async (req, reply) => {
     const identity = await getAuthIdentity(req);
     if (!identity) {
       return reply.code(401).send({ error: 'Unauthorized' });
@@ -1062,7 +1061,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/namespaces/:ns/grants — list grants for a namespace
-  app.get('/api/namespaces/:ns/grants', async (req, reply) => {
+  app.get('/namespaces/:ns/grants', async (req, reply) => {
     const identity = await getAuthIdentity(req);
     if (!identity) {
       return reply.code(401).send({ error: 'Unauthorized' });
@@ -1122,7 +1121,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   }
 
   // POST /api/namespaces/:ns/grants — grant access to a user
-  app.post('/api/namespaces/:ns/grants', async (req, reply) => {
+  app.post('/namespaces/:ns/grants', async (req, reply) => {
     const identity = await getAuthIdentity(req);
     if (!identity) {
       return reply.code(401).send({ error: 'Unauthorized' });
@@ -1183,7 +1182,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // PATCH /api/namespaces/:ns/grants/:id — update access or home flag
-  app.patch('/api/namespaces/:ns/grants/:id', async (req, reply) => {
+  app.patch('/namespaces/:ns/grants/:id', async (req, reply) => {
     const identity = await getAuthIdentity(req);
     if (!identity) {
       return reply.code(401).send({ error: 'Unauthorized' });
@@ -1268,7 +1267,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // DELETE /api/namespaces/:ns/grants/:id — revoke access
-  app.delete('/api/namespaces/:ns/grants/:id', async (req, reply) => {
+  app.delete('/namespaces/:ns/grants/:id', async (req, reply) => {
     const identity = await getAuthIdentity(req);
     if (!identity) {
       return reply.code(401).send({ error: 'Unauthorized' });
@@ -1304,7 +1303,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // ============================================================
 
   // POST /api/users — create a user (M2M only)
-  app.post('/api/users', async (req, reply) => {
+  app.post('/users', async (req, reply) => {
     const identity = await getAuthIdentity(req);
     if (!identity) {
       return reply.code(401).send({ error: 'Unauthorized' });
@@ -1381,7 +1380,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/users — list users (M2M only)
-  app.get('/api/users', async (req, reply) => {
+  app.get('/users', async (req, reply) => {
     const identity = await getAuthIdentity(req);
     if (!identity) {
       return reply.code(401).send({ error: 'Unauthorized' });
@@ -1408,7 +1407,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/users/:email — get user details + grants
-  app.get('/api/users/:email', async (req, reply) => {
+  app.get('/users/:email', async (req, reply) => {
     const identity = await getAuthIdentity(req);
     if (!identity) {
       return reply.code(401).send({ error: 'Unauthorized' });
@@ -1449,7 +1448,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // PATCH /api/users/:email — update user settings
-  app.patch('/api/users/:email', async (req, reply) => {
+  app.patch('/users/:email', async (req, reply) => {
     const identity = await getAuthIdentity(req);
     if (!identity) {
       return reply.code(401).send({ error: 'Unauthorized' });
@@ -1507,7 +1506,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // DELETE /api/users/:email — deactivate user (M2M only)
-  app.delete('/api/users/:email', async (req, reply) => {
+  app.delete('/users/:email', async (req, reply) => {
     const identity = await getAuthIdentity(req);
     if (!identity) {
       return reply.code(401).send({ error: 'Unauthorized' });
@@ -1584,7 +1583,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     });
   }
 
-  app.get('/api/ws', { websocket: true }, async (socket, req) => {
+  app.get('/ws', { websocket: true }, async (socket, req) => {
     // Authenticate via JWT in Authorization header or query string
     let user_id: string | undefined;
 
@@ -1638,13 +1637,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // Realtime stats endpoint (for monitoring)
-  app.get('/api/ws/stats', async () => ({
+  app.get('/ws/stats', async () => ({
     connected_clients: realtimeHub.getClientCount(),
   }));
 
   // SSE fallback endpoint (Issue #213)
   // For clients that can't use WebSockets
-  app.get('/api/events', async (req, reply) => {
+  app.get('/events', async (req, reply) => {
     // Authenticate via JWT
     const sessionEmail = await getSessionEmail(req);
     if (!sessionEmail && !isAuthDisabled()) {
@@ -1698,7 +1697,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // Agent context bootstrap endpoint (Issue #219)
-  app.get('/api/bootstrap', async (req, reply) => {
+  app.get('/bootstrap', async (req, reply) => {
     const { getBootstrapContext } = await import('./bootstrap/index.ts');
 
     const query = req.query as {
@@ -1733,7 +1732,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // Context retrieval endpoint for auto-recall feature (Issue #251)
-  app.post('/api/v1/context', async (req, reply) => {
+  app.post('/v1/context', async (req, reply) => {
     const { retrieveContext, validateContextInput } = await import('./context/index.ts');
 
     const body = req.body as {
@@ -1785,7 +1784,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // Context capture endpoint for auto-capture feature (Issue #317)
-  app.post('/api/context/capture', async (req, reply) => {
+  app.post('/context/capture', async (req, reply) => {
     const { captureContext, validateCaptureInput } = await import('./context/capture.ts');
 
     const body = req.body as {
@@ -1821,7 +1820,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // Thread list endpoint (Issue #1139)
-  app.get('/api/threads', async (req, reply) => {
+  app.get('/threads', async (req, reply) => {
     const { listThreads } = await import('./threads/index.ts');
 
     const query = req.query as {
@@ -1849,7 +1848,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // Thread history endpoint for agent conversation context (Issue #226)
-  app.get('/api/threads/:id/history', async (req, reply) => {
+  app.get('/threads/:id/history', async (req, reply) => {
     const { getThreadHistory } = await import('./threads/index.ts');
 
     const params = req.params as { id: string };
@@ -1891,7 +1890,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // POST /api/messages/:id/link-contact - Link a message sender to a contact (Issue #1270)
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-  app.post('/api/messages/:id/link-contact', async (req, reply) => {
+  app.post('/messages/:id/link-contact', async (req, reply) => {
     const params = req.params as { id: string };
     const body = req.body as { contact_id?: string };
 
@@ -1967,7 +1966,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // API Capabilities endpoint - Agent-discoverable capability list (Issue #207)
-  app.get('/api/capabilities', async () => ({
+  app.get('/capabilities', async () => ({
     name: 'openclaw-projects',
     version: '1.0.0',
     description: 'Project management, memory storage, and communications backend for OpenClaw agents',
@@ -1983,51 +1982,51 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         name: 'work_items',
         description: 'Manage projects, epics, initiatives, issues, and tasks in a hierarchical structure',
         endpoints: [
-          { method: 'GET', path: '/api/work-items', description: 'List all work items' },
-          { method: 'POST', path: '/api/work-items', description: 'Create a work item' },
-          { method: 'GET', path: '/api/work-items/:id', description: 'Get a work item' },
-          { method: 'PUT', path: '/api/work-items/:id', description: 'Update a work item' },
-          { method: 'DELETE', path: '/api/work-items/:id', description: 'Delete a work item' },
-          { method: 'GET', path: '/api/work-items/tree', description: 'Get hierarchical tree view' },
-          { method: 'PATCH', path: '/api/work-items/:id/status', description: 'Update status' },
-          { method: 'PATCH', path: '/api/work-items/:id/dates', description: 'Update dates (reminders/deadlines)' },
-          { method: 'GET', path: '/api/work-items/:id/rollup', description: 'Get aggregated data from children' },
+          { method: 'GET', path: '/work-items', description: 'List all work items' },
+          { method: 'POST', path: '/work-items', description: 'Create a work item' },
+          { method: 'GET', path: '/work-items/:id', description: 'Get a work item' },
+          { method: 'PUT', path: '/work-items/:id', description: 'Update a work item' },
+          { method: 'DELETE', path: '/work-items/:id', description: 'Delete a work item' },
+          { method: 'GET', path: '/work-items/tree', description: 'Get hierarchical tree view' },
+          { method: 'PATCH', path: '/work-items/:id/status', description: 'Update status' },
+          { method: 'PATCH', path: '/work-items/:id/dates', description: 'Update dates (reminders/deadlines)' },
+          { method: 'GET', path: '/work-items/:id/rollup', description: 'Get aggregated data from children' },
         ],
       },
       {
         name: 'memory',
         description: 'Store and retrieve contextual memories (preferences, facts, decisions, context)',
         endpoints: [
-          { method: 'GET', path: '/api/memory', description: 'List/search memories' },
-          { method: 'POST', path: '/api/memory', description: 'Create a memory' },
-          { method: 'PUT', path: '/api/memory/:id', description: 'Update a memory' },
-          { method: 'DELETE', path: '/api/memory/:id', description: 'Delete a memory' },
+          { method: 'GET', path: '/memory', description: 'List/search memories' },
+          { method: 'POST', path: '/memory', description: 'Create a memory' },
+          { method: 'PUT', path: '/memory/:id', description: 'Update a memory' },
+          { method: 'DELETE', path: '/memory/:id', description: 'Delete a memory' },
         ],
       },
       {
         name: 'contacts',
         description: 'Manage people and their communication endpoints',
         endpoints: [
-          { method: 'GET', path: '/api/contacts', description: 'List contacts' },
-          { method: 'POST', path: '/api/contacts', description: 'Create a contact' },
-          { method: 'GET', path: '/api/contacts/:id', description: 'Get a contact' },
-          { method: 'PATCH', path: '/api/contacts/:id', description: 'Update a contact' },
-          { method: 'DELETE', path: '/api/contacts/:id', description: 'Delete a contact' },
-          { method: 'POST', path: '/api/contacts/:id/endpoints', description: 'Add communication endpoint' },
+          { method: 'GET', path: '/contacts', description: 'List contacts' },
+          { method: 'POST', path: '/contacts', description: 'Create a contact' },
+          { method: 'GET', path: '/contacts/:id', description: 'Get a contact' },
+          { method: 'PATCH', path: '/contacts/:id', description: 'Update a contact' },
+          { method: 'DELETE', path: '/contacts/:id', description: 'Delete a contact' },
+          { method: 'POST', path: '/contacts/:id/endpoints', description: 'Add communication endpoint' },
         ],
       },
       {
         name: 'activity',
         description: 'Track changes and activity across the system',
         endpoints: [
-          { method: 'GET', path: '/api/activity', description: 'Get activity feed' },
-          { method: 'GET', path: '/api/activity/stream', description: 'SSE stream for real-time updates' },
+          { method: 'GET', path: '/activity', description: 'Get activity feed' },
+          { method: 'GET', path: '/activity/stream', description: 'SSE stream for real-time updates' },
         ],
       },
       {
         name: 'bootstrap',
         description: 'Initialize agent session with full context (preferences, projects, reminders, contacts)',
-        endpoints: [{ method: 'GET', path: '/api/bootstrap', description: 'Get complete session context in single call' }],
+        endpoints: [{ method: 'GET', path: '/bootstrap', description: 'Get complete session context in single call' }],
       },
       {
         name: 'threads',
@@ -2035,7 +2034,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         endpoints: [
           {
             method: 'GET',
-            path: '/api/threads/:id/history',
+            path: '/threads/:id/history',
             description: 'Get thread history with messages, related work items, and contact memories',
             parameters: {
               limit: 'Max messages to return (default 50, max 200)',
@@ -2051,9 +2050,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         name: 'notifications',
         description: 'User notifications from agent actions and system events',
         endpoints: [
-          { method: 'GET', path: '/api/notifications', description: 'List notifications' },
-          { method: 'GET', path: '/api/notifications/unread-count', description: 'Get unread count' },
-          { method: 'POST', path: '/api/notifications/:id/read', description: 'Mark as read' },
+          { method: 'GET', path: '/notifications', description: 'List notifications' },
+          { method: 'GET', path: '/notifications/unread-count', description: 'Get unread count' },
+          { method: 'POST', path: '/notifications/:id/read', description: 'Mark as read' },
         ],
       },
       {
@@ -2062,7 +2061,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         endpoints: [
           {
             method: 'GET',
-            path: '/api/search',
+            path: '/search',
             description: 'Search work items, contacts, memories, and messages with hybrid (text + semantic) search',
             parameters: {
               q: 'Search query (required)',
@@ -2081,20 +2080,20 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         name: 'analytics',
         description: 'Project health and progress metrics',
         endpoints: [
-          { method: 'GET', path: '/api/analytics/project-health', description: 'Overall project health' },
-          { method: 'GET', path: '/api/analytics/velocity', description: 'Completion velocity' },
-          { method: 'GET', path: '/api/analytics/overdue', description: 'Overdue items' },
+          { method: 'GET', path: '/analytics/project-health', description: 'Overall project health' },
+          { method: 'GET', path: '/analytics/velocity', description: 'Completion velocity' },
+          { method: 'GET', path: '/analytics/overdue', description: 'Overdue items' },
         ],
       },
       {
         name: 'webhooks',
         description: 'Ad-hoc webhook ingestion for project events (CI, deployments, alerts)',
         endpoints: [
-          { method: 'POST', path: '/api/projects/:id/webhooks', description: 'Create a webhook for a project' },
-          { method: 'GET', path: '/api/projects/:id/webhooks', description: 'List project webhooks' },
-          { method: 'DELETE', path: '/api/projects/:id/webhooks/:webhook_id', description: 'Delete a webhook' },
-          { method: 'POST', path: '/api/webhooks/:webhook_id', description: 'Ingest webhook payload (bearer token auth)' },
-          { method: 'GET', path: '/api/projects/:id/events', description: 'List project events (paginated)' },
+          { method: 'POST', path: '/projects/:id/webhooks', description: 'Create a webhook for a project' },
+          { method: 'GET', path: '/projects/:id/webhooks', description: 'List project webhooks' },
+          { method: 'DELETE', path: '/projects/:id/webhooks/:webhook_id', description: 'Delete a webhook' },
+          { method: 'POST', path: '/webhooks/:webhook_id', description: 'Ingest webhook payload (bearer token auth)' },
+          { method: 'GET', path: '/projects/:id/events', description: 'List project events (paginated)' },
         ],
       },
     ],
@@ -2102,28 +2101,28 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       {
         name: 'add_to_list',
         description: 'Add an item to a list (e.g., shopping list)',
-        steps: ['GET /api/work-items?title=<list-name> to find the list', 'POST /api/work-items with parent_work_item_id set to list ID'],
+        steps: ['GET /work-items?title=<list-name> to find the list', 'POST /work-items with parent_work_item_id set to list ID'],
       },
       {
         name: 'set_reminder',
         description: 'Create a reminder for a future time',
-        steps: ['POST /api/work-items with not_before date set to reminder time'],
+        steps: ['POST /work-items with not_before date set to reminder time'],
       },
       {
         name: 'store_preference',
         description: 'Store a user preference',
-        steps: ['POST /api/memory with memory_type="preference"'],
+        steps: ['POST /memory with memory_type="preference"'],
       },
       {
         name: 'find_memories',
         description: 'Search for relevant memories',
-        steps: ['GET /api/memory?search=<query>'],
+        steps: ['GET /memory?search=<query>'],
       },
     ],
   }));
 
   // OpenAPI specification endpoint (Issue #207, Issue #1543)
-  app.get('/api/openapi.json', async () => assembleSpec());
+  app.get('/openapi.json', async () => assembleSpec());
 
   // Issue #1166: Landing page at root URL
   function renderLandingPage(email: string | null, nonce: string): string {
@@ -2494,7 +2493,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     return sendAppHtml(reply, bootstrap);
   });
 
-  app.post('/api/auth/request-link', {
+  app.post('/auth/request-link', {
     config: { rateLimit: requestLinkRateLimit() },
   }, async (req, reply) => {
     const body = req.body as { email?: string };
@@ -2538,7 +2537,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   /**
    * Sets the HttpOnly refresh token cookie on a reply.
-   * Cookie is scoped to /api/auth, SameSite=Strict, Secure in production.
+   * Cookie is scoped to /auth, SameSite=Strict, Secure in production.
    */
   function setRefreshCookie(reply: any, token: string): void {
     const isProduction = process.env.NODE_ENV === 'production';
@@ -2546,7 +2545,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       httpOnly: true,
       secure: isProduction,
       sameSite: 'strict',
-      path: '/api/auth',
+      path: '/auth',
       maxAge: 7 * 24 * 60 * 60, // 7 days in seconds
     });
   }
@@ -2558,13 +2557,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       httpOnly: true,
       secure: isProduction,
       sameSite: 'strict',
-      path: '/api/auth',
+      path: '/auth',
       maxAge: 0,
     });
   }
 
   // POST /api/auth/consume — validate magic link token, return JWT + refresh cookie
-  app.post('/api/auth/consume', {
+  app.post('/auth/consume', {
     config: { rateLimit: consumeRateLimit() },
   }, async (req, reply) => {
     const body = req.body as { token?: string };
@@ -2624,7 +2623,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/auth/refresh — validate refresh cookie, rotate token, return new JWT
-  app.post('/api/auth/refresh', {
+  app.post('/auth/refresh', {
     config: { rateLimit: refreshRateLimit() },
   }, async (req, reply) => {
     const cookies = req.cookies as Record<string, string | undefined>;
@@ -2672,7 +2671,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/auth/revoke — revoke refresh family, clear cookie (logout)
-  app.post('/api/auth/revoke', {
+  app.post('/auth/revoke', {
     config: { rateLimit: revokeRateLimit() },
   }, async (req, reply) => {
     const cookies = req.cookies as Record<string, string | undefined>;
@@ -2699,7 +2698,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/auth/exchange — validate one-time OAuth code, return JWT + refresh cookie
-  app.post('/api/auth/exchange', {
+  app.post('/auth/exchange', {
     config: { rateLimit: exchangeRateLimit() },
   }, async (req, reply) => {
     // CSRF mitigation: enforce JSON content type to prevent cross-site form POSTs.
@@ -2783,14 +2782,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
-  app.get('/api/me', async (req, reply) => {
+  app.get('/me', async (req, reply) => {
     const email = await getSessionEmail(req);
     if (!email) return reply.code(401).send({ error: 'unauthorized' });
     return reply.send({ email });
   });
 
   // User Settings API (issue #179 - Platform Completeness)
-  app.get('/api/settings', async (req, reply) => {
+  app.get('/settings', async (req, reply) => {
     const email = await getSessionEmail(req);
     if (!email) return reply.code(401).send({ error: 'unauthorized' });
 
@@ -2810,7 +2809,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
-  app.patch('/api/settings', async (req, reply) => {
+  app.patch('/settings', async (req, reply) => {
     const email = await getSessionEmail(req);
     if (!email) return reply.code(401).send({ error: 'unauthorized' });
 
@@ -2878,7 +2877,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // Embedding Settings API (issue #231)
-  app.get('/api/settings/embeddings', async (_req, reply) => {
+  app.get('/settings/embeddings', async (_req, reply) => {
     const pool = createPool();
     try {
       const { getEmbeddingSettings } = await import('./embeddings/settings.ts');
@@ -2889,7 +2888,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
-  app.patch('/api/settings/embeddings', async (req, reply) => {
+  app.patch('/settings/embeddings', async (req, reply) => {
     const body = req.body as {
       daily_limit_usd?: number;
       monthly_limit_usd?: number;
@@ -2924,14 +2923,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
-  app.post('/api/settings/embeddings/test', async (_req, reply) => {
+  app.post('/settings/embeddings/test', async (_req, reply) => {
     const { testProviderConnection } = await import('./embeddings/settings.ts');
     const result = await testProviderConnection();
     return reply.send(result);
   });
 
   // Activity Feed API (issue #130)
-  app.get('/api/activity', async (req, reply) => {
+  app.get('/activity', async (req, reply) => {
     const query = req.query as {
       limit?: string;
       offset?: string;
@@ -3131,7 +3130,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // Issue #102: Mark all activity as read
-  app.post('/api/activity/read-all', async (_req, reply) => {
+  app.post('/activity/read-all', async (_req, reply) => {
     const pool = createPool();
     const result = await pool.query(
       `UPDATE work_item_activity
@@ -3144,7 +3143,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // Issue #101: SSE Real-time Activity Stream
-  app.get('/api/activity/stream', async (req, reply) => {
+  app.get('/activity/stream', async (req, reply) => {
     const query = req.query as { project_id?: string };
 
     // Merge headers set by @fastify/cors into the raw writeHead call
@@ -3215,7 +3214,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // Issue #102: Mark single activity as read
-  app.post('/api/activity/:id/read', async (req, reply) => {
+  app.post('/activity/:id/read', async (req, reply) => {
     const params = req.params as { id: string };
     const pool = createPool();
 
@@ -3237,7 +3236,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     return reply.code(204).send();
   });
 
-  app.get('/api/work-items/:id/activity', async (req, reply) => {
+  app.get('/work-items/:id/activity', async (req, reply) => {
     const params = req.params as { id: string };
     const query = req.query as { limit?: string; offset?: string };
     const limit = Math.min(Number.parseInt(query.limit || '50', 10), 100);
@@ -3278,7 +3277,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/work-items - List work items (excludes soft-deleted, Issue #225)
-  app.get('/api/work-items', async (req, reply) => {
+  app.get('/work-items', async (req, reply) => {
     const query = req.query as {
       include_deleted?: string;
       item_type?: string;
@@ -3357,7 +3356,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // Work Items Tree API (issue #145)
-  app.get('/api/work-items/tree', async (req, reply) => {
+  app.get('/work-items/tree', async (req, reply) => {
     const query = req.query as { root_id?: string; depth?: string };
     const maxDepth = Math.min(Number.parseInt(query.depth || '10', 10), 20);
 
@@ -3484,7 +3483,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     return reply.send({ items: rootItems });
   });
 
-  app.get('/api/backlog', async (req, reply) => {
+  app.get('/backlog', async (req, reply) => {
     const query = req.query as {
       status?: string | string[];
       priority?: string | string[];
@@ -3548,7 +3547,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     return reply.send({ items: result.rows });
   });
 
-  app.patch('/api/work-items/:id/status', async (req, reply) => {
+  app.patch('/work-items/:id/status', async (req, reply) => {
     const params = req.params as { id: string };
     const body = req.body as { status?: string };
 
@@ -3608,7 +3607,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // Bulk operations endpoints
 
   // POST /api/work-items/bulk - Create multiple work items (Issue #218)
-  app.post('/api/work-items/bulk', async (req, reply) => {
+  app.post('/work-items/bulk', async (req, reply) => {
     const body = req.body as {
       items: Array<{
         title: string;
@@ -3771,7 +3770,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // DELETE /api/work-items/bulk - Delete multiple work items (Issue #218)
-  app.delete('/api/work-items/bulk', async (req, reply) => {
+  app.delete('/work-items/bulk', async (req, reply) => {
     const body = req.body as { ids: string[] };
 
     if (!body?.ids || !Array.isArray(body.ids) || body.ids.length === 0) {
@@ -3821,7 +3820,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // PATCH /api/work-items/bulk - Update multiple work items
-  app.patch('/api/work-items/bulk', async (req, reply) => {
+  app.patch('/work-items/bulk', async (req, reply) => {
     const body = req.body as {
       ids: string[];
       action: 'status' | 'priority' | 'parent' | 'delete';
@@ -3979,7 +3978,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
-  app.get('/api/inbox', async (_req, reply) => {
+  app.get('/inbox', async (_req, reply) => {
     const pool = createPool();
     const result = await pool.query(
       `SELECT wi.id::text as work_item_id,
@@ -4008,7 +4007,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.get('/dashboard/*', async (_req, reply) => {
     return reply.redirect('/app/work-items');
   });
-  app.post('/api/work-items', async (req, reply) => {
+  app.post('/work-items', async (req, reply) => {
     const body = req.body as {
       title?: string;
       description?: string | null;
@@ -4193,7 +4192,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     return reply.code(201).send(result.rows[0]);
   });
 
-  app.patch('/api/work-items/:id/hierarchy', async (req, reply) => {
+  app.patch('/work-items/:id/hierarchy', async (req, reply) => {
     const params = req.params as { id: string };
     const body = req.body as { kind?: string; parent_id?: string | null };
 
@@ -4274,7 +4273,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/work-items/:id - Get single work item (excludes soft-deleted, Issue #225)
-  app.get('/api/work-items/:id', async (req, reply) => {
+  app.get('/work-items/:id', async (req, reply) => {
     const params = req.params as { id: string };
     const query = req.query as { include_deleted?: string };
     const pool = createPool();
@@ -4410,7 +4409,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     });
   });
 
-  app.put('/api/work-items/:id', async (req, reply) => {
+  app.put('/work-items/:id', async (req, reply) => {
     const params = req.params as { id: string };
     const body = req.body as {
       title?: string;
@@ -4588,7 +4587,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // DELETE /api/work-items/:id - Soft delete by default (Issue #225)
-  app.delete('/api/work-items/:id', async (req, reply) => {
+  app.delete('/work-items/:id', async (req, reply) => {
     const params = req.params as { id: string };
     const query = req.query as { permanent?: string };
     const pool = createPool();
@@ -4620,7 +4619,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/work-items/:id/restore - Restore soft-deleted work item (Issue #225)
-  app.post('/api/work-items/:id/restore', async (req, reply) => {
+  app.post('/work-items/:id/restore', async (req, reply) => {
     const params = req.params as { id: string };
     const pool = createPool();
 
@@ -4650,7 +4649,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/trash - List all soft-deleted items (Issue #225)
-  app.get('/api/trash', async (req, reply) => {
+  app.get('/trash', async (req, reply) => {
     const query = req.query as {
       entity_type?: string;
       limit?: string;
@@ -4747,7 +4746,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/trash/purge - Purge old soft-deleted items (Issue #225)
-  app.post('/api/trash/purge', async (req, reply) => {
+  app.post('/trash/purge', async (req, reply) => {
     const body = req.body as { retention_days?: number };
     const retention_days = body.retention_days ?? 30;
 
@@ -4790,7 +4789,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   }
 
   // POST /api/files/upload - Upload a file
-  app.post('/api/files/upload', async (req, reply) => {
+  app.post('/files/upload', async (req, reply) => {
     const storage = getFileStorage();
     if (!storage) {
       return reply.code(503).send({
@@ -4873,7 +4872,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/files - List files
-  app.get('/api/files', async (req, reply) => {
+  app.get('/files', async (req, reply) => {
     const query = req.query as {
       limit?: string;
       offset?: string;
@@ -4892,7 +4891,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/files/share - Clarify that sharing uses /api/files/shared/:token (Issue #1141)
-  app.get('/api/files/share', async (_req, reply) => {
+  app.get('/files/share', async (_req, reply) => {
     return reply.code(400).send({
       error: 'Invalid endpoint',
       message: 'To access a shared file, use GET /api/files/shared/:token. To create a share link, use POST /api/files/:id/share.',
@@ -4900,7 +4899,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/files/:id - Download a file
-  app.get('/api/files/:id', async (req, reply) => {
+  app.get('/files/:id', async (req, reply) => {
     const storage = getFileStorage();
     if (!storage) {
       return reply.code(503).send({
@@ -4935,7 +4934,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/files/:id/metadata - Get file metadata
-  app.get('/api/files/:id/metadata', async (req, reply) => {
+  app.get('/files/:id/metadata', async (req, reply) => {
     const params = req.params as { id: string };
     const pool = createPool();
 
@@ -4950,7 +4949,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/files/:id/url - Get a signed URL for a file
-  app.get('/api/files/:id/url', async (req, reply) => {
+  app.get('/files/:id/url', async (req, reply) => {
     const storage = getFileStorage();
     if (!storage) {
       return reply.code(503).send({
@@ -4994,7 +4993,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // DELETE /api/files/:id - Delete a file
-  app.delete('/api/files/:id', async (req, reply) => {
+  app.delete('/files/:id', async (req, reply) => {
     const storage = getFileStorage();
     if (!storage) {
       return reply.code(503).send({
@@ -5026,7 +5025,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // ============================================
 
   // POST /api/files/:id/share - Create a shareable download link for a file
-  app.post('/api/files/:id/share', async (req, reply) => {
+  app.post('/files/:id/share', async (req, reply) => {
     const storage = getFileStorage();
     if (!storage) {
       return reply.code(503).send({
@@ -5099,7 +5098,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/files/shared/:token - Download a file via share token (no auth required)
-  app.get('/api/files/shared/:token', async (req, reply) => {
+  app.get('/files/shared/:token', async (req, reply) => {
     const storage = getFileStorage();
     if (!storage) {
       return reply.code(503).send({
@@ -5142,7 +5141,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // ============================================
 
   // POST /api/work-items/:id/attachments - Attach a file to a work item
-  app.post('/api/work-items/:id/attachments', async (req, reply) => {
+  app.post('/work-items/:id/attachments', async (req, reply) => {
     const params = req.params as { id: string };
     const body = req.body as { file_id: string };
 
@@ -5194,7 +5193,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/work-items/:id/attachments - List work item attachments
-  app.get('/api/work-items/:id/attachments', async (req, reply) => {
+  app.get('/work-items/:id/attachments', async (req, reply) => {
     const params = req.params as { id: string };
     const pool = createPool();
 
@@ -5234,7 +5233,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // DELETE /api/work-items/:work_item_id/attachments/:file_id - Remove attachment from work item
-  app.delete('/api/work-items/:work_item_id/attachments/:file_id', async (req, reply) => {
+  app.delete('/work-items/:work_item_id/attachments/:file_id', async (req, reply) => {
     const params = req.params as { work_item_id: string; file_id: string };
     const pool = createPool();
 
@@ -5259,7 +5258,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/work-items/:id/recurrence - Get recurrence details (Issue #217)
-  app.get('/api/work-items/:id/recurrence', async (req, reply) => {
+  app.get('/work-items/:id/recurrence', async (req, reply) => {
     const params = req.params as { id: string };
     const pool = createPool();
 
@@ -5293,7 +5292,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // PUT /api/work-items/:id/recurrence - Update recurrence rule (Issue #217)
-  app.put('/api/work-items/:id/recurrence', async (req, reply) => {
+  app.put('/work-items/:id/recurrence', async (req, reply) => {
     const params = req.params as { id: string };
     const body = req.body as {
       recurrence_rule?: string;
@@ -5373,7 +5372,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // DELETE /api/work-items/:id/recurrence - Stop recurring (Issue #217)
-  app.delete('/api/work-items/:id/recurrence', async (req, reply) => {
+  app.delete('/work-items/:id/recurrence', async (req, reply) => {
     const params = req.params as { id: string };
     const pool = createPool();
 
@@ -5401,7 +5400,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/work-items/:id/instances - List generated instances (Issue #217)
-  app.get('/api/work-items/:id/instances', async (req, reply) => {
+  app.get('/work-items/:id/instances', async (req, reply) => {
     const params = req.params as { id: string };
     const query = req.query as {
       limit?: string;
@@ -5436,7 +5435,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/recurrence/templates - List all recurrence templates (Issue #217)
-  app.get('/api/recurrence/templates', async (req, reply) => {
+  app.get('/recurrence/templates', async (req, reply) => {
     const query = req.query as {
       limit?: string;
       offset?: string;
@@ -5465,7 +5464,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/recurrence/generate - Generate upcoming instances (Issue #217)
-  app.post('/api/recurrence/generate', async (req, reply) => {
+  app.post('/recurrence/generate', async (req, reply) => {
     const body = req.body as {
       days_ahead?: number;
     };
@@ -5491,7 +5490,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/audit-log - List audit log entries with filtering (Issue #214)
-  app.get('/api/audit-log', async (req, reply) => {
+  app.get('/audit-log', async (req, reply) => {
     const query = req.query as {
       entity_type?: string;
       entity_id?: string;
@@ -5573,7 +5572,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/audit-log/entity/:type/:id - Get audit log for specific entity (Issue #214)
-  app.get('/api/audit-log/entity/:type/:id', async (req, reply) => {
+  app.get('/audit-log/entity/:type/:id', async (req, reply) => {
     const params = req.params as { type: string; id: string };
     const query = req.query as { limit?: string; offset?: string };
     const pool = createPool();
@@ -5602,7 +5601,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/audit-log/purge - Purge old audit entries (Issue #214)
-  app.post('/api/audit-log/purge', async (req, reply) => {
+  app.post('/audit-log/purge', async (req, reply) => {
     const body = req.body as { retention_days?: number };
     const pool = createPool();
 
@@ -5631,7 +5630,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
-  app.get('/api/work-items/:id/rollup', async (req, reply) => {
+  app.get('/work-items/:id/rollup', async (req, reply) => {
     const params = req.params as { id: string };
     const pool = createPool();
 
@@ -5691,7 +5690,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // GET /api/search - Unified search API endpoint (Issue #216)
   // Full-text search with optional semantic search for memories
   app.get(
-    '/api/search',
+    '/search',
     {
       config: {
         rateLimit: {
@@ -5785,7 +5784,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   );
 
   // GET /api/timeline - Global timeline endpoint
-  app.get('/api/timeline', async (req, reply) => {
+  app.get('/timeline', async (req, reply) => {
     const query = req.query as {
       from?: string;
       to?: string;
@@ -5945,7 +5944,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     });
   });
 
-  app.get('/api/work-items/:id/timeline', async (req, reply) => {
+  app.get('/work-items/:id/timeline', async (req, reply) => {
     const params = req.params as { id: string };
     const pool = createPool();
 
@@ -6019,7 +6018,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     });
   });
 
-  app.get('/api/work-items/:id/dependency-graph', async (req, reply) => {
+  app.get('/work-items/:id/dependency-graph', async (req, reply) => {
     const params = req.params as { id: string };
     const pool = createPool();
 
@@ -6186,7 +6185,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     });
   });
 
-  app.get('/api/work-items/:id/dependencies', async (req, reply) => {
+  app.get('/work-items/:id/dependencies', async (req, reply) => {
     const params = req.params as { id: string };
     const pool = createPool();
 
@@ -6211,7 +6210,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     return reply.send({ items: result.rows });
   });
 
-  app.delete('/api/work-items/:id/dependencies/:dependency_id', async (req, reply) => {
+  app.delete('/work-items/:id/dependencies/:dependency_id', async (req, reply) => {
     const params = req.params as { id: string; dependency_id: string };
     const pool = createPool();
 
@@ -6231,7 +6230,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     return reply.code(204).send();
   });
 
-  app.get('/api/work-items/:id/participants', async (req, reply) => {
+  app.get('/work-items/:id/participants', async (req, reply) => {
     const params = req.params as { id: string };
     const pool = createPool();
 
@@ -6250,7 +6249,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     return reply.send({ items: result.rows });
   });
 
-  app.post('/api/work-items/:id/participants', async (req, reply) => {
+  app.post('/work-items/:id/participants', async (req, reply) => {
     const params = req.params as { id: string };
     const body = req.body as { participant?: string; role?: string };
     if (!body?.participant || body.participant.trim().length === 0) {
@@ -6278,7 +6277,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     return reply.code(201).send(result.rows[0]);
   });
 
-  app.delete('/api/work-items/:id/participants/:participant_id', async (req, reply) => {
+  app.delete('/work-items/:id/participants/:participant_id', async (req, reply) => {
     const params = req.params as { id: string; participant_id: string };
     const pool = createPool();
 
@@ -6298,7 +6297,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     return reply.code(204).send();
   });
 
-  app.get('/api/work-items/:id/links', async (req, reply) => {
+  app.get('/work-items/:id/links', async (req, reply) => {
     const params = req.params as { id: string };
     const pool = createPool();
 
@@ -6328,7 +6327,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     return reply.send({ items: result.rows });
   });
 
-  app.post('/api/work-items/:id/links', async (req, reply) => {
+  app.post('/work-items/:id/links', async (req, reply) => {
     const params = req.params as { id: string };
     const body = req.body as {
       provider?: string;
@@ -6401,7 +6400,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     return reply.code(201).send(result.rows[0]);
   });
 
-  app.delete('/api/work-items/:id/links/:link_id', async (req, reply) => {
+  app.delete('/work-items/:id/links/:link_id', async (req, reply) => {
     const params = req.params as { id: string; link_id: string };
     const pool = createPool();
 
@@ -6421,7 +6420,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     return reply.code(204).send();
   });
 
-  app.post('/api/work-items/:id/dependencies', async (req, reply) => {
+  app.post('/work-items/:id/dependencies', async (req, reply) => {
     const params = req.params as { id: string };
     const body = req.body as { depends_on_work_item_id?: string; kind?: string; target_id?: string; direction?: string };
 
@@ -6557,7 +6556,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     return reply.code(201).send(result.rows[0]);
   });
 
-  app.post('/api/contacts', async (req, reply) => {
+  app.post('/contacts', async (req, reply) => {
     const body = req.body as {
       display_name?: string; notes?: string | null;
       contact_kind?: string;
@@ -6730,7 +6729,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/contacts/bulk - Bulk create contacts (Issue #218)
-  app.post('/api/contacts/bulk', async (req, reply) => {
+  app.post('/contacts/bulk', async (req, reply) => {
     const body = req.body as {
       contacts: Array<{
         display_name: string;
@@ -6846,7 +6845,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // GET /api/contacts - List contacts with optional search and pagination
   // GET /api/contacts - List contacts (excludes soft-deleted, Issue #225)
-  app.get('/api/contacts', async (req, reply) => {
+  app.get('/contacts', async (req, reply) => {
     const query = req.query as { search?: string; limit?: string; offset?: string; include_deleted?: string; contact_kind?: string };
     const limit = Math.min(Number.parseInt(query.limit || '50', 10), 100);
     const offset = Number.parseInt(query.offset || '0', 10);
@@ -6927,7 +6926,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/contacts/search - Alias for /api/contacts?search= (Issue #1141: prevent route collision with /:id)
-  app.get('/api/contacts/search', async (req, reply) => {
+  app.get('/contacts/search', async (req, reply) => {
     const query = req.query as { q?: string; limit?: string; offset?: string };
 
     // Redirect to the main contacts endpoint with search parameter
@@ -6939,7 +6938,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/contacts/suggest-match - Fuzzy contact matching (Issue #1270)
-  app.get('/api/contacts/suggest-match', async (req, reply) => {
+  app.get('/contacts/suggest-match', async (req, reply) => {
     const query = req.query as {
       phone?: string;
       email?: string;
@@ -7150,7 +7149,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/contacts/:id - Get single contact with optional eager loading (#1582)
-  app.get('/api/contacts/:id', async (req, reply) => {
+  app.get('/contacts/:id', async (req, reply) => {
     const params = req.params as { id: string };
     const query = req.query as { include_deleted?: string; include?: string };
     const pool = createPool();
@@ -7273,7 +7272,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // PATCH /api/contacts/:id - Update contact
-  app.patch('/api/contacts/:id', async (req, reply) => {
+  app.patch('/contacts/:id', async (req, reply) => {
     const params = req.params as { id: string };
     const body = req.body as {
       display_name?: string; notes?: string | null; contact_kind?: string;
@@ -7501,7 +7500,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // DELETE /api/contacts/:id - Soft delete by default (Issue #225)
-  app.delete('/api/contacts/:id', async (req, reply) => {
+  app.delete('/contacts/:id', async (req, reply) => {
     const params = req.params as { id: string };
     const query = req.query as { permanent?: string };
     const pool = createPool();
@@ -7540,7 +7539,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/contacts/:id/restore - Restore soft-deleted contact (Issue #225)
-  app.post('/api/contacts/:id/restore', async (req, reply) => {
+  app.post('/contacts/:id/restore', async (req, reply) => {
     const params = req.params as { id: string };
     const pool = createPool();
 
@@ -7564,7 +7563,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/contacts/:id/work-items - Get work items associated with a contact
-  app.get('/api/contacts/:id/work-items', async (req, reply) => {
+  app.get('/contacts/:id/work-items', async (req, reply) => {
     const params = req.params as { id: string };
     const pool = createPool();
 
@@ -7599,7 +7598,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // Contact-WorkItem Linking API (issue #118)
   // GET /api/work-items/:id/contacts - List contacts linked to a work item
-  app.get('/api/work-items/:id/contacts', async (req, reply) => {
+  app.get('/work-items/:id/contacts', async (req, reply) => {
     const params = req.params as { id: string };
     const pool = createPool();
 
@@ -7632,7 +7631,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/work-items/:id/contacts - Link a contact to a work item
-  app.post('/api/work-items/:id/contacts', async (req, reply) => {
+  app.post('/work-items/:id/contacts', async (req, reply) => {
     const params = req.params as { id: string };
     const body = req.body as { contact_id?: string; relationship?: string };
 
@@ -7696,7 +7695,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // DELETE /api/work-items/:id/contacts/:contact_id - Unlink a contact from a work item
-  app.delete('/api/work-items/:id/contacts/:contact_id', async (req, reply) => {
+  app.delete('/work-items/:id/contacts/:contact_id', async (req, reply) => {
     const params = req.params as { id: string; contact_id: string };
     const pool = createPool();
 
@@ -7721,7 +7720,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     return reply.code(204).send();
   });
 
-  app.post('/api/contacts/:id/endpoints', async (req, reply) => {
+  app.post('/contacts/:id/endpoints', async (req, reply) => {
     const params = req.params as { id: string };
     const body = req.body as {
       endpoint_type?: string;
@@ -7779,7 +7778,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // ============================================================
 
   // GET /api/contacts/:id/addresses - List addresses
-  app.get('/api/contacts/:id/addresses', async (req, reply) => {
+  app.get('/contacts/:id/addresses', async (req, reply) => {
     const params = req.params as { id: string };
     const pool = createPool();
     if (!(await verifyReadScope(pool, 'contact', params.id, req))) {
@@ -7800,7 +7799,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/contacts/:id/addresses - Add address
-  app.post('/api/contacts/:id/addresses', async (req, reply) => {
+  app.post('/contacts/:id/addresses', async (req, reply) => {
     const params = req.params as { id: string };
     const body = req.body as {
       address_type?: string; label?: string;
@@ -7839,7 +7838,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // PATCH /api/contacts/:id/addresses/:addr_id - Update address
-  app.patch('/api/contacts/:id/addresses/:addr_id', async (req, reply) => {
+  app.patch('/contacts/:id/addresses/:addr_id', async (req, reply) => {
     const params = req.params as { id: string; addr_id: string };
     const body = req.body as Record<string, unknown>;
     const pool = createPool();
@@ -7888,7 +7887,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // DELETE /api/contacts/:id/addresses/:addr_id - Remove address
-  app.delete('/api/contacts/:id/addresses/:addr_id', async (req, reply) => {
+  app.delete('/contacts/:id/addresses/:addr_id', async (req, reply) => {
     const params = req.params as { id: string; addr_id: string };
     const pool = createPool();
     if (!(await verifyWriteScope(pool, 'contact', params.id, req))) {
@@ -7909,7 +7908,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // ============================================================
 
   // GET /api/contacts/:id/dates - List dates
-  app.get('/api/contacts/:id/dates', async (req, reply) => {
+  app.get('/contacts/:id/dates', async (req, reply) => {
     const params = req.params as { id: string };
     const pool = createPool();
     if (!(await verifyReadScope(pool, 'contact', params.id, req))) {
@@ -7927,7 +7926,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/contacts/:id/dates - Add date
-  app.post('/api/contacts/:id/dates', async (req, reply) => {
+  app.post('/contacts/:id/dates', async (req, reply) => {
     const params = req.params as { id: string };
     const body = req.body as {
       date_type?: string; label?: string; date_value?: string;
@@ -7951,7 +7950,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // PATCH /api/contacts/:id/dates/:date_id - Update date
-  app.patch('/api/contacts/:id/dates/:date_id', async (req, reply) => {
+  app.patch('/contacts/:id/dates/:date_id', async (req, reply) => {
     const params = req.params as { id: string; date_id: string };
     const body = req.body as Record<string, unknown>;
     const pool = createPool();
@@ -7988,7 +7987,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // DELETE /api/contacts/:id/dates/:date_id - Remove date
-  app.delete('/api/contacts/:id/dates/:date_id', async (req, reply) => {
+  app.delete('/contacts/:id/dates/:date_id', async (req, reply) => {
     const params = req.params as { id: string; date_id: string };
     const pool = createPool();
     if (!(await verifyWriteScope(pool, 'contact', params.id, req))) {
@@ -8009,7 +8008,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // ============================================================
 
   // GET /api/contacts/:id/endpoints - List endpoints
-  app.get('/api/contacts/:id/endpoints', async (req, reply) => {
+  app.get('/contacts/:id/endpoints', async (req, reply) => {
     const params = req.params as { id: string };
     const pool = createPool();
     if (!(await verifyReadScope(pool, 'contact', params.id, req))) {
@@ -8029,7 +8028,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // PATCH /api/contacts/:id/endpoints/:ep_id - Update endpoint
-  app.patch('/api/contacts/:id/endpoints/:ep_id', async (req, reply) => {
+  app.patch('/contacts/:id/endpoints/:ep_id', async (req, reply) => {
     const params = req.params as { id: string; ep_id: string };
     const body = req.body as Record<string, unknown>;
     const pool = createPool();
@@ -8073,7 +8072,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // DELETE /api/contacts/:id/endpoints/:ep_id - Remove endpoint
-  app.delete('/api/contacts/:id/endpoints/:ep_id', async (req, reply) => {
+  app.delete('/contacts/:id/endpoints/:ep_id', async (req, reply) => {
     const params = req.params as { id: string; ep_id: string };
     const pool = createPool();
     if (!(await verifyWriteScope(pool, 'contact', params.id, req))) {
@@ -8094,7 +8093,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // ============================================================
 
   // GET /api/contacts/:id/tags - List tags for a contact
-  app.get('/api/contacts/:id/tags', async (req, reply) => {
+  app.get('/contacts/:id/tags', async (req, reply) => {
     const params = req.params as { id: string };
     const pool = createPool();
     if (!(await verifyReadScope(pool, 'contact', params.id, req))) {
@@ -8110,7 +8109,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/contacts/:id/tags - Add tag(s) to a contact
-  app.post('/api/contacts/:id/tags', async (req, reply) => {
+  app.post('/contacts/:id/tags', async (req, reply) => {
     const params = req.params as { id: string };
     const body = req.body as { tags?: string[]; tag?: string };
     const pool = createPool();
@@ -8145,7 +8144,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // DELETE /api/contacts/:id/tags/:tag - Remove a tag from a contact
-  app.delete('/api/contacts/:id/tags/:tag', async (req, reply) => {
+  app.delete('/contacts/:id/tags/:tag', async (req, reply) => {
     const params = req.params as { id: string; tag: string };
     const pool = createPool();
     if (!(await verifyWriteScope(pool, 'contact', params.id, req))) {
@@ -8162,7 +8161,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/tags - List all tags with contact counts (for tag picker)
-  app.get('/api/tags', async (req, reply) => {
+  app.get('/tags', async (req, reply) => {
     const pool = createPool();
     const conditions: string[] = [];
     const values: unknown[] = [];
@@ -8194,7 +8193,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // ============================================================
 
   // POST /api/contacts/:id/photo - Upload contact photo
-  app.post('/api/contacts/:id/photo', async (req, reply) => {
+  app.post('/contacts/:id/photo', async (req, reply) => {
     const params = req.params as { id: string };
     const storage = getFileStorage();
     if (!storage) {
@@ -8252,7 +8251,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // DELETE /api/contacts/:id/photo - Remove contact photo
-  app.delete('/api/contacts/:id/photo', async (req, reply) => {
+  app.delete('/contacts/:id/photo', async (req, reply) => {
     const params = req.params as { id: string };
     const pool = createPool();
     if (!(await verifyWriteScope(pool, 'contact', params.id, req))) {
@@ -8273,7 +8272,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // ============================================================
 
   // POST /api/contacts/merge - Merge two contacts
-  app.post('/api/contacts/merge', async (req, reply) => {
+  app.post('/contacts/merge', async (req, reply) => {
     const body = req.body as { survivor_id?: string; loser_id?: string };
     if (!body?.survivor_id || !body?.loser_id) {
       return reply.code(400).send({ error: 'survivor_id and loser_id are required' });
@@ -8502,7 +8501,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // ============================================================
 
   // GET /api/contacts/export - Export contacts as CSV or JSON
-  app.get('/api/contacts/export', async (req, reply) => {
+  app.get('/contacts/export', async (req, reply) => {
     const query = req.query as { format?: string; ids?: string };
     const format = query.format || 'json';
     if (!['csv', 'json'].includes(format)) {
@@ -8580,7 +8579,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/contacts/import - Import contacts from CSV
-  app.post('/api/contacts/import', async (req, reply) => {
+  app.post('/contacts/import', async (req, reply) => {
     const body = req.body as {
       contacts?: Array<{
         display_name?: string; given_name?: string; family_name?: string;
@@ -8721,7 +8720,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // Global Memory API (issue #120)
   // GET /api/memory - List all memory items with pagination and search
-  app.get('/api/memory', async (req, reply) => {
+  app.get('/memory', async (req, reply) => {
     const query = req.query as {
       limit?: string;
       offset?: string;
@@ -8829,7 +8828,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // Memory CRUD API (issue #121)
   // POST /api/memory - Create a new memory (linked_item_id optional)
-  app.post('/api/memory', async (req, reply) => {
+  app.post('/memory', async (req, reply) => {
     const { createMemory, generateTitleFromContent } = await import('./memory/index.ts');
 
     const body = req.body as {
@@ -8923,7 +8922,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // PUT /api/memory/:id - Update a memory
-  app.put('/api/memory/:id', async (req, reply) => {
+  app.put('/memory/:id', async (req, reply) => {
     const params = req.params as { id: string };
     const body = req.body as { title?: string; content?: string; type?: string; tags?: string[] };
 
@@ -8994,7 +8993,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // DELETE /api/memory/:id - Delete a memory
-  app.delete('/api/memory/:id', async (req, reply) => {
+  app.delete('/memory/:id', async (req, reply) => {
     const params = req.params as { id: string };
     const pool = createPool();
 
@@ -9011,7 +9010,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // GET /api/memories/search - Semantic search for memories (issue #200)
   app.get(
-    '/api/memories/search',
+    '/memories/search',
     {
       config: {
         rateLimit: {
@@ -9119,7 +9118,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   );
 
   // POST /api/admin/embeddings/backfill - Backfill embeddings for memories (issue #200)
-  app.post('/api/admin/embeddings/backfill', async (req, reply) => {
+  app.post('/admin/embeddings/backfill', async (req, reply) => {
     const body = req.body as {
       batch_size?: number;
       force?: boolean;
@@ -9148,7 +9147,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/admin/embeddings/backfill-work-items - Backfill embeddings for work items (Issue #1216)
-  app.post('/api/admin/embeddings/backfill-work-items', async (req, reply) => {
+  app.post('/admin/embeddings/backfill-work-items', async (req, reply) => {
     const body = req.body as {
       batch_size?: number;
       force?: boolean;
@@ -9177,7 +9176,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/admin/embeddings/status - Get embedding configuration status (issue #200)
-  app.get('/api/admin/embeddings/status', async (_req, reply) => {
+  app.get('/admin/embeddings/status', async (_req, reply) => {
     const pool = createPool();
 
     try {
@@ -9250,7 +9249,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // Unified Memory API (issue #209) - Flexible memory scoping
 
   // GET /api/memories/global - List global memories (no work item or contact scope)
-  app.get('/api/memories/global', async (req, reply) => {
+  app.get('/memories/global', async (req, reply) => {
     const { getGlobalMemories } = await import('./memory/index.ts');
 
     const query = req.query as {
@@ -9279,7 +9278,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/memories/unified - Create memory with flexible scoping (issue #209)
-  app.post('/api/memories/unified', { preHandler: [geoAutoInjectHook(createPool)] }, async (req, reply) => {
+  app.post('/memories/unified', { preHandler: [geoAutoInjectHook(createPool)] }, async (req, reply) => {
     const { createMemory, isValidMemoryType, generateTitleFromContent } = await import('./memory/index.ts');
 
     const body = req.body as {
@@ -9372,7 +9371,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/memories/bulk - Bulk create memories (Issue #218)
-  app.post('/api/memories/bulk', { preHandler: [geoAutoInjectHook(createPool)] }, async (req, reply) => {
+  app.post('/memories/bulk', { preHandler: [geoAutoInjectHook(createPool)] }, async (req, reply) => {
     const { createMemory, isValidMemoryType } = await import('./memory/index.ts');
 
     const body = req.body as {
@@ -9511,7 +9510,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // PATCH /api/memories/bulk - Bulk update memories (Issue #218)
-  app.patch('/api/memories/bulk', async (req, reply) => {
+  app.patch('/memories/bulk', async (req, reply) => {
     const body = req.body as {
       updates: Array<{
         id: string;
@@ -9660,7 +9659,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/memories/unified - List memories with flexible filtering (issue #209)
-  app.get('/api/memories/unified', async (req, reply) => {
+  app.get('/memories/unified', async (req, reply) => {
     const { listMemories } = await import('./memory/index.ts');
     const { resolveRelativeTime, resolvePeriod, VALID_PERIODS } = await import('./memory/temporal.ts');
 
@@ -9734,7 +9733,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/memories/:id/supersede - Supersede a memory with a new one (issue #209)
-  app.post('/api/memories/:id/supersede', async (req, reply) => {
+  app.post('/memories/:id/supersede', async (req, reply) => {
     const { supersedeMemory, getMemory, isValidMemoryType } = await import('./memory/index.ts');
 
     const params = req.params as { id: string };
@@ -9796,7 +9795,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/memories/:id/attachments - Attach a file to a memory (Issue #1271)
-  app.post('/api/memories/:id/attachments', async (req, reply) => {
+  app.post('/memories/:id/attachments', async (req, reply) => {
     const params = req.params as { id: string };
     const body = req.body as { file_id: string };
 
@@ -9839,7 +9838,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/memories/:id/attachments - List memory attachments (Issue #1271)
-  app.get('/api/memories/:id/attachments', async (req, reply) => {
+  app.get('/memories/:id/attachments', async (req, reply) => {
     const params = req.params as { id: string };
     const pool = createPool();
 
@@ -9877,7 +9876,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // DELETE /api/memories/:memory_id/attachments/:file_id - Remove attachment from memory (Issue #1271)
-  app.delete('/api/memories/:memory_id/attachments/:file_id', async (req, reply) => {
+  app.delete('/memories/:memory_id/attachments/:file_id', async (req, reply) => {
     const params = req.params as { memory_id: string; file_id: string };
     const pool = createPool();
 
@@ -9900,7 +9899,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // DELETE /api/memories/cleanup-expired - Cleanup expired memories (issue #209)
-  app.delete('/api/memories/cleanup-expired', async (_req, reply) => {
+  app.delete('/memories/cleanup-expired', async (_req, reply) => {
     const { cleanupExpiredMemories } = await import('./memory/index.ts');
 
     const pool = createPool();
@@ -9916,7 +9915,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // Webhook Admin API (issue #201)
 
   // GET /api/webhooks/outbox - List webhook outbox entries
-  app.get('/api/webhooks/outbox', async (req, reply) => {
+  app.get('/webhooks/outbox', async (req, reply) => {
     const { getWebhookOutbox } = await import('./webhooks/index.ts');
 
     const query = req.query as {
@@ -9959,7 +9958,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/webhooks/:id/retry - Retry a failed webhook
-  app.post('/api/webhooks/:id/retry', async (req, reply) => {
+  app.post('/webhooks/:id/retry', async (req, reply) => {
     const { retryWebhook } = await import('./webhooks/index.ts');
 
     const params = req.params as { id: string };
@@ -9979,7 +9978,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/webhooks/status - Get webhook configuration status
-  app.get('/api/webhooks/status', async (_req, reply) => {
+  app.get('/webhooks/status', async (_req, reply) => {
     const { getConfigSummary, getWebhookOutbox } = await import('./webhooks/index.ts');
 
     const config = getConfigSummary();
@@ -10009,7 +10008,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/webhooks/process - Manually trigger webhook processing
-  app.post('/api/webhooks/process', async (req, reply) => {
+  app.post('/webhooks/process', async (req, reply) => {
     const { processPendingWebhooks } = await import('./webhooks/index.ts');
 
     const body = req.body as { limit?: number };
@@ -10033,7 +10032,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/projects/:id/memories - List memories scoped to a project (Issue #1273)
-  app.get('/api/projects/:id/memories', async (req, reply) => {
+  app.get('/projects/:id/memories', async (req, reply) => {
     const { listMemories } = await import('./memory/index.ts');
 
     const params = req.params as { id: string };
@@ -10074,7 +10073,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // Memory Items API (issue #138)
   // GET /api/work-items/:id/memories - List memories for a work item
-  app.get('/api/work-items/:id/memories', async (req, reply) => {
+  app.get('/work-items/:id/memories', async (req, reply) => {
     const params = req.params as { id: string };
     const pool = createPool();
 
@@ -10108,7 +10107,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/work-items/:id/memories - Create a new memory
-  app.post('/api/work-items/:id/memories', async (req, reply) => {
+  app.post('/work-items/:id/memories', async (req, reply) => {
     const params = req.params as { id: string };
     const body = req.body as { title?: string; content?: string; type?: string };
 
@@ -10157,7 +10156,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/memories/:id - Get a single memory by ID (Issue #1841)
-  app.get('/api/memories/:id', async (req, reply) => {
+  app.get('/memories/:id', async (req, reply) => {
     const { getMemory } = await import('./memory/index.ts');
     const params = req.params as { id: string };
     const pool = createPool();
@@ -10174,7 +10173,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // PATCH /api/memories/:id - Update a memory
-  app.patch('/api/memories/:id', async (req, reply) => {
+  app.patch('/memories/:id', async (req, reply) => {
     const { updateMemory } = await import('./memory/index.ts');
     const params = req.params as { id: string };
     const body = req.body as {
@@ -10228,7 +10227,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // DELETE /api/memories/:id - Delete a memory
-  app.delete('/api/memories/:id', async (req, reply) => {
+  app.delete('/memories/:id', async (req, reply) => {
     const params = req.params as { id: string };
     const pool = createPool();
 
@@ -10246,7 +10245,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // Memory Relationships API (issue #205)
 
   // POST /api/memories/:id/contacts - Link memory to contact
-  app.post('/api/memories/:id/contacts', async (req, reply) => {
+  app.post('/memories/:id/contacts', async (req, reply) => {
     const params = req.params as { id: string };
     const body = req.body as {
       contact_id?: string;
@@ -10296,7 +10295,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/memories/:id/contacts - Get contacts linked to a memory
-  app.get('/api/memories/:id/contacts', async (req, reply) => {
+  app.get('/memories/:id/contacts', async (req, reply) => {
     const params = req.params as { id: string };
     const query = req.query as { relationship_type?: string };
 
@@ -10338,7 +10337,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // DELETE /api/memories/:memory_id/contacts/:contact_id - Remove memory-contact link
-  app.delete('/api/memories/:memory_id/contacts/:contact_id', async (req, reply) => {
+  app.delete('/memories/:memory_id/contacts/:contact_id', async (req, reply) => {
     const params = req.params as { memory_id: string; contact_id: string };
     const query = req.query as { relationship_type?: string };
 
@@ -10368,7 +10367,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/contacts/:id/memories - Get memories linked to a contact
-  app.get('/api/contacts/:id/memories', async (req, reply) => {
+  app.get('/contacts/:id/memories', async (req, reply) => {
     const params = req.params as { id: string };
     const query = req.query as { relationship_type?: string; limit?: string; offset?: string};
 
@@ -10425,7 +10424,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/memories/:id/related - Link two memories together
-  app.post('/api/memories/:id/related', async (req, reply) => {
+  app.post('/memories/:id/related', async (req, reply) => {
     const params = req.params as { id: string };
     const body = req.body as {
       related_memory_id?: string;
@@ -10475,7 +10474,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/memories/:id/related - Get memories related to this one
-  app.get('/api/memories/:id/related', async (req, reply) => {
+  app.get('/memories/:id/related', async (req, reply) => {
     const params = req.params as { id: string };
     const query = req.query as { relationship_type?: string; direction?: string };
 
@@ -10554,7 +10553,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // DELETE /api/memories/:memory_id/related/:related_memory_id - Remove memory relationship
-  app.delete('/api/memories/:memory_id/related/:related_memory_id', async (req, reply) => {
+  app.delete('/memories/:memory_id/related/:related_memory_id', async (req, reply) => {
     const params = req.params as { memory_id: string; related_memory_id: string };
 
     const pool = createPool();
@@ -10580,7 +10579,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/memories/:id/similar - Find semantically similar memories (requires embeddings)
-  app.get('/api/memories/:id/similar', async (req, reply) => {
+  app.get('/memories/:id/similar', async (req, reply) => {
     const params = req.params as { id: string };
     const query = req.query as { limit?: string; threshold?: string };
 
@@ -10647,7 +10646,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/contacts/:id/similar-memories - Find memories semantically related to a contact's context
-  app.get('/api/contacts/:id/similar-memories', async (req, reply) => {
+  app.get('/contacts/:id/similar-memories', async (req, reply) => {
     const params = req.params as { id: string };
     const query = req.query as { limit?: string; threshold?: string};
 
@@ -10770,7 +10769,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/work-items/:id/related-entities - Discover related contacts and memories
-  app.get('/api/work-items/:id/related-entities', async (req, reply) => {
+  app.get('/work-items/:id/related-entities', async (req, reply) => {
     const params = req.params as { id: string };
     const query = req.query as { limit?: string; threshold?: string};
 
@@ -10887,7 +10886,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // Communications API (issue #140)
   // GET /api/work-items/:id/communications - List communications for a work item
-  app.get('/api/work-items/:id/communications', async (req, reply) => {
+  app.get('/work-items/:id/communications', async (req, reply) => {
     const params = req.params as { id: string };
     const pool = createPool();
 
@@ -10978,7 +10977,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/work-items/:id/emails - List linked emails for a work item (issue #124)
-  app.get('/api/work-items/:id/emails', async (req, reply) => {
+  app.get('/work-items/:id/emails', async (req, reply) => {
     const params = req.params as { id: string };
     const pool = createPool();
 
@@ -11035,7 +11034,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/work-items/:id/calendar - List linked calendar events for a work item (issue #125)
-  app.get('/api/work-items/:id/calendar', async (req, reply) => {
+  app.get('/work-items/:id/calendar', async (req, reply) => {
     const params = req.params as { id: string };
     const pool = createPool();
 
@@ -11095,7 +11094,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // Email Linking API (issue #126)
   // POST /api/work-items/:id/emails - Link an email to a work item
-  app.post('/api/work-items/:id/emails', async (req, reply) => {
+  app.post('/work-items/:id/emails', async (req, reply) => {
     const params = req.params as { id: string };
     const body = req.body as { email_id?: string };
 
@@ -11143,7 +11142,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // DELETE /api/work-items/:id/emails/:email_id - Unlink an email from a work item
-  app.delete('/api/work-items/:id/emails/:email_id', async (req, reply) => {
+  app.delete('/work-items/:id/emails/:email_id', async (req, reply) => {
     const params = req.params as { id: string; email_id: string };
     const pool = createPool();
 
@@ -11178,7 +11177,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // Calendar Event Linking API (issue #126)
   // POST /api/work-items/:id/calendar - Link a calendar event to a work item
-  app.post('/api/work-items/:id/calendar', async (req, reply) => {
+  app.post('/work-items/:id/calendar', async (req, reply) => {
     const params = req.params as { id: string };
     const body = req.body as { event_id?: string };
 
@@ -11226,7 +11225,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // DELETE /api/work-items/:id/calendar/:event_id - Unlink a calendar event from a work item
-  app.delete('/api/work-items/:id/calendar/:event_id', async (req, reply) => {
+  app.delete('/work-items/:id/calendar/:event_id', async (req, reply) => {
     const params = req.params as { id: string; event_id: string };
     const pool = createPool();
 
@@ -11255,7 +11254,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/work-items/:id/communications - Link a communication to a work item
-  app.post('/api/work-items/:id/communications', async (req, reply) => {
+  app.post('/work-items/:id/communications', async (req, reply) => {
     const params = req.params as { id: string };
     const body = req.body as {
       thread_id?: string;
@@ -11309,7 +11308,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // DELETE /api/work-items/:id/communications/:comm_id - Unlink a communication
-  app.delete('/api/work-items/:id/communications/:comm_id', async (req, reply) => {
+  app.delete('/work-items/:id/communications/:comm_id', async (req, reply) => {
     const params = req.params as { id: string; comm_id: string };
     const pool = createPool();
 
@@ -11351,7 +11350,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   const VALID_ENTITY_LINK_TYPES = ['related', 'caused_by', 'resulted_in', 'about'] as const;
 
   // POST /api/entity-links - Create an entity link
-  app.post('/api/entity-links', async (req, reply) => {
+  app.post('/entity-links', async (req, reply) => {
     const body = req.body as {
       source_type?: string; source_id?: string;
       target_type?: string; target_id?: string;
@@ -11390,7 +11389,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/entity-links - Query links by source or target
-  app.get('/api/entity-links', async (req, reply) => {
+  app.get('/entity-links', async (req, reply) => {
     const query = req.query as {
       source_type?: string; source_id?: string;
       target_type?: string; target_id?: string;
@@ -11443,7 +11442,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/entity-links/:id - Get single link
-  app.get('/api/entity-links/:id', async (req, reply) => {
+  app.get('/entity-links/:id', async (req, reply) => {
     const params = req.params as { id: string };
     if (!uuidRegex.test(params.id)) {
       return reply.code(400).send({ error: 'invalid id format' });
@@ -11465,7 +11464,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // DELETE /api/entity-links/:id - Remove a link
-  app.delete('/api/entity-links/:id', async (req, reply) => {
+  app.delete('/entity-links/:id', async (req, reply) => {
     const params = req.params as { id: string };
     if (!uuidRegex.test(params.id)) {
       return reply.code(400).send({ error: 'invalid id format' });
@@ -11485,7 +11484,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // Ingestion: create (or reuse) contact+endpoint, create (or reuse) thread, insert message.
-  app.post('/api/ingest/external-message', async (req, reply) => {
+  app.post('/ingest/external-message', async (req, reply) => {
     const body = req.body as {
       contact_display_name?: string;
       endpoint_type?: string;
@@ -11588,7 +11587,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // Twilio SMS Inbound Webhook (Issue #202)
   // POST /api/twilio/sms - Receive Twilio SMS webhooks
   app.post(
-    '/api/twilio/sms',
+    '/twilio/sms',
     {
       config: {
         rateLimit: {
@@ -11688,7 +11687,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       idempotency_key?: string;
     };
   }>(
-    '/api/twilio/sms/send',
+    '/twilio/sms/send',
     {
       config: {
         rateLimit: {
@@ -11761,7 +11760,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // Twilio SMS Delivery Status Webhook (Issue #292)
   // POST /api/twilio/sms/status - Receive Twilio delivery status callbacks
   app.post(
-    '/api/twilio/sms/status',
+    '/twilio/sms/status',
     {
       config: {
         rateLimit: {
@@ -11827,7 +11826,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // Twilio Phone Number Management (Issue #300)
   // GET /api/twilio/numbers - List all Twilio phone numbers
   app.get(
-    '/api/twilio/numbers',
+    '/twilio/numbers',
     {
       config: {
         rateLimit: {
@@ -11867,7 +11866,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.get<{
     Params: { phone_number: string };
   }>(
-    '/api/twilio/numbers/:phone_number',
+    '/twilio/numbers/:phone_number',
     {
       config: {
         rateLimit: {
@@ -11922,7 +11921,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       statusCallbackMethod?: 'GET' | 'POST';
     };
   }>(
-    '/api/twilio/numbers/:phone_number',
+    '/twilio/numbers/:phone_number',
     {
       config: {
         rateLimit: {
@@ -11984,7 +11983,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // Postmark Email Inbound Webhook (Issue #203)
   // POST /api/postmark/inbound - Receive Postmark inbound email webhooks
   app.post(
-    '/api/postmark/inbound',
+    '/postmark/inbound',
     {
       config: {
         rateLimit: {
@@ -12114,7 +12113,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       idempotency_key?: string;
     };
   }>(
-    '/api/postmark/email/send',
+    '/postmark/email/send',
     {
       config: {
         rateLimit: {
@@ -12190,7 +12189,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // Postmark Delivery Status Webhook (Issue #294)
   // POST /api/postmark/email/status - Receive delivery status updates from Postmark
   app.post(
-    '/api/postmark/email/status',
+    '/postmark/email/status',
     {
       config: {
         rateLimit: {
@@ -12261,7 +12260,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // Cloudflare Email Workers Inbound Webhook (Issue #210)
   // POST /api/cloudflare/email - Receive emails forwarded from Cloudflare Email Workers
   app.post(
-    '/api/cloudflare/email',
+    '/cloudflare/email',
     {
       config: {
         rateLimit: {
@@ -12367,7 +12366,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // Work Item Reparent API (issue #105)
   // PATCH /api/work-items/:id/reparent - Move work item to a different parent (Issue #1172: scoped)
-  app.patch('/api/work-items/:id/reparent', async (req, reply) => {
+  app.patch('/work-items/:id/reparent', async (req, reply) => {
     const params = req.params as { id: string };
     const body = req.body as { new_parent_id?: string | null; after_id?: string | null };
 
@@ -12547,7 +12546,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // Work Item Reorder API (issue #104)
   // PATCH /api/work-items/:id/reorder - Reorder work item within siblings
-  app.patch('/api/work-items/:id/reorder', async (req, reply) => {
+  app.patch('/work-items/:id/reorder', async (req, reply) => {
     const params = req.params as { id: string };
     const body = req.body as { after_id?: string | null; before_id?: string | null };
 
@@ -12755,7 +12754,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // Work Item Dates API (issue #113)
   // PATCH /api/work-items/:id/dates - Update work item dates
-  app.patch('/api/work-items/:id/dates', async (req, reply) => {
+  app.patch('/work-items/:id/dates', async (req, reply) => {
     const params = req.params as { id: string };
     const body = req.body as { start_date?: string | null; end_date?: string | null };
 
@@ -12876,7 +12875,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // Todos API (issue #108)
   // GET /api/work-items/:id/todos - List todos for a work item
-  app.get('/api/work-items/:id/todos', async (req, reply) => {
+  app.get('/work-items/:id/todos', async (req, reply) => {
     const params = req.params as { id: string };
     const pool = createPool();
 
@@ -12909,7 +12908,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/work-items/:id/todos - Create a new todo
-  app.post('/api/work-items/:id/todos', async (req, reply) => {
+  app.post('/work-items/:id/todos', async (req, reply) => {
     const params = req.params as { id: string };
     const body = req.body as { text?: string };
 
@@ -12947,7 +12946,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // PATCH /api/work-items/:id/todos/:todo_id - Update a todo
-  app.patch('/api/work-items/:id/todos/:todo_id', async (req, reply) => {
+  app.patch('/work-items/:id/todos/:todo_id', async (req, reply) => {
     const params = req.params as { id: string; todo_id: string };
     const body = req.body as { text?: string; completed?: boolean };
 
@@ -13020,7 +13019,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // DELETE /api/work-items/:id/todos/:todo_id - Delete a todo
-  app.delete('/api/work-items/:id/todos/:todo_id', async (req, reply) => {
+  app.delete('/work-items/:id/todos/:todo_id', async (req, reply) => {
     const params = req.params as { id: string; todo_id: string };
     const pool = createPool();
 
@@ -13054,7 +13053,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
   // GET /api/notifications - List notifications for a user
-  app.get('/api/notifications', async (req, reply) => {
+  app.get('/notifications', async (req, reply) => {
     const query = req.query as {
       user_email?: string;
       unread_only?: string;
@@ -13143,7 +13142,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/notifications/unread-count - Get unread count for a user
-  app.get('/api/notifications/unread-count', async (req, reply) => {
+  app.get('/notifications/unread-count', async (req, reply) => {
     const query = req.query as { user_email?: string; namespaces?: string };
 
     const email = await resolveUserEmail(req, query.user_email);
@@ -13179,7 +13178,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/notifications/:id/read - Mark a notification as read
-  app.post('/api/notifications/:id/read', async (req, reply) => {
+  app.post('/notifications/:id/read', async (req, reply) => {
     const params = req.params as { id: string };
     const query = req.query as { user_email?: string };
 
@@ -13206,7 +13205,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/notifications/read-all - Mark all notifications as read
-  app.post('/api/notifications/read-all', async (req, reply) => {
+  app.post('/notifications/read-all', async (req, reply) => {
     const query = req.query as { user_email?: string };
 
     const email = await resolveUserEmail(req, query.user_email);
@@ -13228,7 +13227,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // DELETE /api/notifications/:id - Dismiss a notification
-  app.delete('/api/notifications/:id', async (req, reply) => {
+  app.delete('/notifications/:id', async (req, reply) => {
     const params = req.params as { id: string };
     const query = req.query as { user_email?: string };
 
@@ -13255,7 +13254,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/notifications/preferences - Get notification preferences
-  app.get('/api/notifications/preferences', async (req, reply) => {
+  app.get('/notifications/preferences', async (req, reply) => {
     const query = req.query as { user_email?: string };
 
     const email = await resolveUserEmail(req, query.user_email);
@@ -13290,7 +13289,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // PATCH /api/notifications/preferences - Update notification preferences
-  app.patch('/api/notifications/preferences', async (req, reply) => {
+  app.patch('/notifications/preferences', async (req, reply) => {
     const query = req.query as { user_email?: string };
     const body = req.body as Record<string, { in_app?: boolean; email?: boolean }>;
 
@@ -13328,7 +13327,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // ===== Comments & Presence API (Issue #182) =====
 
   // GET /api/work-items/:id/comments - List comments for a work item
-  app.get('/api/work-items/:id/comments', async (req, reply) => {
+  app.get('/work-items/:id/comments', async (req, reply) => {
     const params = req.params as { id: string };
     const query = req.query as { user_email?: string };
     const pool = createPool();
@@ -13396,7 +13395,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/work-items/:id/comments - Create a new comment
-  app.post('/api/work-items/:id/comments', async (req, reply) => {
+  app.post('/work-items/:id/comments', async (req, reply) => {
     const params = req.params as { id: string };
     const body = req.body as { user_email?: string; content: string; parent_id?: string };
 
@@ -13451,7 +13450,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // PUT /api/work-items/:id/comments/:comment_id - Update a comment
-  app.put('/api/work-items/:id/comments/:comment_id', async (req, reply) => {
+  app.put('/work-items/:id/comments/:comment_id', async (req, reply) => {
     const params = req.params as { id: string; comment_id: string };
     const body = req.body as { user_email?: string; content: string };
 
@@ -13511,7 +13510,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // DELETE /api/work-items/:id/comments/:comment_id - Delete a comment
-  app.delete('/api/work-items/:id/comments/:comment_id', async (req, reply) => {
+  app.delete('/work-items/:id/comments/:comment_id', async (req, reply) => {
     const params = req.params as { id: string; comment_id: string };
     const query = req.query as { user_email?: string };
 
@@ -13551,7 +13550,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/work-items/:id/comments/:comment_id/reactions - Toggle a reaction
-  app.post('/api/work-items/:id/comments/:comment_id/reactions', async (req, reply) => {
+  app.post('/work-items/:id/comments/:comment_id/reactions', async (req, reply) => {
     const params = req.params as { id: string; comment_id: string };
     const body = req.body as { user_email?: string; emoji: string };
 
@@ -13608,7 +13607,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/work-items/:id/presence - Get users currently viewing
-  app.get('/api/work-items/:id/presence', async (req, reply) => {
+  app.get('/work-items/:id/presence', async (req, reply) => {
     const params = req.params as { id: string };
     const query = req.query as { user_email?: string };
     const pool = createPool();
@@ -13634,7 +13633,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/work-items/:id/presence - Update user presence
-  app.post('/api/work-items/:id/presence', async (req, reply) => {
+  app.post('/work-items/:id/presence', async (req, reply) => {
     const params = req.params as { id: string };
     const query = req.query as { user_email?: string };
     const body = req.body as { user_email: string; cursor_position?: object };
@@ -13666,7 +13665,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // DELETE /api/work-items/:id/presence - Remove user presence
-  app.delete('/api/work-items/:id/presence', async (req, reply) => {
+  app.delete('/work-items/:id/presence', async (req, reply) => {
     const params = req.params as { id: string };
     const query = req.query as { user_email?: string };
 
@@ -13690,7 +13689,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/users/search - Search users for @mention autocomplete
-  app.get('/api/users/search', async (req, reply) => {
+  app.get('/users/search', async (req, reply) => {
     const query = req.query as { q?: string; limit?: string };
 
     if (!query.q) {
@@ -13722,7 +13721,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // ===== Analytics API (Issue #183) =====
 
   // GET /api/analytics/project-health - Get health metrics for projects
-  app.get('/api/analytics/project-health', async (req, reply) => {
+  app.get('/analytics/project-health', async (req, reply) => {
     const query = req.query as { project_id?: string };
     const pool = createPool();
 
@@ -13757,7 +13756,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/analytics/velocity - Get velocity data
-  app.get('/api/analytics/velocity', async (req, reply) => {
+  app.get('/analytics/velocity', async (req, reply) => {
     const query = req.query as { weeks?: string; project_id?: string };
     const weeks = Math.min(Number.parseInt(query.weeks || '12', 10), 52);
     const pool = createPool();
@@ -13787,7 +13786,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/analytics/effort - Get effort summary
-  app.get('/api/analytics/effort', async (req, reply) => {
+  app.get('/analytics/effort', async (req, reply) => {
     const _query = req.query as { project_id?: string };
     const pool = createPool();
 
@@ -13826,7 +13825,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/analytics/burndown/:id - Get burndown data for a work item
-  app.get('/api/analytics/burndown/:id', async (req, reply) => {
+  app.get('/analytics/burndown/:id', async (req, reply) => {
     const params = req.params as { id: string };
 
     if (!isValidUUID(params.id)) {
@@ -13867,7 +13866,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/analytics/overdue - Get overdue items
-  app.get('/api/analytics/overdue', async (req, reply) => {
+  app.get('/analytics/overdue', async (req, reply) => {
     const query = req.query as { limit?: string };
     const limit = Math.min(Number.parseInt(query.limit || '50', 10), 100);
     const pool = createPool();
@@ -13895,7 +13894,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/analytics/blocked - Get blocked items
-  app.get('/api/analytics/blocked', async (req, reply) => {
+  app.get('/analytics/blocked', async (req, reply) => {
     const query = req.query as { limit?: string };
     const limit = Math.min(Number.parseInt(query.limit || '50', 10), 100);
     const pool = createPool();
@@ -13927,7 +13926,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/analytics/activity-summary - Get activity summary by day
-  app.get('/api/analytics/activity-summary', async (req, reply) => {
+  app.get('/analytics/activity-summary', async (req, reply) => {
     const query = req.query as { days?: string };
     const days = Math.min(Number.parseInt(query.days || '30', 10), 90);
     const pool = createPool();
@@ -13967,7 +13966,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // ==================== Email & Calendar Sync API (Issue #184) ====================
 
   // GET /api/oauth/connections - List OAuth connections
-  app.get('/api/oauth/connections', async (req, reply) => {
+  app.get('/oauth/connections', async (req, reply) => {
     const query = req.query as { user_email?: string; provider?: string };
     const pool = createPool();
 
@@ -14003,7 +14002,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   //   permission_level: 'read' or 'read_write' (default: 'read')
   // When features are provided, scopes are computed from the feature-to-scope map.
   // Returns a 302 redirect to the provider's authorization URL.
-  app.get('/api/oauth/authorize/:provider', async (req, reply) => {
+  app.get('/oauth/authorize/:provider', async (req, reply) => {
     const params = req.params as { provider: string };
     const query = req.query as { scopes?: string; features?: string; permission_level?: string };
 
@@ -14084,7 +14083,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/oauth/callback - Handle OAuth callback
-  app.get('/api/oauth/callback', async (req, reply) => {
+  app.get('/oauth/callback', async (req, reply) => {
     const query = req.query as { code?: string; state?: string; error?: string; provider?: string };
 
     if (query.error) {
@@ -14258,7 +14257,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/oauth/providers - List configured providers
-  app.get('/api/oauth/providers', async (_req, reply) => {
+  app.get('/oauth/providers', async (_req, reply) => {
     const providers = getConfiguredProviders();
     return reply.send({
       providers: providers.map((p) => ({
@@ -14276,7 +14275,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // DELETE /api/oauth/connections/:id - Remove OAuth connection
-  app.delete('/api/oauth/connections/:id', async (req, reply) => {
+  app.delete('/oauth/connections/:id', async (req, reply) => {
     const params = req.params as { id: string };
     const pool = createPool();
 
@@ -14299,7 +14298,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // PATCH /api/oauth/connections/:id - Update connection settings
   // When features or permission_level change, computes required scopes and
   // returns a reAuthUrl if the connection needs additional OAuth grants.
-  app.patch('/api/oauth/connections/:id', async (req, reply) => {
+  app.patch('/oauth/connections/:id', async (req, reply) => {
     const params = req.params as { id: string };
     const body = req.body as {
       label?: string;
@@ -14412,7 +14411,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // ==================== File/Drive API (Issue #1049) ====================
 
   // GET /api/drive/files - List files from a connected drive
-  app.get('/api/drive/files', async (req, reply) => {
+  app.get('/drive/files', async (req, reply) => {
     const query = req.query as { connection_id?: string; folder_id?: string; page_token?: string };
 
     if (!query.connection_id) {
@@ -14441,7 +14440,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/drive/files/search - Search files across a connected drive
-  app.get('/api/drive/files/search', async (req, reply) => {
+  app.get('/drive/files/search', async (req, reply) => {
     const query = req.query as { connection_id?: string; q?: string; page_token?: string };
 
     if (!query.connection_id) {
@@ -14474,7 +14473,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/drive/files/:id - Get single file metadata with download URL
-  app.get('/api/drive/files/:id', async (req, reply) => {
+  app.get('/drive/files/:id', async (req, reply) => {
     const params = req.params as { id: string };
     const query = req.query as { connection_id?: string };
 
@@ -14504,7 +14503,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/sync/contacts - Trigger contact sync from OAuth provider
-  app.post('/api/sync/contacts', async (req, reply) => {
+  app.post('/sync/contacts', async (req, reply) => {
     const body = req.body as { connection_id: string; incremental?: boolean };
     const pool = createPool();
 
@@ -14556,7 +14555,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/sync/status/:connection_id - Get sync status for a connection
-  app.get('/api/sync/status/:connection_id', async (req, reply) => {
+  app.get('/sync/status/:connection_id', async (req, reply) => {
     const params = req.params as { connection_id: string };
     const pool = createPool();
 
@@ -14579,7 +14578,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // ---- Email API (live provider access) — Issue #1048 ----
 
   // GET /api/email/messages - List or search emails via provider API
-  app.get('/api/email/messages', async (req, reply) => {
+  app.get('/email/messages', async (req, reply) => {
     const query = req.query as {
       connection_id?: string;
       folder_id?: string;
@@ -14618,7 +14617,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/email/messages/:message_id - Get a single email message
-  app.get('/api/email/messages/:message_id', async (req, reply) => {
+  app.get('/email/messages/:message_id', async (req, reply) => {
     const { message_id: message_id } = req.params as { message_id: string };
     const query = req.query as { connection_id?: string };
 
@@ -14641,7 +14640,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/email/threads - List email threads
-  app.get('/api/email/threads', async (req, reply) => {
+  app.get('/email/threads', async (req, reply) => {
     const query = req.query as {
       connection_id?: string;
       folder_id?: string;
@@ -14680,7 +14679,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/email/threads/:thread_id - Get a full email thread
-  app.get('/api/email/threads/:thread_id', async (req, reply) => {
+  app.get('/email/threads/:thread_id', async (req, reply) => {
     const { thread_id: thread_id } = req.params as { thread_id: string };
     const query = req.query as { connection_id?: string };
 
@@ -14703,7 +14702,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/email/folders - List email folders/labels
-  app.get('/api/email/folders', async (req, reply) => {
+  app.get('/email/folders', async (req, reply) => {
     const query = req.query as { connection_id?: string };
 
     if (!query.connection_id) {
@@ -14725,7 +14724,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/email/messages/send - Send an email via provider API
-  app.post('/api/email/messages/send', async (req, reply) => {
+  app.post('/email/messages/send', async (req, reply) => {
     const body = req.body as {
       connection_id: string;
       to: Array<{ email: string; name?: string }>;
@@ -14774,7 +14773,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/email/drafts - Create a draft email
-  app.post('/api/email/drafts', async (req, reply) => {
+  app.post('/email/drafts', async (req, reply) => {
     const body = req.body as {
       connection_id: string;
       to?: Array<{ email: string; name?: string }>;
@@ -14817,7 +14816,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // PATCH /api/email/drafts/:draft_id - Update a draft email
-  app.patch('/api/email/drafts/:draft_id', async (req, reply) => {
+  app.patch('/email/drafts/:draft_id', async (req, reply) => {
     const { draft_id: draftId } = req.params as { draft_id: string };
     const body = req.body as {
       connection_id: string;
@@ -14859,7 +14858,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // PATCH /api/email/messages/:message_id - Update message state (read, star, labels, move)
-  app.patch('/api/email/messages/:message_id', async (req, reply) => {
+  app.patch('/email/messages/:message_id', async (req, reply) => {
     const { message_id: message_id } = req.params as { message_id: string };
     const body = req.body as {
       connection_id: string;
@@ -14897,7 +14896,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // DELETE /api/email/messages/:message_id - Delete an email message
-  app.delete('/api/email/messages/:message_id', async (req, reply) => {
+  app.delete('/email/messages/:message_id', async (req, reply) => {
     const { message_id: message_id } = req.params as { message_id: string };
     const query = req.query as { connection_id?: string; permanent?: string };
 
@@ -14920,7 +14919,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/email/messages/:message_id/attachments/:attachment_id - Download attachment
-  app.get('/api/email/messages/:message_id/attachments/:attachment_id', async (req, reply) => {
+  app.get('/email/messages/:message_id/attachments/:attachment_id', async (req, reply) => {
     const { message_id, attachment_id } = req.params as { message_id: string; attachment_id: string };
     const query = req.query as { connection_id?: string };
 
@@ -14945,7 +14944,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // ---- Legacy email routes (kept for backward compatibility) ----
 
   // POST /api/sync/emails - Trigger email sync (legacy stub, redirects to new API)
-  app.post('/api/sync/emails', async (req, reply) => {
+  app.post('/sync/emails', async (req, reply) => {
     const body = req.body as { connection_id: string };
     const pool = createPool();
 
@@ -14973,7 +14972,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/emails - List emails (legacy, proxies to new API)
-  app.get('/api/emails', async (req, reply) => {
+  app.get('/emails', async (req, reply) => {
     const query = req.query as { connection_id?: string; provider?: string; limit?: string };
 
     if (query.connection_id) {
@@ -15040,7 +15039,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/emails/send - Send email (legacy, proxies to new API)
-  app.post('/api/emails/send', async (req, reply) => {
+  app.post('/emails/send', async (req, reply) => {
     const body = req.body as {
       connection_id?: string;
       user_email?: string;
@@ -15101,7 +15100,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/emails/create-work-item - Create work item from email
-  app.post('/api/emails/create-work-item', async (req, reply) => {
+  app.post('/emails/create-work-item', async (req, reply) => {
     const body = req.body as { message_id: string; title?: string };
     const pool = createPool();
 
@@ -15145,7 +15144,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/sync/calendar - Sync calendar events from provider (Issue #1362)
-  app.post('/api/sync/calendar', async (req, reply) => {
+  app.post('/sync/calendar', async (req, reply) => {
     const { syncCalendarEvents } = await import('./oauth/calendar.ts');
     const body = req.body as {
       connection_id: string;
@@ -15183,7 +15182,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/calendar/events/live - List events directly from provider (live API access, Issue #1362)
-  app.get('/api/calendar/events/live', async (req, reply) => {
+  app.get('/calendar/events/live', async (req, reply) => {
     const { listProviderCalendarEvents } = await import('./oauth/calendar.ts');
     const query = req.query as {
       connection_id?: string;
@@ -15220,7 +15219,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/calendar/events - Get calendar events
-  app.get('/api/calendar/events', async (req, reply) => {
+  app.get('/calendar/events', async (req, reply) => {
     const query = req.query as {
       user_email?: string;
       start_after?: string;
@@ -15284,7 +15283,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/calendar/events - Create calendar event (Issue #1362: push to provider when connection_id given)
-  app.post('/api/calendar/events', async (req, reply) => {
+  app.post('/calendar/events', async (req, reply) => {
     const body = req.body as {
       user_email: string;
       provider: string;
@@ -15387,7 +15386,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/calendar/events/from-work-item - Create calendar event from work item deadline
-  app.post('/api/calendar/events/from-work-item', async (req, reply) => {
+  app.post('/calendar/events/from-work-item', async (req, reply) => {
     const body = req.body as {
       user_email: string;
       provider: string;
@@ -15465,7 +15464,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // DELETE /api/calendar/events/:id - Delete calendar event (Issue #1362: also delete from provider)
-  app.delete('/api/calendar/events/:id', async (req, reply) => {
+  app.delete('/calendar/events/:id', async (req, reply) => {
     const params = req.params as { id: string };
     const query = req.query as { connection_id?: string };
     const pool = createPool();
@@ -15486,7 +15485,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/work-items/calendar - Get work items with deadlines as calendar entries
-  app.get('/api/work-items/calendar', async (req, reply) => {
+  app.get('/work-items/calendar', async (req, reply) => {
     const query = req.query as {
       start_date?: string;
       end_date?: string;
@@ -15559,7 +15558,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // Notes CRUD API (Epic #337, Issue #344)
 
   // GET /api/notes - List notes with filters and pagination
-  app.get('/api/notes', async (req, reply) => {
+  app.get('/notes', async (req, reply) => {
     const { listNotes } = await import('./notes/index.ts');
 
     const query = req.query as {
@@ -15602,7 +15601,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/notes/:id - Get a single note by ID
-  app.get('/api/notes/:id', async (req, reply) => {
+  app.get('/notes/:id', async (req, reply) => {
     const { getNote } = await import('./notes/index.ts');
 
     const params = req.params as { id: string };
@@ -15635,7 +15634,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/notes - Create a new note
-  app.post('/api/notes', async (req, reply) => {
+  app.post('/notes', async (req, reply) => {
     const { createNote, isValidVisibility } = await import('./notes/index.ts');
 
     const body = req.body as {
@@ -15699,7 +15698,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // PUT /api/notes/:id - Update a note
-  app.put('/api/notes/:id', async (req, reply) => {
+  app.put('/notes/:id', async (req, reply) => {
     const { updateNote, isValidVisibility } = await import('./notes/index.ts');
 
     const params = req.params as { id: string };
@@ -15770,7 +15769,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // DELETE /api/notes/:id - Soft delete a note
-  app.delete('/api/notes/:id', async (req, reply) => {
+  app.delete('/notes/:id', async (req, reply) => {
     const { deleteNote } = await import('./notes/index.ts');
 
     const params = req.params as { id: string };
@@ -15804,7 +15803,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/notes/:id/restore - Restore a soft-deleted note
-  app.post('/api/notes/:id/restore', async (req, reply) => {
+  app.post('/notes/:id/restore', async (req, reply) => {
     const { restoreNote } = await import('./notes/index.ts');
 
     const params = req.params as { id: string };
@@ -15838,7 +15837,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // Note Version History API (Epic #337, Issue #347)
 
   // GET /api/notes/:id/versions - List version history
-  app.get('/api/notes/:id/versions', async (req, reply) => {
+  app.get('/notes/:id/versions', async (req, reply) => {
     const { listVersions } = await import('./notes/index.ts');
 
     const params = req.params as { id: string };
@@ -15871,7 +15870,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/notes/:id/versions/compare - Compare two versions
-  app.get('/api/notes/:id/versions/compare', async (req, reply) => {
+  app.get('/notes/:id/versions/compare', async (req, reply) => {
     const { compareVersions } = await import('./notes/index.ts');
 
     const params = req.params as { id: string };
@@ -15912,7 +15911,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/notes/:id/versions/:version_number - Get specific version
-  app.get('/api/notes/:id/versions/:version_number', async (req, reply) => {
+  app.get('/notes/:id/versions/:version_number', async (req, reply) => {
     const { getVersion } = await import('./notes/index.ts');
 
     const params = req.params as { id: string; version_number: string };
@@ -15945,7 +15944,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/notes/:id/versions/:version_number/restore - Restore to version
-  app.post('/api/notes/:id/versions/:version_number/restore', async (req, reply) => {
+  app.post('/notes/:id/versions/:version_number/restore', async (req, reply) => {
     const { restoreVersion } = await import('./notes/index.ts');
 
     const params = req.params as { id: string; version_number: string };
@@ -15989,7 +15988,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // Note Sharing API (Epic #337, Issue #348)
 
   // POST /api/notes/:id/share - Share note with a user
-  app.post('/api/notes/:id/share', async (req, reply) => {
+  app.post('/notes/:id/share', async (req, reply) => {
     const { createUserShare } = await import('./notes/index.ts');
 
     const params = req.params as { id: string };
@@ -16041,7 +16040,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/notes/:id/share/link - Create share link
-  app.post('/api/notes/:id/share/link', async (req, reply) => {
+  app.post('/notes/:id/share/link', async (req, reply) => {
     const { createLinkShare } = await import('./notes/index.ts');
 
     const params = req.params as { id: string };
@@ -16089,7 +16088,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/notes/:id/shares - List all shares for a note
-  app.get('/api/notes/:id/shares', async (req, reply) => {
+  app.get('/notes/:id/shares', async (req, reply) => {
     const { listShares } = await import('./notes/index.ts');
 
     const params = req.params as { id: string };
@@ -16121,7 +16120,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // PUT /api/notes/:id/shares/:share_id - Update share
-  app.put('/api/notes/:id/shares/:share_id', async (req, reply) => {
+  app.put('/notes/:id/shares/:share_id', async (req, reply) => {
     const { updateShare } = await import('./notes/index.ts');
 
     const params = req.params as { id: string; share_id: string };
@@ -16169,7 +16168,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // DELETE /api/notes/:id/shares/:share_id - Revoke share
-  app.delete('/api/notes/:id/shares/:share_id', async (req, reply) => {
+  app.delete('/notes/:id/shares/:share_id', async (req, reply) => {
     const { revokeShare } = await import('./notes/index.ts');
 
     const params = req.params as { id: string; share_id: string };
@@ -16202,7 +16201,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/notes/shared-with-me - List notes shared with current user
-  app.get('/api/notes/shared-with-me', async (req, reply) => {
+  app.get('/notes/shared-with-me', async (req, reply) => {
     const { listSharedWithMe } = await import('./notes/index.ts');
 
     const query = req.query as { user_email?: string };
@@ -16222,7 +16221,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/shared/notes/:token - Access shared note via link
-  app.get('/api/shared/notes/:token', async (req, reply) => {
+  app.get('/shared/notes/:token', async (req, reply) => {
     const { accessSharedNote } = await import('./notes/index.ts');
 
     const params = req.params as { token: string };
@@ -16257,7 +16256,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // Security: user_email moved from query params to body (#689)
   // Type validation added (#697)
   // UUID validation added (#701)
-  app.post('/api/notes/:id/presence', async (req, reply) => {
+  app.post('/notes/:id/presence', async (req, reply) => {
     const { joinNotePresence } = await import('./notes/index.ts');
 
     const params = req.params as { id: string };
@@ -16320,7 +16319,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // Security: user_email moved from query params to X-User-Email header (#689)
   // Type validation added (#697)
   // UUID validation added (#701)
-  app.delete('/api/notes/:id/presence', async (req, reply) => {
+  app.delete('/notes/:id/presence', async (req, reply) => {
     const { leaveNotePresence } = await import('./notes/index.ts');
 
     const params = req.params as { id: string };
@@ -16352,7 +16351,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // Security: user_email moved from query params to X-User-Email header (#689)
   // Type validation added (#697)
   // UUID validation added (#701)
-  app.get('/api/notes/:id/presence', async (req, reply) => {
+  app.get('/notes/:id/presence', async (req, reply) => {
     const { getNotePresence } = await import('./notes/index.ts');
 
     const params = req.params as { id: string };
@@ -16390,7 +16389,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // Security: user_email moved from query params to body (#689)
   // Type validation added (#697)
   // UUID validation added (#701)
-  app.put('/api/notes/:id/presence/cursor', async (req, reply) => {
+  app.put('/notes/:id/presence/cursor', async (req, reply) => {
     const { updateCursorPosition } = await import('./notes/index.ts');
 
     const params = req.params as { id: string };
@@ -16452,7 +16451,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // Notebooks CRUD API (Epic #337, Issue #345)
 
   // GET /api/notebooks - List notebooks with filters
-  app.get('/api/notebooks', async (req, reply) => {
+  app.get('/notebooks', async (req, reply) => {
     const { listNotebooks } = await import('./notebooks/index.ts');
 
     const query = req.query as {
@@ -16489,7 +16488,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/notebooks/tree - Get notebooks as tree hierarchy
-  app.get('/api/notebooks/tree', async (req, reply) => {
+  app.get('/notebooks/tree', async (req, reply) => {
     const { getNotebooksTree } = await import('./notebooks/index.ts');
 
     const query = req.query as {
@@ -16513,7 +16512,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/notebooks/:id - Get a single notebook by ID
-  app.get('/api/notebooks/:id', async (req, reply) => {
+  app.get('/notebooks/:id', async (req, reply) => {
     const { getNotebook } = await import('./notebooks/index.ts');
 
     const params = req.params as { id: string };
@@ -16546,7 +16545,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/notebooks - Create a new notebook
-  app.post('/api/notebooks', async (req, reply) => {
+  app.post('/notebooks', async (req, reply) => {
     const { createNotebook } = await import('./notebooks/index.ts');
 
     const body = req.body as {
@@ -16598,7 +16597,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // PUT /api/notebooks/:id - Update a notebook
-  app.put('/api/notebooks/:id', async (req, reply) => {
+  app.put('/notebooks/:id', async (req, reply) => {
     const { updateNotebook } = await import('./notebooks/index.ts');
 
     const params = req.params as { id: string };
@@ -16659,7 +16658,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/notebooks/:id/archive - Archive a notebook
-  app.post('/api/notebooks/:id/archive', async (req, reply) => {
+  app.post('/notebooks/:id/archive', async (req, reply) => {
     const { archiveNotebook } = await import('./notebooks/index.ts');
 
     const params = req.params as { id: string };
@@ -16691,7 +16690,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/notebooks/:id/unarchive - Unarchive a notebook
-  app.post('/api/notebooks/:id/unarchive', async (req, reply) => {
+  app.post('/notebooks/:id/unarchive', async (req, reply) => {
     const { unarchiveNotebook } = await import('./notebooks/index.ts');
 
     const params = req.params as { id: string };
@@ -16723,7 +16722,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // DELETE /api/notebooks/:id - Soft delete a notebook
-  app.delete('/api/notebooks/:id', async (req, reply) => {
+  app.delete('/notebooks/:id', async (req, reply) => {
     const { deleteNotebook } = await import('./notebooks/index.ts');
 
     const params = req.params as { id: string };
@@ -16761,7 +16760,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/notebooks/:id/notes - Move or copy notes to notebook
-  app.post('/api/notebooks/:id/notes', async (req, reply) => {
+  app.post('/notebooks/:id/notes', async (req, reply) => {
     const { moveNotesToNotebook } = await import('./notebooks/index.ts');
 
     const params = req.params as { id: string };
@@ -16814,7 +16813,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // Notebook Sharing API (Epic #337, Issue #348)
 
   // POST /api/notebooks/:id/share - Share notebook with a user
-  app.post('/api/notebooks/:id/share', async (req, reply) => {
+  app.post('/notebooks/:id/share', async (req, reply) => {
     const notebookSharing = await import('./notebooks/sharing.ts');
 
     const params = req.params as { id: string };
@@ -16866,7 +16865,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/notebooks/:id/share/link - Create share link
-  app.post('/api/notebooks/:id/share/link', async (req, reply) => {
+  app.post('/notebooks/:id/share/link', async (req, reply) => {
     const notebookSharing = await import('./notebooks/sharing.ts');
 
     const params = req.params as { id: string };
@@ -16910,7 +16909,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/notebooks/:id/shares - List all shares for a notebook
-  app.get('/api/notebooks/:id/shares', async (req, reply) => {
+  app.get('/notebooks/:id/shares', async (req, reply) => {
     const notebookSharing = await import('./notebooks/sharing.ts');
 
     const params = req.params as { id: string };
@@ -16942,7 +16941,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // PUT /api/notebooks/:id/shares/:share_id - Update share
-  app.put('/api/notebooks/:id/shares/:share_id', async (req, reply) => {
+  app.put('/notebooks/:id/shares/:share_id', async (req, reply) => {
     const notebookSharing = await import('./notebooks/sharing.ts');
 
     const params = req.params as { id: string; share_id: string };
@@ -16990,7 +16989,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // DELETE /api/notebooks/:id/shares/:share_id - Revoke share
-  app.delete('/api/notebooks/:id/shares/:share_id', async (req, reply) => {
+  app.delete('/notebooks/:id/shares/:share_id', async (req, reply) => {
     const notebookSharing = await import('./notebooks/sharing.ts');
 
     const params = req.params as { id: string; share_id: string };
@@ -17023,7 +17022,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/notebooks/shared-with-me - List notebooks shared with current user
-  app.get('/api/notebooks/shared-with-me', async (req, reply) => {
+  app.get('/notebooks/shared-with-me', async (req, reply) => {
     const notebookSharing = await import('./notebooks/sharing.ts');
 
     const query = req.query as { user_email?: string };
@@ -17043,7 +17042,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/shared/notebooks/:token - Access shared notebook via link
-  app.get('/api/shared/notebooks/:token', async (req, reply) => {
+  app.get('/shared/notebooks/:token', async (req, reply) => {
     const notebookSharing = await import('./notebooks/sharing.ts');
 
     const params = req.params as { token: string };
@@ -17074,7 +17073,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // ─────────────────────────────────────────────────────────────────────────────
 
   // GET /api/admin/embeddings/status/notes - Get note embedding statistics
-  app.get('/api/admin/embeddings/status/notes', async (_req, reply) => {
+  app.get('/admin/embeddings/status/notes', async (_req, reply) => {
     const noteEmbeddings = await import('./embeddings/note-integration.ts');
 
     const pool = createPool();
@@ -17088,7 +17087,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/admin/embeddings/backfill/notes - Backfill note embeddings
-  app.post('/api/admin/embeddings/backfill/notes', async (req, reply) => {
+  app.post('/admin/embeddings/backfill/notes', async (req, reply) => {
     const noteEmbeddings = await import('./embeddings/note-integration.ts');
 
     const body = req.body as {
@@ -17123,7 +17122,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // POST /api/skill-store/search - Full-text search
   app.post(
-    '/api/skill-store/search',
+    '/skill-store/search',
     {
       config: {
         rateLimit: {
@@ -17185,7 +17184,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // POST /api/skill-store/search/semantic - Semantic (vector) search with full-text fallback
   app.post(
-    '/api/skill-store/search/semantic',
+    '/skill-store/search/semantic',
     {
       config: {
         rateLimit: {
@@ -17278,7 +17277,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // ─────────────────────────────────────────────────────────────────────────────
 
   // GET /api/admin/skill-store/embeddings/status - Get skill store embedding statistics
-  app.get('/api/admin/skill-store/embeddings/status', async (_req, reply) => {
+  app.get('/admin/skill-store/embeddings/status', async (_req, reply) => {
     const skillStoreEmbeddings = await import('./embeddings/skill-store-integration.ts');
 
     const pool = createPool();
@@ -17292,7 +17291,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/admin/skill-store/embeddings/backfill - Backfill skill store item embeddings
-  app.post('/api/admin/skill-store/embeddings/backfill', async (req, reply) => {
+  app.post('/admin/skill-store/embeddings/backfill', async (req, reply) => {
     const skillStoreEmbeddings = await import('./embeddings/skill-store-integration.ts');
 
     const body = req.body as {
@@ -17325,7 +17324,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // ─────────────────────────────────────────────────────────────────────────────
 
   // GET /api/admin/skill-store/stats - Global stats
-  app.get('/api/admin/skill-store/stats', async (_req, reply) => {
+  app.get('/admin/skill-store/stats', async (_req, reply) => {
     const pool = createPool();
 
     try {
@@ -17379,7 +17378,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/admin/skill-store/skills - List all skill_ids with counts
-  app.get('/api/admin/skill-store/skills', async (_req, reply) => {
+  app.get('/admin/skill-store/skills', async (_req, reply) => {
     const pool = createPool();
 
     try {
@@ -17413,7 +17412,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // GET /api/admin/skill-store/skills/:skill_id - Detailed view of a skill
   // Register BEFORE the parametric route in DELETE to avoid conflicts
-  app.get('/api/admin/skill-store/skills/:skill_id', async (req, reply) => {
+  app.get('/admin/skill-store/skills/:skill_id', async (req, reply) => {
     const { skill_id } = req.params as { skill_id: string };
     const pool = createPool();
 
@@ -17495,7 +17494,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/admin/skill-store/skills/:skill_id/quota — Quota usage vs limits (Issue #805)
-  app.get('/api/admin/skill-store/skills/:skill_id/quota', async (req, reply) => {
+  app.get('/admin/skill-store/skills/:skill_id/quota', async (req, reply) => {
     const { skill_id } = req.params as { skill_id: string };
     const skillStoreQuotas = await import('./skill-store/quotas.ts');
     const pool = createPool();
@@ -17508,7 +17507,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // DELETE /api/admin/skill-store/skills/:skill_id - Hard purge all data for a skill
-  app.delete('/api/admin/skill-store/skills/:skill_id', async (req, reply) => {
+  app.delete('/admin/skill-store/skills/:skill_id', async (req, reply) => {
     const { skill_id } = req.params as { skill_id: string };
     const confirmHeader = (req.headers as Record<string, string | undefined>)['x-confirm-delete'];
 
@@ -17547,7 +17546,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/notes/search/semantic - Semantic search for notes (legacy endpoint from #349)
-  app.post('/api/notes/search/semantic', async (req, reply) => {
+  app.post('/notes/search/semantic', async (req, reply) => {
     const noteEmbeddings = await import('./embeddings/note-integration.ts');
 
     const body = req.body as {
@@ -17587,7 +17586,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // ─────────────────────────────────────────────────────────────────────────────
 
   // GET /api/notes/search - Search notes with privacy filtering
-  app.get('/api/notes/search', async (req, reply) => {
+  app.get('/notes/search', async (req, reply) => {
     const noteSearch = await import('./notes/search.ts');
 
     const query = req.query as {
@@ -17634,7 +17633,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/notes/:id/similar - Find similar notes
-  app.get('/api/notes/:id/similar', async (req, reply) => {
+  app.get('/notes/:id/similar', async (req, reply) => {
     const noteSearch = await import('./notes/search.ts');
 
     const params = req.params as { id: string };
@@ -17675,7 +17674,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // Pre-seeded with common types, extensible by agents.
 
   // GET /api/relationship-types - List all relationship types with optional filters
-  app.get('/api/relationship-types', async (req, reply) => {
+  app.get('/relationship-types', async (req, reply) => {
     const { listRelationshipTypes } = await import('./relationship-types/index.ts');
     const pool = createPool();
     try {
@@ -17708,7 +17707,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // GET /api/relationship-types/match - Find types matching a query string
   // Must be defined before :id route to avoid conflict
-  app.get('/api/relationship-types/match', async (req, reply) => {
+  app.get('/relationship-types/match', async (req, reply) => {
     const { findSemanticMatch } = await import('./relationship-types/index.ts');
     const pool = createPool();
     try {
@@ -17727,7 +17726,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/relationship-types/:id - Get a single relationship type
-  app.get('/api/relationship-types/:id', async (req, reply) => {
+  app.get('/relationship-types/:id', async (req, reply) => {
     const { getRelationshipType } = await import('./relationship-types/index.ts');
     const pool = createPool();
     try {
@@ -17745,7 +17744,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/relationship-types - Create a new relationship type
-  app.post('/api/relationship-types', async (req, reply) => {
+  app.post('/relationship-types', async (req, reply) => {
     const { createRelationshipType } = await import('./relationship-types/index.ts');
     const pool = createPool();
     try {
@@ -17796,7 +17795,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // and smart creation (resolve contacts/types by name).
 
   // GET /api/relationships - List relationships with optional filters
-  app.get('/api/relationships', async (req, reply) => {
+  app.get('/relationships', async (req, reply) => {
     const { listRelationships } = await import('./relationships/index.ts');
     const pool = createPool();
     try {
@@ -17833,7 +17832,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // POST /api/relationships/set - Smart relationship creation
   // Must be defined before :id route to avoid conflict
-  app.post('/api/relationships/set', async (req, reply) => {
+  app.post('/relationships/set', async (req, reply) => {
     const { relationshipSet } = await import('./relationships/index.ts');
     const pool = createPool();
     try {
@@ -17883,7 +17882,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/relationships/:id - Get a single relationship with details
-  app.get('/api/relationships/:id', async (req, reply) => {
+  app.get('/relationships/:id', async (req, reply) => {
     const { getRelationship } = await import('./relationships/index.ts');
     const pool = createPool();
     try {
@@ -17907,7 +17906,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/relationships - Create a new relationship
-  app.post('/api/relationships', async (req, reply) => {
+  app.post('/relationships', async (req, reply) => {
     const { createRelationship } = await import('./relationships/index.ts');
     const pool = createPool();
     try {
@@ -17960,7 +17959,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // PATCH /api/relationships/:id - Update a relationship
-  app.patch('/api/relationships/:id', async (req, reply) => {
+  app.patch('/relationships/:id', async (req, reply) => {
     const { updateRelationship } = await import('./relationships/index.ts');
     const pool = createPool();
     try {
@@ -17993,7 +17992,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // DELETE /api/relationships/:id - Delete a relationship
-  app.delete('/api/relationships/:id', async (req, reply) => {
+  app.delete('/relationships/:id', async (req, reply) => {
     const { deleteRelationship } = await import('./relationships/index.ts');
     const pool = createPool();
     try {
@@ -18017,7 +18016,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/contacts/:id/relationships - Graph traversal for a contact
-  app.get('/api/contacts/:id/relationships', async (req, reply) => {
+  app.get('/contacts/:id/relationships', async (req, reply) => {
     const { getRelatedContacts } = await import('./relationships/index.ts');
     const pool = createPool();
     try {
@@ -18036,7 +18035,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/contacts/:id/groups - Groups a contact belongs to
-  app.get('/api/contacts/:id/groups', async (req, reply) => {
+  app.get('/contacts/:id/groups', async (req, reply) => {
     const { getContactGroups } = await import('./relationships/index.ts');
     const pool = createPool();
     try {
@@ -18055,7 +18054,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/contacts/:id/members - Members of a group contact
-  app.get('/api/contacts/:id/members', async (req, reply) => {
+  app.get('/contacts/:id/members', async (req, reply) => {
     const { getGroupMembers } = await import('./relationships/index.ts');
     const pool = createPool();
     try {
@@ -18112,7 +18111,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     updated_at`;
 
   // POST /api/skill-store/items — Create or upsert
-  app.post('/api/skill-store/items', async (req, reply) => {
+  app.post('/skill-store/items', async (req, reply) => {
     const body = req.body as Record<string, unknown> | null;
     if (!body || typeof body !== 'object') {
       return reply.code(400).send({ error: 'Request body is required' });
@@ -18241,7 +18240,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // GET /api/skill-store/items/by-key — Get by composite key
   // Registered BEFORE the :id route so Fastify matches it first
-  app.get('/api/skill-store/items/by-key', async (req, reply) => {
+  app.get('/skill-store/items/by-key', async (req, reply) => {
     const query = req.query as Record<string, string | undefined>;
     const skillId = query.skill_id;
     const collection = query.collection || '_default';
@@ -18273,7 +18272,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/skill-store/items/bulk — Bulk create/upsert
-  app.post('/api/skill-store/items/bulk', async (req, reply) => {
+  app.post('/skill-store/items/bulk', async (req, reply) => {
     const body = req.body as { items?: unknown[] } | null;
     if (!body || !Array.isArray(body.items)) {
       return reply.code(400).send({ error: 'items array is required' });
@@ -18426,7 +18425,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // DELETE /api/skill-store/items/bulk — Bulk soft delete by filter
-  app.delete('/api/skill-store/items/bulk', async (req, reply) => {
+  app.delete('/skill-store/items/bulk', async (req, reply) => {
     const body = req.body as Record<string, unknown> | null;
     if (!body || typeof body !== 'object') {
       return reply.code(400).send({ error: 'Request body is required' });
@@ -18493,7 +18492,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/skill-store/items/:id/archive — Set status to 'archived'
-  app.post('/api/skill-store/items/:id/archive', async (req, reply) => {
+  app.post('/skill-store/items/:id/archive', async (req, reply) => {
     const params = req.params as { id: string };
     if (!isValidUUID(params.id)) {
       return reply.code(400).send({ error: 'Invalid UUID format' });
@@ -18518,7 +18517,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/skill-store/items/:id — Get by UUID
-  app.get('/api/skill-store/items/:id', async (req, reply) => {
+  app.get('/skill-store/items/:id', async (req, reply) => {
     const params = req.params as { id: string };
     const query = req.query as { include_deleted?: string };
 
@@ -18548,7 +18547,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/skill-store/items — List items
-  app.get('/api/skill-store/items', async (req, reply) => {
+  app.get('/skill-store/items', async (req, reply) => {
     const query = req.query as Record<string, string | undefined>;
     const skillId = query.skill_id;
 
@@ -18644,7 +18643,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // PATCH /api/skill-store/items/:id — Partial update
-  app.patch('/api/skill-store/items/:id', async (req, reply) => {
+  app.patch('/skill-store/items/:id', async (req, reply) => {
     const params = req.params as { id: string };
     if (!isValidUUID(params.id)) {
       return reply.code(400).send({ error: 'Invalid UUID format' });
@@ -18723,7 +18722,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // DELETE /api/skill-store/items/:id — Soft or hard delete
-  app.delete('/api/skill-store/items/:id', async (req, reply) => {
+  app.delete('/skill-store/items/:id', async (req, reply) => {
     const params = req.params as { id: string };
     const query = req.query as { permanent?: string };
 
@@ -18770,7 +18769,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/skill-store/collections — List collections with counts
-  app.get('/api/skill-store/collections', async (req, reply) => {
+  app.get('/skill-store/collections', async (req, reply) => {
     const query = req.query as { skill_id?: string };
     if (!query.skill_id) {
       return reply.code(400).send({ error: 'skill_id query parameter is required' });
@@ -18801,7 +18800,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/skill-store/aggregate — Aggregation operations (Issue #801)
-  app.get('/api/skill-store/aggregate', async (req, reply) => {
+  app.get('/skill-store/aggregate', async (req, reply) => {
     const query = req.query as {
       skill_id?: string;
       operation?: string;
@@ -18843,7 +18842,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // DELETE /api/skill-store/collections/:name — Soft delete a collection
-  app.delete('/api/skill-store/collections/:name', async (req, reply) => {
+  app.delete('/skill-store/collections/:name', async (req, reply) => {
     const params = req.params as { name: string };
     const query = req.query as { skill_id?: string };
 
@@ -18966,7 +18965,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   }
 
   // POST /api/skill-store/schedules - Create a schedule (Issue #802)
-  app.post('/api/skill-store/schedules', async (req, reply) => {
+  app.post('/skill-store/schedules', async (req, reply) => {
     const body = req.body as {
       skill_id?: string;
       collection?: string | null;
@@ -19067,7 +19066,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/skill-store/schedules - List schedules (Issue #802)
-  app.get('/api/skill-store/schedules', async (req, reply) => {
+  app.get('/skill-store/schedules', async (req, reply) => {
     const query = req.query as {
       skill_id?: string;
       enabled?: string;
@@ -19127,7 +19126,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // PATCH /api/skill-store/schedules/:id - Update a schedule (Issue #802)
-  app.patch('/api/skill-store/schedules/:id', async (req, reply) => {
+  app.patch('/skill-store/schedules/:id', async (req, reply) => {
     const { id } = req.params as { id: string };
 
     if (!isValidUUID(id)) {
@@ -19267,7 +19266,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // DELETE /api/skill-store/schedules/:id - Delete a schedule (Issue #802)
-  app.delete('/api/skill-store/schedules/:id', async (req, reply) => {
+  app.delete('/skill-store/schedules/:id', async (req, reply) => {
     const { id } = req.params as { id: string };
 
     if (!isValidUUID(id)) {
@@ -19289,7 +19288,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/skill-store/schedules/:id/trigger - Manually trigger a schedule (Issue #802)
-  app.post('/api/skill-store/schedules/:id/trigger', async (req, reply) => {
+  app.post('/skill-store/schedules/:id/trigger', async (req, reply) => {
     const { id } = req.params as { id: string };
 
     if (!isValidUUID(id)) {
@@ -19355,7 +19354,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/skill-store/schedules/:id/pause - Pause a schedule (Issue #802)
-  app.post('/api/skill-store/schedules/:id/pause', async (req, reply) => {
+  app.post('/skill-store/schedules/:id/pause', async (req, reply) => {
     const { id } = req.params as { id: string };
 
     if (!isValidUUID(id)) {
@@ -19397,7 +19396,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/skill-store/schedules/:id/resume - Resume a schedule (Issue #802)
-  app.post('/api/skill-store/schedules/:id/resume', async (req, reply) => {
+  app.post('/skill-store/schedules/:id/resume', async (req, reply) => {
     const { id } = req.params as { id: string };
 
     if (!isValidUUID(id)) {
@@ -19457,7 +19456,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   const GEO_MAX_PROVIDERS_PER_USER = 10;
 
   // POST /api/geolocation/providers — Create provider
-  app.post('/api/geolocation/providers', async (req, reply) => {
+  app.post('/geolocation/providers', async (req, reply) => {
     const email = await getSessionEmail(req);
     if (!email) return reply.code(401).send({ error: 'Unauthorized' });
 
@@ -19581,7 +19580,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/geolocation/providers — List providers (owned + subscribed)
-  app.get('/api/geolocation/providers', async (req, reply) => {
+  app.get('/geolocation/providers', async (req, reply) => {
     const email = await getSessionEmail(req);
     if (!email) return reply.code(401).send({ error: 'Unauthorized' });
 
@@ -19604,7 +19603,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/geolocation/providers/:id — Get single provider
-  app.get('/api/geolocation/providers/:id', async (req, reply) => {
+  app.get('/geolocation/providers/:id', async (req, reply) => {
     const email = await getSessionEmail(req);
     if (!email) return reply.code(401).send({ error: 'Unauthorized' });
 
@@ -19641,7 +19640,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // PATCH /api/geolocation/providers/:id — Update provider (owner only)
-  app.patch('/api/geolocation/providers/:id', async (req, reply) => {
+  app.patch('/geolocation/providers/:id', async (req, reply) => {
     const email = await getSessionEmail(req);
     if (!email) return reply.code(401).send({ error: 'Unauthorized' });
 
@@ -19717,7 +19716,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // DELETE /api/geolocation/providers/:id — Soft delete provider (owner only)
-  app.delete('/api/geolocation/providers/:id', async (req, reply) => {
+  app.delete('/geolocation/providers/:id', async (req, reply) => {
     const email = await getSessionEmail(req);
     if (!email) return reply.code(401).send({ error: 'Unauthorized' });
 
@@ -19772,7 +19771,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/geolocation/providers/:id/verify — Test connection
-  app.post('/api/geolocation/providers/:id/verify', async (req, reply) => {
+  app.post('/geolocation/providers/:id/verify', async (req, reply) => {
     const email = await getSessionEmail(req);
     if (!email) return reply.code(401).send({ error: 'Unauthorized' });
 
@@ -19810,7 +19809,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/geolocation/providers/:id/entities — Discover entities
-  app.get('/api/geolocation/providers/:id/entities', async (req, reply) => {
+  app.get('/geolocation/providers/:id/entities', async (req, reply) => {
     const email = await getSessionEmail(req);
     if (!email) return reply.code(401).send({ error: 'Unauthorized' });
 
@@ -19847,7 +19846,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/geolocation/providers/ha/authorize — Initiate HA OAuth flow (Issue #1808)
-  app.post('/api/geolocation/providers/ha/authorize', async (req, reply) => {
+  app.post('/geolocation/providers/ha/authorize', async (req, reply) => {
     const email = await getSessionEmail(req);
     if (!email) return reply.code(401).send({ error: 'Unauthorized' });
 
@@ -19940,7 +19939,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/geolocation/subscriptions — List user's subscriptions
-  app.get('/api/geolocation/subscriptions', async (req, reply) => {
+  app.get('/geolocation/subscriptions', async (req, reply) => {
     const email = await getSessionEmail(req);
     if (!email) return reply.code(401).send({ error: 'Unauthorized' });
 
@@ -19955,7 +19954,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // PATCH /api/geolocation/subscriptions/:id — Update subscription
-  app.patch('/api/geolocation/subscriptions/:id', async (req, reply) => {
+  app.patch('/geolocation/subscriptions/:id', async (req, reply) => {
     const email = await getSessionEmail(req);
     if (!email) return reply.code(401).send({ error: 'Unauthorized' });
 
@@ -20007,7 +20006,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/geolocation/current — Resolve current location
-  app.get('/api/geolocation/current', async (req, reply) => {
+  app.get('/geolocation/current', async (req, reply) => {
     const email = await getSessionEmail(req);
     if (!email) return reply.code(401).send({ error: 'Unauthorized' });
 
@@ -20025,7 +20024,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/geolocation/history — Query location history
-  app.get('/api/geolocation/history', async (req, reply) => {
+  app.get('/geolocation/history', async (req, reply) => {
     const email = await getSessionEmail(req);
     if (!email) return reply.code(401).send({ error: 'Unauthorized' });
 
@@ -20054,7 +20053,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // ── Context entities (Issue #1275) ──────────────────────────────────
 
   // POST /api/contexts - Create a new context
-  app.post('/api/contexts', async (req, reply) => {
+  app.post('/contexts', async (req, reply) => {
     const body = req.body as { label?: string; content?: string; content_type?: string } | null;
 
     if (!body?.label?.trim()) {
@@ -20079,7 +20078,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/contexts - List contexts with pagination and search
-  app.get('/api/contexts', async (req, reply) => {
+  app.get('/contexts', async (req, reply) => {
     const query = req.query as { search?: string; limit?: string; offset?: string; include_inactive?: string };
     const limit = Math.min(parseInt(query.limit || '50', 10), 100);
     const offset = parseInt(query.offset || '0', 10);
@@ -20133,7 +20132,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/contexts/:id - Get a single context
-  app.get('/api/contexts/:id', async (req, reply) => {
+  app.get('/contexts/:id', async (req, reply) => {
     const { id } = req.params as { id: string };
     const pool = createPool();
     try {
@@ -20152,7 +20151,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // PATCH /api/contexts/:id - Update a context
-  app.patch('/api/contexts/:id', async (req, reply) => {
+  app.patch('/contexts/:id', async (req, reply) => {
     const { id } = req.params as { id: string };
     const body = req.body as { label?: string; content?: string; content_type?: string; is_active?: boolean } | null;
     const pool = createPool();
@@ -20204,7 +20203,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // DELETE /api/contexts/:id - Delete a context (cascade deletes links)
-  app.delete('/api/contexts/:id', async (req, reply) => {
+  app.delete('/contexts/:id', async (req, reply) => {
     const { id } = req.params as { id: string };
     const pool = createPool();
     try {
@@ -20219,7 +20218,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/contexts/:id/links - Create a link from context to target entity
-  app.post('/api/contexts/:id/links', async (req, reply) => {
+  app.post('/contexts/:id/links', async (req, reply) => {
     const { id } = req.params as { id: string };
     const body = req.body as { target_type?: string; target_id?: string; priority?: number } | null;
 
@@ -20257,7 +20256,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/contexts/:id/links - List links for a context
-  app.get('/api/contexts/:id/links', async (req, reply) => {
+  app.get('/contexts/:id/links', async (req, reply) => {
     const { id } = req.params as { id: string };
     const pool = createPool();
     try {
@@ -20274,7 +20273,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // DELETE /api/contexts/:id/links/:link_id - Remove a specific link
-  app.delete('/api/contexts/:id/links/:link_id', async (req, reply) => {
+  app.delete('/contexts/:id/links/:link_id', async (req, reply) => {
     const { id, link_id } = req.params as { id: string; link_id: string };
     const pool = createPool();
     try {
@@ -20292,7 +20291,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/entity-contexts - Reverse lookup: find all contexts linked to a target entity
-  app.get('/api/entity-contexts', async (req, reply) => {
+  app.get('/entity-contexts', async (req, reply) => {
     const query = req.query as { target_type?: string; target_id?: string };
 
     if (!query.target_type?.trim()) {
@@ -20322,7 +20321,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // ── Project Webhooks (Issue #1274) ─────────────────────────────────
 
   // POST /api/projects/:id/webhooks - Create a webhook for a project
-  app.post('/api/projects/:id/webhooks', async (req, reply) => {
+  app.post('/projects/:id/webhooks', async (req, reply) => {
     const { id } = req.params as { id: string };
 
     if (!isValidUUID(id)) {
@@ -20364,7 +20363,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/projects/:id/webhooks - List webhooks for a project
-  app.get('/api/projects/:id/webhooks', async (req, reply) => {
+  app.get('/projects/:id/webhooks', async (req, reply) => {
     const { id } = req.params as { id: string };
 
     if (!isValidUUID(id)) {
@@ -20409,7 +20408,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // DELETE /api/projects/:id/webhooks/:webhook_id - Delete a webhook
-  app.delete('/api/projects/:id/webhooks/:webhook_id', async (req, reply) => {
+  app.delete('/projects/:id/webhooks/:webhook_id', async (req, reply) => {
     const { id, webhook_id } = req.params as { id: string; webhook_id: string };
 
     if (!isValidUUID(id)) {
@@ -20457,7 +20456,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/webhooks/:webhook_id - Public ingestion endpoint (bearer token auth)
-  app.post('/api/webhooks/:webhook_id', async (req, reply) => {
+  app.post('/webhooks/:webhook_id', async (req, reply) => {
     const { webhook_id } = req.params as { webhook_id: string };
 
     if (!isValidUUID(webhook_id)) {
@@ -20518,7 +20517,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/projects/:id/events - List project events (paginated)
-  app.get('/api/projects/:id/events', async (req, reply) => {
+  app.get('/projects/:id/events', async (req, reply) => {
     const { id } = req.params as { id: string };
 
     if (!isValidUUID(id)) {
@@ -20558,7 +20557,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   }
 
   // GET /api/identity — Get current identity by name (query param) or first active
-  app.get('/api/identity', async (req, reply) => {
+  app.get('/identity', async (req, reply) => {
     const query = req.query as Record<string, string | undefined>;
     const pool = createPool();
     try {
@@ -20578,7 +20577,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // PUT /api/identity — Create or fully replace an identity
-  app.put('/api/identity', async (req, reply) => {
+  app.put('/identity', async (req, reply) => {
     const body = req.body as Record<string, unknown> | null;
     if (!body) return reply.code(400).send({ error: 'Body required' });
 
@@ -20635,7 +20634,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // PATCH /api/identity — Partially update an identity
-  app.patch('/api/identity', async (req, reply) => {
+  app.patch('/identity', async (req, reply) => {
     const body = req.body as Record<string, unknown> | null;
     if (!body) return reply.code(400).send({ error: 'Body required' });
 
@@ -20690,7 +20689,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/identity/proposals — Agent proposes a change
-  app.post('/api/identity/proposals', async (req, reply) => {
+  app.post('/identity/proposals', async (req, reply) => {
     const body = req.body as Record<string, unknown> | null;
     if (!body) return reply.code(400).send({ error: 'Body required' });
 
@@ -20729,7 +20728,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/identity/proposals/:id/approve — Approve a proposal
-  app.post('/api/identity/proposals/:id/approve', async (req, reply) => {
+  app.post('/identity/proposals/:id/approve', async (req, reply) => {
     const { id } = req.params as { id: string };
     const hdr = (req.headers as Record<string, string | string[] | undefined>)['x-user-email'];
     const approvedBy = typeof hdr === 'string' ? hdr : 'system';
@@ -20782,7 +20781,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/identity/proposals/:id/reject — Reject a proposal
-  app.post('/api/identity/proposals/:id/reject', async (req, reply) => {
+  app.post('/identity/proposals/:id/reject', async (req, reply) => {
     const { id } = req.params as { id: string };
     const body = (req.body as Record<string, unknown>) ?? {};
     const reason = typeof body.reason === 'string' ? body.reason : null;
@@ -20807,7 +20806,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/identity/history — Version history for an identity
-  app.get('/api/identity/history', async (req, reply) => {
+  app.get('/identity/history', async (req, reply) => {
     const query = req.query as Record<string, string | undefined>;
     const name = query.name;
     if (!name) return reply.code(400).send({ error: 'name query parameter is required' });
@@ -20836,7 +20835,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/identity/rollback — Rollback to a previous version
-  app.post('/api/identity/rollback', async (req, reply) => {
+  app.post('/identity/rollback', async (req, reply) => {
     const body = req.body as Record<string, unknown> | null;
     if (!body) return reply.code(400).send({ error: 'Body required' });
 
@@ -20909,7 +20908,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // ── Shared lists (Issue #1277) ──────────────────────────────────────
 
   // POST /api/lists - Create a new list
-  app.post('/api/lists', async (req, reply) => {
+  app.post('/lists', async (req, reply) => {
     const body = req.body as { name?: string; list_type?: string; is_shared?: boolean } | null;
 
     if (!body?.name?.trim()) {
@@ -20931,7 +20930,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/lists - List all lists with optional filtering
-  app.get('/api/lists', async (req, reply) => {
+  app.get('/lists', async (req, reply) => {
     const query = req.query as { list_type?: string; limit?: string; offset?: string };
     const limit = Math.min(parseInt(query.limit || '50', 10), 100);
     const offset = parseInt(query.offset || '0', 10);
@@ -20980,7 +20979,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/lists/:id - Get a list with all its items
-  app.get('/api/lists/:id', async (req, reply) => {
+  app.get('/lists/:id', async (req, reply) => {
     const { id } = req.params as { id: string };
     const pool = createPool();
     try {
@@ -21009,7 +21008,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // PATCH /api/lists/:id - Update a list
-  app.patch('/api/lists/:id', async (req, reply) => {
+  app.patch('/lists/:id', async (req, reply) => {
     const { id } = req.params as { id: string };
     const body = req.body as { name?: string; list_type?: string; is_shared?: boolean } | null;
     const pool = createPool();
@@ -21056,7 +21055,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // DELETE /api/lists/:id - Delete a list (cascade deletes items)
-  app.delete('/api/lists/:id', async (req, reply) => {
+  app.delete('/lists/:id', async (req, reply) => {
     const { id } = req.params as { id: string };
     const pool = createPool();
     try {
@@ -21071,7 +21070,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/lists/:id/items - Add an item to a list
-  app.post('/api/lists/:id/items', async (req, reply) => {
+  app.post('/lists/:id/items', async (req, reply) => {
     const { id } = req.params as { id: string };
     const body = req.body as {
       name?: string; quantity?: string; category?: string;
@@ -21108,7 +21107,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // PATCH /api/lists/:list_id/items/:item_id - Update an item
-  app.patch('/api/lists/:list_id/items/:item_id', async (req, reply) => {
+  app.patch('/lists/:list_id/items/:item_id', async (req, reply) => {
     const { list_id, item_id } = req.params as { list_id: string; item_id: string };
     const body = req.body as {
       name?: string; quantity?: string | null; category?: string | null;
@@ -21180,7 +21179,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // DELETE /api/lists/:list_id/items/:item_id - Remove an item
-  app.delete('/api/lists/:list_id/items/:item_id', async (req, reply) => {
+  app.delete('/lists/:list_id/items/:item_id', async (req, reply) => {
     const { list_id, item_id } = req.params as { list_id: string; item_id: string };
     const pool = createPool();
     try {
@@ -21198,7 +21197,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/lists/:id/items/check - Check off items by ID
-  app.post('/api/lists/:id/items/check', async (req, reply) => {
+  app.post('/lists/:id/items/check', async (req, reply) => {
     const { id } = req.params as { id: string };
     const body = req.body as { item_ids?: string[]; checked_by?: string } | null;
 
@@ -21221,7 +21220,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/lists/:id/items/uncheck - Uncheck items by ID
-  app.post('/api/lists/:id/items/uncheck', async (req, reply) => {
+  app.post('/lists/:id/items/uncheck', async (req, reply) => {
     const { id } = req.params as { id: string };
     const body = req.body as { item_ids?: string[] } | null;
 
@@ -21245,7 +21244,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // POST /api/lists/:id/reset - Reset list after a shop
   // Removes checked non-recurring items; unchecks checked recurring items
-  app.post('/api/lists/:id/reset', async (req, reply) => {
+  app.post('/lists/:id/reset', async (req, reply) => {
     const { id } = req.params as { id: string };
     const pool = createPool();
     try {
@@ -21274,7 +21273,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/lists/:id/merge - Merge items (add new, update existing by name match)
-  app.post('/api/lists/:id/merge', async (req, reply) => {
+  app.post('/lists/:id/merge', async (req, reply) => {
     const { id } = req.params as { id: string };
     const body = req.body as { items?: Array<{ name: string; quantity?: string; category?: string }> } | null;
 
@@ -21350,7 +21349,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     created_at, updated_at`;
 
   // POST /api/pantry — Add a pantry item
-  app.post('/api/pantry', async (req, reply) => {
+  app.post('/pantry', async (req, reply) => {
     const body = req.body as {
       name?: string;
       location?: string;
@@ -21402,7 +21401,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // GET /api/pantry/expiring — Items expiring within N days
   // NOTE: This route MUST be registered before GET /api/pantry/:id
-  app.get('/api/pantry/expiring', async (req, reply) => {
+  app.get('/pantry/expiring', async (req, reply) => {
     const query = req.query as { days?: string };
     const days = query.days ? parseInt(query.days, 10) : 7;
     const effectiveDays = isNaN(days) ? 7 : Math.max(1, days);
@@ -21424,7 +21423,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/pantry — List pantry items (with filters)
-  app.get('/api/pantry', async (req, reply) => {
+  app.get('/pantry', async (req, reply) => {
     const query = req.query as {
       location?: string;
       category?: string;
@@ -21486,7 +21485,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/pantry/:id — Get a single pantry item
-  app.get('/api/pantry/:id', async (req, reply) => {
+  app.get('/pantry/:id', async (req, reply) => {
     const { id } = req.params as { id: string };
     const pool = createPool();
     try {
@@ -21504,7 +21503,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // PATCH /api/pantry/:id — Update a pantry item
-  app.patch('/api/pantry/:id', async (req, reply) => {
+  app.patch('/pantry/:id', async (req, reply) => {
     const { id } = req.params as { id: string };
     const body = req.body as Record<string, unknown> | null;
 
@@ -21553,7 +21552,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/pantry/:id/deplete — Mark item as depleted
-  app.post('/api/pantry/:id/deplete', async (req, reply) => {
+  app.post('/pantry/:id/deplete', async (req, reply) => {
     const { id } = req.params as { id: string };
     const pool = createPool();
     try {
@@ -21572,7 +21571,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // DELETE /api/pantry/:id — Hard-delete a pantry item
-  app.delete('/api/pantry/:id', async (req, reply) => {
+  app.delete('/pantry/:id', async (req, reply) => {
     const { id } = req.params as { id: string };
     const pool = createPool();
     try {
@@ -21607,7 +21606,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   }
 
   // POST /api/dev-sessions — Create a dev session
-  app.post('/api/dev-sessions', async (req, reply) => {
+  app.post('/dev-sessions', async (req, reply) => {
     const body = req.body as Record<string, unknown> | null;
     if (!body) return reply.code(400).send({ error: 'Body required' });
 
@@ -21653,7 +21652,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/dev-sessions — List sessions (filterable by status, node, project_id)
-  app.get('/api/dev-sessions', async (req, reply) => {
+  app.get('/dev-sessions', async (req, reply) => {
     const email = getDevSessionEmail(req);
     if (!email) return reply.code(400).send({ error: 'user_email is required (query param or header)' });
 
@@ -21703,7 +21702,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/dev-sessions/:id — Get a specific session
-  app.get('/api/dev-sessions/:id', async (req, reply) => {
+  app.get('/dev-sessions/:id', async (req, reply) => {
     const email = getDevSessionEmail(req);
     if (!email) return reply.code(400).send({ error: 'user_email is required (query param or header)' });
 
@@ -21724,7 +21723,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // PATCH /api/dev-sessions/:id — Update session fields
-  app.patch('/api/dev-sessions/:id', async (req, reply) => {
+  app.patch('/dev-sessions/:id', async (req, reply) => {
     const email = getDevSessionEmail(req);
     if (!email) return reply.code(400).send({ error: 'user_email is required' });
 
@@ -21766,7 +21765,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/dev-sessions/:id/complete — Mark session as completed
-  app.post('/api/dev-sessions/:id/complete', async (req, reply) => {
+  app.post('/dev-sessions/:id/complete', async (req, reply) => {
     const email = getDevSessionEmail(req);
     if (!email) return reply.code(400).send({ error: 'user_email is required' });
 
@@ -21794,7 +21793,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // DELETE /api/dev-sessions/:id — Delete a session
-  app.delete('/api/dev-sessions/:id', async (req, reply) => {
+  app.delete('/dev-sessions/:id', async (req, reply) => {
     const email = getDevSessionEmail(req);
     if (!email) return reply.code(400).send({ error: 'user_email is required' });
 
@@ -21829,7 +21828,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   ] as const;
 
   // POST /api/recipes — Create a recipe with ingredients and steps
-  app.post('/api/recipes', async (req, reply) => {
+  app.post('/recipes', async (req, reply) => {
     const body = req.body as Record<string, unknown> | null | undefined;
     if (!body || typeof body.title !== 'string' || !body.title.trim()) {
       return reply.code(400).send({ error: 'title is required' });
@@ -21918,7 +21917,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/recipes — List recipes with optional filters
-  app.get('/api/recipes', async (req, reply) => {
+  app.get('/recipes', async (req, reply) => {
     const query = req.query as Record<string, string | undefined>;
     const conditions: string[] = [];
     const params: unknown[] = [];
@@ -21968,7 +21967,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/recipes/:id — Get recipe with ingredients and steps
-  app.get('/api/recipes/:id', async (req, reply) => {
+  app.get('/recipes/:id', async (req, reply) => {
     const params = req.params as { id: string };
     if (!isValidUUID(params.id)) {
       return reply.code(400).send({ error: 'Invalid recipe ID format' });
@@ -22004,7 +22003,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // PATCH /api/recipes/:id — Update recipe fields
-  app.patch('/api/recipes/:id', async (req, reply) => {
+  app.patch('/recipes/:id', async (req, reply) => {
 
     const routeParams = req.params as { id: string };
     if (!isValidUUID(routeParams.id)) {
@@ -22071,7 +22070,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // DELETE /api/recipes/:id — Delete a recipe (cascade deletes ingredients/steps)
-  app.delete('/api/recipes/:id', async (req, reply) => {
+  app.delete('/recipes/:id', async (req, reply) => {
     const routeParams = req.params as { id: string };
     if (!isValidUUID(routeParams.id)) {
       return reply.code(400).send({ error: 'Invalid recipe ID format' });
@@ -22093,7 +22092,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/recipes/:id/to-shopping-list — Push ingredients to a shopping list
-  app.post('/api/recipes/:id/to-shopping-list', async (req, reply) => {
+  app.post('/recipes/:id/to-shopping-list', async (req, reply) => {
     const routeParams = req.params as { id: string };
     const body = req.body as Record<string, unknown> | null | undefined;
     const list_id = typeof body?.list_id === 'string' ? body.list_id : null;
@@ -22160,7 +22159,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   ] as const;
 
   // POST /api/meal-log — Log a meal
-  app.post('/api/meal-log', async (req, reply) => {
+  app.post('/meal-log', async (req, reply) => {
     const body = req.body as Record<string, unknown> | null | undefined;
     if (!body || typeof body.title !== 'string' || !body.title.trim()) {
       return reply.code(400).send({ error: 'title is required' });
@@ -22203,7 +22202,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/meal-log/stats — Meal statistics (must be before :id route)
-  app.get('/api/meal-log/stats', async (req, reply) => {
+  app.get('/meal-log/stats', async (req, reply) => {
     const query = req.query as Record<string, string | undefined>;
     const days = query.days ? Number.parseInt(query.days, 10) : 30;
 
@@ -22253,7 +22252,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/meal-log — List meals with optional filters
-  app.get('/api/meal-log', async (req, reply) => {
+  app.get('/meal-log', async (req, reply) => {
     const query = req.query as Record<string, string | undefined>;
     const conditions: string[] = [];
     const params: unknown[] = [];
@@ -22300,7 +22299,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/meal-log/:id — Get a specific meal entry
-  app.get('/api/meal-log/:id', async (req, reply) => {
+  app.get('/meal-log/:id', async (req, reply) => {
     const params = req.params as { id: string };
     if (!isValidUUID(params.id)) {
       return reply.code(400).send({ error: 'Invalid meal ID format' });
@@ -22322,7 +22321,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // PATCH /api/meal-log/:id — Update a meal entry
-  app.patch('/api/meal-log/:id', async (req, reply) => {
+  app.patch('/meal-log/:id', async (req, reply) => {
 
     const routeParams = req.params as { id: string };
     if (!isValidUUID(routeParams.id)) {
@@ -22386,7 +22385,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // DELETE /api/meal-log/:id — Delete a meal entry
-  app.delete('/api/meal-log/:id', async (req, reply) => {
+  app.delete('/meal-log/:id', async (req, reply) => {
     const routeParams = req.params as { id: string };
     if (!isValidUUID(routeParams.id)) {
       return reply.code(400).send({ error: 'Invalid meal ID format' });
@@ -22410,7 +22409,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // ── Prompt Templates (Epic #1497, Issue #1499) ─────────────────────
 
   // POST /api/prompt-templates - Create a new prompt template
-  app.post('/api/prompt-templates', async (req, reply) => {
+  app.post('/prompt-templates', async (req, reply) => {
     const { createPromptTemplate, isValidChannelType } = await import('./prompt-template/service.ts');
     const body = req.body as {
       label?: string;
@@ -22445,7 +22444,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/prompt-templates - List prompt templates
-  app.get('/api/prompt-templates', async (req, reply) => {
+  app.get('/prompt-templates', async (req, reply) => {
     const { listPromptTemplates } = await import('./prompt-template/service.ts');
     const query = req.query as {
       channel_type?: string;
@@ -22478,7 +22477,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/prompt-templates/:id - Get a single prompt template
-  app.get('/api/prompt-templates/:id', async (req, reply) => {
+  app.get('/prompt-templates/:id', async (req, reply) => {
     const { getPromptTemplate } = await import('./prompt-template/service.ts');
     const { id } = req.params as { id: string };
     if (!isValidUUID(id)) {
@@ -22498,7 +22497,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // PUT /api/prompt-templates/:id - Update a prompt template
-  app.put('/api/prompt-templates/:id', async (req, reply) => {
+  app.put('/prompt-templates/:id', async (req, reply) => {
     const { updatePromptTemplate, isValidChannelType } = await import('./prompt-template/service.ts');
     const { id } = req.params as { id: string };
     if (!isValidUUID(id)) {
@@ -22547,7 +22546,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // DELETE /api/prompt-templates/:id - Soft-delete a prompt template
-  app.delete('/api/prompt-templates/:id', async (req, reply) => {
+  app.delete('/prompt-templates/:id', async (req, reply) => {
     const { deletePromptTemplate } = await import('./prompt-template/service.ts');
     const { id } = req.params as { id: string };
     if (!isValidUUID(id)) {
@@ -22569,7 +22568,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // ── Inbound Destinations (Epic #1497, Issue #1500) ─────────────────
 
   // GET /api/inbound-destinations - List inbound destinations
-  app.get('/api/inbound-destinations', async (req, reply) => {
+  app.get('/inbound-destinations', async (req, reply) => {
     const { listInboundDestinations } = await import('./inbound-destination/service.ts');
     const query = req.query as {
       channel_type?: string;
@@ -22602,7 +22601,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/inbound-destinations/:id - Get a single inbound destination
-  app.get('/api/inbound-destinations/:id', async (req, reply) => {
+  app.get('/inbound-destinations/:id', async (req, reply) => {
     const { getInboundDestination } = await import('./inbound-destination/service.ts');
     const { id } = req.params as { id: string };
     if (!isValidUUID(id)) {
@@ -22622,7 +22621,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // PUT /api/inbound-destinations/:id - Update routing overrides
-  app.put('/api/inbound-destinations/:id', async (req, reply) => {
+  app.put('/inbound-destinations/:id', async (req, reply) => {
     const { updateInboundDestination } = await import('./inbound-destination/service.ts');
     const { id } = req.params as { id: string };
     if (!isValidUUID(id)) {
@@ -22674,7 +22673,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // DELETE /api/inbound-destinations/:id - Soft-delete an inbound destination
-  app.delete('/api/inbound-destinations/:id', async (req, reply) => {
+  app.delete('/inbound-destinations/:id', async (req, reply) => {
     const { deleteInboundDestination } = await import('./inbound-destination/service.ts');
     const { id } = req.params as { id: string };
     if (!isValidUUID(id)) {
@@ -22696,7 +22695,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // ── Channel Defaults (Epic #1497, Issue #1501) ─────────────────────
 
   // GET /api/channel-defaults - List all channel defaults
-  app.get('/api/channel-defaults', async (req, reply) => {
+  app.get('/channel-defaults', async (req, reply) => {
     const { listChannelDefaults } = await import('./channel-default/service.ts');
 
     const pool = createPool();
@@ -22709,7 +22708,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/channel-defaults/:channelType - Get default for a channel type
-  app.get('/api/channel-defaults/:channelType', async (req, reply) => {
+  app.get('/channel-defaults/:channelType', async (req, reply) => {
     const { getChannelDefault, isValidChannelType } = await import('./channel-default/service.ts');
     const { channelType } = req.params as { channelType: string };
 
@@ -22730,7 +22729,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // PUT /api/channel-defaults/:channelType - Set/update a channel default
-  app.put('/api/channel-defaults/:channelType', async (req, reply) => {
+  app.put('/channel-defaults/:channelType', async (req, reply) => {
     const { setChannelDefault, isValidChannelType } = await import('./channel-default/service.ts');
     const { channelType } = req.params as { channelType: string };
 
@@ -22793,25 +22792,25 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     activityTable?: string;
   }> = [
     {
-      route: '/api/work-items/:id/namespace',
+      route: '/work-items/:id/namespace',
       table: 'work_item',
       children: [{ table: 'work_item', fkColumn: 'parent_work_item_id' }],
       activityTable: 'work_item_activity',
     },
-    { route: '/api/contacts/:id/namespace', table: 'contact' },
+    { route: '/contacts/:id/namespace', table: 'contact' },
     {
-      route: '/api/notebooks/:id/namespace',
+      route: '/notebooks/:id/namespace',
       table: 'notebook',
       children: [{ table: 'note', fkColumn: 'notebook_id' }],
     },
-    { route: '/api/notes/:id/namespace', table: 'note' },
-    { route: '/api/recipes/:id/namespace', table: 'recipe' },
-    { route: '/api/meal-log/:id/namespace', table: 'meal_log' },
-    { route: '/api/pantry/:id/namespace', table: 'pantry_item' },
-    { route: '/api/threads/:id/namespace', table: 'external_thread' },
-    { route: '/api/memories/:id/namespace', table: 'memory' },
-    { route: '/api/entity-links/:id/namespace', table: 'entity_link' },
-    { route: '/api/skill-store/items/:id/namespace', table: 'skill_store_item' },
+    { route: '/notes/:id/namespace', table: 'note' },
+    { route: '/recipes/:id/namespace', table: 'recipe' },
+    { route: '/meal-log/:id/namespace', table: 'meal_log' },
+    { route: '/pantry/:id/namespace', table: 'pantry_item' },
+    { route: '/threads/:id/namespace', table: 'external_thread' },
+    { route: '/memories/:id/namespace', table: 'memory' },
+    { route: '/entity-links/:id/namespace', table: 'entity_link' },
+    { route: '/skill-store/items/:id/namespace', table: 'skill_store_item' },
   ];
 
   for (const entityConfig of NAMESPACE_MOVE_ENTITIES) {
