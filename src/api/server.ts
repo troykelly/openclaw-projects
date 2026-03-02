@@ -19607,10 +19607,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const { listProviders: listGeoProviders } = await import('./geolocation/service.ts');
       const providers = await listGeoProviders(pool, email);
 
-      // Strip credentials and config for non-owners
+      // Never expose credentials to the frontend — even encrypted blobs are sensitive.
+      // Replace with a boolean flag so the UI can show connection status.
+      // Config is only visible to the owner.
       const sanitized = providers.map((p) => ({
         ...p,
-        credentials: p.owner_email === email ? p.credentials : null,
+        credentials: undefined,
+        has_credentials: p.credentials !== null && p.credentials !== '',
         config: p.owner_email === email ? p.config : {},
       }));
 
@@ -19644,10 +19647,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         return reply.code(404).send({ error: 'Provider not found' });
       }
 
-      // Strip credentials/config for non-owners
+      // Never expose credentials to the frontend — even encrypted blobs are sensitive.
+      // Replace with a boolean flag so the UI can show connection status.
+      // Config is only visible to the owner.
       const sanitized = {
         ...provider,
-        credentials: provider.owner_email === email ? provider.credentials : null,
+        credentials: undefined,
+        has_credentials: provider.credentials !== null && provider.credentials !== '',
         config: provider.owner_email === email ? provider.config : {},
       };
 

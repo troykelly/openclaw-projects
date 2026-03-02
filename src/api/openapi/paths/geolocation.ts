@@ -65,11 +65,10 @@ export function geolocationPaths(): OpenApiDomainModule {
               },
             },
           },
-          credentials: {
-            type: 'string',
-            nullable: true,
-            description: 'Encrypted credentials (only returned to the owner)',
-            example: null,
+          has_credentials: {
+            type: 'boolean',
+            description: 'Whether the provider has stored credentials',
+            example: true,
           },
           poll_interval_seconds: {
             type: 'number',
