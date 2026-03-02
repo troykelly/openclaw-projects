@@ -4,6 +4,7 @@
 import * as React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, within, cleanup } from '@testing-library/react';
+import { createMemoryRouter, RouterProvider } from 'react-router';
 import { SettingsPage } from '@/ui/components/settings/settings-page';
 import type { UserSettings, EmbeddingSettings } from '@/ui/components/settings/types';
 
@@ -95,6 +96,15 @@ function createMockFetch(userSettings = defaultSettings, embeddingSettings = def
   };
 }
 
+/** Render SettingsPage inside a MemoryRouter (required for useSearchParams). */
+function renderSettingsPage(initialPath = '/settings') {
+  const router = createMemoryRouter(
+    [{ path: '*', element: <SettingsPage /> }],
+    { initialEntries: [initialPath] },
+  );
+  return render(<RouterProvider router={router} />);
+}
+
 /** Helper: wait for settings to load (heading appears). */
 async function waitForLoaded() {
   await waitFor(() => {
@@ -146,7 +156,7 @@ describe('SettingsPage', () => {
         }
         return Promise.reject(new Error('Not found'));
       });
-      render(<SettingsPage />);
+      renderSettingsPage();
 
       // Loading state shows skeleton elements
       expect(screen.getAllByTestId('skeleton').length).toBeGreaterThan(0);
@@ -166,7 +176,7 @@ describe('SettingsPage', () => {
         return Promise.reject(new Error('Not found'));
       });
 
-      render(<SettingsPage />);
+      renderSettingsPage();
 
       await waitFor(() => {
         expect(screen.getByText(/error/i)).toBeInTheDocument();
@@ -185,7 +195,7 @@ describe('SettingsPage', () => {
         return Promise.reject(new Error('Not found'));
       });
 
-      render(<SettingsPage />);
+      renderSettingsPage();
 
       await waitFor(() => {
         // Multiple elements contain "sign in", use getAllByText
@@ -197,13 +207,13 @@ describe('SettingsPage', () => {
 
   describe('Page structure', () => {
     it('renders page title', async () => {
-      render(<SettingsPage />);
+      renderSettingsPage();
 
       await waitForLoaded();
     });
 
     it('organizes settings in cards', async () => {
-      render(<SettingsPage />);
+      renderSettingsPage();
 
       await waitForLoaded();
 
@@ -212,7 +222,7 @@ describe('SettingsPage', () => {
     });
 
     it('renders sidebar navigation', async () => {
-      render(<SettingsPage />);
+      renderSettingsPage();
 
       await waitForLoaded();
 
@@ -221,7 +231,7 @@ describe('SettingsPage', () => {
     });
 
     it('renders all sidebar navigation items', async () => {
-      render(<SettingsPage />);
+      renderSettingsPage();
 
       await waitForLoaded();
 
@@ -233,7 +243,7 @@ describe('SettingsPage', () => {
     });
 
     it('profile nav is active by default', async () => {
-      render(<SettingsPage />);
+      renderSettingsPage();
 
       await waitForLoaded();
 
@@ -244,7 +254,7 @@ describe('SettingsPage', () => {
 
   describe('Profile section', () => {
     it('displays user email', async () => {
-      render(<SettingsPage />);
+      renderSettingsPage();
 
       await waitForLoaded();
 
@@ -252,7 +262,7 @@ describe('SettingsPage', () => {
     });
 
     it('displays user ID', async () => {
-      render(<SettingsPage />);
+      renderSettingsPage();
 
       await waitForLoaded();
 
@@ -260,7 +270,7 @@ describe('SettingsPage', () => {
     });
 
     it('displays initials from email', async () => {
-      render(<SettingsPage />);
+      renderSettingsPage();
 
       await waitForLoaded();
 
@@ -279,7 +289,7 @@ describe('SettingsPage', () => {
         return Promise.reject(new Error('Not found'));
       });
 
-      render(<SettingsPage />);
+      renderSettingsPage();
 
       await waitForLoaded();
 
@@ -290,7 +300,7 @@ describe('SettingsPage', () => {
 
   describe('Theme settings', () => {
     it('displays theme section in appearance', async () => {
-      render(<SettingsPage />);
+      renderSettingsPage();
 
       await waitForLoaded();
 
@@ -298,7 +308,7 @@ describe('SettingsPage', () => {
     });
 
     it('shows all four theme options including OLED', async () => {
-      render(<SettingsPage />);
+      renderSettingsPage();
 
       await waitForLoaded();
 
@@ -309,7 +319,7 @@ describe('SettingsPage', () => {
     });
 
     it('renders theme option test ids', async () => {
-      render(<SettingsPage />);
+      renderSettingsPage();
 
       await waitForLoaded();
 
@@ -320,7 +330,7 @@ describe('SettingsPage', () => {
     });
 
     it('shows OLED description text', async () => {
-      render(<SettingsPage />);
+      renderSettingsPage();
 
       await waitForLoaded();
 
@@ -330,7 +340,7 @@ describe('SettingsPage', () => {
     it('updates theme when selected', async () => {
       vi.mocked(apiClient.patch).mockResolvedValue({ ...defaultSettings, theme: 'dark' });
 
-      render(<SettingsPage />);
+      renderSettingsPage();
 
       await waitForLoaded();
 
@@ -344,7 +354,7 @@ describe('SettingsPage', () => {
     it('sends OLED theme update when selected', async () => {
       vi.mocked(apiClient.patch).mockResolvedValue({ ...defaultSettings, theme: 'oled' });
 
-      render(<SettingsPage />);
+      renderSettingsPage();
 
       await waitForLoaded();
 
@@ -358,7 +368,7 @@ describe('SettingsPage', () => {
 
   describe('Default view settings', () => {
     it('displays default view section', async () => {
-      render(<SettingsPage />);
+      renderSettingsPage();
 
       await waitForLoaded();
 
@@ -366,7 +376,7 @@ describe('SettingsPage', () => {
     });
 
     it('shows all view options', async () => {
-      render(<SettingsPage />);
+      renderSettingsPage();
 
       await waitForLoaded();
 
@@ -377,7 +387,7 @@ describe('SettingsPage', () => {
 
   describe('Display preferences', () => {
     it('displays sidebar collapsed toggle', async () => {
-      render(<SettingsPage />);
+      renderSettingsPage();
 
       await waitForLoaded();
 
@@ -385,7 +395,7 @@ describe('SettingsPage', () => {
     });
 
     it('displays show completed items toggle', async () => {
-      render(<SettingsPage />);
+      renderSettingsPage();
 
       await waitForLoaded();
 
@@ -393,7 +403,7 @@ describe('SettingsPage', () => {
     });
 
     it('displays items per page setting', async () => {
-      render(<SettingsPage />);
+      renderSettingsPage();
 
       await waitForLoaded();
 
@@ -403,7 +413,7 @@ describe('SettingsPage', () => {
     it('toggles sidebar collapsed setting', async () => {
       vi.mocked(apiClient.patch).mockResolvedValue({ ...defaultSettings, sidebar_collapsed: true });
 
-      render(<SettingsPage />);
+      renderSettingsPage();
 
       await waitForLoaded();
 
@@ -418,7 +428,7 @@ describe('SettingsPage', () => {
 
   describe('Timezone settings', () => {
     it('displays timezone section', async () => {
-      render(<SettingsPage />);
+      renderSettingsPage();
 
       await waitForLoaded();
 
@@ -426,7 +436,7 @@ describe('SettingsPage', () => {
     });
 
     it('shows current timezone', async () => {
-      render(<SettingsPage />);
+      renderSettingsPage();
 
       await waitForLoaded();
 
@@ -436,7 +446,7 @@ describe('SettingsPage', () => {
 
   describe('Notification settings', () => {
     it('displays email notifications toggle', async () => {
-      render(<SettingsPage />);
+      renderSettingsPage();
 
       await waitForLoaded();
 
@@ -444,7 +454,7 @@ describe('SettingsPage', () => {
     });
 
     it('displays digest frequency option', async () => {
-      render(<SettingsPage />);
+      renderSettingsPage();
 
       await waitForLoaded();
 
@@ -454,7 +464,7 @@ describe('SettingsPage', () => {
 
   describe('Keyboard Shortcuts section', () => {
     it('renders keyboard shortcuts heading', async () => {
-      render(<SettingsPage />);
+      renderSettingsPage();
 
       await waitForLoaded();
 
@@ -467,7 +477,7 @@ describe('SettingsPage', () => {
     });
 
     it('shows shortcut groups', async () => {
-      render(<SettingsPage />);
+      renderSettingsPage();
 
       await waitForLoaded();
 
@@ -483,7 +493,7 @@ describe('SettingsPage', () => {
     });
 
     it('shows shortcut descriptions', async () => {
-      render(<SettingsPage />);
+      renderSettingsPage();
 
       await waitForLoaded();
 
@@ -493,7 +503,7 @@ describe('SettingsPage', () => {
     });
 
     it('renders keyboard key badges', async () => {
-      render(<SettingsPage />);
+      renderSettingsPage();
 
       await waitForLoaded();
 
@@ -505,7 +515,7 @@ describe('SettingsPage', () => {
 
   describe('About section', () => {
     it('shows application name', async () => {
-      render(<SettingsPage />);
+      renderSettingsPage();
 
       await waitForLoaded();
 
@@ -513,7 +523,7 @@ describe('SettingsPage', () => {
     });
 
     it('shows version badge', async () => {
-      render(<SettingsPage />);
+      renderSettingsPage();
 
       await waitForLoaded();
 
@@ -521,7 +531,7 @@ describe('SettingsPage', () => {
     });
 
     it('shows license info', async () => {
-      render(<SettingsPage />);
+      renderSettingsPage();
 
       await waitForLoaded();
 
@@ -529,7 +539,7 @@ describe('SettingsPage', () => {
     });
 
     it('shows documentation link', async () => {
-      render(<SettingsPage />);
+      renderSettingsPage();
 
       await waitForLoaded();
 
@@ -539,7 +549,7 @@ describe('SettingsPage', () => {
     });
 
     it('shows OpenClaw integration description', async () => {
-      render(<SettingsPage />);
+      renderSettingsPage();
 
       await waitForLoaded();
 
@@ -551,7 +561,7 @@ describe('SettingsPage', () => {
     it('shows save confirmation after successful update', async () => {
       vi.mocked(apiClient.patch).mockResolvedValue({ ...defaultSettings, theme: 'dark' });
 
-      render(<SettingsPage />);
+      renderSettingsPage();
 
       await waitForLoaded();
 
@@ -565,7 +575,7 @@ describe('SettingsPage', () => {
     });
 
     it('save confirmation element is always in DOM', async () => {
-      render(<SettingsPage />);
+      renderSettingsPage();
 
       await waitForLoaded();
 
@@ -576,7 +586,7 @@ describe('SettingsPage', () => {
 
   describe('Sidebar navigation interaction', () => {
     it('clicking a nav item updates active state', async () => {
-      render(<SettingsPage />);
+      renderSettingsPage();
 
       await waitForLoaded();
 
@@ -593,7 +603,7 @@ describe('SettingsPage', () => {
     });
 
     it('clicking About nav updates active state', async () => {
-      render(<SettingsPage />);
+      renderSettingsPage();
 
       await waitForLoaded();
 
@@ -629,7 +639,7 @@ describe('useSettings hook behavior', () => {
   });
 
   it('fetches settings on mount', async () => {
-    render(<SettingsPage />);
+    renderSettingsPage();
 
     await waitFor(() => {
       expect(vi.mocked(apiClient.get)).toHaveBeenCalledWith('/settings');
@@ -646,7 +656,7 @@ describe('useSettings hook behavior', () => {
       );
     });
 
-    render(<SettingsPage />);
+    renderSettingsPage();
 
     await waitForLoaded();
 
@@ -657,5 +667,43 @@ describe('useSettings hook behavior', () => {
       const darkRadio = screen.getByLabelText('Dark') as HTMLInputElement;
       expect(darkRadio.checked).toBe(true);
     });
+  });
+});
+
+describe('HA OAuth callback', () => {
+  beforeEach(() => {
+    mockFetch.mockReset();
+    mockFetch.mockImplementation(createMockFetch());
+    vi.mocked(apiClient.get).mockReset();
+    vi.mocked(apiClient.patch).mockReset();
+    vi.mocked(apiClient.get).mockImplementation((path: string) => {
+      if (path === '/settings') return Promise.resolve(defaultSettings);
+      if (path === '/settings/embeddings') return Promise.resolve(defaultEmbeddingSettings);
+      return Promise.reject(new Error('Not found'));
+    });
+    vi.mocked(apiClient.patch).mockImplementation((_path: string, data: unknown) => {
+      return Promise.resolve({ ...defaultSettings, ...(data as Record<string, unknown>) });
+    });
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.clearAllTimers();
+    vi.restoreAllMocks();
+  });
+
+  it('shows success banner when ha_connected param is present', async () => {
+    renderSettingsPage('/settings?ha_connected=019cac67-67c8-7210-931d-c2832307a245');
+    await waitForLoaded();
+
+    expect(screen.getByTestId('ha-connected-banner')).toBeInTheDocument();
+    expect(screen.getByText(/Home Assistant connected successfully/)).toBeInTheDocument();
+  });
+
+  it('does not show banner without ha_connected param', async () => {
+    renderSettingsPage('/settings');
+    await waitForLoaded();
+
+    expect(screen.queryByTestId('ha-connected-banner')).not.toBeInTheDocument();
   });
 });

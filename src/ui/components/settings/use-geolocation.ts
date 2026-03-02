@@ -24,7 +24,9 @@ export interface GeoProvider {
   status: GeoProviderStatus;
   statusMessage: string | null;
   config: Record<string, unknown>;
-  credentials: string | null;
+  hasCredentials?: boolean;
+  /** Only present in POST create response; GET responses strip this field. */
+  credentials?: string | null;
   pollIntervalSeconds: number | null;
   maxAgeSeconds: number;
   isShared: boolean;
