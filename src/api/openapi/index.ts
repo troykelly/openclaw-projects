@@ -48,6 +48,7 @@ import { activityPaths } from './paths/activity.ts';
 import { namespaceMovesPaths } from './paths/namespace-moves.ts';
 import { terminalPaths } from './paths/terminal.ts';
 import { chatPaths } from './paths/chat.ts';
+import { devPromptsPaths } from './paths/dev-prompts.ts';
 
 /** Derive the API server URL from PUBLIC_BASE_URL */
 function deriveApiUrl(publicBaseUrl: string): string {
@@ -114,6 +115,8 @@ function allDomainModules(): OpenApiDomainModule[] {
     terminalPaths(),
     // Agent Chat (Epic #1940)
     chatPaths(),
+    // Dev Prompts (Epic #2011)
+    devPromptsPaths(),
   ];
 }
 

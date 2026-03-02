@@ -23022,6 +23022,274 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
+  // ── Dev Prompts (Epic #2011, Issue #2014) ────────────────────────
+
+  // GET /api/dev-prompts - List dev prompts
+  app.get('/dev-prompts', async (req, reply) => {
+    const { listDevPrompts, isValidCategory } = await import('./dev-prompt/service.ts');
+    const query = req.query as {
+      category?: string;
+      is_system?: string;
+      search?: string;
+      limit?: string;
+      offset?: string;
+      include_inactive?: string;
+    };
+
+    const limit = parseInt(query.limit || '50', 10);
+    const offset = parseInt(query.offset || '0', 10);
+    if (isNaN(limit) || isNaN(offset) || limit < 1 || offset < 0) {
+      return reply.code(400).send({ error: 'limit must be >= 1 and offset must be >= 0' });
+    }
+
+    if (query.category && !isValidCategory(query.category)) {
+      return reply.code(400).send({ error: 'category must be one of: identification, creation, triage, shipping, general, custom' });
+    }
+
+    const pool = createPool();
+    try {
+      const result = await listDevPrompts(pool, {
+        category: query.category,
+        is_system: query.is_system === 'true' ? true : query.is_system === 'false' ? false : undefined,
+        search: query.search,
+        include_inactive: query.include_inactive === 'true',
+        limit: Math.min(limit, 500),
+        offset,
+        queryNamespaces: req.namespaceContext?.queryNamespaces,
+      });
+      return reply.send(result);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/dev-prompts/by-key/:key - Get dev prompt by key
+  app.get('/dev-prompts/by-key/:key', async (req, reply) => {
+    const { getDevPromptByKey } = await import('./dev-prompt/service.ts');
+    const { key } = req.params as { key: string };
+
+    const pool = createPool();
+    try {
+      const result = await getDevPromptByKey(pool, key, req.namespaceContext?.queryNamespaces);
+      if (!result) {
+        return reply.code(404).send({ error: 'not found' });
+      }
+      return reply.send(result);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/dev-prompts/:id - Get dev prompt by ID
+  app.get('/dev-prompts/:id', async (req, reply) => {
+    const { getDevPrompt } = await import('./dev-prompt/service.ts');
+    const { id } = req.params as { id: string };
+    if (!isValidUUID(id)) {
+      return reply.code(400).send({ error: 'invalid id format' });
+    }
+
+    const pool = createPool();
+    try {
+      const result = await getDevPrompt(pool, id, req.namespaceContext?.queryNamespaces);
+      if (!result) {
+        return reply.code(404).send({ error: 'not found' });
+      }
+      return reply.send(result);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/dev-prompts - Create a user-defined dev prompt
+  app.post('/dev-prompts', async (req, reply) => {
+    const { createDevPrompt, isValidCategory, isValidPromptKey } = await import('./dev-prompt/service.ts');
+    const body = req.body as {
+      prompt_key?: string;
+      category?: string;
+      title?: string;
+      description?: string;
+      body?: string;
+    } | null;
+
+    if (!body?.prompt_key || !isValidPromptKey(body.prompt_key)) {
+      return reply.code(400).send({ error: 'prompt_key is required and must be snake_case (a-z0-9_), max 100 chars' });
+    }
+    if (!body.title?.trim()) {
+      return reply.code(400).send({ error: 'title is required and must not be empty' });
+    }
+    if (body.body === undefined || body.body === null) {
+      return reply.code(400).send({ error: 'body is required' });
+    }
+    if (body.category && !isValidCategory(body.category)) {
+      return reply.code(400).send({ error: 'category must be one of: identification, creation, triage, shipping, general, custom' });
+    }
+
+    const pool = createPool();
+    try {
+      const result = await createDevPrompt(pool, {
+        namespace: getStoreNamespace(req),
+        prompt_key: body.prompt_key,
+        category: body.category,
+        title: body.title,
+        description: body.description,
+        body: body.body,
+      });
+      return reply.code(201).send(result);
+    } catch (err: unknown) {
+      const pgCode = err instanceof Error && 'code' in err ? (err as { code: string }).code : undefined;
+      if (pgCode === '23505') {
+        return reply.code(409).send({ error: 'A prompt with this key already exists in this namespace' });
+      }
+      throw err;
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // PATCH /api/dev-prompts/:id - Update a dev prompt
+  app.patch('/dev-prompts/:id', async (req, reply) => {
+    const { updateDevPrompt, isValidCategory } = await import('./dev-prompt/service.ts');
+    const { id } = req.params as { id: string };
+    if (!isValidUUID(id)) {
+      return reply.code(400).send({ error: 'invalid id format' });
+    }
+
+    const body = req.body as {
+      title?: string;
+      description?: string;
+      body?: string;
+      category?: string;
+      is_active?: boolean;
+      sort_order?: number;
+    } | null;
+
+    if (body?.category !== undefined && !isValidCategory(body.category)) {
+      return reply.code(400).send({ error: 'category must be one of: identification, creation, triage, shipping, general, custom' });
+    }
+
+    const hasUpdate = body && (
+      body.title !== undefined ||
+      body.description !== undefined ||
+      body.body !== undefined ||
+      body.category !== undefined ||
+      body.is_active !== undefined ||
+      body.sort_order !== undefined
+    );
+    if (!hasUpdate) {
+      return reply.code(400).send({ error: 'at least one field to update is required' });
+    }
+
+    const pool = createPool();
+    try {
+      const result = await updateDevPrompt(pool, id, {
+        title: body?.title,
+        description: body?.description,
+        body: body?.body,
+        category: body?.category,
+        is_active: body?.is_active,
+        sort_order: body?.sort_order,
+      }, req.namespaceContext?.queryNamespaces);
+      if (!result) {
+        return reply.code(404).send({ error: 'not found' });
+      }
+      return reply.send(result);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // DELETE /api/dev-prompts/:id - Soft-delete a dev prompt (user prompts only)
+  app.delete('/dev-prompts/:id', async (req, reply) => {
+    const { deleteDevPrompt } = await import('./dev-prompt/service.ts');
+    const { id } = req.params as { id: string };
+    if (!isValidUUID(id)) {
+      return reply.code(400).send({ error: 'invalid id format' });
+    }
+
+    const pool = createPool();
+    try {
+      const result = await deleteDevPrompt(pool, id, req.namespaceContext?.queryNamespaces);
+      if (result.isSystem) {
+        return reply.code(400).send({ error: 'System prompts cannot be deleted' });
+      }
+      if (!result.deleted) {
+        return reply.code(404).send({ error: 'not found' });
+      }
+      return reply.code(204).send();
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/dev-prompts/:id/reset - Reset system prompt body to default
+  app.post('/dev-prompts/:id/reset', async (req, reply) => {
+    const { resetDevPrompt } = await import('./dev-prompt/service.ts');
+    const { id } = req.params as { id: string };
+    if (!isValidUUID(id)) {
+      return reply.code(400).send({ error: 'invalid id format' });
+    }
+
+    const pool = createPool();
+    try {
+      const result = await resetDevPrompt(pool, id, req.namespaceContext?.queryNamespaces);
+      if (!result) {
+        return reply.code(400).send({ error: 'Not found or not a system prompt' });
+      }
+      return reply.send(result);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/dev-prompts/:id/render - Render a dev prompt with Handlebars
+  app.post('/dev-prompts/:id/render', async (req, reply) => {
+    const { getDevPrompt } = await import('./dev-prompt/service.ts');
+    const { renderDevPrompt, BUILT_IN_VARIABLE_DEFINITIONS } = await import('./dev-prompt/template-engine.ts');
+    const { id } = req.params as { id: string };
+    if (!isValidUUID(id)) {
+      return reply.code(400).send({ error: 'invalid id format' });
+    }
+
+    const body = req.body as {
+      variables?: Record<string, string>;
+    } | null;
+
+    const pool = createPool();
+    try {
+      const prompt = await getDevPrompt(pool, id, req.namespaceContext?.queryNamespaces);
+      if (!prompt) {
+        return reply.code(404).send({ error: 'not found' });
+      }
+
+      const sessionEmail = await getSessionEmail(req);
+
+      try {
+        const result = renderDevPrompt(
+          prompt.body,
+          {
+            namespace: prompt.namespace,
+            userEmail: sessionEmail ?? undefined,
+            promptKey: prompt.prompt_key,
+            promptTitle: prompt.title,
+            repoOrg: body?.variables?.repo_org,
+            repoName: body?.variables?.repo_name,
+          },
+          body?.variables,
+        );
+        return reply.send({
+          rendered: result.rendered,
+          variables_used: result.variables_used,
+          available_variables: BUILT_IN_VARIABLE_DEFINITIONS,
+        });
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Template rendering failed';
+        return reply.code(400).send({ error: `Template error: ${message}` });
+      }
+    } finally {
+      await pool.end();
+    }
+  });
+
   // ── Inbound Destinations (Epic #1497, Issue #1500) ─────────────────
 
   // GET /api/inbound-destinations - List inbound destinations
