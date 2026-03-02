@@ -121,6 +121,11 @@ export function terminalConnectionsPaths(): OpenApiDomainModule {
             description: 'SHA-256 fingerprint of the SSH host key offered during the handshake. '
               + 'Returned even on failure so the caller can inspect or trust it.',
           },
+          error_code: {
+            type: 'string',
+            description: 'Structured error code for programmatic detection. '
+              + "e.g. 'HOST_KEY_VERIFICATION_FAILED' when the host key was rejected.",
+          },
           error: { type: 'string', nullable: true, description: 'Error message if test failed' },
         },
       },

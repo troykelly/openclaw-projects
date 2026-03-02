@@ -316,6 +316,8 @@ interface ConnectSSHOptions {
   forceReplace?: boolean;
   /** Called with the offered host key fingerprint during the SSH handshake. */
   onHostKeyOffered?: (fingerprint: string, keyType: string, publicKey: string) => void;
+  /** Mutable flag — set to true by connectSSH when the host key is rejected. */
+  hostKeyRejected?: { value: boolean };
 }
 
 /**
@@ -371,9 +373,11 @@ function connectSSH(
         verifyHostKey(pool, connWithPolicy, 'ssh-unknown', key, options?.forceReplace)
           .then((result) => {
             const accepted = result === 'accept';
+            if (!accepted && options?.hostKeyRejected) options.hostKeyRejected.value = true;
             if (callback) { callback(accepted); return; }
           })
           .catch(() => {
+            if (options?.hostKeyRejected) options.hostKeyRejected.value = true;
             if (callback) { callback(false); return; }
           });
         // When callback is provided, return value is ignored by ssh2
@@ -643,9 +647,10 @@ export class SSHConnectionManager {
   async testConnection(
     connectionId: string,
     trustHostKey = false,
-  ): Promise<{ success: boolean; message: string; latencyMs: number; hostKeyFingerprint: string }> {
+  ): Promise<{ success: boolean; message: string; latencyMs: number; hostKeyFingerprint: string; errorCode?: string }> {
     const start = Date.now();
     let capturedFingerprint = '';
+    const hostKeyRejected = { value: false };
 
     try {
       // Fetch connection from DB
@@ -688,6 +693,7 @@ export class SSHConnectionManager {
           hostKeyPolicyOverride: trustHostKey ? 'tofu' : undefined,
           forceReplace: trustHostKey || undefined,
           onHostKeyOffered: (fp) => { capturedFingerprint = fp; },
+          hostKeyRejected,
         });
         const latencyMs = Date.now() - start;
         tempClient.end();
@@ -710,7 +716,13 @@ export class SSHConnectionManager {
         [message, connectionId],
       ).catch(() => {});
 
-      return { success: false, message, latencyMs, hostKeyFingerprint: capturedFingerprint };
+      return {
+        success: false,
+        message,
+        latencyMs,
+        hostKeyFingerprint: capturedFingerprint,
+        ...(hostKeyRejected.value ? { errorCode: 'HOST_KEY_VERIFICATION_FAILED' } : {}),
+      };
     }
   }
 }

@@ -48,6 +48,9 @@ function formatMutationError(error: unknown, fallback: string): string {
 /** Detect host-key verification failure from test response. */
 function isHostKeyFailure(result: TestConnectionResponse): boolean {
   if (result.success) return false;
+  // Prefer structured error_code from the backend (Issue #1983).
+  if (result.error_code === 'HOST_KEY_VERIFICATION_FAILED') return true;
+  // Fallback: heuristic string match for older workers that lack error_code.
   const msg = result.message.toLowerCase();
   return (msg.includes('host denied') || msg.includes('verification')) && !!result.host_key_fingerprint;
 }

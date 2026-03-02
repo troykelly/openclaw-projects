@@ -88,6 +88,7 @@ const mockTestHostKeyFailure: TestConnectionResponse = {
   message: 'Host denied (verification failed)',
   latency_ms: 1066,
   host_key_fingerprint: 'SHA256:xyz789ghi012',
+  error_code: 'HOST_KEY_VERIFICATION_FAILED',
 };
 
 const mockTestOtherFailure: TestConnectionResponse = {
