@@ -484,6 +484,7 @@ exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > 
           "todo",
           "project",
           "message",
+          "dev_session",
         ],
         "type": "string",
       },

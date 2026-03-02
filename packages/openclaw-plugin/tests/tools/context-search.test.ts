@@ -219,11 +219,12 @@ describe('context_search tool', () => {
       await tool.execute({ query: 'production city' });
 
       const mockGet = (client as unknown as { get: ReturnType<typeof vi.fn> }).get;
-      expect(mockGet).toHaveBeenCalledTimes(3);
+      expect(mockGet).toHaveBeenCalledTimes(4);
       const calls = mockGet.mock.calls.map((c: unknown[]) => c[0] as string);
       expect(calls.some((url: string) => url.includes('/memories/search'))).toBe(true);
       expect(calls.some((url: string) => url.includes('/search') && url.includes('types=work_item'))).toBe(true);
       expect(calls.some((url: string) => url.includes('/search') && url.includes('types=message'))).toBe(true);
+      expect(calls.some((url: string) => url.includes('/dev-sessions/search'))).toBe(true);
     });
 
     it('should only call /api/memories/search when entity_types is ["memory"]', async () => {

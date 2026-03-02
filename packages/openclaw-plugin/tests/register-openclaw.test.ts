@@ -68,10 +68,10 @@ describe('OpenClaw 2026 API Registration', () => {
   });
 
   describe('registration', () => {
-    it('should register all 97 tools', () => {
+    it('should register all 98 tools', () => {
       registerOpenClaw(mockApi);
 
-      expect(registeredTools).toHaveLength(97);
+      expect(registeredTools).toHaveLength(98);
       const toolNames = registeredTools.map((t) => t.name);
       expect(toolNames).toContain('memory_recall');
       expect(toolNames).toContain('memory_store');
@@ -126,11 +126,11 @@ describe('OpenClaw 2026 API Registration', () => {
       expect(toolNames).toContain('tool_guide');
     });
 
-    it('should mark 61 tools as optional', () => {
+    it('should mark 62 tools as optional', () => {
       registerOpenClaw(mockApi);
 
       const optionalTools = registeredTools.filter((t) => t.optional === true);
-      expect(optionalTools).toHaveLength(61);
+      expect(optionalTools).toHaveLength(62);
 
       // Verify non-optional core tools are NOT marked optional
       const coreToolNames = ['memory_recall', 'memory_store', 'memory_forget', 'project_list', 'todo_list', 'todo_create'];
@@ -199,7 +199,7 @@ describe('OpenClaw 2026 API Registration', () => {
       expect(mockApi.logger.info).toHaveBeenCalledWith(
         'OpenClaw Projects plugin registered',
         expect.objectContaining({
-          toolCount: 97,
+          toolCount: 98,
         }),
       );
     });
@@ -769,7 +769,7 @@ describe('OpenClaw 2026 API Registration', () => {
     it('should register all tools synchronously during register() call', () => {
       registerOpenClaw(mockApi);
       // All tools must be registered by the time register() returns
-      expect(registeredTools).toHaveLength(97);
+      expect(registeredTools).toHaveLength(98);
     });
 
     it('should register hooks synchronously during register() call', () => {
@@ -802,7 +802,7 @@ describe('OpenClaw 2026 API Registration', () => {
       registerOpenClaw(mockApi);
 
       // Should succeed — reads pluginConfig, not the full gateway config
-      expect(registeredTools).toHaveLength(97);
+      expect(registeredTools).toHaveLength(98);
     });
 
     it('should fall back to api.config when api.pluginConfig is undefined', () => {
@@ -819,7 +819,7 @@ describe('OpenClaw 2026 API Registration', () => {
       registerOpenClaw(mockApi);
 
       // Should succeed via fallback
-      expect(registeredTools).toHaveLength(97);
+      expect(registeredTools).toHaveLength(98);
     });
   });
 
