@@ -197,7 +197,7 @@ export function createDevPromptListTool(options: DevPromptToolOptions): DevPromp
 export const DevPromptGetParamsSchema = z.object({
   namespace: z.string().optional().describe('Namespace to search in (defaults to your namespace)'),
   key: z.string().min(1, 'Prompt key is required').describe('The prompt_key to look up'),
-  repo: z.string().optional().describe('Repository in "org/name" format — used for template variables repo_org, repo_name, repo_full'),
+  repo: z.string().optional().describe('Repository in "org/name" format — splits into repo_org and repo_name template variables'),
   variables: z.record(z.string()).optional().describe('Extra variables to pass to the template renderer'),
   render: z.boolean().optional().default(true).describe('Whether to render the template (default: true). Set false to get raw Handlebars template.'),
 });
