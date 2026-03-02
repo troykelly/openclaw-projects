@@ -619,7 +619,7 @@ describe('Contacts API', () => {
 
       expect(res.statusCode).toBe(400);
       const body = res.json() as { error: string };
-      expect(body.error).toMatch(/invalid.*endpoint.*type/i);
+      expect(body.error).toMatch(/invalid.*input/i);
     });
 
     it('does not leak pool connections on database error', async () => {

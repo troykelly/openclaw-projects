@@ -7776,9 +7776,17 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       if (pgErr.code === '23505') {
         return reply.code(409).send({ error: 'An endpoint with this type and value already exists' });
       }
-      // 22P02 = invalid_text_representation (invalid enum value for contact_endpoint_type)
+      // 22P02 = invalid_text_representation (invalid enum value or malformed input)
       if (pgErr.code === '22P02') {
-        return reply.code(400).send({ error: `Invalid endpoint type: ${endpointType}` });
+        return reply.code(400).send({ error: 'Invalid input: check endpoint_type and field values' });
+      }
+      // 23503 = foreign_key_violation (contact deleted between scope check and insert)
+      if (pgErr.code === '23503') {
+        return reply.code(404).send({ error: 'not found' });
+      }
+      // 23514 = check_violation (e.g. empty endpoint_value after trim)
+      if (pgErr.code === '23514') {
+        return reply.code(400).send({ error: 'Invalid input: endpoint value must not be empty' });
       }
       throw err;
     } finally {
