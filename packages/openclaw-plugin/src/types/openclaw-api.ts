@@ -264,6 +264,92 @@ export interface PluginHookAgentEndEvent {
   durationMs?: number;
 }
 
+/** Event payload for before_prompt_build hook (#2050) */
+export interface PluginHookBeforePromptBuildEvent {
+  /** The user's prompt text */
+  prompt: string;
+  /** Full conversation messages available in this hook */
+  messages?: unknown[];
+}
+
+/** Result from before_prompt_build hook (#2050) */
+export interface PluginHookBeforePromptBuildResult {
+  /** Append to the system prompt */
+  systemPrompt?: string;
+  /** Prepend to conversation context */
+  prependContext?: string;
+}
+
+/** Event payload for llm_input hook (#2051) */
+export interface PluginHookLlmInputEvent {
+  /** Run identifier for this LLM invocation */
+  runId?: string;
+  /** Session identifier */
+  sessionId?: string;
+  /** LLM provider name (e.g. "openai", "anthropic") */
+  provider?: string;
+  /** Model identifier (e.g. "gpt-4", "claude-3") */
+  model?: string;
+  /** Number of messages being sent */
+  messageCount?: number;
+  /** Timestamp of the invocation */
+  timestamp?: number;
+}
+
+/** Event payload for llm_output hook (#2051) */
+export interface PluginHookLlmOutputEvent {
+  /** Run identifier for this LLM invocation */
+  runId?: string;
+  /** Session identifier */
+  sessionId?: string;
+  /** LLM provider name */
+  provider?: string;
+  /** Model identifier */
+  model?: string;
+  /** Token usage from the LLM response */
+  usage?: {
+    promptTokens?: number;
+    completionTokens?: number;
+    totalTokens?: number;
+  };
+  /** Duration of the LLM call in milliseconds */
+  durationMs?: number;
+  /** Timestamp of the response */
+  timestamp?: number;
+}
+
+/** Event payload for before_reset hook (#2052) */
+export interface PluginHookBeforeResetEvent {
+  /** Session identifier */
+  sessionId?: string;
+  /** Path to the session transcript file, if available */
+  sessionFile?: string;
+  /** Full conversation messages at time of reset */
+  messages?: unknown[];
+}
+
+/** Command definition for api.registerCommand() (#2054) */
+export interface OpenClawPluginCommandDefinition {
+  /** Command name (e.g. "remember", "forget", "recall") */
+  name: string;
+  /** Human-readable description */
+  description: string;
+  /** Whether this command requires authentication */
+  requireAuth?: boolean;
+  /** Handler function returning a reply payload */
+  handler: (args: { input: string; context?: Record<string, unknown> }) => Promise<CommandReplyPayload>;
+}
+
+/** Reply payload for command handlers (#2054) */
+export interface CommandReplyPayload {
+  /** Text content to return to the user */
+  text: string;
+  /** Whether the command executed successfully */
+  success: boolean;
+  /** Additional data to include in the response */
+  data?: Record<string, unknown>;
+}
+
 /**
  * Options passed to a Gateway RPC method handler.
  *
@@ -310,14 +396,15 @@ export interface PluginHookHandlerMap {
   before_agent_start: (event: PluginHookBeforeAgentStartEvent, ctx: PluginHookAgentContext) => Promise<PluginHookBeforeAgentStartResult | void> | PluginHookBeforeAgentStartResult | void;
   agent_end: (event: PluginHookAgentEndEvent, ctx: PluginHookAgentContext) => Promise<void> | void;
   message_received: (event: PluginHookMessageReceivedEvent, ctx: PluginHookMessageContext) => Promise<void> | void;
+  // ── Hooks now registered by Phase 5 capability implementations ──
+  before_prompt_build: (event: PluginHookBeforePromptBuildEvent, ctx: PluginHookAgentContext) => Promise<PluginHookBeforePromptBuildResult | void> | PluginHookBeforePromptBuildResult | void;
+  llm_input: (event: PluginHookLlmInputEvent, ctx: PluginHookAgentContext) => Promise<void> | void;
+  llm_output: (event: PluginHookLlmOutputEvent, ctx: PluginHookAgentContext) => Promise<void> | void;
+  before_reset: (event: PluginHookBeforeResetEvent, ctx: PluginHookAgentContext) => Promise<void> | void;
   // ── Hooks we don't currently register but exist in the SDK ──
   before_model_resolve: (event: Record<string, unknown>, ctx: PluginHookAgentContext) => Promise<Record<string, unknown> | void> | Record<string, unknown> | void;
-  before_prompt_build: (event: Record<string, unknown>, ctx: PluginHookAgentContext) => Promise<Record<string, unknown> | void> | Record<string, unknown> | void;
-  llm_input: (event: Record<string, unknown>, ctx: PluginHookAgentContext) => Promise<void> | void;
-  llm_output: (event: Record<string, unknown>, ctx: PluginHookAgentContext) => Promise<void> | void;
   before_compaction: (event: Record<string, unknown>, ctx: PluginHookAgentContext) => Promise<void> | void;
   after_compaction: (event: Record<string, unknown>, ctx: PluginHookAgentContext) => Promise<void> | void;
-  before_reset: (event: Record<string, unknown>, ctx: PluginHookAgentContext) => Promise<void> | void;
   message_sending: (event: Record<string, unknown>, ctx: PluginHookMessageContext) => Promise<Record<string, unknown> | void> | Record<string, unknown> | void;
   message_sent: (event: Record<string, unknown>, ctx: PluginHookMessageContext) => Promise<void> | void;
   before_tool_call: (event: Record<string, unknown>, ctx: Record<string, unknown>) => Promise<Record<string, unknown> | void> | Record<string, unknown> | void;
