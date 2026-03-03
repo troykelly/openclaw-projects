@@ -1075,6 +1075,28 @@ describe('Phase 5: SDK Capability Implementations', () => {
       expect(registeredHooks.has('before_tool_call')).toBe(true);
     });
 
+    it('legacy SDK path: owner gating handler should not throw when ctx is undefined', async () => {
+      const legacyApi = { ...mockApi };
+      delete (legacyApi as Record<string, unknown>).on;
+
+      registerOpenClaw(legacyApi);
+
+      // Legacy registerHook handlers are single-arg — ctx will be undefined
+      const handler = registeredHooks.get('before_tool_call') as (
+        event: Record<string, unknown>,
+      ) => Promise<Record<string, unknown> | void>;
+      expect(handler).toBeDefined();
+
+      // Invoke with a gated tool and NO ctx arg — should not throw
+      const result = await handler({ toolName: 'memory_forget' });
+      expect(result).toBeUndefined(); // allowed through with warning
+
+      expect(mockApi.logger.warn).toHaveBeenCalledWith(
+        'Owner-gated tool invoked without context — defaulting to allow (legacy SDK path)',
+        expect.objectContaining({ toolName: 'memory_forget' }),
+      );
+    });
+
     it('owner gate should warn when senderIsOwner is undefined', async () => {
       registerOpenClaw(mockApi);
 

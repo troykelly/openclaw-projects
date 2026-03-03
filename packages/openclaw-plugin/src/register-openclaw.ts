@@ -5555,10 +5555,16 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
 
     const beforeToolCallHandler = async (
       event: Record<string, unknown>,
-      ctx: Record<string, unknown>,
+      ctx?: Record<string, unknown>,
     ): Promise<Record<string, unknown> | void> => {
       const toolName = typeof event.toolName === 'string' ? event.toolName : (typeof event.name === 'string' ? event.name : '');
       if (!OWNER_GATED_TOOLS.has(toolName)) return; // Not a gated tool
+
+      // Guard ctx — legacy registerHook callers may pass only the event arg
+      if (!ctx || typeof ctx !== 'object') {
+        logger.warn('Owner-gated tool invoked without context — defaulting to allow (legacy SDK path)', { toolName });
+        return;
+      }
 
       // Extract trust fields from context
       const senderIsOwner = ctx.senderIsOwner;
