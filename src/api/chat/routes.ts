@@ -383,6 +383,50 @@ export async function chatRoutesPlugin(
     return reply.send({ sessions, next_cursor: nextCursor });
   });
 
+  // GET /api/chat/sessions/unread-count — Count of unread messages across all sessions
+  // Issue #2078: Registered before the parametric :id route so the static path matches first.
+  app.get('/chat/sessions/unread-count', async (req, reply) => {
+    const userEmail = await getUserEmail(req);
+    if (!userEmail) {
+      return reply.code(401).send({ error: 'Authentication required' });
+    }
+
+    const namespaces = getEffectiveNamespaces(req);
+    if (namespaces.length === 0) {
+      return reply.send({ count: 0 });
+    }
+
+    try {
+      // Count inbound (agent → user) messages received after the user's read cursor.
+      // Sessions without a read cursor have ALL inbound messages counted as unread.
+      const result = await pool.query(
+        `WITH user_sessions AS (
+           SELECT s.id AS session_id, s.thread_id
+           FROM chat_session s
+           WHERE s.user_email = $1
+             AND s.namespace = ANY($2::text[])
+             AND s.status = 'active'
+         )
+         SELECT COUNT(*)::int AS count
+         FROM user_sessions us
+         JOIN external_message m ON m.thread_id = us.thread_id AND m.direction = 'inbound'
+         LEFT JOIN LATERAL (
+           SELECT rm.received_at
+           FROM chat_read_cursor c
+           JOIN external_message rm ON rm.id = c.last_read_message_id
+           WHERE c.session_id = us.session_id AND c.user_email = $1
+           LIMIT 1
+         ) cursor_msg ON true
+         WHERE cursor_msg.received_at IS NULL OR m.received_at > cursor_msg.received_at`,
+        [userEmail, namespaces],
+      );
+      return reply.send({ count: result.rows[0]?.count ?? 0 });
+    } catch (err) {
+      req.log.error(err, 'Failed to count unread chat messages');
+      return reply.code(500).send({ error: 'Internal server error' });
+    }
+  });
+
   // GET /api/chat/sessions/:id — Get session details
   app.get('/chat/sessions/:id', async (req, reply) => {
     const userEmail = await getUserEmail(req);
