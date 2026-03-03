@@ -57,3 +57,41 @@ export interface CloudflareEmailResult {
   /** Whether a new thread was created */
   isNewThread: boolean;
 }
+
+/**
+ * Webhook response sent back to the Cloudflare Email Worker.
+ *
+ * The Worker inspects `action` to decide whether to accept or reject the email
+ * at the SMTP level via `message.setReject()`. When action is "reject", the
+ * Worker returns a permanent SMTP 550 error to the sending MTA.
+ *
+ * When action is "accept" and `auto_reply` is present, the Worker sends a
+ * threaded reply to the sender via `message.reply()`.
+ */
+export interface CloudflareEmailWebhookResponse {
+  success: boolean;
+  /** Triage decision — "accept" stores the message, "reject" signals the Worker to bounce it. */
+  action: 'accept' | 'reject';
+  /** Human-readable reason when action is "reject". Sent as the SMTP rejection reason. */
+  reject_reason?: string;
+  /** IDs returned on successful acceptance. */
+  receipt_id?: string;
+  contact_id?: string;
+  thread_id?: string;
+  message_id?: string;
+  /** Optional auto-reply for the Worker to send back to the sender. */
+  auto_reply?: CloudflareEmailAutoReply;
+}
+
+/**
+ * Auto-reply content for the Worker to send back to the sender
+ * via `message.reply()`.
+ */
+export interface CloudflareEmailAutoReply {
+  /** Subject line for the reply (typically "Re: <original subject>"). */
+  subject: string;
+  /** Plain text body. */
+  text_body: string;
+  /** HTML body (optional). */
+  html_body?: string;
+}

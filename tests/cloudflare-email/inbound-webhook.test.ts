@@ -302,6 +302,50 @@ describe('Cloudflare Email Inbound Webhook', () => {
     });
   });
 
+  describe('Triage response (#2061)', () => {
+    it('returns action=reject when no route is configured', async () => {
+      // No inbound_destination or channel_default configured → no route
+      const payload = createCloudflarePayload();
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/cloudflare/email',
+        payload,
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json().success).toBe(true);
+      expect(response.json().action).toBe('reject');
+      expect(response.json().reject_reason).toContain('No agent configured');
+      // Message should still be stored even on reject
+      expect(response.json().message_id).toBeDefined();
+      expect(response.json().contact_id).toBeDefined();
+    });
+
+    it('returns action=accept when a route is configured', async () => {
+      // Set up an inbound destination route
+      await pool.query(
+        `INSERT INTO inbound_destination (address, channel_type, agent_id)
+         VALUES ($1, $2, $3)`,
+        ['support@myapp.com', 'email', '00000000-0000-0000-0000-000000000001'],
+      );
+
+      const payload = createCloudflarePayload();
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/cloudflare/email',
+        payload,
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json().success).toBe(true);
+      expect(response.json().action).toBe('accept');
+      expect(response.json().reject_reason).toBeUndefined();
+      expect(response.json().message_id).toBeDefined();
+    });
+  });
+
   describe('Secret Header Authentication', () => {
     beforeEach(() => {
       // Enable authentication

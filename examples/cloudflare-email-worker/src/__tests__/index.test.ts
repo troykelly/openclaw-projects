@@ -5,6 +5,7 @@ import {
   streamToUint8Array,
   extractHeaders,
   buildPayload,
+  buildReplyMime,
   postWebhook,
   DEFAULT_MAX_RAW_BYTES,
   WEBHOOK_PATH,
@@ -487,5 +488,173 @@ describe("MIME parsing integration", () => {
 
     expect(payload.text_body?.trim()).toBe("Plain text version.");
     expect(payload.html_body).toContain("<strong>version</strong>");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// buildReplyMime (#2062)
+// ---------------------------------------------------------------------------
+
+describe("buildReplyMime", () => {
+  it("produces a valid text-only MIME message", async () => {
+    const stream = buildReplyMime(
+      "support@myapp.com",
+      "sender@example.com",
+      "Re: Hello",
+      "Thank you for your email.",
+      undefined,
+      undefined,
+    );
+
+    const bytes = await streamToUint8Array(stream);
+    const raw = new TextDecoder().decode(bytes);
+
+    expect(raw).toContain("From: support@myapp.com");
+    expect(raw).toContain("To: sender@example.com");
+    expect(raw).toContain("Subject: Re: Hello");
+    expect(raw).toContain("MIME-Version: 1.0");
+    expect(raw).toContain("Content-Type: text/plain; charset=utf-8");
+    expect(raw).toContain("Thank you for your email.");
+    // Should NOT contain multipart boundary
+    expect(raw).not.toContain("boundary");
+  });
+
+  it("produces a multipart MIME message when HTML is provided", async () => {
+    const stream = buildReplyMime(
+      "support@myapp.com",
+      "sender@example.com",
+      "Re: Hello",
+      "Thank you.",
+      "<p>Thank you.</p>",
+      undefined,
+    );
+
+    const bytes = await streamToUint8Array(stream);
+    const raw = new TextDecoder().decode(bytes);
+
+    expect(raw).toContain("Content-Type: multipart/alternative");
+    expect(raw).toContain("Content-Type: text/plain; charset=utf-8");
+    expect(raw).toContain("Content-Type: text/html; charset=utf-8");
+    expect(raw).toContain("Thank you.");
+    expect(raw).toContain("<p>Thank you.</p>");
+  });
+
+  it("includes In-Reply-To and References headers when messageId is provided", async () => {
+    const stream = buildReplyMime(
+      "support@myapp.com",
+      "sender@example.com",
+      "Re: Hello",
+      "Thanks!",
+      undefined,
+      "<msg-123@example.com>",
+    );
+
+    const bytes = await streamToUint8Array(stream);
+    const raw = new TextDecoder().decode(bytes);
+
+    expect(raw).toContain("In-Reply-To: <msg-123@example.com>");
+    expect(raw).toContain("References: <msg-123@example.com>");
+  });
+
+  it("omits In-Reply-To when no messageId is provided", async () => {
+    const stream = buildReplyMime(
+      "support@myapp.com",
+      "sender@example.com",
+      "Re: Hello",
+      "Thanks!",
+      undefined,
+      undefined,
+    );
+
+    const bytes = await streamToUint8Array(stream);
+    const raw = new TextDecoder().decode(bytes);
+
+    expect(raw).not.toContain("In-Reply-To:");
+    expect(raw).not.toContain("References:");
+  });
+
+  it("produces a parseable MIME message", async () => {
+    const stream = buildReplyMime(
+      "support@myapp.com",
+      "sender@example.com",
+      "Re: Test",
+      "Plain text body.",
+      "<p>HTML body.</p>",
+      "<msg-456@example.com>",
+    );
+
+    const bytes = await streamToUint8Array(stream);
+    const parsed = await PostalMime.parse(bytes);
+
+    expect(parsed.subject).toBe("Re: Test");
+    expect(parsed.text?.trim()).toBe("Plain text body.");
+    expect(parsed.html).toContain("<p>HTML body.</p>");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Webhook response triage (#2061)
+// ---------------------------------------------------------------------------
+
+describe("webhook response triage", () => {
+  interface WebhookResponse {
+    success: boolean;
+    action: "accept" | "reject";
+    reject_reason?: string;
+    receipt_id?: string;
+    contact_id?: string;
+    thread_id?: string;
+    message_id?: string;
+    auto_reply?: {
+      subject: string;
+      text_body: string;
+      html_body?: string;
+    };
+  }
+
+  it("accept response includes action field", () => {
+    const response: WebhookResponse = {
+      success: true,
+      action: "accept",
+      receipt_id: "m1",
+      contact_id: "c1",
+      thread_id: "t1",
+      message_id: "m1",
+    };
+    expect(response.action).toBe("accept");
+    expect(response.reject_reason).toBeUndefined();
+  });
+
+  it("reject response includes action and reason", () => {
+    const response: WebhookResponse = {
+      success: true,
+      action: "reject",
+      reject_reason: "No agent configured for support@myapp.com",
+      receipt_id: "m1",
+      contact_id: "c1",
+      thread_id: "t1",
+      message_id: "m1",
+    };
+    expect(response.action).toBe("reject");
+    expect(response.reject_reason).toContain("No agent configured");
+  });
+
+  it("accept response with auto_reply includes reply content", () => {
+    const response: WebhookResponse = {
+      success: true,
+      action: "accept",
+      receipt_id: "m1",
+      contact_id: "c1",
+      thread_id: "t1",
+      message_id: "m1",
+      auto_reply: {
+        subject: "Re: Your inquiry",
+        text_body: "We received your message.",
+        html_body: "<p>We received your message.</p>",
+      },
+    };
+    expect(response.action).toBe("accept");
+    expect(response.auto_reply?.subject).toBe("Re: Your inquiry");
+    expect(response.auto_reply?.text_body).toContain("received");
   });
 });

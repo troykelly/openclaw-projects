@@ -87,11 +87,26 @@ export interface CloudflareEmailPayload {
   timestamp: string;
 }
 
-interface WebhookSuccessResponse {
+/**
+ * Response from the openclaw-projects webhook.
+ * Matches CloudflareEmailWebhookResponse in src/api/cloudflare-email/types.ts.
+ */
+interface WebhookResponse {
+  success: boolean;
+  /** Triage decision — "accept" or "reject". */
+  action: "accept" | "reject";
+  /** Reason for rejection (present when action is "reject"). */
+  reject_reason?: string;
   receipt_id?: string;
-  contact_id: string;
-  thread_id: string;
-  message_id: string;
+  contact_id?: string;
+  thread_id?: string;
+  message_id?: string;
+  /** Optional auto-reply for the Worker to send to the sender. */
+  auto_reply?: {
+    subject: string;
+    text_body: string;
+    html_body?: string;
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -262,6 +277,64 @@ export async function postWebhook(
   throw lastError ?? new Error("Webhook delivery failed after retries");
 }
 
+/**
+ * Build a minimal RFC 5322 MIME message for use with message.reply().
+ *
+ * The reply includes In-Reply-To and References headers for proper threading.
+ */
+export function buildReplyMime(
+  from: string,
+  to: string,
+  subject: string,
+  textBody: string,
+  htmlBody: string | undefined,
+  inReplyToMessageId: string | undefined,
+): ReadableStream<Uint8Array> {
+  const boundary = `----=_Part_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  const hasHtml = htmlBody !== undefined && htmlBody !== "";
+  const contentType = hasHtml
+    ? `multipart/alternative; boundary="${boundary}"`
+    : "text/plain; charset=utf-8";
+
+  const lines: string[] = [
+    `From: ${from}`,
+    `To: ${to}`,
+    `Subject: ${subject}`,
+    `MIME-Version: 1.0`,
+    `Date: ${new Date().toUTCString()}`,
+  ];
+
+  if (inReplyToMessageId) {
+    lines.push(`In-Reply-To: ${inReplyToMessageId}`);
+    lines.push(`References: ${inReplyToMessageId}`);
+  }
+
+  lines.push(`Content-Type: ${contentType}`);
+  lines.push(""); // End of headers
+
+  if (hasHtml) {
+    lines.push(`--${boundary}`);
+    lines.push("Content-Type: text/plain; charset=utf-8");
+    lines.push("");
+    lines.push(textBody);
+    lines.push(`--${boundary}`);
+    lines.push("Content-Type: text/html; charset=utf-8");
+    lines.push("");
+    lines.push(htmlBody!);
+    lines.push(`--${boundary}--`);
+  } else {
+    lines.push(textBody);
+  }
+
+  const raw = new TextEncoder().encode(lines.join("\r\n"));
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(raw);
+      controller.close();
+    },
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Email Worker entry point
 // ---------------------------------------------------------------------------
@@ -355,6 +428,7 @@ export default {
     // -----------------------------------------------------------------------
     const webhookUrl = `${env.OPENCLAW_PROJECTS_API_URL.replace(/\/+$/, "")}${WEBHOOK_PATH}`;
 
+    let webhookResult: WebhookResponse | undefined;
     try {
       const response = await postWebhook(
         webhookUrl,
@@ -362,13 +436,14 @@ export default {
         payload,
       );
 
-      const result: WebhookSuccessResponse = await response.json();
+      webhookResult = await response.json() as WebhookResponse;
       const elapsed = Date.now() - startTime;
 
       console.log(
         `${logPrefix} Delivered in ${elapsed}ms — ` +
-          `message_id=${result.message_id} thread_id=${result.thread_id} ` +
-          `contact_id=${result.contact_id}`,
+          `action=${webhookResult.action} ` +
+          `message_id=${webhookResult.message_id} thread_id=${webhookResult.thread_id} ` +
+          `contact_id=${webhookResult.contact_id}`,
       );
     } catch (err) {
       const elapsed = Date.now() - startTime;
@@ -380,7 +455,42 @@ export default {
     }
 
     // -----------------------------------------------------------------------
-    // 6. Optional: forward original to a fallback address
+    // 6. Triage: reject if the API says so (#2061)
+    // -----------------------------------------------------------------------
+    if (webhookResult?.action === "reject") {
+      const reason = webhookResult.reject_reason ?? "Rejected by server";
+      console.log(`${logPrefix} Rejecting: ${reason}`);
+      message.setReject(reason);
+      return; // No forwarding for rejected emails
+    }
+
+    // -----------------------------------------------------------------------
+    // 7. Auto-reply if the API included one (#2062)
+    // -----------------------------------------------------------------------
+    if (webhookResult?.auto_reply) {
+      try {
+        const { auto_reply } = webhookResult;
+        const replyMime = buildReplyMime(
+          message.to,     // Reply from the receiving address
+          message.from,   // Reply to the original sender
+          auto_reply.subject,
+          auto_reply.text_body,
+          auto_reply.html_body,
+          message.headers.get("Message-ID") ?? undefined,
+        );
+        // EmailMessage is a Workers-only runtime class from cloudflare:email
+        const { EmailMessage } = await import("cloudflare:email");
+        const replyMessage = new EmailMessage(message.to, message.from, replyMime);
+        await message.reply(replyMessage);
+        console.log(`${logPrefix} Auto-reply sent`);
+      } catch (replyErr) {
+        // Reply failures are non-fatal (DMARC check may fail, etc.)
+        console.warn(`${logPrefix} Auto-reply failed: ${replyErr}`);
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // 8. Optional: forward original to a fallback address
     // -----------------------------------------------------------------------
     if (env.FALLBACK_FORWARD_ADDRESS) {
       ctx.waitUntil(
