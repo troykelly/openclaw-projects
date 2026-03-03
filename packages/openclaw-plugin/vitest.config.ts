@@ -18,10 +18,40 @@ const __dirname = path.dirname(__filename);
  * - Full TypeScript support via vitest's built-in transpilation
  * - Resilience to bundle hash changes
  *
- * When the gateway source is NOT available, gateway tests are skipped.
+ * When the gateway source is NOT available, tests that import gateway internals
+ * are skipped. Tests that only use local files or the published SDK (e.g.
+ * manifest-validation, plugin-exports) always run. (#2043)
  */
 const gatewayRoot = path.resolve(__dirname, '../../.local/openclaw-gateway');
 const hasGateway = fs.existsSync(gatewayRoot);
+
+/**
+ * Gateway test files that require the gateway source tree at .local/openclaw-gateway.
+ * These import internal gateway functions (loadOpenClawPlugins, createHookRunner)
+ * that are NOT part of the openclaw npm package's public API.
+ *
+ * Tests NOT listed here (manifest-validation, plugin-exports) use only local
+ * filesystem reads or the built dist/ output and always run, including in CI. (#2043)
+ */
+const gatewaySourceRequiredTests = [
+  'tests/gateway/plugin-loading.test.ts',
+  'tests/gateway/config-validation.test.ts',
+  'tests/gateway/tool-registration.test.ts',
+  'tests/gateway/tool-resolution.test.ts',
+  'tests/gateway/hook-registration.test.ts',
+  'tests/gateway/hook-invocation.test.ts',
+  'tests/gateway/service-registration.test.ts',
+  'tests/gateway/cli-registration.test.ts',
+];
+
+if (!hasGateway) {
+  console.warn(
+    `[openclaw-plugin] Gateway source not found at ${gatewayRoot}. ` +
+      `Skipping ${gatewaySourceRequiredTests.length} gateway integration tests that require ` +
+      `internal gateway imports (loadOpenClawPlugins, createHookRunner). ` +
+      `To run all tests, symlink the gateway source to .local/openclaw-gateway. (#2043)`,
+  );
+}
 
 export default defineConfig({
   resolve: {
@@ -40,8 +70,10 @@ export default defineConfig({
   test: {
     include: ['tests/**/*.test.ts'],
     exclude: [
-      // Skip gateway integration tests when gateway source is not available
-      ...(hasGateway ? [] : ['tests/gateway/**/*.test.ts']),
+      // Only skip gateway tests that import internal gateway functions.
+      // Tests that use local files or built output (manifest-validation,
+      // plugin-exports) always run, even without gateway source. (#2043)
+      ...(hasGateway ? [] : gatewaySourceRequiredTests),
     ],
     globals: false,
     coverage: {

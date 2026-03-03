@@ -10,6 +10,7 @@
 
 import type { ApiClient } from '../api-client.js';
 import type { Logger } from '../logger.js';
+import type { GatewayMethodHandler, GatewayMethodHandlerOptions } from '../types/openclaw-api.js';
 
 /** Valid notification event types */
 export type NotificationEvent = 'message.new' | 'message.delivered' | 'task.due' | 'task.overdue' | 'memory.created';
@@ -231,20 +232,49 @@ export function createGatewayMethods(options: GatewayMethodsOptions): GatewayMet
 }
 
 /**
+ * Wrap a typed method handler into a GatewayRequestHandler.
+ *
+ * The SDK's registerGatewayMethod expects a handler that receives
+ * `(opts: GatewayRequestHandlerOptions)` and calls `opts.respond()`.
+ * Our internal methods use `(params: T) => Promise<R>` for testability.
+ * This wrapper bridges the two contracts. (#2031)
+ */
+function wrapMethodHandler<T, R>(
+  handler: (params: T) => Promise<R>,
+): GatewayMethodHandler {
+  return async (opts: GatewayMethodHandlerOptions): Promise<void> => {
+    try {
+      const result = await handler(opts.params as T);
+      opts.respond(true, result);
+    } catch (_error) {
+      // Return generic error to clients to avoid leaking internal details
+      opts.respond(false, undefined, {
+        code: 'INTERNAL_ERROR',
+        message: 'Internal error',
+      });
+    }
+  };
+}
+
+/**
  * Register Gateway RPC methods with the OpenClaw API.
+ *
+ * Uses the SDK's GatewayRequestHandler contract: each handler receives
+ * opts with { req, params, respond, client, context } and calls
+ * opts.respond() to send the response. (#2031)
  *
  * @param api - OpenClaw Plugin API
  * @param methods - Gateway method handlers
  */
 export function registerGatewayRpcMethods(
   api: {
-    registerGatewayMethod: <T, R>(name: string, handler: (params: T) => Promise<R>) => void;
+    registerGatewayMethod: (name: string, handler: GatewayMethodHandler) => void;
   },
   methods: GatewayMethods,
 ): void {
-  api.registerGatewayMethod<SubscribeParams, SubscribeResult>('openclaw-projects.subscribe', methods.subscribe);
+  api.registerGatewayMethod('openclaw-projects.subscribe', wrapMethodHandler(methods.subscribe));
 
-  api.registerGatewayMethod<UnsubscribeParams, UnsubscribeResult>('openclaw-projects.unsubscribe', methods.unsubscribe);
+  api.registerGatewayMethod('openclaw-projects.unsubscribe', wrapMethodHandler(methods.unsubscribe));
 
-  api.registerGatewayMethod<GetNotificationsParams, GetNotificationsResult>('openclaw-projects.getNotifications', methods.getNotifications);
+  api.registerGatewayMethod('openclaw-projects.getNotifications', wrapMethodHandler(methods.getNotifications));
 }

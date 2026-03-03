@@ -158,11 +158,15 @@ describe('OpenClaw 2026 API Registration', () => {
       }
     });
 
-    it('should register before_agent_start hook via api.on() when autoRecall is true', () => {
+    it('should register before_prompt_build (NOT before_agent_start) for recall when api.on is available', () => {
+      // Review fix #5: Only ONE recall hook should be registered.
+      // When api.on supports before_prompt_build, before_agent_start is NOT registered.
       registerOpenClaw(mockApi);
 
-      expect(registeredOnHooks.has('before_agent_start')).toBe(true);
-      expect(typeof registeredOnHooks.get('before_agent_start')).toBe('function');
+      expect(registeredOnHooks.has('before_prompt_build')).toBe(true);
+      expect(typeof registeredOnHooks.get('before_prompt_build')).toBe('function');
+      // before_agent_start is NOT registered because before_prompt_build succeeded
+      expect(registeredOnHooks.has('before_agent_start')).toBe(false);
     });
 
     it('should register agent_end hook via api.on() when autoCapture is true', () => {
@@ -172,15 +176,24 @@ describe('OpenClaw 2026 API Registration', () => {
       expect(typeof registeredOnHooks.get('agent_end')).toBe('function');
     });
 
-    it('should NOT use legacy registerHook for hooks', () => {
+    it('should register message_received hook via api.on() for auto-linking', () => {
+      registerOpenClaw(mockApi);
+
+      expect(registeredOnHooks.has('message_received')).toBe(true);
+      expect(typeof registeredOnHooks.get('message_received')).toBe('function');
+    });
+
+    it('should NOT use legacy registerHook for hooks when api.on is available', () => {
       registerOpenClaw(mockApi);
 
       // Should NOT register hooks via the legacy registerHook method
-      expect(registeredHooks.has('beforeAgentStart')).toBe(false);
-      expect(registeredHooks.has('agentEnd')).toBe(false);
+      // when the modern api.on() is available
+      expect(registeredHooks.has('before_agent_start')).toBe(false);
+      expect(registeredHooks.has('agent_end')).toBe(false);
+      expect(registeredHooks.has('message_received')).toBe(false);
     });
 
-    it('should not register hooks when disabled', () => {
+    it('should not register recall/capture hooks when disabled', () => {
       mockApi.pluginConfig = {
         ...mockApi.pluginConfig,
         autoRecall: false,
@@ -189,7 +202,9 @@ describe('OpenClaw 2026 API Registration', () => {
 
       registerOpenClaw(mockApi);
 
+      // Neither recall hook should be registered
       expect(registeredOnHooks.has('before_agent_start')).toBe(false);
+      expect(registeredOnHooks.has('before_prompt_build')).toBe(false);
       expect(registeredOnHooks.has('agent_end')).toBe(false);
     });
 
@@ -210,20 +225,24 @@ describe('OpenClaw 2026 API Registration', () => {
       );
     });
 
-    it('should fall back to registerHook if api.on is not available', () => {
+    it('should fall back to registerHook with snake_case names if api.on is not available', () => {
       // Simulate older OpenClaw runtime without api.on
       const legacyApi = { ...mockApi };
       delete (legacyApi as Record<string, unknown>).on;
 
       registerOpenClaw(legacyApi);
 
-      // Should have fallen back to registerHook
-      expect(registeredHooks.has('beforeAgentStart')).toBe(true);
-      expect(registeredHooks.has('agentEnd')).toBe(true);
+      // Should have fallen back to registerHook using snake_case names (#2044)
+      expect(registeredHooks.has('before_agent_start')).toBe(true);
+      expect(registeredHooks.has('agent_end')).toBe(true);
+      expect(registeredHooks.has('message_received')).toBe(true);
     });
   });
 
-  describe('before_agent_start hook behavior', () => {
+  describe('auto-recall hook behavior (before_prompt_build or before_agent_start fallback)', () => {
+    // Review fix #5: When api.on is available, before_prompt_build is registered
+    // and before_agent_start is NOT. These tests exercise the registered recall hook.
+
     it('should use the user prompt from event for semantic search', async () => {
       const fetchCalls: string[] = [];
       const originalFetch = globalThis.fetch;
@@ -241,23 +260,17 @@ describe('OpenClaw 2026 API Registration', () => {
       try {
         registerOpenClaw(mockApi);
 
-        const hook = registeredOnHooks.get('before_agent_start') as (
-          event: PluginHookBeforeAgentStartEvent,
-          ctx: PluginHookAgentContext,
-        ) => Promise<PluginHookBeforeAgentStartResult | undefined>;
-
+        // before_prompt_build is the active recall hook when api.on is available
+        const hook = registeredOnHooks.get('before_prompt_build') as Function;
         expect(hook).toBeDefined();
 
-        // Call the hook with a specific prompt
         const result = await hook({ prompt: 'What are my food preferences?' }, { agentId: 'agent-1', sessionKey: 'session-1' });
 
-        // Result should have prependContext (not injectedContext)
         if (result) {
           expect(result).toHaveProperty('prependContext');
           expect(result).not.toHaveProperty('injectedContext');
         }
 
-        // Verify the search API was called with the user's actual prompt
         const memorySearchCalls = fetchCalls.filter((url) => url.includes('/memories/search'));
         expect(memorySearchCalls.length).toBeGreaterThan(0);
         expect(memorySearchCalls[0]).toContain('food+preferences');
@@ -267,7 +280,6 @@ describe('OpenClaw 2026 API Registration', () => {
     });
 
     it('should return { prependContext } format, not { injectedContext }', async () => {
-      // Create a mock that will intercept the fetch
       const originalFetch = globalThis.fetch;
       globalThis.fetch = vi.fn().mockResolvedValue({
         ok: true,
@@ -280,17 +292,12 @@ describe('OpenClaw 2026 API Registration', () => {
       try {
         registerOpenClaw(mockApi);
 
-        const hook = registeredOnHooks.get('before_agent_start') as (
-          event: PluginHookBeforeAgentStartEvent,
-          ctx: PluginHookAgentContext,
-        ) => Promise<PluginHookBeforeAgentStartResult | undefined>;
-
+        const hook = registeredOnHooks.get('before_prompt_build') as Function;
         const result = await hook({ prompt: 'Tell me about my preferences' }, { agentId: 'agent-1', sessionKey: 'session-1' });
 
         if (result) {
           expect(result).toHaveProperty('prependContext');
           expect(typeof result.prependContext).toBe('string');
-          // Must NOT have injectedContext
           expect(result).not.toHaveProperty('injectedContext');
         }
       } finally {
@@ -313,14 +320,9 @@ describe('OpenClaw 2026 API Registration', () => {
       try {
         registerOpenClaw(mockApi);
 
-        const hook = registeredOnHooks.get('before_agent_start') as (
-          event: PluginHookBeforeAgentStartEvent,
-          ctx: PluginHookAgentContext,
-        ) => Promise<PluginHookBeforeAgentStartResult | undefined>;
-
+        const hook = registeredOnHooks.get('before_prompt_build') as Function;
         await hook({ prompt: 'What are my food preferences?' }, { agentId: 'agent-1', sessionKey: 'session-1' });
 
-        // The API call should contain the user's actual prompt, not 'relevant context for this conversation'
         const memorySearchCalls = fetchCalls.filter((url) => url.includes('/memories/search'));
         expect(memorySearchCalls.length).toBeGreaterThan(0);
 
@@ -334,21 +336,14 @@ describe('OpenClaw 2026 API Registration', () => {
 
     it('should handle timeout gracefully', async () => {
       const originalFetch = globalThis.fetch;
-      // Simulate a very slow response that will exceed the hook timeout
       globalThis.fetch = vi.fn().mockImplementation(() => new Promise((resolve) => setTimeout(resolve, 60000))) as unknown as typeof fetch;
 
       try {
         registerOpenClaw(mockApi);
 
-        const hook = registeredOnHooks.get('before_agent_start') as (
-          event: PluginHookBeforeAgentStartEvent,
-          ctx: PluginHookAgentContext,
-        ) => Promise<PluginHookBeforeAgentStartResult | undefined>;
-
-        // The hook has a 5s internal timeout. The slow fetch will trigger it.
+        const hook = registeredOnHooks.get('before_prompt_build') as Function;
         const result = await hook({ prompt: 'Hello' }, { agentId: 'agent-1', sessionKey: 'session-1' });
 
-        // Should return void/undefined on timeout, not throw
         expect(result).toBeUndefined();
       } finally {
         globalThis.fetch = originalFetch;
@@ -362,12 +357,7 @@ describe('OpenClaw 2026 API Registration', () => {
       try {
         registerOpenClaw(mockApi);
 
-        const hook = registeredOnHooks.get('before_agent_start') as (
-          event: PluginHookBeforeAgentStartEvent,
-          ctx: PluginHookAgentContext,
-        ) => Promise<PluginHookBeforeAgentStartResult | undefined>;
-
-        // Should not throw even when network fails
+        const hook = registeredOnHooks.get('before_prompt_build') as Function;
         const result = await hook({ prompt: 'Hello' }, { agentId: 'agent-1', sessionKey: 'session-1' });
 
         expect(result).toBeUndefined();
@@ -375,6 +365,16 @@ describe('OpenClaw 2026 API Registration', () => {
         globalThis.fetch = originalFetch;
       }
     }, 15000);
+
+    it('should register before_agent_start (NOT before_prompt_build) on legacy SDK without api.on', () => {
+      // Simulate older SDK where api.on throws for before_prompt_build
+      const legacyApi = { ...mockApi };
+      delete (legacyApi as Record<string, unknown>).on;
+
+      registerOpenClaw(legacyApi);
+
+      expect(registeredHooks.has('before_agent_start')).toBe(true);
+    });
   });
 
   describe('agent_end hook behavior', () => {
@@ -781,7 +781,8 @@ describe('OpenClaw 2026 API Registration', () => {
     it('should register hooks synchronously during register() call', () => {
       registerOpenClaw(mockApi);
       // Hooks must be registered by the time register() returns
-      expect(registeredOnHooks.has('before_agent_start')).toBe(true);
+      // Review fix #5: before_prompt_build supersedes before_agent_start when api.on is available
+      expect(registeredOnHooks.has('before_prompt_build')).toBe(true);
       expect(registeredOnHooks.has('agent_end')).toBe(true);
     });
 
