@@ -160,19 +160,44 @@ export function RealtimeProvider({ url, children, reconnectOptions: userReconnec
 
       ws.onmessage = (event) => {
         try {
-          const message: WebSocketMessage = JSON.parse(event.data);
-          if (message.action === 'event' && message.event) {
-            // Dispatch to handlers
+          const raw = JSON.parse(event.data);
+
+          // Determine the event to dispatch. The server (RealtimeHub) sends
+          // events in its own format: { event: string, data: unknown, timestamp }
+          // while the original frontend protocol used: { action: 'event', event: { type, payload, timestamp } }.
+          // Issue #2080: Support both formats so the hub's events reach handlers.
+          let realtimeEvent: RealtimeEvent | undefined;
+
+          if (raw.action === 'event' && raw.event) {
+            // Legacy wrapped format
+            realtimeEvent = raw.event as RealtimeEvent;
+          } else if (typeof raw.event === 'string' && raw.data !== undefined) {
+            // Server hub format: { event, data, timestamp }
+
+            // Issue #2080: Respond to server heartbeat pings so the hub
+            // doesn't mark this client as stale after 60s.
+            if (raw.event === 'connection:ping') {
+              ws.send(JSON.stringify({ event: 'connection:pong', data: {}, timestamp: new Date().toISOString() }));
+            }
+
+            realtimeEvent = {
+              type: raw.event as RealtimeEventType,
+              payload: raw.data,
+              timestamp: raw.timestamp ?? new Date().toISOString(),
+            };
+          }
+
+          if (realtimeEvent) {
             eventHandlersRef.current.forEach((handler) => {
-              if (handler.eventType === message.event!.type) {
+              if (handler.eventType === realtimeEvent!.type) {
                 // If entity_id filter specified, check payload
                 if (handler.entity_id) {
-                  const payload = message.event!.payload as { id?: string };
+                  const payload = realtimeEvent!.payload as { id?: string };
                   if (payload.id !== handler.entity_id) {
                     return;
                   }
                 }
-                handler.handler(message.event!);
+                handler.handler(realtimeEvent!);
               }
             });
           }

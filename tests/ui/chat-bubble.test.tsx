@@ -22,6 +22,7 @@ vi.mock('@/ui/hooks/queries/use-chat', () => ({
   },
   useAvailableAgents: vi.fn(),
   useChatUnreadCount: vi.fn(),
+  useRealtimeChatInvalidation: vi.fn(),
 }));
 
 vi.mock('@/ui/hooks/use-media-query', () => ({

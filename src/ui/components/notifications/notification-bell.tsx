@@ -11,7 +11,7 @@ import { Button } from '@/ui/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/ui/components/ui/popover';
 import { ScrollArea } from '@/ui/components/ui/scroll-area';
 import { cn } from '@/ui/lib/utils';
-import { useNotifications, useUnreadNotificationCount } from '@/ui/hooks/queries/use-notifications';
+import { useNotifications, useUnreadNotificationCount, useRealtimeNotificationInvalidation } from '@/ui/hooks/queries/use-notifications';
 import { useMarkNotificationRead, useMarkAllNotificationsRead, useDismissNotification } from '@/ui/hooks/mutations/use-notifications';
 import type { Notification as ApiNotification } from '@/ui/lib/api-types';
 
@@ -58,6 +58,9 @@ function formatTime(dateString: string): string {
 
 export function NotificationBell({ onNotificationClick }: NotificationBellProps): React.JSX.Element {
   const [isOpen, setIsOpen] = useState(false);
+
+  // Issue #2080: Invalidate notification cache on WebSocket push events
+  useRealtimeNotificationInvalidation();
 
   const notificationsQuery = useNotifications();
   const unreadCountQuery = useUnreadNotificationCount();

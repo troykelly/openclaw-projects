@@ -13,10 +13,29 @@ export type RealtimeEventType =
   | 'comment:created'
   | 'comment:updated'
   | 'comment:deleted'
-  | 'notification:new'
+  | 'notification:created'
   | 'activity:new'
   | 'typing:start'
-  | 'typing:stop';
+  | 'typing:stop'
+  // Server-side event types (hub.ts emits these directly)
+  | 'work_item:created'
+  | 'work_item:updated'
+  | 'work_item:deleted'
+  | 'memory:created'
+  | 'memory:updated'
+  | 'memory:deleted'
+  | 'contact:created'
+  | 'contact:updated'
+  | 'contact:deleted'
+  | 'message:received'
+  | 'connection:established'
+  | 'connection:ping'
+  | 'connection:pong'
+  | 'chat:message_received'
+  | 'chat:session_created'
+  | 'chat:session_ended'
+  | 'chat:typing'
+  | 'chat:read_cursor_updated';
 
 export interface RealtimeEvent<T = unknown> {
   type: RealtimeEventType;
