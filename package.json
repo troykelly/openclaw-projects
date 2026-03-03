@@ -1,6 +1,6 @@
 {
   "name": "@troykelly/openclaw-projects-server",
-  "version": "0.0.38",
+  "version": "0.0.39",
   "private": true,
   "description": "Postgres-backed project + task management system",
   "type": "module",
