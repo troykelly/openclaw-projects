@@ -12355,6 +12355,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         triggerMessageEmbedding(pool, result.message_id);
 
         // Extract original recipient and resolve route (Issues #1503, #1505)
+        let route: Awaited<ReturnType<typeof import('./route-resolver/service.ts').resolveRoute>> | null = null;
         try {
           const { extractOriginalRecipient } = await import('./email-forward/extract.ts');
           const { resolveRoute } = await import('./route-resolver/service.ts');
@@ -12372,7 +12373,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           );
           const routingAddress = originalRecipient || payload.to.toLowerCase();
 
-          const route = await resolveRoute(pool, routingAddress, 'email', getStoreNamespace(req));
+          route = await resolveRoute(pool, routingAddress, 'email', getStoreNamespace(req));
           if (route) {
             await enqueueWebhook(pool, 'email_received', '/hooks/agent', {
               event_type: 'email_received',
@@ -12394,9 +12395,28 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           console.warn('[Cloudflare Email] Route resolution/webhook enqueue failed:', routeErr);
         }
 
-        // Return success with receipt ID
+        // Triage: if no route was resolved, signal rejection to the Worker (#2061)
+        // The Worker can call message.setReject() to return a permanent SMTP 550 error.
+        // Default: accept (backwards compatible — unrouted messages are still stored).
+        if (!route) {
+          console.log(
+            `[Cloudflare Email] No route for ${payload.to} — signalling reject to Worker`,
+          );
+          return reply.code(200).send({
+            success: true,
+            action: 'reject' as const,
+            reject_reason: `No agent configured for ${payload.to}`,
+            receipt_id: result.message_id,
+            contact_id: result.contact_id,
+            thread_id: result.thread_id,
+            message_id: result.message_id,
+          });
+        }
+
+        // Return success with receipt ID and accept action
         return reply.code(200).send({
           success: true,
+          action: 'accept' as const,
           receipt_id: result.message_id,
           contact_id: result.contact_id,
           thread_id: result.thread_id,
