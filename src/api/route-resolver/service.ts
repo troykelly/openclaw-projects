@@ -59,19 +59,29 @@ async function loadPromptContent(
  * 1. inbound_destination by (address, channel_type) — if agent_id is set, use overrides
  * 2. channel_default by (namespace, channel_type) — fallback
  * 3. null — no routing configured (message stored but not dispatched)
+ *
+ * When namespace is undefined (e.g. unauthenticated webhooks like Cloudflare
+ * email), the destination lookup is not scoped by namespace — the email
+ * address alone identifies the route. The destination's own namespace is used
+ * for prompt template resolution. Channel defaults are not consulted when
+ * namespace is unknown (they require a namespace).
  */
 export async function resolveRoute(
   pool: Pool,
   recipient: string,
   channelType: ChannelType,
-  namespace: string,
+  namespace?: string,
 ): Promise<ResolvedRoute | null> {
-  // Step 1: Check inbound_destination (scoped to namespace)
-  const dest = await getDestinationByAddress(pool, recipient, channelType, [namespace]);
+  // Step 1: Check inbound_destination
+  // When namespace is provided, scope the lookup; otherwise search all namespaces.
+  const queryNamespaces = namespace ? [namespace] : undefined;
+  const dest = await getDestinationByAddress(pool, recipient, channelType, queryNamespaces);
 
   if (dest?.agent_id) {
+    // Use the destination's own namespace for prompt template resolution
+    const destNamespace = dest.namespace ?? namespace ?? 'default';
     const promptContent = dest.prompt_template_id
-      ? await loadPromptContent(pool, dest.prompt_template_id, namespace)
+      ? await loadPromptContent(pool, dest.prompt_template_id, destNamespace)
       : null;
 
     return {
@@ -82,21 +92,23 @@ export async function resolveRoute(
     };
   }
 
-  // Step 2: Check channel_default
-  const { getChannelDefault } = await import('../channel-default/service.ts');
-  const channelDefault = await getChannelDefault(pool, channelType, [namespace]);
+  // Step 2: Check channel_default (requires a namespace)
+  if (namespace) {
+    const { getChannelDefault } = await import('../channel-default/service.ts');
+    const channelDefault = await getChannelDefault(pool, channelType, [namespace]);
 
-  if (channelDefault) {
-    const promptContent = channelDefault.prompt_template_id
-      ? await loadPromptContent(pool, channelDefault.prompt_template_id, namespace)
-      : null;
+    if (channelDefault) {
+      const promptContent = channelDefault.prompt_template_id
+        ? await loadPromptContent(pool, channelDefault.prompt_template_id, namespace)
+        : null;
 
-    return {
-      agentId: channelDefault.agent_id,
-      promptContent,
-      contextId: channelDefault.context_id ?? null,
-      source: 'channel_default',
-    };
+      return {
+        agentId: channelDefault.agent_id,
+        promptContent,
+        contextId: channelDefault.context_id ?? null,
+        source: 'channel_default',
+      };
+    }
   }
 
   // Step 3: No routing configured
