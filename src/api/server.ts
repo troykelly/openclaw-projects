@@ -14215,21 +14215,26 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           return reply.code(410).send({ error: 'Provider was deleted during OAuth flow' });
         }
 
-        // Notify HA connector to pick up the new credentials
+        // Notify HA connector to pick up the new credentials (#1993)
+        let notifyFailed = false;
         try {
           await pool.query(`SELECT pg_notify('geo_provider_config_changed', $1)`, [stateData.geo_provider_id]);
         } catch (notifyErr) {
+          notifyFailed = true;
           req.log.warn({ err: notifyErr, geo_provider_id: stateData.geo_provider_id }, 'Failed to send config_changed notify');
         }
 
-        // Redirect to settings with success indicator
+        // Redirect to settings — error indicator if notify failed (#1993)
         let parsedBase: URL;
         try {
           parsedBase = new URL(rawBase);
         } catch {
           return reply.code(500).send({ error: 'Server misconfiguration: invalid PUBLIC_BASE_URL' });
         }
-        const redirectUrl = `${parsedBase.origin}${parsedBase.pathname.replace(/\/+$/, '')}/app/settings?ha_connected=${stateData.geo_provider_id}`;
+        const settingsBase = `${parsedBase.origin}${parsedBase.pathname.replace(/\/+$/, '')}/app/settings`;
+        const redirectUrl = notifyFailed
+          ? `${settingsBase}?ha_error=notification_failed&ha_provider=${stateData.geo_provider_id}`
+          : `${settingsBase}?ha_connected=${stateData.geo_provider_id}`;
         return reply.redirect(redirectUrl);
       }
 
@@ -19623,7 +19628,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       });
 
       await client.query('COMMIT');
-      return reply.code(201).send(provider);
+
+      // Never expose credentials — strip encrypted blob and add boolean flag (#1992)
+      const sanitized = {
+        ...provider,
+        credentials: undefined,
+        has_credentials: provider.credentials !== null && provider.credentials !== '',
+      };
+      return reply.code(201).send(sanitized);
     } catch (err) {
       await client.query('ROLLBACK');
       const pgErr = err as Error & { code?: string };
@@ -19777,7 +19789,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       // Send pg NOTIFY for worker to pick up config changes
       await pool.query(`SELECT pg_notify('geo_provider_config_changed', $1)`, [id]);
 
-      return reply.send(updated);
+      // Never expose credentials — strip encrypted blob and add boolean flag (#1992)
+      const sanitized = {
+        ...updated,
+        credentials: undefined,
+        has_credentials: updated.credentials !== null && updated.credentials !== '',
+      };
+      return reply.send(sanitized);
     } finally {
       await pool.end();
     }

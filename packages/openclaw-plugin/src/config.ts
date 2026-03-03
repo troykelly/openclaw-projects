@@ -351,7 +351,7 @@ export function resolveNamespaceConfig(
 
   return {
     default: configNamespace?.default ?? fallbackNs,
-    recall: configNamespace?.recall ?? [fallbackNs],
+    recall: configNamespace?.recall ?? (fallbackNs === 'default' ? ['default'] : [fallbackNs, 'default']),
   };
 }
 

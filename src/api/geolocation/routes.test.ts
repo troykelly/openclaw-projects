@@ -139,33 +139,77 @@ describe('geolocation/routes', () => {
   // ── Service-level tests that validate route behavior ────────────────────
 
   describe('provider credential stripping', () => {
-    it('strips credentials and config for non-owner providers', () => {
+    it('strips credentials for non-owner providers on GET (list)', () => {
       const provider = geoService.rowToProvider(providerRow);
       const isOwner = provider.owner_email === OTHER_EMAIL;
 
-      // Simulate non-owner stripping logic
+      // GET list sanitisation: credentials → has_credentials, config scoped to owner
       const sanitized = {
         ...provider,
-        credentials: isOwner ? provider.credentials : null,
+        credentials: undefined,
+        has_credentials: provider.credentials !== null && provider.credentials !== '',
         config: isOwner ? provider.config : {},
       };
 
-      expect(sanitized.credentials).toBeNull();
+      expect(sanitized.credentials).toBeUndefined();
+      expect(sanitized.has_credentials).toBe(true);
       expect(sanitized.config).toEqual({});
     });
 
-    it('preserves credentials and config for owner', () => {
+    it('strips credentials but preserves config for owner on GET', () => {
       const provider = geoService.rowToProvider(providerRow);
       const isOwner = provider.owner_email === OWNER_EMAIL;
 
       const sanitized = {
         ...provider,
-        credentials: isOwner ? provider.credentials : null,
+        credentials: undefined,
+        has_credentials: provider.credentials !== null && provider.credentials !== '',
         config: isOwner ? provider.config : {},
       };
 
-      expect(sanitized.credentials).toBe('encrypted-blob');
+      expect(sanitized.credentials).toBeUndefined();
+      expect(sanitized.has_credentials).toBe(true);
       expect(sanitized.config).toEqual({ url: 'https://ha.example.com' });
+    });
+
+    it('strips credentials from POST response (#1992)', () => {
+      const provider = geoService.rowToProvider(providerRow);
+
+      // POST/PATCH sanitisation: always strip credentials, add has_credentials
+      const sanitized = {
+        ...provider,
+        credentials: undefined,
+        has_credentials: provider.credentials !== null && provider.credentials !== '',
+      };
+
+      expect(sanitized.credentials).toBeUndefined();
+      expect(sanitized.has_credentials).toBe(true);
+    });
+
+    it('strips credentials from PATCH response (#1992)', () => {
+      const provider = geoService.rowToProvider(providerRow);
+
+      const sanitized = {
+        ...provider,
+        credentials: undefined,
+        has_credentials: provider.credentials !== null && provider.credentials !== '',
+      };
+
+      expect(sanitized.credentials).toBeUndefined();
+      expect(sanitized.has_credentials).toBe(true);
+    });
+
+    it('has_credentials is false when provider has no credentials', () => {
+      const provider = geoService.rowToProvider({ ...providerRow, credentials: null });
+
+      const sanitized = {
+        ...provider,
+        credentials: undefined,
+        has_credentials: provider.credentials !== null && provider.credentials !== '',
+      };
+
+      expect(sanitized.credentials).toBeUndefined();
+      expect(sanitized.has_credentials).toBe(false);
     });
   });
 
