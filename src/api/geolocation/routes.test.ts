@@ -139,33 +139,77 @@ describe('geolocation/routes', () => {
   // ── Service-level tests that validate route behavior ────────────────────
 
   describe('provider credential stripping', () => {
-    it('strips credentials and config for non-owner providers', () => {
+    it('strips credentials for non-owner providers on GET (list)', () => {
       const provider = geoService.rowToProvider(providerRow);
       const isOwner = provider.owner_email === OTHER_EMAIL;
 
-      // Simulate non-owner stripping logic
+      // GET list sanitisation: credentials → has_credentials, config scoped to owner
       const sanitized = {
         ...provider,
-        credentials: isOwner ? provider.credentials : null,
+        credentials: undefined,
+        has_credentials: provider.credentials !== null && provider.credentials !== '',
         config: isOwner ? provider.config : {},
       };
 
-      expect(sanitized.credentials).toBeNull();
+      expect(sanitized.credentials).toBeUndefined();
+      expect(sanitized.has_credentials).toBe(true);
       expect(sanitized.config).toEqual({});
     });
 
-    it('preserves credentials and config for owner', () => {
+    it('strips credentials but preserves config for owner on GET', () => {
       const provider = geoService.rowToProvider(providerRow);
       const isOwner = provider.owner_email === OWNER_EMAIL;
 
       const sanitized = {
         ...provider,
-        credentials: isOwner ? provider.credentials : null,
+        credentials: undefined,
+        has_credentials: provider.credentials !== null && provider.credentials !== '',
         config: isOwner ? provider.config : {},
       };
 
-      expect(sanitized.credentials).toBe('encrypted-blob');
+      expect(sanitized.credentials).toBeUndefined();
+      expect(sanitized.has_credentials).toBe(true);
       expect(sanitized.config).toEqual({ url: 'https://ha.example.com' });
+    });
+
+    it('strips credentials from POST response (#1992)', () => {
+      const provider = geoService.rowToProvider(providerRow);
+
+      // POST/PATCH sanitisation: always strip credentials, add has_credentials
+      const sanitized = {
+        ...provider,
+        credentials: undefined,
+        has_credentials: provider.credentials !== null && provider.credentials !== '',
+      };
+
+      expect(sanitized.credentials).toBeUndefined();
+      expect(sanitized.has_credentials).toBe(true);
+    });
+
+    it('strips credentials from PATCH response (#1992)', () => {
+      const provider = geoService.rowToProvider(providerRow);
+
+      const sanitized = {
+        ...provider,
+        credentials: undefined,
+        has_credentials: provider.credentials !== null && provider.credentials !== '',
+      };
+
+      expect(sanitized.credentials).toBeUndefined();
+      expect(sanitized.has_credentials).toBe(true);
+    });
+
+    it('has_credentials is false when provider has no credentials', () => {
+      const provider = geoService.rowToProvider({ ...providerRow, credentials: null });
+
+      const sanitized = {
+        ...provider,
+        credentials: undefined,
+        has_credentials: provider.credentials !== null && provider.credentials !== '',
+      };
+
+      expect(sanitized.credentials).toBeUndefined();
+      expect(sanitized.has_credentials).toBe(false);
     });
   });
 
@@ -525,6 +569,62 @@ describe('geolocation/routes', () => {
       }
 
       expect(reply._statusCode).toBe(500);
+    });
+  });
+
+  describe('HA OAuth callback redirect URL construction (#1993)', () => {
+    // Tests the redirect URL logic extracted from the HA OAuth callback in server.ts.
+    // The callback builds the redirect URL based on whether pg_notify succeeded.
+
+    function buildRedirectUrl(
+      rawBase: string,
+      providerId: string,
+      notifyFailed: boolean,
+    ): string | { error: string } {
+      let parsedBase: URL;
+      try {
+        parsedBase = new URL(rawBase);
+      } catch {
+        return { error: 'Server misconfiguration: invalid PUBLIC_BASE_URL' };
+      }
+      if (parsedBase.protocol !== 'http:' && parsedBase.protocol !== 'https:') {
+        return { error: 'Server misconfiguration: PUBLIC_BASE_URL must use http or https' };
+      }
+      const settingsBase = `${parsedBase.origin}${parsedBase.pathname.replace(/\/+$/, '')}/app/settings`;
+      const encoded = encodeURIComponent(providerId);
+      return notifyFailed
+        ? `${settingsBase}?ha_error=notification_failed&ha_provider=${encoded}`
+        : `${settingsBase}?ha_connected=${encoded}`;
+    }
+
+    it('redirects with ha_connected on notify success', () => {
+      const url = buildRedirectUrl('https://app.example.com', '019cac67-67c8-7210-931d-c2832307a245', false);
+      expect(url).toBe('https://app.example.com/app/settings?ha_connected=019cac67-67c8-7210-931d-c2832307a245');
+    });
+
+    it('redirects with ha_error on notify failure', () => {
+      const url = buildRedirectUrl('https://app.example.com', '019cac67-67c8-7210-931d-c2832307a245', true);
+      expect(url).toBe('https://app.example.com/app/settings?ha_error=notification_failed&ha_provider=019cac67-67c8-7210-931d-c2832307a245');
+    });
+
+    it('URL-encodes the provider ID', () => {
+      const url = buildRedirectUrl('https://app.example.com', 'id/with special&chars', false);
+      expect(url).toBe('https://app.example.com/app/settings?ha_connected=id%2Fwith%20special%26chars');
+    });
+
+    it('rejects non-http(s) protocol', () => {
+      const result = buildRedirectUrl('ftp://evil.example.com', 'some-id', false);
+      expect(result).toEqual({ error: 'Server misconfiguration: PUBLIC_BASE_URL must use http or https' });
+    });
+
+    it('rejects invalid URL', () => {
+      const result = buildRedirectUrl('not-a-url', 'some-id', false);
+      expect(result).toEqual({ error: 'Server misconfiguration: invalid PUBLIC_BASE_URL' });
+    });
+
+    it('strips trailing slashes from base path', () => {
+      const url = buildRedirectUrl('https://app.example.com/base/', 'some-id', false);
+      expect(url).toBe('https://app.example.com/base/app/settings?ha_connected=some-id');
     });
   });
 });

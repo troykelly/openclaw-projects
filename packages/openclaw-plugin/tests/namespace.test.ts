@@ -27,19 +27,19 @@ describe('Namespace Configuration (Issue #1428)', () => {
       expect(result.recall).toEqual(['arthouse', 'shared']);
     });
 
-    it('should default recall to [default] when recall not specified', () => {
+    it('should default recall to [custom, default] when recall not specified', () => {
       const result = resolveNamespaceConfig(
         { default: 'arthouse' },
         'some-agent',
       );
       expect(result.default).toBe('arthouse');
-      expect(result.recall).toEqual(['arthouse']);
+      expect(result.recall).toEqual(['arthouse', 'default']);
     });
 
-    it('should fall back to agent ID as namespace when no config', () => {
+    it('should fall back to agent ID as namespace when no config, including default', () => {
       const result = resolveNamespaceConfig(undefined, 'arthouse');
       expect(result.default).toBe('arthouse');
-      expect(result.recall).toEqual(['arthouse']);
+      expect(result.recall).toEqual(['arthouse', 'default']);
     });
 
     it('should fall back to "default" when agent ID has invalid chars', () => {
@@ -57,13 +57,13 @@ describe('Namespace Configuration (Issue #1428)', () => {
     it('should accept agent ID with dots, hyphens, underscores', () => {
       const result = resolveNamespaceConfig(undefined, 'my-agent.v2_test');
       expect(result.default).toBe('my-agent.v2_test');
-      expect(result.recall).toEqual(['my-agent.v2_test']);
+      expect(result.recall).toEqual(['my-agent.v2_test', 'default']);
     });
 
     it('should accept agent ID starting with digit', () => {
       const result = resolveNamespaceConfig(undefined, '42agent');
       expect(result.default).toBe('42agent');
-      expect(result.recall).toEqual(['42agent']);
+      expect(result.recall).toEqual(['42agent', 'default']);
     });
 
     it('should use explicit recall even when default is from agent ID fallback', () => {

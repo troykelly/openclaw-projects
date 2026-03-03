@@ -706,4 +706,19 @@ describe('HA OAuth callback', () => {
 
     expect(screen.queryByTestId('ha-connected-banner')).not.toBeInTheDocument();
   });
+
+  it('shows error banner when ha_error param is present (#1993)', async () => {
+    renderSettingsPage('/settings?ha_error=notification_failed&ha_provider=019cac67-67c8-7210-931d-c2832307a245');
+    await waitForLoaded();
+
+    expect(screen.getByTestId('ha-error-banner')).toBeInTheDocument();
+    expect(screen.getByText(/credentials saved, but the connector was not notified/i)).toBeInTheDocument();
+  });
+
+  it('does not show error banner without ha_error param', async () => {
+    renderSettingsPage('/settings');
+    await waitForLoaded();
+
+    expect(screen.queryByTestId('ha-error-banner')).not.toBeInTheDocument();
+  });
 });

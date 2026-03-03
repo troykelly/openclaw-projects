@@ -168,7 +168,7 @@ function toAgentToolResult(result: ToolResult): AgentToolResult {
 /** Namespace property for store/create tools (Issue #1428) */
 const namespaceProperty: JSONSchemaProperty = {
   type: 'string',
-  description: 'Target namespace for this operation. Defaults to the agent\'s configured namespace.',
+  description: 'Target namespace for this operation. When omitted, defaults to the agent\'s own namespace (agent ID or "default").',
   pattern: '^[a-z0-9][a-z0-9._-]*$',
   maxLength: 63,
 };
@@ -176,7 +176,7 @@ const namespaceProperty: JSONSchemaProperty = {
 /** Namespaces property for query/list tools (Issue #1428) */
 const namespacesProperty: JSONSchemaProperty = {
   type: 'array',
-  description: 'Namespaces to search. Defaults to the agent\'s configured recall namespaces.',
+  description: 'Namespaces to search. When omitted, searches the agent\'s own namespace and the shared "default" namespace. Pass explicit namespaces to restrict or expand the search scope.',
   items: {
     type: 'string',
     pattern: '^[a-z0-9][a-z0-9._-]*$',

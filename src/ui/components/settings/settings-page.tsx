@@ -6,7 +6,7 @@
  * vertical list. Changes save immediately with visual confirmation.
  */
 
-import { Bell, CheckCircle, Clock, Eye, Info, Keyboard, Layout, Link2, MapPin, MessageSquare, Monitor, Moon, Radio, Smartphone, Sun, User, Webhook } from 'lucide-react';
+import { AlertTriangle, Bell, CheckCircle, Clock, Eye, Info, Keyboard, Layout, Link2, MapPin, MessageSquare, Monitor, Moon, Radio, Smartphone, Sun, User, Webhook } from 'lucide-react';
 import * as React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
@@ -501,6 +501,7 @@ export function SettingsPage() {
   const [activeSection, setActiveSection] = useState<SectionId>('profile');
   const [showSaveConfirmation, setShowSaveConfirmation] = useState(false);
   const [haConnectedBanner, setHaConnectedBanner] = useState(false);
+  const [haErrorBanner, setHaErrorBanner] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sectionRefs = useRef<Record<SectionId, HTMLDivElement | null>>({
     profile: null,
@@ -604,6 +605,27 @@ export function SettingsPage() {
 
     // Auto-dismiss after 6 seconds
     const timer = setTimeout(() => setHaConnectedBanner(false), 6000);
+    return () => clearTimeout(timer);
+  }, [searchParams, setSearchParams]);
+
+  // Handle ha_error query param from OAuth callback when pg_notify fails (#1993)
+  useEffect(() => {
+    const haError = searchParams.get('ha_error');
+    if (!haError) return;
+
+    setHaErrorBanner(true);
+    setActiveSection('location');
+    const el = sectionRefs.current.location;
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('ha_error');
+      next.delete('ha_provider');
+      return next;
+    }, { replace: true });
+
+    const timer = setTimeout(() => setHaErrorBanner(false), 10000);
     return () => clearTimeout(timer);
   }, [searchParams, setSearchParams]);
 
@@ -738,6 +760,15 @@ export function SettingsPage() {
                 >
                   <CheckCircle className="size-4 shrink-0" />
                   Home Assistant connected successfully. The connector will begin syncing location data shortly.
+                </div>
+              )}
+              {haErrorBanner && (
+                <div
+                  data-testid="ha-error-banner"
+                  className="mb-4 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200"
+                >
+                  <AlertTriangle className="size-4 shrink-0" />
+                  Home Assistant credentials saved, but the connector was not notified. Syncing may be delayed &mdash; try refreshing the provider status.
                 </div>
               )}
               <LocationSection
