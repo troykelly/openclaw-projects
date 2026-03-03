@@ -25,7 +25,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { Pool } from 'pg';
 import type { WebSocket } from 'ws';
 
-import { getAuthIdentity } from '../auth/middleware.ts';
+import { getAuthIdentity, resolveNamespaces } from '../auth/middleware.ts';
 import { isAuthDisabled, verifyAccessToken } from '../auth/jwt.ts';
 import {
   encryptCredential,
@@ -1302,6 +1302,15 @@ export async function terminalRoutesPlugin(
     if (!authenticated) {
       socket.close(4401, 'Authentication required');
       return;
+    }
+
+    // Issue #2077: WebSocket connections cannot set custom HTTP headers.
+    // The JWT arrives in ?token= query param, but the global preHandler
+    // namespace resolution hook only checks req.headers.authorization.
+    // Re-resolve namespaces now that we've confirmed the token is valid.
+    if (query.token && !req.namespaceContext) {
+      (req.headers as Record<string, string>).authorization = `Bearer ${query.token}`;
+      req.namespaceContext = await resolveNamespaces(req, pool);
     }
 
     // Verify session access
