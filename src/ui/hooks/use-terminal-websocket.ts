@@ -131,6 +131,13 @@ export function useTerminalWebSocket({
         return;
       }
 
+      // Fatal close codes from server — do not reconnect (Issue #2072)
+      // 4400 = bad request, 4401 = auth failure, 4404 = session not found
+      if (event.code >= 4400 && event.code < 4500) {
+        updateStatus('error');
+        return;
+      }
+
       updateStatus('disconnected');
 
       // Schedule reconnection with exponential backoff
