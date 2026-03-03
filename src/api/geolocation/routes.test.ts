@@ -571,4 +571,60 @@ describe('geolocation/routes', () => {
       expect(reply._statusCode).toBe(500);
     });
   });
+
+  describe('HA OAuth callback redirect URL construction (#1993)', () => {
+    // Tests the redirect URL logic extracted from the HA OAuth callback in server.ts.
+    // The callback builds the redirect URL based on whether pg_notify succeeded.
+
+    function buildRedirectUrl(
+      rawBase: string,
+      providerId: string,
+      notifyFailed: boolean,
+    ): string | { error: string } {
+      let parsedBase: URL;
+      try {
+        parsedBase = new URL(rawBase);
+      } catch {
+        return { error: 'Server misconfiguration: invalid PUBLIC_BASE_URL' };
+      }
+      if (parsedBase.protocol !== 'http:' && parsedBase.protocol !== 'https:') {
+        return { error: 'Server misconfiguration: PUBLIC_BASE_URL must use http or https' };
+      }
+      const settingsBase = `${parsedBase.origin}${parsedBase.pathname.replace(/\/+$/, '')}/app/settings`;
+      const encoded = encodeURIComponent(providerId);
+      return notifyFailed
+        ? `${settingsBase}?ha_error=notification_failed&ha_provider=${encoded}`
+        : `${settingsBase}?ha_connected=${encoded}`;
+    }
+
+    it('redirects with ha_connected on notify success', () => {
+      const url = buildRedirectUrl('https://app.example.com', '019cac67-67c8-7210-931d-c2832307a245', false);
+      expect(url).toBe('https://app.example.com/app/settings?ha_connected=019cac67-67c8-7210-931d-c2832307a245');
+    });
+
+    it('redirects with ha_error on notify failure', () => {
+      const url = buildRedirectUrl('https://app.example.com', '019cac67-67c8-7210-931d-c2832307a245', true);
+      expect(url).toBe('https://app.example.com/app/settings?ha_error=notification_failed&ha_provider=019cac67-67c8-7210-931d-c2832307a245');
+    });
+
+    it('URL-encodes the provider ID', () => {
+      const url = buildRedirectUrl('https://app.example.com', 'id/with special&chars', false);
+      expect(url).toBe('https://app.example.com/app/settings?ha_connected=id%2Fwith%20special%26chars');
+    });
+
+    it('rejects non-http(s) protocol', () => {
+      const result = buildRedirectUrl('ftp://evil.example.com', 'some-id', false);
+      expect(result).toEqual({ error: 'Server misconfiguration: PUBLIC_BASE_URL must use http or https' });
+    });
+
+    it('rejects invalid URL', () => {
+      const result = buildRedirectUrl('not-a-url', 'some-id', false);
+      expect(result).toEqual({ error: 'Server misconfiguration: invalid PUBLIC_BASE_URL' });
+    });
+
+    it('strips trailing slashes from base path', () => {
+      const url = buildRedirectUrl('https://app.example.com/base/', 'some-id', false);
+      expect(url).toBe('https://app.example.com/base/app/settings?ha_connected=some-id');
+    });
+  });
 });

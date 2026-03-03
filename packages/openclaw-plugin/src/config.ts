@@ -342,7 +342,8 @@ export function resolveNamespaceConfig(
   if (configNamespace?.default) {
     return {
       default: configNamespace.default,
-      recall: configNamespace.recall ?? [configNamespace.default],
+      recall: configNamespace.recall ??
+        (configNamespace.default === 'default' ? ['default'] : [configNamespace.default, 'default']),
     };
   }
 

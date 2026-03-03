@@ -14231,10 +14231,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         } catch {
           return reply.code(500).send({ error: 'Server misconfiguration: invalid PUBLIC_BASE_URL' });
         }
+        if (parsedBase.protocol !== 'http:' && parsedBase.protocol !== 'https:') {
+          return reply.code(500).send({ error: 'Server misconfiguration: PUBLIC_BASE_URL must use http or https' });
+        }
         const settingsBase = `${parsedBase.origin}${parsedBase.pathname.replace(/\/+$/, '')}/app/settings`;
+        const providerId = encodeURIComponent(stateData.geo_provider_id);
         const redirectUrl = notifyFailed
-          ? `${settingsBase}?ha_error=notification_failed&ha_provider=${stateData.geo_provider_id}`
-          : `${settingsBase}?ha_connected=${stateData.geo_provider_id}`;
+          ? `${settingsBase}?ha_error=notification_failed&ha_provider=${providerId}`
+          : `${settingsBase}?ha_connected=${providerId}`;
         return reply.redirect(redirectUrl);
       }
 

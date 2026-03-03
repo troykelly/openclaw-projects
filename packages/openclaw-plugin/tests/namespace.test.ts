@@ -27,13 +27,13 @@ describe('Namespace Configuration (Issue #1428)', () => {
       expect(result.recall).toEqual(['arthouse', 'shared']);
     });
 
-    it('should default recall to [default] when recall not specified', () => {
+    it('should default recall to [custom, default] when recall not specified', () => {
       const result = resolveNamespaceConfig(
         { default: 'arthouse' },
         'some-agent',
       );
       expect(result.default).toBe('arthouse');
-      expect(result.recall).toEqual(['arthouse']);
+      expect(result.recall).toEqual(['arthouse', 'default']);
     });
 
     it('should fall back to agent ID as namespace when no config, including default', () => {
