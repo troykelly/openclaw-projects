@@ -10,9 +10,9 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { registerOpenClaw, schemas } from '../src/register-openclaw.js';
 import type {
   OpenClawPluginAPI,
-  PluginHookBeforeAgentStartEvent,
+  PluginHookBeforePromptBuildEvent,
   PluginHookAgentContext,
-  PluginHookBeforeAgentStartResult,
+  PluginHookBeforePromptBuildResult,
 } from '../src/types/openclaw-api.js';
 import { createGraphAwareRecallHook } from '../src/hooks.js';
 import type { ApiClient } from '../src/api-client.js';
@@ -278,14 +278,14 @@ describe('Graph-Aware Integration', () => {
 
         await registerOpenClaw(mockApi);
 
-        const beforeAgentStartHook = registeredOnHooks.get('before_agent_start') as (
-          event: PluginHookBeforeAgentStartEvent,
+        const beforePromptBuildHook = registeredOnHooks.get('before_prompt_build') as (
+          event: PluginHookBeforePromptBuildEvent,
           ctx: PluginHookAgentContext,
-        ) => Promise<PluginHookBeforeAgentStartResult | undefined>;
+        ) => Promise<PluginHookBeforePromptBuildResult | undefined>;
 
-        expect(beforeAgentStartHook).toBeDefined();
+        expect(beforePromptBuildHook).toBeDefined();
 
-        const result = await beforeAgentStartHook({ prompt: 'What food do I prefer?' }, { agentId: 'agent-1', sessionKey: 'session-1' });
+        const result = await beforePromptBuildHook({ prompt: 'What food do I prefer?' }, { agentId: 'agent-1', sessionKey: 'session-1' });
 
         // Should have called the graph-aware endpoint
         const graphAwareCalls = fetchCalls.filter((c) => c.url.includes('/context/graph-aware') && c.method === 'POST');
@@ -397,10 +397,10 @@ describe('Graph-Aware Integration', () => {
 
         await registerOpenClaw(mockApi);
 
-        const hook = registeredOnHooks.get('before_agent_start') as (
-          event: PluginHookBeforeAgentStartEvent,
+        const hook = registeredOnHooks.get('before_prompt_build') as (
+          event: PluginHookBeforePromptBuildEvent,
           ctx: PluginHookAgentContext,
-        ) => Promise<PluginHookBeforeAgentStartResult | undefined>;
+        ) => Promise<PluginHookBeforePromptBuildResult | undefined>;
 
         const result = await hook({ prompt: 'When is my anniversary and what food should I get?' }, { agentId: 'agent-1', sessionKey: 'session-1' });
 

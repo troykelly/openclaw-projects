@@ -5056,6 +5056,15 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
   /** Default timeout for hook execution (5 seconds) */
   const HOOK_TIMEOUT_MS = 5000;
 
+  // Track whether before_prompt_build was successfully registered (#2050 review fix #5).
+  // If it was, we skip registering before_agent_start for auto-recall to avoid
+  // duplicate context injection. Only ONE recall hook should inject context.
+  let beforePromptBuildRegistered = false;
+
+  // The before_agent_start recall handler is built here but registration is
+  // deferred until we know whether before_prompt_build is available. (#2050 review fix #5)
+  let beforeAgentStartRecallHandler: ((event: PluginHookBeforeAgentStartEvent, ctx: PluginHookAgentContext) => Promise<PluginHookBeforeAgentStartResult | undefined>) | undefined;
+
   if (config.autoRecall) {
     // Create the graph-aware auto-recall hook which traverses the user's
     // relationship graph for multi-scope context retrieval.
@@ -5072,8 +5081,12 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
      * before_agent_start handler: Extracts the user's prompt from the event,
      * performs semantic memory search, and returns { prependContext } to inject
      * relevant memories into the conversation.
+     *
+     * Only registered when before_prompt_build is NOT available (review fix #5).
+     * The before_prompt_build hook supersedes this one because it has access to
+     * session messages for richer context analysis.
      */
-    const beforeAgentStartHandler = async (
+    beforeAgentStartRecallHandler = async (
       event: PluginHookBeforeAgentStartEvent,
       ctx: PluginHookAgentContext,
     ): Promise<PluginHookBeforeAgentStartResult | undefined> => {
@@ -5122,15 +5135,8 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
       // Return undefined (void) when no context is available
     };
 
-    if (typeof api.on === 'function') {
-      // Modern registration: api.on('before_agent_start', handler)
-      // Handler signature matches PluginHookHandlerMap['before_agent_start'] directly (#2032)
-      api.on('before_agent_start', beforeAgentStartHandler);
-    } else {
-      // Legacy fallback: api.registerHook('before_agent_start', handler)
-      // Uses snake_case to match SDK convention (#2044)
-      api.registerHook('before_agent_start', beforeAgentStartHandler as (event: unknown) => Promise<unknown>);
-    }
+    // NOTE: Registration deferred until after before_prompt_build attempt.
+    // See "Register before_agent_start fallback" block below. (#2050 review fix #5)
   }
 
   if (config.autoCapture) {
@@ -5164,41 +5170,47 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
         success: event.success,
       });
 
-      try {
-        // Convert the event messages to the format expected by the capture hook
-        const messages = (event.messages ?? []).map((msg) => {
-          if (typeof msg === 'object' && msg !== null) {
-            const msgObj = msg as Record<string, unknown>;
-            return {
-              role: String(msgObj.role ?? 'unknown'),
-              content: String(msgObj.content ?? ''),
-            };
-          }
-          return { role: 'unknown', content: String(msg) };
-        });
+      // #2052 review fix #4: Check dedup before capturing (bidirectional dedup)
+      const sessionId = ctx.sessionId ?? ctx.sessionKey;
+      if (sessionId && state.sessionCapturedKeys.has(sessionId)) {
+        logger.debug('agent_end: session already captured by before_reset, skipping', { sessionId });
+      } else {
+        try {
+          // Convert the event messages to the format expected by the capture hook
+          const messages = (event.messages ?? []).map((msg) => {
+            if (typeof msg === 'object' && msg !== null) {
+              const msgObj = msg as Record<string, unknown>;
+              return {
+                role: String(msgObj.role ?? 'unknown'),
+                content: String(msgObj.content ?? ''),
+              };
+            }
+            return { role: 'unknown', content: String(msg) };
+          });
 
-        await autoCaptureHook({ messages });
-      } catch (error) {
-        // Hook errors should never crash the agent
-        logger.error('Auto-capture hook failed', {
-          error: error instanceof Error ? error.message : String(error),
-        });
+          await autoCaptureHook({ messages });
+
+          // #2052 review fix #2: Only mark as captured on SUCCESS, not on failure
+          if (sessionId) {
+            state.sessionCapturedKeys.add(sessionId);
+            if (state.sessionCapturedKeys.size > 100) {
+              const firstKey = state.sessionCapturedKeys.values().next().value;
+              if (firstKey !== undefined) {
+                state.sessionCapturedKeys.delete(firstKey);
+              }
+            }
+          }
+        } catch (error) {
+          // Hook errors should never crash the agent
+          // #2052 review fix #2: Do NOT mark as captured — allow before_reset to retry
+          logger.error('Auto-capture hook failed', {
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
       }
 
       // Issue #1655: Clear session key after agent ends
       state.activeSessionKey = undefined;
-
-      // #2052: Mark session as captured for deduplication with before_reset
-      const sessionId = ctx.sessionId ?? ctx.sessionKey;
-      if (sessionId) {
-        state.sessionCapturedKeys.add(sessionId);
-        if (state.sessionCapturedKeys.size > 100) {
-          const firstKey = state.sessionCapturedKeys.values().next().value;
-          if (firstKey !== undefined) {
-            state.sessionCapturedKeys.delete(firstKey);
-          }
-        }
-      }
     };
 
     if (typeof api.on === 'function') {
@@ -5364,15 +5376,27 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
       }
     };
 
-    // Register before_prompt_build — if the SDK supports it, this will
-    // supersede the before_agent_start auto-recall for richer context
+    // Register before_prompt_build — if the SDK supports it, this supersedes
+    // before_agent_start for recall (review fix #5: only ONE injects context)
     try {
       api.on('before_prompt_build', beforePromptBuildHandler);
+      beforePromptBuildRegistered = true;
       logger.debug('Registered before_prompt_build hook for enhanced auto-recall (#2050)');
     } catch {
       // Graceful fallback: older SDK may not support this hook name
       logger.debug('before_prompt_build hook not available — auto-recall uses before_agent_start only');
     }
+  }
+
+  // Register before_agent_start ONLY if before_prompt_build was NOT registered (#2050 review fix #5).
+  // This prevents duplicate context injection — only one recall hook should run.
+  if (config.autoRecall && !beforePromptBuildRegistered && beforeAgentStartRecallHandler) {
+    if (typeof api.on === 'function') {
+      api.on('before_agent_start', beforeAgentStartRecallHandler);
+    } else {
+      api.registerHook('before_agent_start', beforeAgentStartRecallHandler as (event: unknown) => Promise<unknown>);
+    }
+    logger.debug('Registered before_agent_start hook for auto-recall (before_prompt_build not available)');
   }
 
   // ── #2051: Register llm_input/llm_output hooks for token usage analytics ──
@@ -5548,7 +5572,15 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
       });
 
       // Backwards compatible: undefined senderIsOwner is treated as owner
-      if (senderIsOwner === undefined || senderIsOwner === true) return;
+      // Review fix #3: log warning when trust signal is missing so operators know
+      if (senderIsOwner === undefined) {
+        logger.warn('Owner-gated tool invoked without senderIsOwner trust signal — defaulting to allow', {
+          toolName,
+          requesterSenderId,
+        });
+        return;
+      }
+      if (senderIsOwner === true) return;
 
       // Non-owner: block with clear error message
       logger.warn('Owner-gated tool blocked for non-owner', {
@@ -5570,6 +5602,17 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
       } catch {
         logger.debug('before_tool_call hook not available in this SDK version');
       }
+    } else if (typeof api.registerHook === 'function') {
+      // Review fix #6: Legacy fallback for older SDKs without api.on
+      try {
+        api.registerHook('before_tool_call', beforeToolCallHandler as (event: unknown) => Promise<unknown>);
+        logger.debug('Registered before_tool_call hook via legacy registerHook for owner-gated access (#2053)');
+      } catch {
+        logger.warn('Owner-gated tool access not available — destructive tools are ungated on this SDK version (#2053)');
+      }
+    } else {
+      // Review fix #6: No hook mechanism available at all
+      logger.warn('Neither api.on nor api.registerHook available — destructive tools are ungated (#2053)');
     }
   }
 
@@ -5602,6 +5645,23 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
         requireAuth: true,
         handler: async (args: { input: string; context?: Record<string, unknown> }): Promise<CommandReplyPayload> => {
           try {
+            // Review fix #1: Enforce owner-gating parity with tool gating.
+            // The before_tool_call hook only gates tool invocations, not commands.
+            // We must check senderIsOwner here as well.
+            const ctx = args.context ?? {};
+            const senderIsOwner = ctx.senderIsOwner;
+            if (senderIsOwner === false) {
+              const senderId = typeof ctx.requesterSenderId === 'string' ? ctx.requesterSenderId : 'unknown';
+              logger.warn('Owner-gated /forget command blocked for non-owner', { requesterSenderId: senderId });
+              return {
+                text: `Access denied: /forget requires owner-level access. Current sender (${senderId}) is not the owner.`,
+                success: false,
+              };
+            }
+            if (senderIsOwner === undefined) {
+              logger.warn('/forget command invoked without senderIsOwner trust signal — defaulting to allow');
+            }
+
             // Determine if input is a UUID (memory_id) or a search query
             const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(args.input.trim());
             const params = isUuid ? { memory_id: args.input.trim() } : { query: args.input };

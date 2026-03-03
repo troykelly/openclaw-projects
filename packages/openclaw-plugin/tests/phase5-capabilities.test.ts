@@ -877,13 +877,15 @@ describe('Phase 5: SDK Capability Implementations', () => {
     it('should register all new hooks alongside existing hooks', () => {
       registerOpenClaw(mockApi);
 
-      // Existing hooks
-      expect(registeredOnHooks.has('before_agent_start')).toBe(true);
+      // Existing hooks (review fix #5: before_prompt_build supersedes before_agent_start)
+      expect(registeredOnHooks.has('before_prompt_build')).toBe(true);
       expect(registeredOnHooks.has('agent_end')).toBe(true);
       expect(registeredOnHooks.has('message_received')).toBe(true);
 
+      // before_agent_start is NOT registered when before_prompt_build succeeds
+      expect(registeredOnHooks.has('before_agent_start')).toBe(false);
+
       // New Phase 5 hooks
-      expect(registeredOnHooks.has('before_prompt_build')).toBe(true);
       expect(registeredOnHooks.has('llm_input')).toBe(true);
       expect(registeredOnHooks.has('llm_output')).toBe(true);
       expect(registeredOnHooks.has('before_reset')).toBe(true);
@@ -912,6 +914,187 @@ describe('Phase 5: SDK Capability Implementations', () => {
       } finally {
         globalThis.fetch = originalFetch;
       }
+    });
+  });
+
+  // ── Review test gaps ──────────────────────────────────────────────────
+
+  describe('Review test gaps', () => {
+    it('/forget command should enforce owner-authorization parity with tool gating', async () => {
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ deleted: true }),
+      }) as unknown as typeof fetch;
+
+      try {
+        registerOpenClaw(mockApi);
+
+        const forgetCmd = registeredCommands.find((c) => c.name === 'forget');
+        const handler = forgetCmd?.handler as (args: { input: string; context?: Record<string, unknown> }) => Promise<CommandReplyPayload>;
+
+        // Non-owner should be blocked
+        const blockedResult = await handler({
+          input: 'old memory',
+          context: { senderIsOwner: false, requesterSenderId: 'non-owner-user' },
+        });
+        expect(blockedResult.success).toBe(false);
+        expect(blockedResult.text).toContain('Access denied');
+
+        // Owner should be allowed
+        const allowedResult = await handler({
+          input: 'old memory',
+          context: { senderIsOwner: true, requesterSenderId: 'owner-user' },
+        });
+        expect(allowedResult.success).toBe(true);
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+
+    it('dedup should work when before_reset runs BEFORE agent_end', async () => {
+      const fetchCalls: string[] = [];
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = vi.fn().mockImplementation(async (url: string) => {
+        fetchCalls.push(url);
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ captured: 1, memories: [] }),
+        };
+      }) as unknown as typeof fetch;
+
+      try {
+        registerOpenClaw(mockApi);
+
+        // First trigger before_reset
+        const beforeResetHandler = registeredOnHooks.get('before_reset') as Function;
+        await beforeResetHandler(
+          {
+            sessionId: 'session-order-test',
+            messages: [{ role: 'user', content: 'hello' }],
+          },
+          { agentId: 'agent-1', sessionKey: 'session-order-test', sessionId: 'session-order-test' },
+        );
+
+        // Count capture calls so far
+        const captureCallsBefore = fetchCalls.filter((url) => url.includes('/context/capture')).length;
+
+        // Now trigger agent_end for the same session
+        const agentEndHandler = registeredOnHooks.get('agent_end') as Function;
+        await agentEndHandler(
+          { messages: [{ role: 'user', content: 'hello' }], success: true },
+          { agentId: 'agent-1', sessionKey: 'session-order-test', sessionId: 'session-order-test' },
+        );
+
+        // Should NOT have made another capture call (dedup)
+        const captureCallsAfter = fetchCalls.filter((url) => url.includes('/context/capture')).length;
+        expect(captureCallsAfter).toBe(captureCallsBefore);
+
+        // Verify dedup log
+        expect(mockApi.logger.debug).toHaveBeenCalledWith(
+          'agent_end: session already captured by before_reset, skipping',
+          expect.objectContaining({ sessionId: 'session-order-test' }),
+        );
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+
+    it('dedup should NOT mark session as captured when agent_end capture fails', { timeout: 15000 }, async () => {
+      let captureCallCount = 0;
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = vi.fn().mockImplementation(async (url: string) => {
+        if (url.includes('/context/capture')) {
+          captureCallCount++;
+          if (captureCallCount === 1) {
+            // First capture (from agent_end) fails
+            throw new Error('Capture API down');
+          }
+          // Second capture (from before_reset) succeeds
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({ captured: 1 }),
+          };
+        }
+        // Other calls (graph-aware, memories/search) return empty
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ memories: [], context: null, metadata: {} }),
+        };
+      }) as unknown as typeof fetch;
+
+      try {
+        registerOpenClaw(mockApi);
+
+        // Trigger agent_end — capture fails
+        const agentEndHandler = registeredOnHooks.get('agent_end') as Function;
+        await agentEndHandler(
+          { messages: [{ role: 'user', content: 'test' }], success: true },
+          { agentId: 'agent-1', sessionKey: 'session-fail-test', sessionId: 'session-fail-test' },
+        );
+
+        // Now trigger before_reset — should NOT be skipped because agent_end failed
+        const beforeResetHandler = registeredOnHooks.get('before_reset') as Function;
+        await beforeResetHandler(
+          {
+            sessionId: 'session-fail-test',
+            messages: [{ role: 'user', content: 'test' }],
+          },
+          { agentId: 'agent-1', sessionKey: 'session-fail-test', sessionId: 'session-fail-test' },
+        );
+
+        // before_reset should have attempted capture (not deduped)
+        expect(captureCallCount).toBe(2);
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+
+    it('only ONE of before_prompt_build/before_agent_start should be registered (not both)', () => {
+      registerOpenClaw(mockApi);
+
+      // When api.on is available, only before_prompt_build is registered
+      expect(registeredOnHooks.has('before_prompt_build')).toBe(true);
+      expect(registeredOnHooks.has('before_agent_start')).toBe(false);
+
+      // Neither should be in legacy hooks
+      expect(registeredHooks.has('before_agent_start')).toBe(false);
+    });
+
+    it('legacy SDK path: owner gating should use registerHook when api.on is missing', () => {
+      const legacyApi = { ...mockApi };
+      delete (legacyApi as Record<string, unknown>).on;
+
+      registerOpenClaw(legacyApi);
+
+      // Should have registered via legacy registerHook
+      expect(registeredHooks.has('before_tool_call')).toBe(true);
+    });
+
+    it('owner gate should warn when senderIsOwner is undefined', async () => {
+      registerOpenClaw(mockApi);
+
+      const handler = registeredOnHooks.get('before_tool_call') as (
+        event: Record<string, unknown>,
+        ctx: Record<string, unknown>,
+      ) => Promise<Record<string, unknown> | void>;
+
+      await handler(
+        { toolName: 'memory_forget' },
+        { requesterSenderId: 'user-no-owner-flag' },
+      );
+
+      expect(mockApi.logger.warn).toHaveBeenCalledWith(
+        'Owner-gated tool invoked without senderIsOwner trust signal — defaulting to allow',
+        expect.objectContaining({
+          toolName: 'memory_forget',
+          requesterSenderId: 'user-no-owner-flag',
+        }),
+      );
     });
   });
 });
