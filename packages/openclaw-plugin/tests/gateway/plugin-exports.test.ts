@@ -1,6 +1,10 @@
 /**
  * Gateway Integration Tests: Plugin Exports
  * Tests that the plugin exports the expected structure.
+ *
+ * This test does NOT require the gateway source at .local/openclaw-gateway —
+ * it imports from the built dist/ output and the shared setup.ts constants.
+ * It always runs, including in CI (requires `pnpm run build` first). (#2043)
  */
 
 import { describe, it, expect } from 'vitest';
