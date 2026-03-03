@@ -191,7 +191,13 @@ export async function resolveUserEmail(
   }
 
   if (identity.type === 'm2m') {
-    return requestedEmail?.trim() || null;
+    // Issue #2068: fall back to X-User-Email header when no explicit
+    // requestedEmail param is provided (e.g. notification polling).
+    const fromParam = requestedEmail?.trim() || null;
+    if (fromParam) return fromParam;
+    const headerVal = req.headers['x-user-email'];
+    const fromHeader = typeof headerVal === 'string' ? headerVal.trim() : null;
+    return fromHeader || null;
   }
 
   // User tokens: always use the authenticated identity's email

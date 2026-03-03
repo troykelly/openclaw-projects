@@ -5757,6 +5757,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     logger,
     apiClient,
     getAgentId: () => state.agentId,
+    getAgentEmail: () => state.agentEmail,
     events: eventEmitter,
     config: {
       enabled: config.autoRecall, // Only enable if auto-recall is enabled

@@ -361,5 +361,48 @@ describe('JWT auth middleware', () => {
 
       expect(result).toBe('alice@example.com');
     });
+
+    // Issue #2068: M2M tokens should fall back to X-User-Email header when
+    // no requestedEmail parameter is provided (e.g. notification polling).
+    it('should fall back to X-User-Email header for M2M tokens when requestedEmail is undefined', async () => {
+      const { signAccessToken } = await loadJwt();
+      const token = await signAccessToken('gateway-service', { type: 'm2m' });
+      const { resolveUserEmail } = await loadMiddleware();
+
+      const result = await resolveUserEmail(
+        fakeRequest({ authorization: `Bearer ${token}`, 'x-user-email': 'agent@example.com' }),
+        undefined,
+      );
+
+      expect(result).toBe('agent@example.com');
+    });
+
+    it('should prefer requestedEmail over X-User-Email header for M2M tokens', async () => {
+      const { signAccessToken } = await loadJwt();
+      const token = await signAccessToken('gateway-service', { type: 'm2m' });
+      const { resolveUserEmail } = await loadMiddleware();
+
+      const result = await resolveUserEmail(
+        fakeRequest({ authorization: `Bearer ${token}`, 'x-user-email': 'header@example.com' }),
+        'param@example.com',
+      );
+
+      // Explicit requestedEmail takes precedence over header
+      expect(result).toBe('param@example.com');
+    });
+
+    it('should ignore X-User-Email header for user tokens (principal binding takes priority)', async () => {
+      const { signAccessToken } = await loadJwt();
+      const token = await signAccessToken('alice@example.com');
+      const { resolveUserEmail } = await loadMiddleware();
+
+      const result = await resolveUserEmail(
+        fakeRequest({ authorization: `Bearer ${token}`, 'x-user-email': 'attacker@example.com' }),
+        undefined,
+      );
+
+      // User tokens always use the JWT identity, never X-User-Email
+      expect(result).toBe('alice@example.com');
+    });
   });
 });

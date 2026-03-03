@@ -278,6 +278,86 @@ describe('Notification Service', () => {
     }
   });
 
+  // Issue #2068: Notification poll must send user_email for M2M auth
+  describe('User Email Propagation (#2068)', () => {
+    it('should pass user_email in request options when getAgentEmail is provided', async () => {
+      (mockApiClient.get as ReturnType<typeof vi.fn>).mockResolvedValue({
+        success: true,
+        data: { notifications: [], total: 0 },
+      });
+
+      const service = createNotificationService({
+        logger: mockLogger,
+        apiClient: mockApiClient,
+        getAgentId: () => 'agent-123',
+        getAgentEmail: () => 'agent@example.com',
+        events: mockEmitter,
+        config: { enabled: true, pollIntervalMs: 5000 },
+      });
+
+      await service.start();
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(mockApiClient.get).toHaveBeenCalledTimes(1);
+      const [url, opts] = (mockApiClient.get as ReturnType<typeof vi.fn>).mock.calls[0];
+      // user_email should be in the query params
+      expect(url).toContain('user_email=agent%40example.com');
+      // user_email should also be in request options (maps to X-User-Email header)
+      expect(opts).toEqual(expect.objectContaining({
+        user_id: 'agent-123',
+        user_email: 'agent@example.com',
+      }));
+    });
+
+    it('should omit user_email when getAgentEmail returns undefined', async () => {
+      (mockApiClient.get as ReturnType<typeof vi.fn>).mockResolvedValue({
+        success: true,
+        data: { notifications: [], total: 0 },
+      });
+
+      const service = createNotificationService({
+        logger: mockLogger,
+        apiClient: mockApiClient,
+        getAgentId: () => 'agent-123',
+        getAgentEmail: () => undefined,
+        events: mockEmitter,
+        config: { enabled: true, pollIntervalMs: 5000 },
+      });
+
+      await service.start();
+      await vi.advanceTimersByTimeAsync(0);
+
+      const [url, opts] = (mockApiClient.get as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(url).not.toContain('user_email');
+      expect(opts.user_email).toBeUndefined();
+    });
+
+    it('should work without getAgentEmail for backward compatibility', async () => {
+      (mockApiClient.get as ReturnType<typeof vi.fn>).mockResolvedValue({
+        success: true,
+        data: { notifications: [], total: 0 },
+      });
+
+      // No getAgentEmail provided — simulates older callers
+      const service = createNotificationService({
+        logger: mockLogger,
+        apiClient: mockApiClient,
+        getAgentId: () => 'agent-123',
+        events: mockEmitter,
+        config: { enabled: true, pollIntervalMs: 5000 },
+      });
+
+      await service.start();
+      await vi.advanceTimersByTimeAsync(0);
+
+      // Should still poll without error
+      expect(mockApiClient.get).toHaveBeenCalledTimes(1);
+      const [url, opts] = (mockApiClient.get as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(url).not.toContain('user_email');
+      expect(opts.user_email).toBeUndefined();
+    });
+  });
+
   describe('Service State', () => {
     it('should track running state', async () => {
       const service = createNotificationService({

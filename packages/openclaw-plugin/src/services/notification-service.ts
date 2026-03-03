@@ -40,6 +40,8 @@ export interface NotificationServiceOptions {
   apiClient: ApiClient;
   /** Getter for current user ID (reads from mutable state, Issue #1644) */
   getAgentId: () => string;
+  /** Getter for current agent email for M2M identity resolution (Issue #2068) */
+  getAgentEmail?: () => string | undefined;
   /** Event emitter for notifications */
   events: NotificationServiceEvents;
   /** Service configuration */
@@ -80,7 +82,7 @@ const EVENT_MAP: Record<NotificationEvent, string> = {
  * @returns Service definition for registration
  */
 export function createNotificationService(options: NotificationServiceOptions): NotificationService {
-  const { logger, apiClient, getAgentId, events, config: userConfig } = options;
+  const { logger, apiClient, getAgentId, getAgentEmail, events, config: userConfig } = options;
   const config = { ...DEFAULT_CONFIG, ...userConfig };
 
   // Service state
@@ -117,6 +119,7 @@ export function createNotificationService(options: NotificationServiceOptions): 
    */
   async function poll(): Promise<void> {
     const user_id = getAgentId();
+    const user_email = getAgentEmail?.();
     try {
       const queryParams = new URLSearchParams();
       queryParams.set('limit', '20');
@@ -125,11 +128,22 @@ export function createNotificationService(options: NotificationServiceOptions): 
         // only notifications created after this ID, providing cursor-based pagination.
         queryParams.set('since', lastSeenId);
       }
+      // Issue #2068: M2M tokens require user_email for resolveUserEmail() to bind
+      // the request to a specific user. Send in both query params (server reads from
+      // query) and request options (maps to X-User-Email header as defense-in-depth).
+      if (user_email) {
+        queryParams.set('user_email', user_email);
+      }
+
+      const reqOpts: { user_id: string; user_email?: string } = { user_id };
+      if (user_email) {
+        reqOpts.user_email = user_email;
+      }
 
       const response = await apiClient.get<{
         notifications: Notification[];
         total: number;
-      }>(`/notifications?${queryParams}`, { user_id });
+      }>(`/notifications?${queryParams}`, reqOpts);
 
       if (!response.success) {
         logger.error('Notification poll failed', {
