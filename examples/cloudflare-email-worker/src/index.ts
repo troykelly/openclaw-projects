@@ -278,9 +278,58 @@ export async function postWebhook(
 }
 
 /**
+ * Strip CR and LF characters from a header value to prevent MIME header injection.
+ * A malicious subject like "Foo\r\nBcc: evil@attacker.com" would otherwise inject headers.
+ */
+export function sanitizeHeaderValue(value: string): string {
+  return value.replace(/[\r\n]/g, "");
+}
+
+/**
+ * Check whether an email address belongs to an automated sender.
+ * Auto-replies to these addresses risk creating infinite mail loops.
+ */
+export function isAutomatedSender(address: string): boolean {
+  const lower = address.toLowerCase();
+  const automatedPrefixes = [
+    "noreply@",
+    "no-reply@",
+    "mailer-daemon@",
+    "postmaster@",
+    "auto-",
+    "bounce",
+  ];
+  return automatedPrefixes.some((prefix) => lower.startsWith(prefix));
+}
+
+/**
+ * Check whether an email's headers indicate it is an automated message.
+ * RFC 3834 Auto-Submitted header and Precedence header are checked.
+ */
+export function hasAutoSubmittedHeader(
+  headers: ForwardableEmailMessage["headers"],
+): boolean {
+  const autoSubmitted = headers.get("Auto-Submitted");
+  if (autoSubmitted && autoSubmitted.toLowerCase() !== "no") {
+    return true;
+  }
+  const precedence = headers.get("Precedence");
+  if (
+    precedence &&
+    ["bulk", "junk", "list", "auto_reply"].includes(precedence.toLowerCase())
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/**
  * Build a minimal RFC 5322 MIME message for use with message.reply().
  *
- * The reply includes In-Reply-To and References headers for proper threading.
+ * The reply includes In-Reply-To and References headers for proper threading,
+ * plus Auto-Submitted and Precedence headers to prevent mail loops (RFC 3834).
+ *
+ * All header values are sanitized to prevent MIME header injection.
  */
 export function buildReplyMime(
   from: string,
@@ -297,16 +346,19 @@ export function buildReplyMime(
     : "text/plain; charset=utf-8";
 
   const lines: string[] = [
-    `From: ${from}`,
-    `To: ${to}`,
-    `Subject: ${subject}`,
+    `From: ${sanitizeHeaderValue(from)}`,
+    `To: ${sanitizeHeaderValue(to)}`,
+    `Subject: ${sanitizeHeaderValue(subject)}`,
     `MIME-Version: 1.0`,
     `Date: ${new Date().toUTCString()}`,
+    `Auto-Submitted: auto-replied`,
+    `Precedence: bulk`,
   ];
 
   if (inReplyToMessageId) {
-    lines.push(`In-Reply-To: ${inReplyToMessageId}`);
-    lines.push(`References: ${inReplyToMessageId}`);
+    const safeMessageId = sanitizeHeaderValue(inReplyToMessageId);
+    lines.push(`In-Reply-To: ${safeMessageId}`);
+    lines.push(`References: ${safeMessageId}`);
   }
 
   lines.push(`Content-Type: ${contentType}`);
@@ -466,26 +518,37 @@ export default {
 
     // -----------------------------------------------------------------------
     // 7. Auto-reply if the API included one (#2062)
+    //    Skip for automated senders to prevent mail loops (RFC 3834, #2065)
     // -----------------------------------------------------------------------
     if (webhookResult?.auto_reply) {
-      try {
-        const { auto_reply } = webhookResult;
-        const replyMime = buildReplyMime(
-          message.to,     // Reply from the receiving address
-          message.from,   // Reply to the original sender
-          auto_reply.subject,
-          auto_reply.text_body,
-          auto_reply.html_body,
-          message.headers.get("Message-ID") ?? undefined,
+      const skipAutoReply =
+        isAutomatedSender(message.from) ||
+        hasAutoSubmittedHeader(message.headers);
+
+      if (skipAutoReply) {
+        console.log(
+          `${logPrefix} Skipping auto-reply: sender is automated`,
         );
-        // EmailMessage is a Workers-only runtime class from cloudflare:email
-        const { EmailMessage } = await import("cloudflare:email");
-        const replyMessage = new EmailMessage(message.to, message.from, replyMime);
-        await message.reply(replyMessage);
-        console.log(`${logPrefix} Auto-reply sent`);
-      } catch (replyErr) {
-        // Reply failures are non-fatal (DMARC check may fail, etc.)
-        console.warn(`${logPrefix} Auto-reply failed: ${replyErr}`);
+      } else {
+        try {
+          const { auto_reply } = webhookResult;
+          const replyMime = buildReplyMime(
+            message.to,     // Reply from the receiving address
+            message.from,   // Reply to the original sender
+            auto_reply.subject,
+            auto_reply.text_body,
+            auto_reply.html_body,
+            message.headers.get("Message-ID") ?? undefined,
+          );
+          // EmailMessage is a Workers-only runtime class from cloudflare:email
+          const { EmailMessage } = await import("cloudflare:email");
+          const replyMessage = new EmailMessage(message.to, message.from, replyMime);
+          await message.reply(replyMessage);
+          console.log(`${logPrefix} Auto-reply sent`);
+        } catch (replyErr) {
+          // Reply failures are non-fatal (DMARC check may fail, etc.)
+          console.warn(`${logPrefix} Auto-reply failed: ${replyErr}`);
+        }
       }
     }
 

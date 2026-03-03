@@ -6,6 +6,9 @@ import {
   extractHeaders,
   buildPayload,
   buildReplyMime,
+  sanitizeHeaderValue,
+  isAutomatedSender,
+  hasAutoSubmittedHeader,
   postWebhook,
   DEFAULT_MAX_RAW_BYTES,
   WEBHOOK_PATH,
@@ -629,7 +632,7 @@ describe("webhook response triage", () => {
     const response: WebhookResponse = {
       success: true,
       action: "reject",
-      reject_reason: "No agent configured for support@myapp.com",
+      reject_reason: "No agent configured for this address",
       receipt_id: "m1",
       contact_id: "c1",
       thread_id: "t1",
@@ -656,5 +659,122 @@ describe("webhook response triage", () => {
     expect(response.action).toBe("accept");
     expect(response.auto_reply?.subject).toBe("Re: Your inquiry");
     expect(response.auto_reply?.text_body).toContain("received");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Security hardening (#2065)
+// ---------------------------------------------------------------------------
+
+describe("sanitizeHeaderValue", () => {
+  it("strips CR and LF from header values", () => {
+    expect(sanitizeHeaderValue("Normal Subject")).toBe("Normal Subject");
+    expect(sanitizeHeaderValue("Evil\r\nBcc: attacker@evil.com")).toBe(
+      "EvilBcc: attacker@evil.com",
+    );
+    expect(sanitizeHeaderValue("Has\nnewline")).toBe("Hasnewline");
+    expect(sanitizeHeaderValue("Has\rreturn")).toBe("Hasreturn");
+  });
+
+  it("handles empty strings", () => {
+    expect(sanitizeHeaderValue("")).toBe("");
+  });
+});
+
+describe("isAutomatedSender", () => {
+  it("detects common automated sender prefixes", () => {
+    expect(isAutomatedSender("noreply@example.com")).toBe(true);
+    expect(isAutomatedSender("no-reply@example.com")).toBe(true);
+    expect(isAutomatedSender("NOREPLY@EXAMPLE.COM")).toBe(true);
+    expect(isAutomatedSender("mailer-daemon@example.com")).toBe(true);
+    expect(isAutomatedSender("postmaster@example.com")).toBe(true);
+    expect(isAutomatedSender("auto-confirm@example.com")).toBe(true);
+    expect(isAutomatedSender("bounce+abc@example.com")).toBe(true);
+  });
+
+  it("allows normal senders", () => {
+    expect(isAutomatedSender("alice@example.com")).toBe(false);
+    expect(isAutomatedSender("support@example.com")).toBe(false);
+    expect(isAutomatedSender("reply@example.com")).toBe(false);
+  });
+});
+
+describe("hasAutoSubmittedHeader", () => {
+  function makeHeaders(map: Record<string, string>): ForwardableEmailMessage["headers"] {
+    return {
+      get(key: string) {
+        return map[key.toLowerCase()] ?? null;
+      },
+    } as ForwardableEmailMessage["headers"];
+  }
+
+  it("detects Auto-Submitted header", () => {
+    expect(hasAutoSubmittedHeader(makeHeaders({ "auto-submitted": "auto-replied" }))).toBe(true);
+    expect(hasAutoSubmittedHeader(makeHeaders({ "auto-submitted": "auto-generated" }))).toBe(true);
+  });
+
+  it("allows Auto-Submitted: no", () => {
+    expect(hasAutoSubmittedHeader(makeHeaders({ "auto-submitted": "no" }))).toBe(false);
+  });
+
+  it("detects Precedence header", () => {
+    expect(hasAutoSubmittedHeader(makeHeaders({ precedence: "bulk" }))).toBe(true);
+    expect(hasAutoSubmittedHeader(makeHeaders({ precedence: "junk" }))).toBe(true);
+    expect(hasAutoSubmittedHeader(makeHeaders({ precedence: "list" }))).toBe(true);
+  });
+
+  it("allows when no auto-submit headers present", () => {
+    expect(hasAutoSubmittedHeader(makeHeaders({}))).toBe(false);
+  });
+});
+
+describe("buildReplyMime security (#2065)", () => {
+  it("includes Auto-Submitted and Precedence headers", async () => {
+    const stream = buildReplyMime(
+      "support@myapp.com",
+      "sender@example.com",
+      "Re: Hello",
+      "Thanks!",
+      undefined,
+      undefined,
+    );
+    const bytes = await streamToUint8Array(stream);
+    const raw = new TextDecoder().decode(bytes);
+
+    expect(raw).toContain("Auto-Submitted: auto-replied");
+    expect(raw).toContain("Precedence: bulk");
+  });
+
+  it("sanitizes subject containing CRLF injection", async () => {
+    const stream = buildReplyMime(
+      "support@myapp.com",
+      "sender@example.com",
+      "Evil\r\nBcc: attacker@evil.com\r\nSubject: Injected",
+      "Body text",
+      undefined,
+      undefined,
+    );
+    const bytes = await streamToUint8Array(stream);
+    const raw = new TextDecoder().decode(bytes);
+
+    // The injected Bcc header should NOT appear as a separate header
+    expect(raw).not.toContain("\r\nBcc:");
+    expect(raw).toContain("Subject: EvilBcc: attacker@evil.comSubject: Injected");
+  });
+
+  it("sanitizes In-Reply-To containing CRLF injection", async () => {
+    const stream = buildReplyMime(
+      "support@myapp.com",
+      "sender@example.com",
+      "Re: Test",
+      "Body",
+      undefined,
+      "<msg@test>\r\nBcc: attacker@evil.com",
+    );
+    const bytes = await streamToUint8Array(stream);
+    const raw = new TextDecoder().decode(bytes);
+
+    expect(raw).not.toContain("\r\nBcc:");
+    expect(raw).toContain("In-Reply-To: <msg@test>Bcc: attacker@evil.com");
   });
 });

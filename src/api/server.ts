@@ -12373,7 +12373,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           );
           const routingAddress = originalRecipient || payload.to.toLowerCase();
 
-          route = await resolveRoute(pool, routingAddress, 'email', getStoreNamespace(req));
+          // Cloudflare email webhook is unauthenticated — no namespace context.
+          // Pass undefined to search all namespaces; the destination's own namespace
+          // is used for prompt template resolution (#2065).
+          route = await resolveRoute(pool, routingAddress, 'email');
           if (route) {
             await enqueueWebhook(pool, 'email_received', '/hooks/agent', {
               event_type: 'email_received',
@@ -12400,12 +12403,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         // Default: accept (backwards compatible — unrouted messages are still stored).
         if (!route) {
           console.log(
-            `[Cloudflare Email] No route for ${payload.to} — signalling reject to Worker`,
+            `[Cloudflare Email] No route resolved — signalling reject to Worker`,
           );
           return reply.code(200).send({
             success: true,
             action: 'reject' as const,
-            reject_reason: `No agent configured for ${payload.to}`,
+            reject_reason: 'No agent configured for this address',
             receipt_id: result.message_id,
             contact_id: result.contact_id,
             thread_id: result.thread_id,
