@@ -7,6 +7,7 @@
 #
 # Architecture:
 #   Client -> Traefik (host network) -> [::1]:MODSEC_HOST_PORT (ModSecurity WAF) -> API
+#   Client -> Traefik (host network) -> [::1]:API_HOST_PORT (API direct, WebSocket only)
 #   Client -> Traefik (host network) -> [::1]:APP_HOST_PORT (App/frontend)
 #   Client -> Traefik (host network) -> [::1]:SEAWEEDFS_HOST_PORT (SeaweedFS S3)
 #   Client -> Traefik (host network) -> [::1]:GATEWAY_HOST_PORT (OpenClaw Gateway)
@@ -113,6 +114,30 @@ http:
 
   # Routers
   routers:
+    # API WebSocket router — bypasses ModSecurity WAF (Issue #2069)
+    # Apache mod_proxy_http (used by the OWASP CRS image) cannot proxy WebSocket
+    # upgrade requests; that requires mod_proxy_wstunnel which is not configured.
+    # This router sends terminal attach requests directly to the Fastify API,
+    # following the same pattern as openclaw-ws-router for the OpenClaw Gateway.
+    # Priority 110 ensures this matches before the catch-all api-router.
+    #
+    # Security hardening:
+    #   - PathRegexp enforces UUID format so only valid session IDs bypass the WAF
+    #   - HeadersRegexp limits bypass to actual WebSocket upgrades; plain HTTP
+    #     requests to the same path fall through to api-router (ModSecurity)
+    api-ws-router:
+      rule: "Host(`api.${DOMAIN}`) && PathRegexp(`^/terminal/sessions/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/attach$`) && HeadersRegexp(`Upgrade`, `(?i)^websocket$`)"
+      service: api-service
+      priority: 110
+      entryPoints:
+        - websecure
+      middlewares:
+        - security-headers
+        - rate-limit
+      tls:
+        certResolver: letsencrypt
+        options: default
+
     # API router - routes through ModSecurity WAF for full request/response inspection
     # ModSecurity acts as a reverse proxy, inspecting all traffic before forwarding to API
     api-router:

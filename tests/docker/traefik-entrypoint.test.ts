@@ -225,6 +225,102 @@ describe('Traefik dynamic config: api-redirect-router', () => {
   });
 });
 
+describe('Traefik dynamic config: api-ws-router (Issue #2069)', () => {
+  const defaultEnv = {
+    DOMAIN: 'test.example.com',
+    ACME_EMAIL: 'test@example.com',
+    TRUSTED_IPS: '',
+    DISABLE_HTTP: 'false',
+    SERVICE_HOST: '[::1]',
+    MODSEC_HOST_PORT: '8080',
+    API_HOST_PORT: '3001',
+    APP_HOST_PORT: '8081',
+    GATEWAY_HOST_PORT: '18789',
+    SEAWEEDFS_HOST_PORT: '8333',
+  };
+
+  function getParsedConfig(env = defaultEnv) {
+    const output = runSedSubstitution(env);
+    return parseYaml(output) as {
+      http: {
+        routers: Record<string, { rule: string; service: string; priority?: number; middlewares?: string[] }>;
+      };
+    };
+  }
+
+  it('has api-ws-router that bypasses ModSecurity', () => {
+    const config = getParsedConfig();
+    const router = config.http.routers['api-ws-router'];
+    expect(router).toBeDefined();
+    expect(router.service).toBe('api-service');
+  });
+
+  it('api-ws-router has higher priority than api-router', () => {
+    const config = getParsedConfig();
+    const wsRouter = config.http.routers['api-ws-router'];
+    expect(wsRouter.priority).toBe(110);
+    // api-router has no explicit priority (defaults to rule length),
+    // but 110 > any auto-calculated priority for a simple Host() rule
+  });
+
+  it('api-ws-router matches terminal attach WebSocket path on api subdomain', () => {
+    const config = getParsedConfig();
+    const router = config.http.routers['api-ws-router'];
+    expect(router.rule).toContain('Host(`api.test.example.com`)');
+    expect(router.rule).toContain('PathRegexp');
+    expect(router.rule).toContain('/terminal/sessions/');
+    expect(router.rule).toContain('/attach');
+  });
+
+  it('api-ws-router requires Upgrade: websocket header (HeadersRegexp)', () => {
+    const config = getParsedConfig();
+    const router = config.http.routers['api-ws-router'];
+    expect(router.rule).toContain('HeadersRegexp(`Upgrade`');
+    expect(router.rule).toMatch(/websocket/i);
+  });
+
+  it('api-ws-router PathRegexp enforces UUID format for session ID', () => {
+    const config = getParsedConfig();
+    const router = config.http.routers['api-ws-router'];
+    // Extract the PathRegexp value from the rule
+    const pathRegexpMatch = router.rule.match(/PathRegexp\(`([^`]+)`\)/);
+    expect(pathRegexpMatch).not.toBeNull();
+    const regex = new RegExp(pathRegexpMatch![1]);
+
+    // Valid UUID path — should match
+    expect(regex.test('/terminal/sessions/7996e974-6396-4f1e-bac8-c191dd23341e/attach')).toBe(true);
+
+    // Non-UUID session ID — should NOT match
+    expect(regex.test('/terminal/sessions/not-a-uuid/attach')).toBe(false);
+    expect(regex.test('/terminal/sessions/../../etc/passwd/attach')).toBe(false);
+
+    // Trailing suffix after attach — should NOT match
+    expect(regex.test('/terminal/sessions/7996e974-6396-4f1e-bac8-c191dd23341e/attach/extra')).toBe(false);
+
+    // Prefix before /terminal — should NOT match
+    expect(regex.test('/api/terminal/sessions/7996e974-6396-4f1e-bac8-c191dd23341e/attach')).toBe(false);
+  });
+
+  it('api-ws-router has security-headers and rate-limit middlewares', () => {
+    const config = getParsedConfig();
+    const router = config.http.routers['api-ws-router'];
+    expect(router.middlewares).toContain('security-headers');
+    expect(router.middlewares).toContain('rate-limit');
+  });
+
+  it('api-ws-router does NOT use api-cors middleware (CORS not applicable to WebSocket)', () => {
+    const config = getParsedConfig();
+    const router = config.http.routers['api-ws-router'];
+    expect(router.middlewares).not.toContain('api-cors');
+  });
+
+  it('api-router still routes through modsecurity-service for normal API traffic', () => {
+    const config = getParsedConfig();
+    const router = config.http.routers['api-router'];
+    expect(router.service).toBe('modsecurity-service');
+  });
+});
+
 describe('ModSecurity ALLOWED_METHODS in compose files (Issue #1917)', () => {
   const COMPOSE_FILES = ['docker-compose.traefik.yml', 'docker-compose.full.yml'];
 
