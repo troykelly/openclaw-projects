@@ -120,8 +120,13 @@ http:
     # This router sends terminal attach requests directly to the Fastify API,
     # following the same pattern as openclaw-ws-router for the OpenClaw Gateway.
     # Priority 110 ensures this matches before the catch-all api-router.
+    #
+    # Security hardening:
+    #   - PathRegexp enforces UUID format so only valid session IDs bypass the WAF
+    #   - HeadersRegexp limits bypass to actual WebSocket upgrades; plain HTTP
+    #     requests to the same path fall through to api-router (ModSecurity)
     api-ws-router:
-      rule: "Host(`api.${DOMAIN}`) && PathRegexp(`^/terminal/sessions/[^/]+/attach$`)"
+      rule: "Host(`api.${DOMAIN}`) && PathRegexp(`^/terminal/sessions/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/attach$`) && HeadersRegexp(`Upgrade`, `(?i)^websocket$`)"
       service: api-service
       priority: 110
       entryPoints:

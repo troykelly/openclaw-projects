@@ -272,6 +272,35 @@ describe('Traefik dynamic config: api-ws-router (Issue #2069)', () => {
     expect(router.rule).toContain('/attach');
   });
 
+  it('api-ws-router requires Upgrade: websocket header (HeadersRegexp)', () => {
+    const config = getParsedConfig();
+    const router = config.http.routers['api-ws-router'];
+    expect(router.rule).toContain('HeadersRegexp(`Upgrade`');
+    expect(router.rule).toMatch(/websocket/i);
+  });
+
+  it('api-ws-router PathRegexp enforces UUID format for session ID', () => {
+    const config = getParsedConfig();
+    const router = config.http.routers['api-ws-router'];
+    // Extract the PathRegexp value from the rule
+    const pathRegexpMatch = router.rule.match(/PathRegexp\(`([^`]+)`\)/);
+    expect(pathRegexpMatch).not.toBeNull();
+    const regex = new RegExp(pathRegexpMatch![1]);
+
+    // Valid UUID path — should match
+    expect(regex.test('/terminal/sessions/7996e974-6396-4f1e-bac8-c191dd23341e/attach')).toBe(true);
+
+    // Non-UUID session ID — should NOT match
+    expect(regex.test('/terminal/sessions/not-a-uuid/attach')).toBe(false);
+    expect(regex.test('/terminal/sessions/../../etc/passwd/attach')).toBe(false);
+
+    // Trailing suffix after attach — should NOT match
+    expect(regex.test('/terminal/sessions/7996e974-6396-4f1e-bac8-c191dd23341e/attach/extra')).toBe(false);
+
+    // Prefix before /terminal — should NOT match
+    expect(regex.test('/api/terminal/sessions/7996e974-6396-4f1e-bac8-c191dd23341e/attach')).toBe(false);
+  });
+
   it('api-ws-router has security-headers and rate-limit middlewares', () => {
     const config = getParsedConfig();
     const router = config.http.routers['api-ws-router'];
