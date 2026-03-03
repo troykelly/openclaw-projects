@@ -2,8 +2,9 @@
  * Gateway Integration Tests: Plugin Loading
  * Tests plugin discovery, loading, and status reporting via the real Gateway loader.
  *
- * Uses loadOpenClawPlugins() from the gateway source to validate our plugin
- * integrates correctly with the Gateway's plugin discovery and loading pipeline.
+ * REQUIRES gateway source at .local/openclaw-gateway — imports loadOpenClawPlugins()
+ * which is an internal gateway function not exported via the openclaw npm package.
+ * Skipped in CI when gateway source is absent (see vitest.config.ts). (#2043)
  */
 
 import { describe, it, expect } from 'vitest';

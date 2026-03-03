@@ -2,8 +2,9 @@
  * Gateway Integration Tests: Manifest Validation
  * Tests plugin manifest structure and validity.
  *
- * NOTE: Full loader integration tests are blocked pending openclaw Gateway config documentation.
- * See follow-up issue for full loader integration tests.
+ * This test does NOT require the gateway source at .local/openclaw-gateway —
+ * it only reads local filesystem files (openclaw.plugin.json). It always runs,
+ * including in CI. (#2043)
  */
 
 import { describe, it, expect } from 'vitest';
