@@ -102,12 +102,12 @@ export function ConnectionDetailPage(): React.JSX.Element {
     );
   }
 
-  const handleTest = (trustHostKey = false) => {
+  const handleTest = (trustHostKey = false, expectedFingerprint?: string) => {
     setTestError(null);
     if (!trustHostKey) setTestResult(null);
 
     testConnection.mutate(
-      { id: connection.id, trustHostKey },
+      { id: connection.id, trustHostKey, expectedFingerprint },
       {
         onSuccess: (result) => {
           setTestResult(result);
@@ -124,8 +124,9 @@ export function ConnectionDetailPage(): React.JSX.Element {
   };
 
   const handleHostKeyApprove = () => {
+    const fp = hostKeyDialog?.fingerprint;
     setHostKeyDialog(null);
-    handleTest(true);
+    handleTest(true, fp);
   };
 
   const handleUpdate = (data: Partial<TerminalConnection>) => {

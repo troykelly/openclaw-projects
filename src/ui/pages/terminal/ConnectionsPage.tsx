@@ -68,13 +68,13 @@ export function ConnectionsPage(): React.JSX.Element {
   };
 
   const handleTest = useCallback(
-    (id: string, trustHostKey = false) => {
+    (id: string, trustHostKey = false, expectedFingerprint?: string) => {
       setTestingId(id);
       setTestError(null);
       if (!trustHostKey) setTestResult(null);
 
       testConnection.mutate(
-        { id, trustHostKey },
+        { id, trustHostKey, expectedFingerprint },
         {
           onSuccess: (result) => {
             setTestResult({ id, data: result });
@@ -102,8 +102,9 @@ export function ConnectionsPage(): React.JSX.Element {
 
   const handleHostKeyApprove = useCallback(() => {
     if (!hostKeyDialog) return;
+    const { connectionId, fingerprint } = hostKeyDialog;
     setHostKeyDialog(null);
-    handleTest(hostKeyDialog.connectionId, true);
+    handleTest(connectionId, true, fingerprint);
   }, [hostKeyDialog, handleTest]);
 
   const handleDelete = (id: string) => {

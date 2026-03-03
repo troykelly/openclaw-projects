@@ -318,6 +318,8 @@ interface ConnectSSHOptions {
   onHostKeyOffered?: (fingerprint: string, keyType: string, publicKey: string) => void;
   /** Mutable flag — set to true by connectSSH when the host key is rejected. */
   hostKeyRejected?: { value: boolean };
+  /** When set, reject the handshake if the offered fingerprint doesn't match (Issue #2042). */
+  expectedFingerprint?: string;
 }
 
 /**
@@ -358,6 +360,15 @@ function connectSSH(
         const fingerprint = computeFingerprint(key);
         const publicKey = key.toString('base64');
         options?.onHostKeyOffered?.(fingerprint, 'ssh-unknown', publicKey);
+
+        // Issue #2042: If an expected fingerprint was provided (Trust & Retry),
+        // reject immediately if the offered key doesn't match.  This prevents
+        // a TOCTOU race where the server key changes between tests.
+        if (options?.expectedFingerprint && fingerprint !== options.expectedFingerprint) {
+          if (options.hostKeyRejected) options.hostKeyRejected.value = true;
+          if (callback) { callback(false); return; }
+          return false;
+        }
 
         if (effectivePolicy === 'skip') {
           if (callback) { callback(true); return; }
@@ -642,11 +653,13 @@ export class SSHConnectionManager {
    *
    * @param connectionId - The connection to test
    * @param trustHostKey - When true, use TOFU policy to auto-accept unknown host keys (Issue #1983)
+   * @param expectedFingerprint - When set with trustHostKey, verify the offered key matches before storing (Issue #2042)
    * @returns Object with success flag, latency, fingerprint, and optional error message
    */
   async testConnection(
     connectionId: string,
     trustHostKey = false,
+    expectedFingerprint?: string,
   ): Promise<{ success: boolean; message: string; latencyMs: number; hostKeyFingerprint: string; errorCode?: string }> {
     const start = Date.now();
     let capturedFingerprint = '';
@@ -694,6 +707,8 @@ export class SSHConnectionManager {
           forceReplace: trustHostKey || undefined,
           onHostKeyOffered: (fp) => { capturedFingerprint = fp; },
           hostKeyRejected,
+          // Issue #2042: pin the expected fingerprint during Trust & Retry
+          expectedFingerprint: trustHostKey && expectedFingerprint ? expectedFingerprint : undefined,
         });
         const latencyMs = Date.now() - start;
         tempClient.end();
