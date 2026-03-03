@@ -362,3 +362,212 @@ Authorization: Bearer your-api-token
 Webhook endpoints verify signatures:
 - **Twilio**: X-Twilio-Signature header validation
 - **Postmark**: Basic auth or API token validation
+- **Cloudflare Email**: X-Cloudflare-Email-Secret shared secret (see below)
+
+---
+
+## Cloudflare Email Inbound Webhook
+
+### Overview
+
+The Cloudflare Email integration receives inbound emails via a [Cloudflare Email Worker](https://developers.cloudflare.com/email-routing/email-workers/) that parses the MIME message and POSTs a JSON payload to this endpoint.
+
+**Flow:**
+```
+Inbound email → Cloudflare Email Routing → Email Worker → POST /cloudflare/email → openclaw-projects
+```
+
+A reference Worker implementation is provided in [`examples/cloudflare-email-worker/`](../../examples/cloudflare-email-worker/README.md).
+
+### Receive Inbound Email
+
+**POST** `/cloudflare/email`
+
+Receives a parsed email from the Cloudflare Worker, creates or matches the sender contact, threads the email, stores the message, and returns a triage decision.
+
+**Authentication:**
+
+This endpoint does NOT use Bearer token auth. Instead, the Worker authenticates via a shared secret header:
+
+```bash
+X-Cloudflare-Email-Secret: your-shared-secret
+```
+
+The secret must match the `CLOUDFLARE_EMAIL_SECRET` environment variable. Comparison is timing-safe.
+
+**Request Body:**
+```json
+{
+  "from": "sender@example.com",
+  "to": "support@myapp.com",
+  "subject": "Question about my order",
+  "text_body": "Hi, I have a question about order #12345.",
+  "html_body": "<p>Hi, I have a question about order #12345.</p>",
+  "headers": {
+    "message-id": "<unique-id-123@example.com>",
+    "in-reply-to": "<previous-id-456@example.com>",
+    "references": "<original-id-789@example.com>"
+  },
+  "timestamp": "2026-03-03T12:00:00.000Z"
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `from` | string | Yes | Sender email address |
+| `to` | string | Yes | Recipient email address (used for route resolution) |
+| `subject` | string | Yes | Email subject line |
+| `text_body` | string | No | Plain text body from MIME |
+| `html_body` | string | No | HTML body from MIME |
+| `headers` | object | Yes | Email headers (see below) |
+| `headers.message-id` | string | No | RFC 5322 Message-ID (used for deduplication and threading) |
+| `headers.in-reply-to` | string | No | In-Reply-To header (links replies to parent messages) |
+| `headers.references` | string | No | References header (full thread chain) |
+| `raw` | string | No | Full raw MIME message (optional, for debugging) |
+| `timestamp` | string | Yes | ISO 8601 timestamp (must be within 5 minutes for replay protection) |
+
+**Response (200 OK):**
+
+The response always includes a triage `action` field that the Worker uses to decide whether to accept or reject the email at the SMTP level.
+
+**Accept response** (route found):
+```json
+{
+  "success": true,
+  "action": "accept",
+  "receipt_id": "d290f1ee-6c54-4b01-90e6-d701748f0851",
+  "contact_id": "a1b2c3d4-5678-90ab-cdef-1234567890ab",
+  "thread_id": "b2c3d4e5-6789-01ab-cdef-2345678901bc",
+  "message_id": "c3d4e5f6-7890-12ab-cdef-3456789012cd"
+}
+```
+
+**Reject response** (no route configured):
+```json
+{
+  "success": true,
+  "action": "reject",
+  "reject_reason": "No agent configured for support@myapp.com",
+  "receipt_id": "d290f1ee-6c54-4b01-90e6-d701748f0851",
+  "contact_id": "a1b2c3d4-5678-90ab-cdef-1234567890ab",
+  "thread_id": "b2c3d4e5-6789-01ab-cdef-2345678901bc",
+  "message_id": "c3d4e5f6-7890-12ab-cdef-3456789012cd"
+}
+```
+
+**Accept with auto-reply:**
+```json
+{
+  "success": true,
+  "action": "accept",
+  "receipt_id": "...",
+  "contact_id": "...",
+  "thread_id": "...",
+  "message_id": "...",
+  "auto_reply": {
+    "subject": "Re: Question about my order",
+    "text_body": "Thank you for your message. An agent will respond shortly.",
+    "html_body": "<p>Thank you for your message. An agent will respond shortly.</p>"
+  }
+}
+```
+
+When `auto_reply` is present, the Worker constructs a MIME reply and sends it back to the sender via `message.reply()`.
+
+**Error Responses:**
+- `400 Bad Request` — Missing required fields, invalid timestamp, or stale timestamp (>5 min old)
+- `401 Unauthorized` — Missing or invalid `X-Cloudflare-Email-Secret` header
+- `500 Internal Server Error` — Server-side error
+
+**Example:**
+```bash
+curl -X POST https://api.example.com/cloudflare/email \
+  -H "X-Cloudflare-Email-Secret: $CLOUDFLARE_EMAIL_SECRET" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "from": "sender@example.com",
+    "to": "support@myapp.com",
+    "subject": "Hello",
+    "text_body": "This is a test email.",
+    "headers": {
+      "message-id": "<test-123@example.com>"
+    },
+    "timestamp": "2026-03-03T12:00:00.000Z"
+  }'
+```
+
+### Triage and Route Resolution
+
+When an email arrives, the API resolves a route to decide which agent handles it:
+
+1. **Inbound destination lookup** — Checks the `inbound_destination` table for a row matching the recipient address and `email` channel type
+2. **Channel default fallback** — If no destination match, checks the `channel_default` table for an email channel default
+3. **No route** — If neither exists, returns `action: "reject"`
+
+**To configure email routing:**
+
+Use the [Inbound Destinations API](/inbound-destinations) to create a destination:
+
+```bash
+# Create an inbound destination for email
+curl -X PUT https://api.example.com/inbound-destinations/{id} \
+  -H "Authorization: Bearer $API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "channel_type": "email",
+    "destination_value": "support@myapp.com",
+    "agent_id": "agent-assistant-v2",
+    "is_active": true
+  }'
+```
+
+Or set a channel default so ALL email is routed to an agent:
+
+```bash
+curl -X PUT https://api.example.com/channel-defaults/email \
+  -H "Authorization: Bearer $API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "agent_id": "agent-assistant-v2"
+  }'
+```
+
+### Email Threading
+
+Emails are automatically threaded using RFC 5322 headers:
+
+| Header | Purpose |
+|--------|---------|
+| `Message-ID` | Unique identifier for each email. Used as the external message key for deduplication. |
+| `In-Reply-To` | Links a reply to its parent message. Used to find existing threads. |
+| `References` | Full chain of Message-IDs in the thread. Used as fallback for thread resolution. |
+
+**Thread key derivation:**
+- If `In-Reply-To` is present → thread key derived from the referenced message
+- If `References` is present → thread key derived from the first reference
+- Otherwise → new thread created from the Message-ID
+
+Duplicate messages (same Message-ID + thread) are upserted, not duplicated.
+
+### Contact Creation
+
+When an email arrives from an unknown sender:
+1. A new `contact` record is created with the email address as the display name
+2. A `contact_endpoint` is created with type `email` and the normalized sender address
+3. Subsequent emails from the same address reuse the existing contact
+
+### Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `CLOUDFLARE_EMAIL_SECRET` | Yes | Shared secret for authenticating the Worker |
+| `CLOUDFLARE_EMAIL_SECRET_FILE` | No | Alternative: path to a file containing the secret |
+
+### Worker Deployment
+
+See the reference Cloudflare Email Worker implementation in [`examples/cloudflare-email-worker/`](../../examples/cloudflare-email-worker/README.md) for:
+- Complete Worker source code with MIME parsing via `postal-mime`
+- Triage-based rejection via `message.setReject()`
+- Auto-reply via `message.reply()`
+- Retry logic for transient failures
+- `wrangler.jsonc` deployment configuration
