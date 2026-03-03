@@ -30,6 +30,7 @@ import { webhooksNotificationsPaths } from './paths/webhooks-notifications.ts';
 import { analyticsPaths } from './paths/analytics.ts';
 import { oauthDriveSyncPaths } from './paths/oauth-drive-sync.ts';
 import { emailPaths } from './paths/email.ts';
+import { cloudflareEmailPaths } from './paths/cloudflare-email.ts';
 import { calendarPaths } from './paths/calendar.ts';
 import { geolocationPaths } from './paths/geolocation.ts';
 import { contextsPaths } from './paths/contexts.ts';
@@ -95,6 +96,7 @@ function allDomainModules(): OpenApiDomainModule[] {
     analyticsPaths(),
     oauthDriveSyncPaths(),
     emailPaths(),
+    cloudflareEmailPaths(),
     calendarPaths(),
     geolocationPaths(),
     contextsPaths(),
