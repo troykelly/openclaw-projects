@@ -92,9 +92,10 @@ export function useDeleteTerminalConnection() {
 /** Test a terminal connection. */
 export function useTestTerminalConnection() {
   return useMutation({
-    mutationFn: ({ id, trustHostKey }: { id: string; trustHostKey?: boolean }) =>
+    mutationFn: ({ id, trustHostKey, expectedFingerprint }: { id: string; trustHostKey?: boolean; expectedFingerprint?: string }) =>
       apiClient.post<TestConnectionResponse>(`/terminal/connections/${id}/test`, {
         trust_host_key: trustHostKey ?? false,
+        ...(expectedFingerprint ? { expected_fingerprint: expectedFingerprint } : {}),
       }),
   });
 }

@@ -56,6 +56,11 @@ message TestConnectionRequest {
   // When true, auto-accept and store unknown host keys (TOFU behaviour).
   // Issue #1983 — allows trusting host keys via the test endpoint.
   bool trust_host_key = 2;
+  // When set with trust_host_key, the backend verifies the offered key
+  // matches this fingerprint before storing it. Prevents TOCTOU race
+  // where the server key changes between the initial test and the retry.
+  // Issue #2042.
+  string expected_fingerprint = 3;
 }
 
 message TestConnectionResponse {

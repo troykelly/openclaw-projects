@@ -258,6 +258,11 @@ export function terminalConnectionsPaths(): OpenApiDomainModule {
                       description: 'When true, auto-accept and store unknown host keys (TOFU behaviour). '
                         + 'Requires write scope on the connection.',
                     },
+                    expected_fingerprint: {
+                      type: 'string',
+                      description: 'Required when trust_host_key is true. Verify the offered key matches this '
+                        + 'fingerprint before storing. Prevents TOCTOU race during Trust & Retry.',
+                    },
                   },
                 },
               },

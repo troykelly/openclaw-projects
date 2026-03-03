@@ -313,7 +313,7 @@ describe('ConnectionsPage', () => {
     expect(fingerprints.length).toBeGreaterThanOrEqual(1);
   });
 
-  it('Trust & Connect retries with trust_host_key: true', async () => {
+  it('Trust & Connect retries with trust_host_key: true and expected_fingerprint', async () => {
     // First test fails with host key error, then trust succeeds
     mockApiClient.post
       .mockResolvedValueOnce(mockTestHostKeyFailure)
@@ -338,11 +338,11 @@ describe('ConnectionsPage', () => {
     fireEvent.click(trustButton);
 
     await waitFor(() => {
-      // Verify the second API call was made with trust_host_key: true
+      // Verify the second API call pins the fingerprint from the first test (Issue #2042)
       expect(mockApiClient.post).toHaveBeenCalledTimes(2);
       expect(mockApiClient.post).toHaveBeenLastCalledWith(
         '/terminal/connections/conn-1/test',
-        { trust_host_key: true },
+        { trust_host_key: true, expected_fingerprint: 'SHA256:xyz789ghi012' },
       );
     }, { timeout: 5000 });
   });
