@@ -1,0 +1,93 @@
+/**
+ * Cloudflare Email Worker — Inbound Email Forwarder for openclaw-projects
+ *
+ * This Worker receives emails via Cloudflare Email Routing and forwards them
+ * to the openclaw-projects webhook at POST /api/cloudflare/email.
+ *
+ * Deployment:
+ *   1. pnpm install
+ *   2. Set secret:  pnpm exec wrangler secret put CLOUDFLARE_EMAIL_SECRET
+ *   3. Deploy:      pnpm exec wrangler deploy
+ *   4. Configure Email Routing in the Cloudflare dashboard:
+ *      - Go to your domain → Email Routing → Email Workers
+ *      - Create a route pointing your catch-all or specific address to this Worker
+ *
+ * Local development:
+ *   pnpm exec wrangler dev
+ *   curl -X POST 'http://localhost:8787/cdn-cgi/handler/email?from=sender@example.com&to=recipient@example.com' \
+ *     -H 'Content-Type: message/rfc822' \
+ *     -d 'From: sender@example.com\r\nTo: recipient@example.com\r\nSubject: Test\r\n\r\nHello!'
+ *
+ * @see https://developers.cloudflare.com/workers/wrangler/configuration/
+ * @see https://developers.cloudflare.com/email-routing/email-workers/
+ */
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "openclaw-email-worker",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-03-01",
+
+  // Node.js compatibility for postal-mime and standard APIs
+  "compatibility_flags": ["nodejs_compat"],
+
+  // --------------------------------------------------------------------------
+  // Environment variables (non-secret)
+  // --------------------------------------------------------------------------
+  "vars": {
+    // Base URL of your openclaw-projects API (no trailing slash)
+    "OPENCLAW_PROJECTS_API_URL": "https://projects.example.com/api"
+
+    // Optional: forward original email to a verified Email Routing destination
+    // "FALLBACK_FORWARD_ADDRESS": "backup@example.com",
+
+    // Optional: include full raw MIME in webhook payload (increases payload size)
+    // "INCLUDE_RAW_MIME": "false",
+
+    // Optional: maximum email size in bytes (default: 25 MiB)
+    // "MAX_RAW_BYTES": "26214400"
+  },
+
+  // --------------------------------------------------------------------------
+  // Secrets (set via `wrangler secret put <NAME>`)
+  //
+  // Required:
+  //   pnpm exec wrangler secret put CLOUDFLARE_EMAIL_SECRET
+  //
+  // This must match the CLOUDFLARE_EMAIL_SECRET configured in openclaw-projects.
+  // --------------------------------------------------------------------------
+
+  // --------------------------------------------------------------------------
+  // Email Routing — send_email binding (optional)
+  //
+  // Only needed if you want the Worker to send emails (e.g. auto-replies).
+  // The email() handler for receiving does NOT require this binding.
+  // --------------------------------------------------------------------------
+  // "send_email": [
+  //   { "name": "SEND_EMAIL" }
+  // ],
+
+  // --------------------------------------------------------------------------
+  // Observability
+  // --------------------------------------------------------------------------
+  "observability": {
+    "enabled": true
+  }
+
+  // --------------------------------------------------------------------------
+  // Production environment overrides
+  // --------------------------------------------------------------------------
+  // "env": {
+  //   "production": {
+  //     "name": "openclaw-email-worker-production",
+  //     "vars": {
+  //       "OPENCLAW_PROJECTS_API_URL": "https://projects.yourdomain.com/api"
+  //     }
+  //   },
+  //   "staging": {
+  //     "name": "openclaw-email-worker-staging",
+  //     "vars": {
+  //       "OPENCLAW_PROJECTS_API_URL": "https://projects-staging.yourdomain.com/api"
+  //     }
+  //   }
+  // }
+}
