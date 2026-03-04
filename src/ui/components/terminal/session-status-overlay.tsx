@@ -5,7 +5,7 @@
  */
 import * as React from 'react';
 import { Button } from '@/ui/components/ui/button';
-import { Loader2, WifiOff, XCircle, RefreshCw } from 'lucide-react';
+import { Loader2, WifiOff, XCircle, RefreshCw, CheckCircle2 } from 'lucide-react';
 import type { TerminalWsStatus } from '@/ui/hooks/use-terminal-websocket';
 
 interface SessionStatusOverlayProps {
@@ -24,6 +24,8 @@ export function SessionStatusOverlay({ status, closeReason, isFatal, onReconnect
     <div
       className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10"
       data-testid="session-status-overlay"
+      role="status"
+      aria-live="polite"
     >
       <div className="text-center space-y-3">
         {status === 'connecting' && (
@@ -50,6 +52,13 @@ export function SessionStatusOverlay({ status, closeReason, isFatal, onReconnect
             <XCircle className="mx-auto size-8 text-gray-500" />
             <p className="text-sm font-medium">Session Terminated</p>
             <p className="text-xs text-muted-foreground">This terminal session has ended.</p>
+          </>
+        )}
+        {status === 'recovering' && (
+          <>
+            <CheckCircle2 className="mx-auto size-8 text-blue-500" />
+            <p className="text-sm font-medium">Reconnected to Existing Session</p>
+            <p className="text-xs text-muted-foreground">This session was recovered after a worker restart.</p>
           </>
         )}
         {status === 'error' && (
