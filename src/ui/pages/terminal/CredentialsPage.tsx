@@ -44,7 +44,7 @@ export function CredentialsPage(): React.JSX.Element {
   };
 
   const handleGenerate = () => {
-    generateKeyPair.mutate({ name: genName, key_type: genKeyType }, {
+    generateKeyPair.mutate({ name: genName, type: genKeyType }, {
       onSuccess: (result) => {
         setGenResult(result);
         setGenName('');

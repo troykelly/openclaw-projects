@@ -80,7 +80,7 @@ export function useGenerateTerminalKeyPair() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: { name: string; key_type?: string }) =>
+    mutationFn: (data: { name: string; type?: string }) =>
       apiClient.post<TerminalKeyPairResponse>('/terminal/credentials/generate', data),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: terminalCredentialKeys.all });

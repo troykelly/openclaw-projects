@@ -46,7 +46,7 @@ const mockApiClient = {
     if (path.includes('/terminal/connections')) return Promise.resolve(mockConnections);
     return Promise.reject(new Error(`Unknown endpoint: ${path}`));
   }),
-  post: vi.fn().mockResolvedValue({ results: [], total: 0 }),
+  post: vi.fn().mockResolvedValue({ items: [], total: 0, limit: 20, offset: 0, search_mode: 'semantic' }),
   put: vi.fn().mockResolvedValue({}),
   patch: vi.fn().mockResolvedValue({}),
   delete: vi.fn().mockResolvedValue(undefined),

@@ -21,7 +21,7 @@ export function TerminalSearchPage(): React.JSX.Element {
   const searchMutation = useTerminalSearch();
 
   const connections = Array.isArray(connectionsQuery.data?.connections) ? connectionsQuery.data.connections : [];
-  const results = searchMutation.data?.results ?? [];
+  const results = searchMutation.data?.items ?? [];
 
   const handleSearch = () => {
     if (!query.trim()) return;
@@ -72,7 +72,7 @@ export function TerminalSearchPage(): React.JSX.Element {
           ) : (
             <div className="space-y-3">
               {results.map((result) => (
-                <SearchResultContext key={result.entry.id} result={result} />
+                <SearchResultContext key={result.id} result={result} />
               ))}
             </div>
           )}
