@@ -21,23 +21,50 @@ import {
 
 // ── Helpers ──────────────────────────────────────────────────
 
+type ActivityRow = {
+  action: string;
+  actor: string;
+  detail: Record<string, unknown> | null;
+  connection_id: string | null;
+  session_id: string | null;
+};
+
 /** Query the terminal_activity table for a specific action. */
 async function getActivityByAction(
   pool: Pool,
   action: string,
-): Promise<Array<{ action: string; actor: string; detail: Record<string, unknown> | null; connection_id: string | null; session_id: string | null }>> {
+): Promise<Array<ActivityRow>> {
   const result = await pool.query(
     `SELECT action, actor, detail, connection_id, session_id
      FROM terminal_activity WHERE action = $1 ORDER BY created_at DESC`,
     [action],
   );
-  return result.rows as Array<{
-    action: string;
-    actor: string;
-    detail: Record<string, unknown> | null;
-    connection_id: string | null;
-    session_id: string | null;
-  }>;
+  return result.rows as Array<ActivityRow>;
+}
+
+/**
+ * Poll for an activity row to appear in the terminal_activity table.
+ *
+ * Replaces fixed-delay `setTimeout` waits that are inherently racy when
+ * the activity INSERT is fire-and-forget. Polls every `intervalMs` until
+ * the expected row count is reached or `timeoutMs` elapses.
+ */
+async function waitForActivity(
+  pool: Pool,
+  action: string,
+  expectedCount: number = 1,
+  timeoutMs: number = 2000,
+  intervalMs: number = 25,
+): Promise<Array<ActivityRow>> {
+  const deadline = Date.now() + timeoutMs;
+  let rows: Array<ActivityRow> = [];
+  while (Date.now() < deadline) {
+    rows = await getActivityByAction(pool, action);
+    if (rows.length >= expectedCount) return rows;
+    await new Promise((r) => setTimeout(r, intervalMs));
+  }
+  // Final check after deadline to avoid boundary miss
+  return getActivityByAction(pool, action);
 }
 
 // ── Tests ────────────────────────────────────────────────────
@@ -78,10 +105,7 @@ describe('Terminal API Hardening', () => {
       });
       expect(res.statusCode).toBe(201);
 
-      // Allow fire-and-forget to complete
-      await new Promise((r) => setTimeout(r, 100));
-
-      const activities = await getActivityByAction(pool, 'connection.create');
+      const activities = await waitForActivity(pool, 'connection.create');
       expect(activities).toHaveLength(1);
       expect(activities[0].detail).toMatchObject({ name: 'audit-test' });
     });
@@ -100,9 +124,7 @@ describe('Terminal API Hardening', () => {
         payload: { name: 'updated-name' },
       });
 
-      await new Promise((r) => setTimeout(r, 100));
-
-      const activities = await getActivityByAction(pool, 'connection.update');
+      const activities = await waitForActivity(pool, 'connection.update');
       expect(activities).toHaveLength(1);
       expect(activities[0].connection_id).toBe(id);
     });
@@ -120,9 +142,7 @@ describe('Terminal API Hardening', () => {
         url: `/terminal/connections/${id}`,
       });
 
-      await new Promise((r) => setTimeout(r, 100));
-
-      const activities = await getActivityByAction(pool, 'connection.delete');
+      const activities = await waitForActivity(pool, 'connection.delete');
       expect(activities).toHaveLength(1);
       expect(activities[0].connection_id).toBe(id);
     });
@@ -135,9 +155,7 @@ describe('Terminal API Hardening', () => {
       });
       expect(res.statusCode).toBe(201);
 
-      await new Promise((r) => setTimeout(r, 100));
-
-      const activities = await getActivityByAction(pool, 'credential.create');
+      const activities = await waitForActivity(pool, 'credential.create');
       expect(activities).toHaveLength(1);
       expect(activities[0].detail).toMatchObject({ name: 'test-cred', kind: 'password' });
       // SECURITY: value should NOT be in the detail
@@ -157,9 +175,7 @@ describe('Terminal API Hardening', () => {
         url: `/terminal/credentials/${id}`,
       });
 
-      await new Promise((r) => setTimeout(r, 100));
-
-      const activities = await getActivityByAction(pool, 'credential.delete');
+      const activities = await waitForActivity(pool, 'credential.delete');
       expect(activities).toHaveLength(1);
     });
 
@@ -171,9 +187,7 @@ describe('Terminal API Hardening', () => {
       });
       expect(res.statusCode).toBe(201);
 
-      await new Promise((r) => setTimeout(r, 100));
-
-      const activities = await getActivityByAction(pool, 'credential.generate');
+      const activities = await waitForActivity(pool, 'credential.generate');
       expect(activities).toHaveLength(1);
       expect(activities[0].detail).toMatchObject({ name: 'gen-key', key_type: 'ed25519' });
     });
@@ -185,9 +199,7 @@ describe('Terminal API Hardening', () => {
         payload: { entry_retention_days: 30 },
       });
 
-      await new Promise((r) => setTimeout(r, 100));
-
-      const activities = await getActivityByAction(pool, 'settings.update');
+      const activities = await waitForActivity(pool, 'settings.update');
       expect(activities).toHaveLength(1);
       expect(activities[0].detail).toMatchObject({ entry_retention_days: 30 });
     });
@@ -201,9 +213,7 @@ describe('Terminal API Hardening', () => {
       expect(createRes.statusCode).toBe(201);
       const { id } = createRes.json() as { id: string };
 
-      await new Promise((r) => setTimeout(r, 100));
-
-      const createActivities = await getActivityByAction(pool, 'enrollment_token.create');
+      const createActivities = await waitForActivity(pool, 'enrollment_token.create');
       expect(createActivities).toHaveLength(1);
 
       await app.inject({
@@ -211,9 +221,7 @@ describe('Terminal API Hardening', () => {
         url: `/terminal/enrollment-tokens/${id}`,
       });
 
-      await new Promise((r) => setTimeout(r, 100));
-
-      const revokeActivities = await getActivityByAction(pool, 'enrollment_token.revoke');
+      const revokeActivities = await waitForActivity(pool, 'enrollment_token.revoke');
       expect(revokeActivities).toHaveLength(1);
     });
 
@@ -230,9 +238,7 @@ describe('Terminal API Hardening', () => {
       });
       expect(res.statusCode).toBe(201);
 
-      await new Promise((r) => setTimeout(r, 100));
-
-      const activities = await getActivityByAction(pool, 'known_host.trust');
+      const activities = await waitForActivity(pool, 'known_host.trust');
       expect(activities).toHaveLength(1);
       expect(activities[0].detail).toMatchObject({ host: 'example.com' });
     });
@@ -256,9 +262,7 @@ describe('Terminal API Hardening', () => {
         url: `/terminal/known-hosts/${id}`,
       });
 
-      await new Promise((r) => setTimeout(r, 100));
-
-      const activities = await getActivityByAction(pool, 'known_host.delete');
+      const activities = await waitForActivity(pool, 'known_host.delete');
       expect(activities).toHaveLength(1);
     });
 
@@ -271,9 +275,7 @@ describe('Terminal API Hardening', () => {
       });
       expect(res.statusCode).toBe(201);
 
-      await new Promise((r) => setTimeout(r, 100));
-
-      const activities = await getActivityByAction(pool, 'connection.import_ssh_config');
+      const activities = await waitForActivity(pool, 'connection.import_ssh_config');
       expect(activities).toHaveLength(1);
       expect(activities[0].detail).toMatchObject({ count: 1 });
     });
@@ -377,9 +379,7 @@ describe('Terminal API Hardening', () => {
         payload: { value: 'new-secret', name: 'updated-name' },
       });
 
-      await new Promise((r) => setTimeout(r, 100));
-
-      const activities = await getActivityByAction(pool, 'credential.update');
+      const activities = await waitForActivity(pool, 'credential.update');
       expect(activities).toHaveLength(1);
       expect(activities[0].detail).toMatchObject({
         credential_id: id,
