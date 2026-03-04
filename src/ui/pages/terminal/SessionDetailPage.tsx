@@ -76,9 +76,10 @@ export function SessionDetailPage(): React.JSX.Element {
       // Capture host key info from the event if present (#2100)
       if (event.host_key && typeof event.host_key === 'object') {
         const hk = event.host_key as Record<string, unknown>;
+        const port = Number(hk.port);
         setHostKeyInfo({
           host: String(hk.host ?? ''),
-          port: Number(hk.port ?? 22),
+          port: Number.isFinite(port) && port > 0 ? port : 22,
           key_type: String(hk.key_type ?? ''),
           fingerprint: String(hk.fingerprint ?? ''),
           public_key: String(hk.public_key ?? ''),
