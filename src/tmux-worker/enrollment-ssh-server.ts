@@ -284,38 +284,53 @@ export function createEnrollmentSSHServer(
 
             clearRateLimit(clientAddress);
 
-            // #2104: Atomic check+increment to prevent race condition on max_uses
-            const incrementResult = await pool.query(
-              `UPDATE terminal_enrollment_token SET uses = uses + 1 WHERE id = $1 AND (max_uses IS NULL OR uses < max_uses) RETURNING id`,
-              [token.id],
-            );
-            if (incrementResult.rowCount === 0) {
-              ctx.reject(['password']);
-              return;
-            }
-
-            // Create terminal_connection for the enrolled server
+            // #2140: Wrap token increment and connection insert in a transaction.
+            // If the connection insert fails, the token use count is rolled back.
+            const txClient = await pool.connect();
+            let connectionId: string;
             const defaults = token.connection_defaults ?? {};
             const tags = [...(token.allowed_tags ?? [])];
+            try {
+              await txClient.query('BEGIN');
 
-            const connResult = await pool.query(
-              `INSERT INTO terminal_connection
-                 (namespace, name, host, port, username, tags, notes, env)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-               RETURNING id`,
-              [
-                token.namespace,
-                `enrolled-${clientAddress}`,
-                clientAddress,
-                22,
-                (defaults.username as string) ?? null,
-                tags.length > 0 ? tags : null,
-                (defaults.notes as string) ?? `Enrolled via SSH from ${clientAddress}`,
-                defaults.env ? JSON.stringify(defaults.env) : null,
-              ],
-            );
+              // #2104: Atomic check+increment to prevent race condition on max_uses
+              const incrementResult = await txClient.query(
+                `UPDATE terminal_enrollment_token SET uses = uses + 1 WHERE id = $1 AND (max_uses IS NULL OR uses < max_uses) RETURNING id`,
+                [token.id],
+              );
+              if (incrementResult.rowCount === 0) {
+                await txClient.query('ROLLBACK');
+                txClient.release();
+                ctx.reject(['password']);
+                return;
+              }
 
-            const connectionId = connResult.rows[0].id as string;
+              const connResult = await txClient.query(
+                `INSERT INTO terminal_connection
+                   (namespace, name, host, port, username, tags, notes, env)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                 RETURNING id`,
+                [
+                  token.namespace,
+                  `enrolled-${clientAddress}`,
+                  clientAddress,
+                  22,
+                  (defaults.username as string) ?? null,
+                  tags.length > 0 ? tags : null,
+                  (defaults.notes as string) ?? `Enrolled via SSH from ${clientAddress}`,
+                  defaults.env ? JSON.stringify(defaults.env) : null,
+                ],
+              );
+
+              connectionId = connResult.rows[0].id as string;
+
+              await txClient.query('COMMIT');
+            } catch (txErr) {
+              await txClient.query('ROLLBACK');
+              throw txErr;
+            } finally {
+              txClient.release();
+            }
 
             recordActivityLocal(pool, {
               namespace: token.namespace,

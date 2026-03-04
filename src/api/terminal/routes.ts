@@ -1813,63 +1813,81 @@ export async function terminalRoutesPlugin(
       return reply.code(401).send({ error: 'Enrollment token has expired' });
     }
 
-    // #2104: Atomic check+increment to prevent race condition on max_uses
-    const incrementResult = await pool.query(
-      `UPDATE terminal_enrollment_token SET uses = uses + 1 WHERE id = $1 AND (max_uses IS NULL OR uses < max_uses) RETURNING id`,
-      [enrollmentToken.id],
-    );
-    if (incrementResult.rowCount === 0) {
-      return reply.code(401).send({ error: 'Enrollment token has reached maximum uses' });
-    }
+    // #2140: Wrap token increment and connection insert in a transaction.
+    // If the connection insert fails, the token use count is rolled back.
+    const client = await pool.connect();
+    let connection: Record<string, unknown>;
+    let credential: Record<string, unknown> | null = null;
 
-    // Merge connection defaults
-    const defaults = enrollmentToken.connection_defaults ?? {};
-    const tags = [
-      ...(enrollmentToken.allowed_tags ?? []),
-      ...(body.tags ?? []),
-    ];
+    try {
+      await client.query('BEGIN');
 
-    // Create terminal_connection
-    const connResult = await pool.query(
-      `INSERT INTO terminal_connection
-         (namespace, name, host, port, username, tags, notes, env)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-       RETURNING *`,
-      [
-        enrollmentToken.namespace,
-        body.hostname.trim(),
-        body.hostname.trim(),
-        body.ssh_port ?? 22,
-        (defaults.username as string) ?? null,
-        tags.length > 0 ? tags : null,
-        body.notes ?? (defaults.notes as string) ?? null,
-        defaults.env ? JSON.stringify(defaults.env) : null,
-      ],
-    );
-
-    const connection = connResult.rows[0];
-
-    // If public_key provided, create credential
-    let credential = null;
-    if (body.public_key) {
-      const credResult = await pool.query(
-        `INSERT INTO terminal_credential (namespace, name, kind, public_key)
-         VALUES ($1, $2, 'ssh_key', $3)
-         RETURNING id, namespace, name, kind, public_key, created_at`,
-        [enrollmentToken.namespace, `${body.hostname}-key`, body.public_key],
+      // #2104: Atomic check+increment to prevent race condition on max_uses
+      const incrementResult = await client.query(
+        `UPDATE terminal_enrollment_token SET uses = uses + 1 WHERE id = $1 AND (max_uses IS NULL OR uses < max_uses) RETURNING id`,
+        [enrollmentToken.id],
       );
-      credential = credResult.rows[0];
+      if (incrementResult.rowCount === 0) {
+        await client.query('ROLLBACK');
+        client.release();
+        return reply.code(401).send({ error: 'Enrollment token has reached maximum uses' });
+      }
 
-      // Link credential to connection
-      await pool.query(
-        `UPDATE terminal_connection SET credential_id = $1, auth_method = 'key' WHERE id = $2`,
-        [credential.id, connection.id],
+      // Merge connection defaults
+      const defaults = enrollmentToken.connection_defaults ?? {};
+      const tags = [
+        ...(enrollmentToken.allowed_tags ?? []),
+        ...(body.tags ?? []),
+      ];
+
+      // Create terminal_connection
+      const connResult = await client.query(
+        `INSERT INTO terminal_connection
+           (namespace, name, host, port, username, tags, notes, env)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         RETURNING *`,
+        [
+          enrollmentToken.namespace,
+          body.hostname.trim(),
+          body.hostname.trim(),
+          body.ssh_port ?? 22,
+          (defaults.username as string) ?? null,
+          tags.length > 0 ? tags : null,
+          body.notes ?? (defaults.notes as string) ?? null,
+          defaults.env ? JSON.stringify(defaults.env) : null,
+        ],
       );
+
+      connection = connResult.rows[0] as Record<string, unknown>;
+
+      // If public_key provided, create credential
+      if (body.public_key) {
+        const credResult = await client.query(
+          `INSERT INTO terminal_credential (namespace, name, kind, public_key)
+           VALUES ($1, $2, 'ssh_key', $3)
+           RETURNING id, namespace, name, kind, public_key, created_at`,
+          [enrollmentToken.namespace, `${body.hostname}-key`, body.public_key],
+        );
+        credential = credResult.rows[0] as Record<string, unknown>;
+
+        // Link credential to connection
+        await client.query(
+          `UPDATE terminal_connection SET credential_id = $1, auth_method = 'key' WHERE id = $2`,
+          [credential.id, connection.id],
+        );
+      }
+
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
     }
 
     recordActivity(pool, {
       namespace: enrollmentToken.namespace,
-      connection_id: connection.id,
+      connection_id: connection.id as string,
       actor: 'system',
       action: 'enrollment.register',
       detail: { token_label: enrollmentToken.label, remote_host: body.hostname },
@@ -2573,17 +2591,34 @@ export async function terminalRoutesPlugin(
       return reply.code(502).send({ error: 'Failed to notify worker', details: message });
     }
 
-    await pool.query(
-      `INSERT INTO terminal_known_host (
-        id, namespace, host, port, key_type, key_fingerprint, public_key, trusted_by
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'user')
-      ON CONFLICT (namespace, host, port, key_type)
-      DO UPDATE SET key_fingerprint = EXCLUDED.key_fingerprint,
-                    public_key = EXCLUDED.public_key,
-                    trusted_at = NOW(),
-                    trusted_by = 'user'`,
-      [id, namespace, body.host.trim(), port, body.key_type.trim(), body.fingerprint.trim(), body.public_key.trim()],
-    );
+    // #2141: Wrap DB write in try/catch — if it fails after gRPC success,
+    // log a reconciliation warning with structured data for operator remediation.
+    try {
+      await pool.query(
+        `INSERT INTO terminal_known_host (
+          id, namespace, host, port, key_type, key_fingerprint, public_key, trusted_by
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'user')
+        ON CONFLICT (namespace, host, port, key_type)
+        DO UPDATE SET key_fingerprint = EXCLUDED.key_fingerprint,
+                      public_key = EXCLUDED.public_key,
+                      trusted_at = NOW(),
+                      trusted_by = 'user'`,
+        [id, namespace, body.host.trim(), port, body.key_type.trim(), body.fingerprint.trim(), body.public_key.trim()],
+      );
+    } catch (dbErr) {
+      console.warn('Known-host split-brain: gRPC succeeded but DB write failed', {
+        session_id: body.session_id,
+        host: body.host.trim(),
+        port,
+        key_type: body.key_type.trim(),
+        action: 'approve',
+        error: dbErr instanceof Error ? dbErr.message : String(dbErr),
+      });
+      return reply.code(500).send({
+        error: 'Host key approved on worker but failed to persist in database. Manual reconciliation required.',
+        session_id: body.session_id,
+      });
+    }
 
     recordActivity(pool, {
       namespace,
@@ -3034,12 +3069,26 @@ export async function terminalRoutesPlugin(
       return reply.code(502).send({ error: 'Failed to notify worker', details: message });
     }
 
-    // Update session status to error since host key was rejected
-    await pool.query(
-      `UPDATE terminal_session SET status = 'error', error_message = 'Host key rejected by user', updated_at = NOW()
-       WHERE id = $1`,
-      [body.session_id],
-    );
+    // #2141: Wrap DB write in try/catch — if it fails after gRPC success,
+    // log a reconciliation warning with structured data for operator remediation.
+    try {
+      // Update session status to error since host key was rejected
+      await pool.query(
+        `UPDATE terminal_session SET status = 'error', error_message = 'Host key rejected by user', updated_at = NOW()
+         WHERE id = $1`,
+        [body.session_id],
+      );
+    } catch (dbErr) {
+      console.warn('Known-host split-brain: gRPC succeeded but DB write failed', {
+        session_id: body.session_id,
+        action: 'reject',
+        error: dbErr instanceof Error ? dbErr.message : String(dbErr),
+      });
+      return reply.code(500).send({
+        error: 'Host key rejected on worker but failed to persist in database. Manual reconciliation required.',
+        session_id: body.session_id,
+      });
+    }
 
     recordActivity(pool, {
       namespace: getStoreNamespace(req),

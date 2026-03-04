@@ -53,11 +53,25 @@ let _client: grpc.Client | undefined;
 
 /**
  * Build channel credentials — mTLS if certs are configured, insecure otherwise.
+ *
+ * #2139: If ANY mTLS env var is set, ALL three must be set. Partial config
+ * is a misconfiguration that must fail loudly instead of silently degrading.
  */
 export function buildClientCredentials(): grpc.ChannelCredentials {
   const certPath = process.env.TMUX_WORKER_MTLS_CERT ?? '';
   const keyPath = process.env.TMUX_WORKER_MTLS_KEY ?? '';
   const caPath = process.env.TMUX_WORKER_MTLS_CA ?? '';
+
+  const vars = { TMUX_WORKER_MTLS_CERT: certPath, TMUX_WORKER_MTLS_KEY: keyPath, TMUX_WORKER_MTLS_CA: caPath };
+  const setVars = Object.entries(vars).filter(([, v]) => !!v).map(([k]) => k);
+  const missingVars = Object.entries(vars).filter(([, v]) => !v).map(([k]) => k);
+
+  if (setVars.length > 0 && setVars.length < 3) {
+    throw new Error(
+      `Partial TLS configuration detected: ${setVars.join(', ')} set but ${missingVars.join(', ')} missing. ` +
+      `All three must be set (TMUX_WORKER_MTLS_CERT, TMUX_WORKER_MTLS_KEY, TMUX_WORKER_MTLS_CA) or none.`,
+    );
+  }
 
   if (certPath && keyPath && caPath) {
     try {
