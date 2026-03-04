@@ -471,6 +471,88 @@ describe('Critical Path 2: PTY initialization failure', () => {
     expect(mockPtyInstance).toBeNull();
   });
 
+  it('emits error when node-pty spawn throws', async () => {
+    setupPoolForAttach(pool);
+
+    // Make node-pty spawn throw (e.g. tmux binary not found)
+    const { spawn } = await import('node-pty');
+    (spawn as ReturnType<typeof vi.fn>).mockImplementationOnce(() => {
+      throw new Error('spawn ENOENT: tmux not found');
+    });
+
+    handleAttachSession(
+      stream,
+      pool,
+      tmux,
+      recorder as unknown as import('./entry-recorder.ts').EntryRecorder,
+    );
+    stream._dataHandlers[0]({ session_id: SESSION_ID });
+
+    // The promise chain inside handleAttachSession catches the spawn error
+    // and emits it as a gRPC NOT_FOUND error
+    await vi.waitFor(() =>
+      expect(stream.emit).toHaveBeenCalledWith(
+        'error',
+        expect.objectContaining({ code: grpc.status.NOT_FOUND }),
+      ),
+    );
+  });
+
+  it('drops messages when pending queue exceeds MAX_PENDING during init', async () => {
+    // Make session resolution very slow so messages pile up
+    const queryFn = pool.query as ReturnType<typeof vi.fn>;
+    let resolveInit: ((value: unknown) => void) | null = null;
+    queryFn.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveInit = resolve;
+        }),
+    );
+
+    handleAttachSession(
+      stream,
+      pool,
+      tmux,
+      recorder as unknown as import('./entry-recorder.ts').EntryRecorder,
+    );
+
+    // Send first message (triggers init)
+    stream._dataHandlers[0]({ session_id: SESSION_ID });
+
+    // Queue 105 messages during init (MAX_PENDING is 100)
+    for (let i = 0; i < 105; i++) {
+      stream._dataHandlers[0]({
+        session_id: '',
+        data: Buffer.from(`msg-${i}`),
+      });
+    }
+
+    // Resolve the init
+    resolveInit!({
+      rows: [
+        {
+          id: SESSION_ID,
+          namespace: NAMESPACE,
+          tmux_session_name: 'oc-test',
+          status: 'active',
+        },
+      ],
+    });
+    // Provide pane resolution + dimension lookup
+    queryFn.mockResolvedValueOnce({
+      rows: [{ pane_id: 'pane-uuid', window_index: 0, pane_index: 0 }],
+    });
+    queryFn.mockResolvedValueOnce({
+      rows: [{ cols: 80, rows: 24 }],
+    });
+
+    await vi.waitFor(() => expect(mockPtyInstance).not.toBeNull());
+
+    // The PTY should have received at most 100 replayed messages (MAX_PENDING)
+    // Messages beyond 100 are silently dropped to prevent unbounded memory growth
+    expect(mockPtyInstance!.write.mock.calls.length).toBeLessThanOrEqual(100);
+  });
+
   it('rejects invalid tmux session names during attach', async () => {
     const queryFn = pool.query as ReturnType<typeof vi.fn>;
     // Session with invalid tmux name containing shell metacharacters
@@ -1462,6 +1544,40 @@ describe('Critical Path 8: Enrollment token concurrent usage', () => {
     expect(event.enrolled_at).toBeDefined();
     // Timestamp should have seconds field representing the date
     expect(event.enrolled_at!.seconds).toBeDefined();
+  });
+
+  it('concurrent subscriber registration and emission is safe', () => {
+    const {
+      enrollmentEventBus,
+    } = require('./enrollment-stream.ts') as typeof import('./enrollment-stream.ts');
+
+    const results: string[] = [];
+    const cleanups: Array<() => void> = [];
+
+    // Register subscribers while also emitting events (interleaved)
+    for (let i = 0; i < 5; i++) {
+      const cleanup = enrollmentEventBus.onEnrollment((event) => {
+        results.push(`sub-${i}:${event.connectionId}`);
+      });
+      cleanups.push(cleanup);
+
+      // Emit an event after each subscriber registration
+      enrollmentEventBus.emitEnrollment({
+        connectionId: `conn-${i}`,
+        host: '10.0.0.1',
+        port: 22,
+        label: `token-${i}`,
+        tags: [],
+        enrolledAt: new Date(),
+      });
+    }
+
+    // First event seen by 1 subscriber, second by 2, third by 3, etc.
+    // Total events received: 1 + 2 + 3 + 4 + 5 = 15
+    expect(results).toHaveLength(15);
+
+    cleanups.forEach((c) => c());
+    enrollmentEventBus.removeAllListeners('enrollment');
   });
 
   it('enrollment event bus handles rapid emissions without losing events', () => {
