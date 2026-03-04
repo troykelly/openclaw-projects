@@ -12,7 +12,8 @@ export interface TerminalSearchParams {
   query: string;
   connection_id?: string;
   session_id?: string;
-  kind?: string;
+  /** Filter by entry kinds. Backend expects an array of kind strings. */
+  kind?: string[];
   tags?: string[];
   from?: string;
   to?: string;

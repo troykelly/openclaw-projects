@@ -347,6 +347,58 @@ describe('ConnectionsPage', () => {
     }, { timeout: 5000 });
   });
 
+  // Issue #2133: SSH config import response alignment
+  it('SSH config import uses correct backend response shape { imported, count }', async () => {
+    const mockImportResponse = {
+      imported: [
+        { id: 'new-1', name: 'server-alpha' },
+        { id: 'new-2', name: 'server-beta' },
+      ],
+      count: 2,
+    };
+    mockApiClient.post.mockResolvedValueOnce(mockImportResponse);
+
+    renderWithRouter();
+
+    await waitFor(() => {
+      expect(screen.getByText('Import SSH Config')).toBeInTheDocument();
+    }, { timeout: 5000 });
+
+    // Open import dialog
+    fireEvent.click(screen.getByText('Import SSH Config'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('ssh-config-input')).toBeInTheDocument();
+    }, { timeout: 5000 });
+
+    // Enter SSH config text
+    const textarea = screen.getByTestId('ssh-config-input');
+    fireEvent.change(textarea, { target: { value: 'Host server-alpha\n  HostName 10.0.0.1\n  User admin\n\nHost server-beta\n  HostName 10.0.0.2\n  User admin' } });
+
+    // Click import
+    const importButton = screen.getByRole('button', { name: /^import$/i });
+    fireEvent.click(importButton);
+
+    await waitFor(() => {
+      expect(mockApiClient.post).toHaveBeenCalledWith(
+        '/terminal/connections/import-ssh-config',
+        { config_text: expect.any(String) },
+      );
+    }, { timeout: 5000 });
+  });
+
+  it('SshConfigImportResponse type matches backend { imported, count } shape', async () => {
+    const { useImportSshConfig } = await import('@/ui/hooks/queries/use-terminal-connections');
+    expect(useImportSshConfig).toBeDefined();
+
+    // Verify the response type has 'imported' and 'count', not 'connections'
+    type ImportResult = Awaited<ReturnType<ReturnType<typeof useImportSshConfig>['mutateAsync']>>;
+    // This would fail at build time if the type still had `connections` instead of `imported`
+    const mockResult: ImportResult = { imported: [{ id: '1', name: 'test' }], count: 1 };
+    expect(mockResult.imported).toHaveLength(1);
+    expect(mockResult.count).toBe(1);
+  });
+
   it('does not show host key dialog for non-verification failures', async () => {
     mockApiClient.post.mockResolvedValue(mockTestOtherFailure);
     renderWithRouter();

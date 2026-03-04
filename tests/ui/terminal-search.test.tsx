@@ -6,7 +6,7 @@
  */
 import * as React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { TerminalConnectionsResponse } from '@/ui/lib/api-types';
@@ -129,6 +129,42 @@ describe('TerminalSearchPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Terminal Search')).toBeInTheDocument();
+    }, { timeout: 5000 });
+  });
+
+  // Issue #2132: kind filter must send string[] to backend
+  it('TerminalSearchParams.kind accepts string[] matching backend contract', async () => {
+    const mod = await import('@/ui/hooks/queries/use-terminal-search');
+    expect(mod.useTerminalSearch).toBeDefined();
+
+    // If kind were still typed as `string`, this assignment would fail at build time.
+    type Params = Parameters<ReturnType<typeof mod.useTerminalSearch>['mutate']>[0];
+    const params: Params = { query: 'test', kind: ['command', 'output'] };
+    expect(Array.isArray(params.kind)).toBe(true);
+    expect(params.kind).toEqual(['command', 'output']);
+  });
+
+  it('sends kind as undefined when "all" is selected (no filter)', async () => {
+    renderWithRouter();
+
+    await waitFor(() => {
+      expect(screen.getByTestId('terminal-search-filters')).toBeInTheDocument();
+    }, { timeout: 5000 });
+
+    const input = screen.getByTestId('search-query-input');
+    fireEvent.change(input, { target: { value: 'test query' } });
+
+    const searchButton = screen.getByRole('button', { name: /search/i });
+    fireEvent.click(searchButton);
+
+    await waitFor(() => {
+      expect(mockApiClient.post).toHaveBeenCalledWith(
+        '/terminal/search',
+        expect.objectContaining({ query: 'test query' }),
+      );
+      // When "all" is selected, kind should be undefined (not sent as string or empty array)
+      const callArgs = mockApiClient.post.mock.calls[0][1];
+      expect(callArgs.kind).toBeUndefined();
     }, { timeout: 5000 });
   });
 });

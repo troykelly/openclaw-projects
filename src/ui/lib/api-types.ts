@@ -1742,6 +1742,18 @@ export interface TerminalKnownHostsResponse {
   known_hosts: TerminalKnownHost[];
 }
 
+/** An imported connection entry from POST /terminal/connections/import-ssh-config */
+export interface SshConfigImportedEntry {
+  id: string;
+  name: string;
+}
+
+/** Response from POST /terminal/connections/import-ssh-config */
+export interface SshConfigImportResponse {
+  imported: SshConfigImportedEntry[];
+  count: number;
+}
+
 /** Terminal activity log entry. */
 export interface TerminalActivityItem {
   id: string;

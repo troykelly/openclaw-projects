@@ -5,7 +5,7 @@
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/ui/lib/api-client.ts';
-import type { TerminalConnection, TerminalConnectionsResponse, TerminalKnownHostsResponse } from '@/ui/lib/api-types.ts';
+import type { TerminalConnection, TerminalConnectionsResponse, TerminalKnownHostsResponse, SshConfigImportResponse } from '@/ui/lib/api-types.ts';
 
 /** Response from POST /terminal/connections/:id/test */
 export interface TestConnectionResponse {
@@ -106,7 +106,7 @@ export function useImportSshConfig() {
 
   return useMutation({
     mutationFn: (config: string) =>
-      apiClient.post<{ connections: TerminalConnection[] }>('/terminal/connections/import-ssh-config', { config_text: config }),
+      apiClient.post<SshConfigImportResponse>('/terminal/connections/import-ssh-config', { config_text: config }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: terminalConnectionKeys.all });
     },

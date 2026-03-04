@@ -28,7 +28,7 @@ export function TerminalSearchPage(): React.JSX.Element {
     searchMutation.mutate({
       query,
       connection_id: connectionId !== 'all' ? connectionId : undefined,
-      kind: kind !== 'all' ? kind : undefined,
+      kind: kind !== 'all' ? [kind] : undefined,
     });
   };
 
