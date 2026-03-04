@@ -1596,7 +1596,7 @@ Host db-server
         expect(res.statusCode).toBe(404);
       });
 
-      it('stores key and returns 502 when worker unavailable', async () => {
+      it('returns 502 without storing key when worker unavailable (#2107)', async () => {
         const connId = '00000000-0000-0000-0000-000000000001';
         const sessId = '00000000-0000-0000-0000-000000000010';
 
@@ -1623,17 +1623,17 @@ Host db-server
           },
         });
 
-        // Worker unavailable for gRPC call, but host key was stored
+        // #2107: gRPC is called first — worker unavailable returns 502
+        // and DB is NOT written (consistent state)
         expect(res.statusCode).toBe(502);
 
-        // Verify the known host was stored
+        // Verify the known host was NOT stored (gRPC-first ordering)
         const list = await app.inject({
           method: 'GET',
           url: '/terminal/known-hosts',
         });
         const body = list.json() as { known_hosts: Array<{ host: string }>; total: number };
-        expect(body.total).toBe(1);
-        expect(body.known_hosts[0].host).toBe('example.com');
+        expect(body.total).toBe(0);
       });
     });
 
