@@ -1829,7 +1829,7 @@ export async function terminalRoutesPlugin(
       );
       if (incrementResult.rowCount === 0) {
         await client.query('ROLLBACK');
-        client.release();
+        // client.release() handled by finally block
         return reply.code(401).send({ error: 'Enrollment token has reached maximum uses' });
       }
 
@@ -1879,7 +1879,7 @@ export async function terminalRoutesPlugin(
 
       await client.query('COMMIT');
     } catch (err) {
-      await client.query('ROLLBACK');
+      try { await client.query('ROLLBACK'); } catch { /* rollback best-effort */ }
       throw err;
     } finally {
       client.release();
@@ -2611,6 +2611,9 @@ export async function terminalRoutesPlugin(
         host: body.host.trim(),
         port,
         key_type: body.key_type.trim(),
+        fingerprint: body.fingerprint.trim(),
+        namespace,
+        trace_id: traceId,
         action: 'approve',
         error: dbErr instanceof Error ? dbErr.message : String(dbErr),
       });
@@ -3081,6 +3084,8 @@ export async function terminalRoutesPlugin(
     } catch (dbErr) {
       console.warn('Known-host split-brain: gRPC succeeded but DB write failed', {
         session_id: body.session_id,
+        namespace: getStoreNamespace(req),
+        trace_id: traceId,
         action: 'reject',
         error: dbErr instanceof Error ? dbErr.message : String(dbErr),
       });

@@ -300,7 +300,7 @@ export function createEnrollmentSSHServer(
               );
               if (incrementResult.rowCount === 0) {
                 await txClient.query('ROLLBACK');
-                txClient.release();
+                // txClient.release() handled by finally block
                 ctx.reject(['password']);
                 return;
               }
@@ -326,7 +326,7 @@ export function createEnrollmentSSHServer(
 
               await txClient.query('COMMIT');
             } catch (txErr) {
-              await txClient.query('ROLLBACK');
+              try { await txClient.query('ROLLBACK'); } catch { /* rollback best-effort */ }
               throw txErr;
             } finally {
               txClient.release();
