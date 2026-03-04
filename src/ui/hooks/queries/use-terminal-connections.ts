@@ -106,7 +106,7 @@ export function useImportSshConfig() {
 
   return useMutation({
     mutationFn: (config: string) =>
-      apiClient.post<{ connections: TerminalConnection[] }>('/terminal/connections/import-ssh-config', { config }),
+      apiClient.post<{ connections: TerminalConnection[] }>('/terminal/connections/import-ssh-config', { config_text: config }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: terminalConnectionKeys.all });
     },

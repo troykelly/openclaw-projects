@@ -1759,17 +1759,34 @@ export interface TerminalActivityResponse {
   items: TerminalActivityItem[];
 }
 
-/** Terminal search result. */
-export interface TerminalSearchResult {
-  entry: TerminalSessionEntry;
-  score: number;
-  context: TerminalSessionEntry[];
+/** Context surrounding a search result (before/after entries). */
+export interface TerminalSearchContext {
+  before: Array<{ kind: string; content: string }>;
+  after: Array<{ kind: string; content: string }>;
+}
+
+/** A single item from POST /terminal/search (flat shape matching backend). */
+export interface TerminalSearchItem {
+  id: string;
+  session_id: string;
+  session_name: string;
+  connection_name: string;
+  connection_host: string;
+  kind: string;
+  content: string;
+  captured_at: string;
+  similarity: number;
+  context: TerminalSearchContext;
+  metadata: Record<string, unknown> | null;
 }
 
 /** Response from POST /terminal/search */
 export interface TerminalSearchResponse {
-  results: TerminalSearchResult[];
+  items: TerminalSearchItem[];
   total: number;
+  limit: number;
+  offset: number;
+  search_mode: string;
 }
 
 /** Terminal dashboard stats. */
