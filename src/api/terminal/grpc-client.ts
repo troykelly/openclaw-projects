@@ -111,6 +111,20 @@ export function closeGrpcClient(): void {
   }
 }
 
+/**
+ * Reset the gRPC client, forcing a new connection on the next call (#2123).
+ *
+ * Use when the worker process restarts or when a stale connection is detected.
+ * Closes the existing client (if any) and clears the singleton so that
+ * getGrpcClient() creates a fresh connection.
+ */
+export function resetGrpcClient(): void {
+  if (_client) {
+    try { _client.close(); } catch { /* best-effort close */ }
+    _client = undefined;
+  }
+}
+
 /** Helper to create a deadline from a timeout in ms. */
 function deadline(ms: number = DEFAULT_DEADLINE_MS): Date {
   return new Date(Date.now() + ms);
@@ -126,8 +140,21 @@ interface UnaryCallOptions {
 }
 
 /**
+ * gRPC status codes that indicate a dead or unreachable connection.
+ * On these errors, the client singleton is reset so the next call
+ * creates a fresh connection (#2123).
+ */
+const RETRIABLE_STATUS_CODES = new Set([
+  grpc.status.UNAVAILABLE,
+  grpc.status.DEADLINE_EXCEEDED,
+  grpc.status.INTERNAL,
+]);
+
+/**
  * Wrap a gRPC unary call in a Promise.
  * Optionally propagates a trace ID via gRPC metadata (#2128).
+ * Automatically resets the client on connection-level failures so that
+ * subsequent calls create a fresh connection (#2123).
  */
 function unaryCall<TReq, TRes>(
   method: string,
@@ -145,28 +172,23 @@ function unaryCall<TReq, TRes>(
 
     const callOptions: grpc.CallOptions = { deadline: deadline(options?.timeoutMs) };
 
+    const callback = (err: grpc.ServiceError | null, response: TRes) => {
+      if (err) {
+        // Reset client on connection-level failures so next call reconnects (#2123)
+        if (RETRIABLE_STATUS_CODES.has(err.code)) {
+          resetGrpcClient();
+        }
+        reject(err);
+      } else {
+        resolve(response);
+      }
+    };
+
     if (options?.traceId) {
       const metadata = createGrpcMetadataWithTrace(options.traceId);
-      fn.call(
-        client,
-        request,
-        metadata,
-        callOptions,
-        (err: grpc.ServiceError | null, response: TRes) => {
-          if (err) reject(err);
-          else resolve(response);
-        },
-      );
+      fn.call(client, request, metadata, callOptions, callback);
     } else {
-      fn.call(
-        client,
-        request,
-        callOptions,
-        (err: grpc.ServiceError | null, response: TRes) => {
-          if (err) reject(err);
-          else resolve(response);
-        },
-      );
+      fn.call(client, request, callOptions, callback);
     }
   });
 }

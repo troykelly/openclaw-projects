@@ -74,7 +74,7 @@ describe('EntryRecorder', () => {
     recorder.stop();
   });
 
-  it('throttles high-volume output entries', () => {
+  it('tracks throttle state for high-volume output entries (#2111)', () => {
     const recorder = new EntryRecorder(mockPool(), {
       throttleBytesPerSec: 100,
       throttleSustainedMs: 1000,
@@ -90,8 +90,9 @@ describe('EntryRecorder', () => {
       metadata: null,
     });
     expect(entry1).toBe(true);
+    expect(recorder.isSessionThrottled('sess-1')).toBe(false);
 
-    // Exceed threshold
+    // Exceed threshold — entry is still accepted (buffered) but session is throttled
     const entry2 = recorder.record({
       session_id: 'sess-1',
       pane_id: null,
@@ -100,7 +101,8 @@ describe('EntryRecorder', () => {
       content: 'x'.repeat(200),
       metadata: null,
     });
-    expect(entry2).toBe(false);
+    expect(entry2).toBe(true);
+    expect(recorder.isSessionThrottled('sess-1')).toBe(true);
   });
 
   it('does not throttle command entries', () => {
