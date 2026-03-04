@@ -351,10 +351,17 @@ export function handleAttachSession(
   let initializing = false;
   let ended = false;
   const pendingMessages: TerminalInput[] = [];
+  const MAX_PENDING = 100;
+  const MAX_COLS = 1000;
+  const MAX_ROWS = 500;
+  let dataDisposable: { dispose: () => void } | null = null;
+  let exitDisposable: { dispose: () => void } | null = null;
 
   const cleanup = () => {
     if (ended) return;
     ended = true;
+    if (dataDisposable) { dataDisposable.dispose(); dataDisposable = null; }
+    if (exitDisposable) { exitDisposable.dispose(); exitDisposable = null; }
     if (ptyProcess) {
       try { ptyProcess.kill(); } catch { /* already exited */ }
       ptyProcess = null;
@@ -389,7 +396,7 @@ export function handleAttachSession(
     // Handle resize — resize the PTY directly (ioctl TIOCSWINSZ)
     if (input.resize) {
       const { cols, rows } = input.resize;
-      if (cols > 0 && rows > 0) {
+      if (cols > 0 && rows > 0 && cols <= MAX_COLS && rows <= MAX_ROWS) {
         try {
           ptyProcess.resize(cols, rows);
         } catch { /* best-effort resize */ }
@@ -412,7 +419,9 @@ export function handleAttachSession(
     if (!initialized) {
       if (initializing) {
         // Queue messages during initialization instead of dropping them
-        pendingMessages.push(input);
+        if (pendingMessages.length < MAX_PENDING) {
+          pendingMessages.push(input);
+        }
         return;
       }
 
@@ -449,13 +458,23 @@ export function handleAttachSession(
 
           // Apply any queued resize before spawning the PTY
           for (const msg of pendingMessages) {
-            if (msg.resize && msg.resize.cols > 0 && msg.resize.rows > 0) {
+            if (msg.resize && msg.resize.cols > 0 && msg.resize.rows > 0
+                && msg.resize.cols <= MAX_COLS && msg.resize.rows <= MAX_ROWS) {
               cols = msg.resize.cols;
               rows = msg.resize.rows;
             }
           }
 
           if (ended) return;
+
+          // Validate tmux session name to prevent target syntax abuse (defense-in-depth)
+          if (!/^[a-zA-Z0-9_-]+$/.test(target.tmuxSessionName)) {
+            call.emit('error', {
+              code: grpc.status.INVALID_ARGUMENT,
+              message: `Invalid tmux session name: ${target.tmuxSessionName}`,
+            });
+            return;
+          }
 
           // Spawn tmux attach via node-pty for real PTY streaming
           const pty = ptySpawn(
@@ -473,7 +492,7 @@ export function handleAttachSession(
           initialized = true;
 
           // Stream PTY output to gRPC client
-          pty.onData((data: string) => {
+          dataDisposable = pty.onData((data: string) => {
             if (ended) return;
 
             const ok = call.write({ data: Buffer.from(data) });
@@ -496,7 +515,7 @@ export function handleAttachSession(
           });
 
           // Handle PTY exit (tmux session terminated or detached)
-          pty.onExit(({ exitCode }) => {
+          exitDisposable = pty.onExit(({ exitCode }) => {
             if (ended) return;
             if (target) {
               call.write({
@@ -544,7 +563,8 @@ export function handleAttachSession(
 
   call.on('end', () => {
     cleanup();
-    call.end();
+    // Don't call call.end() here — the stream already ended from the client side.
+    // The PTY onExit handler calls call.end() when the PTY exits first.
   });
 
   call.on('error', () => {
