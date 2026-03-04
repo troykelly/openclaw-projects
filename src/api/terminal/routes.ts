@@ -1290,6 +1290,14 @@ export async function terminalRoutesPlugin(
       try {
         await verifyAccessToken(query.token);
         authenticated = true;
+        // Issue #2072: The preHandler hook that resolves namespace context uses
+        // getAuthIdentity(req) which only checks the Authorization header. WebSocket
+        // auth arrives via query param, so namespace context is never set. Inject
+        // the token as a Bearer header so resolveNamespaces can extract the identity.
+        if (!req.namespaceContext) {
+          (req.headers as Record<string, string>).authorization = `Bearer ${query.token}`;
+          req.namespaceContext = await resolveNamespaces(req, pool);
+        }
       } catch {
         // Token verification failed
       }
