@@ -5,16 +5,60 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { randomUUID } from 'node:crypto';
+import * as grpc from '@grpc/grpc-js';
 import {
   handleSendCommand,
   handleSendKeys,
   handleCapturePane,
+  handleAttachSession,
   resolveSessionPaneTarget,
   COMMAND_MARKER_PREFIX,
 } from './terminal-io.ts';
 import type { TmuxManager } from './tmux/manager.ts';
 import type pg from 'pg';
 import type { EntryRecorder } from './entry-recorder.ts';
+import type { TerminalInput, TerminalOutput } from './types.ts';
+
+// ── Mock node-pty ────────────────────────────────────────────
+type DataHandler = (data: string) => void;
+type ExitHandler = (e: { exitCode: number; signal?: number }) => void;
+
+interface MockPty {
+  onData: (cb: DataHandler) => { dispose: () => void };
+  onExit: (cb: ExitHandler) => { dispose: () => void };
+  write: ReturnType<typeof vi.fn>;
+  resize: ReturnType<typeof vi.fn>;
+  kill: ReturnType<typeof vi.fn>;
+  _dataHandlers: DataHandler[];
+  _exitHandlers: ExitHandler[];
+  _emitData: (data: string) => void;
+  _emitExit: (code: number) => void;
+}
+
+function createMockPty(): MockPty {
+  const dataHandlers: DataHandler[] = [];
+  const exitHandlers: ExitHandler[] = [];
+  return {
+    onData: (cb: DataHandler) => { dataHandlers.push(cb); return { dispose: () => {} }; },
+    onExit: (cb: ExitHandler) => { exitHandlers.push(cb); return { dispose: () => {} }; },
+    write: vi.fn(),
+    resize: vi.fn(),
+    kill: vi.fn(),
+    _dataHandlers: dataHandlers,
+    _exitHandlers: exitHandlers,
+    _emitData: (data: string) => dataHandlers.forEach((h) => h(data)),
+    _emitExit: (code: number) => exitHandlers.forEach((h) => h({ exitCode: code })),
+  };
+}
+
+let mockPtyInstance: MockPty | null = null;
+
+vi.mock('node-pty', () => ({
+  spawn: vi.fn((..._args: unknown[]) => {
+    mockPtyInstance = createMockPty();
+    return mockPtyInstance;
+  }),
+}));
 
 // ── Helpers to create mocks ──────────────────────────────────
 
@@ -420,5 +464,260 @@ describe('COMMAND_MARKER_PREFIX', () => {
   it('is a non-empty string prefix', () => {
     expect(typeof COMMAND_MARKER_PREFIX).toBe('string');
     expect(COMMAND_MARKER_PREFIX.length).toBeGreaterThan(0);
+  });
+});
+
+// ── handleAttachSession (PTY-based) ─────────────────────────
+
+/** Helper to create a mock gRPC duplex stream. */
+function mockDuplexStream(): grpc.ServerDuplexStream<TerminalInput, TerminalOutput> & {
+  _dataHandlers: Array<(input: TerminalInput) => void>;
+  _emit: (event: string, ...args: unknown[]) => void;
+  written: TerminalOutput[];
+} {
+  const dataHandlers: Array<(input: TerminalInput) => void> = [];
+  const otherHandlers: Map<string, Array<(...args: unknown[]) => void>> = new Map();
+  const written: TerminalOutput[] = [];
+
+  const stream = {
+    on: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
+      if (event === 'data') {
+        dataHandlers.push(handler as (input: TerminalInput) => void);
+      } else {
+        const handlers = otherHandlers.get(event) ?? [];
+        handlers.push(handler);
+        otherHandlers.set(event, handlers);
+      }
+      return stream;
+    }),
+    once: vi.fn((_event: string, _handler: (...args: unknown[]) => void) => stream),
+    write: vi.fn((data: TerminalOutput) => { written.push(data); return true; }),
+    end: vi.fn(),
+    emit: vi.fn((event: string, ...args: unknown[]) => {
+      const handlers = otherHandlers.get(event) ?? [];
+      handlers.forEach((h) => h(...args));
+      return true;
+    }),
+    _dataHandlers: dataHandlers,
+    _emit: (event: string, ...args: unknown[]) => {
+      const handlers = otherHandlers.get(event) ?? [];
+      handlers.forEach((h) => h(...args));
+    },
+    written,
+  } as unknown as grpc.ServerDuplexStream<TerminalInput, TerminalOutput> & {
+    _dataHandlers: Array<(input: TerminalInput) => void>;
+    _emit: (event: string, ...args: unknown[]) => void;
+    written: TerminalOutput[];
+  };
+
+  return stream;
+}
+
+/** Set up pool mocks for session + pane resolution + dimension lookup. */
+function setupPoolForAttach(pool: pg.Pool): void {
+  const queryFn = pool.query as ReturnType<typeof vi.fn>;
+  // resolveSessionPaneTarget: session lookup
+  queryFn.mockResolvedValueOnce({
+    rows: [{
+      id: SESSION_ID,
+      namespace: NAMESPACE,
+      tmux_session_name: 'oc-test',
+      status: 'active',
+    }],
+  });
+  // resolveSessionPaneTarget: pane lookup
+  queryFn.mockResolvedValueOnce({
+    rows: [{ pane_id: 'pane-uuid', window_index: 0, pane_index: 0 }],
+  });
+  // Dimension lookup
+  queryFn.mockResolvedValueOnce({
+    rows: [{ cols: 80, rows: 24 }],
+  });
+}
+
+describe('handleAttachSession (PTY-based)', () => {
+  let pool: pg.Pool;
+  let tmux: TmuxManager;
+  let recorder: EntryRecorder;
+  let stream: ReturnType<typeof mockDuplexStream>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockPtyInstance = null;
+    pool = mockPool();
+    tmux = mockTmuxManager();
+    recorder = mockEntryRecorder();
+    stream = mockDuplexStream();
+  });
+
+  it('spawns PTY with tmux attach-session on first message', async () => {
+    const { spawn } = await import('node-pty');
+    setupPoolForAttach(pool);
+
+    handleAttachSession(stream, pool, tmux, recorder);
+
+    // Send first message with session_id
+    stream._dataHandlers[0]({ session_id: SESSION_ID });
+
+    // Wait for async initialization
+    await vi.waitFor(() => expect(mockPtyInstance).not.toBeNull());
+
+    expect(spawn).toHaveBeenCalledWith(
+      'tmux',
+      ['attach-session', '-t', 'oc-test'],
+      expect.objectContaining({
+        cols: 80,
+        rows: 24,
+        name: 'xterm-256color',
+      }),
+    );
+  });
+
+  it('sends attached event after PTY spawn', async () => {
+    setupPoolForAttach(pool);
+
+    handleAttachSession(stream, pool, tmux, recorder);
+    stream._dataHandlers[0]({ session_id: SESSION_ID });
+
+    await vi.waitFor(() => expect(mockPtyInstance).not.toBeNull());
+
+    const attachedEvent = stream.written.find(
+      (w) => w.event?.type === 'status_change' && w.event?.message === 'attached',
+    );
+    expect(attachedEvent).toBeDefined();
+  });
+
+  it('forwards PTY output to gRPC stream', async () => {
+    setupPoolForAttach(pool);
+
+    handleAttachSession(stream, pool, tmux, recorder);
+    stream._dataHandlers[0]({ session_id: SESSION_ID });
+
+    await vi.waitFor(() => expect(mockPtyInstance).not.toBeNull());
+
+    // Emit some PTY output
+    mockPtyInstance!._emitData('hello world');
+
+    const outputMsg = stream.written.find((w) => w.data !== undefined);
+    expect(outputMsg).toBeDefined();
+    expect(Buffer.from(outputMsg!.data!).toString()).toBe('hello world');
+  });
+
+  it('forwards gRPC input to PTY write', async () => {
+    setupPoolForAttach(pool);
+
+    handleAttachSession(stream, pool, tmux, recorder);
+    stream._dataHandlers[0]({ session_id: SESSION_ID });
+
+    await vi.waitFor(() => expect(mockPtyInstance).not.toBeNull());
+
+    // Send keystroke
+    stream._dataHandlers[0]({ session_id: '', data: Buffer.from('ls\r') });
+
+    expect(mockPtyInstance!.write).toHaveBeenCalledWith('ls\r');
+  });
+
+  it('handles resize via pty.resize()', async () => {
+    setupPoolForAttach(pool);
+
+    handleAttachSession(stream, pool, tmux, recorder);
+    stream._dataHandlers[0]({ session_id: SESSION_ID });
+
+    await vi.waitFor(() => expect(mockPtyInstance).not.toBeNull());
+
+    // Send resize
+    stream._dataHandlers[0]({ session_id: '', resize: { cols: 120, rows: 40 } });
+
+    expect(mockPtyInstance!.resize).toHaveBeenCalledWith(120, 40);
+  });
+
+  it('queues messages during initialization and replays them', async () => {
+    setupPoolForAttach(pool);
+
+    handleAttachSession(stream, pool, tmux, recorder);
+
+    // Send first message (triggers init)
+    stream._dataHandlers[0]({ session_id: SESSION_ID });
+
+    // Send resize while still initializing (before PTY is ready)
+    stream._dataHandlers[0]({ session_id: '', resize: { cols: 60, rows: 20 } });
+    stream._dataHandlers[0]({ session_id: '', data: Buffer.from('hello') });
+
+    // Wait for init to complete
+    await vi.waitFor(() => expect(mockPtyInstance).not.toBeNull());
+
+    // The resize should have been applied to PTY spawn dimensions
+    const { spawn } = await import('node-pty');
+    expect(spawn).toHaveBeenCalledWith(
+      'tmux',
+      expect.any(Array),
+      expect.objectContaining({ cols: 60, rows: 20 }),
+    );
+
+    // Queued keystroke should have been replayed
+    expect(mockPtyInstance!.write).toHaveBeenCalledWith('hello');
+  });
+
+  it('sends terminated event and ends stream on PTY exit', async () => {
+    setupPoolForAttach(pool);
+
+    handleAttachSession(stream, pool, tmux, recorder);
+    stream._dataHandlers[0]({ session_id: SESSION_ID });
+
+    await vi.waitFor(() => expect(mockPtyInstance).not.toBeNull());
+
+    // Simulate PTY exit
+    mockPtyInstance!._emitExit(0);
+
+    const terminatedEvent = stream.written.find(
+      (w) => w.event?.type === 'status_change' && w.event?.message === 'terminated',
+    );
+    expect(terminatedEvent).toBeDefined();
+    expect(stream.end).toHaveBeenCalled();
+  });
+
+  it('records output via EntryRecorder', async () => {
+    setupPoolForAttach(pool);
+
+    handleAttachSession(stream, pool, tmux, recorder);
+    stream._dataHandlers[0]({ session_id: SESSION_ID });
+
+    await vi.waitFor(() => expect(mockPtyInstance).not.toBeNull());
+
+    mockPtyInstance!._emitData('some output');
+
+    expect(recorder.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        session_id: SESSION_ID,
+        kind: 'output',
+        content: 'some output',
+        metadata: { source: 'pty_stream' },
+      }),
+    );
+  });
+
+  it('kills PTY on stream end', async () => {
+    setupPoolForAttach(pool);
+
+    handleAttachSession(stream, pool, tmux, recorder);
+    stream._dataHandlers[0]({ session_id: SESSION_ID });
+
+    await vi.waitFor(() => expect(mockPtyInstance).not.toBeNull());
+
+    // Trigger stream end
+    stream._emit('end');
+
+    expect(mockPtyInstance!.kill).toHaveBeenCalled();
+  });
+
+  it('emits error when session_id missing from first message', () => {
+    handleAttachSession(stream, pool, tmux, recorder);
+
+    stream._dataHandlers[0]({ session_id: '' });
+
+    expect(stream.emit).toHaveBeenCalledWith(
+      'error',
+      expect.objectContaining({ code: grpc.status.INVALID_ARGUMENT }),
+    );
   });
 });
