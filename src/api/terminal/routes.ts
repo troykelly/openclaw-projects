@@ -1407,10 +1407,12 @@ export async function terminalRoutesPlugin(
             || cols < 1 || rows < 1
             || cols > MAX_COLS || rows > MAX_ROWS
           ) {
-            socket.send(JSON.stringify({
-              type: 'error',
-              error: `Invalid resize: cols must be 1-${MAX_COLS}, rows must be 1-${MAX_ROWS} (integers)`,
-            }));
+            if (socket.readyState === 1 /* OPEN */) {
+              socket.send(JSON.stringify({
+                type: 'error',
+                error: `Invalid resize: cols must be 1-${MAX_COLS}, rows must be 1-${MAX_ROWS} (integers)`,
+              }));
+            }
             return;
           }
           if (!grpcStream.writable) return;
