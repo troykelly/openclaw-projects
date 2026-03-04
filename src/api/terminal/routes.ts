@@ -50,6 +50,11 @@ const MAX_LIMIT = 100;
 
 const VALID_AUTH_METHODS = ['key', 'password', 'agent', 'command'] as const;
 const VALID_HOST_KEY_POLICIES = ['strict', 'tofu', 'skip'] as const;
+const MIN_PORT = 1;
+const MAX_PORT = 65535;
+const MAX_TIMEOUT_S = 86400; // 24 hours
+const MAX_COLS = 1000;
+const MAX_ROWS = 500;
 const VALID_CREDENTIAL_KINDS = ['ssh_key', 'password', 'command'] as const;
 const VALID_SESSION_STATUSES = [
   'starting', 'active', 'idle', 'disconnected', 'terminated', 'error', 'pending_host_verification',
@@ -147,6 +152,24 @@ function getEncryptionKey(): Buffer {
     throw new Error('OAUTH_TOKEN_ENCRYPTION_KEY is required for credential operations');
   }
   return parseEncryptionKey(hex);
+}
+
+/** Validate port is an integer in valid range. Returns error string or null. */
+function validatePort(value: unknown, fieldName: string): string | null {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < MIN_PORT || value > MAX_PORT) {
+    return `${fieldName} must be an integer between ${MIN_PORT} and ${MAX_PORT}`;
+  }
+  return null;
+}
+
+/** Validate timeout is a positive integer within bounds. Returns error string or null. */
+function validateTimeout(value: unknown, fieldName: string): string | null {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 1 || value > MAX_TIMEOUT_S) {
+    return `${fieldName} must be a positive integer (max ${MAX_TIMEOUT_S})`;
+  }
+  return null;
 }
 
 // ── Route Plugin ─────────────────────────────────────────────
@@ -306,6 +329,19 @@ export async function terminalRoutesPlugin(
       return reply.code(400).send({ error: 'Invalid proxy_jump_id format' });
     }
 
+    // Issue #2114: Validate port and timeout ranges
+    const portErr = validatePort(body.port, 'port');
+    if (portErr) return reply.code(400).send({ error: portErr });
+
+    for (const [field, val] of [
+      ['connect_timeout_s', body.connect_timeout_s],
+      ['keepalive_interval', body.keepalive_interval],
+      ['idle_timeout_s', body.idle_timeout_s],
+    ] as const) {
+      const err = validateTimeout(val, field);
+      if (err) return reply.code(400).send({ error: err });
+    }
+
     const namespace = getStoreNamespace(req);
     const id = randomUUID();
 
@@ -405,6 +441,18 @@ export async function terminalRoutesPlugin(
       'proxy_jump_id', 'is_local', 'env', 'connect_timeout_s', 'keepalive_interval',
       'idle_timeout_s', 'max_sessions', 'host_key_policy', 'tags', 'notes',
     ];
+
+    // Issue #2114: Validate port and timeout ranges on PATCH
+    if ('port' in body) {
+      const portErr = validatePort(body.port, 'port');
+      if (portErr) return reply.code(400).send({ error: portErr });
+    }
+    for (const field of ['connect_timeout_s', 'keepalive_interval', 'idle_timeout_s'] as const) {
+      if (field in body) {
+        const err = validateTimeout(body[field], field);
+        if (err) return reply.code(400).send({ error: err });
+      }
+    }
 
     const setClauses: string[] = [];
     const values: unknown[] = [];
@@ -1348,12 +1396,27 @@ export async function terminalRoutesPlugin(
 
       // Try to parse as JSON for resize messages
       try {
-        const parsed = JSON.parse(rawData.toString()) as { type?: string; cols?: number; rows?: number };
-        if (parsed.type === 'resize' && parsed.cols && parsed.rows) {
+        const parsed = JSON.parse(rawData.toString()) as { type?: string; cols?: unknown; rows?: unknown };
+        if (parsed.type === 'resize') {
+          // Issue #2118: Validate cols/rows are positive integers within bounds
+          const cols = parsed.cols;
+          const rows = parsed.rows;
+          if (
+            typeof cols !== 'number' || typeof rows !== 'number'
+            || !Number.isInteger(cols) || !Number.isInteger(rows)
+            || cols < 1 || rows < 1
+            || cols > MAX_COLS || rows > MAX_ROWS
+          ) {
+            socket.send(JSON.stringify({
+              type: 'error',
+              error: `Invalid resize: cols must be 1-${MAX_COLS}, rows must be 1-${MAX_ROWS} (integers)`,
+            }));
+            return;
+          }
           if (!grpcStream.writable) return;
           grpcStream.write({
             session_id: params.id,
-            resize: { cols: parsed.cols, rows: parsed.rows },
+            resize: { cols, rows },
           });
           return;
         }
