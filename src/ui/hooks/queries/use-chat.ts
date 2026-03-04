@@ -1,10 +1,11 @@
 /**
  * TanStack Query hooks for chat sessions, messages, and agents (Epic #1940).
  *
- * Provides queries for chat sessions list, messages with cursor pagination,
- * available agents, and unread counts.
+ * Issue #2080: Uses WebSocket push for real-time cache invalidation
+ * instead of aggressive polling.
  */
-import { useQuery } from '@tanstack/react-query';
+import { useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/ui/lib/api-client.ts';
 import {
   chatSessionsResponseSchema,
@@ -17,6 +18,7 @@ import type {
   ChatMessagesResponse,
   ChatAgentsResponse,
 } from '@/ui/lib/api-types.ts';
+import { useRealtimeOptional } from '@/ui/components/realtime/realtime-context.tsx';
 
 /** Query key factory for chat. */
 export const chatKeys = {
@@ -29,6 +31,40 @@ export const chatKeys = {
   agents: () => [...chatKeys.all, 'agents'] as const,
   unreadCount: () => [...chatKeys.all, 'unread-count'] as const,
 };
+
+/**
+ * Subscribes to WebSocket `chat:message_received` events and invalidates
+ * the chat unread count cache when one arrives.
+ *
+ * Issue #2080: Replaces 30-second polling with push-based invalidation.
+ */
+export function useRealtimeChatInvalidation(): void {
+  const realtime = useRealtimeOptional();
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!realtime) return;
+
+    const cleanupMsg = realtime.addEventHandler('chat:message_received', () => {
+      void queryClient.invalidateQueries({ queryKey: chatKeys.unreadCount() });
+      void queryClient.invalidateQueries({ queryKey: chatKeys.sessions() });
+    });
+
+    const cleanupSession = realtime.addEventHandler('chat:session_created', () => {
+      void queryClient.invalidateQueries({ queryKey: chatKeys.sessions() });
+    });
+
+    const cleanupEnded = realtime.addEventHandler('chat:session_ended', () => {
+      void queryClient.invalidateQueries({ queryKey: chatKeys.sessions() });
+    });
+
+    return () => {
+      cleanupMsg();
+      cleanupSession();
+      cleanupEnded();
+    };
+  }, [realtime, queryClient]);
+}
 
 /**
  * Fetch chat sessions list.
@@ -89,7 +125,9 @@ export function useAvailableAgents() {
 
 /**
  * Fetch unread chat message count across all sessions.
- * Polls every 30 seconds to keep the badge current.
+ *
+ * Issue #2080: Polling reduced to 5-minute fallback. Primary updates
+ * arrive via WebSocket events (see useRealtimeChatInvalidation).
  */
 export function useChatUnreadCount() {
   return useQuery({
@@ -99,6 +137,6 @@ export function useChatUnreadCount() {
         '/chat/sessions/unread-count',
         { signal, schema: unreadCountResponseSchema },
       ),
-    refetchInterval: 30_000,
+    refetchInterval: 300_000,
   });
 }

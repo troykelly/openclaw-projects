@@ -21,6 +21,7 @@ vi.mock('@/ui/hooks/queries/use-notifications', () => ({
   },
   useNotifications: vi.fn(),
   useUnreadNotificationCount: vi.fn(),
+  useRealtimeNotificationInvalidation: vi.fn(),
 }));
 
 // Mock the mutation hooks

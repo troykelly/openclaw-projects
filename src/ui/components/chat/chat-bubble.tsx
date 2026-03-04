@@ -11,13 +11,15 @@ import * as React from 'react';
 import { MessageCircle } from 'lucide-react';
 import { cn } from '@/ui/lib/utils';
 import { useChat } from '@/ui/contexts/chat-context';
-import { useAvailableAgents, useChatUnreadCount } from '@/ui/hooks/queries/use-chat';
+import { useAvailableAgents, useChatUnreadCount, useRealtimeChatInvalidation } from '@/ui/hooks/queries/use-chat';
 import { useMediaQuery, MEDIA_QUERIES } from '@/ui/hooks/use-media-query';
 
 export function ChatBubble(): React.JSX.Element | null {
   const { togglePanel, isPanelOpen } = useChat();
   const { data: agentsData } = useAvailableAgents();
   const { data: unreadData } = useChatUnreadCount();
+  // Issue #2080: Invalidate chat cache on WebSocket push events
+  useRealtimeChatInvalidation();
   const prefersReducedMotion = useMediaQuery(MEDIA_QUERIES.reducedMotion);
 
   const agents = React.useMemo(
