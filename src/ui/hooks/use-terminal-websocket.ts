@@ -10,9 +10,17 @@ import { getAccessToken } from '@/ui/lib/auth-manager.ts';
 
 export type TerminalWsStatus = 'connecting' | 'connected' | 'disconnected' | 'terminated' | 'error';
 
+export interface TerminalWsEvent {
+  type: string;
+  message: string;
+  session_id?: string;
+  host_key?: string | null;
+}
+
 export interface UseTerminalWebSocketOptions {
   sessionId: string;
   onData: (data: string) => void;
+  onEvent?: (event: TerminalWsEvent) => void;
   onStatusChange?: (status: TerminalWsStatus) => void;
   enabled?: boolean;
 }
@@ -32,9 +40,12 @@ const INITIAL_RECONNECT_DELAY = 1000;
  * Hook that manages a WebSocket connection to a terminal session.
  * Includes automatic reconnection with exponential backoff.
  */
+const textDecoder = new TextDecoder();
+
 export function useTerminalWebSocket({
   sessionId,
   onData,
+  onEvent,
   onStatusChange,
   enabled = true,
 }: UseTerminalWebSocketOptions): UseTerminalWebSocketReturn {
@@ -44,10 +55,12 @@ export function useTerminalWebSocket({
   const reconnectDelayRef = useRef(INITIAL_RECONNECT_DELAY);
   const manualDisconnectRef = useRef(false);
   const onDataRef = useRef(onData);
+  const onEventRef = useRef(onEvent);
   const onStatusChangeRef = useRef(onStatusChange);
 
   // Keep refs up-to-date without re-triggering effects
   onDataRef.current = onData;
+  onEventRef.current = onEvent;
   onStatusChangeRef.current = onStatusChange;
 
   const updateStatus = useCallback((newStatus: TerminalWsStatus) => {
@@ -69,6 +82,7 @@ export function useTerminalWebSocket({
     updateStatus('connecting');
 
     const ws = new WebSocket(url);
+    ws.binaryType = 'arraybuffer';
     wsRef.current = ws;
 
     ws.onopen = () => {
@@ -77,7 +91,23 @@ export function useTerminalWebSocket({
     };
 
     ws.onmessage = (event) => {
+      // Binary frames carry terminal output (shell data from gRPC stream)
+      if (event.data instanceof ArrayBuffer) {
+        onDataRef.current(textDecoder.decode(event.data));
+        return;
+      }
+
+      // Text frames may be JSON events or plain terminal data
       if (typeof event.data === 'string') {
+        try {
+          const parsed = JSON.parse(event.data) as { type?: string; event?: TerminalWsEvent };
+          if (parsed.type === 'event' && parsed.event) {
+            onEventRef.current?.(parsed.event);
+            return;
+          }
+        } catch {
+          // Not JSON — treat as terminal data
+        }
         onDataRef.current(event.data);
       }
     };
