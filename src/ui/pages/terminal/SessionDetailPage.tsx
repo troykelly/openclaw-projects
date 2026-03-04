@@ -26,7 +26,7 @@ import { Textarea } from '@/ui/components/ui/textarea';
 import { useTerminalHealth } from '@/ui/hooks/queries/use-terminal-health';
 import { useApproveTerminalKnownHost, useRejectTerminalKnownHost } from '@/ui/hooks/queries/use-terminal-known-hosts';
 import { useAnnotateTerminalSession, useTerminalSession } from '@/ui/hooks/queries/use-terminal-sessions';
-import type { TerminalWsStatus } from '@/ui/hooks/use-terminal-websocket';
+import type { TerminalWsEvent, TerminalWsStatus } from '@/ui/hooks/use-terminal-websocket';
 
 export function SessionDetailPage(): React.JSX.Element {
   const { id } = useParams<{ id: string }>();
@@ -48,6 +48,18 @@ export function SessionDetailPage(): React.JSX.Element {
   const handleStatusChange = useCallback((status: TerminalWsStatus) => {
     setWsStatus(status);
   }, []);
+
+  // Refetch session data on server status events so the UI reacts in
+  // real time (e.g., host_key verification dialog appears) (#2088).
+  // Only refetch for status_change events to avoid request amplification.
+  const handleEvent = useCallback(
+    (event: TerminalWsEvent) => {
+      if (event.type === 'status_change') {
+        void sessionQuery.refetch();
+      }
+    },
+    [sessionQuery],
+  );
 
   const handleAnnotate = useCallback(() => {
     setAnnotateOpen(true);
@@ -154,7 +166,7 @@ export function SessionDetailPage(): React.JSX.Element {
       <div className="flex flex-1 min-h-0">
         {/* Terminal */}
         <div className="relative flex-1 min-w-0">
-          {!isTerminated && !isPendingHostVerification && <TerminalEmulator sessionId={session.id} onStatusChange={handleStatusChange} />}
+          {!isTerminated && !isPendingHostVerification && <TerminalEmulator sessionId={session.id} onStatusChange={handleStatusChange} onEvent={handleEvent} />}
           <SessionStatusOverlay status={isTerminated ? 'terminated' : wsStatus} />
         </div>
 
