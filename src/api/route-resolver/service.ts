@@ -63,8 +63,8 @@ async function loadPromptContent(
  * When namespace is undefined (e.g. unauthenticated webhooks like Cloudflare
  * email), the destination lookup is not scoped by namespace — the email
  * address alone identifies the route. The destination's own namespace is used
- * for prompt template resolution. Channel defaults are not consulted when
- * namespace is unknown (they require a namespace).
+ * for prompt template resolution. Channel defaults fall back to the 'default'
+ * namespace when namespace is not provided, enabling catch-all routing.
  */
 export async function resolveRoute(
   pool: Pool,
@@ -92,14 +92,19 @@ export async function resolveRoute(
     };
   }
 
-  // Step 2: Check channel_default (requires a namespace)
-  if (namespace) {
+  // Step 2: Check channel_default
+  // When namespace is provided, check that namespace.
+  // When namespace is undefined (e.g. unauthenticated Cloudflare email webhook),
+  // fall back to the 'default' namespace so catch-all routing still works.
+  {
+    const namespacesToCheck = namespace ? [namespace] : ['default'];
     const { getChannelDefault } = await import('../channel-default/service.ts');
-    const channelDefault = await getChannelDefault(pool, channelType, [namespace]);
+    const channelDefault = await getChannelDefault(pool, channelType, namespacesToCheck);
 
     if (channelDefault) {
+      const resolvedNamespace = namespace ?? channelDefault.namespace ?? 'default';
       const promptContent = channelDefault.prompt_template_id
-        ? await loadPromptContent(pool, channelDefault.prompt_template_id, namespace)
+        ? await loadPromptContent(pool, channelDefault.prompt_template_id, resolvedNamespace)
         : null;
 
       return {
