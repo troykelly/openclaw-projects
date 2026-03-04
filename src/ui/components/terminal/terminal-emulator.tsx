@@ -15,11 +15,13 @@ import { useTerminalWebSocket, type TerminalWsEvent, type TerminalWsStatus } fro
 
 interface TerminalEmulatorProps {
   sessionId: string;
-  onStatusChange?: (status: TerminalWsStatus) => void;
+  /** Active window ID for tab selection (Issue #2109). */
+  activeWindowId?: string;
+  onStatusChange?: (status: TerminalWsStatus, closeReason?: string) => void;
   onEvent?: (event: TerminalWsEvent) => void;
 }
 
-export function TerminalEmulator({ sessionId, onStatusChange, onEvent }: TerminalEmulatorProps): React.JSX.Element {
+export function TerminalEmulator({ sessionId, activeWindowId, onStatusChange, onEvent }: TerminalEmulatorProps): React.JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<XTerminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);

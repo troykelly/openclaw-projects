@@ -28,14 +28,26 @@ import { useApproveTerminalKnownHost, useRejectTerminalKnownHost } from '@/ui/ho
 import { useAnnotateTerminalSession, useTerminalSession } from '@/ui/hooks/queries/use-terminal-sessions';
 import type { TerminalWsEvent, TerminalWsStatus } from '@/ui/hooks/use-terminal-websocket';
 
+/** Structured host key info received from a terminal event (Issue #2100). */
+interface HostKeyEventInfo {
+  host: string;
+  port: number;
+  key_type: string;
+  fingerprint: string;
+  public_key: string;
+}
+
 export function SessionDetailPage(): React.JSX.Element {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [wsStatus, setWsStatus] = useState<TerminalWsStatus>('disconnected');
+  const [wsCloseReason, setWsCloseReason] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showSidebar, setShowSidebar] = useState(true);
   const [annotateOpen, setAnnotateOpen] = useState(false);
   const [annotateText, setAnnotateText] = useState('');
+  const [activeWindowId, setActiveWindowId] = useState<string | undefined>(undefined);
+  const [hostKeyInfo, setHostKeyInfo] = useState<HostKeyEventInfo | null>(null);
 
   const sessionQuery = useTerminalSession(id ?? '');
   const session = sessionQuery.data;
@@ -45,17 +57,32 @@ export function SessionDetailPage(): React.JSX.Element {
   const approveHostKey = useApproveTerminalKnownHost();
   const rejectHostKey = useRejectTerminalKnownHost();
 
-  const handleStatusChange = useCallback((status: TerminalWsStatus) => {
+  const handleStatusChange = useCallback((status: TerminalWsStatus, closeReason?: string) => {
     setWsStatus(status);
+    if (closeReason !== undefined) {
+      setWsCloseReason(closeReason);
+    }
   }, []);
 
   // Refetch session data on server status events so the UI reacts in
   // real time (e.g., host_key verification dialog appears) (#2088).
   // Only refetch for status_change events to avoid request amplification.
+  // Also capture structured host key info from events (#2100).
   const handleEvent = useCallback(
     (event: TerminalWsEvent) => {
       if (event.type === 'status_change') {
         void sessionQuery.refetch();
+      }
+      // Capture host key info from the event if present (#2100)
+      if (event.host_key && typeof event.host_key === 'object') {
+        const hk = event.host_key as Record<string, unknown>;
+        setHostKeyInfo({
+          host: String(hk.host ?? ''),
+          port: Number(hk.port ?? 22),
+          key_type: String(hk.key_type ?? ''),
+          fingerprint: String(hk.fingerprint ?? ''),
+          public_key: String(hk.public_key ?? ''),
+        });
       }
     },
     [sessionQuery],
@@ -90,18 +117,20 @@ export function SessionDetailPage(): React.JSX.Element {
 
   const handleApproveHostKey = useCallback(() => {
     if (!session) return;
+    // Use structured host key info from event if available (#2100),
+    // otherwise fall back to connection/session data.
     approveHostKey.mutate(
       {
         session_id: session.id,
-        host: session.connection?.host ?? '',
-        port: session.connection?.port ?? 22,
-        key_type: session.error_message?.includes('ssh-rsa') ? 'ssh-rsa' : 'ssh-ed25519',
-        fingerprint: session.error_message ?? '',
-        public_key: '',
+        host: hostKeyInfo?.host || session.connection?.host || '',
+        port: hostKeyInfo?.port || session.connection?.port || 22,
+        key_type: hostKeyInfo?.key_type || '',
+        fingerprint: hostKeyInfo?.fingerprint || '',
+        public_key: hostKeyInfo?.public_key || '',
       },
       { onSuccess: () => void sessionQuery.refetch() },
     );
-  }, [session, approveHostKey, sessionQuery]);
+  }, [session, hostKeyInfo, approveHostKey, sessionQuery]);
 
   const handleRejectHostKey = useCallback(() => {
     if (!session) return;
@@ -152,9 +181,11 @@ export function SessionDetailPage(): React.JSX.Element {
         <ErrorBanner message="Terminal worker is not available. Session features may be limited." onRetry={() => healthQuery.refetch()} />
       )}
 
-      {/* Toolbar */}
+      {/* Toolbar (#2109: wire window tab selection) */}
       <TerminalToolbar
         windows={session.windows}
+        activeWindowId={activeWindowId ?? session.windows?.[0]?.id}
+        onWindowSelect={setActiveWindowId}
         isFullscreen={isFullscreen}
         onToggleFullscreen={() => setIsFullscreen(!isFullscreen)}
         onAnnotate={handleAnnotate}
@@ -166,8 +197,19 @@ export function SessionDetailPage(): React.JSX.Element {
       <div className="flex flex-1 min-h-0">
         {/* Terminal */}
         <div className="relative flex-1 min-w-0">
-          {!isTerminated && !isPendingHostVerification && <TerminalEmulator sessionId={session.id} onStatusChange={handleStatusChange} onEvent={handleEvent} />}
-          <SessionStatusOverlay status={isTerminated ? 'terminated' : wsStatus} />
+          {!isTerminated && !isPendingHostVerification && (
+            <TerminalEmulator
+              sessionId={session.id}
+              activeWindowId={activeWindowId}
+              onStatusChange={handleStatusChange}
+              onEvent={handleEvent}
+            />
+          )}
+          <SessionStatusOverlay
+            status={isTerminated ? 'terminated' : wsStatus}
+            closeReason={wsCloseReason}
+            isFatal={wsStatus === 'error' && wsCloseReason != null}
+          />
         </div>
 
         {/* Sidebar */}
@@ -207,10 +249,10 @@ export function SessionDetailPage(): React.JSX.Element {
           onOpenChange={() => {
             /* controlled by session status */
           }}
-          host={session.connection?.host ?? 'unknown'}
-          port={session.connection?.port ?? 22}
-          keyType={session.error_message?.includes('ssh-rsa') ? 'ssh-rsa' : 'ssh-ed25519'}
-          fingerprint={session.error_message ?? 'Unknown'}
+          host={hostKeyInfo?.host || session.connection?.host || 'unknown'}
+          port={hostKeyInfo?.port || session.connection?.port || 22}
+          keyType={hostKeyInfo?.key_type || ''}
+          fingerprint={hostKeyInfo?.fingerprint || 'Unknown'}
           onApprove={handleApproveHostKey}
           onReject={handleRejectHostKey}
           isPending={approveHostKey.isPending || rejectHostKey.isPending}

@@ -81,8 +81,8 @@ describe('terminal emulator wiring', () => {
     const onStatusChange = vi.fn();
     renderHook(() => useTerminalWebSocket({ sessionId: 'test-id', onData, onStatusChange }));
 
-    await vi.waitFor(() => expect(onStatusChange).toHaveBeenCalledWith('connected'));
-    expect(onStatusChange).toHaveBeenCalledWith('connecting');
+    await vi.waitFor(() => expect(onStatusChange).toHaveBeenCalledWith('connected', undefined));
+    expect(onStatusChange).toHaveBeenCalledWith('connecting', undefined);
   });
 
   it('sends resize message when WebSocket opens (#2089)', async () => {

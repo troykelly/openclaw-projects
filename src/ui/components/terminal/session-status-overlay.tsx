@@ -10,10 +10,14 @@ import type { TerminalWsStatus } from '@/ui/hooks/use-terminal-websocket';
 
 interface SessionStatusOverlayProps {
   status: TerminalWsStatus;
+  /** Reason message from the WebSocket close event (Issue #2120). */
+  closeReason?: string | null;
+  /** Whether the error is fatal (non-retryable). When true, Retry is hidden. */
+  isFatal?: boolean;
   onReconnect?: () => void;
 }
 
-export function SessionStatusOverlay({ status, onReconnect }: SessionStatusOverlayProps): React.JSX.Element | null {
+export function SessionStatusOverlay({ status, closeReason, isFatal, onReconnect }: SessionStatusOverlayProps): React.JSX.Element | null {
   if (status === 'connected') return null;
 
   return (
@@ -52,8 +56,10 @@ export function SessionStatusOverlay({ status, onReconnect }: SessionStatusOverl
           <>
             <XCircle className="mx-auto size-8 text-red-500" />
             <p className="text-sm font-medium">Connection Error</p>
-            <p className="text-xs text-muted-foreground">Failed to connect to the terminal.</p>
-            {onReconnect && (
+            <p className="text-xs text-muted-foreground" data-testid="close-reason">
+              {closeReason || 'Failed to connect to the terminal.'}
+            </p>
+            {onReconnect && !isFatal && (
               <Button size="sm" variant="outline" onClick={onReconnect}>
                 <RefreshCw className="mr-2 size-3" />
                 Retry

@@ -10,23 +10,39 @@ import { getAccessToken } from '@/ui/lib/auth-manager.ts';
 
 export type TerminalWsStatus = 'connecting' | 'connected' | 'disconnected' | 'terminated' | 'error';
 
+/** Whether a close code is fatal (4400-4499) and should not be retried. */
+export function isFatalCloseCode(code: number): boolean {
+  return code >= 4400 && code < 4500;
+}
+
+/** Host key info carried in a terminal event (Issue #2100). */
+export interface TerminalWsHostKeyInfo {
+  host: string;
+  port: number;
+  key_type: string;
+  fingerprint: string;
+  public_key: string;
+}
+
 export interface TerminalWsEvent {
   type: string;
   message: string;
   session_id?: string;
-  host_key?: string | null;
+  host_key?: TerminalWsHostKeyInfo | null;
 }
 
 export interface UseTerminalWebSocketOptions {
   sessionId: string;
   onData: (data: string) => void;
   onEvent?: (event: TerminalWsEvent) => void;
-  onStatusChange?: (status: TerminalWsStatus) => void;
+  onStatusChange?: (status: TerminalWsStatus, closeReason?: string) => void;
   enabled?: boolean;
 }
 
 interface UseTerminalWebSocketReturn {
   status: TerminalWsStatus;
+  /** Close reason from the last fatal or terminal close event. */
+  closeReason: string | null;
   send: (data: string) => void;
   resize: (cols: number, rows: number) => void;
   disconnect: () => void;
@@ -50,6 +66,7 @@ export function useTerminalWebSocket({
   enabled = true,
 }: UseTerminalWebSocketOptions): UseTerminalWebSocketReturn {
   const [status, setStatus] = useState<TerminalWsStatus>('disconnected');
+  const [closeReason, setCloseReason] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectDelayRef = useRef(INITIAL_RECONNECT_DELAY);
@@ -63,9 +80,12 @@ export function useTerminalWebSocket({
   onEventRef.current = onEvent;
   onStatusChangeRef.current = onStatusChange;
 
-  const updateStatus = useCallback((newStatus: TerminalWsStatus) => {
+  const updateStatus = useCallback((newStatus: TerminalWsStatus, reason?: string) => {
     setStatus(newStatus);
-    onStatusChangeRef.current?.(newStatus);
+    if (reason !== undefined) {
+      setCloseReason(reason);
+    }
+    onStatusChangeRef.current?.(newStatus, reason);
   }, []);
 
   const connect = useCallback(() => {
@@ -127,14 +147,14 @@ export function useTerminalWebSocket({
 
       // Code 1000 = normal close (session terminated)
       if (event.code === 1000) {
-        updateStatus('terminated');
+        updateStatus('terminated', event.reason || 'Session ended');
         return;
       }
 
-      // Fatal close codes from server — do not reconnect (Issue #2072)
+      // Fatal close codes from server — do not reconnect (Issue #2072, #2120)
       // 4400 = bad request, 4401 = auth failure, 4404 = session not found
-      if (event.code >= 4400 && event.code < 4500) {
-        updateStatus('error');
+      if (isFatalCloseCode(event.code)) {
+        updateStatus('error', event.reason || `Connection failed (code ${event.code})`);
         return;
       }
 
@@ -179,6 +199,7 @@ export function useTerminalWebSocket({
   const reconnect = useCallback(() => {
     manualDisconnectRef.current = false;
     reconnectDelayRef.current = INITIAL_RECONNECT_DELAY;
+    setCloseReason(null);
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
       reconnectTimeoutRef.current = null;
@@ -209,5 +230,5 @@ export function useTerminalWebSocket({
     };
   }, [sessionId, enabled, connect]);
 
-  return { status, send, resize, disconnect, reconnect };
+  return { status, closeReason, send, resize, disconnect, reconnect };
 }
