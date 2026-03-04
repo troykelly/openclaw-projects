@@ -25,9 +25,15 @@ export interface SearchFilters {
   offset: number;
 }
 
-interface QueryPlan {
+export interface QueryPlan {
   sql: string;
   params: unknown[];
+}
+
+/** Entry reference for batch context loading (#2115). */
+export interface EntryRef {
+  sessionId: string;
+  sequence: number;
 }
 
 /**
@@ -134,18 +140,18 @@ export function buildSemanticSearchQuery(filters: SearchFilters): QueryPlan {
 }
 
 /**
- * Build an ILIKE text search query (fallback when no embeddings exist).
+ * Build ILIKE filter conditions shared by search and count queries.
+ * Returns conditions, params, and the next parameter index.
  */
-export function buildIlikeSearchQuery(
+function buildIlikeFilters(
   filters: Omit<SearchFilters, 'queryEmbedding'> & { queryText: string },
-): QueryPlan {
+): { conditions: string[]; params: unknown[]; idx: number } {
   const conditions: string[] = [
     'e.namespace = ANY($1::text[])',
   ];
   const params: unknown[] = [filters.namespaces];
   let idx = 2;
 
-  // Optional filters
   if (filters.connectionId) {
     conditions.push(`s.connection_id = $${idx}`);
     params.push(filters.connectionId);
@@ -199,6 +205,16 @@ export function buildIlikeSearchQuery(
   params.push(`%${filters.queryText}%`);
   idx++;
 
+  return { conditions, params, idx };
+}
+
+/**
+ * Build an ILIKE text search query (fallback when no embeddings exist).
+ */
+export function buildIlikeSearchQuery(
+  filters: Omit<SearchFilters, 'queryEmbedding'> & { queryText: string },
+): QueryPlan {
+  const { conditions, params, idx } = buildIlikeFilters(filters);
   const where = conditions.join(' AND ');
 
   const sql = `SELECT e.id, e.session_id, e.pane_id, e.kind, e.content,
@@ -215,6 +231,78 @@ export function buildIlikeSearchQuery(
 
   params.push(filters.limit);
   params.push(filters.offset);
+
+  return { sql, params };
+}
+
+/**
+ * Build a proper COUNT query for ILIKE search results (#2116).
+ *
+ * Uses the same filter conditions as buildIlikeSearchQuery but
+ * produces an independent COUNT(*) query — no regex rewriting.
+ */
+export function buildCountQuery(
+  filters: Omit<SearchFilters, 'queryEmbedding'> & { queryText: string },
+): QueryPlan {
+  const { conditions, params } = buildIlikeFilters(filters);
+  const where = conditions.join(' AND ');
+
+  const sql = `SELECT COUNT(*) as total
+       FROM terminal_session_entry e
+       JOIN terminal_session s ON e.session_id = s.id
+       JOIN terminal_connection c ON s.connection_id = c.id
+       WHERE ${where}`;
+
+  return { sql, params };
+}
+
+/**
+ * Build a batch query to load context entries for multiple search results (#2115).
+ *
+ * Instead of N+1 per-result queries, this builds a single query using
+ * LATERAL joins to fetch surrounding context for all results at once.
+ *
+ * @param entries - Array of {sessionId, sequence} pairs to fetch context for
+ * @param contextSize - Number of entries to fetch before and after each result
+ */
+export function buildContextBatchQuery(
+  entries: EntryRef[],
+  contextSize: number,
+): QueryPlan {
+  if (entries.length === 0) {
+    return { sql: '', params: [] };
+  }
+
+  // Build a VALUES list for (session_id, sequence) pairs
+  const valueParts: string[] = [];
+  const params: unknown[] = [];
+  let idx = 1;
+
+  for (const entry of entries) {
+    valueParts.push(`($${idx}::uuid, $${idx + 1}::bigint)`);
+    params.push(entry.sessionId, entry.sequence);
+    idx++;
+    idx++;
+  }
+
+  const sql = `WITH targets(session_id, sequence) AS (
+    VALUES ${valueParts.join(', ')}
+  )
+  SELECT t.session_id AS target_session_id, t.sequence AS target_sequence,
+         ctx.kind, ctx.content, ctx.sequence
+  FROM targets t,
+  LATERAL (
+    (SELECT kind, content, sequence FROM terminal_session_entry
+     WHERE session_id = t.session_id AND sequence < t.sequence
+     ORDER BY sequence DESC LIMIT $${idx})
+    UNION ALL
+    (SELECT kind, content, sequence FROM terminal_session_entry
+     WHERE session_id = t.session_id AND sequence > t.sequence
+     ORDER BY sequence ASC LIMIT $${idx})
+  ) ctx
+  ORDER BY t.session_id, t.sequence, ctx.sequence`;
+
+  params.push(contextSize);
 
   return { sql, params };
 }

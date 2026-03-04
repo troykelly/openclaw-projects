@@ -38,6 +38,8 @@ import {
   shouldUseSemantic,
   buildSemanticSearchQuery,
   buildIlikeSearchQuery,
+  buildCountQuery,
+  buildContextBatchQuery,
   type SearchFilters,
 } from './semantic-search.ts';
 import { createEmbeddingService } from '../embeddings/service.ts';
@@ -2862,17 +2864,12 @@ export async function terminalRoutesPlugin(
     }
 
     // For semantic search, total is capped by result count (no exact total for vector search)
-    // For ILIKE, we compute the exact count
+    // For ILIKE, we compute the exact count using a proper COUNT query (#2116)
     let total: number;
     if (!useSemantic) {
       try {
-        // Build a count query by replacing the SELECT...ORDER BY...LIMIT with COUNT(*)
-        const countSql = queryPlan.sql
-          .replace(/SELECT[\s\S]+?FROM/, 'SELECT COUNT(*) as total FROM')
-          .replace(/ORDER BY[\s\S]+$/, '');
-        // Remove limit/offset params (last two)
-        const countParams = queryPlan.params.slice(0, -2);
-        const countResult = await pool.query(countSql, countParams);
+        const countPlan = buildCountQuery({ ...baseFilters, queryText });
+        const countResult = await pool.query(countPlan.sql, countPlan.params);
         total = parseInt((countResult.rows[0] as { total: string }).total, 10);
       } catch {
         total = searchResult.rows.length;
@@ -2886,38 +2883,50 @@ export async function terminalRoutesPlugin(
       }
     }
 
-    // Build result items with context
-    const items = [];
-    for (const row of searchResult.rows as Array<Record<string, unknown>>) {
-      const sequence = row.sequence as number;
-      const sessionId = row.session_id as string;
+    // Build result items with batch context loading (#2115)
+    const rows = searchResult.rows as Array<Record<string, unknown>>;
+    const entryRefs = rows.map((row) => ({
+      sessionId: row.session_id as string,
+      sequence: row.sequence as number,
+    }));
 
-      const contextResult = await pool.query(
-        `(SELECT kind, content, sequence FROM terminal_session_entry
-          WHERE session_id = $1 AND sequence < $2
-          ORDER BY sequence DESC LIMIT 2)
-         UNION ALL
-         (SELECT kind, content, sequence FROM terminal_session_entry
-          WHERE session_id = $1 AND sequence > $2
-          ORDER BY sequence ASC LIMIT 2)
-         ORDER BY sequence ASC`,
-        [sessionId, sequence],
-      );
+    // Load all context in a single batch query instead of N+1
+    const contextMap = new Map<string, { before: Array<{ kind: string; content: string }>; after: Array<{ kind: string; content: string }> }>();
 
-      const contextRows = contextResult.rows as Array<{
-        kind: string;
-        content: string;
-        sequence: number;
-      }>;
+    if (entryRefs.length > 0) {
+      const contextPlan = buildContextBatchQuery(entryRefs, 2);
+      try {
+        const contextResult = await pool.query(contextPlan.sql, contextPlan.params);
+        const contextRows = contextResult.rows as Array<{
+          target_session_id: string;
+          target_sequence: number;
+          kind: string;
+          content: string;
+          sequence: number;
+        }>;
 
-      const before = contextRows
-        .filter((c) => c.sequence < sequence)
-        .map(({ kind, content }) => ({ kind, content }));
-      const after = contextRows
-        .filter((c) => c.sequence > sequence)
-        .map(({ kind, content }) => ({ kind, content }));
+        // Group context rows by target
+        for (const ctx of contextRows) {
+          const key = `${ctx.target_session_id}:${ctx.target_sequence}`;
+          if (!contextMap.has(key)) {
+            contextMap.set(key, { before: [], after: [] });
+          }
+          const entry = contextMap.get(key)!;
+          if (ctx.sequence < ctx.target_sequence) {
+            entry.before.push({ kind: ctx.kind, content: ctx.content });
+          } else {
+            entry.after.push({ kind: ctx.kind, content: ctx.content });
+          }
+        }
+      } catch {
+        // Context loading failed — continue without context
+      }
+    }
 
-      items.push({
+    const items = rows.map((row) => {
+      const key = `${row.session_id}:${row.sequence}`;
+      const context = contextMap.get(key) ?? { before: [], after: [] };
+      return {
         id: row.id,
         session_id: row.session_id,
         session_name: row.session_name,
@@ -2927,10 +2936,10 @@ export async function terminalRoutesPlugin(
         content: row.content,
         captured_at: row.captured_at,
         similarity: row.similarity ?? 1.0,
-        context: { before, after },
+        context,
         metadata: row.metadata,
-      });
-    }
+      };
+    });
 
     return reply.send({ items, total, limit, offset, search_mode: searchMode });
   });

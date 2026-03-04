@@ -53,6 +53,16 @@ interface SessionThrottleState {
   windowStart: number;
   /** Whether we are currently in throttled mode. */
   throttled: boolean;
+  /** Total bytes recorded while in throttled state (for metrics). */
+  totalThrottledBytes: number;
+}
+
+/** Throttle metrics for a session. */
+export interface ThrottleMetrics {
+  /** Total bytes recorded while throttled. */
+  totalThrottledBytes: number;
+  /** Whether the session is currently throttled. */
+  throttled: boolean;
 }
 
 /**
@@ -96,15 +106,16 @@ export class EntryRecorder {
   }
 
   /**
-   * Record an entry. Applies throttling for output entries.
-   * Returns true if the entry was accepted, false if throttled.
+   * Record an entry. Applies throttling tracking for output entries.
+   *
+   * Returns true always — output is never silently dropped (#2111).
+   * When throttled, entries are still buffered but marked with throttle
+   * metadata so callers can apply backpressure upstream.
    */
   record(entry: PendingEntry): boolean {
-    // Check throttling for output/scrollback entries
+    // Track throttle state for output/scrollback entries
     if (entry.kind === 'output' || entry.kind === 'scrollback') {
-      if (this.isThrottled(entry.session_id, entry.content.length)) {
-        return false;
-      }
+      this.updateThrottleState(entry.session_id, entry.content.length);
     }
 
     this.buffer.push(entry);
@@ -114,6 +125,28 @@ export class EntryRecorder {
     }
 
     return true;
+  }
+
+  /**
+   * Check whether a session is currently in throttled state.
+   * Callers can use this to apply backpressure (e.g., pause PTY).
+   */
+  isSessionThrottled(sessionId: string): boolean {
+    const state = this.throttleState.get(sessionId);
+    return state?.throttled ?? false;
+  }
+
+  /**
+   * Get throttle metrics for a session.
+   * Returns null if no throttle state exists for the session.
+   */
+  getThrottleMetrics(sessionId: string): ThrottleMetrics | null {
+    const state = this.throttleState.get(sessionId);
+    if (!state) return { totalThrottledBytes: 0, throttled: false };
+    return {
+      totalThrottledBytes: state.totalThrottledBytes,
+      throttled: state.throttled,
+    };
   }
 
   /**
@@ -192,16 +225,16 @@ export class EntryRecorder {
   }
 
   /**
-   * Check if output for a session should be throttled.
-   * Uses a cumulative bytes threshold: if total bytes in the sustained window
-   * exceeds (throttleBytesPerSec * sustainedDurationSec), throttle kicks in.
+   * Update throttle state for a session.
+   * Tracks bytes and sets throttled flag when threshold is exceeded.
+   * Does NOT drop entries — callers decide how to react (#2111).
    */
-  private isThrottled(sessionId: string, contentBytes: number): boolean {
+  private updateThrottleState(sessionId: string, contentBytes: number): void {
     const now = Date.now();
     let state = this.throttleState.get(sessionId);
 
     if (!state) {
-      state = { windowBytes: 0, windowStart: now, throttled: false };
+      state = { windowBytes: 0, windowStart: now, throttled: false, totalThrottledBytes: 0 };
       this.throttleState.set(sessionId, state);
     }
 
@@ -219,10 +252,11 @@ export class EntryRecorder {
     const byteThreshold = this.config.throttleBytesPerSec * windowDurationSec;
 
     if (state.windowBytes > byteThreshold) {
-      state.throttled = true;
-      return true;
+      if (!state.throttled) {
+        state.throttled = true;
+      }
+      // Track bytes recorded while throttled
+      state.totalThrottledBytes += contentBytes;
     }
-
-    return false;
   }
 }

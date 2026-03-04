@@ -494,14 +494,19 @@ export function handleAttachSession(
           ptyProcess = pty;
           initialized = true;
 
-          // Stream PTY output to gRPC client
+          // Stream PTY output to gRPC client with backpressure (#2117)
           dataDisposable = pty.onData((data: string) => {
             if (ended) return;
 
             const ok = call.write({ data: Buffer.from(data) });
             if (!ok) {
-              // Backpressure: resume on drain
-              call.once('drain', () => { /* writing resumes automatically */ });
+              // Backpressure: pause PTY until gRPC stream drains
+              try { pty.pause(); } catch { /* best-effort pause */ }
+              call.once('drain', () => {
+                if (!ended) {
+                  try { pty.resume(); } catch { /* best-effort resume */ }
+                }
+              });
             }
 
             // Record output for session history
