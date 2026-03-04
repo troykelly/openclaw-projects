@@ -1616,7 +1616,7 @@ export async function terminalRoutesPlugin(
     });
 
     // Return plaintext token ONCE — it will never be retrievable again
-    const apiBaseUrl = `${req.protocol}://${req.hostname}`;
+    const apiBaseUrl = `${req.protocol}://${req.host}`;
     return reply.code(201).send({
       ...token,
       token: plaintextToken,
