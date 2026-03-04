@@ -41,6 +41,15 @@ import {
   type SearchFilters,
 } from './semantic-search.ts';
 import { createEmbeddingService } from '../embeddings/service.ts';
+import {
+  extractOrCreateTraceId,
+  traceLogContext,
+  TRACE_ID_HEADER,
+} from './trace-context.ts';
+// Session affinity module (#2124) provides worker routing for HA deployments.
+// Integration with per-worker gRPC client pools will be done when multi-worker
+// deployments are fully supported. For now, the module provides the lookup
+// infrastructure (getSessionWorkerId, resolveWorkerGrpcUrl, isMultiWorkerMode).
 
 // ── Constants ────────────────────────────────────────────────
 
@@ -50,6 +59,11 @@ const MAX_LIMIT = 100;
 
 const VALID_AUTH_METHODS = ['key', 'password', 'agent', 'command'] as const;
 const VALID_HOST_KEY_POLICIES = ['strict', 'tofu', 'skip'] as const;
+const MIN_PORT = 1;
+const MAX_PORT = 65535;
+const MAX_TIMEOUT_S = 86400; // 24 hours
+const MAX_COLS = 1000;
+const MAX_ROWS = 500;
 const VALID_CREDENTIAL_KINDS = ['ssh_key', 'password', 'command'] as const;
 const VALID_SESSION_STATUSES = [
   'starting', 'active', 'idle', 'disconnected', 'terminated', 'error', 'pending_host_verification',
@@ -149,6 +163,24 @@ function getEncryptionKey(): Buffer {
   return parseEncryptionKey(hex);
 }
 
+/** Validate port is an integer in valid range. Returns error string or null. */
+function validatePort(value: unknown, fieldName: string): string | null {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < MIN_PORT || value > MAX_PORT) {
+    return `${fieldName} must be an integer between ${MIN_PORT} and ${MAX_PORT}`;
+  }
+  return null;
+}
+
+/** Validate timeout is a positive integer within bounds. Returns error string or null. */
+function validateTimeout(value: unknown, fieldName: string): string | null {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 1 || value > MAX_TIMEOUT_S) {
+    return `${fieldName} must be a positive integer (max ${MAX_TIMEOUT_S})`;
+  }
+  return null;
+}
+
 // ── Route Plugin ─────────────────────────────────────────────
 
 /**
@@ -164,6 +196,14 @@ export async function terminalRoutesPlugin(
   opts: TerminalRoutesOptions,
 ): Promise<void> {
   const { pool } = opts;
+
+  // Issue #2128: Inject trace ID into all terminal route responses for correlation
+  app.addHook('onSend', async (request, reply) => {
+    const traceId = request.headers[TRACE_ID_HEADER];
+    if (typeof traceId === 'string' && traceId.length > 0) {
+      reply.header(TRACE_ID_HEADER, traceId);
+    }
+  });
 
   // ================================================================
   // Issue #1908 — Terminal worker health check
@@ -306,6 +346,19 @@ export async function terminalRoutesPlugin(
       return reply.code(400).send({ error: 'Invalid proxy_jump_id format' });
     }
 
+    // Issue #2114: Validate port and timeout ranges
+    const portErr = validatePort(body.port, 'port');
+    if (portErr) return reply.code(400).send({ error: portErr });
+
+    for (const [field, val] of [
+      ['connect_timeout_s', body.connect_timeout_s],
+      ['keepalive_interval', body.keepalive_interval],
+      ['idle_timeout_s', body.idle_timeout_s],
+    ] as const) {
+      const err = validateTimeout(val, field);
+      if (err) return reply.code(400).send({ error: err });
+    }
+
     const namespace = getStoreNamespace(req);
     const id = randomUUID();
 
@@ -405,6 +458,18 @@ export async function terminalRoutesPlugin(
       'proxy_jump_id', 'is_local', 'env', 'connect_timeout_s', 'keepalive_interval',
       'idle_timeout_s', 'max_sessions', 'host_key_policy', 'tags', 'notes',
     ];
+
+    // Issue #2114: Validate port and timeout ranges on PATCH
+    if ('port' in body) {
+      const portErr = validatePort(body.port, 'port');
+      if (portErr) return reply.code(400).send({ error: portErr });
+    }
+    for (const field of ['connect_timeout_s', 'keepalive_interval', 'idle_timeout_s'] as const) {
+      if (field in body) {
+        const err = validateTimeout(body[field], field);
+        if (err) return reply.code(400).send({ error: err });
+      }
+    }
 
     const setClauses: string[] = [];
     const values: unknown[] = [];
@@ -519,12 +584,14 @@ export async function terminalRoutesPlugin(
       action: trustHostKey ? 'connection.test_and_trust' : 'connection.test',
     });
 
+    const traceId = extractOrCreateTraceId(req);
+
     try {
       const result = await grpcClient.testConnection({
         connection_id: params.id,
         trust_host_key: trustHostKey,
         ...(expectedFingerprint ? { expected_fingerprint: expectedFingerprint } : {}),
-      });
+      }, traceId);
       return reply.send(result);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown gRPC error';
@@ -998,6 +1065,10 @@ export async function terminalRoutesPlugin(
 
     const actor = await getActor(req);
 
+    // Issue #2128: Propagate trace ID through REST -> gRPC boundary
+    const traceId = extractOrCreateTraceId(req);
+    app.log.info(traceLogContext(traceId, 'rest'), 'Creating session connection=%s', body.connection_id);
+
     try {
       const session = await grpcClient.createSession({
         connection_id: body.connection_id,
@@ -1011,7 +1082,7 @@ export async function terminalRoutesPlugin(
         capture_interval_s: body.capture_interval_s ?? 30,
         tags: body.tags ?? [],
         notes: body.notes ?? '',
-      });
+      }, traceId);
 
       recordActivity(pool, {
         namespace,
@@ -1153,9 +1224,11 @@ export async function terminalRoutesPlugin(
     }
 
     const actor = await getActor(req);
+    const traceId = extractOrCreateTraceId(req);
+    app.log.info(traceLogContext(traceId, 'rest'), 'Terminating session=%s', params.id);
 
     try {
-      await grpcClient.terminateSession({ session_id: params.id });
+      await grpcClient.terminateSession({ session_id: params.id }, traceId);
 
       recordActivity(pool, {
         namespace: getStoreNamespace(req),
@@ -1187,12 +1260,14 @@ export async function terminalRoutesPlugin(
       return reply.code(400).send({ error: 'cols and rows are required' });
     }
 
+    const traceId = extractOrCreateTraceId(req);
+
     try {
       await grpcClient.resizeSession({
         session_id: params.id,
         cols: body.cols,
         rows: body.rows,
-      });
+      }, traceId);
 
       // Update DB as well
       await pool.query(
@@ -1331,10 +1406,14 @@ export async function terminalRoutesPlugin(
       return;
     }
 
-    // Open gRPC bidirectional stream
+    // Issue #2128: Generate trace ID at WebSocket boundary for distributed tracing
+    const traceId = extractOrCreateTraceId(req);
+    app.log.info(traceLogContext(traceId, 'websocket'), 'WebSocket attach session=%s', params.id);
+
+    // Open gRPC bidirectional stream with trace ID propagation
     let grpcStream: ReturnType<typeof grpcClient.attachSession>;
     try {
-      grpcStream = grpcClient.attachSession();
+      grpcStream = grpcClient.attachSession(traceId);
     } catch (err) {
       socket.close(4502, 'Worker unavailable');
       return;
@@ -1352,12 +1431,29 @@ export async function terminalRoutesPlugin(
 
       // Try to parse as JSON for resize messages
       try {
-        const parsed = JSON.parse(rawData.toString()) as { type?: string; cols?: number; rows?: number };
-        if (parsed.type === 'resize' && parsed.cols && parsed.rows) {
+        const parsed = JSON.parse(rawData.toString()) as { type?: string; cols?: unknown; rows?: unknown };
+        if (parsed.type === 'resize') {
+          // Issue #2118: Validate cols/rows are positive integers within bounds
+          const cols = parsed.cols;
+          const rows = parsed.rows;
+          if (
+            typeof cols !== 'number' || typeof rows !== 'number'
+            || !Number.isInteger(cols) || !Number.isInteger(rows)
+            || cols < 1 || rows < 1
+            || cols > MAX_COLS || rows > MAX_ROWS
+          ) {
+            if (socket.readyState === 1 /* OPEN */) {
+              socket.send(JSON.stringify({
+                type: 'error',
+                error: `Invalid resize: cols must be 1-${MAX_COLS}, rows must be 1-${MAX_ROWS} (integers)`,
+              }));
+            }
+            return;
+          }
           if (!grpcStream.writable) return;
           grpcStream.write({
             session_id: params.id,
-            resize: { cols: parsed.cols, rows: parsed.rows },
+            resize: { cols, rows },
           });
           return;
         }
@@ -1446,6 +1542,8 @@ export async function terminalRoutesPlugin(
       detail: { command_length: body.command.trim().length, pane_id: body.pane_id ?? null },
     });
 
+    const traceId = extractOrCreateTraceId(req);
+
     try {
       const result = await grpcClient.sendCommand(
         {
@@ -1455,6 +1553,7 @@ export async function terminalRoutesPlugin(
           pane_id: body.pane_id ?? '',
         },
         (timeoutS + 5) * 1000, // gRPC deadline slightly longer than command timeout
+        traceId,
       );
 
       return reply.send(result);
@@ -1491,12 +1590,14 @@ export async function terminalRoutesPlugin(
       detail: { pane_id: body.pane_id ?? null },
     });
 
+    const traceId = extractOrCreateTraceId(req);
+
     try {
       await grpcClient.sendKeys({
         session_id: params.id,
         keys: body.keys,
         pane_id: body.pane_id ?? '',
-      });
+      }, traceId);
 
       return reply.send({ success: true });
     } catch (err) {
@@ -1520,12 +1621,14 @@ export async function terminalRoutesPlugin(
 
     const lines = parseInt(query.lines ?? '100', 10);
 
+    const traceId = extractOrCreateTraceId(req);
+
     try {
       const result = await grpcClient.capturePane({
         session_id: params.id,
         pane_id: query.pane_id ?? '',
         lines: Math.min(Math.max(lines, 1), 10000),
-      });
+      }, traceId);
 
       return reply.send(result);
     } catch (err) {
@@ -1939,12 +2042,13 @@ export async function terminalRoutesPlugin(
     const body = req.body as { name?: string } | null;
 
     const actor = await getActor(req);
+    const traceId = extractOrCreateTraceId(req);
 
     try {
       const result = await grpcClient.createWindow({
         session_id: params.id,
         window_name: body?.name ?? '',
-      });
+      }, traceId);
 
       recordActivity(pool, {
         namespace: getStoreNamespace(req),
@@ -1978,12 +2082,13 @@ export async function terminalRoutesPlugin(
     }
 
     const actor = await getActor(req);
+    const traceId = extractOrCreateTraceId(req);
 
     try {
       await grpcClient.closeWindow({
         session_id: params.sid,
         window_index: windowIndex,
-      });
+      }, traceId);
 
       recordActivity(pool, {
         namespace: getStoreNamespace(req),
@@ -2020,13 +2125,14 @@ export async function terminalRoutesPlugin(
     const horizontal = body?.direction === 'horizontal';
 
     const actor = await getActor(req);
+    const traceId = extractOrCreateTraceId(req);
 
     try {
       const result = await grpcClient.splitPane({
         session_id: params.sid,
         window_index: windowIndex,
         horizontal,
-      });
+      }, traceId);
 
       recordActivity(pool, {
         namespace: getStoreNamespace(req),
@@ -2060,13 +2166,14 @@ export async function terminalRoutesPlugin(
     }
 
     const actor = await getActor(req);
+    const traceId = extractOrCreateTraceId(req);
 
     try {
       await grpcClient.closePane({
         session_id: params.sid,
         window_index: 0,
         pane_index: paneIndex,
-      });
+      }, traceId);
 
       recordActivity(pool, {
         namespace: getStoreNamespace(req),
@@ -2204,6 +2311,7 @@ export async function terminalRoutesPlugin(
     const namespace = getStoreNamespace(req);
 
     const actor = await getActor(req);
+    const traceId = extractOrCreateTraceId(req);
 
     try {
       const result = await grpcClient.createTunnel({
@@ -2215,7 +2323,7 @@ export async function terminalRoutesPlugin(
         bind_port: body.bind_port,
         target_host: body.target_host ?? '',
         target_port: body.target_port ?? 0,
-      });
+      }, traceId);
 
       recordActivity(pool, {
         namespace,
@@ -2250,9 +2358,10 @@ export async function terminalRoutesPlugin(
     }
 
     const actor = await getActor(req);
+    const traceId = extractOrCreateTraceId(req);
 
     try {
-      await grpcClient.closeTunnel({ tunnel_id: params.id });
+      await grpcClient.closeTunnel({ tunnel_id: params.id }, traceId);
 
       recordActivity(pool, {
         namespace: getStoreNamespace(req),
@@ -2430,6 +2539,7 @@ export async function terminalRoutesPlugin(
     const id = randomUUID();
     const port = body.port ?? 22;
     const actor = await getActor(req);
+    const traceId = extractOrCreateTraceId(req);
 
     // #2107: Call gRPC FIRST — only write DB on success to avoid inconsistency
     try {
@@ -2440,7 +2550,7 @@ export async function terminalRoutesPlugin(
         key_type: body.key_type.trim(),
         fingerprint: body.fingerprint.trim(),
         public_key: body.public_key.trim(),
-      });
+      }, traceId);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown gRPC error';
       return reply.code(502).send({ error: 'Failed to notify worker', details: message });
@@ -2890,10 +3000,11 @@ export async function terminalRoutesPlugin(
     }
 
     const actor = await getActor(req);
+    const traceId = extractOrCreateTraceId(req);
 
     // #2107: Call gRPC FIRST — only update DB on success to avoid inconsistency
     try {
-      await grpcClient.rejectHostKey({ session_id: body.session_id });
+      await grpcClient.rejectHostKey({ session_id: body.session_id }, traceId);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown gRPC error';
       return reply.code(502).send({ error: 'Failed to notify worker', details: message });

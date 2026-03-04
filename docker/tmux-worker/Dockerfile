@@ -3,7 +3,7 @@
 ###############################################################################
 # Stage 1: Builder - Install all dependencies and prepare deployment
 ###############################################################################
-FROM node:25-bookworm-slim AS builder
+FROM node:22-bookworm-slim AS builder
 
 WORKDIR /app
 
@@ -30,7 +30,7 @@ COPY tsconfig.build.json ./
 ###############################################################################
 # Stage 2: Production dependencies - Install only production deps
 ###############################################################################
-FROM node:25-bookworm-slim AS deps
+FROM node:22-bookworm-slim AS deps
 
 WORKDIR /app
 
@@ -49,7 +49,7 @@ RUN pnpm install --frozen-lockfile --prod
 ###############################################################################
 # Stage 3: Runtime - Production image with minimal footprint
 ###############################################################################
-FROM node:25-bookworm-slim AS runtime
+FROM node:22-bookworm-slim AS runtime
 
 # OCI Image Labels (build args)
 ARG BUILD_DATE
@@ -98,8 +98,8 @@ ENV TMUX_WORKER_HEALTH_PORT=9002
 # Expose gRPC, enrollment SSH, and health ports
 EXPOSE 50051 2222 9002
 
-# Switch to non-root user (node user exists in node:25-bookworm-slim with UID 1000)
+# Switch to non-root user (node user exists in node:22-bookworm-slim with UID 1000)
 USER node
 
-# Use Node 25's native TypeScript support
+# Use Node 22 LTS native TypeScript support (--experimental-transform-types available since 22.6)
 CMD ["node", "--experimental-transform-types", "--experimental-detect-module", "--import", "./src/instrument.ts", "src/tmux-worker/run.ts"]

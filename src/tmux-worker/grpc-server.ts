@@ -88,6 +88,10 @@ import {
   enrollmentEventBus,
   toEnrollmentEvent,
 } from './enrollment-stream.ts';
+import {
+  extractTraceIdFromCall,
+  traceLogContext,
+} from '../api/terminal/trace-context.ts';
 
 const startTime = Date.now();
 
@@ -266,6 +270,11 @@ function buildHandlers(
       callback: grpc.sendUnaryData<SessionInfo>,
     ) => {
       const req = call.request;
+      // Issue #2128: Extract and log trace ID from gRPC metadata
+      const traceId = extractTraceIdFromCall(call);
+      if (traceId) {
+        console.log('gRPC CreateSession', traceLogContext(traceId, 'grpc'));
+      }
       handleCreateSession(req, pool, tmuxManager, sshManager, config.workerId)
         .then((result) => callback(null, result))
         .catch((err) => {
@@ -278,6 +287,10 @@ function buildHandlers(
       callback: grpc.sendUnaryData<Record<string, never>>,
     ) => {
       const req = call.request;
+      const traceId = extractTraceIdFromCall(call);
+      if (traceId) {
+        console.log('gRPC TerminateSession', traceLogContext(traceId, 'grpc'));
+      }
       handleTerminateSession(req, pool, tmuxManager, sshManager)
         .then(() => callback(null, {}))
         .catch((err) => {
@@ -325,6 +338,11 @@ function buildHandlers(
     AttachSession: (
       call: grpc.ServerDuplexStream<TerminalInput, TerminalOutput>,
     ) => {
+      // Issue #2128: Extract and log trace ID from gRPC metadata
+      const traceId = extractTraceIdFromCall(call);
+      if (traceId) {
+        console.log('gRPC AttachSession', traceLogContext(traceId, 'grpc'));
+      }
       if (!entryRecorder) {
         call.emit('error', {
           code: grpc.status.INTERNAL,
@@ -344,6 +362,10 @@ function buildHandlers(
         return;
       }
       const req = call.request;
+      const traceId = extractTraceIdFromCall(call);
+      if (traceId) {
+        console.log('gRPC SendCommand', traceLogContext(traceId, 'grpc'));
+      }
       handleSendCommand(req, pool, tmuxManager, entryRecorder)
         .then((result) => callback(null, result))
         .catch((err) => {

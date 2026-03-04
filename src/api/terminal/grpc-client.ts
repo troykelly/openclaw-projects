@@ -6,11 +6,13 @@
  * a warning when certs are not found.
  *
  * Issue #1685 — mTLS between API server and tmux worker
+ * Issue #2128 — Trace ID propagation through gRPC metadata
  */
 
 import * as grpc from '@grpc/grpc-js';
 import fs from 'node:fs';
 import { getTerminalServiceClient } from '../../tmux-worker/proto-loader.ts';
+import { createGrpcMetadataWithTrace } from './trace-context.ts';
 import type {
   TestConnectionRequest,
   TestConnectionResponse,
@@ -117,12 +119,22 @@ function deadline(ms: number = DEFAULT_DEADLINE_MS): Date {
 }
 
 /**
+ * Options for unary gRPC calls.
+ */
+interface UnaryCallOptions {
+  timeoutMs?: number;
+  /** Trace/correlation ID for distributed tracing (#2128). */
+  traceId?: string;
+}
+
+/**
  * Wrap a gRPC unary call in a Promise.
+ * Optionally propagates a trace ID via gRPC metadata (#2128).
  */
 function unaryCall<TReq, TRes>(
   method: string,
   request: TReq,
-  timeoutMs?: number,
+  options?: UnaryCallOptions,
 ): Promise<TRes> {
   return new Promise<TRes>((resolve, reject) => {
     const client = getGrpcClient();
@@ -132,111 +144,131 @@ function unaryCall<TReq, TRes>(
       reject(new Error(`gRPC method ${method} not found on client`));
       return;
     }
-    fn.call(
-      client,
-      request,
-      { deadline: deadline(timeoutMs) },
-      (err: grpc.ServiceError | null, response: TRes) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(response);
-        }
-      },
-    );
+
+    const callOptions: grpc.CallOptions = { deadline: deadline(options?.timeoutMs) };
+
+    if (options?.traceId) {
+      const metadata = createGrpcMetadataWithTrace(options.traceId);
+      fn.call(
+        client,
+        request,
+        metadata,
+        callOptions,
+        (err: grpc.ServiceError | null, response: TRes) => {
+          if (err) reject(err);
+          else resolve(response);
+        },
+      );
+    } else {
+      fn.call(
+        client,
+        request,
+        callOptions,
+        (err: grpc.ServiceError | null, response: TRes) => {
+          if (err) reject(err);
+          else resolve(response);
+        },
+      );
+    }
   });
 }
 
 // ── Typed RPC wrappers ────────────────────────────────────────
+// All wrappers accept an optional traceId for distributed tracing (#2128).
 
-export function testConnection(req: TestConnectionRequest): Promise<TestConnectionResponse> {
-  return unaryCall('TestConnection', req);
+export function testConnection(req: TestConnectionRequest, traceId?: string): Promise<TestConnectionResponse> {
+  return unaryCall('TestConnection', req, { traceId });
 }
 
-export function createSession(req: CreateSessionRequest): Promise<SessionInfo> {
-  return unaryCall('CreateSession', req);
+export function createSession(req: CreateSessionRequest, traceId?: string): Promise<SessionInfo> {
+  return unaryCall('CreateSession', req, { traceId });
 }
 
-export function terminateSession(req: TerminateSessionRequest): Promise<Record<string, never>> {
-  return unaryCall('TerminateSession', req);
+export function terminateSession(req: TerminateSessionRequest, traceId?: string): Promise<Record<string, never>> {
+  return unaryCall('TerminateSession', req, { traceId });
 }
 
-export function listSessions(req: ListSessionsRequest): Promise<ListSessionsResponse> {
-  return unaryCall('ListSessions', req);
+export function listSessions(req: ListSessionsRequest, traceId?: string): Promise<ListSessionsResponse> {
+  return unaryCall('ListSessions', req, { traceId });
 }
 
-export function getSession(req: GetSessionRequest): Promise<SessionInfo> {
-  return unaryCall('GetSession', req);
+export function getSession(req: GetSessionRequest, traceId?: string): Promise<SessionInfo> {
+  return unaryCall('GetSession', req, { traceId });
 }
 
-export function resizeSession(req: ResizeSessionRequest): Promise<Record<string, never>> {
-  return unaryCall('ResizeSession', req);
+export function resizeSession(req: ResizeSessionRequest, traceId?: string): Promise<Record<string, never>> {
+  return unaryCall('ResizeSession', req, { traceId });
 }
 
-export function sendCommand(req: SendCommandRequest, timeoutMs?: number): Promise<SendCommandResponse> {
-  return unaryCall('SendCommand', req, timeoutMs);
+export function sendCommand(req: SendCommandRequest, timeoutMs?: number, traceId?: string): Promise<SendCommandResponse> {
+  return unaryCall('SendCommand', req, { timeoutMs, traceId });
 }
 
-export function sendKeys(req: SendKeysRequest): Promise<Record<string, never>> {
-  return unaryCall('SendKeys', req);
+export function sendKeys(req: SendKeysRequest, traceId?: string): Promise<Record<string, never>> {
+  return unaryCall('SendKeys', req, { traceId });
 }
 
-export function capturePane(req: CapturePaneRequest): Promise<CapturePaneResponse> {
-  return unaryCall('CapturePane', req);
+export function capturePane(req: CapturePaneRequest, traceId?: string): Promise<CapturePaneResponse> {
+  return unaryCall('CapturePane', req, { traceId });
 }
 
 /**
  * Open a bidirectional stream for AttachSession.
  * Returns the duplex stream for the caller to manage.
+ * Optionally propagates a trace ID via gRPC metadata (#2128).
  */
-export function attachSession(): grpc.ClientDuplexStream<TerminalInput, TerminalOutput> {
+export function attachSession(traceId?: string): grpc.ClientDuplexStream<TerminalInput, TerminalOutput> {
   const client = getGrpcClient();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic gRPC method access
   const fn = (client as unknown as Record<string, (...args: unknown[]) => unknown>).AttachSession;
   if (typeof fn !== 'function') {
     throw new Error('gRPC method AttachSession not found on client');
   }
+  if (traceId) {
+    const metadata = createGrpcMetadataWithTrace(traceId);
+    return fn.call(client, metadata) as grpc.ClientDuplexStream<TerminalInput, TerminalOutput>;
+  }
   return fn.call(client) as grpc.ClientDuplexStream<TerminalInput, TerminalOutput>;
 }
 
 // ── Phase 3: Window/Pane management (#1677) ──────────────────
 
-export function createWindow(req: CreateWindowRequest): Promise<WindowInfo> {
-  return unaryCall('CreateWindow', req);
+export function createWindow(req: CreateWindowRequest, traceId?: string): Promise<WindowInfo> {
+  return unaryCall('CreateWindow', req, { traceId });
 }
 
-export function closeWindow(req: CloseWindowRequest): Promise<Record<string, never>> {
-  return unaryCall('CloseWindow', req);
+export function closeWindow(req: CloseWindowRequest, traceId?: string): Promise<Record<string, never>> {
+  return unaryCall('CloseWindow', req, { traceId });
 }
 
-export function splitPane(req: SplitPaneRequest): Promise<PaneInfo> {
-  return unaryCall('SplitPane', req);
+export function splitPane(req: SplitPaneRequest, traceId?: string): Promise<PaneInfo> {
+  return unaryCall('SplitPane', req, { traceId });
 }
 
-export function closePane(req: ClosePaneRequest): Promise<Record<string, never>> {
-  return unaryCall('ClosePane', req);
+export function closePane(req: ClosePaneRequest, traceId?: string): Promise<Record<string, never>> {
+  return unaryCall('ClosePane', req, { traceId });
 }
 
 // ── Phase 3: Tunnel management (#1678) ───────────────────────
 
-export function createTunnel(req: CreateTunnelRequest): Promise<TunnelInfo> {
-  return unaryCall('CreateTunnel', req);
+export function createTunnel(req: CreateTunnelRequest, traceId?: string): Promise<TunnelInfo> {
+  return unaryCall('CreateTunnel', req, { traceId });
 }
 
-export function closeTunnel(req: CloseTunnelRequest): Promise<Record<string, never>> {
-  return unaryCall('CloseTunnel', req);
+export function closeTunnel(req: CloseTunnelRequest, traceId?: string): Promise<Record<string, never>> {
+  return unaryCall('CloseTunnel', req, { traceId });
 }
 
-export function listTunnels(req: ListTunnelsRequest): Promise<ListTunnelsResponse> {
-  return unaryCall('ListTunnels', req);
+export function listTunnels(req: ListTunnelsRequest, traceId?: string): Promise<ListTunnelsResponse> {
+  return unaryCall('ListTunnels', req, { traceId });
 }
 
 // ── Phase 3: Host key verification (#1679) ───────────────────
 
-export function approveHostKey(req: ApproveHostKeyRequest): Promise<Record<string, never>> {
-  return unaryCall('ApproveHostKey', req);
+export function approveHostKey(req: ApproveHostKeyRequest, traceId?: string): Promise<Record<string, never>> {
+  return unaryCall('ApproveHostKey', req, { traceId });
 }
 
-export function rejectHostKey(req: RejectHostKeyRequest): Promise<Record<string, never>> {
-  return unaryCall('RejectHostKey', req);
+export function rejectHostKey(req: RejectHostKeyRequest, traceId?: string): Promise<Record<string, never>> {
+  return unaryCall('RejectHostKey', req, { traceId });
 }
