@@ -135,23 +135,24 @@ export async function handleCreateSession(
     if (!sshResult) {
       throw new Error(`Failed to establish SSH connection for ${req.connection_id}`);
     }
-    // Note: for SSH sessions, tmux runs on the remote host via SSH exec.
-    // The tmuxManager operates locally, so for SSH sessions we'll need to
-    // execute tmux commands over SSH. For now, we support local sessions
-    // and will extend SSH remote tmux in the I/O streaming phase.
+    // SSH sessions should NOT create a local tmux session (#2101).
+    // tmux will run on the remote host via SSH exec; the local tmuxManager
+    // is not involved for SSH sessions.
   }
 
-  // 3. Create tmux session
+  // 3. Create tmux session (local only — SSH sessions skip this) (#2101)
   const sessionName = req.tmux_session_name || `oc-${randomUUID().slice(0, 8)}`;
   const cols = req.cols || 120;
   const rows = req.rows || 40;
-  const env = conn.env ?? undefined;
 
-  try {
-    await tmuxManager.createSession(sessionName, cols, rows, env);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    throw new Error(`Failed to create tmux session "${sessionName}": ${message}`);
+  if (conn.is_local) {
+    const env = conn.env ?? undefined;
+    try {
+      await tmuxManager.createSession(sessionName, cols, rows, env);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      throw new Error(`Failed to create tmux session "${sessionName}": ${message}`);
+    }
   }
 
   // 4. Insert DB records. If any insert fails, clean up the tmux session

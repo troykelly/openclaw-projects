@@ -2167,13 +2167,28 @@ export async function terminalRoutesPlugin(
       return reply.code(400).send({ error: 'Invalid pane index' });
     }
 
+    // Look up the pane's actual window_index from DB (#2096)
+    const paneResult = await pool.query(
+      `SELECT w.window_index
+       FROM terminal_session_pane p
+       JOIN terminal_session_window w ON p.window_id = w.id
+       WHERE w.session_id = $1 AND p.pane_index = $2
+       LIMIT 1`,
+      [params.sid, paneIndex],
+    );
+
+    if (paneResult.rows.length === 0) {
+      return reply.code(404).send({ error: 'Pane not found' });
+    }
+
+    const windowIndex = (paneResult.rows[0] as { window_index: number }).window_index;
     const actor = await getActor(req);
     const traceId = extractOrCreateTraceId(req);
 
     try {
       await grpcClient.closePane({
         session_id: params.sid,
-        window_index: 0,
+        window_index: windowIndex,
         pane_index: paneIndex,
       }, traceId);
 
@@ -2182,7 +2197,7 @@ export async function terminalRoutesPlugin(
         session_id: params.sid,
         actor,
         action: 'pane.close',
-        detail: { pane_index: paneIndex },
+        detail: { window_index: windowIndex, pane_index: paneIndex },
       });
 
       return reply.code(204).send();

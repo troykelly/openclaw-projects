@@ -234,12 +234,31 @@ function buildHandlers(
       callback: grpc.sendUnaryData<WorkerStatus>,
     ) => {
       const uptimeSeconds = Math.floor((Date.now() - startTime) / 1000);
-      callback(null, {
-        worker_id: config.workerId,
-        active_sessions: sshManager.activeConnectionCount,
-        uptime_seconds: String(uptimeSeconds),
-        version: '0.1.0',
-      });
+      // Query actual active terminal sessions from DB (#2126)
+      // Previously reported SSH connection pool size, which is wrong.
+      pool.query(
+        `SELECT COUNT(*)::int AS cnt FROM terminal_session
+         WHERE worker_id = $1 AND status IN ('active', 'idle')`,
+        [config.workerId],
+      )
+        .then((result) => {
+          const count = (result.rows[0] as { cnt: number } | undefined)?.cnt ?? 0;
+          callback(null, {
+            worker_id: config.workerId,
+            active_sessions: count,
+            uptime_seconds: String(uptimeSeconds),
+            version: '0.1.0',
+          });
+        })
+        .catch(() => {
+          // On DB error, fall back to 0 rather than failing the health check
+          callback(null, {
+            worker_id: config.workerId,
+            active_sessions: 0,
+            uptime_seconds: String(uptimeSeconds),
+            version: '0.1.0',
+          });
+        });
     },
 
     // ── Connection testing (#1853) ──────────────────────────

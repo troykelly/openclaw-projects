@@ -527,17 +527,30 @@ export function handleAttachSession(
           });
 
           // Handle PTY exit (tmux session terminated or detached)
+          // Also persist status to DB so it survives reconnection (#2102).
           exitDisposable = pty.onExit(({ exitCode }) => {
             if (ended) return;
+            const newStatus = exitCode === 0 ? 'terminated' : 'disconnected';
             if (target) {
               call.write({
                 event: {
                   type: 'status_change',
-                  message: exitCode === 0 ? 'terminated' : 'disconnected',
+                  message: newStatus,
                   session_id: target.sessionId,
                   host_key: null,
                 },
               });
+
+              // Persist terminal status to DB (#2102)
+              const now = new Date().toISOString();
+              pool.query(
+                `UPDATE terminal_session
+                 SET status = $1, exit_code = $2,
+                     terminated_at = CASE WHEN $1 = 'terminated' THEN $3::timestamptz ELSE terminated_at END,
+                     updated_at = $3
+                 WHERE id = $4`,
+                [newStatus, exitCode, now, target.sessionId],
+              ).catch(() => { /* best-effort DB update */ });
             }
             cleanup();
             call.end();
