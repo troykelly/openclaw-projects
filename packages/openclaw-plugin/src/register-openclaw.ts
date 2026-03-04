@@ -13,7 +13,10 @@ import { type ApiClient, createApiClient } from './api-client.js';
 import { type PluginConfig, type RawPluginConfig, redactConfig, resolveConfigSecretsSync, resolveNamespaceConfig, validateRawConfig } from './config.js';
 import { extractContext, getUserScopeKey, resolveAgentId } from './context.js';
 import { createOAuthGatewayMethods, registerOAuthGatewayRpcMethods } from './gateway/oauth-rpc-methods.js';
-import { createGatewayMethods, registerGatewayRpcMethods } from './gateway/rpc-methods.js';
+// Notification gateway RPC methods (subscribe/unsubscribe/getNotifications)
+// are intentionally NOT registered — the notification system is unused and
+// the SDK may poll getNotifications automatically, producing 401s (#2076).
+// Implementation kept in gateway/rpc-methods.ts for future use.
 import { createAutoCaptureHook, createGraphAwareRecallHook } from './hooks.js';
 import { createLogger, type Logger } from './logger.js';
 import {
@@ -5720,13 +5723,9 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     logger.debug('api.registerCommand not available — slash commands not registered (#2054)');
   }
 
-  // Register Gateway RPC methods (Issue #324)
-  const gatewayMethods = createGatewayMethods({
-    logger,
-    apiClient,
-    getAgentId: () => state.agentId,
-  });
-  registerGatewayRpcMethods(api, gatewayMethods);
+  // Notification gateway RPC methods NOT registered — see #2076.
+  // The notification table is unused and the webhook outbox handles
+  // event delivery. Re-enable when the notification system is built.
 
   // Register OAuth Gateway RPC methods (Issue #1054)
   const oauthGatewayMethods = createOAuthGatewayMethods({

@@ -1,15 +1,17 @@
 /**
- * Tests for route resolver service (Issue #2086).
+ * Tests for route resolver service (Issues #2086, #2092).
  *
  * Verifies that resolveRoute() correctly falls back to channel_default
  * in the 'default' namespace when namespace is undefined (unauthenticated
- * webhooks like Cloudflare email).
+ * webhooks like Cloudflare email), and that lookups are deterministic
+ * when multiple namespaces contain channel defaults for the same type.
  */
 import type { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createTestPool, truncateAllTables, ensureTestNamespace } from './helpers/db.ts';
 import { runMigrate } from './helpers/migrate.ts';
 import { resolveRoute } from '../src/api/route-resolver/service.ts';
+import { getChannelDefault } from '../src/api/channel-default/service.ts';
 
 describe('resolveRoute (Issue #2086)', () => {
   let pool: Pool;
@@ -125,5 +127,45 @@ describe('resolveRoute (Issue #2086)', () => {
     expect(result!.agentId).toBe('agent-catchall');
     expect(result!.promptContent).toBe('You are a helpful agent.');
     expect(result!.source).toBe('channel_default');
+  });
+
+  // ── Bug #2092: deterministic ordering across namespaces ──
+
+  it('getChannelDefault prefers default namespace when multiple exist (#2092)', async () => {
+    // Insert channel defaults in two namespaces for the same channel type.
+    // Create 'zzz-ns' first to verify ORDER BY wins over insertion order.
+    await pool.query(
+      `INSERT INTO channel_default (namespace, channel_type, agent_id)
+       VALUES ('zzz-ns', 'email', 'agent-zzz')`,
+    );
+    await pool.query(
+      `INSERT INTO channel_default (namespace, channel_type, agent_id)
+       VALUES ('default', 'email', 'agent-default')`,
+    );
+
+    // Query without namespace scope — should deterministically return 'default'
+    const result = await getChannelDefault(pool, 'email');
+
+    expect(result).not.toBeNull();
+    expect(result!.agent_id).toBe('agent-default');
+    expect(result!.namespace).toBe('default');
+  });
+
+  it('getChannelDefault returns alphabetically first non-default namespace when no default exists (#2092)', async () => {
+    // Insert beta before alpha to verify ORDER BY namespace wins over insertion order
+    await pool.query(
+      `INSERT INTO channel_default (namespace, channel_type, agent_id)
+       VALUES ('beta-ns', 'sms', 'agent-beta')`,
+    );
+    await pool.query(
+      `INSERT INTO channel_default (namespace, channel_type, agent_id)
+       VALUES ('alpha-ns', 'sms', 'agent-alpha')`,
+    );
+
+    const result = await getChannelDefault(pool, 'sms');
+
+    expect(result).not.toBeNull();
+    expect(result!.agent_id).toBe('agent-alpha');
+    expect(result!.namespace).toBe('alpha-ns');
   });
 });
