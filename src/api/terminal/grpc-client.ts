@@ -68,10 +68,12 @@ export function buildClientCredentials(): grpc.ChannelCredentials {
       console.log('gRPC client using mTLS (mutual TLS)');
       return grpc.credentials.createSsl(rootCert, clientKey, clientCert);
     } catch (err) {
-      console.warn(
-        `Failed to load mTLS certificates: ${(err as Error).message}. Falling back to insecure channel.`,
+      // #2106: When mTLS is explicitly configured but certs fail to load,
+      // throw to abort startup instead of silently degrading to insecure.
+      throw new Error(
+        `gRPC mTLS configured but certificates failed to load: ${(err as Error).message}. ` +
+        `Fix cert paths (TMUX_WORKER_MTLS_CERT/KEY/CA) or remove them to explicitly run insecure.`,
       );
-      return grpc.credentials.createInsecure();
     }
   }
 

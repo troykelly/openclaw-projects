@@ -156,7 +156,8 @@ export async function handleCreateTunnel(
           // Simple SOCKS5 proxy implementation
           socket.once('data', (greetingRaw) => {
             const greeting = Buffer.isBuffer(greetingRaw) ? greetingRaw : Buffer.from(greetingRaw);
-            if (greeting[0] !== 0x05) {
+            // #2103: Validate greeting length before reading fields
+            if (greeting.length < 2 || greeting[0] !== 0x05) {
               socket.destroy();
               return;
             }
@@ -166,6 +167,12 @@ export async function handleCreateTunnel(
 
             socket.once('data', (requestRaw) => {
               const request = Buffer.isBuffer(requestRaw) ? requestRaw : Buffer.from(requestRaw);
+              // #2103: Validate minimum request header length (VER, CMD, RSV, ATYP)
+              if (request.length < 4) {
+                socket.write(Buffer.from([0x05, 0x01, 0x00, 0x01, 0, 0, 0, 0, 0, 0]));
+                socket.destroy();
+                return;
+              }
               if (request[0] !== 0x05 || request[1] !== 0x01) {
                 socket.write(Buffer.from([0x05, 0x07, 0x00, 0x01, 0, 0, 0, 0, 0, 0]));
                 socket.destroy();
@@ -177,17 +184,37 @@ export async function handleCreateTunnel(
               let offset: number;
 
               switch (request[3]) {
-                case 0x01: // IPv4
+                case 0x01: // IPv4 — need 4 header + 4 addr + 2 port = 10 bytes
+                  if (request.length < 10) {
+                    socket.write(Buffer.from([0x05, 0x01, 0x00, 0x01, 0, 0, 0, 0, 0, 0]));
+                    socket.destroy();
+                    return;
+                  }
                   targetHost = `${request[4]}.${request[5]}.${request[6]}.${request[7]}`;
                   offset = 8;
                   break;
-                case 0x03: { // Domain name
+                case 0x03: { // Domain name — need 5 + domainLen + 2 bytes
+                  if (request.length < 5) {
+                    socket.write(Buffer.from([0x05, 0x01, 0x00, 0x01, 0, 0, 0, 0, 0, 0]));
+                    socket.destroy();
+                    return;
+                  }
                   const domainLen = request[4];
+                  if (request.length < 5 + domainLen + 2) {
+                    socket.write(Buffer.from([0x05, 0x01, 0x00, 0x01, 0, 0, 0, 0, 0, 0]));
+                    socket.destroy();
+                    return;
+                  }
                   targetHost = request.subarray(5, 5 + domainLen).toString();
                   offset = 5 + domainLen;
                   break;
                 }
-                case 0x04: // IPv6
+                case 0x04: // IPv6 — need 4 header + 16 addr + 2 port = 22 bytes
+                  if (request.length < 22) {
+                    socket.write(Buffer.from([0x05, 0x01, 0x00, 0x01, 0, 0, 0, 0, 0, 0]));
+                    socket.destroy();
+                    return;
+                  }
                   targetHost = Array.from({ length: 8 }, (_, i) =>
                     request.readUInt16BE(4 + i * 2).toString(16),
                   ).join(':');

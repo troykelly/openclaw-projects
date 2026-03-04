@@ -1364,6 +1364,10 @@ export async function terminalRoutesPlugin(
     if (isAuthDisabled()) {
       authenticated = true;
     } else if (query.token) {
+      // #2105: Log security warning — query param auth tokens leak via proxy logs and Referer headers
+      console.warn(
+        `WebSocket auth via query param token for session ${params.id} — prefer first-message auth to avoid query string auth token leakage`,
+      );
       try {
         await verifyAccessToken(query.token);
         authenticated = true;
@@ -1809,16 +1813,14 @@ export async function terminalRoutesPlugin(
       return reply.code(401).send({ error: 'Enrollment token has expired' });
     }
 
-    // Check max_uses
-    if (enrollmentToken.max_uses !== null && enrollmentToken.uses >= enrollmentToken.max_uses) {
-      return reply.code(401).send({ error: 'Enrollment token has reached maximum uses' });
-    }
-
-    // Increment uses
-    await pool.query(
-      `UPDATE terminal_enrollment_token SET uses = uses + 1 WHERE id = $1`,
+    // #2104: Atomic check+increment to prevent race condition on max_uses
+    const incrementResult = await pool.query(
+      `UPDATE terminal_enrollment_token SET uses = uses + 1 WHERE id = $1 AND (max_uses IS NULL OR uses < max_uses) RETURNING id`,
       [enrollmentToken.id],
     );
+    if (incrementResult.rowCount === 0) {
+      return reply.code(401).send({ error: 'Enrollment token has reached maximum uses' });
+    }
 
     // Merge connection defaults
     const defaults = enrollmentToken.connection_defaults ?? {};
@@ -2538,6 +2540,23 @@ export async function terminalRoutesPlugin(
     const namespace = getStoreNamespace(req);
     const id = randomUUID();
     const port = body.port ?? 22;
+    const actor = await getActor(req);
+    const traceId = extractOrCreateTraceId(req);
+
+    // #2107: Call gRPC FIRST — only write DB on success to avoid inconsistency
+    try {
+      await grpcClient.approveHostKey({
+        session_id: body.session_id,
+        host: body.host.trim(),
+        port,
+        key_type: body.key_type.trim(),
+        fingerprint: body.fingerprint.trim(),
+        public_key: body.public_key.trim(),
+      }, traceId);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown gRPC error';
+      return reply.code(502).send({ error: 'Failed to notify worker', details: message });
+    }
 
     await pool.query(
       `INSERT INTO terminal_known_host (
@@ -2551,32 +2570,15 @@ export async function terminalRoutesPlugin(
       [id, namespace, body.host.trim(), port, body.key_type.trim(), body.fingerprint.trim(), body.public_key.trim()],
     );
 
-    const actor = await getActor(req);
-    const traceId = extractOrCreateTraceId(req);
+    recordActivity(pool, {
+      namespace,
+      session_id: body.session_id,
+      actor,
+      action: 'known_host.approve',
+      detail: { host: body.host.trim(), port, key_type: body.key_type.trim() },
+    });
 
-    try {
-      await grpcClient.approveHostKey({
-        session_id: body.session_id,
-        host: body.host.trim(),
-        port,
-        key_type: body.key_type.trim(),
-        fingerprint: body.fingerprint.trim(),
-        public_key: body.public_key.trim(),
-      }, traceId);
-
-      recordActivity(pool, {
-        namespace,
-        session_id: body.session_id,
-        actor,
-        action: 'known_host.approve',
-        detail: { host: body.host.trim(), port, key_type: body.key_type.trim() },
-      });
-
-      return reply.send({ approved: true, session_id: body.session_id });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown gRPC error';
-      return reply.code(502).send({ error: 'Failed to notify worker', details: message });
-    }
+    return reply.send({ approved: true, session_id: body.session_id });
   });
 
   // DELETE /api/terminal/known-hosts/:id — Revoke trust
@@ -3006,6 +3008,17 @@ export async function terminalRoutesPlugin(
       return reply.code(404).send({ error: 'Session not found' });
     }
 
+    const actor = await getActor(req);
+    const traceId = extractOrCreateTraceId(req);
+
+    // #2107: Call gRPC FIRST — only update DB on success to avoid inconsistency
+    try {
+      await grpcClient.rejectHostKey({ session_id: body.session_id }, traceId);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown gRPC error';
+      return reply.code(502).send({ error: 'Failed to notify worker', details: message });
+    }
+
     // Update session status to error since host key was rejected
     await pool.query(
       `UPDATE terminal_session SET status = 'error', error_message = 'Host key rejected by user', updated_at = NOW()
@@ -3013,25 +3026,15 @@ export async function terminalRoutesPlugin(
       [body.session_id],
     );
 
-    const actor = await getActor(req);
-    const traceId = extractOrCreateTraceId(req);
+    recordActivity(pool, {
+      namespace: getStoreNamespace(req),
+      session_id: body.session_id,
+      actor,
+      action: 'known_host.reject',
+      detail: { session_id: body.session_id },
+    });
 
-    try {
-      await grpcClient.rejectHostKey({ session_id: body.session_id }, traceId);
-
-      recordActivity(pool, {
-        namespace: getStoreNamespace(req),
-        session_id: body.session_id,
-        actor,
-        action: 'known_host.reject',
-        detail: { session_id: body.session_id },
-      });
-
-      return reply.send({ rejected: true, session_id: body.session_id });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown gRPC error';
-      return reply.code(502).send({ error: 'Failed to notify worker', details: message });
-    }
+    return reply.send({ rejected: true, session_id: body.session_id });
   });
 
   // ================================================================
