@@ -1179,6 +1179,19 @@ Host db-server
     describe('DELETE /terminal/sessions/:sid/panes/:pid', () => {
       it('returns 502 when worker is unavailable', async () => {
         await createSessionFixture();
+        // Insert window and pane so the DB lookup succeeds (#2096)
+        const winId = '00000000-0000-0000-0000-000000000020';
+        const paneId = '00000000-0000-0000-0000-000000000030';
+        await pool.query(
+          `INSERT INTO terminal_session_window (id, session_id, namespace, window_index, window_name, is_active)
+           VALUES ($1, $2, 'default', 0, 'default', true)`,
+          [winId, sessId],
+        );
+        await pool.query(
+          `INSERT INTO terminal_session_pane (id, window_id, namespace, pane_index, is_active)
+           VALUES ($1, $2, 'default', 0, true)`,
+          [paneId, winId],
+        );
 
         const res = await app.inject({
           method: 'DELETE',
@@ -1186,6 +1199,17 @@ Host db-server
         });
 
         expect(res.statusCode).toBe(502);
+      });
+
+      it('returns 404 when pane does not exist (#2096)', async () => {
+        await createSessionFixture();
+
+        const res = await app.inject({
+          method: 'DELETE',
+          url: `/terminal/sessions/${sessId}/panes/0`,
+        });
+
+        expect(res.statusCode).toBe(404);
       });
 
       it('returns 400 for invalid pane index', async () => {
