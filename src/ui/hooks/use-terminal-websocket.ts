@@ -100,9 +100,14 @@ export function useTerminalWebSocket({
       // Text frames may be JSON events or plain terminal data
       if (typeof event.data === 'string') {
         try {
-          const parsed = JSON.parse(event.data) as { type?: string; event?: TerminalWsEvent };
-          if (parsed.type === 'event' && parsed.event) {
-            onEventRef.current?.(parsed.event);
+          const parsed = JSON.parse(event.data) as { type?: string; event?: unknown };
+          if (
+            parsed.type === 'event' &&
+            parsed.event != null &&
+            typeof parsed.event === 'object' &&
+            typeof (parsed.event as TerminalWsEvent).type === 'string'
+          ) {
+            onEventRef.current?.(parsed.event as TerminalWsEvent);
             return;
           }
         } catch {

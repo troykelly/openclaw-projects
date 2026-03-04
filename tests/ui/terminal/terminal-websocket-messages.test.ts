@@ -165,6 +165,20 @@ describe('terminal WebSocket message handling', () => {
     expect(onEvent).not.toHaveBeenCalled();
   });
 
+  it('treats malformed event payload (event is string) as terminal data', async () => {
+    const onData = vi.fn();
+    const onEvent = vi.fn();
+    renderHook(() => useTerminalWebSocket({ sessionId: 'test-id', onData, onEvent }));
+    await vi.waitFor(() => expect(mockWsInstance?.readyState).toBe(MockWebSocket.OPEN));
+
+    act(() => {
+      mockWsInstance!._receive('{"type":"event","event":"not-an-object"}');
+    });
+
+    expect(onData).toHaveBeenCalledWith('{"type":"event","event":"not-an-object"}');
+    expect(onEvent).not.toHaveBeenCalled();
+  });
+
   it('handles binary data with ANSI escape sequences', async () => {
     const onData = vi.fn();
     renderHook(() => useTerminalWebSocket({ sessionId: 'test-id', onData }));
