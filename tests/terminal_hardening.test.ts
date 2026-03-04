@@ -63,7 +63,8 @@ async function waitForActivity(
     if (rows.length >= expectedCount) return rows;
     await new Promise((r) => setTimeout(r, intervalMs));
   }
-  return rows;
+  // Final check after deadline to avoid boundary miss
+  return getActivityByAction(pool, action);
 }
 
 // ── Tests ────────────────────────────────────────────────────
