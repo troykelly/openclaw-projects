@@ -8,6 +8,7 @@
 
 import { randomUUID } from 'node:crypto';
 import * as grpc from '@grpc/grpc-js';
+import type { IPty } from 'node-pty';
 import type pg from 'pg';
 import type { TmuxManager } from './tmux/manager.ts';
 import type { EntryRecorder } from './entry-recorder.ts';
@@ -333,39 +334,96 @@ export async function handleCapturePane(
  * Client sends: keystrokes (data) and resize events.
  * Server sends: terminal output (data) and status events.
  *
- * Output is captured by polling tmux capturePane on an interval
- * and sending the diff to the client.
+ * Uses node-pty to spawn `tmux attach-session`, providing a real PTY so
+ * tmux streams raw terminal output (with escape sequences) — exactly what
+ * xterm.js expects. Replaces the previous capture-pane polling approach
+ * which produced plain text diffs that garbled the display (#2094).
  */
 export function handleAttachSession(
   call: grpc.ServerDuplexStream<TerminalInput, TerminalOutput>,
   pool: pg.Pool,
-  tmuxManager: TmuxManager,
+  _tmuxManager: TmuxManager,
   entryRecorder: EntryRecorder,
 ): void {
   let target: SessionPaneTarget | null = null;
+  let ptyProcess: IPty | null = null;
   let initialized = false;
-  let initializing = false; // Guard against concurrent init
-  let captureTimer: ReturnType<typeof setInterval> | null = null;
-  let lastCapture = '';
+  let initializing = false;
   let ended = false;
-  let paused = false; // Backpressure flag
+  const pendingMessages: TerminalInput[] = [];
+  const MAX_PENDING = 100;
+  const MAX_COLS = 1000;
+  const MAX_ROWS = 500;
+  let dataDisposable: { dispose: () => void } | null = null;
+  let exitDisposable: { dispose: () => void } | null = null;
 
   const cleanup = () => {
     if (ended) return;
     ended = true;
-    if (captureTimer) {
-      clearInterval(captureTimer);
-      captureTimer = null;
+    if (dataDisposable) { dataDisposable.dispose(); dataDisposable = null; }
+    if (exitDisposable) { exitDisposable.dispose(); exitDisposable = null; }
+    if (ptyProcess) {
+      try { ptyProcess.kill(); } catch { /* already exited */ }
+      ptyProcess = null;
     }
   };
+
+  /** Process an input message once the PTY is ready. */
+  function handleInput(input: TerminalInput): void {
+    if (ended || !ptyProcess) return;
+
+    // Handle keystrokes — write directly to the PTY
+    if (input.data && input.data.length > 0) {
+      const keyData = typeof input.data === 'string'
+        ? input.data
+        : Buffer.from(input.data).toString();
+      try {
+        ptyProcess.write(keyData);
+      } catch (err) {
+        if (!ended && target) {
+          call.write({
+            event: {
+              type: 'error',
+              message: `Failed to send keys: ${err instanceof Error ? err.message : String(err)}`,
+              session_id: target.sessionId,
+              host_key: null,
+            },
+          });
+        }
+      }
+    }
+
+    // Handle resize — resize the PTY directly (ioctl TIOCSWINSZ)
+    if (input.resize) {
+      const { cols, rows } = input.resize;
+      if (cols > 0 && rows > 0 && cols <= MAX_COLS && rows <= MAX_ROWS) {
+        try {
+          ptyProcess.resize(cols, rows);
+        } catch { /* best-effort resize */ }
+
+        // Update DB cols/rows (best-effort)
+        if (target) {
+          pool.query(
+            `UPDATE terminal_session SET cols = $1, rows = $2, updated_at = NOW() WHERE id = $3`,
+            [cols, rows, target.sessionId],
+          ).catch(() => { /* best-effort */ });
+        }
+      }
+    }
+  }
 
   call.on('data', (input: TerminalInput) => {
     if (ended) return;
 
-    // First message must carry session_id
+    // First message must carry session_id to identify the session
     if (!initialized) {
-      // Guard against concurrent initialization from rapid messages
-      if (initializing) return;
+      if (initializing) {
+        // Queue messages during initialization instead of dropping them
+        if (pendingMessages.length < MAX_PENDING) {
+          pendingMessages.push(input);
+        }
+        return;
+      }
 
       if (!input.session_id) {
         call.emit('error', {
@@ -377,14 +435,106 @@ export function handleAttachSession(
 
       initializing = true;
 
-      // Resolve session and start I/O
+      // Resolve session target, then spawn PTY
       resolveSessionPaneTarget(pool, input.session_id, '')
-        .then((resolved) => {
+        .then(async (resolved) => {
           if (ended) return;
           target = resolved;
+
+          // Read stored dimensions from DB for initial PTY size
+          let cols = 120;
+          let rows = 40;
+          try {
+            const dimResult = await pool.query(
+              `SELECT cols, rows FROM terminal_session WHERE id = $1`,
+              [target.sessionId],
+            );
+            if (dimResult.rows.length > 0) {
+              const dim = dimResult.rows[0] as { cols: number; rows: number };
+              if (dim.cols > 0) cols = dim.cols;
+              if (dim.rows > 0) rows = dim.rows;
+            }
+          } catch { /* use defaults */ }
+
+          // Apply any queued resize before spawning the PTY
+          for (const msg of pendingMessages) {
+            if (msg.resize && msg.resize.cols > 0 && msg.resize.rows > 0
+                && msg.resize.cols <= MAX_COLS && msg.resize.rows <= MAX_ROWS) {
+              cols = msg.resize.cols;
+              rows = msg.resize.rows;
+            }
+          }
+
+          if (ended) return;
+
+          // Validate tmux session name to prevent target syntax abuse (defense-in-depth)
+          if (!/^[a-zA-Z0-9_-]+$/.test(target.tmuxSessionName)) {
+            call.emit('error', {
+              code: grpc.status.INVALID_ARGUMENT,
+              message: `Invalid tmux session name: ${target.tmuxSessionName}`,
+            });
+            return;
+          }
+
+          // Spawn tmux attach via node-pty for real PTY streaming
+          // Dynamic import to avoid loading native module at module-level
+          // (prevents failures in tests/CI that import terminal-io transitively)
+          const { spawn: ptySpawn } = await import('node-pty');
+          const pty = ptySpawn(
+            'tmux',
+            ['attach-session', '-t', target.tmuxSessionName],
+            {
+              cols,
+              rows,
+              name: 'xterm-256color',
+              cwd: '/tmp',
+            },
+          );
+
+          ptyProcess = pty;
           initialized = true;
 
-          // Send initial status event
+          // Stream PTY output to gRPC client
+          dataDisposable = pty.onData((data: string) => {
+            if (ended) return;
+
+            const ok = call.write({ data: Buffer.from(data) });
+            if (!ok) {
+              // Backpressure: resume on drain
+              call.once('drain', () => { /* writing resumes automatically */ });
+            }
+
+            // Record output for session history
+            if (target) {
+              entryRecorder.record({
+                session_id: target.sessionId,
+                pane_id: target.paneId,
+                namespace: target.namespace,
+                kind: 'output',
+                content: data,
+                metadata: { source: 'pty_stream' },
+              });
+            }
+          });
+
+          // Handle PTY exit (tmux session terminated or detached)
+          exitDisposable = pty.onExit(({ exitCode }) => {
+            if (ended) return;
+            if (target) {
+              call.write({
+                event: {
+                  type: 'status_change',
+                  message: exitCode === 0 ? 'terminated' : 'disconnected',
+                  session_id: target.sessionId,
+                  host_key: null,
+                },
+              });
+            }
+            cleanup();
+            call.end();
+          });
+
+          // Send attached event
           call.write({
             event: {
               type: 'status_change',
@@ -394,11 +544,11 @@ export function handleAttachSession(
             },
           });
 
-          // Start output capture polling
-          captureTimer = setInterval(() => {
-            if (ended || !target || paused) return;
-            void captureAndSendOutput(call, tmuxManager, target, entryRecorder);
-          }, 100); // 100ms polling for responsive output
+          // Replay queued messages (keystrokes, remaining resizes)
+          for (const msg of pendingMessages) {
+            handleInput(msg);
+          }
+          pendingMessages.length = 0;
         })
         .catch((err) => {
           const message = err instanceof Error ? err.message : String(err);
@@ -410,58 +560,14 @@ export function handleAttachSession(
       return;
     }
 
-    if (!target) return;
-
-    // Handle keystrokes
-    if (input.data && input.data.length > 0) {
-      const keyData = typeof input.data === 'string'
-        ? input.data
-        : Buffer.from(input.data).toString();
-
-      tmuxManager
-        .sendKeys(
-          target.tmuxSessionName,
-          target.windowIndex,
-          target.paneIndex,
-          keyData,
-        )
-        .catch((err) => {
-          if (!ended) {
-            call.write({
-              event: {
-                type: 'error',
-                message: `Failed to send keys: ${err instanceof Error ? err.message : String(err)}`,
-                session_id: target!.sessionId,
-                host_key: null,
-              },
-            });
-          }
-        });
-    }
-
-    // Handle resize
-    if (input.resize) {
-      const { cols, rows } = input.resize;
-      if (cols > 0 && rows > 0 && target) {
-        tmuxManager
-          .resizeSession(target.tmuxSessionName, cols, rows)
-          .then(() => {
-            // Update DB cols/rows
-            return pool.query(
-              `UPDATE terminal_session SET cols = $1, rows = $2, updated_at = NOW() WHERE id = $3`,
-              [cols, rows, target!.sessionId],
-            );
-          })
-          .catch(() => {
-            // Best-effort resize
-          });
-      }
-    }
+    // PTY is ready — handle input directly
+    handleInput(input);
   });
 
   call.on('end', () => {
     cleanup();
-    call.end();
+    // Don't call call.end() here — the stream already ended from the client side.
+    // The PTY onExit handler calls call.end() when the PTY exits first.
   });
 
   call.on('error', () => {
@@ -471,69 +577,6 @@ export function handleAttachSession(
   call.on('cancelled', () => {
     cleanup();
   });
-
-  // Internal function for polling output
-  let captureInProgress = false;
-
-  async function captureAndSendOutput(
-    stream: grpc.ServerDuplexStream<TerminalInput, TerminalOutput>,
-    tmux: TmuxManager,
-    t: SessionPaneTarget,
-    recorder: EntryRecorder,
-  ): Promise<void> {
-    if (captureInProgress || ended) return;
-    captureInProgress = true;
-
-    try {
-      const current = await tmux.capturePane(
-        t.tmuxSessionName,
-        t.windowIndex,
-        t.paneIndex,
-      );
-
-      if (current !== lastCapture && !ended) {
-        // Send the diff as output data
-        const newContent = extractNewOutput(lastCapture, current);
-        if (newContent.length > 0) {
-          // Check backpressure: if write returns false, pause until drain
-          const ok = stream.write({ data: Buffer.from(newContent) });
-          if (!ok) {
-            paused = true;
-            stream.once('drain', () => {
-              paused = false;
-            });
-          }
-
-          // Record to entry recorder
-          recorder.record({
-            session_id: t.sessionId,
-            pane_id: t.paneId,
-            namespace: t.namespace,
-            kind: 'output',
-            content: newContent,
-            metadata: { source: 'stream_capture' },
-          });
-        }
-        lastCapture = current;
-      }
-    } catch {
-      // Session may have been terminated
-      if (!ended) {
-        stream.write({
-          event: {
-            type: 'disconnected',
-            message: 'Failed to capture pane output',
-            session_id: t.sessionId,
-            host_key: null,
-          },
-        });
-        cleanup();
-        stream.end();
-      }
-    } finally {
-      captureInProgress = false;
-    }
-  }
 }
 
 // ── Utility functions ────────────────────────────────────────
