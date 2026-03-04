@@ -12,6 +12,10 @@ type ChannelType = 'sms' | 'email' | 'ha_observation';
 /**
  * Look up an inbound_destination by (address, channel_type).
  * Returns the row if active; null otherwise.
+ *
+ * The UNIQUE (address, channel_type) constraint on inbound_destination
+ * prevents duplicate rows, but we add ORDER BY as defensive coding so
+ * results are deterministic even if the constraint is ever relaxed (#2092).
  */
 async function getDestinationByAddress(
   pool: Pool,
@@ -25,14 +29,16 @@ async function getDestinationByAddress(
     FROM inbound_destination
     WHERE address = $1 AND channel_type = $2 AND is_active = true`;
 
+  const orderBy = `ORDER BY CASE WHEN namespace = 'default' THEN 0 ELSE 1 END, namespace`;
+
   if (queryNamespaces) {
     const result = await pool.query(
-      `${base} AND namespace = ANY($3::text[])`,
+      `${base} AND namespace = ANY($3::text[]) ${orderBy}`,
       [address, channelType, queryNamespaces],
     );
     return result.rows[0] ?? null;
   }
-  const result = await pool.query(base, [address, channelType]);
+  const result = await pool.query(`${base} ${orderBy}`, [address, channelType]);
   return result.rows[0] ?? null;
 }
 

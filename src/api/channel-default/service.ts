@@ -49,21 +49,25 @@ export async function listChannelDefaults(
 
 /**
  * Get channel default for a specific channel type, optionally scoped to namespaces.
+ *
+ * When queryNamespaces is omitted, all namespaces are searched. The 'default'
+ * namespace is preferred so results are deterministic (#2092).
  */
 export async function getChannelDefault(
   pool: Pool,
   channelType: string,
   queryNamespaces?: string[],
 ): Promise<ChannelDefault | null> {
+  const orderBy = `ORDER BY CASE WHEN namespace = 'default' THEN 0 ELSE 1 END, namespace`;
   if (queryNamespaces) {
     const result = await pool.query(
-      `SELECT ${COLUMNS} FROM channel_default WHERE channel_type = $1 AND namespace = ANY($2::text[])`,
+      `SELECT ${COLUMNS} FROM channel_default WHERE channel_type = $1 AND namespace = ANY($2::text[]) ${orderBy}`,
       [channelType, queryNamespaces],
     );
     return (result.rows[0] as ChannelDefault) ?? null;
   }
   const result = await pool.query(
-    `SELECT ${COLUMNS} FROM channel_default WHERE channel_type = $1`,
+    `SELECT ${COLUMNS} FROM channel_default WHERE channel_type = $1 ${orderBy}`,
     [channelType],
   );
   return (result.rows[0] as ChannelDefault) ?? null;
