@@ -284,11 +284,15 @@ export function createEnrollmentSSHServer(
 
             clearRateLimit(clientAddress);
 
-            // Increment uses
-            await pool.query(
-              `UPDATE terminal_enrollment_token SET uses = uses + 1 WHERE id = $1`,
+            // #2104: Atomic check+increment to prevent race condition on max_uses
+            const incrementResult = await pool.query(
+              `UPDATE terminal_enrollment_token SET uses = uses + 1 WHERE id = $1 AND (max_uses IS NULL OR uses < max_uses) RETURNING id`,
               [token.id],
             );
+            if (incrementResult.rowCount === 0) {
+              ctx.reject(['password']);
+              return;
+            }
 
             // Create terminal_connection for the enrolled server
             const defaults = token.connection_defaults ?? {};

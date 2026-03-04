@@ -27,13 +27,15 @@ describe('buildClientCredentials', () => {
     expect(creds).toBeDefined();
   });
 
-  it('falls back to insecure when cert files do not exist', async () => {
+  it('throws when TLS is configured but cert files do not exist (#2106)', async () => {
     process.env.TMUX_WORKER_MTLS_CERT = '/nonexistent/api-client.pem';
     process.env.TMUX_WORKER_MTLS_KEY = '/nonexistent/api-client-key.pem';
     process.env.TMUX_WORKER_MTLS_CA = '/nonexistent/ca.pem';
 
     const mod = await import('./grpc-client.ts');
-    const creds = mod.buildClientCredentials();
-    expect(creds).toBeDefined();
+    // #2106: Must throw on misconfigured TLS, not silently degrade
+    expect(() => mod.buildClientCredentials()).toThrow(
+      /certificates failed to load/,
+    );
   });
 });

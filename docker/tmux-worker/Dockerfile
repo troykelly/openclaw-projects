@@ -65,7 +65,10 @@ LABEL org.opencontainers.image.created="${BUILD_DATE}" \
       org.opencontainers.image.vendor="Troy Kelly" \
       org.opencontainers.image.licenses="MIT"
 
-# Install tmux, SSH client/server, and wget for healthcheck
+# Install tmux, SSH client, and wget for healthcheck.
+# openssh-server is required for the enrollment SSH server feature (#1684)
+# which runs sshd on port 2222 for reverse tunnel self-registration.
+# openssh-client is required for ssh-keygen (host key generation) and SSH tunnels.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     tmux \
     openssh-client \

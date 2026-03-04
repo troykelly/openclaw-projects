@@ -85,7 +85,7 @@ describe('buildServerCredentials', () => {
     expect(creds).toBeInstanceOf(grpc.ServerCredentials);
   });
 
-  it('falls back to insecure when cert files do not exist', async () => {
+  it('throws when TLS is configured but cert files do not exist (#2106)', async () => {
     const { buildServerCredentials } = await import('./grpc-server.ts');
     const config = {
       grpcPort: 50051,
@@ -99,9 +99,10 @@ describe('buildServerCredentials', () => {
       grpcTlsCa: '/nonexistent/ca.pem',
     };
 
-    const creds = buildServerCredentials(config);
-    expect(creds).toBeDefined();
-    expect(creds).toBeInstanceOf(grpc.ServerCredentials);
+    // #2106: Must throw on misconfigured TLS, not silently degrade
+    expect(() => buildServerCredentials(config)).toThrow(
+      /certificates failed to load/,
+    );
   });
 
   it.skipIf(!testCerts)('creates mTLS credentials with valid cert files', async () => {

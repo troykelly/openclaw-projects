@@ -134,10 +134,12 @@ export function buildServerCredentials(config: TmuxWorkerConfig): grpc.ServerCre
       console.log('gRPC server using mTLS (mutual TLS)');
       return creds;
     } catch (err) {
-      console.warn(
-        `Failed to load mTLS certificates: ${(err as Error).message}. Falling back to insecure channel.`,
+      // #2106: When TLS is explicitly configured but certs fail to load,
+      // throw to abort startup instead of silently degrading to insecure.
+      throw new Error(
+        `gRPC TLS configured but certificates failed to load: ${(err as Error).message}. ` +
+        `Fix cert paths (GRPC_TLS_CERT/KEY/CA) or remove them to explicitly run insecure.`,
       );
-      return grpc.ServerCredentials.createInsecure();
     }
   }
 
