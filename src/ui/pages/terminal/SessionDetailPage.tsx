@@ -49,11 +49,14 @@ export function SessionDetailPage(): React.JSX.Element {
     setWsStatus(status);
   }, []);
 
-  // Refetch session data when the server sends events (e.g., host_key
-  // verification, status changes) so the UI reacts in real time (#2088).
+  // Refetch session data on server status events so the UI reacts in
+  // real time (e.g., host_key verification dialog appears) (#2088).
+  // Only refetch for status_change events to avoid request amplification.
   const handleEvent = useCallback(
-    (_event: TerminalWsEvent) => {
-      void sessionQuery.refetch();
+    (event: TerminalWsEvent) => {
+      if (event.type === 'status_change') {
+        void sessionQuery.refetch();
+      }
     },
     [sessionQuery],
   );
