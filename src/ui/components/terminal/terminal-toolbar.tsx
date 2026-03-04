@@ -6,7 +6,7 @@
 import * as React from 'react';
 import { Button } from '@/ui/components/ui/button';
 import { Badge } from '@/ui/components/ui/badge';
-import { Maximize2, Minimize2, SplitSquareVertical, Search, MessageSquare } from 'lucide-react';
+import { Maximize2, Minimize2, SplitSquareVertical, Search, MessageSquare, RefreshCw } from 'lucide-react';
 import type { TerminalSessionWindow } from '@/ui/lib/api-types';
 
 interface TerminalToolbarProps {
@@ -18,6 +18,7 @@ interface TerminalToolbarProps {
   onAnnotate?: () => void;
   onSearch?: () => void;
   onSplit?: () => void;
+  onRefreshWindows?: () => void;
 }
 
 export function TerminalToolbar({
@@ -29,6 +30,7 @@ export function TerminalToolbar({
   onAnnotate,
   onSearch,
   onSplit,
+  onRefreshWindows,
 }: TerminalToolbarProps): React.JSX.Element {
   return (
     <div className="flex items-center gap-1 border-b border-border bg-card px-2 py-1" data-testid="terminal-toolbar">
@@ -48,18 +50,28 @@ export function TerminalToolbar({
         ))}
       </div>
 
-      {/* Actions */}
+      {/* Actions (#2121: aria-labels for accessibility) */}
       <div className="flex items-center gap-1 shrink-0">
-        <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={onSearch} title="Search (Ctrl+Shift+F)">
+        <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={onRefreshWindows} title="Refresh windows" aria-label="Refresh windows">
+          <RefreshCw className="size-3.5" />
+        </Button>
+        <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={onSearch} title="Search (Ctrl+Shift+F)" aria-label="Search">
           <Search className="size-3.5" />
         </Button>
-        <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={onSplit} title="Split pane">
+        <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={onSplit} title="Split pane" aria-label="Split pane">
           <SplitSquareVertical className="size-3.5" />
         </Button>
-        <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={onAnnotate} title="Add annotation">
+        <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={onAnnotate} title="Add annotation" aria-label="Add annotation">
           <MessageSquare className="size-3.5" />
         </Button>
-        <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={onToggleFullscreen} title="Toggle fullscreen">
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-7 w-7 p-0"
+          onClick={onToggleFullscreen}
+          title={isFullscreen ? 'Exit fullscreen' : 'Toggle fullscreen'}
+          aria-label={isFullscreen ? 'Exit fullscreen' : 'Toggle fullscreen'}
+        >
           {isFullscreen ? <Minimize2 className="size-3.5" /> : <Maximize2 className="size-3.5" />}
         </Button>
       </div>
