@@ -24,6 +24,8 @@ export function SessionStatusOverlay({ status, closeReason, isFatal, onReconnect
     <div
       className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10"
       data-testid="session-status-overlay"
+      role="status"
+      aria-live="polite"
     >
       <div className="text-center space-y-3">
         {status === 'connecting' && (

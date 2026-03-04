@@ -15,7 +15,7 @@
 
 import { ArrowLeft, History, Loader2 } from 'lucide-react';
 import type * as React from 'react';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { ErrorBanner } from '@/ui/components/feedback/error-state';
 import { HostKeyDialog } from '@/ui/components/terminal/host-key-dialog';
@@ -56,6 +56,8 @@ export function SessionDetailPage(): React.JSX.Element {
   // Track previous session status to detect recovery (#2127)
   const prevSessionStatusRef = useRef<string | undefined>(undefined);
   const [showRecovery, setShowRecovery] = useState(false);
+  const recoveryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [splitError, setSplitError] = useState<string | null>(null);
 
   const sessionQuery = useTerminalSession(id ?? '');
   const session = sessionQuery.data;
@@ -67,17 +69,21 @@ export function SessionDetailPage(): React.JSX.Element {
   const rejectHostKey = useRejectTerminalKnownHost();
 
   // Detect session recovery: status went from disconnected -> active (#2127)
-  if (session && prevSessionStatusRef.current !== session.status) {
-    if (
-      prevSessionStatusRef.current === 'disconnected' &&
-      session.status === 'active'
-    ) {
-      // Show recovery overlay briefly
+  useEffect(() => {
+    if (!session) return;
+    const prevStatus = prevSessionStatusRef.current;
+    if (prevStatus === 'disconnected' && session.status === 'active') {
       setShowRecovery(true);
-      setTimeout(() => setShowRecovery(false), 5000);
+      recoveryTimerRef.current = setTimeout(() => setShowRecovery(false), 5000);
     }
     prevSessionStatusRef.current = session.status;
-  }
+    return () => {
+      if (recoveryTimerRef.current) {
+        clearTimeout(recoveryTimerRef.current);
+        recoveryTimerRef.current = null;
+      }
+    };
+  }, [session?.status]); // eslint-disable-line react-hooks/exhaustive-deps -- only react to status changes
 
   const handleStatusChange = useCallback((status: TerminalWsStatus, closeReason?: string) => {
     setWsStatus(status);
@@ -146,6 +152,7 @@ export function SessionDetailPage(): React.JSX.Element {
       const currentWindow = session.windows?.find((w) => w.id === currentWindowId);
       if (!currentWindow) return;
 
+      setSplitError(null);
       splitPane.mutate(
         {
           sessionId: session.id,
@@ -156,6 +163,9 @@ export function SessionDetailPage(): React.JSX.Element {
           onSuccess: () => {
             setSplitDialogOpen(false);
             void sessionQuery.refetch();
+          },
+          onError: (err) => {
+            setSplitError(err instanceof Error ? err.message : 'Failed to split pane');
           },
         },
       );
@@ -310,6 +320,9 @@ export function SessionDetailPage(): React.JSX.Element {
             <DialogTitle>Split Direction</DialogTitle>
             <DialogDescription>Choose how to split the current pane.</DialogDescription>
           </DialogHeader>
+          {splitError && (
+            <p className="text-sm text-red-500 text-center" role="alert">{splitError}</p>
+          )}
           <div className="flex gap-3 justify-center py-4">
             <Button
               variant="outline"
