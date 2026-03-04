@@ -350,6 +350,7 @@ export function handleAttachSession(
   let initialized = false;
   let initializing = false;
   let ended = false;
+  let waitingForDrain = false;
   const pendingMessages: TerminalInput[] = [];
   const MAX_PENDING = 100;
   const MAX_COLS = 1000;
@@ -499,10 +500,13 @@ export function handleAttachSession(
             if (ended) return;
 
             const ok = call.write({ data: Buffer.from(data) });
-            if (!ok) {
-              // Backpressure: pause PTY until gRPC stream drains
+            if (!ok && !waitingForDrain) {
+              // Backpressure: pause PTY until gRPC stream drains.
+              // Guard with waitingForDrain to avoid stacking drain listeners.
+              waitingForDrain = true;
               try { pty.pause(); } catch { /* best-effort pause */ }
               call.once('drain', () => {
+                waitingForDrain = false;
                 if (!ended) {
                   try { pty.resume(); } catch { /* best-effort resume */ }
                 }

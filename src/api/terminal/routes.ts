@@ -2912,7 +2912,7 @@ export async function terminalRoutesPlugin(
             contextMap.set(key, { before: [], after: [] });
           }
           const entry = contextMap.get(key)!;
-          if (ctx.sequence < ctx.target_sequence) {
+          if (Number(ctx.sequence) < Number(ctx.target_sequence)) {
             entry.before.push({ kind: ctx.kind, content: ctx.content });
           } else {
             entry.after.push({ kind: ctx.kind, content: ctx.content });
