@@ -11,14 +11,15 @@ import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { SearchAddon } from '@xterm/addon-search';
 import '@xterm/xterm/css/xterm.css';
-import { useTerminalWebSocket, type TerminalWsStatus } from '@/ui/hooks/use-terminal-websocket';
+import { useTerminalWebSocket, type TerminalWsEvent, type TerminalWsStatus } from '@/ui/hooks/use-terminal-websocket';
 
 interface TerminalEmulatorProps {
   sessionId: string;
   onStatusChange?: (status: TerminalWsStatus) => void;
+  onEvent?: (event: TerminalWsEvent) => void;
 }
 
-export function TerminalEmulator({ sessionId, onStatusChange }: TerminalEmulatorProps): React.JSX.Element {
+export function TerminalEmulator({ sessionId, onStatusChange, onEvent }: TerminalEmulatorProps): React.JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<XTerminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
@@ -31,9 +32,19 @@ export function TerminalEmulator({ sessionId, onStatusChange }: TerminalEmulator
   const { status, send, resize, disconnect } = useTerminalWebSocket({
     sessionId,
     onData: handleData,
+    onEvent,
     onStatusChange,
     enabled: !!sessionId,
   });
+
+  // Send current terminal dimensions after WebSocket connects (#2089).
+  // The initial fitAddon.fit() at mount fires before the socket is open,
+  // so the server never receives the real viewport size.
+  useEffect(() => {
+    if (status === 'connected' && termRef.current) {
+      resize(termRef.current.cols, termRef.current.rows);
+    }
+  }, [status, resize]);
 
   // Initialize xterm.js
   useEffect(() => {
