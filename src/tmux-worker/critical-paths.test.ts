@@ -902,12 +902,15 @@ describe('Critical Path 4: Entry throttling and data loss', () => {
       ),
     ).toBe(true);
 
-    // Second output entry (200 bytes) — throttled (total 250 > 100)
+    // Second output entry (200 bytes) — triggers throttle (total 250 > 100)
+    // Phase 4 (#2111): record() always returns true; entries are never dropped.
+    // Callers check isSessionThrottled() to apply backpressure upstream.
     expect(
       recorder.record(
         makeEntry({ kind: 'output', content: 'y'.repeat(200) }),
       ),
-    ).toBe(false);
+    ).toBe(true);
+    expect(recorder.isSessionThrottled('sess-1')).toBe(true);
 
     // Command entries continue being accepted even while output is throttled
     for (let i = 0; i < 5; i++) {
@@ -918,8 +921,8 @@ describe('Critical Path 4: Entry throttling and data loss', () => {
       ).toBe(true);
     }
 
-    // Buffer should have 1 output + 5 commands = 6 entries
-    expect(recorder.bufferSize).toBe(6);
+    // Buffer should have 2 output + 5 commands = 7 entries (throttled entry is still buffered)
+    expect(recorder.bufferSize).toBe(7);
   });
 
   it('records throttle summary with correct metadata', async () => {
@@ -971,6 +974,7 @@ describe('Critical Path 4: Entry throttling and data loss', () => {
         session_id: 'sess-1',
       }),
     );
+    // Phase 4 (#2111): record() always returns true; entries are never dropped.
     expect(
       recorder.record(
         makeEntry({
@@ -979,7 +983,8 @@ describe('Critical Path 4: Entry throttling and data loss', () => {
           session_id: 'sess-1',
         }),
       ),
-    ).toBe(false);
+    ).toBe(true);
+    expect(recorder.isSessionThrottled('sess-1')).toBe(true);
 
     // Different session should NOT be throttled
     expect(
@@ -994,8 +999,9 @@ describe('Critical Path 4: Entry throttling and data loss', () => {
 
     // Reset sess-1
     recorder.resetThrottle('sess-1');
+    expect(recorder.isSessionThrottled('sess-1')).toBe(false);
 
-    // sess-1 should accept again
+    // sess-1 should accept again without triggering throttle
     expect(
       recorder.record(
         makeEntry({
@@ -1005,6 +1011,7 @@ describe('Critical Path 4: Entry throttling and data loss', () => {
         }),
       ),
     ).toBe(true);
+    expect(recorder.isSessionThrottled('sess-1')).toBe(false);
   });
 });
 
