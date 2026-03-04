@@ -7,8 +7,11 @@ FROM node:25-bookworm-slim AS builder
 
 WORKDIR /app
 
-# Install pnpm via npm (corepack not available in slim image)
-RUN npm install -g pnpm
+# Install pnpm and build tools needed for native modules (node-pty)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 make g++ \
+    && apt-get clean && rm -rf /var/lib/apt/lists/* \
+    && npm install -g pnpm
 
 # Copy lockfile + package manifests first for better caching
 COPY package.json pnpm-lock.yaml ./
@@ -31,13 +34,16 @@ FROM node:25-bookworm-slim AS deps
 
 WORKDIR /app
 
-# Install pnpm via npm
-RUN npm install -g pnpm
+# Install pnpm and build tools needed for native modules (node-pty)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 make g++ \
+    && apt-get clean && rm -rf /var/lib/apt/lists/* \
+    && npm install -g pnpm
 
 # Copy lockfile + package manifests
 COPY package.json pnpm-lock.yaml ./
 
-# Install production dependencies only
+# Install production dependencies only (node-pty compiles from source on Linux)
 RUN pnpm install --frozen-lockfile --prod
 
 ###############################################################################
