@@ -25,14 +25,31 @@ export function generateTraceId(): string {
   return randomUUID();
 }
 
+/** Maximum length for a client-provided trace ID. */
+const MAX_TRACE_ID_LENGTH = 128;
+
+/** Pattern for acceptable trace ID characters (alphanumeric, hyphens, underscores, dots). */
+const TRACE_ID_PATTERN = /^[a-zA-Z0-9._-]+$/;
+
+/**
+ * Validate and sanitize a client-provided trace ID.
+ * Returns the trace ID if it passes validation, or undefined.
+ */
+export function validateTraceId(value: string): string | undefined {
+  if (value.length === 0 || value.length > MAX_TRACE_ID_LENGTH) return undefined;
+  if (!TRACE_ID_PATTERN.test(value)) return undefined;
+  return value;
+}
+
 /**
  * Extract trace ID from a Fastify request.
- * Returns the existing trace ID from headers, or generates a new one.
+ * Returns the existing trace ID from headers (if valid), or generates a new one.
  */
 export function extractOrCreateTraceId(req: FastifyRequest): string {
   const existing = req.headers[TRACE_ID_HEADER];
-  if (typeof existing === 'string' && existing.length > 0) {
-    return existing;
+  if (typeof existing === 'string') {
+    const validated = validateTraceId(existing);
+    if (validated) return validated;
   }
   return generateTraceId();
 }

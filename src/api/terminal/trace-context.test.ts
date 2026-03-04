@@ -8,6 +8,7 @@ import * as grpc from '@grpc/grpc-js';
 import {
   generateTraceId,
   extractOrCreateTraceId,
+  validateTraceId,
   createGrpcMetadataWithTrace,
   extractTraceIdFromGrpcMetadata,
   traceLogContext,
@@ -31,6 +32,41 @@ describe('trace-context', () => {
     });
   });
 
+  describe('validateTraceId', () => {
+    it('accepts valid alphanumeric trace IDs', () => {
+      expect(validateTraceId('abc-123-def')).toBe('abc-123-def');
+    });
+
+    it('accepts UUIDs', () => {
+      const uuid = '550e8400-e29b-41d4-a716-446655440000';
+      expect(validateTraceId(uuid)).toBe(uuid);
+    });
+
+    it('accepts dots and underscores', () => {
+      expect(validateTraceId('trace.id_v2')).toBe('trace.id_v2');
+    });
+
+    it('rejects empty string', () => {
+      expect(validateTraceId('')).toBeUndefined();
+    });
+
+    it('rejects strings longer than 128 characters', () => {
+      const long = 'a'.repeat(129);
+      expect(validateTraceId(long)).toBeUndefined();
+    });
+
+    it('accepts strings at exactly 128 characters', () => {
+      const atLimit = 'a'.repeat(128);
+      expect(validateTraceId(atLimit)).toBe(atLimit);
+    });
+
+    it('rejects strings with special characters', () => {
+      expect(validateTraceId('trace<script>')).toBeUndefined();
+      expect(validateTraceId('trace\nid')).toBeUndefined();
+      expect(validateTraceId('trace id')).toBeUndefined();
+    });
+  });
+
   describe('extractOrCreateTraceId', () => {
     it('returns existing trace ID from request headers', () => {
       const existingId = 'test-trace-id-123';
@@ -50,6 +86,14 @@ describe('trace-context', () => {
     it('generates a new trace ID when header is empty string', () => {
       const req = {
         headers: { [TRACE_ID_HEADER]: '' },
+      } as unknown as FastifyRequest;
+      const id = extractOrCreateTraceId(req);
+      expect(id).toMatch(UUID_REGEX);
+    });
+
+    it('generates a new trace ID when header contains invalid characters', () => {
+      const req = {
+        headers: { [TRACE_ID_HEADER]: '<script>alert(1)</script>' },
       } as unknown as FastifyRequest;
       const id = extractOrCreateTraceId(req);
       expect(id).toMatch(UUID_REGEX);

@@ -46,11 +46,10 @@ import {
   traceLogContext,
   TRACE_ID_HEADER,
 } from './trace-context.ts';
-import {
-  getSessionWorkerId,
-  resolveWorkerGrpcUrl,
-  isMultiWorkerMode,
-} from './session-affinity.ts';
+// Session affinity module (#2124) provides worker routing for HA deployments.
+// Integration with per-worker gRPC client pools will be done when multi-worker
+// deployments are fully supported. For now, the module provides the lookup
+// infrastructure (getSessionWorkerId, resolveWorkerGrpcUrl, isMultiWorkerMode).
 
 // ── Constants ────────────────────────────────────────────────
 
@@ -537,12 +536,14 @@ export async function terminalRoutesPlugin(
       action: trustHostKey ? 'connection.test_and_trust' : 'connection.test',
     });
 
+    const traceId = extractOrCreateTraceId(req);
+
     try {
       const result = await grpcClient.testConnection({
         connection_id: params.id,
         trust_host_key: trustHostKey,
         ...(expectedFingerprint ? { expected_fingerprint: expectedFingerprint } : {}),
-      });
+      }, traceId);
       return reply.send(result);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown gRPC error';
@@ -1211,12 +1212,14 @@ export async function terminalRoutesPlugin(
       return reply.code(400).send({ error: 'cols and rows are required' });
     }
 
+    const traceId = extractOrCreateTraceId(req);
+
     try {
       await grpcClient.resizeSession({
         session_id: params.id,
         cols: body.cols,
         rows: body.rows,
-      });
+      }, traceId);
 
       // Update DB as well
       await pool.query(
@@ -1972,12 +1975,13 @@ export async function terminalRoutesPlugin(
     const body = req.body as { name?: string } | null;
 
     const actor = await getActor(req);
+    const traceId = extractOrCreateTraceId(req);
 
     try {
       const result = await grpcClient.createWindow({
         session_id: params.id,
         window_name: body?.name ?? '',
-      });
+      }, traceId);
 
       recordActivity(pool, {
         namespace: getStoreNamespace(req),
@@ -2011,12 +2015,13 @@ export async function terminalRoutesPlugin(
     }
 
     const actor = await getActor(req);
+    const traceId = extractOrCreateTraceId(req);
 
     try {
       await grpcClient.closeWindow({
         session_id: params.sid,
         window_index: windowIndex,
-      });
+      }, traceId);
 
       recordActivity(pool, {
         namespace: getStoreNamespace(req),
@@ -2053,13 +2058,14 @@ export async function terminalRoutesPlugin(
     const horizontal = body?.direction === 'horizontal';
 
     const actor = await getActor(req);
+    const traceId = extractOrCreateTraceId(req);
 
     try {
       const result = await grpcClient.splitPane({
         session_id: params.sid,
         window_index: windowIndex,
         horizontal,
-      });
+      }, traceId);
 
       recordActivity(pool, {
         namespace: getStoreNamespace(req),
@@ -2093,13 +2099,14 @@ export async function terminalRoutesPlugin(
     }
 
     const actor = await getActor(req);
+    const traceId = extractOrCreateTraceId(req);
 
     try {
       await grpcClient.closePane({
         session_id: params.sid,
         window_index: 0,
         pane_index: paneIndex,
-      });
+      }, traceId);
 
       recordActivity(pool, {
         namespace: getStoreNamespace(req),
@@ -2237,6 +2244,7 @@ export async function terminalRoutesPlugin(
     const namespace = getStoreNamespace(req);
 
     const actor = await getActor(req);
+    const traceId = extractOrCreateTraceId(req);
 
     try {
       const result = await grpcClient.createTunnel({
@@ -2248,7 +2256,7 @@ export async function terminalRoutesPlugin(
         bind_port: body.bind_port,
         target_host: body.target_host ?? '',
         target_port: body.target_port ?? 0,
-      });
+      }, traceId);
 
       recordActivity(pool, {
         namespace,
@@ -2283,9 +2291,10 @@ export async function terminalRoutesPlugin(
     }
 
     const actor = await getActor(req);
+    const traceId = extractOrCreateTraceId(req);
 
     try {
-      await grpcClient.closeTunnel({ tunnel_id: params.id });
+      await grpcClient.closeTunnel({ tunnel_id: params.id }, traceId);
 
       recordActivity(pool, {
         namespace: getStoreNamespace(req),
@@ -2476,6 +2485,7 @@ export async function terminalRoutesPlugin(
     );
 
     const actor = await getActor(req);
+    const traceId = extractOrCreateTraceId(req);
 
     try {
       await grpcClient.approveHostKey({
@@ -2485,7 +2495,7 @@ export async function terminalRoutesPlugin(
         key_type: body.key_type.trim(),
         fingerprint: body.fingerprint.trim(),
         public_key: body.public_key.trim(),
-      });
+      }, traceId);
 
       recordActivity(pool, {
         namespace,
@@ -2930,9 +2940,10 @@ export async function terminalRoutesPlugin(
     );
 
     const actor = await getActor(req);
+    const traceId = extractOrCreateTraceId(req);
 
     try {
-      await grpcClient.rejectHostKey({ session_id: body.session_id });
+      await grpcClient.rejectHostKey({ session_id: body.session_id }, traceId);
 
       recordActivity(pool, {
         namespace: getStoreNamespace(req),
