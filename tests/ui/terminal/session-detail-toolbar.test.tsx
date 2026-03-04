@@ -48,6 +48,10 @@ vi.mock('@/ui/hooks/queries/use-terminal-sessions', () => ({
     mutate: mockAnnotate,
     isPending: false,
   })),
+  useSplitTerminalPane: vi.fn(() => ({
+    mutate: vi.fn(),
+    isPending: false,
+  })),
   useUpdateTerminalSession: vi.fn(() => ({
     mutate: vi.fn(),
     isPending: false,

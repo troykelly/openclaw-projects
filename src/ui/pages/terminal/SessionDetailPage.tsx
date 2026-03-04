@@ -4,15 +4,18 @@
  * Toolbar callbacks wired per Issue #1865:
  *   - Annotate: opens dialog, calls useAnnotateTerminalSession
  *   - Search: navigates to terminal search with session filter
- *   - Split: placeholder (requires SplitPane RPC from #1851)
+ *   - Split: opens direction dialog, calls SplitPane API (#2110)
  *
  * Host-key dialog wired per Issue #1866:
  *   - Shows HostKeyDialog when session status is pending_host_verification
+ *
+ * Window/pane sync via Refresh button (#2113).
+ * Session recovery state exposed to frontend (#2127).
  */
 
 import { ArrowLeft, History, Loader2 } from 'lucide-react';
 import type * as React from 'react';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { ErrorBanner } from '@/ui/components/feedback/error-state';
 import { HostKeyDialog } from '@/ui/components/terminal/host-key-dialog';
@@ -25,7 +28,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Textarea } from '@/ui/components/ui/textarea';
 import { useTerminalHealth } from '@/ui/hooks/queries/use-terminal-health';
 import { useApproveTerminalKnownHost, useRejectTerminalKnownHost } from '@/ui/hooks/queries/use-terminal-known-hosts';
-import { useAnnotateTerminalSession, useTerminalSession } from '@/ui/hooks/queries/use-terminal-sessions';
+import { useAnnotateTerminalSession, useSplitTerminalPane, useTerminalSession } from '@/ui/hooks/queries/use-terminal-sessions';
 import type { TerminalWsEvent, TerminalWsStatus } from '@/ui/hooks/use-terminal-websocket';
 
 /** Structured host key info received from a terminal event (Issue #2100). */
@@ -48,14 +51,33 @@ export function SessionDetailPage(): React.JSX.Element {
   const [annotateText, setAnnotateText] = useState('');
   const [activeWindowId, setActiveWindowId] = useState<string | undefined>(undefined);
   const [hostKeyInfo, setHostKeyInfo] = useState<HostKeyEventInfo | null>(null);
+  const [splitDialogOpen, setSplitDialogOpen] = useState(false);
+
+  // Track previous session status to detect recovery (#2127)
+  const prevSessionStatusRef = useRef<string | undefined>(undefined);
+  const [showRecovery, setShowRecovery] = useState(false);
 
   const sessionQuery = useTerminalSession(id ?? '');
   const session = sessionQuery.data;
   const healthQuery = useTerminalHealth();
   const workerAvailable = healthQuery.data?.status === 'ok';
   const annotateSession = useAnnotateTerminalSession();
+  const splitPane = useSplitTerminalPane();
   const approveHostKey = useApproveTerminalKnownHost();
   const rejectHostKey = useRejectTerminalKnownHost();
+
+  // Detect session recovery: status went from disconnected -> active (#2127)
+  if (session && prevSessionStatusRef.current !== session.status) {
+    if (
+      prevSessionStatusRef.current === 'disconnected' &&
+      session.status === 'active'
+    ) {
+      // Show recovery overlay briefly
+      setShowRecovery(true);
+      setTimeout(() => setShowRecovery(false), 5000);
+    }
+    prevSessionStatusRef.current = session.status;
+  }
 
   const handleStatusChange = useCallback((status: TerminalWsStatus, closeReason?: string) => {
     setWsStatus(status);
@@ -111,10 +133,40 @@ export function SessionDetailPage(): React.JSX.Element {
     void navigate(`/terminal/search?session_id=${session.id}`);
   }, [session, navigate]);
 
+  // #2110: Open split direction dialog
   const handleSplit = useCallback(() => {
-    // Split pane requires SplitPane RPC from Issue #1851 — pending dependency
-    // For now this is a no-op until the gRPC RPC is available
+    setSplitDialogOpen(true);
   }, []);
+
+  // #2110: Execute split pane with chosen direction
+  const handleSplitConfirm = useCallback(
+    (direction: 'horizontal' | 'vertical') => {
+      if (!session) return;
+      const currentWindowId = activeWindowId ?? session.windows?.[0]?.id;
+      const currentWindow = session.windows?.find((w) => w.id === currentWindowId);
+      if (!currentWindow) return;
+
+      splitPane.mutate(
+        {
+          sessionId: session.id,
+          windowIndex: currentWindow.window_index,
+          direction,
+        },
+        {
+          onSuccess: () => {
+            setSplitDialogOpen(false);
+            void sessionQuery.refetch();
+          },
+        },
+      );
+    },
+    [session, activeWindowId, splitPane, sessionQuery],
+  );
+
+  // #2113: Refresh windows/panes by refetching session data
+  const handleRefreshWindows = useCallback(() => {
+    void sessionQuery.refetch();
+  }, [sessionQuery]);
 
   const handleApproveHostKey = useCallback(() => {
     if (!session) return;
@@ -157,6 +209,13 @@ export function SessionDetailPage(): React.JSX.Element {
   const isTerminated = session.status === 'terminated' || session.status === 'error';
   const isPendingHostVerification = session.status === 'pending_host_verification';
 
+  // #2127: Determine overlay status — show recovery transiently
+  const overlayStatus: TerminalWsStatus = showRecovery
+    ? 'recovering'
+    : isTerminated
+      ? 'terminated'
+      : wsStatus;
+
   return (
     <div data-testid="page-session-detail" className={`flex flex-col ${isFullscreen ? 'fixed inset-0 z-50 bg-background' : 'h-[calc(100vh-4rem)]'}`}>
       {/* Header bar */}
@@ -182,7 +241,7 @@ export function SessionDetailPage(): React.JSX.Element {
         <ErrorBanner message="Terminal worker is not available. Session features may be limited." onRetry={() => healthQuery.refetch()} />
       )}
 
-      {/* Toolbar (#2109: wire window tab selection) */}
+      {/* Toolbar (#2109: window tab selection, #2113: refresh windows) */}
       <TerminalToolbar
         windows={session.windows}
         activeWindowId={activeWindowId ?? session.windows?.[0]?.id}
@@ -192,6 +251,7 @@ export function SessionDetailPage(): React.JSX.Element {
         onAnnotate={handleAnnotate}
         onSearch={handleSearch}
         onSplit={handleSplit}
+        onRefreshWindows={handleRefreshWindows}
       />
 
       {/* Main area */}
@@ -207,7 +267,7 @@ export function SessionDetailPage(): React.JSX.Element {
             />
           )}
           <SessionStatusOverlay
-            status={isTerminated ? 'terminated' : wsStatus}
+            status={overlayStatus}
             closeReason={wsCloseReason}
             isFatal={wsStatus === 'error' && wsCloseReason != null}
           />
@@ -238,6 +298,41 @@ export function SessionDetailPage(): React.JSX.Element {
             <Button onClick={handleAnnotateSubmit} disabled={!annotateText.trim() || annotateSession.isPending}>
               {annotateSession.isPending && <Loader2 className="mr-2 size-4 animate-spin" />}
               Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Split Pane Direction Dialog (#2110) */}
+      <Dialog open={splitDialogOpen} onOpenChange={setSplitDialogOpen}>
+        <DialogContent data-testid="split-pane-dialog">
+          <DialogHeader>
+            <DialogTitle>Split Direction</DialogTitle>
+            <DialogDescription>Choose how to split the current pane.</DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-3 justify-center py-4">
+            <Button
+              variant="outline"
+              onClick={() => handleSplitConfirm('horizontal')}
+              disabled={splitPane.isPending}
+              aria-label="Horizontal"
+            >
+              {splitPane.isPending && <Loader2 className="mr-2 size-4 animate-spin" />}
+              Horizontal
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => handleSplitConfirm('vertical')}
+              disabled={splitPane.isPending}
+              aria-label="Vertical"
+            >
+              {splitPane.isPending && <Loader2 className="mr-2 size-4 animate-spin" />}
+              Vertical
+            </Button>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setSplitDialogOpen(false)}>
+              Cancel
             </Button>
           </DialogFooter>
         </DialogContent>

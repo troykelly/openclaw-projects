@@ -109,6 +109,19 @@ export function useUpdateTerminalSession() {
   });
 }
 
+/** Split a pane in a session window (#2110). */
+export function useSplitTerminalPane() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ sessionId, windowIndex, direction }: { sessionId: string; windowIndex: number; direction: 'horizontal' | 'vertical' }) =>
+      apiClient.post(`/terminal/sessions/${sessionId}/windows/${windowIndex}/split`, { direction }),
+    onSuccess: (_data, variables) => {
+      void queryClient.invalidateQueries({ queryKey: terminalSessionKeys.detail(variables.sessionId) });
+    },
+  });
+}
+
 /** Add annotation to a session. */
 export function useAnnotateTerminalSession() {
   const queryClient = useQueryClient();
