@@ -8,7 +8,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { getApiBaseUrl } from '@/ui/lib/api-config.ts';
 import { getAccessToken } from '@/ui/lib/auth-manager.ts';
 
-export type TerminalWsStatus = 'connecting' | 'connected' | 'disconnected' | 'terminated' | 'error';
+export type TerminalWsStatus = 'connecting' | 'connected' | 'disconnected' | 'terminated' | 'error' | 'recovering';
 
 /** Whether a close code is fatal (4400-4499) and should not be retried. */
 export function isFatalCloseCode(code: number): boolean {
