@@ -8,7 +8,7 @@
 
 import { randomUUID } from 'node:crypto';
 import * as grpc from '@grpc/grpc-js';
-import { spawn as ptySpawn, type IPty } from 'node-pty';
+import type { IPty } from 'node-pty';
 import type pg from 'pg';
 import type { TmuxManager } from './tmux/manager.ts';
 import type { EntryRecorder } from './entry-recorder.ts';
@@ -477,6 +477,9 @@ export function handleAttachSession(
           }
 
           // Spawn tmux attach via node-pty for real PTY streaming
+          // Dynamic import to avoid loading native module at module-level
+          // (prevents failures in tests/CI that import terminal-io transitively)
+          const { spawn: ptySpawn } = await import('node-pty');
           const pty = ptySpawn(
             'tmux',
             ['attach-session', '-t', target.tmuxSessionName],
