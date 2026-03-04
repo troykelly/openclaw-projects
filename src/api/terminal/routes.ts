@@ -41,6 +41,16 @@ import {
   type SearchFilters,
 } from './semantic-search.ts';
 import { createEmbeddingService } from '../embeddings/service.ts';
+import {
+  extractOrCreateTraceId,
+  traceLogContext,
+  TRACE_ID_HEADER,
+} from './trace-context.ts';
+import {
+  getSessionWorkerId,
+  resolveWorkerGrpcUrl,
+  isMultiWorkerMode,
+} from './session-affinity.ts';
 
 // ── Constants ────────────────────────────────────────────────
 
@@ -164,6 +174,14 @@ export async function terminalRoutesPlugin(
   opts: TerminalRoutesOptions,
 ): Promise<void> {
   const { pool } = opts;
+
+  // Issue #2128: Inject trace ID into all terminal route responses for correlation
+  app.addHook('onSend', async (request, reply) => {
+    const traceId = request.headers[TRACE_ID_HEADER];
+    if (typeof traceId === 'string' && traceId.length > 0) {
+      reply.header(TRACE_ID_HEADER, traceId);
+    }
+  });
 
   // ================================================================
   // Issue #1908 — Terminal worker health check
@@ -998,6 +1016,10 @@ export async function terminalRoutesPlugin(
 
     const actor = await getActor(req);
 
+    // Issue #2128: Propagate trace ID through REST -> gRPC boundary
+    const traceId = extractOrCreateTraceId(req);
+    app.log.info(traceLogContext(traceId, 'rest'), 'Creating session connection=%s', body.connection_id);
+
     try {
       const session = await grpcClient.createSession({
         connection_id: body.connection_id,
@@ -1011,7 +1033,7 @@ export async function terminalRoutesPlugin(
         capture_interval_s: body.capture_interval_s ?? 30,
         tags: body.tags ?? [],
         notes: body.notes ?? '',
-      });
+      }, traceId);
 
       recordActivity(pool, {
         namespace,
@@ -1153,9 +1175,11 @@ export async function terminalRoutesPlugin(
     }
 
     const actor = await getActor(req);
+    const traceId = extractOrCreateTraceId(req);
+    app.log.info(traceLogContext(traceId, 'rest'), 'Terminating session=%s', params.id);
 
     try {
-      await grpcClient.terminateSession({ session_id: params.id });
+      await grpcClient.terminateSession({ session_id: params.id }, traceId);
 
       recordActivity(pool, {
         namespace: getStoreNamespace(req),
@@ -1327,10 +1351,14 @@ export async function terminalRoutesPlugin(
       return;
     }
 
-    // Open gRPC bidirectional stream
+    // Issue #2128: Generate trace ID at WebSocket boundary for distributed tracing
+    const traceId = extractOrCreateTraceId(req);
+    app.log.info(traceLogContext(traceId, 'websocket'), 'WebSocket attach session=%s', params.id);
+
+    // Open gRPC bidirectional stream with trace ID propagation
     let grpcStream: ReturnType<typeof grpcClient.attachSession>;
     try {
-      grpcStream = grpcClient.attachSession();
+      grpcStream = grpcClient.attachSession(traceId);
     } catch (err) {
       socket.close(4502, 'Worker unavailable');
       return;
@@ -1442,6 +1470,8 @@ export async function terminalRoutesPlugin(
       detail: { command_length: body.command.trim().length, pane_id: body.pane_id ?? null },
     });
 
+    const traceId = extractOrCreateTraceId(req);
+
     try {
       const result = await grpcClient.sendCommand(
         {
@@ -1451,6 +1481,7 @@ export async function terminalRoutesPlugin(
           pane_id: body.pane_id ?? '',
         },
         (timeoutS + 5) * 1000, // gRPC deadline slightly longer than command timeout
+        traceId,
       );
 
       return reply.send(result);
@@ -1487,12 +1518,14 @@ export async function terminalRoutesPlugin(
       detail: { pane_id: body.pane_id ?? null },
     });
 
+    const traceId = extractOrCreateTraceId(req);
+
     try {
       await grpcClient.sendKeys({
         session_id: params.id,
         keys: body.keys,
         pane_id: body.pane_id ?? '',
-      });
+      }, traceId);
 
       return reply.send({ success: true });
     } catch (err) {
@@ -1516,12 +1549,14 @@ export async function terminalRoutesPlugin(
 
     const lines = parseInt(query.lines ?? '100', 10);
 
+    const traceId = extractOrCreateTraceId(req);
+
     try {
       const result = await grpcClient.capturePane({
         session_id: params.id,
         pane_id: query.pane_id ?? '',
         lines: Math.min(Math.max(lines, 1), 10000),
-      });
+      }, traceId);
 
       return reply.send(result);
     } catch (err) {
