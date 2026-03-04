@@ -112,7 +112,7 @@ describe('EntryRecorder', () => {
   });
 
   describe('throttling', () => {
-    it('throttles high-volume output entries', () => {
+    it('marks session as throttled when output exceeds threshold (#2111)', () => {
       // Threshold: 100 bytes/sec * 1sec window = 100 bytes total before throttle
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- mock pool
       const recorder = new EntryRecorder(mockPool as any, {
@@ -128,13 +128,16 @@ describe('EntryRecorder', () => {
         content: 'a'.repeat(50),
       }));
       expect(first).toBe(true);
+      expect(recorder.isSessionThrottled('sess-1')).toBe(false);
 
       // Second entry pushes over threshold (50 + 200 = 250 > 100)
+      // Entry is still accepted (buffered, not dropped) but session is throttled
       const second = recorder.record(makeEntry({
         kind: 'output',
         content: 'b'.repeat(200),
       }));
-      expect(second).toBe(false);
+      expect(second).toBe(true);
+      expect(recorder.isSessionThrottled('sess-1')).toBe(true);
     });
 
     it('does not throttle command entries', () => {
@@ -168,14 +171,16 @@ describe('EntryRecorder', () => {
 
       // First entry: 50 bytes accepted
       recorder.record(makeEntry({ kind: 'output', content: 'a'.repeat(50) }));
-      // Second entry: 50 + 200 = 250 > 100 threshold, throttled
-      expect(recorder.record(makeEntry({ kind: 'output', content: 'b'.repeat(200) }))).toBe(false);
+      // Second entry: 50 + 200 = 250 > 100 threshold — session is now throttled (#2111)
+      recorder.record(makeEntry({ kind: 'output', content: 'b'.repeat(200) }));
+      expect(recorder.isSessionThrottled('sess-1')).toBe(true);
 
       // Reset throttle
       recorder.resetThrottle('sess-1');
 
-      // Should be accepted again (fresh window)
+      // Should be un-throttled again (fresh window)
       expect(recorder.record(makeEntry({ kind: 'output', content: 'c'.repeat(50) }))).toBe(true);
+      expect(recorder.isSessionThrottled('sess-1')).toBe(false);
     });
   });
 
