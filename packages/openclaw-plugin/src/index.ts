@@ -461,11 +461,3 @@ export {
   registerGatewayRpcMethods,
 } from './gateway/rpc-methods.js';
 
-// Re-export notification service
-export type {
-  NotificationServiceConfig,
-  NotificationServiceEvents,
-  NotificationServiceOptions,
-  NotificationService,
-} from './services/notification-service.js';
-export { createNotificationService } from './services/notification-service.js';
