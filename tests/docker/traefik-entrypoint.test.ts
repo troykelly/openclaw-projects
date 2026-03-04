@@ -272,10 +272,10 @@ describe('Traefik dynamic config: api-ws-router (Issue #2069)', () => {
     expect(router.rule).toContain('/attach');
   });
 
-  it('api-ws-router requires Upgrade: websocket header (HeadersRegexp)', () => {
+  it('api-ws-router requires Upgrade: websocket header (HeaderRegexp)', () => {
     const config = getParsedConfig();
     const router = config.http.routers['api-ws-router'];
-    expect(router.rule).toContain('HeadersRegexp(`Upgrade`');
+    expect(router.rule).toContain('HeaderRegexp(`Upgrade`');
     expect(router.rule).toMatch(/websocket/i);
   });
 
