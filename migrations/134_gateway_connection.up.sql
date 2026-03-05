@@ -25,6 +25,8 @@ BEGIN
 END;
 $$;
 
+-- Drop-then-create to be idempotent (PostgreSQL lacks CREATE TRIGGER IF NOT EXISTS)
+DROP TRIGGER IF EXISTS trg_gateway_connection_updated_at ON gateway_connection;
 CREATE TRIGGER trg_gateway_connection_updated_at
   BEFORE UPDATE ON gateway_connection
   FOR EACH ROW EXECUTE FUNCTION set_gateway_connection_updated_at();
