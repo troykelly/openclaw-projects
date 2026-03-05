@@ -118,11 +118,25 @@ export function createGrpcServer(
 
 /**
  * Build server credentials — mTLS if certs are configured, insecure otherwise.
+ *
+ * #2139: If ANY TLS config path is set, ALL three must be set. Partial config
+ * is a misconfiguration that must fail loudly instead of silently degrading.
  */
 export function buildServerCredentials(config: TmuxWorkerConfig): grpc.ServerCredentials {
   const certPath = config.grpcTlsCert;
   const keyPath = config.grpcTlsKey;
   const caPath = config.grpcTlsCa;
+
+  const vars = { GRPC_TLS_CERT: certPath, GRPC_TLS_KEY: keyPath, GRPC_TLS_CA: caPath };
+  const setVars = Object.entries(vars).filter(([, v]) => !!v).map(([k]) => k);
+  const missingVars = Object.entries(vars).filter(([, v]) => !v).map(([k]) => k);
+
+  if (setVars.length > 0 && setVars.length < 3) {
+    throw new Error(
+      `Partial TLS configuration detected: ${setVars.join(', ')} set but ${missingVars.join(', ')} missing. ` +
+      `All three must be set (GRPC_TLS_CERT, GRPC_TLS_KEY, GRPC_TLS_CA) or none.`,
+    );
+  }
 
   if (certPath && keyPath && caPath) {
     try {
