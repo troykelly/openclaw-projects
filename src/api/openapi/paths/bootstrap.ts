@@ -1,6 +1,6 @@
 /**
  * OpenAPI path definitions for bootstrap, context, and settings endpoints.
- * Routes: GET /bootstrap, POST /v1/context, POST /context/capture,
+ * Routes: GET /bootstrap, POST /v1/context, POST /context/capture, POST /context/graph-aware,
  *         GET /settings, PATCH /settings,
  *         GET /settings/embeddings, PATCH /settings/embeddings,
  *         POST /settings/embeddings/test
@@ -362,6 +362,86 @@ export function bootstrapPaths(): OpenApiDomainModule {
           },
         },
       },
+      GraphAwareContextRequest: {
+        type: 'object',
+        required: ['prompt'],
+        properties: {
+          prompt: {
+            type: 'string',
+            description: 'The user prompt for semantic memory search across relationship graph',
+            example: 'What food does Alex like?',
+          },
+          maxMemories: {
+            type: 'integer',
+            description: 'Maximum number of memories to return',
+            default: 10,
+            example: 10,
+          },
+          maxDepth: {
+            type: 'integer',
+            description: 'Maximum relationship traversal depth',
+            default: 1,
+            example: 1,
+          },
+          user_email: {
+            type: 'string',
+            format: 'email',
+            description: 'User email for identity resolution (M2M tokens). Falls back to X-User-Email header.',
+            example: 'alice@example.com',
+          },
+          min_similarity: {
+            type: 'number',
+            description: 'Minimum similarity threshold for memory results',
+            default: 0.3,
+            example: 0.3,
+          },
+          max_context_length: {
+            type: 'integer',
+            description: 'Maximum formatted context string length',
+            default: 4000,
+            example: 4000,
+          },
+        },
+      },
+      GraphAwareContextResponse: {
+        type: 'object',
+        properties: {
+          context: {
+            type: 'string',
+            nullable: true,
+            description: 'Formatted context string with scope attribution',
+          },
+          memories: {
+            type: 'array',
+            description: 'Individual memory results with scope attribution',
+            items: {
+              type: 'object',
+              properties: {
+                id: { type: 'string', format: 'uuid' },
+                title: { type: 'string' },
+                content: { type: 'string' },
+                memory_type: { type: 'string' },
+                similarity: { type: 'number' },
+                importance: { type: 'number' },
+                confidence: { type: 'number' },
+                combinedRelevance: { type: 'number' },
+                scopeType: { type: 'string', enum: ['personal', 'contact', 'group', 'relationship'] },
+                scopeLabel: { type: 'string' },
+              },
+            },
+          },
+          metadata: {
+            type: 'object',
+            properties: {
+              queryTimeMs: { type: 'number' },
+              scopeCount: { type: 'integer' },
+              totalMemoriesFound: { type: 'integer' },
+              search_type: { type: 'string', enum: ['semantic', 'text'] },
+              maxDepth: { type: 'integer' },
+            },
+          },
+        },
+      },
       UserSettings: {
         type: 'object',
         required: ['email'],
@@ -716,6 +796,19 @@ export function bootstrapPaths(): OpenApiDomainModule {
           requestBody: jsonBody(ref('CaptureRequest')),
           responses: {
             '200': jsonResponse('Captured context', ref('CaptureResponse')),
+            ...errorResponses(400, 401, 500),
+          },
+        },
+      },
+      '/context/graph-aware': {
+        post: {
+          operationId: 'retrieveGraphAwareContext',
+          summary: 'Retrieve graph-aware context',
+          description: 'Multi-scope semantic memory search across the user\'s relationship graph (personal, contact, group, relationship scopes). Returns memories with scope attribution and combined relevance ranking.',
+          tags: ['Bootstrap'],
+          requestBody: jsonBody(ref('GraphAwareContextRequest')),
+          responses: {
+            '200': jsonResponse('Graph-aware context', ref('GraphAwareContextResponse')),
             ...errorResponses(400, 401, 500),
           },
         },

@@ -5095,6 +5095,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
       logger,
       config,
       getAgentId: () => state.agentId,
+      getAgentEmail: () => state.agentEmail,
       timeoutMs: HOOK_TIMEOUT_MS,
     });
 
@@ -5330,6 +5331,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
       logger,
       config,
       getAgentId: () => state.agentId,
+      getAgentEmail: () => state.agentEmail,
       timeoutMs: HOOK_TIMEOUT_MS,
     });
 

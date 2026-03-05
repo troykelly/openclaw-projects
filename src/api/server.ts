@@ -1847,6 +1847,78 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
+  // Graph-aware context retrieval endpoint (Issue #2177, Epic #486)
+  app.post('/context/graph-aware', async (req, reply) => {
+    const { retrieveGraphAwareContext } = await import('./context/graph-aware-service.ts');
+
+    const body = req.body as {
+      prompt?: string;
+      maxMemories?: number;
+      max_memories?: number;
+      maxDepth?: number;
+      max_depth?: number;
+      user_email?: string;
+      min_similarity?: number;
+      max_context_length?: number;
+    } | null;
+
+    const prompt = body?.prompt?.trim();
+    if (!prompt) {
+      return reply.code(400).send({ error: 'prompt is required' });
+    }
+
+    const email = await resolveUserEmail(req, body?.user_email);
+    if (!email) {
+      return reply.code(400).send({ error: 'Unable to resolve user email. Provide user_email in the body or X-User-Email header.' });
+    }
+
+    // Validate and clamp numeric inputs to prevent expensive queries
+    const rawMaxMemories = body?.maxMemories ?? body?.max_memories;
+    const maxMemories = typeof rawMaxMemories === 'number' && rawMaxMemories > 0 ? Math.min(Math.floor(rawMaxMemories), 100) : undefined;
+    const rawMaxDepth = body?.maxDepth ?? body?.max_depth;
+    const maxDepth = typeof rawMaxDepth === 'number' && rawMaxDepth >= 0 ? Math.min(Math.floor(rawMaxDepth), 3) : undefined;
+
+    const pool = createPool();
+
+    try {
+      const result = await retrieveGraphAwareContext(pool, {
+        user_email: email,
+        prompt,
+        max_memories: maxMemories,
+        max_depth: maxDepth,
+        min_similarity: body?.min_similarity,
+        max_context_length: body?.max_context_length,
+        queryNamespaces: req.namespaceContext?.queryNamespaces,
+      });
+
+      // Transform snake_case service response to camelCase for plugin consumption
+      return reply.send({
+        context: result.context,
+        memories: result.memories.map((m) => ({
+          id: m.id,
+          title: m.title,
+          content: m.content,
+          memory_type: m.memory_type,
+          similarity: m.similarity,
+          importance: m.importance,
+          confidence: m.confidence,
+          combinedRelevance: m.combined_relevance,
+          scopeType: m.scope_type,
+          scopeLabel: m.scope_label,
+        })),
+        metadata: {
+          queryTimeMs: result.metadata.query_time_ms,
+          scopeCount: result.metadata.scope_count,
+          totalMemoriesFound: result.metadata.total_memories_found,
+          search_type: result.metadata.search_type,
+          maxDepth: result.metadata.max_depth,
+        },
+      });
+    } finally {
+      await pool.end();
+    }
+  });
+
   // Thread list endpoint (Issue #1139)
   app.get('/threads', async (req, reply) => {
     const { listThreads } = await import('./threads/index.ts');
