@@ -171,7 +171,7 @@ export async function chatRoutesPlugin(
   // Issue #1957 — List available agents
   // ================================================================
 
-  // GET /chat/agents — List available agents
+  // GET /chat/agents — List available agents (#2151: read from cache + session fallback)
   app.get('/chat/agents', async (req, reply) => {
     const identity = await getAuthIdentity(req);
     if (!identity?.email) return reply.code(401).send({ error: 'Unauthorized' });
@@ -180,17 +180,26 @@ export async function chatRoutesPlugin(
 
     try {
       const result = await pool.query(
-        `SELECT DISTINCT agent_id FROM chat_session
-         WHERE namespace = $1 AND status != 'expired'
-         ORDER BY agent_id`,
+        `SELECT agent_id AS id, agent_id AS name, display_name, avatar_url
+         FROM gateway_agent_cache
+         WHERE namespace = $1
+         UNION
+         SELECT DISTINCT cs.agent_id AS id, cs.agent_id AS name, NULL AS display_name, NULL AS avatar_url
+         FROM chat_session cs
+         WHERE cs.namespace = $1 AND cs.status != 'expired'
+           AND NOT EXISTS (
+             SELECT 1 FROM gateway_agent_cache gac
+             WHERE gac.namespace = $1 AND gac.agent_id = cs.agent_id
+           )
+         ORDER BY id`,
         [namespace],
       );
 
-      const agents = result.rows.map((row: { agent_id: string }) => ({
-        id: row.agent_id,
-        name: row.agent_id,
-        display_name: null,
-        avatar_url: null,
+      const agents = result.rows.map((row: { id: string; name: string; display_name: string | null; avatar_url: string | null }) => ({
+        id: row.id,
+        name: row.name,
+        display_name: row.display_name,
+        avatar_url: row.avatar_url,
       }));
 
       return reply.send({ agents });
