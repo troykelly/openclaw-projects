@@ -56,6 +56,8 @@ export interface GraphAwareContextInput {
   max_depth?: number;
   /** Maximum context string length (default: 4000) */
   max_context_length?: number;
+  /** Namespace scoping for memory queries (Issue #2177, Epic #1418) */
+  queryNamespaces?: string[];
 }
 
 /** A memory result with scope attribution and combined relevance */
@@ -368,6 +370,7 @@ async function multiScopeMemorySearch(
   options: {
     limit: number;
     min_similarity: number;
+    queryNamespaces?: string[];
   },
 ): Promise<{
   results: Array<{
@@ -412,6 +415,15 @@ async function multiScopeMemorySearch(
 
   const scopeWhere = `(${scopeConditions.join(' OR ')})`;
 
+  // Issue #2177: namespace scoping to prevent cross-tenant memory leaks
+  let namespaceWhere = '';
+  const nsScope = options.queryNamespaces;
+  if (nsScope && nsScope.length > 0) {
+    namespaceWhere = ` AND m.namespace = ANY($${paramIndex}::text[])`;
+    params.push(nsScope);
+    paramIndex++;
+  }
+
   // Try semantic search first using embedding service
   let queryEmbedding: number[] | null = null;
 
@@ -452,7 +464,7 @@ async function multiScopeMemorySearch(
         m.confidence,
         1 - (m.embedding <=> $${embParamIdx}::vector) as similarity
       FROM memory m
-      WHERE ${scopeWhere}
+      WHERE ${scopeWhere}${namespaceWhere}
         AND m.embedding IS NOT NULL
         AND m.embedding_status = 'complete'
         AND (m.expires_at IS NULL OR m.expires_at > NOW())
@@ -502,7 +514,7 @@ async function multiScopeMemorySearch(
       m.confidence,
       COALESCE(ts_rank(m.search_vector, websearch_to_tsquery('english', $${searchParamIdx})), 0.3) as similarity
     FROM memory m
-    WHERE ${scopeWhere}
+    WHERE ${scopeWhere}${namespaceWhere}
       AND (m.expires_at IS NULL OR m.expires_at > NOW())
       AND m.superseded_by IS NULL
       AND (
@@ -613,7 +625,7 @@ function buildGraphContextString(memories: ScopedMemoryResult[], maxLength: numb
 export async function retrieveGraphAwareContext(pool: Pool, input: GraphAwareContextInput): Promise<GraphAwareContextResult> {
   const startTime = Date.now();
 
-  const { user_email: user_email, prompt, max_memories: maxMemories = 10, min_similarity: min_similarity = 0.3, max_depth: maxDepth = 1, max_context_length: maxContextLength = 4000 } = input;
+  const { user_email: user_email, prompt, max_memories: maxMemories = 10, min_similarity: min_similarity = 0.3, max_depth: maxDepth = 1, max_context_length: maxContextLength = 4000, queryNamespaces } = input;
 
   // Step 1: Collect scopes via graph traversal
   const scopes = await collectGraphScopes(pool, user_email, { max_depth: maxDepth });
@@ -622,6 +634,7 @@ export async function retrieveGraphAwareContext(pool: Pool, input: GraphAwareCon
   const searchResult = await multiScopeMemorySearch(pool, prompt, scopes, {
     limit: maxMemories * 2, // Fetch extra to allow filtering
     min_similarity,
+    queryNamespaces,
   });
 
   // Step 3: Filter by similarity threshold and classify scopes

@@ -1872,16 +1872,23 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(400).send({ error: 'Unable to resolve user email. Provide user_email in the body or X-User-Email header.' });
     }
 
+    // Validate and clamp numeric inputs to prevent expensive queries
+    const rawMaxMemories = body?.maxMemories ?? body?.max_memories;
+    const maxMemories = typeof rawMaxMemories === 'number' && rawMaxMemories > 0 ? Math.min(Math.floor(rawMaxMemories), 100) : undefined;
+    const rawMaxDepth = body?.maxDepth ?? body?.max_depth;
+    const maxDepth = typeof rawMaxDepth === 'number' && rawMaxDepth >= 0 ? Math.min(Math.floor(rawMaxDepth), 3) : undefined;
+
     const pool = createPool();
 
     try {
       const result = await retrieveGraphAwareContext(pool, {
         user_email: email,
         prompt,
-        max_memories: body?.maxMemories ?? body?.max_memories,
-        max_depth: body?.maxDepth ?? body?.max_depth,
+        max_memories: maxMemories,
+        max_depth: maxDepth,
         min_similarity: body?.min_similarity,
         max_context_length: body?.max_context_length,
+        queryNamespaces: req.namespaceContext?.queryNamespaces,
       });
 
       // Transform snake_case service response to camelCase for plugin consumption

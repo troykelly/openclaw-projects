@@ -493,7 +493,9 @@ async function fetchGraphAwareContext(client: ApiClient, user_id: string, user_e
   // Use graph-aware formatting when the response contains properly-shaped memories
   // (with combinedRelevance). Falls back to basic search if the endpoint returns
   // a different shape (e.g., from a generic mock or older API version).
+  // Guard against malformed success payloads where memories may be missing (#2177).
   const hasGraphMemories = graphResponse.success &&
+    Array.isArray(graphResponse.data?.memories) &&
     graphResponse.data.memories.length > 0 &&
     typeof graphResponse.data.memories[0].combinedRelevance === 'number';
 
