@@ -1871,6 +1871,8 @@ export interface ChatAgent {
   display_name: string | null;
   avatar_url: string | null;
   is_default?: boolean;
+  /** Agent presence status from gateway WS (Issue #2160). */
+  status?: 'online' | 'busy' | 'offline' | 'unknown';
 }
 
 /** Response from GET /chat/agents */
