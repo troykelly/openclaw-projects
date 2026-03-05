@@ -14,6 +14,7 @@ import type { GatewayEventFrame } from './connection.ts';
 import { getGatewayConnection } from './index.ts';
 import { getRealtimeHub } from '../realtime/hub.ts';
 import type { RealtimeEvent, GatewayStreamEventType, ChatEventType } from '../realtime/types.ts';
+import { gwChatEventsRouted, gwDuplicateEventsSuppressed } from './metrics.ts';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -156,6 +157,7 @@ export class GatewayEventRouter {
     }
 
     // Route by state
+    gwChatEventsRouted.inc();
     switch (event.state) {
       case 'delta':
         this.handleDelta(session, event);
@@ -219,6 +221,7 @@ export class GatewayEventRouter {
 
     // Duplicate seq detection
     if (tracker.seenSeqs.has(event.seq)) {
+      gwDuplicateEventsSuppressed.inc();
       return; // Skip duplicate
     }
 

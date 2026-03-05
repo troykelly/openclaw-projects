@@ -125,6 +125,7 @@ import { apiSourceRoutesPlugin } from './api-sources/routes.ts';
 import { agentRoutesPlugin } from './agents/routes.ts';
 import { chatRoutesPlugin } from './chat/routes.ts';
 import { initGatewayConnection, shutdownGatewayConnection, getGatewayConnection, initPresenceTracker, initAgentCache } from './gateway/index.ts';
+import { getGatewayMetrics } from './gateway/metrics.ts';
 import { postmarkIPWhitelistMiddleware, twilioIPWhitelistMiddleware } from './webhooks/ip-whitelist.ts';
 import { validateSsrf as ssrfValidateSsrf } from './webhooks/ssrf.ts';
 import { computeNextRunAt } from './skill-store/schedule-next-run.ts';
@@ -922,11 +923,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     return reply.code(status_code).send(enriched);
   });
 
-  // ── Gateway WS status (Issue #2154) ────────────────────────────────
+  // ── Gateway WS status (Issue #2154, #2164) ─────────────────────────
   // Requires auth (not in authSkipPaths) — reveals infrastructure topology
   app.get('/gateway/status', async (_req, reply) => {
     const status = getGatewayConnection().getStatus();
-    return reply.send(status);
+    return reply.send({ ...status, metrics: getGatewayMetrics() });
   });
 
   // ============================================================

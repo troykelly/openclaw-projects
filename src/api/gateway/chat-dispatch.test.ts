@@ -32,6 +32,7 @@ import {
   type ChatSession,
   type ChatMessageRecord,
 } from './chat-dispatch.ts';
+import { gwChatDispatchWs, gwChatDispatchHttp } from './metrics.ts';
 
 // ── Fixtures ───────────────────────────────────────────────────────
 
@@ -298,5 +299,47 @@ describe('abortChatRun', () => {
 
     // Should not throw
     await expect(abortChatRun(makeSession())).resolves.toBeUndefined();
+  });
+});
+
+// ── Metrics integration (#2164) ───────────────────────────────────────
+
+describe('dispatch metrics', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.OPENCLAW_GATEWAY_URL = 'https://gateway.example.com';
+  });
+
+  it('gwChatDispatchWs increments on successful WS dispatch', async () => {
+    mockGetStatus.mockReturnValue({ connected: true, gateway_url: 'gateway.example.com' });
+    mockRequest.mockResolvedValue({ ok: true });
+
+    const before = gwChatDispatchWs.get();
+    await dispatchChatMessage(makeMockPool(), makeSession(), makeMessage(), 'user@example.com');
+    expect(gwChatDispatchWs.get()).toBe(before + 1);
+  });
+
+  it('gwChatDispatchHttp increments on HTTP fallback dispatch', async () => {
+    mockGetStatus.mockReturnValue({ connected: false, gateway_url: null });
+    mockEnqueueWebhook.mockResolvedValue('webhook-id');
+
+    const before = gwChatDispatchHttp.get();
+    await dispatchChatMessage(makeMockPool(), makeSession(), makeMessage(), 'user@example.com');
+    expect(gwChatDispatchHttp.get()).toBe(before + 1);
+  });
+
+  it('gwChatDispatchHttp increments when WS fails and falls back to HTTP', async () => {
+    mockGetStatus.mockReturnValue({ connected: true, gateway_url: 'gateway.example.com' });
+    mockRequest.mockRejectedValue(new Error('WS unavailable'));
+    mockEnqueueWebhook.mockResolvedValue('webhook-id');
+
+    const beforeWs = gwChatDispatchWs.get();
+    const beforeHttp = gwChatDispatchHttp.get();
+    await dispatchChatMessage(makeMockPool(), makeSession(), makeMessage(), 'user@example.com');
+
+    // WS counter should NOT increment (dispatch failed)
+    expect(gwChatDispatchWs.get()).toBe(beforeWs);
+    // HTTP counter SHOULD increment (fallback succeeded)
+    expect(gwChatDispatchHttp.get()).toBe(beforeHttp + 1);
   });
 });

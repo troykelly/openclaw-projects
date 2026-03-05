@@ -16,6 +16,7 @@
 import type { Pool } from 'pg';
 import { getGatewayConnection } from './index.ts';
 import { enqueueWebhook } from '../webhooks/dispatcher.ts';
+import { gwChatDispatchWs, gwChatDispatchHttp } from './metrics.ts';
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -92,6 +93,7 @@ export async function dispatchChatMessage(
         timeoutMs: resolveTimeoutMs(),
       });
 
+      gwChatDispatchWs.inc();
       console.log(`${LOG_PREFIX} dispatched via WS session=${session.id}`);
       return { dispatched: true, method: 'ws' };
     } catch (err) {
@@ -129,6 +131,7 @@ export async function dispatchChatMessage(
       },
     });
 
+    gwChatDispatchHttp.inc();
     console.log(`${LOG_PREFIX} dispatched via HTTP webhook session=${session.id}`);
     return { dispatched: true, method: 'http' };
   } catch (err) {

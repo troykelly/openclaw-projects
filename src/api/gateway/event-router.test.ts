@@ -44,6 +44,7 @@ vi.mock('./index.ts', () => ({
 
 // Import after mocks
 import { GatewayEventRouter } from './event-router.ts';
+import { gwChatEventsRouted, gwDuplicateEventsSuppressed } from './metrics.ts';
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -749,6 +750,48 @@ describe('GatewayEventRouter', () => {
     await new Promise((r) => setTimeout(r, 50));
 
     // Should still only have 1 sendToUser call (the aborted one), no delta sent
+    expect(mockSendToUser).toHaveBeenCalledTimes(1);
+  });
+
+  // ── Metrics integration (#2164) ──────────────────────────────────
+
+  it('gwChatEventsRouted increments on each routed chat event', async () => {
+    router.initialize(pool as never);
+    const handler = capturedHandlers[0];
+    mockSessionLookup(pool, {});
+
+    const before = gwChatEventsRouted.get();
+    handler(makeChatEvent({ state: 'delta', seq: 0, message: 'hi' }));
+
+    await vi.waitFor(() => {
+      expect(mockSendToUser).toHaveBeenCalled();
+    });
+
+    expect(gwChatEventsRouted.get()).toBe(before + 1);
+  });
+
+  it('gwDuplicateEventsSuppressed increments on duplicate seq', async () => {
+    router.initialize(pool as never);
+    const handler = capturedHandlers[0];
+    mockSessionLookup(pool, {});
+
+    // First delta with seq=0
+    handler(makeChatEvent({ state: 'delta', seq: 0, runId: 'run-dedup', message: 'first' }));
+    await vi.waitFor(() => {
+      expect(mockSendToUser).toHaveBeenCalledTimes(1);
+    });
+
+    const before = gwDuplicateEventsSuppressed.get();
+
+    // Duplicate delta with same seq=0
+    mockSessionLookup(pool, {});
+    handler(makeChatEvent({ state: 'delta', seq: 0, runId: 'run-dedup', message: 'duplicate' }));
+
+    // Small delay for async processing
+    await new Promise((r) => setTimeout(r, 50));
+
+    expect(gwDuplicateEventsSuppressed.get()).toBe(before + 1);
+    // Still only one sendToUser call (duplicate was suppressed)
     expect(mockSendToUser).toHaveBeenCalledTimes(1);
   });
 });

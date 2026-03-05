@@ -200,6 +200,19 @@ export function chatPaths(): OpenApiDomainModule {
           },
         },
       },
+      '/chat/sessions/{id}/abort': {
+        post: {
+          operationId: 'abortChatRun',
+          summary: 'Abort an in-flight agent run',
+          description: 'Aborts the currently running agent response for this chat session via the gateway WebSocket. Returns 204 on success. No-op if no run is in progress.',
+          tags: ['Chat'],
+          parameters: [uuidParam('id', 'Chat session ID')],
+          responses: {
+            '204': { description: 'Abort signal sent' },
+            ...errorResponses(400, 401, 404, 429, 500),
+          },
+        },
+      },
       '/chat/sessions/{id}/messages': {
         post: {
           operationId: 'sendChatMessage',

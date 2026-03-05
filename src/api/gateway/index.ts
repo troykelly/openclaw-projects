@@ -114,6 +114,7 @@ export type { ChatSession, ChatMessageRecord, DispatchResult } from './chat-disp
 export { GatewayEventRouter } from './event-router.ts';
 export { AgentPresenceTracker, type AgentStatus } from './presence-tracker.ts';
 export { AgentCache, type CachedAgent } from './agent-cache.ts';
+export { getGatewayMetrics, type GatewayMetricsSnapshot } from './metrics.ts';
 
 // ── Event router singleton (#2156) ──────────────────────────────────
 

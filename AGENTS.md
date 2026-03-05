@@ -217,6 +217,35 @@ For 2 issues or simple sequential work, ralph-loop alone is more cost-effective.
 
 ---
 
+## Gateway WebSocket Connection
+
+The API server maintains a permanent WebSocket connection to the OpenClaw gateway for low-latency chat dispatch and live agent discovery.
+
+### Environment Variables
+
+| Variable | Purpose | Default |
+|----------|---------|---------|
+| `OPENCLAW_GATEWAY_URL` | Gateway base URL (http/https); WS URL derived automatically | — |
+| `OPENCLAW_GATEWAY_TOKEN` | Token for WS authentication | Falls back to `OPENCLAW_HOOK_TOKEN` |
+| `OPENCLAW_GATEWAY_WS_ENABLED` | Set to `false` to disable WS connection | `true` when `OPENCLAW_GATEWAY_URL` is set |
+| `OPENCLAW_GATEWAY_ALLOW_PRIVATE` | Allow private-CIDR gateway URLs (bypasses SSRF validation) | `false` |
+
+### Key Endpoints
+
+- `GET /api/gateway/status` — Connection state + lifecycle metrics (requires auth)
+- `GET /api/chat/agents` — Live agent list with presence status (online/busy/offline/unknown)
+- `POST /api/chat/sessions/:id/abort` — Abort in-flight agent run via gateway WS
+
+### Architecture Notes
+
+- WS connection auto-reconnects with exponential backoff (1s-30s) + jitter
+- Chat dispatch: WS primary, HTTP webhook fallback
+- Agent discovery: live gateway query, DB fallback
+- Presence tracking: explicit gateway events + inferred from chat activity
+- Token is sent in the WS `connect` handshake body only, never in the URL
+
+---
+
 ## Key Technical Patterns
 
 ### Memory APIs (pgvector)
