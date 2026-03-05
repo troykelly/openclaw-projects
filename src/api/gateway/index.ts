@@ -1,11 +1,15 @@
 /**
  * Gateway connection singleton module.
  * Issue #2154 — Gateway connection service.
+ * Issue #2156 — Gateway event router.
  *
  * Exports:
  * - getGatewayConnection() — get the singleton instance
  * - initGatewayConnection() — initialize the connection (call once at startup)
  * - shutdownGatewayConnection() — graceful shutdown (call on server close)
+ * - getGatewayEventRouter() — get the event router singleton
+ * - initGatewayEventRouter(pool) — initialize the event router
+ * - shutdownGatewayEventRouter() — graceful shutdown of event router
  */
 
 import { GatewayConnectionService } from './connection.ts';
@@ -36,3 +40,33 @@ export async function shutdownGatewayConnection(): Promise<void> {
 
 export { GatewayConnectionService } from './connection.ts';
 export type { GatewayStatus, GatewayEventHandler, GatewayFrame, GatewayEventFrame, GatewayResFrame, GatewayReqFrame } from './connection.ts';
+export { GatewayEventRouter } from './event-router.ts';
+
+// ── Event router singleton (#2156) ──────────────────────────────────
+
+import type { Pool } from 'pg';
+import { GatewayEventRouter } from './event-router.ts';
+
+let routerInstance: GatewayEventRouter | null = null;
+
+/** Get the singleton GatewayEventRouter instance. Creates lazily if needed. */
+export function getGatewayEventRouter(): GatewayEventRouter {
+  if (!routerInstance) {
+    routerInstance = new GatewayEventRouter();
+  }
+  return routerInstance;
+}
+
+/** Initialize the gateway event router. Call once at server startup after initGatewayConnection(). */
+export function initGatewayEventRouter(pool: Pool): void {
+  const router = getGatewayEventRouter();
+  router.initialize(pool);
+}
+
+/** Gracefully shut down the gateway event router. */
+export function shutdownGatewayEventRouter(): void {
+  if (routerInstance) {
+    routerInstance.shutdown();
+    routerInstance = null;
+  }
+}
