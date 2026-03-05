@@ -330,21 +330,24 @@ export function createAutoCaptureHook(options: AutoCaptureHookOptions): (event: 
       message_count: event.messages.length,
     });
 
-    const timeout = createCancellableTimeout<void>(timeoutMs, undefined);
+    const timeout = createCancellableTimeout<'timeout'>(timeoutMs, 'timeout');
 
     try {
       // Race between API call and timeout
-      await Promise.race([
-        captureContext(client, user_id, event.messages, logger),
-        timeout.promise.then(() => {
+      const winner = await Promise.race([
+        captureContext(client, user_id, event.messages, logger).then(() => 'done' as const),
+        timeout.promise.then((v) => {
           logger.warn('auto-capture timeout exceeded', { user_id, timeoutMs });
+          return v;
         }),
       ]);
 
       // Cancel the timeout if the capture won the race (#2174)
       timeout.cancel();
 
-      logger.debug('auto-capture completed', { user_id });
+      if (winner !== 'timeout') {
+        logger.debug('auto-capture completed', { user_id });
+      }
     } catch (error) {
       timeout.cancel();
       logger.error('auto-capture failed', {

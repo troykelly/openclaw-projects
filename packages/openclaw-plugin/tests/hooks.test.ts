@@ -964,6 +964,38 @@ describe('lifecycle hooks', () => {
       vi.useRealTimers();
     });
 
+    it('should NOT log timeout warning when auto-recall errors before timeout', async () => {
+      vi.useFakeTimers();
+      const mockGet = vi.fn().mockRejectedValue(new Error('Network error'));
+      const client = { ...mockApiClient, get: mockGet };
+
+      const hook = createAutoRecallHook({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        getAgentId: () => 'agent-1',
+        timeoutMs: 5000,
+      });
+
+      const resultPromise = hook({ prompt: 'Hello' });
+
+      // Advance past the timeout period
+      await vi.advanceTimersByTimeAsync(6000);
+
+      const result = await resultPromise;
+      expect(result).toBeNull();
+
+      // Should log error but NOT timeout warning
+      expect(mockLogger.error).toHaveBeenCalled();
+      const warnCalls = (mockLogger.warn as ReturnType<typeof vi.fn>).mock.calls;
+      const timeoutWarnings = warnCalls.filter(
+        (call: unknown[]) => typeof call[0] === 'string' && call[0].includes('timeout'),
+      );
+      expect(timeoutWarnings).toHaveLength(0);
+
+      vi.useRealTimers();
+    });
+
     it('should still log timeout warning when operation genuinely exceeds timeout', async () => {
       vi.useFakeTimers();
       // This mock will never resolve (simulating a hung request)
