@@ -88,45 +88,44 @@ describe('GatewayConnectionService integration', () => {
   }
 
   it('connects to mock WS server, completes challenge-response, receives events', async () => {
+    setupServerHandshake('my-token');
+    // After handshake, server sends an event
+    wss.on('connection', (ws) => {
+      ws.on('message', (raw) => {
+        const msg = JSON.parse(raw.toString());
+        if (msg.type === 'req' && msg.method === 'connect' && msg.params?.token === 'my-token') {
+          setTimeout(() => {
+            ws.send(JSON.stringify({
+              type: 'event',
+              event: 'agent.online',
+              payload: { agent_id: 'test-agent' },
+              seq: 1,
+            }));
+          }, 50);
+        }
+      });
+    });
+
+    const svc = new GatewayConnectionService({
+      OPENCLAW_GATEWAY_URL: `http://127.0.0.1:${port}`,
+      OPENCLAW_GATEWAY_TOKEN: 'my-token',
+      OPENCLAW_GATEWAY_ALLOW_PRIVATE: 'true',
+    });
+
     const eventReceived = new Promise<unknown>((resolve) => {
-      setupServerHandshake('my-token');
-      // After handshake, server sends an event
-      wss.on('connection', (ws) => {
-        ws.on('message', (raw) => {
-          const msg = JSON.parse(raw.toString());
-          if (msg.type === 'req' && msg.method === 'connect' && msg.params?.token === 'my-token') {
-            // Send an event after successful connect
-            setTimeout(() => {
-              ws.send(JSON.stringify({
-                type: 'event',
-                event: 'agent.online',
-                payload: { agent_id: 'test-agent' },
-                seq: 1,
-              }));
-            }, 50);
-          }
-        });
-      });
-
-      const svc = new GatewayConnectionService({
-        OPENCLAW_GATEWAY_URL: `http://127.0.0.1:${port}`,
-        OPENCLAW_GATEWAY_TOKEN: 'my-token',
-        OPENCLAW_GATEWAY_ALLOW_PRIVATE: 'true',
-      });
-
       svc.onEvent((frame) => {
         if (frame.event === 'agent.online') {
           resolve(frame.payload);
         }
       });
-
-      svc.initialize().then(() => {
-        // Connected
-      });
     });
+
+    await svc.initialize();
 
     const result = await eventReceived;
     expect(result).toEqual({ agent_id: 'test-agent' });
+
+    await svc.shutdown();
   }, 10000);
 
   it('reconnects after mock server drops connection', async () => {

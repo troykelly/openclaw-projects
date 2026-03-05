@@ -63,6 +63,7 @@ const MAX_BACKOFF_MS = 30000;
 const INITIAL_JITTER_MS = 500;
 const MAX_JITTER_MS = 5000;
 const CHALLENGE_TIMEOUT_MS = 5000;
+const CONNECT_RESPONSE_TIMEOUT_MS = 10000;
 const DEFAULT_TICK_INTERVAL_MS = 30000;
 
 // ── Service ──────────────────────────────────────────────────────────────
@@ -88,6 +89,7 @@ export class GatewayConnectionService {
 
   // Challenge timeout
   private challengeTimer: ReturnType<typeof setTimeout> | null = null;
+  private connectResponseTimer: ReturnType<typeof setTimeout> | null = null;
   private challengeReceived = false;
 
   // Init promise resolution — called when connect handshake completes
@@ -115,7 +117,11 @@ export class GatewayConnectionService {
       return this.initializePromise;
     }
 
-    this.initializePromise = this._doInitialize();
+    this.initializePromise = this._doInitialize().catch((err) => {
+      // Clear so retry is possible on next initialize() call
+      this.initializePromise = null;
+      throw err;
+    });
     return this.initializePromise;
   }
 
@@ -135,13 +141,17 @@ export class GatewayConnectionService {
       clearTimeout(this.challengeTimer);
       this.challengeTimer = null;
     }
+    if (this.connectResponseTimer) {
+      clearTimeout(this.connectResponseTimer);
+      this.connectResponseTimer = null;
+    }
 
     // Reject all pending requests
     this._rejectPendingRequests(new Error('Gateway connection shutdown'));
 
-    // Close WS
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.ws.close(1000);
+    // Close WS regardless of readyState (handles CONNECTING state too)
+    if (this.ws) {
+      try { this.ws.close(1000); } catch { /* ignore close errors during shutdown */ }
     }
 
     this.connected = false;
@@ -394,13 +404,30 @@ export class GatewayConnectionService {
     // Register pending request for the connect response
     this.pendingRequests.set(id, {
       resolve: (payload: unknown) => {
+        if (this.connectResponseTimer) {
+          clearTimeout(this.connectResponseTimer);
+          this.connectResponseTimer = null;
+        }
         this._onConnected(payload);
       },
       reject: (err) => {
+        if (this.connectResponseTimer) {
+          clearTimeout(this.connectResponseTimer);
+          this.connectResponseTimer = null;
+        }
         console.error(`${LOG_PREFIX} connect rejected:`, err.message);
         this.ws?.close(4002);
       },
     });
+
+    // Timeout if connect response never arrives
+    this.connectResponseTimer = setTimeout(() => {
+      if (this.pendingRequests.has(id)) {
+        this.pendingRequests.delete(id);
+        console.warn(`${LOG_PREFIX} connect response timeout (${CONNECT_RESPONSE_TIMEOUT_MS}ms), closing`);
+        this.ws?.close(4004);
+      }
+    }, CONNECT_RESPONSE_TIMEOUT_MS);
 
     this.ws.send(JSON.stringify(frame));
   }
