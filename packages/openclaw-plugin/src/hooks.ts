@@ -217,10 +217,10 @@ async function fetchContext(client: ApiClient, user_id: string, prompt: string, 
   });
 
   const response = await client.get<{
-    memories: Array<{
+    results: Array<{
       id: string;
       content: string;
-      category: string;
+      type: string;
       score?: number;
     }>;
   }>(`/memories/search?${queryParams.toString()}`, { user_id });
@@ -234,7 +234,7 @@ async function fetchContext(client: ApiClient, user_id: string, prompt: string, 
     return null;
   }
 
-  const memories = response.data.memories ?? [];
+  const memories = response.data.results ?? [];
   if (memories.length === 0) {
     return null;
   }
@@ -251,7 +251,7 @@ async function fetchContext(client: ApiClient, user_id: string, prompt: string, 
   // Include provenance markers with memory_type and relevance % (#1926).
   const context = filtered
     .map((m) => {
-      const label = sanitizeLabel(m.category);
+      const label = sanitizeLabel(m.type);
       const wrapped = wrapExternalMessage(m.content, { channel: `memory:${label}`, nonce });
       const relevancePct = Math.round(safeScore(m.score) * 100);
       return `- [${label}] (relevance: ${relevancePct}%) ${wrapped}`;

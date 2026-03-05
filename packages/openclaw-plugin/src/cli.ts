@@ -169,7 +169,7 @@ export function createRecallCommand(ctx: CliContext): (options: RecallOptions) =
         limit: String(limit),
       });
 
-      const response = await client.get<{ memories: MemoryItem[] }>(`/memories/search?${queryParams.toString()}`, { user_id });
+      const response = await client.get<{ results: Array<{ id: string; content: string; type: string; score?: number }> }>(`/memories/search?${queryParams.toString()}`, { user_id });
 
       if (!response.success) {
         logger.error('CLI recall command API error', {
@@ -184,7 +184,13 @@ export function createRecallCommand(ctx: CliContext): (options: RecallOptions) =
         };
       }
 
-      const memories = response.data.memories ?? [];
+      // Map API field names (results/type) to CLI interface (memories/category)
+      const memories: MemoryItem[] = (response.data.results ?? []).map((m) => ({
+        id: m.id,
+        content: m.content,
+        score: m.score ?? 0,
+        category: m.type,
+      }));
 
       return {
         success: true,

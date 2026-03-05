@@ -248,11 +248,19 @@ describe('OpenClaw 2026 API Registration', () => {
       const originalFetch = globalThis.fetch;
       globalThis.fetch = vi.fn().mockImplementation(async (url: string) => {
         fetchCalls.push(url);
+        // Graph-aware POST should fall back so the basic GET path is exercised
+        if (url.includes('/context/graph-aware')) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({ memories: [] }),
+          };
+        }
         return {
           ok: true,
           status: 200,
           json: async () => ({
-            memories: [{ id: '1', content: 'User prefers sushi', category: 'preference', score: 0.9 }],
+            results: [{ id: '1', content: 'User prefers sushi', type: 'preference', score: 0.9 }],
           }),
         };
       }) as unknown as typeof fetch;
@@ -281,12 +289,22 @@ describe('OpenClaw 2026 API Registration', () => {
 
     it('should return { prependContext } format, not { injectedContext }', async () => {
       const originalFetch = globalThis.fetch;
-      globalThis.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: async () => ({
-          memories: [{ id: '1', content: 'User prefers dark mode', category: 'preference', score: 0.95 }],
-        }),
+      globalThis.fetch = vi.fn().mockImplementation(async (url: string) => {
+        // Graph-aware POST returns empty so fallback to basic GET is exercised
+        if (url.includes('/context/graph-aware')) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({ memories: [] }),
+          };
+        }
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            results: [{ id: '1', content: 'User prefers dark mode', type: 'preference', score: 0.95 }],
+          }),
+        };
       }) as unknown as typeof fetch;
 
       try {
@@ -503,7 +521,7 @@ describe('OpenClaw 2026 API Registration', () => {
         ok: true,
         status: 200,
         json: async () => ({
-          memories: [{ id: '1', content: 'test', category: 'fact', score: 0.9 }],
+          results: [{ id: '1', content: 'test', type: 'fact', score: 0.9 }],
         }),
       })) as unknown as typeof fetch;
 

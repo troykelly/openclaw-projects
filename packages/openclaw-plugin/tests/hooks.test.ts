@@ -108,7 +108,7 @@ describe('lifecycle hooks', () => {
         const mockGet = vi.fn().mockResolvedValue({
           success: true,
           data: {
-            memories: [{ id: '1', content: 'User prefers dark mode.', category: 'preference', score: 0.95 }],
+            results: [{ id: '1', content: 'User prefers dark mode.', type: 'preference', score: 0.95 }],
           },
         });
         const client = { ...mockApiClient, get: mockGet };
@@ -132,7 +132,7 @@ describe('lifecycle hooks', () => {
         const mockGet = vi.fn().mockResolvedValue({
           success: true,
           data: {
-            memories: [{ id: '1', content: 'User prefers dark mode.', category: 'preference', score: 0.95 }],
+            results: [{ id: '1', content: 'User prefers dark mode.', type: 'preference', score: 0.95 }],
           },
         });
         const client = { ...mockApiClient, get: mockGet };
@@ -190,7 +190,7 @@ describe('lifecycle hooks', () => {
       it('should return null when no memories found', async () => {
         const mockGet = vi.fn().mockResolvedValue({
           success: true,
-          data: { memories: [] },
+          data: { results: [] },
         });
         const client = { ...mockApiClient, get: mockGet };
 
@@ -232,10 +232,10 @@ describe('lifecycle hooks', () => {
         const mockGet = vi.fn().mockResolvedValue({
           success: true,
           data: {
-            memories: [
-              { id: '1', content: 'High relevance memory', category: 'fact', score: 0.9 },
-              { id: '2', content: 'Low relevance memory', category: 'fact', score: 0.5 },
-              { id: '3', content: 'Very low relevance memory', category: 'fact', score: 0.3 },
+            results: [
+              { id: '1', content: 'High relevance memory', type: 'fact', score: 0.9 },
+              { id: '2', content: 'Low relevance memory', type: 'fact', score: 0.5 },
+              { id: '3', content: 'Very low relevance memory', type: 'fact', score: 0.3 },
             ],
           },
         });
@@ -260,9 +260,9 @@ describe('lifecycle hooks', () => {
         const mockGet = vi.fn().mockResolvedValue({
           success: true,
           data: {
-            memories: [
-              { id: '1', content: 'Best of the low', category: 'fact', score: 0.5 },
-              { id: '2', content: 'Worst memory', category: 'fact', score: 0.2 },
+            results: [
+              { id: '1', content: 'Best of the low', type: 'fact', score: 0.5 },
+              { id: '2', content: 'Worst memory', type: 'fact', score: 0.2 },
             ],
           },
         });
@@ -287,9 +287,9 @@ describe('lifecycle hooks', () => {
         const mockGet = vi.fn().mockResolvedValue({
           success: true,
           data: {
-            memories: [
-              { id: '1', content: 'Scored memory', category: 'fact', score: 0.9 },
-              { id: '2', content: 'Unscored memory', category: 'fact' },
+            results: [
+              { id: '1', content: 'Scored memory', type: 'fact', score: 0.9 },
+              { id: '2', content: 'Unscored memory', type: 'fact' },
             ],
           },
         });
@@ -315,8 +315,8 @@ describe('lifecycle hooks', () => {
         const mockGet = vi.fn().mockResolvedValue({
           success: true,
           data: {
-            memories: [
-              { id: '1', content: 'User prefers dark mode.', category: 'preference', score: 0.95 },
+            results: [
+              { id: '1', content: 'User prefers dark mode.', type: 'preference', score: 0.95 },
             ],
           },
         });
@@ -341,8 +341,8 @@ describe('lifecycle hooks', () => {
         const mockGet = vi.fn().mockResolvedValue({
           success: true,
           data: {
-            memories: [
-              { id: '1', content: 'Some fact', category: 'fact', score: 0.9 },
+            results: [
+              { id: '1', content: 'Some fact', type: 'fact', score: 0.9 },
             ],
           },
         });
@@ -369,7 +369,7 @@ describe('lifecycle hooks', () => {
       it('should not log prompt content at info level', async () => {
         const mockGet = vi.fn().mockResolvedValue({
           success: true,
-          data: { memories: [{ id: '1', content: 'Some context', category: 'fact' }] },
+          data: { results: [{ id: '1', content: 'Some context', type: 'fact' }] },
         });
         const client = { ...mockApiClient, get: mockGet };
 
@@ -853,7 +853,7 @@ describe('lifecycle hooks', () => {
       const mockGet = vi.fn().mockResolvedValue({
         success: true,
         data: {
-          memories: [{ id: '1', content: 'Some context', category: 'fact', score: 0.9 }],
+          results: [{ id: '1', content: 'Some context', type: 'fact', score: 0.9 }],
         },
       });
       const client = { ...mockApiClient, get: mockGet };
