@@ -377,6 +377,7 @@ export interface GraphAwareRecallHookOptions {
   logger: Logger;
   config: PluginConfig;
   getAgentId: () => string;
+  getAgentEmail?: () => string | undefined;
   timeoutMs?: number;
 }
 
@@ -418,10 +419,11 @@ interface GraphAwareContextApiResponse {
  * Part of Epic #486, Issue #497.
  */
 export function createGraphAwareRecallHook(options: GraphAwareRecallHookOptions): (event: AutoRecallEvent) => Promise<AutoRecallResult | null> {
-  const { client, logger, config, getAgentId, timeoutMs = DEFAULT_RECALL_TIMEOUT_MS } = options;
+  const { client, logger, config, getAgentId, getAgentEmail, timeoutMs = DEFAULT_RECALL_TIMEOUT_MS } = options;
 
   return async (event: AutoRecallEvent): Promise<AutoRecallResult | null> => {
     const user_id = getAgentId();
+    const user_email = getAgentEmail?.();
 
     // Skip if auto-recall is disabled
     if (!config.autoRecall) {
@@ -438,7 +440,7 @@ export function createGraphAwareRecallHook(options: GraphAwareRecallHookOptions)
     try {
       // Race between API call and timeout
       const result = await Promise.race([
-        fetchGraphAwareContext(client, user_id, event.prompt, logger, config.maxRecallMemories, config.minRecallScore),
+        fetchGraphAwareContext(client, user_id, user_email, event.prompt, logger, config.maxRecallMemories, config.minRecallScore),
         createTimeoutPromise<AutoRecallResult | null>(timeoutMs, null).then(() => {
           logger.warn('graph-aware-recall timeout exceeded', { user_id, timeoutMs });
           return null;
@@ -473,7 +475,7 @@ export function createGraphAwareRecallHook(options: GraphAwareRecallHookOptions)
  * multi-scope semantic search across relationships.
  * Falls back to basic /api/memories/search if the graph-aware endpoint fails.
  */
-async function fetchGraphAwareContext(client: ApiClient, user_id: string, prompt: string, logger: Logger, max_results = 10, minScore = 0.7): Promise<AutoRecallResult | null> {
+async function fetchGraphAwareContext(client: ApiClient, user_id: string, user_email: string | undefined, prompt: string, logger: Logger, max_results = 10, minScore = 0.7): Promise<AutoRecallResult | null> {
   // Truncate prompt for the search query
   const searchPrompt = prompt.substring(0, 500);
 
@@ -485,7 +487,7 @@ async function fetchGraphAwareContext(client: ApiClient, user_id: string, prompt
       maxMemories: max_results,
       maxDepth: 1,
     },
-    { user_id },
+    { user_id, user_email },
   );
 
   // Use graph-aware formatting when the response contains properly-shaped memories

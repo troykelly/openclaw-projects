@@ -132,6 +132,86 @@ describe('Graph-Aware Integration', () => {
       expect(result?.prependContext).toContain('sushi');
     });
 
+    it('should forward user_email when getAgentEmail is provided (#2177)', async () => {
+      const mockPost = vi.fn().mockResolvedValue({
+        success: true,
+        data: {
+          context: '## Personal Preferences\n- **Food**: Prefers sushi',
+          memories: [
+            {
+              id: 'mem-1',
+              title: 'Food',
+              content: 'Prefers sushi',
+              memory_type: 'preference',
+              similarity: 0.9,
+              importance: 8,
+              confidence: 1.0,
+              combinedRelevance: 0.72,
+              scopeType: 'personal',
+              scopeLabel: 'Personal',
+            },
+          ],
+          metadata: {
+            queryTimeMs: 42,
+            scopeCount: 3,
+            totalMemoriesFound: 1,
+            search_type: 'semantic',
+            maxDepth: 1,
+          },
+        },
+      });
+      const client = { ...mockApiClient, post: mockPost };
+
+      const hook = createGraphAwareRecallHook({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        getAgentId: () => 'agent-1',
+        getAgentEmail: () => 'user@example.com',
+      });
+
+      await hook({ prompt: 'What food does Alex like?' });
+
+      expect(mockPost).toHaveBeenCalledWith(
+        '/context/graph-aware',
+        expect.objectContaining({ prompt: 'What food does Alex like?' }),
+        expect.objectContaining({ user_id: 'agent-1', user_email: 'user@example.com' }),
+      );
+    });
+
+    it('should pass undefined user_email when getAgentEmail is not provided (#2177)', async () => {
+      const mockPost = vi.fn().mockResolvedValue({
+        success: true,
+        data: {
+          context: null,
+          memories: [],
+          metadata: { queryTimeMs: 5, scopeCount: 0, totalMemoriesFound: 0, search_type: 'text', maxDepth: 1 },
+        },
+      });
+      // Fall back to basic recall
+      const mockGet = vi.fn().mockResolvedValue({
+        success: true,
+        data: { results: [] },
+      });
+      const client = { ...mockApiClient, post: mockPost, get: mockGet };
+
+      const hook = createGraphAwareRecallHook({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        getAgentId: () => 'agent-1',
+        // No getAgentEmail provided
+      });
+
+      await hook({ prompt: 'Hello' });
+
+      expect(mockPost).toHaveBeenCalledWith(
+        '/context/graph-aware',
+        expect.any(Object),
+        expect.objectContaining({ user_id: 'agent-1', user_email: undefined }),
+      );
+    });
+
     it('should fall back to basic recall on graph-aware API error', async () => {
       // Graph-aware endpoint fails
       const mockPost = vi.fn().mockResolvedValue({
