@@ -14,6 +14,7 @@
 import { randomUUID } from 'node:crypto';
 import WebSocket from 'ws';
 import { validateSsrf } from '../webhooks/ssrf.ts';
+import { gwConnectAttempts, gwReconnects, gwAuthFailures, gwEventsReceived } from './metrics.ts';
 
 // ── Types ────────────────────────────────────────────────────────────────
 
@@ -283,6 +284,7 @@ export class GatewayConnectionService {
       }
 
       const url = this.wsUrl!;
+      gwConnectAttempts.inc();
       console.log(`${LOG_PREFIX} connecting to ${this.gatewayHost}`);
 
       // Token MUST NOT be in the URL
@@ -359,6 +361,7 @@ export class GatewayConnectionService {
   }
 
   private _handleEvent(frame: GatewayEventFrame): void {
+    gwEventsReceived.inc();
     const eventName = frame.event;
 
     if (eventName === 'connect.challenge') {
@@ -429,6 +432,7 @@ export class GatewayConnectionService {
           clearTimeout(this.connectResponseTimer);
           this.connectResponseTimer = null;
         }
+        gwAuthFailures.inc();
         console.error(`${LOG_PREFIX} connect rejected:`, err.message);
         this.ws?.close(4002);
       },
@@ -513,6 +517,7 @@ export class GatewayConnectionService {
     const delay = Math.max(100, Math.round(backoff + jitter));
 
     this.reconnectAttempt++;
+    gwReconnects.inc();
     console.log(`${LOG_PREFIX} reconnecting in ${delay}ms (attempt ${this.reconnectAttempt})`);
 
     this.reconnectTimer = setTimeout(() => {
