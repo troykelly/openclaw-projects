@@ -229,11 +229,34 @@ export async function chatRoutesPlugin(
 
     const namespace = getStoreNamespace(req);
     const body = req.body as Record<string, unknown> | null | undefined;
-    const agentId = (body?.agent_id as string | undefined)?.trim();
+    let agentId = (body?.agent_id as string | undefined)?.trim() || null;
     const title = (body?.title as string | undefined)?.trim() || null;
 
-    if (!agentId || agentId.length === 0) {
-      return reply.code(400).send({ error: 'agent_id is required' });
+    // #2151: Server-side agent_id fallback
+    if (!agentId) {
+      // 1. Check user_setting.default_agent_id
+      const settingResult = await pool.query(
+        `SELECT default_agent_id FROM user_setting WHERE email = $1`,
+        [userEmail],
+      );
+      agentId = (settingResult.rows[0]?.default_agent_id as string | undefined)?.trim() || null;
+
+      // 2. Check gateway_agent_cache for default agent
+      if (!agentId) {
+        const cacheResult = await pool.query(
+          `SELECT agent_id FROM gateway_agent_cache
+           WHERE namespace = $1
+           ORDER BY is_default DESC, agent_id
+           LIMIT 1`,
+          [namespace],
+        );
+        agentId = (cacheResult.rows[0]?.agent_id as string | undefined) || null;
+      }
+
+      // 3. If still null, return 400
+      if (!agentId) {
+        return reply.code(400).send({ error: 'agent_id is required' });
+      }
     }
 
     if (title !== null && title.length > 200) {
