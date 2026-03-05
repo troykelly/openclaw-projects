@@ -1,0 +1,494 @@
+/**
+ * GatewayConnectionService — persistent WebSocket connection to OpenClaw gateway.
+ *
+ * Issue #2154: Implements the foundational connection service with:
+ * - connect.challenge → connect handshake
+ * - Exponential backoff with jitter on reconnect
+ * - Tick heartbeat monitoring
+ * - Request/response multiplexing
+ * - Event handler dispatch
+ *
+ * Token is sent in the `connect` request body ONLY — never in the URL.
+ */
+
+import { randomUUID } from 'node:crypto';
+import WebSocket from 'ws';
+import { validateSsrf } from '../webhooks/ssrf.ts';
+
+// ── Types ────────────────────────────────────────────────────────────────
+
+export interface GatewayReqFrame {
+  type: 'req';
+  id: string;
+  method: string;
+  params?: unknown;
+}
+
+export interface GatewayResFrame {
+  type: 'res';
+  id: string;
+  ok: boolean;
+  payload?: unknown;
+  error?: { message: string };
+}
+
+export interface GatewayEventFrame {
+  type: 'event';
+  event: string;
+  payload?: unknown;
+  seq?: number;
+}
+
+export type GatewayFrame = GatewayReqFrame | GatewayResFrame | GatewayEventFrame;
+
+export type GatewayEventHandler = (frame: GatewayEventFrame) => void;
+
+export interface GatewayStatus {
+  connected: boolean;
+  gateway_url: string | null;
+  connected_at: string | null;
+  last_tick_at: string | null;
+}
+
+interface PendingRequest {
+  resolve: (value: unknown) => void;
+  reject: (reason: Error) => void;
+}
+
+// ── Constants ────────────────────────────────────────────────────────────
+
+const LOG_PREFIX = '[GatewayWS]';
+const INITIAL_BACKOFF_MS = 1000;
+const MAX_BACKOFF_MS = 30000;
+const INITIAL_JITTER_MS = 500;
+const MAX_JITTER_MS = 5000;
+const CHALLENGE_TIMEOUT_MS = 5000;
+const DEFAULT_TICK_INTERVAL_MS = 30000;
+
+// ── Service ──────────────────────────────────────────────────────────────
+
+export class GatewayConnectionService {
+  private ws: WebSocket | null = null;
+  private env: Record<string, string | undefined>;
+  private wsUrl: string | null = null;
+  private gatewayHost: string | null = null;
+  private token: string | null = null;
+  private connected = false;
+  private shutdownRequested = false;
+  private initializing = false;
+  private initializePromise: Promise<void> | null = null;
+
+  // Backoff state
+  private reconnectAttempt = 0;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+
+  // Tick monitoring
+  private tickIntervalMs = DEFAULT_TICK_INTERVAL_MS;
+  private tickTimeoutTimer: ReturnType<typeof setTimeout> | null = null;
+
+  // Challenge timeout
+  private challengeTimer: ReturnType<typeof setTimeout> | null = null;
+  private challengeReceived = false;
+
+  // Init promise resolution — called when connect handshake completes
+  private resolveInit: (() => void) | null = null;
+
+  // Status tracking
+  private connectedAt: Date | null = null;
+  private lastTickAt: Date | null = null;
+
+  // Event handlers
+  private eventHandlers: GatewayEventHandler[] = [];
+
+  // Pending requests
+  private pendingRequests = new Map<string, PendingRequest>();
+
+  constructor(env?: Record<string, string | undefined>) {
+    this.env = env ?? process.env;
+  }
+
+  // ── Public API ─────────────────────────────────────────────────────
+
+  async initialize(): Promise<void> {
+    // Idempotent: if already initializing or connected, return existing promise
+    if (this.initializePromise) {
+      return this.initializePromise;
+    }
+
+    this.initializePromise = this._doInitialize();
+    return this.initializePromise;
+  }
+
+  async shutdown(): Promise<void> {
+    this.shutdownRequested = true;
+
+    // Cancel pending timers
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    if (this.tickTimeoutTimer) {
+      clearTimeout(this.tickTimeoutTimer);
+      this.tickTimeoutTimer = null;
+    }
+    if (this.challengeTimer) {
+      clearTimeout(this.challengeTimer);
+      this.challengeTimer = null;
+    }
+
+    // Reject all pending requests
+    this._rejectPendingRequests(new Error('Gateway connection shutdown'));
+
+    // Close WS
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.close(1000);
+    }
+
+    this.connected = false;
+    this.ws = null;
+    this.initializePromise = null;
+  }
+
+  async request<T = unknown>(method: string, params: unknown, _opts?: unknown): Promise<T> {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN || !this.connected) {
+      throw new Error('Gateway WebSocket is not connected');
+    }
+
+    const id = randomUUID();
+    const frame: GatewayReqFrame = { type: 'req', id, method, params };
+
+    return new Promise<T>((resolve, reject) => {
+      this.pendingRequests.set(id, {
+        resolve: resolve as (value: unknown) => void,
+        reject,
+      });
+      this.ws!.send(JSON.stringify(frame));
+    });
+  }
+
+  onEvent(handler: GatewayEventHandler): void {
+    this.eventHandlers.push(handler);
+  }
+
+  getStatus(): GatewayStatus {
+    return {
+      connected: this.connected,
+      gateway_url: this.gatewayHost,
+      connected_at: this.connectedAt?.toISOString() ?? null,
+      last_tick_at: this.lastTickAt?.toISOString() ?? null,
+    };
+  }
+
+  // ── Private ────────────────────────────────────────────────────────
+
+  private async _doInitialize(): Promise<void> {
+    const gatewayUrl = this.env.OPENCLAW_GATEWAY_URL;
+
+    // If no gateway URL, just skip (not an error)
+    if (!gatewayUrl) {
+      return;
+    }
+
+    // Check if explicitly disabled
+    const wsEnabled = this.env.OPENCLAW_GATEWAY_WS_ENABLED;
+    if (wsEnabled === 'false') {
+      return;
+    }
+
+    // Validate URL scheme
+    const wsUrl = this._deriveWsUrl(gatewayUrl);
+
+    // Validate SSRF
+    const allowPrivate = this.env.OPENCLAW_GATEWAY_ALLOW_PRIVATE === 'true';
+    const ssrfResult = validateSsrf(gatewayUrl);
+    if (ssrfResult && !allowPrivate) {
+      throw new Error(`SSRF validation failed for gateway URL: ${ssrfResult}`);
+    }
+
+    // Resolve token
+    const token = this.env.OPENCLAW_GATEWAY_TOKEN ?? this.env.OPENCLAW_HOOK_TOKEN;
+    if (!token) {
+      throw new Error(
+        'Gateway WS enabled but no authentication token configured. ' +
+        'Set OPENCLAW_GATEWAY_TOKEN or OPENCLAW_HOOK_TOKEN.',
+      );
+    }
+
+    this.wsUrl = wsUrl;
+    this.token = token;
+    this.gatewayHost = this._extractHost(gatewayUrl);
+
+    // Connect
+    return this._connect();
+  }
+
+  private _deriveWsUrl(httpUrl: string): string {
+    let parsed: URL;
+    try {
+      parsed = new URL(httpUrl);
+    } catch {
+      throw new Error(`Invalid gateway URL scheme: ${httpUrl}`);
+    }
+
+    const protocol = parsed.protocol;
+    if (protocol === 'https:' || protocol === 'wss:') {
+      parsed.protocol = 'wss:';
+    } else if (protocol === 'http:' || protocol === 'ws:') {
+      parsed.protocol = 'ws:';
+    } else {
+      throw new Error(`Invalid gateway URL scheme: ${protocol}. Only http(s) and ws(s) are supported.`);
+    }
+
+    return parsed.toString();
+  }
+
+  private _extractHost(url: string): string {
+    try {
+      const parsed = new URL(url);
+      return parsed.host; // host includes port if non-default
+    } catch {
+      return url;
+    }
+  }
+
+  private _connect(): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+      if (this.shutdownRequested) {
+        resolve();
+        return;
+      }
+
+      const url = this.wsUrl!;
+      console.log(`${LOG_PREFIX} connecting to ${this.gatewayHost}`);
+
+      // Token MUST NOT be in the URL
+      const ws = new WebSocket(url);
+      this.ws = ws;
+      this.challengeReceived = false;
+
+      let resolved = false;
+
+      const resolveOnce = () => {
+        if (!resolved) {
+          resolved = true;
+          this.resolveInit = null;
+          resolve();
+        }
+      };
+
+      this.resolveInit = resolveOnce;
+
+      const rejectOnce = (err: Error) => {
+        if (!resolved) {
+          resolved = true;
+          this.resolveInit = null;
+          reject(err);
+        }
+      };
+
+      ws.on('open', () => {
+        // Start challenge timeout: if no challenge in 5s, close and retry
+        this.challengeTimer = setTimeout(() => {
+          if (!this.challengeReceived && ws.readyState === WebSocket.OPEN) {
+            console.warn(`${LOG_PREFIX} no challenge received within ${CHALLENGE_TIMEOUT_MS}ms, closing`);
+            ws.close(4001);
+          }
+        }, CHALLENGE_TIMEOUT_MS);
+      });
+
+      ws.on('message', (data) => {
+        this._handleMessage(data.toString());
+      });
+
+      ws.on('close', (code) => {
+        console.log(`${LOG_PREFIX} disconnected (code ${code})`);
+        this._onDisconnect();
+        // If we haven't resolved the init promise yet and this is the first connect,
+        // resolve it anyway so the caller isn't stuck waiting
+        resolveOnce();
+      });
+
+      ws.on('error', (err) => {
+        console.error(`${LOG_PREFIX} WebSocket error:`, err.message);
+        // Errors are followed by close events, so no need to handle reconnect here
+      });
+    });
+  }
+
+  private _handleMessage(raw: string): void {
+    let frame: Record<string, unknown>;
+    try {
+      frame = JSON.parse(raw);
+    } catch {
+      console.warn(`${LOG_PREFIX} received non-JSON message, ignoring`);
+      return;
+    }
+
+    const type = frame.type as string;
+
+    if (type === 'event') {
+      this._handleEvent(frame as unknown as GatewayEventFrame);
+    } else if (type === 'res') {
+      this._handleResponse(frame as unknown as GatewayResFrame);
+    }
+    // Unknown frame types are silently ignored
+  }
+
+  private _handleEvent(frame: GatewayEventFrame): void {
+    const eventName = frame.event;
+
+    if (eventName === 'connect.challenge') {
+      this.challengeReceived = true;
+      if (this.challengeTimer) {
+        clearTimeout(this.challengeTimer);
+        this.challengeTimer = null;
+      }
+      this._sendConnectRequest(frame.payload);
+      return;
+    }
+
+    if (eventName === 'tick') {
+      this.lastTickAt = new Date();
+      this._resetTickTimeout();
+      return;
+    }
+
+    // Dispatch to registered handlers
+    for (const handler of this.eventHandlers) {
+      try {
+        handler(frame);
+      } catch (err) {
+        console.error(`${LOG_PREFIX} event handler error:`, err);
+      }
+    }
+  }
+
+  private _handleResponse(frame: GatewayResFrame): void {
+    const pending = this.pendingRequests.get(frame.id);
+    if (!pending) return;
+
+    this.pendingRequests.delete(frame.id);
+
+    if (frame.ok) {
+      pending.resolve(frame.payload);
+    } else {
+      pending.reject(new Error(frame.error?.message ?? 'Unknown gateway error'));
+    }
+  }
+
+  private _sendConnectRequest(challengePayload: unknown): void {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+
+    const id = randomUUID();
+    const frame: GatewayReqFrame = {
+      type: 'req',
+      id,
+      method: 'connect',
+      params: {
+        token: this.token,
+        challenge: challengePayload,
+        client: { type: 'openclaw-projects-api' },
+      },
+    };
+
+    // Register pending request for the connect response
+    this.pendingRequests.set(id, {
+      resolve: (payload: unknown) => {
+        this._onConnected(payload);
+      },
+      reject: (err) => {
+        console.error(`${LOG_PREFIX} connect rejected:`, err.message);
+        this.ws?.close(4002);
+      },
+    });
+
+    this.ws.send(JSON.stringify(frame));
+  }
+
+  private _onConnected(payload: unknown): void {
+    this.connected = true;
+    this.connectedAt = new Date();
+    this.reconnectAttempt = 0;
+    console.log(`${LOG_PREFIX} connected`);
+
+    // Extract tick interval from payload if available
+    if (payload && typeof payload === 'object' && 'tick_interval_ms' in payload) {
+      this.tickIntervalMs = (payload as { tick_interval_ms: number }).tick_interval_ms;
+    }
+
+    // Start tick monitoring
+    this._resetTickTimeout();
+
+    // Resolve the init/reconnect promise
+    if (this.resolveInit) {
+      this.resolveInit();
+    }
+  }
+
+  private _onDisconnect(): void {
+    const wasConnected = this.connected;
+    this.connected = false;
+    this.connectedAt = wasConnected ? this.connectedAt : null;
+
+    // Clear tick timeout
+    if (this.tickTimeoutTimer) {
+      clearTimeout(this.tickTimeoutTimer);
+      this.tickTimeoutTimer = null;
+    }
+    if (this.challengeTimer) {
+      clearTimeout(this.challengeTimer);
+      this.challengeTimer = null;
+    }
+
+    // Reject pending requests
+    this._rejectPendingRequests(new Error('Gateway WebSocket disconnected'));
+
+    // Schedule reconnect (unless shutdown was requested)
+    if (!this.shutdownRequested) {
+      this._scheduleReconnect();
+    }
+  }
+
+  private _scheduleReconnect(): void {
+    const backoff = Math.min(
+      INITIAL_BACKOFF_MS * Math.pow(2, this.reconnectAttempt),
+      MAX_BACKOFF_MS,
+    );
+    const jitter = this.reconnectAttempt === 0
+      ? (Math.random() * 2 - 1) * INITIAL_JITTER_MS
+      : (Math.random() * 2 - 1) * MAX_JITTER_MS;
+    const delay = Math.max(100, Math.round(backoff + jitter));
+
+    this.reconnectAttempt++;
+    console.log(`${LOG_PREFIX} reconnecting in ${delay}ms (attempt ${this.reconnectAttempt})`);
+
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
+      if (this.shutdownRequested) return;
+      this._connect().catch((err) => {
+        console.error(`${LOG_PREFIX} reconnect failed:`, err.message);
+      });
+    }, delay);
+  }
+
+  private _resetTickTimeout(): void {
+    if (this.tickTimeoutTimer) {
+      clearTimeout(this.tickTimeoutTimer);
+    }
+
+    // If no tick received in 2x the tick interval, close WS to trigger reconnect
+    this.tickTimeoutTimer = setTimeout(() => {
+      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        console.warn(`${LOG_PREFIX} tick timeout (${this.tickIntervalMs * 2}ms), closing connection`);
+        this.ws.close(4003);
+      }
+    }, this.tickIntervalMs * 2);
+  }
+
+  private _rejectPendingRequests(error: Error): void {
+    for (const [, pending] of this.pendingRequests) {
+      pending.reject(error);
+    }
+    this.pendingRequests.clear();
+  }
+}
