@@ -73,12 +73,26 @@ export interface HealthCheckResult {
 }
 
 /**
- * Create a promise that rejects after a timeout.
+ * Cancellable timeout for use with Promise.race.
+ * Returns a handle that allows clearing the timer when the main operation
+ * completes first, preventing false "timeout exceeded" warnings (#2174).
  */
-function createTimeoutPromise<T>(ms: number, timeoutResult: T): Promise<T> {
-  return new Promise((resolve) => {
-    setTimeout(() => resolve(timeoutResult), ms);
+interface CancellableTimeout<T> {
+  promise: Promise<T>;
+  cancel: () => void;
+}
+
+function createCancellableTimeout<T>(ms: number, timeoutResult: T): CancellableTimeout<T> {
+  let timerId: ReturnType<typeof setTimeout> | undefined;
+  const promise = new Promise<T>((resolve) => {
+    timerId = setTimeout(() => resolve(timeoutResult), ms);
   });
+  return {
+    promise,
+    cancel: () => {
+      if (timerId !== undefined) clearTimeout(timerId);
+    },
+  };
 }
 
 /**
@@ -144,15 +158,20 @@ export function createAutoRecallHook(options: AutoRecallHookOptions): (event: Au
       promptLength: event.prompt.length,
     });
 
+    const timeout = createCancellableTimeout<AutoRecallResult | null>(timeoutMs, null);
+
     try {
       // Race between API call and timeout
       const result = await Promise.race([
         fetchContext(client, user_id, event.prompt, logger, config.maxRecallMemories, config.minRecallScore),
-        createTimeoutPromise<AutoRecallResult | null>(timeoutMs, null).then(() => {
+        timeout.promise.then(() => {
           logger.warn('auto-recall timeout exceeded', { user_id, timeoutMs });
           return null;
         }),
       ]);
+
+      // Cancel the timeout if the fetch won the race (#2174)
+      timeout.cancel();
 
       if (result === null) {
         logger.debug('auto-recall returned no context', { user_id });
@@ -166,6 +185,7 @@ export function createAutoRecallHook(options: AutoRecallHookOptions): (event: Au
 
       return result;
     } catch (error) {
+      timeout.cancel();
       logger.error('auto-recall failed', {
         user_id,
         error: error instanceof Error ? error.message : String(error),
@@ -310,17 +330,23 @@ export function createAutoCaptureHook(options: AutoCaptureHookOptions): (event: 
       message_count: event.messages.length,
     });
 
+    const timeout = createCancellableTimeout<void>(timeoutMs, undefined);
+
     try {
       // Race between API call and timeout
       await Promise.race([
         captureContext(client, user_id, event.messages, logger),
-        createTimeoutPromise<void>(timeoutMs, undefined).then(() => {
+        timeout.promise.then(() => {
           logger.warn('auto-capture timeout exceeded', { user_id, timeoutMs });
         }),
       ]);
 
+      // Cancel the timeout if the capture won the race (#2174)
+      timeout.cancel();
+
       logger.debug('auto-capture completed', { user_id });
     } catch (error) {
+      timeout.cancel();
       logger.error('auto-capture failed', {
         user_id,
         error: error instanceof Error ? error.message : String(error),
@@ -437,15 +463,20 @@ export function createGraphAwareRecallHook(options: GraphAwareRecallHookOptions)
       promptLength: event.prompt.length,
     });
 
+    const timeout = createCancellableTimeout<AutoRecallResult | null>(timeoutMs, null);
+
     try {
       // Race between API call and timeout
       const result = await Promise.race([
         fetchGraphAwareContext(client, user_id, user_email, event.prompt, logger, config.maxRecallMemories, config.minRecallScore),
-        createTimeoutPromise<AutoRecallResult | null>(timeoutMs, null).then(() => {
+        timeout.promise.then(() => {
           logger.warn('graph-aware-recall timeout exceeded', { user_id, timeoutMs });
           return null;
         }),
       ]);
+
+      // Cancel the timeout if the fetch won the race (#2174)
+      timeout.cancel();
 
       if (result === null) {
         logger.debug('graph-aware-recall returned no context', { user_id });
@@ -459,6 +490,7 @@ export function createGraphAwareRecallHook(options: GraphAwareRecallHookOptions)
 
       return result;
     } catch (error) {
+      timeout.cancel();
       logger.error('graph-aware-recall failed', {
         user_id,
         error: error instanceof Error ? error.message : String(error),

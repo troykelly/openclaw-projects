@@ -847,6 +847,154 @@ describe('lifecycle hooks', () => {
     });
   });
 
+  describe('false timeout warning suppression (#2174)', () => {
+    it('should NOT log timeout warning when auto-recall completes before timeout', async () => {
+      vi.useFakeTimers();
+      const mockGet = vi.fn().mockResolvedValue({
+        success: true,
+        data: {
+          memories: [{ id: '1', content: 'Some context', category: 'fact', score: 0.9 }],
+        },
+      });
+      const client = { ...mockApiClient, get: mockGet };
+
+      const hook = createAutoRecallHook({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        getAgentId: () => 'agent-1',
+        timeoutMs: 5000,
+      });
+
+      const resultPromise = hook({ prompt: 'Hello' });
+
+      // Advance past the timeout period
+      await vi.advanceTimersByTimeAsync(6000);
+
+      await resultPromise;
+
+      // The warning should NOT have been logged since the fetch completed fast
+      const warnCalls = (mockLogger.warn as ReturnType<typeof vi.fn>).mock.calls;
+      const timeoutWarnings = warnCalls.filter(
+        (call: unknown[]) => typeof call[0] === 'string' && call[0].includes('timeout'),
+      );
+      expect(timeoutWarnings).toHaveLength(0);
+
+      vi.useRealTimers();
+    });
+
+    it('should NOT log timeout warning when auto-capture completes before timeout', async () => {
+      vi.useFakeTimers();
+      const mockPost = vi.fn().mockResolvedValue({
+        success: true,
+        data: { captured: 1 },
+      });
+      const client = { ...mockApiClient, post: mockPost };
+
+      const hook = createAutoCaptureHook({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        getAgentId: () => 'agent-1',
+        timeoutMs: 10000,
+      });
+
+      const resultPromise = hook({
+        messages: [
+          { role: 'user', content: 'Remember I prefer dark mode' },
+          { role: 'assistant', content: 'Noted.' },
+        ],
+      });
+
+      // Advance past the timeout period
+      await vi.advanceTimersByTimeAsync(11000);
+
+      await resultPromise;
+
+      // The warning should NOT have been logged since the capture completed fast
+      const warnCalls = (mockLogger.warn as ReturnType<typeof vi.fn>).mock.calls;
+      const timeoutWarnings = warnCalls.filter(
+        (call: unknown[]) => typeof call[0] === 'string' && call[0].includes('timeout'),
+      );
+      expect(timeoutWarnings).toHaveLength(0);
+
+      vi.useRealTimers();
+    });
+
+    it('should NOT log timeout warning when graph-aware-recall completes before timeout', async () => {
+      vi.useFakeTimers();
+      const mockPost = vi.fn().mockResolvedValue({
+        success: true,
+        data: {
+          context: 'some context',
+          memories: [
+            {
+              id: '1', title: 'Fact', content: 'Something', memory_type: 'fact',
+              similarity: 0.9, importance: 0.8, confidence: 0.9, combinedRelevance: 0.87,
+              scopeType: 'personal', scopeLabel: 'me',
+            },
+          ],
+          metadata: { queryTimeMs: 50, scopeCount: 1, totalMemoriesFound: 1, search_type: 'graph', maxDepth: 1 },
+        },
+      });
+      const client = { ...mockApiClient, post: mockPost };
+
+      const hook = createGraphAwareRecallHook({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        getAgentId: () => 'agent-1',
+        timeoutMs: 5000,
+      });
+
+      const resultPromise = hook({ prompt: 'Hello' });
+
+      // Advance past the timeout period
+      await vi.advanceTimersByTimeAsync(6000);
+
+      await resultPromise;
+
+      // The warning should NOT have been logged since the fetch completed fast
+      const warnCalls = (mockLogger.warn as ReturnType<typeof vi.fn>).mock.calls;
+      const timeoutWarnings = warnCalls.filter(
+        (call: unknown[]) => typeof call[0] === 'string' && call[0].includes('timeout'),
+      );
+      expect(timeoutWarnings).toHaveLength(0);
+
+      vi.useRealTimers();
+    });
+
+    it('should still log timeout warning when operation genuinely exceeds timeout', async () => {
+      vi.useFakeTimers();
+      // This mock will never resolve (simulating a hung request)
+      const mockGet = vi.fn().mockImplementation(() => new Promise(() => {}));
+      const client = { ...mockApiClient, get: mockGet };
+
+      const hook = createAutoRecallHook({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        getAgentId: () => 'agent-1',
+        timeoutMs: 100,
+      });
+
+      const resultPromise = hook({ prompt: 'Hello' });
+
+      // Advance past the timeout
+      await vi.advanceTimersByTimeAsync(200);
+
+      const result = await resultPromise;
+
+      expect(result).toBeNull();
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('timeout'),
+        expect.any(Object),
+      );
+
+      vi.useRealTimers();
+    });
+  });
+
   describe('health check', () => {
     it('should return healthy when API is reachable', async () => {
       const mockHealthCheck = vi.fn().mockResolvedValue({
