@@ -1,12 +1,14 @@
 /**
- * Gateway connection singleton module.
+ * Gateway module — connection, dispatch, and event routing.
  * Issue #2154 — Gateway connection service.
+ * Issue #2155 — Chat dispatch via WS.
  * Issue #2156 — Gateway event router.
  *
  * Exports:
  * - getGatewayConnection() — get the singleton instance
  * - initGatewayConnection() — initialize the connection (call once at startup)
  * - shutdownGatewayConnection() — graceful shutdown (call on server close)
+ * - dispatchChatMessage() / abortChatRun() — WS-first chat dispatch
  * - getGatewayEventRouter() — get the event router singleton
  * - initGatewayEventRouter(pool) — initialize the event router
  * - shutdownGatewayEventRouter() — graceful shutdown of event router
@@ -40,6 +42,8 @@ export async function shutdownGatewayConnection(): Promise<void> {
 
 export { GatewayConnectionService } from './connection.ts';
 export type { GatewayStatus, GatewayEventHandler, GatewayFrame, GatewayEventFrame, GatewayResFrame, GatewayReqFrame } from './connection.ts';
+export { dispatchChatMessage, abortChatRun } from './chat-dispatch.ts';
+export type { ChatSession, ChatMessageRecord, DispatchResult } from './chat-dispatch.ts';
 export { GatewayEventRouter } from './event-router.ts';
 
 // ── Event router singleton (#2156) ──────────────────────────────────

@@ -18,6 +18,7 @@ import { getAuthIdentity } from '../auth/middleware.ts';
 import { isAuthDisabled } from '../auth/jwt.ts';
 import { isValidUUID } from '../utils/validation.ts';
 import { enqueueWebhook } from '../webhooks/dispatcher.ts';
+import { dispatchChatMessage, abortChatRun, type ChatSession as GwChatSession, type ChatMessageRecord as GwChatMessage } from '../gateway/chat-dispatch.ts';
 import {
   createTicket,
   consumeTicket,
@@ -53,6 +54,7 @@ import {
   checkTyping,
   checkAttractAttention,
   chargeAttractAttention,
+  checkAbort,
 } from './rate-limits.ts';
 import { isSessionExpired, expireSessionIfIdle } from './session-expiry.ts';
 import { recordChatActivity } from './audit.ts';
@@ -746,13 +748,34 @@ export async function chatRoutesPlugin(
         );
 
         if (insertResult.rows.length === 0) {
-          // Idempotency key already exists — return the existing message
+          // Idempotency key already exists — fetch and re-dispatch.
+          // A retry after a 503 (dispatch failed but message was committed) must
+          // re-attempt dispatch so the message is not permanently undelivered.
           const existing = await client.query(
             `SELECT * FROM external_message WHERE thread_id = $1 AND idempotency_key = $2`,
             [session.thread_id, idempotencyKey],
           );
           await client.query('ROLLBACK');
-          return reply.code(200).send(existing.rows[0]);
+
+          // Re-attempt dispatch for the existing message
+          const gwSessionRetry: GwChatSession = {
+            id: session.id as string,
+            agent_id: session.agent_id as string,
+            thread_id: session.thread_id as string,
+            stream_secret: session.stream_secret as string,
+          };
+          const existingMsg = existing.rows[0] as Record<string, unknown>;
+          const gwMessageRetry: GwChatMessage = {
+            id: existingMsg.id as string,
+            body: existingMsg.body as string,
+            content_type: existingMsg.content_type as string,
+          };
+          // Fire-and-forget: idempotencyKey on the gateway side deduplicates
+          dispatchChatMessage(pool, gwSessionRetry, gwMessageRetry, userEmail).catch((err: unknown) => {
+            console.error('[Chat] Retry dispatch failed:', err instanceof Error ? err.message : err);
+          });
+
+          return reply.code(200).send(existingMsg);
         }
 
         message = insertResult.rows[0] as Record<string, unknown>;
@@ -774,25 +797,24 @@ export async function chatRoutesPlugin(
 
       await client.query('COMMIT');
 
-      // Dispatch webhook to OpenClaw gateway (fire-and-forget, outside transaction)
-      const webhookDestination = process.env.OPENCLAW_GATEWAY_URL || process.env.WEBHOOK_DESTINATION_URL;
-      if (webhookDestination) {
-        const sessionKey = `agent:${session.agent_id}:agent_chat:${session.thread_id}`;
-        await enqueueWebhook(pool, 'chat_message_received', webhookDestination, {
-          kind: 'chat_message_received',
-          session_key: sessionKey,
-          payload: {
-            session_id: session.id,
-            message_id: message.id,
-            content,
-            content_type: contentType,
-            user_email: userEmail,
-            streaming_callback_url: `/chat/sessions/${session.id}/stream`,
-            stream_secret: session.stream_secret,
-          },
-        }).catch((err: unknown) => {
-          console.error('[Chat] Failed to enqueue webhook:', err instanceof Error ? err.message : err);
-        });
+      // Dispatch to agent via gateway WS (primary) or HTTP webhook (fallback).
+      // Issue #2155 — WS dispatch with HTTP fallback.
+      // No double-processing: gateway deduplicates via idempotencyKey (message UUID);
+      // our external_message_key unique constraint prevents duplicate inserts.
+      const gwSession: GwChatSession = {
+        id: session.id as string,
+        agent_id: session.agent_id as string,
+        thread_id: session.thread_id as string,
+        stream_secret: session.stream_secret as string,
+      };
+      const gwMessage: GwChatMessage = {
+        id: message.id as string,
+        body: content,
+        content_type: contentType,
+      };
+      const dispatchResult = await dispatchChatMessage(pool, gwSession, gwMessage, userEmail);
+      if (!dispatchResult.dispatched) {
+        return reply.code(503).send({ error: dispatchResult.error ?? 'Message dispatch unavailable' });
       }
 
       // Emit chat:message_received event (#1946)
@@ -818,6 +840,43 @@ export async function chatRoutesPlugin(
     } finally {
       client.release();
     }
+  });
+
+  // POST /api/chat/sessions/:id/abort — Abort an in-flight agent run (#2163)
+  app.post('/chat/sessions/:id/abort', async (req, reply) => {
+    const userEmail = await getUserEmail(req);
+    if (!userEmail) {
+      return reply.code(401).send({ error: 'Authentication required' });
+    }
+
+    // Rate limit: abort (#2163)
+    const rl = checkAbort(userEmail);
+    if (!rl.allowed) {
+      void reply.header('Retry-After', String(rl.retryAfterSec ?? 60));
+      return reply.code(429).send({ error: 'Rate limit: too many abort requests' });
+    }
+
+    const params = req.params as { id: string };
+    if (!isValidUUID(params.id)) {
+      return reply.code(400).send({ error: 'Invalid session ID format' });
+    }
+
+    const namespaces = getEffectiveNamespaces(req);
+    const session = await verifySessionAccess(pool, params.id, userEmail, namespaces);
+    if (!session) {
+      return reply.code(404).send({ error: 'Session not found' });
+    }
+
+    const gwSession: GwChatSession = {
+      id: session.id as string,
+      agent_id: session.agent_id as string,
+      thread_id: session.thread_id as string,
+      stream_secret: session.stream_secret as string,
+    };
+
+    await abortChatRun(gwSession);
+
+    return reply.code(204).send();
   });
 
   // GET /api/chat/sessions/:id/messages — List messages (cursor-paginated)
