@@ -122,6 +122,7 @@ import { voiceRoutesPlugin } from './voice/routes.ts';
 import { terminalRoutesPlugin } from './terminal/routes.ts';
 import { haRoutesPlugin } from './ha-routes.ts';
 import { apiSourceRoutesPlugin } from './api-sources/routes.ts';
+import { agentRoutesPlugin } from './agents/routes.ts';
 import { chatRoutesPlugin } from './chat/routes.ts';
 import { postmarkIPWhitelistMiddleware, twilioIPWhitelistMiddleware } from './webhooks/ip-whitelist.ts';
 import { validateSsrf as ssrfValidateSsrf } from './webhooks/ssrf.ts';
@@ -23661,6 +23662,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // ── API Source Routes (API Onboarding) ─────────────────────────────
   const apiSourcePool = createPool();
   app.register(apiSourceRoutesPlugin, { pool: apiSourcePool });
+
+  // ── Agent Routes (Issue #2151 — Gateway Agent Cache) ──────────────
+  const agentPool = createPool();
+  app.register(agentRoutesPlugin, { pool: agentPool });
 
   // ── Chat Routes (Epic #1940 — Agent Chat) ─────────────────────────
   const chatPool = createPool();

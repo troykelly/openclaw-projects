@@ -4185,6 +4185,25 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
   // Store plugin state
   const state: PluginState = { config, logger, apiClient, agentId: user_id, agentEmail: user_email, resolvedNamespace, hasStaticRecall, lastNamespaceRefreshMs: 0, refreshInFlight: false, sessionCapturedKeys: new Set() };
 
+  // #2151: Push gateway agent list to backend (fire-and-forget)
+  {
+    const agentsCfg = api.config.agents as Record<string, unknown> | undefined;
+    const agentList = agentsCfg?.list;
+    if (Array.isArray(agentList) && agentList.length > 0) {
+      const defaultId = typeof agentsCfg?.default === 'string' ? agentsCfg.default : undefined;
+      apiClient.post<{ synced: number }>(
+        '/agents/sync',
+        { agents: agentList, default_id: defaultId },
+        { namespace: resolvedNamespace.default, isAgent: true, user_id, user_email },
+      ).then((res) => {
+        const count = res.success ? res.data.synced : 0;
+        logger.info(`[openclaw-projects] Agent sync: pushed ${count} agents`);
+      }).catch((err: unknown) => {
+        logger.warn(`[openclaw-projects] Agent sync failed: ${err instanceof Error ? err.message : String(err)}`);
+      });
+    }
+  }
+
   // Create tool handlers
   const handlers = createToolHandlers(state);
 

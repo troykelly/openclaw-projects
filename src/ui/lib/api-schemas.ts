@@ -193,6 +193,7 @@ export const chatAgentSchema = z.object({
   name: z.string(),
   display_name: z.string().nullable(),
   avatar_url: z.string().nullable(),
+  is_default: z.boolean().optional(),
 }).passthrough();
 
 export const chatAgentsResponseSchema = z.object({

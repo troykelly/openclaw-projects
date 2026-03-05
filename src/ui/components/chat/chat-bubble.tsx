@@ -29,9 +29,6 @@ export function ChatBubble(): React.JSX.Element | null {
 
   const unreadCount = unreadData?.count ?? 0;
 
-  // Hidden when no agents available
-  if (agents.length === 0) return null;
-
   return (
     <button
       data-testid="chat-bubble"

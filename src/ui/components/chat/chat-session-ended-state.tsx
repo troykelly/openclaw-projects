@@ -9,20 +9,28 @@
 import * as React from 'react';
 import { MessageCircle } from 'lucide-react';
 import { useChat } from '@/ui/contexts/chat-context';
+import { useAvailableAgents } from '@/ui/hooks/queries/use-chat';
 import { useCreateChatSession } from '@/ui/hooks/mutations/use-chat';
 import { Button } from '@/ui/components/ui/button';
 
 export function ChatSessionEndedState(): React.JSX.Element {
   const { setActiveSessionId } = useChat();
+  const { data: agentsData } = useAvailableAgents();
   const createSession = useCreateChatSession();
 
   const handleNewConversation = React.useCallback(() => {
-    createSession.mutate({}, {
-      onSuccess: (session) => {
-        setActiveSessionId(session.id);
+    const defaultAgent = Array.isArray(agentsData?.agents)
+      ? (agentsData.agents.find((a) => a.is_default) ?? agentsData.agents.find((a) => a.id) ?? null)
+      : null;
+    createSession.mutate(
+      { agent_id: defaultAgent?.id },
+      {
+        onSuccess: (session) => {
+          setActiveSessionId(session.id);
+        },
       },
-    });
-  }, [createSession, setActiveSessionId]);
+    );
+  }, [createSession, setActiveSessionId, agentsData?.agents]);
 
   return (
     <div

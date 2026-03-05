@@ -171,7 +171,7 @@ export async function chatRoutesPlugin(
   // Issue #1957 — List available agents
   // ================================================================
 
-  // GET /chat/agents — List available agents
+  // GET /chat/agents — List available agents (#2151: read from cache + session fallback)
   app.get('/chat/agents', async (req, reply) => {
     const identity = await getAuthIdentity(req);
     if (!identity?.email) return reply.code(401).send({ error: 'Unauthorized' });
@@ -180,17 +180,27 @@ export async function chatRoutesPlugin(
 
     try {
       const result = await pool.query(
-        `SELECT DISTINCT agent_id FROM chat_session
-         WHERE namespace = $1 AND status != 'expired'
-         ORDER BY agent_id`,
+        `SELECT agent_id AS id, agent_id AS name, display_name, avatar_url, is_default
+         FROM gateway_agent_cache
+         WHERE namespace = $1
+         UNION
+         SELECT DISTINCT cs.agent_id AS id, cs.agent_id AS name, NULL AS display_name, NULL AS avatar_url, false AS is_default
+         FROM chat_session cs
+         WHERE cs.namespace = $1 AND cs.status != 'expired'
+           AND NOT EXISTS (
+             SELECT 1 FROM gateway_agent_cache gac
+             WHERE gac.namespace = $1 AND gac.agent_id = cs.agent_id
+           )
+         ORDER BY is_default DESC, id`,
         [namespace],
       );
 
-      const agents = result.rows.map((row: { agent_id: string }) => ({
-        id: row.agent_id,
-        name: row.agent_id,
-        display_name: null,
-        avatar_url: null,
+      const agents = result.rows.map((row: { id: string; name: string; display_name: string | null; avatar_url: string | null; is_default: boolean }) => ({
+        id: row.id,
+        name: row.name,
+        display_name: row.display_name,
+        avatar_url: row.avatar_url,
+        is_default: row.is_default,
       }));
 
       return reply.send({ agents });
@@ -220,11 +230,34 @@ export async function chatRoutesPlugin(
 
     const namespace = getStoreNamespace(req);
     const body = req.body as Record<string, unknown> | null | undefined;
-    const agentId = (body?.agent_id as string | undefined)?.trim();
+    let agentId = (body?.agent_id as string | undefined)?.trim() || null;
     const title = (body?.title as string | undefined)?.trim() || null;
 
-    if (!agentId || agentId.length === 0) {
-      return reply.code(400).send({ error: 'agent_id is required' });
+    // #2151: Server-side agent_id fallback
+    if (!agentId) {
+      // 1. Check user_setting.default_agent_id
+      const settingResult = await pool.query(
+        `SELECT default_agent_id FROM user_setting WHERE email = $1`,
+        [userEmail],
+      );
+      agentId = (settingResult.rows[0]?.default_agent_id as string | undefined)?.trim() || null;
+
+      // 2. Check gateway_agent_cache for default agent
+      if (!agentId) {
+        const cacheResult = await pool.query(
+          `SELECT agent_id FROM gateway_agent_cache
+           WHERE namespace = $1
+           ORDER BY is_default DESC, agent_id
+           LIMIT 1`,
+          [namespace],
+        );
+        agentId = (cacheResult.rows[0]?.agent_id as string | undefined) || null;
+      }
+
+      // 3. If still null, return 400
+      if (!agentId) {
+        return reply.code(400).send({ error: 'agent_id is required' });
+      }
     }
 
     if (title !== null && title.length > 200) {
