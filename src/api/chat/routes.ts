@@ -34,6 +34,7 @@ import {
 } from './stream-manager.ts';
 import { getRealtimeHub } from '../realtime/hub.ts';
 import type { ChatEventType } from '../realtime/types.ts';
+import { getAgentCache } from '../gateway/index.ts';
 import {
   executeChatSendMessage,
   executeChatAttractAttention,
@@ -174,6 +175,7 @@ export async function chatRoutesPlugin(
   // ================================================================
 
   // GET /chat/agents — List available agents
+  // Issue #2157: Prefers live agents from gateway WS; falls back to DB.
   app.get('/chat/agents', async (req, reply) => {
     const identity = await getAuthIdentity(req);
     if (!identity?.email) return reply.code(401).send({ error: 'Unauthorized' });
@@ -181,20 +183,8 @@ export async function chatRoutesPlugin(
     const namespace = getStoreNamespace(req);
 
     try {
-      const result = await pool.query(
-        `SELECT DISTINCT agent_id FROM chat_session
-         WHERE namespace = $1 AND status != 'expired'
-         ORDER BY agent_id`,
-        [namespace],
-      );
-
-      const agents = result.rows.map((row: { agent_id: string }) => ({
-        id: row.agent_id,
-        name: row.agent_id,
-        display_name: null,
-        avatar_url: null,
-      }));
-
+      const cache = getAgentCache();
+      const agents = await cache.getAgents(pool, namespace);
       return reply.send({ agents });
     } catch (err) {
       req.log.error(err, 'Failed to list chat agents');

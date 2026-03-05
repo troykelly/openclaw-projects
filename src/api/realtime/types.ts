@@ -48,7 +48,9 @@ export type RealtimeEventType =
   // Chat events (#1946)
   | ChatEventType
   // Gateway stream events (#2156)
-  | GatewayStreamEventType;
+  | GatewayStreamEventType
+  // Agent presence events (#2158)
+  | 'agent:status_changed';
 
 /**
  * Real-time event message structure
@@ -222,4 +224,16 @@ export interface ChatTypingEventData {
 export interface ChatReadCursorEventData {
   session_id: string;
   last_read_message_id: string;
+}
+
+// ============================================================================
+// Agent Presence Event Data Types (#2158)
+// ============================================================================
+
+/**
+ * Agent status changed event data
+ */
+export interface AgentStatusChangedEventData {
+  agent_id: string;
+  status: 'online' | 'busy' | 'offline' | 'unknown';
 }

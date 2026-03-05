@@ -113,7 +113,7 @@ export function chatPaths(): OpenApiDomainModule {
         get: {
           operationId: 'listChatAgents',
           summary: 'List available chat agents',
-          description: 'Returns distinct agents from existing chat sessions in the namespace.',
+          description: 'Returns agents from the gateway (live) or from existing chat sessions (fallback). Includes agent presence status.',
           tags: ['Chat'],
           responses: {
             '200': jsonResponse('Available agents', {
@@ -123,12 +123,15 @@ export function chatPaths(): OpenApiDomainModule {
                   type: 'array',
                   items: {
                     type: 'object',
-                    required: ['id', 'name'],
+                    required: ['id', 'name', 'status'],
                     properties: {
                       id: { type: 'string', description: 'Agent identifier' },
                       name: { type: 'string', description: 'Agent name' },
-                      display_name: { type: 'string', nullable: true, description: 'Human-friendly name' },
-                      avatar_url: { type: 'string', nullable: true, description: 'Agent avatar URL' },
+                      status: {
+                        type: 'string',
+                        enum: ['online', 'busy', 'offline', 'unknown'],
+                        description: 'Agent presence status',
+                      },
                     },
                   },
                 },
