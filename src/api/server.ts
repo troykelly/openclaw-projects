@@ -123,7 +123,7 @@ import { terminalRoutesPlugin } from './terminal/routes.ts';
 import { haRoutesPlugin } from './ha-routes.ts';
 import { apiSourceRoutesPlugin } from './api-sources/routes.ts';
 import { chatRoutesPlugin } from './chat/routes.ts';
-import { initGatewayConnection, shutdownGatewayConnection, getGatewayConnection } from './gateway/index.ts';
+import { initGatewayConnection, shutdownGatewayConnection, getGatewayConnection, initPresenceTracker, initAgentCache } from './gateway/index.ts';
 import { postmarkIPWhitelistMiddleware, twilioIPWhitelistMiddleware } from './webhooks/ip-whitelist.ts';
 import { validateSsrf as ssrfValidateSsrf } from './webhooks/ssrf.ts';
 import { computeNextRunAt } from './skill-store/schedule-next-run.ts';
@@ -1735,6 +1735,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.addHook('onReady', async () => {
     try {
       await initGatewayConnection();
+      // Issue #2157, #2158: Wire up presence tracker and agent cache after connection init
+      initPresenceTracker();
+      initAgentCache();
     } catch (err) {
       // Log but don't prevent server startup — gateway WS is enhancement, not critical
       console.error('[GatewayWS] Failed to initialize gateway connection:', (err as Error).message);
