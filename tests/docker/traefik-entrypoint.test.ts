@@ -321,6 +321,93 @@ describe('Traefik dynamic config: api-ws-router (Issue #2069)', () => {
   });
 });
 
+describe('Traefik dynamic config: api-webhook-router (Issue #2167)', () => {
+  const defaultEnv = {
+    DOMAIN: 'test.example.com',
+    ACME_EMAIL: 'test@example.com',
+    TRUSTED_IPS: '',
+    DISABLE_HTTP: 'false',
+    SERVICE_HOST: '[::1]',
+    MODSEC_HOST_PORT: '8080',
+    API_HOST_PORT: '3001',
+    APP_HOST_PORT: '8081',
+    GATEWAY_HOST_PORT: '18789',
+    SEAWEEDFS_HOST_PORT: '8333',
+  };
+
+  function getParsedConfig(env = defaultEnv) {
+    const output = runSedSubstitution(env);
+    return parseYaml(output) as {
+      http: {
+        routers: Record<string, { rule: string; service: string; priority?: number; middlewares?: string[] }>;
+      };
+    };
+  }
+
+  it('has api-webhook-router that bypasses ModSecurity', () => {
+    const config = getParsedConfig();
+    const router = config.http.routers['api-webhook-router'];
+    expect(router).toBeDefined();
+    expect(router.service).toBe('api-service');
+  });
+
+  it('api-webhook-router has priority between ws-router (110) and api-router (default)', () => {
+    const config = getParsedConfig();
+    const router = config.http.routers['api-webhook-router'];
+    expect(router.priority).toBe(105);
+  });
+
+  it('api-webhook-router matches all inbound webhook paths', () => {
+    const config = getParsedConfig();
+    const router = config.http.routers['api-webhook-router'];
+    expect(router.rule).toContain('Host(`api.test.example.com`)');
+    expect(router.rule).toContain('Path(`/cloudflare/email`)');
+    expect(router.rule).toContain('Path(`/postmark/inbound`)');
+    expect(router.rule).toContain('Path(`/twilio/sms`)');
+  });
+
+  it('api-webhook-router restricts bypass to POST method only', () => {
+    const config = getParsedConfig();
+    const router = config.http.routers['api-webhook-router'];
+    expect(router.rule).toContain('Method(`POST`)');
+  });
+
+  it('api-webhook-router has security-headers and rate-limit middlewares', () => {
+    const config = getParsedConfig();
+    const router = config.http.routers['api-webhook-router'];
+    expect(router.middlewares).toContain('security-headers');
+    expect(router.middlewares).toContain('rate-limit');
+  });
+
+  it('api-webhook-router does NOT use api-cors middleware (webhooks are server-to-server)', () => {
+    const config = getParsedConfig();
+    const router = config.http.routers['api-webhook-router'];
+    expect(router.middlewares).not.toContain('api-cors');
+  });
+
+  it('api-router still handles non-webhook API traffic through ModSecurity', () => {
+    const config = getParsedConfig();
+    const apiRouter = config.http.routers['api-router'];
+    expect(apiRouter.service).toBe('modsecurity-service');
+  });
+
+  it('api-webhook-router rule does NOT match status callback endpoints', () => {
+    const config = getParsedConfig();
+    const router = config.http.routers['api-webhook-router'];
+    // Status callbacks carry structured data, not user content — they stay behind WAF
+    expect(router.rule).not.toContain('/twilio/sms/status');
+    expect(router.rule).not.toContain('/postmark/email/status');
+  });
+
+  it('api-webhook-router uses exact Path() matchers, not PathPrefix()', () => {
+    const config = getParsedConfig();
+    const router = config.http.routers['api-webhook-router'];
+    // Path() is exact match; PathPrefix() would bypass WAF for sub-paths like /twilio/sms/anything
+    expect(router.rule).toContain('Path(`/cloudflare/email`)');
+    expect(router.rule).not.toContain('PathPrefix');
+  });
+});
+
 describe('ModSecurity ALLOWED_METHODS in compose files (Issue #1917)', () => {
   const COMPOSE_FILES = ['docker-compose.traefik.yml', 'docker-compose.full.yml'];
 
