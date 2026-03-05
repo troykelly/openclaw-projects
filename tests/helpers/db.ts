@@ -119,6 +119,8 @@ const APPLICATION_TABLES = [
   'chat_session',
   // Dev Prompts (Epic #2011)
   'dev_prompt',
+  // Gateway connection (Epic #2153)
+  'gateway_connection',
   // Inbound routing (Epic #1497) — FK children before prompt_template
   'channel_default',
   'inbound_destination',
