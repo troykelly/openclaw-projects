@@ -108,7 +108,7 @@ describe('lifecycle hooks', () => {
         const mockGet = vi.fn().mockResolvedValue({
           success: true,
           data: {
-            memories: [{ id: '1', content: 'User prefers dark mode.', category: 'preference', score: 0.95 }],
+            results: [{ id: '1', content: 'User prefers dark mode.', type: 'preference', score: 0.95 }],
           },
         });
         const client = { ...mockApiClient, get: mockGet };
@@ -132,7 +132,7 @@ describe('lifecycle hooks', () => {
         const mockGet = vi.fn().mockResolvedValue({
           success: true,
           data: {
-            memories: [{ id: '1', content: 'User prefers dark mode.', category: 'preference', score: 0.95 }],
+            results: [{ id: '1', content: 'User prefers dark mode.', type: 'preference', score: 0.95 }],
           },
         });
         const client = { ...mockApiClient, get: mockGet };
@@ -190,7 +190,7 @@ describe('lifecycle hooks', () => {
       it('should return null when no memories found', async () => {
         const mockGet = vi.fn().mockResolvedValue({
           success: true,
-          data: { memories: [] },
+          data: { results: [] },
         });
         const client = { ...mockApiClient, get: mockGet };
 
@@ -232,10 +232,10 @@ describe('lifecycle hooks', () => {
         const mockGet = vi.fn().mockResolvedValue({
           success: true,
           data: {
-            memories: [
-              { id: '1', content: 'High relevance memory', category: 'fact', score: 0.9 },
-              { id: '2', content: 'Low relevance memory', category: 'fact', score: 0.5 },
-              { id: '3', content: 'Very low relevance memory', category: 'fact', score: 0.3 },
+            results: [
+              { id: '1', content: 'High relevance memory', type: 'fact', score: 0.9 },
+              { id: '2', content: 'Low relevance memory', type: 'fact', score: 0.5 },
+              { id: '3', content: 'Very low relevance memory', type: 'fact', score: 0.3 },
             ],
           },
         });
@@ -260,9 +260,9 @@ describe('lifecycle hooks', () => {
         const mockGet = vi.fn().mockResolvedValue({
           success: true,
           data: {
-            memories: [
-              { id: '1', content: 'Best of the low', category: 'fact', score: 0.5 },
-              { id: '2', content: 'Worst memory', category: 'fact', score: 0.2 },
+            results: [
+              { id: '1', content: 'Best of the low', type: 'fact', score: 0.5 },
+              { id: '2', content: 'Worst memory', type: 'fact', score: 0.2 },
             ],
           },
         });
@@ -287,9 +287,9 @@ describe('lifecycle hooks', () => {
         const mockGet = vi.fn().mockResolvedValue({
           success: true,
           data: {
-            memories: [
-              { id: '1', content: 'Scored memory', category: 'fact', score: 0.9 },
-              { id: '2', content: 'Unscored memory', category: 'fact' },
+            results: [
+              { id: '1', content: 'Scored memory', type: 'fact', score: 0.9 },
+              { id: '2', content: 'Unscored memory', type: 'fact' },
             ],
           },
         });
@@ -315,8 +315,8 @@ describe('lifecycle hooks', () => {
         const mockGet = vi.fn().mockResolvedValue({
           success: true,
           data: {
-            memories: [
-              { id: '1', content: 'User prefers dark mode.', category: 'preference', score: 0.95 },
+            results: [
+              { id: '1', content: 'User prefers dark mode.', type: 'preference', score: 0.95 },
             ],
           },
         });
@@ -341,8 +341,8 @@ describe('lifecycle hooks', () => {
         const mockGet = vi.fn().mockResolvedValue({
           success: true,
           data: {
-            memories: [
-              { id: '1', content: 'Some fact', category: 'fact', score: 0.9 },
+            results: [
+              { id: '1', content: 'Some fact', type: 'fact', score: 0.9 },
             ],
           },
         });
@@ -369,7 +369,7 @@ describe('lifecycle hooks', () => {
       it('should not log prompt content at info level', async () => {
         const mockGet = vi.fn().mockResolvedValue({
           success: true,
-          data: { memories: [{ id: '1', content: 'Some context', category: 'fact' }] },
+          data: { results: [{ id: '1', content: 'Some context', type: 'fact' }] },
         });
         const client = { ...mockApiClient, get: mockGet };
 
@@ -844,6 +844,186 @@ describe('lifecycle hooks', () => {
         expect(result?.prependContext).toContain('Recalled from long-term memory');
         expect(result?.prependContext).toContain('memory_recall');
       });
+    });
+  });
+
+  describe('false timeout warning suppression (#2174)', () => {
+    it('should NOT log timeout warning when auto-recall completes before timeout', async () => {
+      vi.useFakeTimers();
+      const mockGet = vi.fn().mockResolvedValue({
+        success: true,
+        data: {
+          results: [{ id: '1', content: 'Some context', type: 'fact', score: 0.9 }],
+        },
+      });
+      const client = { ...mockApiClient, get: mockGet };
+
+      const hook = createAutoRecallHook({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        getAgentId: () => 'agent-1',
+        timeoutMs: 5000,
+      });
+
+      const resultPromise = hook({ prompt: 'Hello' });
+
+      // Advance past the timeout period
+      await vi.advanceTimersByTimeAsync(6000);
+
+      await resultPromise;
+
+      // The warning should NOT have been logged since the fetch completed fast
+      const warnCalls = (mockLogger.warn as ReturnType<typeof vi.fn>).mock.calls;
+      const timeoutWarnings = warnCalls.filter(
+        (call: unknown[]) => typeof call[0] === 'string' && call[0].includes('timeout'),
+      );
+      expect(timeoutWarnings).toHaveLength(0);
+
+      vi.useRealTimers();
+    });
+
+    it('should NOT log timeout warning when auto-capture completes before timeout', async () => {
+      vi.useFakeTimers();
+      const mockPost = vi.fn().mockResolvedValue({
+        success: true,
+        data: { captured: 1 },
+      });
+      const client = { ...mockApiClient, post: mockPost };
+
+      const hook = createAutoCaptureHook({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        getAgentId: () => 'agent-1',
+        timeoutMs: 10000,
+      });
+
+      const resultPromise = hook({
+        messages: [
+          { role: 'user', content: 'Remember I prefer dark mode' },
+          { role: 'assistant', content: 'Noted.' },
+        ],
+      });
+
+      // Advance past the timeout period
+      await vi.advanceTimersByTimeAsync(11000);
+
+      await resultPromise;
+
+      // The warning should NOT have been logged since the capture completed fast
+      const warnCalls = (mockLogger.warn as ReturnType<typeof vi.fn>).mock.calls;
+      const timeoutWarnings = warnCalls.filter(
+        (call: unknown[]) => typeof call[0] === 'string' && call[0].includes('timeout'),
+      );
+      expect(timeoutWarnings).toHaveLength(0);
+
+      vi.useRealTimers();
+    });
+
+    it('should NOT log timeout warning when graph-aware-recall completes before timeout', async () => {
+      vi.useFakeTimers();
+      const mockPost = vi.fn().mockResolvedValue({
+        success: true,
+        data: {
+          context: 'some context',
+          memories: [
+            {
+              id: '1', title: 'Fact', content: 'Something', memory_type: 'fact',
+              similarity: 0.9, importance: 0.8, confidence: 0.9, combinedRelevance: 0.87,
+              scopeType: 'personal', scopeLabel: 'me',
+            },
+          ],
+          metadata: { queryTimeMs: 50, scopeCount: 1, totalMemoriesFound: 1, search_type: 'graph', maxDepth: 1 },
+        },
+      });
+      const client = { ...mockApiClient, post: mockPost };
+
+      const hook = createGraphAwareRecallHook({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        getAgentId: () => 'agent-1',
+        timeoutMs: 5000,
+      });
+
+      const resultPromise = hook({ prompt: 'Hello' });
+
+      // Advance past the timeout period
+      await vi.advanceTimersByTimeAsync(6000);
+
+      await resultPromise;
+
+      // The warning should NOT have been logged since the fetch completed fast
+      const warnCalls = (mockLogger.warn as ReturnType<typeof vi.fn>).mock.calls;
+      const timeoutWarnings = warnCalls.filter(
+        (call: unknown[]) => typeof call[0] === 'string' && call[0].includes('timeout'),
+      );
+      expect(timeoutWarnings).toHaveLength(0);
+
+      vi.useRealTimers();
+    });
+
+    it('should NOT log timeout warning when auto-recall errors before timeout', async () => {
+      vi.useFakeTimers();
+      const mockGet = vi.fn().mockRejectedValue(new Error('Network error'));
+      const client = { ...mockApiClient, get: mockGet };
+
+      const hook = createAutoRecallHook({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        getAgentId: () => 'agent-1',
+        timeoutMs: 5000,
+      });
+
+      const resultPromise = hook({ prompt: 'Hello' });
+
+      // Advance past the timeout period
+      await vi.advanceTimersByTimeAsync(6000);
+
+      const result = await resultPromise;
+      expect(result).toBeNull();
+
+      // Should log error but NOT timeout warning
+      expect(mockLogger.error).toHaveBeenCalled();
+      const warnCalls = (mockLogger.warn as ReturnType<typeof vi.fn>).mock.calls;
+      const timeoutWarnings = warnCalls.filter(
+        (call: unknown[]) => typeof call[0] === 'string' && call[0].includes('timeout'),
+      );
+      expect(timeoutWarnings).toHaveLength(0);
+
+      vi.useRealTimers();
+    });
+
+    it('should still log timeout warning when operation genuinely exceeds timeout', async () => {
+      vi.useFakeTimers();
+      // This mock will never resolve (simulating a hung request)
+      const mockGet = vi.fn().mockImplementation(() => new Promise(() => {}));
+      const client = { ...mockApiClient, get: mockGet };
+
+      const hook = createAutoRecallHook({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        getAgentId: () => 'agent-1',
+        timeoutMs: 100,
+      });
+
+      const resultPromise = hook({ prompt: 'Hello' });
+
+      // Advance past the timeout
+      await vi.advanceTimersByTimeAsync(200);
+
+      const result = await resultPromise;
+
+      expect(result).toBeNull();
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('timeout'),
+        expect.any(Object),
+      );
+
+      vi.useRealTimers();
     });
   });
 

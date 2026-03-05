@@ -225,9 +225,9 @@ describe('CLI Commands', () => {
       const mockGet = vi.fn().mockResolvedValue({
         success: true,
         data: {
-          memories: [
-            { id: '1', content: 'User prefers dark mode', score: 0.95 },
-            { id: '2', content: 'User is in timezone UTC+10', score: 0.85 },
+          results: [
+            { id: '1', content: 'User prefers dark mode', score: 0.95, type: 'preference' },
+            { id: '2', content: 'User is in timezone UTC+10', score: 0.85, type: 'fact' },
           ],
         },
       });
@@ -248,7 +248,7 @@ describe('CLI Commands', () => {
     it('should use q= parameter for the search query', async () => {
       const mockGet = vi.fn().mockResolvedValue({
         success: true,
-        data: { memories: [] },
+        data: { results: [] },
       });
       const client = { ...mockApiClient, get: mockGet };
 
@@ -266,7 +266,7 @@ describe('CLI Commands', () => {
     it('should support limit option', async () => {
       const mockGet = vi.fn().mockResolvedValue({
         success: true,
-        data: { memories: [] },
+        data: { results: [] },
       });
       const client = { ...mockApiClient, get: mockGet };
 
@@ -283,7 +283,7 @@ describe('CLI Commands', () => {
     it('should use default limit when not specified', async () => {
       const mockGet = vi.fn().mockResolvedValue({
         success: true,
-        data: { memories: [] },
+        data: { results: [] },
       });
       const client = { ...mockApiClient, get: mockGet };
 
@@ -327,7 +327,7 @@ describe('CLI Commands', () => {
       const mockGet = vi.fn().mockResolvedValue({
         success: true,
         data: {
-          memories: [{ id: '1', content: 'Memory content', score: 0.95, category: 'preference' }],
+          results: [{ id: '1', content: 'Memory content', score: 0.95, type: 'preference' }],
         },
       });
       const client = { ...mockApiClient, get: mockGet };
@@ -366,7 +366,7 @@ describe('CLI Commands', () => {
     it('should log CLI command execution without content', async () => {
       const mockGet = vi.fn().mockResolvedValue({
         success: true,
-        data: { memories: [] },
+        data: { results: [] },
       });
       const client = { ...mockApiClient, get: mockGet };
 

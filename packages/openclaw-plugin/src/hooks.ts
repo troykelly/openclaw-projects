@@ -73,12 +73,26 @@ export interface HealthCheckResult {
 }
 
 /**
- * Create a promise that rejects after a timeout.
+ * Cancellable timeout for use with Promise.race.
+ * Returns a handle that allows clearing the timer when the main operation
+ * completes first, preventing false "timeout exceeded" warnings (#2174).
  */
-function createTimeoutPromise<T>(ms: number, timeoutResult: T): Promise<T> {
-  return new Promise((resolve) => {
-    setTimeout(() => resolve(timeoutResult), ms);
+interface CancellableTimeout<T> {
+  promise: Promise<T>;
+  cancel: () => void;
+}
+
+function createCancellableTimeout<T>(ms: number, timeoutResult: T): CancellableTimeout<T> {
+  let timerId: ReturnType<typeof setTimeout> | undefined;
+  const promise = new Promise<T>((resolve) => {
+    timerId = setTimeout(() => resolve(timeoutResult), ms);
   });
+  return {
+    promise,
+    cancel: () => {
+      if (timerId !== undefined) clearTimeout(timerId);
+    },
+  };
 }
 
 /**
@@ -144,15 +158,20 @@ export function createAutoRecallHook(options: AutoRecallHookOptions): (event: Au
       promptLength: event.prompt.length,
     });
 
+    const timeout = createCancellableTimeout<AutoRecallResult | null>(timeoutMs, null);
+
     try {
       // Race between API call and timeout
       const result = await Promise.race([
         fetchContext(client, user_id, event.prompt, logger, config.maxRecallMemories, config.minRecallScore),
-        createTimeoutPromise<AutoRecallResult | null>(timeoutMs, null).then(() => {
+        timeout.promise.then(() => {
           logger.warn('auto-recall timeout exceeded', { user_id, timeoutMs });
           return null;
         }),
       ]);
+
+      // Cancel the timeout if the fetch won the race (#2174)
+      timeout.cancel();
 
       if (result === null) {
         logger.debug('auto-recall returned no context', { user_id });
@@ -166,6 +185,7 @@ export function createAutoRecallHook(options: AutoRecallHookOptions): (event: Au
 
       return result;
     } catch (error) {
+      timeout.cancel();
       logger.error('auto-recall failed', {
         user_id,
         error: error instanceof Error ? error.message : String(error),
@@ -197,10 +217,10 @@ async function fetchContext(client: ApiClient, user_id: string, prompt: string, 
   });
 
   const response = await client.get<{
-    memories: Array<{
+    results: Array<{
       id: string;
       content: string;
-      category: string;
+      type: string;
       score?: number;
     }>;
   }>(`/memories/search?${queryParams.toString()}`, { user_id });
@@ -214,7 +234,7 @@ async function fetchContext(client: ApiClient, user_id: string, prompt: string, 
     return null;
   }
 
-  const memories = response.data.memories ?? [];
+  const memories = response.data.results ?? [];
   if (memories.length === 0) {
     return null;
   }
@@ -231,7 +251,7 @@ async function fetchContext(client: ApiClient, user_id: string, prompt: string, 
   // Include provenance markers with memory_type and relevance % (#1926).
   const context = filtered
     .map((m) => {
-      const label = sanitizeLabel(m.category);
+      const label = sanitizeLabel(m.type);
       const wrapped = wrapExternalMessage(m.content, { channel: `memory:${label}`, nonce });
       const relevancePct = Math.round(safeScore(m.score) * 100);
       return `- [${label}] (relevance: ${relevancePct}%) ${wrapped}`;
@@ -310,17 +330,26 @@ export function createAutoCaptureHook(options: AutoCaptureHookOptions): (event: 
       message_count: event.messages.length,
     });
 
+    const timeout = createCancellableTimeout<'timeout'>(timeoutMs, 'timeout');
+
     try {
       // Race between API call and timeout
-      await Promise.race([
-        captureContext(client, user_id, event.messages, logger),
-        createTimeoutPromise<void>(timeoutMs, undefined).then(() => {
+      const winner = await Promise.race([
+        captureContext(client, user_id, event.messages, logger).then(() => 'done' as const),
+        timeout.promise.then((v) => {
           logger.warn('auto-capture timeout exceeded', { user_id, timeoutMs });
+          return v;
         }),
       ]);
 
-      logger.debug('auto-capture completed', { user_id });
+      // Cancel the timeout if the capture won the race (#2174)
+      timeout.cancel();
+
+      if (winner !== 'timeout') {
+        logger.debug('auto-capture completed', { user_id });
+      }
     } catch (error) {
+      timeout.cancel();
       logger.error('auto-capture failed', {
         user_id,
         error: error instanceof Error ? error.message : String(error),
@@ -437,15 +466,20 @@ export function createGraphAwareRecallHook(options: GraphAwareRecallHookOptions)
       promptLength: event.prompt.length,
     });
 
+    const timeout = createCancellableTimeout<AutoRecallResult | null>(timeoutMs, null);
+
     try {
       // Race between API call and timeout
       const result = await Promise.race([
         fetchGraphAwareContext(client, user_id, user_email, event.prompt, logger, config.maxRecallMemories, config.minRecallScore),
-        createTimeoutPromise<AutoRecallResult | null>(timeoutMs, null).then(() => {
+        timeout.promise.then(() => {
           logger.warn('graph-aware-recall timeout exceeded', { user_id, timeoutMs });
           return null;
         }),
       ]);
+
+      // Cancel the timeout if the fetch won the race (#2174)
+      timeout.cancel();
 
       if (result === null) {
         logger.debug('graph-aware-recall returned no context', { user_id });
@@ -459,6 +493,7 @@ export function createGraphAwareRecallHook(options: GraphAwareRecallHookOptions)
 
       return result;
     } catch (error) {
+      timeout.cancel();
       logger.error('graph-aware-recall failed', {
         user_id,
         error: error instanceof Error ? error.message : String(error),

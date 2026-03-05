@@ -222,7 +222,7 @@ describe('Graph-Aware Integration', () => {
       const mockGet = vi.fn().mockResolvedValue({
         success: true,
         data: {
-          memories: [{ id: '1', content: 'User prefers dark mode.', category: 'preference', score: 0.95 }],
+          results: [{ id: '1', content: 'User prefers dark mode.', type: 'preference', score: 0.95 }],
         },
       });
       const client = { ...mockApiClient, post: mockPost, get: mockGet };
