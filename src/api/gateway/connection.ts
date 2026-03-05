@@ -102,6 +102,10 @@ export class GatewayConnectionService {
   // Event handlers
   private eventHandlers: GatewayEventHandler[] = [];
 
+  // Lifecycle callbacks (#2157, #2158)
+  private disconnectCallbacks: Array<() => void> = [];
+  private connectedCallbacks: Array<() => void> = [];
+
   // Pending requests
   private pendingRequests = new Map<string, PendingRequest>();
 
@@ -178,6 +182,16 @@ export class GatewayConnectionService {
 
   onEvent(handler: GatewayEventHandler): void {
     this.eventHandlers.push(handler);
+  }
+
+  /** Register a callback invoked when the connection drops. (#2157, #2158) */
+  onDisconnect(callback: () => void): void {
+    this.disconnectCallbacks.push(callback);
+  }
+
+  /** Register a callback invoked when the connection is (re)established. (#2157) */
+  onConnected(callback: () => void): void {
+    this.connectedCallbacks.push(callback);
   }
 
   getStatus(): GatewayStatus {
@@ -450,6 +464,11 @@ export class GatewayConnectionService {
     if (this.resolveInit) {
       this.resolveInit();
     }
+
+    // Notify connected callbacks (#2157)
+    for (const cb of this.connectedCallbacks) {
+      try { cb(); } catch (err) { console.error(`${LOG_PREFIX} onConnected callback error:`, err); }
+    }
   }
 
   private _onDisconnect(): void {
@@ -469,6 +488,13 @@ export class GatewayConnectionService {
 
     // Reject pending requests
     this._rejectPendingRequests(new Error('Gateway WebSocket disconnected'));
+
+    // Notify disconnect callbacks (#2157, #2158)
+    if (wasConnected) {
+      for (const cb of this.disconnectCallbacks) {
+        try { cb(); } catch (err) { console.error(`${LOG_PREFIX} onDisconnect callback error:`, err); }
+      }
+    }
 
     // Schedule reconnect (unless shutdown was requested)
     if (!this.shutdownRequested) {

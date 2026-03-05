@@ -34,6 +34,7 @@ import {
 } from './stream-manager.ts';
 import { getRealtimeHub } from '../realtime/hub.ts';
 import type { ChatEventType } from '../realtime/types.ts';
+import { getAgentCache } from '../gateway/index.ts';
 import {
   executeChatSendMessage,
   executeChatAttractAttention,
@@ -173,7 +174,8 @@ export async function chatRoutesPlugin(
   // Issue #1957 — List available agents
   // ================================================================
 
-  // GET /chat/agents — List available agents (#2151: read from cache + session fallback)
+  // GET /chat/agents — List available agents
+  // Issue #2157: Prefers live agents from gateway WS; falls back to DB.
   app.get('/chat/agents', async (req, reply) => {
     const identity = await getAuthIdentity(req);
     if (!identity?.email) return reply.code(401).send({ error: 'Unauthorized' });
@@ -181,30 +183,8 @@ export async function chatRoutesPlugin(
     const namespace = getStoreNamespace(req);
 
     try {
-      const result = await pool.query(
-        `SELECT agent_id AS id, agent_id AS name, display_name, avatar_url, is_default
-         FROM gateway_agent_cache
-         WHERE namespace = $1
-         UNION
-         SELECT DISTINCT cs.agent_id AS id, cs.agent_id AS name, NULL AS display_name, NULL AS avatar_url, false AS is_default
-         FROM chat_session cs
-         WHERE cs.namespace = $1 AND cs.status != 'expired'
-           AND NOT EXISTS (
-             SELECT 1 FROM gateway_agent_cache gac
-             WHERE gac.namespace = $1 AND gac.agent_id = cs.agent_id
-           )
-         ORDER BY is_default DESC, id`,
-        [namespace],
-      );
-
-      const agents = result.rows.map((row: { id: string; name: string; display_name: string | null; avatar_url: string | null; is_default: boolean }) => ({
-        id: row.id,
-        name: row.name,
-        display_name: row.display_name,
-        avatar_url: row.avatar_url,
-        is_default: row.is_default,
-      }));
-
+      const cache = getAgentCache();
+      const agents = await cache.getAgents(pool, namespace);
       return reply.send({ agents });
     } catch (err) {
       req.log.error(err, 'Failed to list chat agents');
