@@ -124,6 +124,7 @@ import { haRoutesPlugin } from './ha-routes.ts';
 import { apiSourceRoutesPlugin } from './api-sources/routes.ts';
 import { agentRoutesPlugin } from './agents/routes.ts';
 import { chatRoutesPlugin } from './chat/routes.ts';
+import { initGatewayConnection, shutdownGatewayConnection, getGatewayConnection } from './gateway/index.ts';
 import { postmarkIPWhitelistMiddleware, twilioIPWhitelistMiddleware } from './webhooks/ip-whitelist.ts';
 import { validateSsrf as ssrfValidateSsrf } from './webhooks/ssrf.ts';
 import { computeNextRunAt } from './skill-store/schedule-next-run.ts';
@@ -909,8 +910,23 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // Detailed health status for monitoring
   app.get('/health', async (_req, reply) => {
     const health = await healthRegistry.checkAll();
+    const gwStatus = getGatewayConnection().getStatus();
+    const enriched = {
+      ...health,
+      components: {
+        ...health.components,
+        gateway_ws: { connected: gwStatus.connected },
+      },
+    };
     const status_code = health.status === 'unhealthy' ? 503 : 200;
-    return reply.code(status_code).send(health);
+    return reply.code(status_code).send(enriched);
+  });
+
+  // ── Gateway WS status (Issue #2154) ────────────────────────────────
+  // Requires auth (not in authSkipPaths) — reveals infrastructure topology
+  app.get('/gateway/status', async (_req, reply) => {
+    const status = getGatewayConnection().getStatus();
+    return reply.send(status);
   });
 
   // ============================================================
@@ -1714,8 +1730,21 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     // and forward events to this SSE stream. For now, clients can use WebSocket.
   });
 
+  // ── Gateway WS connection (Issue #2154) ────────────────────────────
+  // Start persistent WS connection to OpenClaw gateway (non-blocking).
+  // If OPENCLAW_GATEWAY_URL is unset, this is a no-op.
+  app.addHook('onReady', async () => {
+    try {
+      await initGatewayConnection();
+    } catch (err) {
+      // Log but don't prevent server startup — gateway WS is enhancement, not critical
+      console.error('[GatewayWS] Failed to initialize gateway connection:', (err as Error).message);
+    }
+  });
+
   // Cleanup on server close
   app.addHook('onClose', async () => {
+    await shutdownGatewayConnection();
     await realtimeHub.shutdown();
     if (realtimePool) {
       await realtimePool.end();

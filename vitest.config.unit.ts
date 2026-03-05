@@ -73,6 +73,7 @@ export default defineProject({
       'src/api/geolocation/registry.test.ts',
       'src/api/geolocation/bootstrap.test.ts',
       'src/api/geolocation/crypto.test.ts',
+      'src/api/gateway/connection.test.ts',
       'src/worker/**/*.test.ts',
       'src/tmux-worker/**/*.test.ts',
     ],
