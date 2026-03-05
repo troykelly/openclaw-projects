@@ -1,6 +1,6 @@
 /**
  * Real-time event types and interfaces.
- * Part of Issues #213, #634 (note presence), #1946 (chat events)
+ * Part of Issues #213, #634 (note presence), #1946 (chat events), #2156 (gateway streaming)
  */
 
 /**
@@ -12,6 +12,15 @@ export type ChatEventType =
   | 'chat:session_ended'
   | 'chat:typing'
   | 'chat:read_cursor_updated';
+
+/**
+ * Gateway stream event types (#2156).
+ * Emitted by the event router when ChatEvents arrive from the gateway WS.
+ */
+export type GatewayStreamEventType =
+  | 'stream:chunk'
+  | 'stream:aborted'
+  | 'stream:failed';
 
 /**
  * Available real-time event types
@@ -37,7 +46,9 @@ export type RealtimeEventType =
   | 'note:presence_list'
   | 'note:presence_cursor'
   // Chat events (#1946)
-  | ChatEventType;
+  | ChatEventType
+  // Gateway stream events (#2156)
+  | GatewayStreamEventType;
 
 /**
  * Real-time event message structure
