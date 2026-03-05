@@ -60,6 +60,8 @@ export const CHAT_LIMITS = {
   attractHourly: { max: envInt('CHAT_RL_ATTRACT_HOUR', 3), windowMs: 3_600_000 },
   /** Max attract_attention per day per user. */
   attractDaily: { max: envInt('CHAT_RL_ATTRACT_DAY', 10), windowMs: 86_400_000 },
+  /** Max abort requests per minute per user (#2163). */
+  abort: { max: envInt('CHAT_RL_ABORT_MAX', 10), windowMs: 60_000 },
 } as const;
 
 // ── In-memory stores ─────────────────────────────────────────────
@@ -70,6 +72,7 @@ const wsConnectionCounts = new Map<string, number>();
 const streamRateLimits = new Map<string, StreamRateState>();
 const typingLimits = new Map<string, SlidingCounter>();
 const attractLimits = new Map<string, DualCounter>();
+const abortLimits = new Map<string, SlidingCounter>();
 
 // ── Rate limit result ────────────────────────────────────────────
 
@@ -242,6 +245,16 @@ export function chargeAttractAttention(userEmail: string): void {
   }
 }
 
+/** Check and charge abort rate limit (#2163). */
+export function checkAbort(userEmail: string): RateLimitResult {
+  return checkSlidingWindow(
+    abortLimits,
+    userEmail,
+    CHAT_LIMITS.abort.max,
+    CHAT_LIMITS.abort.windowMs,
+  );
+}
+
 /** Reset all rate limit state (for testing). */
 export function resetAllRateLimits(): void {
   sessionCreationLimits.clear();
@@ -250,6 +263,7 @@ export function resetAllRateLimits(): void {
   streamRateLimits.clear();
   typingLimits.clear();
   attractLimits.clear();
+  abortLimits.clear();
 }
 
 // ── Extend per-user.ts categories ────────────────────────────────

@@ -36,3 +36,5 @@ export async function shutdownGatewayConnection(): Promise<void> {
 
 export { GatewayConnectionService } from './connection.ts';
 export type { GatewayStatus, GatewayEventHandler, GatewayFrame, GatewayEventFrame, GatewayResFrame, GatewayReqFrame } from './connection.ts';
+export { dispatchChatMessage, abortChatRun } from './chat-dispatch.ts';
+export type { ChatSession, ChatMessageRecord, DispatchResult } from './chat-dispatch.ts';
