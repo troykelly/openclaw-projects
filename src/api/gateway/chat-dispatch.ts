@@ -72,7 +72,7 @@ function resolveTimeoutMs(): number {
  * Never throws — catches all dispatch errors and returns a result object.
  */
 export async function dispatchChatMessage(
-  pool: unknown,
+  pool: Pool,
   session: ChatSession,
   message: ChatMessageRecord,
   userEmail: string,
@@ -112,7 +112,7 @@ export async function dispatchChatMessage(
   }
 
   try {
-    await enqueueWebhook(pool as Pool, 'chat_message_received', webhookDestination, {
+    await enqueueWebhook(pool, 'chat_message_received', webhookDestination, {
       kind: 'chat_message_received',
       session_key: sessionKey,
       payload: {

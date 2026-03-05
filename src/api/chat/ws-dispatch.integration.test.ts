@@ -9,6 +9,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { WebSocketServer, WebSocket as WsWebSocket } from 'ws';
 import { GatewayConnectionService } from '../gateway/connection.ts';
+import type { Pool } from 'pg';
 import { dispatchChatMessage, abortChatRun, type ChatSession, type ChatMessageRecord } from '../gateway/chat-dispatch.ts';
 
 // Mock the singleton to use our test instance
@@ -140,7 +141,7 @@ describe('Chat WS dispatch integration', () => {
     const session = makeSession();
     const message = makeMessage();
 
-    const result = await dispatchChatMessage({} as unknown, session, message, 'user@example.com');
+    const result = await dispatchChatMessage({ query: vi.fn() } as unknown as Pool, session, message, 'user@example.com');
 
     expect(result.dispatched).toBe(true);
     expect(result.method).toBe('ws');
@@ -202,7 +203,7 @@ describe('Chat WS dispatch fallback integration', () => {
   });
 
   it('falls back to HTTP webhook when gateway is not connected', async () => {
-    const pool = { query: vi.fn() };
+    const pool = { query: vi.fn() } as unknown as Pool;
     const result = await dispatchChatMessage(pool, makeSession(), makeMessage(), 'user@example.com');
 
     expect(result.dispatched).toBe(true);
@@ -214,7 +215,7 @@ describe('Chat WS dispatch fallback integration', () => {
     delete process.env.OPENCLAW_GATEWAY_URL;
     delete process.env.WEBHOOK_DESTINATION_URL;
 
-    const pool = { query: vi.fn() };
+    const pool = { query: vi.fn() } as unknown as Pool;
     const result = await dispatchChatMessage(pool, makeSession(), makeMessage(), 'user@example.com');
 
     expect(result.dispatched).toBe(false);

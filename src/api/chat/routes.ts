@@ -748,13 +748,34 @@ export async function chatRoutesPlugin(
         );
 
         if (insertResult.rows.length === 0) {
-          // Idempotency key already exists — return the existing message
+          // Idempotency key already exists — fetch and re-dispatch.
+          // A retry after a 503 (dispatch failed but message was committed) must
+          // re-attempt dispatch so the message is not permanently undelivered.
           const existing = await client.query(
             `SELECT * FROM external_message WHERE thread_id = $1 AND idempotency_key = $2`,
             [session.thread_id, idempotencyKey],
           );
           await client.query('ROLLBACK');
-          return reply.code(200).send(existing.rows[0]);
+
+          // Re-attempt dispatch for the existing message
+          const gwSessionRetry: GwChatSession = {
+            id: session.id as string,
+            agent_id: session.agent_id as string,
+            thread_id: session.thread_id as string,
+            stream_secret: session.stream_secret as string,
+          };
+          const existingMsg = existing.rows[0] as Record<string, unknown>;
+          const gwMessageRetry: GwChatMessage = {
+            id: existingMsg.id as string,
+            body: existingMsg.body as string,
+            content_type: existingMsg.content_type as string,
+          };
+          // Fire-and-forget: idempotencyKey on the gateway side deduplicates
+          dispatchChatMessage(pool, gwSessionRetry, gwMessageRetry, userEmail).catch((err: unknown) => {
+            console.error('[Chat] Retry dispatch failed:', err instanceof Error ? err.message : err);
+          });
+
+          return reply.code(200).send(existingMsg);
         }
 
         message = insertResult.rows[0] as Record<string, unknown>;

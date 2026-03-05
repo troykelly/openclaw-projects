@@ -6,6 +6,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest';
+import type { Pool } from 'pg';
 
 // ── Mocks ──────────────────────────────────────────────────────────
 
@@ -53,8 +54,8 @@ function makeMessage(overrides?: Partial<ChatMessageRecord>): ChatMessageRecord 
   };
 }
 
-function makeMockPool(): unknown {
-  return { query: vi.fn() };
+function makeMockPool(): Pool {
+  return { query: vi.fn() } as unknown as Pool;
 }
 
 // ── dispatchChatMessage ────────────────────────────────────────────
