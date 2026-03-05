@@ -1,4 +1,4 @@
--- Migration 134 (down): Revert gateway_connection table
+-- Migration 135 (down): Revert gateway_connection table
 -- Epic #2153 — Gateway WebSocket Connection, Issue #2161
 
 -- Defensive: only unschedule if the job exists

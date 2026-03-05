@@ -1,4 +1,4 @@
--- Migration 134: gateway_connection table for WS connection state tracking
+-- Migration 135: gateway_connection table for WS connection state tracking
 -- Epic #2153 — Gateway WebSocket Connection, Issue #2161
 
 CREATE TABLE IF NOT EXISTS gateway_connection (
