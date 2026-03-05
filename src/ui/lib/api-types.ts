@@ -1870,6 +1870,7 @@ export interface ChatAgent {
   name: string;
   display_name: string | null;
   avatar_url: string | null;
+  is_default?: boolean;
 }
 
 /** Response from GET /chat/agents */

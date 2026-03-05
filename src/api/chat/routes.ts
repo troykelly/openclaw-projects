@@ -180,26 +180,27 @@ export async function chatRoutesPlugin(
 
     try {
       const result = await pool.query(
-        `SELECT agent_id AS id, agent_id AS name, display_name, avatar_url
+        `SELECT agent_id AS id, agent_id AS name, display_name, avatar_url, is_default
          FROM gateway_agent_cache
          WHERE namespace = $1
          UNION
-         SELECT DISTINCT cs.agent_id AS id, cs.agent_id AS name, NULL AS display_name, NULL AS avatar_url
+         SELECT DISTINCT cs.agent_id AS id, cs.agent_id AS name, NULL AS display_name, NULL AS avatar_url, false AS is_default
          FROM chat_session cs
          WHERE cs.namespace = $1 AND cs.status != 'expired'
            AND NOT EXISTS (
              SELECT 1 FROM gateway_agent_cache gac
              WHERE gac.namespace = $1 AND gac.agent_id = cs.agent_id
            )
-         ORDER BY id`,
+         ORDER BY is_default DESC, id`,
         [namespace],
       );
 
-      const agents = result.rows.map((row: { id: string; name: string; display_name: string | null; avatar_url: string | null }) => ({
+      const agents = result.rows.map((row: { id: string; name: string; display_name: string | null; avatar_url: string | null; is_default: boolean }) => ({
         id: row.id,
         name: row.name,
         display_name: row.display_name,
         avatar_url: row.avatar_url,
+        is_default: row.is_default,
       }));
 
       return reply.send({ agents });

@@ -119,4 +119,25 @@ describe('validateAgentSyncBody (#2151)', () => {
 
     expect(result.agents[0].display_name).toBe('Full Display Name');
   });
+
+  it('rejects javascript: and data: avatar URLs (XSS prevention)', () => {
+    const result = validateAgentSyncBody({
+      agents: [
+        { id: 'a1', identity: { avatarUrl: 'javascript:alert(1)' } },
+        { id: 'a2', identity: { avatarUrl: 'data:text/html,<script>alert(1)</script>' } },
+        { id: 'a3', identity: { avatarUrl: 'https://safe.example.com/pic.png' } },
+        { id: 'a4', identity: { avatarUrl: 'http://also-ok.example.com/pic.png' } },
+      ],
+    });
+
+    expect(result.agents[0].avatar_url).toBeNull();
+    expect(result.agents[1].avatar_url).toBeNull();
+    expect(result.agents[2].avatar_url).toBe('https://safe.example.com/pic.png');
+    expect(result.agents[3].avatar_url).toBe('http://also-ok.example.com/pic.png');
+  });
+
+  it('rejects agents array exceeding maximum size', () => {
+    const agents = Array.from({ length: 501 }, (_, i) => ({ id: `agent-${i}` }));
+    expect(() => validateAgentSyncBody({ agents })).toThrow('exceeds maximum');
+  });
 });

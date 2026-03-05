@@ -75,7 +75,9 @@ export function ChatHeader(): React.JSX.Element {
   }, [setActiveSessionId]);
 
   const handleNewSession = React.useCallback(() => {
-    const defaultAgent = Array.isArray(agentsData?.agents) ? agentsData.agents.find((a) => a.id) : null;
+    const defaultAgent = Array.isArray(agentsData?.agents)
+      ? (agentsData.agents.find((a) => a.is_default) ?? agentsData.agents.find((a) => a.id) ?? null)
+      : null;
     createSession.mutate(
       { agent_id: activeSession?.agent_id ?? defaultAgent?.id },
       {
@@ -88,6 +90,11 @@ export function ChatHeader(): React.JSX.Element {
 
   const endSession = useEndChatSession();
   const [showEndConfirm, setShowEndConfirm] = React.useState(false);
+
+  // Reset end-session confirmation when switching sessions
+  React.useEffect(() => {
+    setShowEndConfirm(false);
+  }, [activeSessionId]);
 
   const handleEndSession = React.useCallback(() => {
     if (!activeSessionId) return;

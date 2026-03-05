@@ -19,7 +19,9 @@ export function ChatSessionEndedState(): React.JSX.Element {
   const createSession = useCreateChatSession();
 
   const handleNewConversation = React.useCallback(() => {
-    const defaultAgent = Array.isArray(agentsData?.agents) ? agentsData.agents.find((a) => a.id) : null;
+    const defaultAgent = Array.isArray(agentsData?.agents)
+      ? (agentsData.agents.find((a) => a.is_default) ?? agentsData.agents.find((a) => a.id) ?? null)
+      : null;
     createSession.mutate(
       { agent_id: defaultAgent?.id },
       {

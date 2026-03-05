@@ -10,6 +10,12 @@ import type { Pool } from 'pg';
 
 import { getAuthIdentity } from '../auth/middleware.ts';
 
+const MAX_AGENTS = 500;
+const MAX_ID_LENGTH = 256;
+const MAX_NAME_LENGTH = 512;
+const MAX_URL_LENGTH = 2048;
+const ALLOWED_URL_SCHEMES = /^https?:\/\//i;
+
 /** A validated agent entry ready for DB insert. */
 export interface ValidatedAgent {
   id: string;
@@ -48,24 +54,33 @@ export function validateAgentSyncBody(body: unknown): ValidatedSyncPayload {
     ? obj.default_id.trim()
     : null;
 
+  if (obj.agents.length > MAX_AGENTS) {
+    throw new Error(`agents array exceeds maximum of ${MAX_AGENTS}`);
+  }
+
   const agents: ValidatedAgent[] = [];
   for (const entry of obj.agents) {
     if (!entry || typeof entry !== 'object') continue;
 
     const e = entry as Record<string, unknown>;
-    const id = typeof e.id === 'string' ? e.id.trim() : '';
+    const id = typeof e.id === 'string' ? e.id.trim().slice(0, MAX_ID_LENGTH) : '';
     if (id.length === 0) continue;
 
     const identity = (e.identity && typeof e.identity === 'object')
       ? e.identity as Record<string, unknown>
       : null;
 
-    const displayName = (identity && typeof identity.name === 'string' && identity.name.trim().length > 0)
+    const rawName = (identity && typeof identity.name === 'string' && identity.name.trim().length > 0)
       ? identity.name.trim()
       : (typeof e.name === 'string' && e.name.trim().length > 0 ? e.name.trim() : null);
+    const displayName = rawName ? rawName.slice(0, MAX_NAME_LENGTH) : null;
 
-    const avatarUrl = (identity && typeof identity.avatarUrl === 'string' && identity.avatarUrl.trim().length > 0)
+    const rawUrl = (identity && typeof identity.avatarUrl === 'string' && identity.avatarUrl.trim().length > 0)
       ? identity.avatarUrl.trim()
+      : null;
+    // Only allow http/https URLs to prevent javascript:/data: XSS vectors
+    const avatarUrl = (rawUrl && rawUrl.length <= MAX_URL_LENGTH && ALLOWED_URL_SCHEMES.test(rawUrl))
+      ? rawUrl
       : null;
 
     agents.push({
@@ -101,7 +116,7 @@ export async function agentRoutesPlugin(
       return reply.code(401).send({ error: 'Unauthorized' });
     }
 
-    const namespace = (req.headers['x-namespace'] as string | undefined)?.trim() || 'default';
+    const namespace = req.namespaceContext?.storeNamespace ?? 'default';
 
     let payload: ValidatedSyncPayload;
     try {
