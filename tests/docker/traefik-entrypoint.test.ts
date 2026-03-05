@@ -390,6 +390,22 @@ describe('Traefik dynamic config: api-webhook-router (Issue #2167)', () => {
     const apiRouter = config.http.routers['api-router'];
     expect(apiRouter.service).toBe('modsecurity-service');
   });
+
+  it('api-webhook-router rule does NOT match status callback endpoints', () => {
+    const config = getParsedConfig();
+    const router = config.http.routers['api-webhook-router'];
+    // Status callbacks carry structured data, not user content — they stay behind WAF
+    expect(router.rule).not.toContain('/twilio/sms/status');
+    expect(router.rule).not.toContain('/postmark/email/status');
+  });
+
+  it('api-webhook-router uses exact Path() matchers, not PathPrefix()', () => {
+    const config = getParsedConfig();
+    const router = config.http.routers['api-webhook-router'];
+    // Path() is exact match; PathPrefix() would bypass WAF for sub-paths like /twilio/sms/anything
+    expect(router.rule).toContain('Path(`/cloudflare/email`)');
+    expect(router.rule).not.toContain('PathPrefix');
+  });
 });
 
 describe('ModSecurity ALLOWED_METHODS in compose files (Issue #1917)', () => {
