@@ -82,6 +82,8 @@ export default defineProject({
       'src/api/auth/**/*.test.ts',
       // Geolocation unit tests
       'src/api/geolocation/bootstrap.test.ts',
+      // Gateway unit tests
+      'src/api/gateway/connection.test.ts',
       // Memory unit tests
       'src/api/memory/namespace-priority.test.ts',
       // File-storage unit tests
