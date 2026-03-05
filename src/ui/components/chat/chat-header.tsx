@@ -6,11 +6,11 @@
  */
 
 import * as React from 'react';
-import { ArrowLeft, Minus, X, Plus } from 'lucide-react';
+import { ArrowLeft, Minus, X, Plus, PhoneOff } from 'lucide-react';
 import { cn } from '@/ui/lib/utils';
 import { useChat } from '@/ui/contexts/chat-context';
 import { useChatSessions, useAvailableAgents } from '@/ui/hooks/queries/use-chat';
-import { useUpdateChatSession, useCreateChatSession } from '@/ui/hooks/mutations/use-chat';
+import { useUpdateChatSession, useCreateChatSession, useEndChatSession } from '@/ui/hooks/mutations/use-chat';
 import { Button } from '@/ui/components/ui/button';
 import type { ChatSession, ChatAgent } from '@/ui/lib/api-types';
 
@@ -86,6 +86,18 @@ export function ChatHeader(): React.JSX.Element {
     );
   }, [createSession, setActiveSessionId, activeSession?.agent_id, agentsData?.agents]);
 
+  const endSession = useEndChatSession();
+  const [showEndConfirm, setShowEndConfirm] = React.useState(false);
+
+  const handleEndSession = React.useCallback(() => {
+    if (!activeSessionId) return;
+    endSession.mutate(activeSessionId, {
+      onSuccess: () => {
+        setShowEndConfirm(false);
+      },
+    });
+  }, [endSession, activeSessionId]);
+
   const agentName = agent?.display_name ?? agent?.name ?? 'Agent';
 
   return (
@@ -144,6 +156,28 @@ export function ChatHeader(): React.JSX.Element {
 
       {/* Action buttons */}
       <div className="flex items-center gap-1">
+        {activeSession?.status === 'active' && !showEndConfirm && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-7 text-destructive hover:text-destructive"
+            onClick={() => setShowEndConfirm(true)}
+            aria-label="End conversation"
+          >
+            <PhoneOff className="size-3.5" aria-hidden="true" />
+          </Button>
+        )}
+        {showEndConfirm && (
+          <Button
+            variant="destructive"
+            size="sm"
+            className="h-7 text-xs"
+            onClick={handleEndSession}
+            disabled={endSession.isPending}
+          >
+            {endSession.isPending ? 'Ending...' : 'End?'}
+          </Button>
+        )}
         <Button
           variant="ghost"
           size="icon"
