@@ -66,7 +66,7 @@ describe('ChatBubble', () => {
     expect(screen.getByTestId('chat-bubble')).toBeInTheDocument();
   });
 
-  it('is hidden when no agents are available', () => {
+  it('renders the chat bubble even when no agents are available', () => {
     vi.mocked(useAvailableAgents).mockReturnValue({
       data: { agents: [] },
     } as ReturnType<typeof useAvailableAgents>);
@@ -74,8 +74,8 @@ describe('ChatBubble', () => {
       data: { count: 0 },
     } as ReturnType<typeof useChatUnreadCount>);
 
-    const { container } = render(<ChatBubble />, { wrapper: createWrapper() });
-    expect(container.querySelector('[data-testid="chat-bubble"]')).toBeNull();
+    render(<ChatBubble />, { wrapper: createWrapper() });
+    expect(screen.getByTestId('chat-bubble')).toBeInTheDocument();
   });
 
   it('shows unread badge when count > 0', () => {
@@ -146,7 +146,7 @@ describe('ChatBubble', () => {
     // The bubble hides itself when panel is open
   });
 
-  it('handles missing agents data gracefully', () => {
+  it('renders the chat bubble even when agents data is undefined', () => {
     vi.mocked(useAvailableAgents).mockReturnValue({
       data: undefined,
     } as ReturnType<typeof useAvailableAgents>);
@@ -154,8 +154,7 @@ describe('ChatBubble', () => {
       data: undefined,
     } as ReturnType<typeof useChatUnreadCount>);
 
-    const { container } = render(<ChatBubble />, { wrapper: createWrapper() });
-    // Should not render when data is undefined (no agents)
-    expect(container.querySelector('[data-testid="chat-bubble"]')).toBeNull();
+    render(<ChatBubble />, { wrapper: createWrapper() });
+    expect(screen.getByTestId('chat-bubble')).toBeInTheDocument();
   });
 });
