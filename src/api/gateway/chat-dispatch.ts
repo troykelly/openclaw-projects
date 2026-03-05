@@ -106,9 +106,12 @@ export async function dispatchChatMessage(
   // ── HTTP webhook fallback ────────────────────────────────────
   const webhookDestination = process.env.OPENCLAW_GATEWAY_URL || process.env.WEBHOOK_DESTINATION_URL;
   if (!webhookDestination) {
-    const error = 'Message dispatch unavailable — no gateway configured';
-    console.error(`${LOG_PREFIX} ${error}`);
-    return { dispatched: false, error };
+    // No gateway configured at all — message is already persisted in DB.
+    // This is not an error: the system can operate without a gateway
+    // (e.g. in test environments or before gateway is provisioned).
+    // The message is stored but not dispatched to any agent.
+    console.log(`${LOG_PREFIX} no gateway configured, message stored without dispatch session=${session.id}`);
+    return { dispatched: true, method: undefined };
   }
 
   try {

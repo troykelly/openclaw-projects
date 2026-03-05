@@ -211,15 +211,17 @@ describe('Chat WS dispatch fallback integration', () => {
     expect(mockEnqueueWebhook).toHaveBeenCalledOnce();
   });
 
-  it('returns 503-compatible result when no gateway configured at all', async () => {
+  it('succeeds without dispatch when no gateway configured at all', async () => {
     delete process.env.OPENCLAW_GATEWAY_URL;
     delete process.env.WEBHOOK_DESTINATION_URL;
 
     const pool = { query: vi.fn() } as unknown as Pool;
     const result = await dispatchChatMessage(pool, makeSession(), makeMessage(), 'user@example.com');
 
-    expect(result.dispatched).toBe(false);
-    expect(result.error).toContain('no gateway configured');
+    // No gateway = message stored, no dispatch. Not an error.
+    expect(result.dispatched).toBe(true);
+    expect(result.method).toBeUndefined();
+    expect(result.error).toBeUndefined();
   });
 
   it('abort is no-op when WS not connected', async () => {

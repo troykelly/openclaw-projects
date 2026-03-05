@@ -176,7 +176,10 @@ describe('dispatchChatMessage', () => {
 
   // ── Error handling ───────────────────────────────────────────
 
-  it('returns 503 status when WS unavailable AND no gateway URL configured', async () => {
+  it('succeeds without dispatch when no gateway URL is configured', async () => {
+    // When no gateway is configured, the message is stored in the DB but not
+    // dispatched to any agent. This is not an error — it matches the pre-WS
+    // behavior where the webhook was silently skipped.
     mockGetStatus.mockReturnValue({ connected: false, gateway_url: null });
     delete process.env.OPENCLAW_GATEWAY_URL;
     delete process.env.WEBHOOK_DESTINATION_URL;
@@ -184,8 +187,9 @@ describe('dispatchChatMessage', () => {
     const pool = makeMockPool();
     const result = await dispatchChatMessage(pool, makeSession(), makeMessage(), 'user@example.com');
 
-    expect(result.dispatched).toBe(false);
-    expect(result.error).toContain('no gateway configured');
+    expect(result.dispatched).toBe(true);
+    expect(result.method).toBeUndefined();
+    expect(result.error).toBeUndefined();
     expect(mockRequest).not.toHaveBeenCalled();
     expect(mockEnqueueWebhook).not.toHaveBeenCalled();
   });
