@@ -11,6 +11,7 @@ export { ChatNewMessagesPill } from './chat-new-messages-pill';
 export { ChatInput } from './chat-input';
 export { ChatHeader } from './chat-header';
 export { ChatAgentSelector } from './chat-agent-selector';
+export { AgentStatusBadge } from './agent-status-badge';
 export { ChatEmptyState } from './chat-empty-state';
 export { ChatSkeletonLoader } from './chat-skeleton-loader';
 export { ChatSessionEndedState } from './chat-session-ended-state';

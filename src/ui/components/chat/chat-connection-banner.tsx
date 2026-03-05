@@ -18,6 +18,8 @@ export type ChatConnectionStatus =
 interface ChatConnectionBannerProps {
   status: ChatConnectionStatus;
   onRetry?: () => void;
+  /** When false, shows degraded banner even if browser WS is connected (Issue #2159). */
+  gatewayConnected?: boolean;
 }
 
 const STATUS_CONFIG: Record<
@@ -42,10 +44,17 @@ const STATUS_CONFIG: Record<
   },
 };
 
-export function ChatConnectionBanner({ status, onRetry }: ChatConnectionBannerProps): React.JSX.Element | null {
-  if (status === 'connected') return null;
+export function ChatConnectionBanner({ status, onRetry, gatewayConnected }: ChatConnectionBannerProps): React.JSX.Element | null {
+  // When browser WS is connected but gateway WS is down, show degraded state
+  const isGatewayDegraded = status === 'connected' && gatewayConnected === false;
+  const effectiveStatus: ChatConnectionStatus = isGatewayDegraded ? 'degraded' : status;
 
-  const config = STATUS_CONFIG[status];
+  if (effectiveStatus === 'connected') return null;
+
+  const config = STATUS_CONFIG[effectiveStatus];
+  const label = isGatewayDegraded
+    ? 'Agent connection degraded \u2014 using fallback mode'
+    : config.label;
 
   return (
     <div
@@ -58,17 +67,17 @@ export function ChatConnectionBanner({ status, onRetry }: ChatConnectionBannerPr
       )}
     >
       {/* Spinner for connecting/reconnecting */}
-      {(status === 'connecting' || status === 'reconnecting') && (
+      {(effectiveStatus === 'connecting' || effectiveStatus === 'reconnecting') && (
         <span
           className="inline-block size-3 animate-spin rounded-full border-2 border-current border-t-transparent"
           aria-hidden="true"
         />
       )}
 
-      <span>{config.label}</span>
+      <span>{label}</span>
 
       {/* Retry button for disconnected/degraded */}
-      {onRetry && (status === 'disconnected' || status === 'degraded') && (
+      {onRetry && (effectiveStatus === 'disconnected' || effectiveStatus === 'degraded') && (
         <button
           type="button"
           onClick={onRetry}

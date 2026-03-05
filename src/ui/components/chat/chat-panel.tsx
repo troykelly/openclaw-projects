@@ -19,11 +19,14 @@ import { ChatConversation } from './chat-conversation';
 import { ChatHeader } from './chat-header';
 import { ChatInput } from './chat-input';
 import { ChatEmptyState } from './chat-empty-state';
+import { ChatConnectionBanner } from './chat-connection-banner';
+import { useGatewayStatus } from '@/ui/hooks/use-gateway-status';
 
 export function ChatPanel(): React.JSX.Element | null {
   const { isPanelOpen, closePanel, activeSessionId } = useChat();
   const isMobile = useMediaQuery(MEDIA_QUERIES.mobile);
   const prefersReducedMotion = useMediaQuery(MEDIA_QUERIES.reducedMotion);
+  const gatewayStatus = useGatewayStatus();
   const panelRef = React.useRef<HTMLDivElement>(null);
 
   // Escape to close
@@ -53,6 +56,10 @@ export function ChatPanel(): React.JSX.Element | null {
   const panelContent = (
     <ErrorBoundary title="Chat error" description="Something went wrong with the chat. Please try again.">
       <div className="flex h-full flex-col">
+        <ChatConnectionBanner
+          status="connected"
+          gatewayConnected={gatewayStatus.loading ? undefined : gatewayStatus.connected}
+        />
         {activeSessionId ? (
           <>
             <ChatHeader />
