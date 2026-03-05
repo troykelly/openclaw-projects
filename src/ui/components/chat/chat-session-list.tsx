@@ -56,12 +56,16 @@ export function ChatSessionList(): React.JSX.Element {
   }, [data?.sessions]);
 
   const handleNewConversation = React.useCallback(() => {
-    createSession.mutate({}, {
-      onSuccess: (session) => {
-        setActiveSessionId(session.id);
+    const defaultAgent = Array.isArray(agentsData?.agents) ? agentsData.agents.find((a) => a.id) : null;
+    createSession.mutate(
+      { agent_id: defaultAgent?.id },
+      {
+        onSuccess: (session) => {
+          setActiveSessionId(session.id);
+        },
       },
-    });
-  }, [createSession, setActiveSessionId]);
+    );
+  }, [createSession, setActiveSessionId, agentsData?.agents]);
 
   const handleSelectSession = React.useCallback(
     (session: ChatSession) => {

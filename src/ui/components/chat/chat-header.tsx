@@ -75,12 +75,16 @@ export function ChatHeader(): React.JSX.Element {
   }, [setActiveSessionId]);
 
   const handleNewSession = React.useCallback(() => {
-    createSession.mutate({}, {
-      onSuccess: (session) => {
-        setActiveSessionId(session.id);
+    const defaultAgent = Array.isArray(agentsData?.agents) ? agentsData.agents.find((a) => a.id) : null;
+    createSession.mutate(
+      { agent_id: activeSession?.agent_id ?? defaultAgent?.id },
+      {
+        onSuccess: (session) => {
+          setActiveSessionId(session.id);
+        },
       },
-    });
-  }, [createSession, setActiveSessionId]);
+    );
+  }, [createSession, setActiveSessionId, activeSession?.agent_id, agentsData?.agents]);
 
   const agentName = agent?.display_name ?? agent?.name ?? 'Agent';
 
