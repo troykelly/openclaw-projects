@@ -50,6 +50,7 @@ import { namespaceMovesPaths } from './paths/namespace-moves.ts';
 import { terminalPaths } from './paths/terminal.ts';
 import { chatPaths } from './paths/chat.ts';
 import { devPromptsPaths } from './paths/dev-prompts.ts';
+import { gatewayPaths } from './paths/gateway.ts';
 
 /** Derive the API server URL from PUBLIC_BASE_URL */
 function deriveApiUrl(publicBaseUrl: string): string {
@@ -119,6 +120,8 @@ function allDomainModules(): OpenApiDomainModule[] {
     chatPaths(),
     // Dev Prompts (Epic #2011)
     devPromptsPaths(),
+    // Gateway WebSocket (Epic #2153)
+    gatewayPaths(),
   ];
 }
 

@@ -35,7 +35,8 @@ export type RealtimeEventType =
   | 'chat:session_created'
   | 'chat:session_ended'
   | 'chat:typing'
-  | 'chat:read_cursor_updated';
+  | 'chat:read_cursor_updated'
+  | 'agent:status_changed';
 
 export interface RealtimeEvent<T = unknown> {
   type: RealtimeEventType;

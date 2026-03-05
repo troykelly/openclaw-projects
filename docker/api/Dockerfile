@@ -25,6 +25,8 @@ COPY src/email/ ./src/email/
 COPY src/tmux-worker/credentials/ ./src/tmux-worker/credentials/
 COPY src/tmux-worker/proto-loader.ts ./src/tmux-worker/proto-loader.ts
 COPY src/tmux-worker/types.ts ./src/tmux-worker/types.ts
+# Gateway metrics import Counter from worker/metrics (Epic #2153)
+COPY src/worker/metrics.ts ./src/worker/metrics.ts
 COPY proto/ ./proto/
 COPY tsconfig.json ./
 COPY tsconfig.build.json ./
@@ -84,6 +86,8 @@ COPY --from=builder /app/src/email/ ./src/email/
 COPY --from=builder /app/src/tmux-worker/credentials/ ./src/tmux-worker/credentials/
 COPY --from=builder /app/src/tmux-worker/proto-loader.ts ./src/tmux-worker/proto-loader.ts
 COPY --from=builder /app/src/tmux-worker/types.ts ./src/tmux-worker/types.ts
+# Gateway metrics import Counter from worker/metrics (Epic #2153)
+COPY --from=builder /app/src/worker/metrics.ts ./src/worker/metrics.ts
 COPY --from=builder /app/proto/ ./proto/
 
 # Set environment variables

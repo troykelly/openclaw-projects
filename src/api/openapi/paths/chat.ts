@@ -113,7 +113,7 @@ export function chatPaths(): OpenApiDomainModule {
         get: {
           operationId: 'listChatAgents',
           summary: 'List available chat agents',
-          description: 'Returns distinct agents from existing chat sessions in the namespace.',
+          description: 'Returns agents from the gateway (live) or from existing chat sessions (fallback). Includes agent presence status.',
           tags: ['Chat'],
           responses: {
             '200': jsonResponse('Available agents', {
@@ -123,12 +123,15 @@ export function chatPaths(): OpenApiDomainModule {
                   type: 'array',
                   items: {
                     type: 'object',
-                    required: ['id', 'name'],
+                    required: ['id', 'name', 'status'],
                     properties: {
                       id: { type: 'string', description: 'Agent identifier' },
                       name: { type: 'string', description: 'Agent name' },
-                      display_name: { type: 'string', nullable: true, description: 'Human-friendly name' },
-                      avatar_url: { type: 'string', nullable: true, description: 'Agent avatar URL' },
+                      status: {
+                        type: 'string',
+                        enum: ['online', 'busy', 'offline', 'unknown'],
+                        description: 'Agent presence status',
+                      },
                     },
                   },
                 },
@@ -194,6 +197,19 @@ export function chatPaths(): OpenApiDomainModule {
           responses: {
             '200': jsonResponse('Ended session', { $ref: '#/components/schemas/ChatSession' }),
             ...errorResponses(400, 401, 404, 409, 500),
+          },
+        },
+      },
+      '/chat/sessions/{id}/abort': {
+        post: {
+          operationId: 'abortChatRun',
+          summary: 'Abort an in-flight agent run',
+          description: 'Aborts the currently running agent response for this chat session via the gateway WebSocket. Returns 204 on success. No-op if no run is in progress.',
+          tags: ['Chat'],
+          parameters: [uuidParam('id', 'Chat session ID')],
+          responses: {
+            '204': { description: 'Abort signal sent' },
+            ...errorResponses(400, 401, 404, 429, 500),
           },
         },
       },
