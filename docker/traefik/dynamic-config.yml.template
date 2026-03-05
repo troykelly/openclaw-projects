@@ -138,6 +138,28 @@ http:
         certResolver: letsencrypt
         options: default
 
+    # Inbound webhook router — bypasses ModSecurity WAF (Issue #2167)
+    # External webhook payloads (email bodies, SMS text) contain HTML, URLs, and
+    # patterns that trigger OWASP CRS false positives (XSS, RCE detection).
+    # These endpoints have their own authentication:
+    #   - /cloudflare/email: HMAC-SHA256 signature
+    #   - /postmark/inbound: HTTP Basic auth
+    #   - /twilio/sms: Twilio request signature
+    # Method() restricts bypass to POST only; GET/PUT/DELETE fall through to WAF.
+    # Priority 105 matches before the catch-all api-router.
+    api-webhook-router:
+      rule: "Host(`api.${DOMAIN}`) && (Path(`/cloudflare/email`) || Path(`/postmark/inbound`) || Path(`/twilio/sms`)) && Method(`POST`)"
+      service: api-service
+      priority: 105
+      entryPoints:
+        - websecure
+      middlewares:
+        - security-headers
+        - rate-limit
+      tls:
+        certResolver: letsencrypt
+        options: default
+
     # API router - routes through ModSecurity WAF for full request/response inspection
     # ModSecurity acts as a reverse proxy, inspecting all traffic before forwarding to API
     api-router:
