@@ -25,6 +25,7 @@ import {
   exchangeRateLimit,
 } from './auth/rate-limiter.ts';
 import { type CloudflareEmailPayload, processCloudflareEmail } from './cloudflare-email/index.ts';
+import { triageEmailViaGateway } from './cloudflare-email/triage.ts';
 import {
   backfillMemoryEmbeddings,
   backfillWorkItemEmbeddings,
@@ -12520,6 +12521,51 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
             thread_id: result.thread_id,
             message_id: result.message_id,
           });
+        }
+
+        // Synchronous agent triage via gateway WebSocket (#2179)
+        // When the gateway is connected, consult the routed agent for a triage
+        // decision before returning to the Cloudflare Worker. This allows the
+        // agent to reject spam at the SMTP level. Fails open on error/timeout.
+        try {
+          const { getGatewayConnection } = await import('./gateway/index.ts');
+          const { getBestPlainText } = await import('./postmark/email-utils.ts');
+          const body = getBestPlainText(payload.text_body, payload.html_body);
+
+          const triageDecision = await triageEmailViaGateway(
+            {
+              threadId: result.thread_id,
+              agentId: route.agentId,
+              promptContent: route.promptContent,
+              email: {
+                from: payload.from,
+                to: payload.to,
+                subject: payload.subject,
+                body,
+                timestamp: payload.timestamp,
+                messageId: result.message_id,
+              },
+            },
+            getGatewayConnection(),
+          );
+
+          if (triageDecision?.action === 'reject') {
+            console.log(
+              `[Cloudflare Email] Agent triage rejected: reason="${triageDecision.reject_reason}"`,
+            );
+            return reply.code(200).send({
+              success: true,
+              action: 'reject' as const,
+              reject_reason: triageDecision.reject_reason,
+              receipt_id: result.message_id,
+              contact_id: result.contact_id,
+              thread_id: result.thread_id,
+              message_id: result.message_id,
+            });
+          }
+        } catch (triageErr) {
+          // Fail open — log and continue to accept
+          console.warn('[Cloudflare Email] Triage integration error, failing open:', triageErr);
         }
 
         // Return success with receipt ID and accept action
