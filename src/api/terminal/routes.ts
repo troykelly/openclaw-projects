@@ -74,7 +74,7 @@ const MAX_COLS = 1000;
 const MAX_ROWS = 500;
 const VALID_CREDENTIAL_KINDS = ['ssh_key', 'password', 'command'] as const;
 const VALID_SESSION_STATUSES = [
-  'starting', 'active', 'idle', 'disconnected', 'terminated', 'error', 'pending_host_verification',
+  'starting', 'active', 'idle', 'disconnected', 'reconnecting', 'terminated', 'error', 'pending_host_verification',
 ] as const;
 const VALID_ENTRY_KINDS = ['command', 'output', 'scrollback', 'annotation', 'error'] as const;
 

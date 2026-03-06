@@ -37,7 +37,7 @@ export function terminalSessionsPaths(): OpenApiDomainModule {
           worker_id: { type: 'string', nullable: true, description: 'Worker instance owning this session' },
           status: {
             type: 'string',
-            enum: ['starting', 'active', 'idle', 'disconnected', 'terminated', 'error', 'pending_host_verification'],
+            enum: ['starting', 'active', 'idle', 'disconnected', 'reconnecting', 'terminated', 'error', 'pending_host_verification'],
           },
           cols: { type: 'integer', default: 120, description: 'Terminal width' },
           rows: { type: 'integer', default: 40, description: 'Terminal height' },
@@ -155,7 +155,7 @@ export function terminalSessionsPaths(): OpenApiDomainModule {
               description: 'Filter by session status',
               schema: {
                 type: 'string',
-                enum: ['starting', 'active', 'idle', 'disconnected', 'terminated', 'error', 'pending_host_verification'],
+                enum: ['starting', 'active', 'idle', 'disconnected', 'reconnecting', 'terminated', 'error', 'pending_host_verification'],
               },
             },
           ],
