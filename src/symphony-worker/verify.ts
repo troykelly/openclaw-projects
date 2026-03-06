@@ -164,11 +164,11 @@ export function analyzeGitDivergence(
 
 // ─── Migration File Detection (P2-12) ───
 
-/** Glob patterns for migration file detection. */
+/** Glob patterns for migration file detection (case-insensitive). */
 const MIGRATION_PATTERNS = [
-  /^.*\/migrations\/.+$/,
-  /^.*\/migrate\/.+$/,
-  /^.*\.sql$/,
+  /^.*\/migrations\/.+$/i,
+  /^.*\/migrate\/.+$/i,
+  /^.*\.sql$/i,
 ];
 
 /**
@@ -203,7 +203,8 @@ export function detectMigrationFiles(
  */
 export function resolveApprovalToken(tokenRef: string): string | null {
   // Validate that the token ref is not a hardcoded personal token name
-  const personalTokenPattern = /^GITHUB_TOKEN_[A-Z]+$/;
+  // Case-insensitive to catch variants like github_token_troy, GITHUB_TOKEN_Bob, etc.
+  const personalTokenPattern = /^github_token_[a-z]+$/i;
   if (personalTokenPattern.test(tokenRef)) {
     throw new Error(
       `SECURITY: approvalTokenRef '${tokenRef}' appears to be a hardcoded personal ` +

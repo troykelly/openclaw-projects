@@ -99,6 +99,16 @@ describe('calculateRetryDelay', () => {
     const delay = calculateRetryDelay(0, 10_000, 300_000, () => 1.0);
     expect(delay).toBe(10_000); // returns base delay
   });
+
+  it('clamps out-of-range random values to [0,1]', () => {
+    // randomFn returns > 1 should be clamped
+    const overDelay = calculateRetryDelay(1, 10_000, 300_000, () => 2.0);
+    expect(overDelay).toBe(10_000); // max jitter = 1.0
+
+    // randomFn returns < 0 should be clamped
+    const underDelay = calculateRetryDelay(1, 10_000, 300_000, () => -1.0);
+    expect(underDelay).toBe(5_000); // min jitter = 0.5
+  });
 });
 
 // ─── Continuation Wait Backoff ───
@@ -394,6 +404,23 @@ describe('CircuitBreaker', () => {
     expect(breaker.getState()).toBe(CircuitState.Open);
   });
 
+  it('only allows one probe at a time in half-open (thundering-herd prevention)', () => {
+    // Open the circuit
+    for (let i = 0; i < 3; i++) breaker.recordFailure();
+
+    // Transition to half-open
+    const future = Date.now() + 600_001;
+    expect(breaker.isAllowed(future)).toBe(true); // First probe allowed
+    expect(breaker.getState()).toBe(CircuitState.HalfOpen);
+
+    // Second concurrent probe should be blocked
+    expect(breaker.isAllowed(future + 1)).toBe(false);
+
+    // After recording result, next probe allowed
+    breaker.recordSuccess();
+    expect(breaker.isAllowed(future + 2)).toBe(true);
+  });
+
   it('resets failure count on success in closed state', () => {
     breaker.recordFailure();
     breaker.recordFailure(); // 2 failures
@@ -646,15 +673,18 @@ describe('detectSubstantialEdit', () => {
     expect(result.changedFields).toContain('body');
   });
 
-  it('ignores body formatting changes (default sensitivity)', () => {
-    const result = detectSubstantialEdit(baseSnapshot, {
+  it('ignores body formatting changes outside AC section (default sensitivity)', () => {
+    const prevWithContext: IssueSnapshot = {
       ...baseSnapshot,
-      body: '## Acceptance Criteria\n- [ ] Login works\n- [ ] Tests pass\n\nSome extra notes.',
-    });
-    // The AC section hasn't changed, but body has
-    // In title_and_ac mode, the AC extraction should match
+      body: '## Context\nSome background.\n\n## Acceptance Criteria\n- [ ] Login works\n- [ ] Tests pass\n\n## Notes\nOld notes.',
+    };
+    const currWithContext: IssueSnapshot = {
+      ...baseSnapshot,
+      body: '## Context\nUpdated background text.\n\n## Acceptance Criteria\n- [ ] Login works\n- [ ] Tests pass\n\n## Notes\nNew notes with typo fix.',
+    };
+    const result = detectSubstantialEdit(prevWithContext, currWithContext);
+    // Body changed but AC section is identical
     expect(result.changedFields).toContain('body');
-    // AC is the same, so not substantial (the extra notes are outside AC section)
     expect(result.isSubstantial).toBe(false);
   });
 
@@ -693,6 +723,23 @@ describe('detectSubstantialEdit', () => {
     );
     // Title changed but labels didn't — not substantial in labels_only mode
     expect(result.isSubstantial).toBe(false);
+  });
+
+  it('detects AC changes at end of body (no trailing section)', () => {
+    const prev: IssueSnapshot = {
+      title: 'Test',
+      body: '## Acceptance Criteria\n- [ ] Item A',
+      labels: [],
+      assignees: [],
+    };
+    const curr: IssueSnapshot = {
+      title: 'Test',
+      body: '## Acceptance Criteria\n- [ ] Item A\n- [ ] Item B',
+      labels: [],
+      assignees: [],
+    };
+    const result = detectSubstantialEdit(prev, curr);
+    expect(result.isSubstantial).toBe(true);
   });
 
   it('respects all sensitivity', () => {
@@ -735,6 +782,26 @@ describe('loadCircuitBreakerState', () => {
 
     const state = await loadCircuitBreakerState(pool as never, 'ns', 'host-1');
     expect(state).toBeNull();
+  });
+
+  it('defaults invalid persisted state to closed', async () => {
+    const pool = createMockPool();
+    const now = new Date();
+    pool.query.mockResolvedValueOnce({
+      rows: [{
+        breaker_id: 'host-1',
+        state: 'invalid_state_value',
+        failure_count: 1,
+        success_count: 0,
+        last_failure_at: now,
+        last_success_at: null,
+        last_transition_at: now,
+      }],
+    });
+
+    const state = await loadCircuitBreakerState(pool as never, 'ns', 'host-1');
+    expect(state).not.toBeNull();
+    expect(state!.state).toBe(CircuitState.Closed);
   });
 
   it('returns persisted state', async () => {

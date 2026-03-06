@@ -43,7 +43,9 @@ export function calculateRetryDelay(
   if (attempt < 1) return baseMs;
   const exponential = baseMs * Math.pow(2, attempt - 1);
   const capped = Math.min(exponential, maxMs);
-  const jitter = 0.5 + randomFn() * 0.5;
+  const raw = randomFn();
+  const clamped = Math.max(0, Math.min(1, raw));
+  const jitter = 0.5 + clamped * 0.5;
   return Math.floor(capped * jitter);
 }
 
@@ -318,6 +320,8 @@ export class CircuitBreaker {
   private lastFailureAt: Date | null = null;
   private lastSuccessAt: Date | null = null;
   private lastTransitionAt: Date = new Date();
+  /** Prevents thundering-herd: only one probe at a time in half-open. */
+  private probeInFlight = false;
 
   constructor(config: CircuitBreakerConfig) {
     this.config = config;
@@ -367,13 +371,16 @@ export class CircuitBreaker {
         const elapsed = nowMs - this.lastTransitionAt.getTime();
         if (elapsed >= this.config.recoveryTimeoutMs) {
           this.transitionTo(CircuitState.HalfOpen);
-          return true; // Allow probe
+          this.probeInFlight = true; // Gate subsequent probes
+          return true; // Allow first probe
         }
         return false;
       }
 
       case CircuitState.HalfOpen:
-        // Allow probe requests in half-open
+        // Only allow a single probe at a time to prevent thundering-herd
+        if (this.probeInFlight) return false;
+        this.probeInFlight = true;
         return true;
 
       default:
@@ -391,6 +398,7 @@ export class CircuitBreaker {
 
     switch (this.state) {
       case CircuitState.HalfOpen:
+        this.probeInFlight = false;
         this.successCount++;
         if (this.successCount >= this.config.successThreshold) {
           this.transitionTo(CircuitState.Closed);
@@ -428,6 +436,7 @@ export class CircuitBreaker {
 
       case CircuitState.HalfOpen:
         // Probe failed — back to open
+        this.probeInFlight = false;
         this.transitionTo(CircuitState.Open);
         this.successCount = 0;
         break;
@@ -745,7 +754,7 @@ export function detectSubstantialEdit(
  */
 function extractAcceptanceCriteria(body: string): string {
   // Try to extract ## Acceptance Criteria section
-  const acMatch = body.match(/##\s*Acceptance\s*Criteria\s*\n([\s\S]*?)(?=\n##|\z)/i);
+  const acMatch = body.match(/##\s*Acceptance\s*Criteria\s*\n([\s\S]*?)(?=\n##|$)/i);
   if (acMatch) {
     return acMatch[1].trim();
   }
@@ -824,9 +833,16 @@ export async function loadCircuitBreakerState(
   if (result.rows.length === 0) return null;
 
   const row = result.rows[0];
+
+  // Validate persisted state value
+  const validStates = new Set(Object.values(CircuitState));
+  const state = validStates.has(row.state as CircuitState)
+    ? (row.state as CircuitState)
+    : CircuitState.Closed; // Default to closed for unknown states
+
   return {
     breakerId: row.breaker_id,
-    state: row.state as CircuitState,
+    state,
     failureCount: row.failure_count,
     successCount: row.success_count,
     lastFailureAt: row.last_failure_at,

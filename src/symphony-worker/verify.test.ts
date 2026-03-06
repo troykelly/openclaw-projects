@@ -152,6 +152,15 @@ describe('detectMigrationFiles', () => {
     const result = detectMigrationFiles([]);
     expect(result.hasMigrations).toBe(false);
   });
+
+  it('detects uppercase SQL extensions', () => {
+    const result = detectMigrationFiles([
+      'src/app.ts',
+      'DB/MIGRATIONS/001_ADD_TABLE.SQL',
+    ]);
+    expect(result.hasMigrations).toBe(true);
+    expect(result.migrationFiles.length).toBeGreaterThan(0);
+  });
 });
 
 // ─── Auto-Approve (P2-11) ───
@@ -189,6 +198,11 @@ describe('resolveApprovalToken', () => {
     process.env.MY_APPROVAL_TOKEN = 'test';
     expect(() => resolveApprovalToken('MY_APPROVAL_TOKEN')).not.toThrow();
     expect(() => resolveApprovalToken('SYMPHONY_APPROVAL_TOKEN')).not.toThrow();
+  });
+
+  it('SECURITY: rejects case-insensitive personal token name variants', () => {
+    expect(() => resolveApprovalToken('github_token_troy')).toThrow('SECURITY');
+    expect(() => resolveApprovalToken('Github_Token_Bob')).toThrow('SECURITY');
   });
 });
 
