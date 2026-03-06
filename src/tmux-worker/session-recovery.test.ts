@@ -124,7 +124,7 @@ describe('recoverSessions', () => {
     expect(results).toHaveLength(1);
     expect(results[0].newStatus).toBe('disconnected');
     expect(results[0].isLocal).toBe(false);
-    expect(results[0].error).toContain('SSH reconnection not yet implemented');
+    expect(results[0].error).toContain('SSH reconnection requires SSHConnectionManager');
   });
 
   it('handles multiple sessions', async () => {

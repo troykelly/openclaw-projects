@@ -70,11 +70,19 @@ export interface TestConnectionResponse {
 
 // ─── Session lifecycle ──────────────────────────────────────
 
+/**
+ * Terminal session status values.
+ *
+ * During SSH reconnection (#2187), sessions transition:
+ *   disconnected -> reconnecting -> active (success)
+ *   disconnected -> reconnecting -> terminated (all retries failed or host rebooted)
+ */
 export type SessionStatus =
   | 'starting'
   | 'active'
   | 'idle'
   | 'disconnected'
+  | 'reconnecting'
   | 'terminated'
   | 'error'
   | 'pending_host_verification';
