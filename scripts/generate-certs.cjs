@@ -98,6 +98,12 @@ function derPrintableString(str) {
  * Encode an ASN.1 INTEGER.
  */
 function derInteger(buf) {
+  // Strip leading zero bytes (DER requires minimal encoding)
+  let start = 0;
+  while (start < buf.length - 1 && buf[start] === 0x00) {
+    start++;
+  }
+  buf = buf.subarray(start);
   // Ensure positive (add leading 0 if high bit set)
   if (buf[0] & 0x80) {
     buf = Buffer.concat([Buffer.from([0x00]), buf]);
