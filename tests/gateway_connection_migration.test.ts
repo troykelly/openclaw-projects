@@ -1,12 +1,28 @@
 /**
- * Integration tests for gateway_connection migration 134 (Epic #2153, Issue #2161).
+ * Integration tests for gateway_connection migration 135 (Epic #2153, Issue #2161).
  * Verifies table creation, constraints, indexes, triggers, pg_cron job,
  * idempotency, and clean rollback.
  */
 import type { Pool } from 'pg';
+import { readdirSync } from 'fs';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createTestPool, truncateAllTables } from './helpers/db.ts';
 import { runMigrate } from './helpers/migrate.ts';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const migrationsDir = resolve(__dirname, '../migrations');
+
+/** Count how many migrations have version >= the given version. */
+function migrationsFromVersion(minVersion: number): number {
+  return readdirSync(migrationsDir)
+    .filter((f) => f.endsWith('.up.sql'))
+    .filter((f) => {
+      const m = f.match(/^(\d+)_/);
+      return m ? parseInt(m[1], 10) >= minVersion : false;
+    }).length;
+}
 
 describe('Gateway Connection Migration 134 (#2161)', () => {
   let pool: Pool;
@@ -304,9 +320,10 @@ describe('Gateway Connection Migration 134 (#2161)', () => {
   });
 
   describe('Down migration', () => {
-    it('cleanly rolls back migration 134', async () => {
-      // Roll back just migration 134
-      await runMigrate('down', 1);
+    it('cleanly rolls back migration 135', async () => {
+      // Roll back migration 135 (gateway_connection) and all migrations above it
+      const steps = migrationsFromVersion(135);
+      await runMigrate('down', steps);
 
       // Verify table is gone
       const tableResult = await pool.query(
