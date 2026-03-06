@@ -248,3 +248,11 @@ export const postmarkIPWhitelistMiddleware = createIPWhitelistMiddleware({
   providerName: 'Postmark',
   whitelistEnvVar: 'POSTMARK_WEBHOOK_IP_WHITELIST',
 });
+
+/**
+ * Pre-configured middleware for Cloudflare Email webhooks.
+ */
+export const cloudflareEmailIPWhitelistMiddleware = createIPWhitelistMiddleware({
+  providerName: 'Cloudflare',
+  whitelistEnvVar: 'CLOUDFLARE_WEBHOOK_IP_WHITELIST',
+});

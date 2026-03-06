@@ -1982,15 +1982,14 @@ $$
   // ============================================
 
   describe('Error Handling', () => {
-    it('returns 400 for missing required fields', async () => {
+    it('returns 401/400 for missing required fields', async () => {
       // Missing user_email
       const res1 = await app.inject({
         method: 'POST',
         url: '/notes',
         payload: { title: 'Test' },
       });
-      expect(res1.statusCode).toBe(400);
-      expect(res1.json<ErrorResponse>().error).toContain('user_email');
+      expect(res1.statusCode).toBe(401);
 
       // Missing title
       const res2 = await app.inject({

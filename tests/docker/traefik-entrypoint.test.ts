@@ -340,48 +340,46 @@ describe('Traefik dynamic config: api-webhook-router (Issue #2167)', () => {
     return parseYaml(output) as {
       http: {
         routers: Record<string, { rule: string; service: string; priority?: number; middlewares?: string[] }>;
+        middlewares: Record<string, unknown>;
       };
     };
   }
 
-  it('has api-webhook-router that bypasses ModSecurity', () => {
+  // Per-provider webhook routers (Issue #2170 — split from single api-webhook-router)
+  const webhookRouters = [
+    { name: 'api-webhook-cloudflare-router', path: '/cloudflare/email', ipMiddleware: 'webhook-cloudflare-ipallowlist' },
+    { name: 'api-webhook-postmark-router', path: '/postmark/inbound', ipMiddleware: 'webhook-postmark-ipallowlist' },
+    { name: 'api-webhook-twilio-router', path: '/twilio/sms', ipMiddleware: 'webhook-twilio-ipallowlist' },
+  ];
+
+  it.each(webhookRouters)('$name bypasses ModSecurity and routes to api-service', ({ name }) => {
     const config = getParsedConfig();
-    const router = config.http.routers['api-webhook-router'];
+    const router = config.http.routers[name];
     expect(router).toBeDefined();
     expect(router.service).toBe('api-service');
   });
 
-  it('api-webhook-router has priority between ws-router (110) and api-router (default)', () => {
+  it.each(webhookRouters)('$name has priority 105', ({ name }) => {
     const config = getParsedConfig();
-    const router = config.http.routers['api-webhook-router'];
+    const router = config.http.routers[name];
     expect(router.priority).toBe(105);
   });
 
-  it('api-webhook-router matches all inbound webhook paths', () => {
+  it.each(webhookRouters)('$name matches its webhook path with exact Path() and POST only', ({ name, path }) => {
     const config = getParsedConfig();
-    const router = config.http.routers['api-webhook-router'];
+    const router = config.http.routers[name];
     expect(router.rule).toContain('Host(`api.test.example.com`)');
-    expect(router.rule).toContain('Path(`/cloudflare/email`)');
-    expect(router.rule).toContain('Path(`/postmark/inbound`)');
-    expect(router.rule).toContain('Path(`/twilio/sms`)');
-  });
-
-  it('api-webhook-router restricts bypass to POST method only', () => {
-    const config = getParsedConfig();
-    const router = config.http.routers['api-webhook-router'];
+    expect(router.rule).toContain(`Path(\`${path}\`)`);
     expect(router.rule).toContain('Method(`POST`)');
+    expect(router.rule).not.toContain('PathPrefix');
   });
 
-  it('api-webhook-router has security-headers and rate-limit middlewares', () => {
+  it.each(webhookRouters)('$name has security-headers, rate-limit, and ipAllowList middlewares', ({ name, ipMiddleware }) => {
     const config = getParsedConfig();
-    const router = config.http.routers['api-webhook-router'];
+    const router = config.http.routers[name];
     expect(router.middlewares).toContain('security-headers');
     expect(router.middlewares).toContain('rate-limit');
-  });
-
-  it('api-webhook-router does NOT use api-cors middleware (webhooks are server-to-server)', () => {
-    const config = getParsedConfig();
-    const router = config.http.routers['api-webhook-router'];
+    expect(router.middlewares).toContain(ipMiddleware);
     expect(router.middlewares).not.toContain('api-cors');
   });
 
@@ -391,20 +389,20 @@ describe('Traefik dynamic config: api-webhook-router (Issue #2167)', () => {
     expect(apiRouter.service).toBe('modsecurity-service');
   });
 
-  it('api-webhook-router rule does NOT match status callback endpoints', () => {
+  it('webhook routers do NOT match status callback endpoints', () => {
     const config = getParsedConfig();
-    const router = config.http.routers['api-webhook-router'];
-    // Status callbacks carry structured data, not user content — they stay behind WAF
-    expect(router.rule).not.toContain('/twilio/sms/status');
-    expect(router.rule).not.toContain('/postmark/email/status');
+    for (const { name } of webhookRouters) {
+      const router = config.http.routers[name];
+      expect(router.rule).not.toContain('/twilio/sms/status');
+      expect(router.rule).not.toContain('/postmark/email/status');
+    }
   });
 
-  it('api-webhook-router uses exact Path() matchers, not PathPrefix()', () => {
-    const config = getParsedConfig();
-    const router = config.http.routers['api-webhook-router'];
-    // Path() is exact match; PathPrefix() would bypass WAF for sub-paths like /twilio/sms/anything
-    expect(router.rule).toContain('Path(`/cloudflare/email`)');
-    expect(router.rule).not.toContain('PathPrefix');
+  it('ipAllowList middlewares are defined for all providers', () => {
+    const config = getParsedConfig() as { http: { middlewares: Record<string, unknown>; routers: Record<string, unknown> } };
+    expect(config.http.middlewares['webhook-cloudflare-ipallowlist']).toBeDefined();
+    expect(config.http.middlewares['webhook-postmark-ipallowlist']).toBeDefined();
+    expect(config.http.middlewares['webhook-twilio-ipallowlist']).toBeDefined();
   });
 });
 
