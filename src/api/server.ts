@@ -21900,8 +21900,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // ── Dev Sessions (Issue #1285) ─────────────────────────────────────
 
-  /** Issue #2190: Valid dev_session status values. */
-  const DEV_SESSION_VALID_STATUSES = ['active', 'paused', 'completed', 'errored', 'abandoned'] as const;
+  /** Issue #2190 + #2193: Valid dev_session status values. Includes 'stalled' for Symphony orchestration. */
+  const DEV_SESSION_VALID_STATUSES = ['active', 'paused', 'completed', 'errored', 'abandoned', 'stalled'] as const;
   type DevSessionStatus = typeof DEV_SESSION_VALID_STATUSES[number];
 
   const DEV_SESSION_UPDATABLE = [
@@ -21909,6 +21909,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     'container_user', 'repo_org', 'repo_name', 'context_pct',
     'last_capture', 'last_capture_at', 'completion_summary',
     'linked_issues', 'linked_prs', 'webhook_id',
+    'agent_type', // Issue #2193: Symphony agent classification
   ] as const;
 
   /**
@@ -21990,14 +21991,19 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       throw err;
     }
 
+    // Issue #2193: Extract Symphony orchestration fields
+    const orchestrated = body.orchestrated === true;
+    const agentType = typeof body.agent_type === 'string' ? body.agent_type : null;
+
     const pool = createPool();
     try {
       const result = await pool.query(
         `INSERT INTO dev_session (
           user_email, session_name, node, project_id, container,
           container_user, repo_org, repo_name, branch, task_summary,
-          task_prompt, linked_issues, linked_prs, namespace
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+          task_prompt, linked_issues, linked_prs, namespace,
+          orchestrated, agent_type
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
         RETURNING *`,
         [
           email,
@@ -22014,6 +22020,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           Array.isArray(body.linked_issues) ? body.linked_issues : [],
           Array.isArray(body.linked_prs) ? body.linked_prs : [],
           namespace,
+          orchestrated,
+          agentType,
         ],
       );
       return reply.code(201).send(result.rows[0]);
@@ -22054,6 +22062,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       conditions.push(`project_id = $${idx}::uuid`);
       params.push(query.project_id);
       idx++;
+    }
+
+    // Issue #2193: Filter orchestrated sessions by default.
+    // Orchestrated sessions are visible via namespace but excluded from
+    // user-facing lists unless explicitly requested.
+    if (query.include_orchestrated !== 'true') {
+      conditions.push(`orchestrated = false`);
     }
 
     const limit = Math.min(Math.max(parseInt(query.limit || '50', 10) || 50, 1), 200);

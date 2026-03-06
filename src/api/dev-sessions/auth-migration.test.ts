@@ -98,7 +98,7 @@ describe('Dev Session Auth Migration (Issue #2190)', () => {
     it('accepts valid status values', async () => {
       vi.stubEnv('OPENCLAW_E2E_SESSION_EMAIL', 'test@example.com');
 
-      for (const status of ['active', 'paused', 'completed', 'errored', 'abandoned']) {
+      for (const status of ['active', 'paused', 'completed', 'errored', 'abandoned', 'stalled']) {
         const res = await app.inject({
           method: 'PATCH',
           url: '/dev-sessions/00000000-0000-0000-0000-000000000001',
@@ -137,7 +137,7 @@ describe('Dev Session Auth Migration (Issue #2190)', () => {
   describe('Valid status values', () => {
     it('DEV_SESSION_VALID_STATUSES matches CHECK constraint values', () => {
       // This test documents the valid statuses for the CHECK constraint
-      const expectedStatuses = ['active', 'paused', 'completed', 'errored', 'abandoned'];
+      const expectedStatuses = ['active', 'paused', 'completed', 'errored', 'abandoned', 'stalled'];
       // The values in the migration must match the values in the code
       expect(expectedStatuses).toEqual(expectedStatuses);
     });
