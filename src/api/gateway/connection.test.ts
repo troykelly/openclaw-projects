@@ -723,24 +723,27 @@ describe('GatewayConnectionService', () => {
       await svc.shutdown();
     });
 
-    it('init rejects when WS closes before handshake completes', async () => {
+    it('init resolves but connected=false when WS closes before handshake completes', async () => {
       const svc = makeService();
       const initPromise = svc.initialize();
       await vi.advanceTimersByTimeAsync(0);
 
       const ws = getMockInstances()[0];
       ws._emitOpen();
-      // Close before challenge arrives — init should NOT resolve successfully
+      // Close before challenge arrives — init resolves (to avoid blocking startup)
+      // but connected flag correctly stays false
       ws._emitClose(1006);
 
       // Advance for reconnect backoff
       await vi.advanceTimersByTimeAsync(2000);
 
-      // The service should not be connected
+      // Init should have resolved (not thrown)
+      await initPromise;
+
+      // The service should NOT be connected since handshake never completed
       expect(svc.getStatus().connected).toBe(false);
 
       await svc.shutdown();
-      await initPromise.catch(() => {});
     });
 
     it('request() times out and rejects after configurable timeout', async () => {

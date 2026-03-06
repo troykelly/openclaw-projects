@@ -204,6 +204,8 @@ export class SSHReconnectManager {
    * Uses `tmux has-session -t <name>` executed through the SSH2 client's
    * channel execution (not child_process). Exit code 0 means session exists.
    * The session name is shell-escaped to prevent injection.
+   *
+   * Includes a 10s timeout to prevent hanging if the remote command stalls.
    */
   private async checkRemoteTmuxSession(
     sshResult: SSHConnectResult,
@@ -212,23 +214,38 @@ export class SSHReconnectManager {
     if (!sshResult.client) return false;
 
     const escapedName = escapeShellArg(tmuxSessionName);
+    const TMUX_CHECK_TIMEOUT_MS = 10000;
 
     return new Promise<boolean>((resolve) => {
+      let resolved = false;
+      const resolveOnce = (value: boolean) => {
+        if (!resolved) {
+          resolved = true;
+          clearTimeout(timer);
+          resolve(value);
+        }
+      };
+
+      // Timeout: if the remote command stalls, assume tmux session is gone
+      const timer = setTimeout(() => {
+        resolveOnce(false);
+      }, TMUX_CHECK_TIMEOUT_MS);
+
       // ssh2 Client.exec runs a command over an SSH channel (not local shell)
       sshResult.client!.exec(
         `tmux has-session -t ${escapedName} 2>/dev/null`,
         (err, stream) => {
           if (err) {
-            resolve(false);
+            resolveOnce(false);
             return;
           }
 
           stream.on('close', (code: number) => {
-            resolve(code === 0);
+            resolveOnce(code === 0);
           });
 
           stream.on('error', () => {
-            resolve(false);
+            resolveOnce(false);
           });
         },
       );
