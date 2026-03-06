@@ -1,0 +1,37 @@
+Read CLAUDE.md and CODING.md first.
+
+IMPORTANT COORDINATION: Before starting work, run these commands:
+```
+gh issue edit 1604 --add-label in-progress
+gh issue comment 1604 --body "🤖 Starting work — session: dev-troykelly-openclaw-projects-002"
+```
+
+Implement issue #1604: [Settings] Harden enabled_features guards per code review of #1602
+
+Requirements:
+1. Normalize per-connection enabled_features in useConnectedAccounts hook - ensure enabled_features is always an array after fetch
+2. Use Array.isArray() consistently across components instead of ?? [] pattern
+3. Add async test coverage with waitFor for post-fetch rendering
+4. Add tests for ConnectionEditForm and ConnectionManagePanel with undefined enabled_features
+5. Add edge case tests for non-array truthy values (enabled_features: "contacts", enabled_features: {})
+6. Extract repeated (connection.enabled_features ?? []) expression in ConnectionCard to a local variable
+
+Acceptance Criteria:
+- Per-connection enabled_features normalization in useConnectedAccounts hook
+- Consistent Array.isArray() pattern across components (or unnecessary guards removed after hook normalization)
+- Async test coverage with waitFor for post-fetch rendering
+- Tests for form/panel components with undefined enabled_features
+
+Process:
+1. Create branch: git checkout -b issue/1604-harden-enabled-features
+2. Write failing tests first
+3. Implement the fix
+4. Run the full test suite: pnpm test
+5. Create a PR: gh pr create --title "[#1604] Harden enabled_features guards" --body "Closes #1604"
+
+WHEN DONE: Remove the in-progress label:
+```
+gh issue edit 1604 --remove-label in-progress
+```
+
+Commit format: [#1604] Brief description

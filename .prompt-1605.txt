@@ -1,0 +1,97 @@
+Read CLAUDE.md and CODING.md first.
+Also read docs/plans/2026-02-22-completeness-audit.md for full context.
+
+IMPORTANT COORDINATION: Before starting work, run these commands for ALL issues:
+```
+for i in 1605 1606 1607 1608 1609 1610 1611 1612 1613 1614; do
+  gh issue edit $i --add-label in-progress
+done
+gh issue comment 1605 --body "🤖 Starting omnibus implementation — session: dev-troykelly-openclaw-projects-003. All 9 child issues on one branch."
+```
+
+This is an OMNIBUS PR: all 9 child issues (#1606-#1614) of epic #1605 on ONE branch, ONE PR.
+
+Process:
+1. git checkout main && git pull
+2. git checkout -b epic/1605-completeness-audit
+3. Implement each issue in order (see below)
+4. Run pnpm test after each major change
+5. Create ONE PR: gh pr create --title "[#1605] Completeness audit omnibus — wire dead code, register routes, remove orphans" --body "Closes #1605, closes #1606, closes #1607, closes #1608, closes #1609, closes #1610, closes #1611, closes #1612, closes #1613, closes #1614"
+
+## Issue 1: #1606 — Register ha-routes.ts Fastify plugin in server.ts
+- Import haRoutesPlugin from src/api/ha-routes.ts
+- Register it in server.ts with prefix /api/ha
+- Verify auth middleware compatibility
+- Commit: [#1606] Register ha-routes.ts Fastify plugin in server.ts
+
+## Issue 2: #1607 — Call geo provider registration at startup
+- Create src/api/geolocation/bootstrap.ts (or similar)
+- Import and call registerHaProvider(), registerMqttProvider(), registerWebhookProvider()
+- Call bootstrap early in server.ts before routes
+- Commit: [#1607] Bootstrap geo provider registration at server startup
+
+## Issue 3: #1608 — Add CommunicationsPage and ContactDetailPage to routes.tsx
+- Add route for /communications -> CommunicationsPage
+- Add route for /contacts/:id -> ContactDetailPage
+- Add sidebar/nav links
+- Commit: [#1608] Add CommunicationsPage and ContactDetailPage routes
+
+## Issue 4: #1609 — Mount NotificationBell in app layout header
+- Import NotificationBell from components/notifications
+- Mount in app layout header
+- Verify unread badge and dropdown work
+- Commit: [#1609] Mount NotificationBell in app layout header
+
+## Issue 5: #1610 — Wire HA dispatch service + register OAuth gateway plugin
+- Wire dispatchHaObservations() into the observation scorer output handler
+- Register oauthGatewayPlugin following existing gateway plugin patterns
+- Commit: [#1610] Wire HA dispatch service + register OAuth gateway plugin
+
+## Issue 6: #1611 — Add routes for recipes, meal-log, dev-sessions
+- Create page components if needed: RecipesPage.tsx, MealLogPage.tsx, DevSessionsPage.tsx
+- Add routes in routes.tsx for each
+- Add sidebar/nav links
+- Commit: [#1611] Add routes for recipes, meal-log, and dev-sessions pages
+
+## Issue 7: #1612 — Remove orphaned UI component directories
+- Remove these directories (confirmed dead - DO NOT remove recipes, meal-log, dev-sessions, notifications):
+  - components/dashboard/
+  - components/import-export/
+  - components/calendar-view/
+  - components/watchers/
+  - components/activity-feed/
+  - components/keyboard-navigation/
+  - components/mobile/
+  - components/timeline-nav/
+  - components/custom-fields/
+  - components/templates/
+  - components/baselines/
+  - components/workload/
+  - components/performance/
+  - components/a11y/
+- Verify no imports break
+- Commit: [#1612] Remove orphaned UI component directories
+
+## Issue 8: #1613 — Remove orphaned hooks, stores, and dead geo modules
+- Check if usePreferenceStore, useSelectionStore, useUiStore are used by newly-wired pages. Remove if unused.
+- Check and remove dead geo analysis files if unused:
+  - src/api/geolocation/analysis/anomaly-detector.ts
+  - src/api/geolocation/analysis/automation-generator.ts
+  - Other confirmed dead geo files
+- Commit: [#1613] Remove orphaned hooks, stores, and dead geo modules
+
+## Issue 9: #1614 — Document env vars + update OpenAPI spec
+- Add all 14 undocumented env vars to .env.example with comments
+- Group by service (Geolocation, File Storage, Inbound Routing, Notes, OAuth, Webhooks, Worker)
+- Update OpenAPI spec to match registered routes (especially new HA routes)
+- Commit: [#1614] Document undocumented env vars and update OpenAPI spec
+
+## Final
+- Run full test suite: pnpm test
+- Create PR with closes tags for all 10 issues
+- WHEN DONE: Remove in-progress labels:
+```
+for i in 1605 1606 1607 1608 1609 1610 1611 1612 1613 1614; do
+  gh issue edit $i --remove-label in-progress
+done
+```
