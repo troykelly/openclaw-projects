@@ -20,6 +20,7 @@ import type {
   Tracker,
 } from './types.ts';
 import { computeSyncHash } from './sync-hash.ts';
+import { RunState, TERMINAL_STATES } from '../../../symphony/states.ts';
 
 // ─────────────────────────────────────────────────────────────
 // Types
@@ -225,9 +226,9 @@ export class SyncService {
        FROM symphony_run sr
        JOIN github_issue_sync gis ON gis.work_item_id = sr.work_item_id
        WHERE sr.namespace = $1
-         AND sr.status NOT IN ('succeeded', 'failed', 'cancelled', 'timed_out')
+         AND sr.status NOT IN (${[...TERMINAL_STATES].map((_, i) => `$${i + 3}`).join(', ')})
          AND gis.project_repository_id = $2`,
-      [config.namespace, config.id],
+      [config.namespace, config.id, ...TERMINAL_STATES],
     );
 
     if (activeRuns.rows.length === 0) {
@@ -265,10 +266,12 @@ export class SyncService {
       }
 
       if (state === 'closed') {
+        const termArr = [...TERMINAL_STATES];
+        const termPlaceholders = termArr.map((_, i) => `$${i + 3}`).join(', ');
         await this.pool.query(
-          `UPDATE symphony_run SET status = 'cancelled', error_message = 'GitHub issue closed'
-           WHERE id = $1 AND status NOT IN ('succeeded', 'failed', 'cancelled', 'timed_out')`,
-          [run.run_id],
+          `UPDATE symphony_run SET status = $1, error_message = 'GitHub issue closed'
+           WHERE id = $2 AND status NOT IN (${termPlaceholders})`,
+          [RunState.Cancelled, run.run_id, ...termArr],
         );
         // Update sync record state too
         await this.pool.query(

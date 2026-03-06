@@ -24,6 +24,7 @@ import { HeartbeatManager, generateOrchestratorId } from './heartbeat.ts';
 import { recoverySweep } from './recovery.ts';
 import { loadConfig, getDefaultConfig } from './config.ts';
 import type { OrchestratorConfig } from './config.ts';
+import { RunState, TERMINAL_STATES } from '../symphony/states.ts';
 import {
   symphonyTickDuration,
   symphonyTicksTotal,
@@ -269,44 +270,48 @@ async function tick(pool: Pool, orchestratorId: string): Promise<void> {
   const tickStart = Date.now();
 
   try {
-    // Count active runs
+    // Build terminal status list for SQL IN clause
+    const terminalArr = [...TERMINAL_STATES];
+    const terminalParams = terminalArr.map((_, i) => `$${i + 3}`).join(', ');
+
+    // Count active runs (not in terminal states)
     const activeResult = await pool.query<{ count: string }>(
       `SELECT COUNT(*) as count
        FROM symphony_run
        WHERE namespace = $1
          AND orchestrator_id = $2
-         AND status NOT IN ('succeeded', 'failed', 'cancelled', 'timed_out')`,
-      [SYMPHONY_NAMESPACE, orchestratorId],
+         AND status NOT IN (${terminalParams})`,
+      [SYMPHONY_NAMESPACE, orchestratorId, ...terminalArr],
     );
     activeRunsCount = parseInt(activeResult.rows[0].count, 10);
     symphonyActiveRuns.set(activeRunsCount);
 
-    // Find queued runs to claim (if under capacity)
+    // Find unclaimed runs to claim (if under capacity)
     if (activeRunsCount < currentConfig.maxConcurrentRuns) {
       const slotsAvailable = currentConfig.maxConcurrentRuns - activeRunsCount;
 
-      const queuedRuns = await pool.query<{ id: string; work_item_id: string }>(
+      const unclaimedRuns = await pool.query<{ id: string; work_item_id: string }>(
         `SELECT id, work_item_id
          FROM symphony_run
          WHERE namespace = $1
-           AND status = 'queued'
+           AND status = $2
            AND orchestrator_id IS NULL
          ORDER BY created_at ASC
-         LIMIT $2`,
-        [SYMPHONY_NAMESPACE, slotsAvailable],
+         LIMIT $3`,
+        [SYMPHONY_NAMESPACE, RunState.Unclaimed, slotsAvailable],
       );
 
-      for (const run of queuedRuns.rows) {
+      for (const run of unclaimedRuns.rows) {
         // Attempt to claim — uses optimistic concurrency via state_version
         const claimed = await pool.query(
           `UPDATE symphony_run
            SET orchestrator_id = $1,
-               status = 'claiming',
+               status = $2,
                state_version = state_version + 1
-           WHERE id = $2
-             AND status = 'queued'
+           WHERE id = $3
+             AND status = $4
              AND orchestrator_id IS NULL`,
-          [orchestratorId, run.id],
+          [orchestratorId, RunState.Claimed, run.id, RunState.Unclaimed],
         );
 
         if (claimed.rowCount === 1) {

@@ -5,15 +5,16 @@
  * On startup, the orchestrator:
  * 1. Finds stale orchestrators (heartbeat expired)
  * 2. Transitions their orphaned runs to recovery states:
- *    - claimed/claiming -> released (claim released)
- *    - provisioning -> failed (rollback)
- *    - executing/paused/resuming -> timed_out (stalled)
+ *    - claimed/provisioning/prompting -> failed (early stages)
+ *    - running/verifying_result/merge_pending/etc -> stalled (active stages)
+ *    - paused -> orphaned
  * 3. Removes stale heartbeat entries
  */
 
 import type { Pool } from 'pg';
 import { findStaleOrchestrators, removeHeartbeat } from './heartbeat.ts';
 import { symphonyRecoveryTotal } from './metrics.ts';
+import { RunState, TERMINAL_STATES } from '../symphony/states.ts';
 
 /** Recovery result for a single run. */
 export interface RecoveryResult {
@@ -22,31 +23,25 @@ export interface RecoveryResult {
   newStatus: string;
 }
 
-/** Terminal statuses — runs in these states are already done. */
-const TERMINAL_STATUSES = ['succeeded', 'failed', 'cancelled', 'timed_out'];
-
 /**
  * Status transition map for recovery.
- * Maps current status to the recovery target status.
+ * Maps current non-terminal status to the recovery target status.
+ * Uses the 22-state model from migration 148.
  */
 const RECOVERY_TRANSITIONS: Record<string, string> = {
-  claiming: 'failed',
-  claimed: 'failed',
-  provisioning: 'failed',
-  provisioned: 'failed',
-  cloning: 'failed',
-  cloned: 'failed',
-  installing: 'failed',
-  installed: 'failed',
-  branching: 'failed',
-  branched: 'failed',
-  executing: 'timed_out',
-  paused: 'timed_out',
-  resuming: 'timed_out',
-  reviewing: 'timed_out',
-  pushing: 'timed_out',
-  pr_created: 'timed_out',
-  merging: 'timed_out',
+  [RunState.Claimed]: RunState.Failed,
+  [RunState.Provisioning]: RunState.Failed,
+  [RunState.Prompting]: RunState.Failed,
+  [RunState.Running]: RunState.Stalled,
+  [RunState.AwaitingApproval]: RunState.Stalled,
+  [RunState.VerifyingResult]: RunState.Stalled,
+  [RunState.MergePending]: RunState.Stalled,
+  [RunState.PostMergeVerify]: RunState.Stalled,
+  [RunState.IssueClosing]: RunState.Stalled,
+  [RunState.ContinuationWait]: RunState.Stalled,
+  [RunState.Paused]: RunState.Orphaned,
+  [RunState.Terminating]: RunState.Terminated,
+  [RunState.RetryQueued]: RunState.Failed,
 };
 
 /**
@@ -61,6 +56,8 @@ export async function recoverOrphanedRuns(
   const results: RecoveryResult[] = [];
 
   // Find all non-terminal runs owned by the stale orchestrator
+  const terminalArr = [...TERMINAL_STATES];
+  const terminalParams = terminalArr.map((_, i) => `$${i + 3}`).join(', ');
   const orphanedRuns = await pool.query<{
     id: string;
     status: string;
@@ -69,8 +66,8 @@ export async function recoverOrphanedRuns(
      FROM symphony_run
      WHERE namespace = $1
        AND orchestrator_id = $2
-       AND status NOT IN (${TERMINAL_STATUSES.map((_, i) => `$${i + 3}`).join(', ')})`,
-    [namespace, staleOrchestratorId, ...TERMINAL_STATUSES],
+       AND status NOT IN (${terminalParams})`,
+    [namespace, staleOrchestratorId, ...terminalArr],
   );
 
   for (const run of orphanedRuns.rows) {
