@@ -76,6 +76,8 @@ export default defineProject({
       'src/api/geolocation/registry.test.ts',
       'src/api/geolocation/crypto.test.ts',
       'src/worker/**/*.test.ts',
+      // symphony-worker unit tests (run by the unit project)
+      'src/symphony-worker/**/*.test.ts',
       // tmux-worker unit tests (run by the unit project)
       'src/tmux-worker/**/*.test.ts',
       // Auth unit tests
