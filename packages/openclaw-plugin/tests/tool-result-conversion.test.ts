@@ -1,5 +1,5 @@
 /**
- * Tests for toAgentToolResult conversion (#2220).
+ * Tests for toAgentToolResult conversion (#2220, #2228).
  *
  * Verifies that tool results with different data shapes are always
  * converted to well-formed AgentToolResult objects (content field
@@ -12,7 +12,7 @@ import { describe, expect, it } from 'vitest';
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { toAgentToolResult } from '../src/register-openclaw.js';
 
-describe('toAgentToolResult (#2220)', () => {
+describe('toAgentToolResult (#2220, #2228)', () => {
   it('converts a standard ToolResult with data.content', () => {
     const result = {
       success: true,
@@ -91,5 +91,15 @@ describe('toAgentToolResult (#2220)', () => {
         expect(typeof block.text).toBe('string');
       }
     }
+  });
+
+  it('survives data with circular references without crashing (#2228)', () => {
+    const circular: Record<string, unknown> = { id: 'circ' };
+    circular.self = circular;
+    const result = { success: true, data: circular };
+    const agent = toAgentToolResult(result as any);
+    expect(agent.content).toHaveLength(1);
+    expect(typeof agent.content[0].text).toBe('string');
+    expect(agent.content[0].text.length).toBeGreaterThan(0);
   });
 });

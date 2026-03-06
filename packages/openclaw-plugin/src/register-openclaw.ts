@@ -160,9 +160,18 @@ interface PluginState {
  */
 export function toAgentToolResult(result: ToolResult): AgentToolResult {
   if (result.success && result.data) {
-    const text = typeof result.data.content === 'string'
-      ? result.data.content
-      : JSON.stringify(result.data);
+    let text: string;
+    if (typeof result.data.content === 'string') {
+      text = result.data.content;
+    } else {
+      // Fallback: serialise the full data object. try/catch guards against
+      // circular references, BigInt, or misbehaving toJSON (#2228).
+      try {
+        text = JSON.stringify(result.data);
+      } catch {
+        text = String(result.data);
+      }
+    }
     return {
       content: [{ type: 'text' as const, text }],
     };
