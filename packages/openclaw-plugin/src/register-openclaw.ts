@@ -179,7 +179,7 @@ export function toAgentToolResult(result: ToolResult): AgentToolResult {
 
   if (result.success && result.data) {
     let text: string;
-    if (typeof result.data.content === 'string') {
+    if (typeof result.data.content === 'string' && result.data.content.length > 0) {
       text = result.data.content;
     } else {
       // Fallback: serialise the full data object. try/catch guards against
@@ -193,7 +193,9 @@ export function toAgentToolResult(result: ToolResult): AgentToolResult {
     candidate = { content: [{ type: 'text' as const, text }] };
   } else {
     // For errors, format the error message
-    const errorText = result.error ?? 'An unexpected error occurred';
+    const errorText = result.error && String(result.error).trim()
+      ? String(result.error)
+      : 'An unexpected error occurred';
     candidate = {
       content: [{ type: 'text' as const, text: `Error: ${errorText}` }],
       isError: true,
