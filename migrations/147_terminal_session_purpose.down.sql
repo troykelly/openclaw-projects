@@ -5,4 +5,6 @@
 
 DROP INDEX IF EXISTS idx_terminal_session_purpose;
 
+ALTER TABLE terminal_session DROP CONSTRAINT IF EXISTS chk_terminal_session_purpose;
+
 ALTER TABLE terminal_session DROP COLUMN IF EXISTS purpose;

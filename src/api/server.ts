@@ -21938,10 +21938,16 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     status: string | undefined,
     limit: number,
     offset: number,
+    includeOrchestrated: boolean = false,
   ): Promise<Record<string, unknown>[]> {
     const conditions = ['namespace = ANY($1::text[])'];
     const params: unknown[] = [namespaces];
     let idx = 2;
+
+    // Issue #2193: Filter orchestrated sessions unless explicitly requested
+    if (!includeOrchestrated) {
+      conditions.push('orchestrated = false');
+    }
 
     if (status) {
       conditions.push(`status = $${idx}`);
@@ -22451,7 +22457,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // GET /dev-sessions/search — Semantic + text hybrid search (Issue #1987)
   app.get('/dev-sessions/search', async (req, reply) => {
-    const query = req.query as { q?: string; status?: string; limit?: string; offset?: string };
+    const query = req.query as { q?: string; status?: string; limit?: string; offset?: string; include_orchestrated?: string };
     const searchTerm = query.q?.trim();
     if (!searchTerm) return reply.code(400).send({ error: 'q (search query) is required' });
     if (searchTerm.length > 1000) return reply.code(400).send({ error: 'query too long (max 1000 characters)' });
@@ -22463,6 +22469,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const limit = Math.min(Math.max(Number.parseInt(query.limit ?? '', 10) || 20, 1), 100);
     const offset = Math.max(Number.parseInt(query.offset ?? '', 10) || 0, 0);
+    // Issue #2193: Filter orchestrated sessions from search by default
+    const includeOrchestrated = query.include_orchestrated === 'true';
 
     const pool = createPool();
     try {
@@ -22493,6 +22501,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
               ];
               const params: unknown[] = [namespaces];
               let idx = 2;
+
+              // Issue #2193: Filter orchestrated sessions from search
+              if (!includeOrchestrated) {
+                conditions.push('orchestrated = false');
+              }
 
               if (query.status) {
                 conditions.push(`status = $${idx}`);
@@ -22550,16 +22563,16 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
               useSemantic = true;
               searchMode = 'hybrid';
             } else {
-              rows = await devSessionTextSearch(pool, namespaces, searchTerm, query.status, limit, offset);
+              rows = await devSessionTextSearch(pool, namespaces, searchTerm, query.status, limit, offset, includeOrchestrated);
             }
           } catch {
-            rows = await devSessionTextSearch(pool, namespaces, searchTerm, query.status, limit, offset);
+            rows = await devSessionTextSearch(pool, namespaces, searchTerm, query.status, limit, offset, includeOrchestrated);
           }
         } else {
-          rows = await devSessionTextSearch(pool, namespaces, searchTerm, query.status, limit, offset);
+          rows = await devSessionTextSearch(pool, namespaces, searchTerm, query.status, limit, offset, includeOrchestrated);
         }
       } else {
-        rows = await devSessionTextSearch(pool, namespaces, searchTerm, query.status, limit, offset);
+        rows = await devSessionTextSearch(pool, namespaces, searchTerm, query.status, limit, offset, includeOrchestrated);
       }
 
       // Compute total
@@ -22570,6 +22583,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
             'namespace = ANY($1::text[])',
             "(search_vector @@ plainto_tsquery('english', $2) OR session_name ILIKE $3 OR task_summary ILIKE $3)",
           ];
+          // Issue #2193: Filter orchestrated sessions from count
+          if (!includeOrchestrated) {
+            countConditions.push('orchestrated = false');
+          }
           const countParams: unknown[] = [namespaces, searchTerm, `%${searchTerm}%`];
           let countIdx = 4;
           if (query.status) {

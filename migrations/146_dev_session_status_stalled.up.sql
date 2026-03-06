@@ -7,6 +7,11 @@
 -- This migration preserves all existing values and adds 'stalled'.
 -- ============================================================
 
+-- Normalize any non-standard status values before re-adding CHECK
+UPDATE dev_session
+  SET status = 'active'
+  WHERE status NOT IN ('active', 'paused', 'completed', 'errored', 'abandoned', 'stalled');
+
 -- Drop existing CHECK constraint from migration 138
 ALTER TABLE dev_session DROP CONSTRAINT IF EXISTS chk_dev_session_status;
 
