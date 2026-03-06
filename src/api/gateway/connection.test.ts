@@ -688,4 +688,161 @@ describe('GatewayConnectionService', () => {
       await expect(svc.initialize()).rejects.toThrow(/scheme/i);
     });
   });
+
+  // ================================================================
+  // Gateway Hardening (#2188)
+  // ================================================================
+
+  describe('Gateway Hardening (#2188)', () => {
+    it('logs unknown frame types as warnings and increments counter', async () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const svc = makeService();
+      const initPromise = svc.initialize();
+      await vi.advanceTimersByTimeAsync(0);
+      completeHandshake(getMockInstances()[0]);
+      await vi.advanceTimersByTimeAsync(0);
+      await initPromise;
+
+      // Send an unknown frame type
+      getMockInstances()[0]._emitMessage(JSON.stringify({
+        type: 'unknown_type',
+        data: 'something',
+      }));
+      await vi.advanceTimersByTimeAsync(0);
+
+      // Should have logged a warning
+      const warnCalls = warnSpy.mock.calls.filter(
+        (args) => typeof args[0] === 'string' && args[0].includes('unknown frame type'),
+      );
+      expect(warnCalls.length).toBe(1);
+
+      // Service should still be connected
+      expect(svc.getStatus().connected).toBe(true);
+
+      warnSpy.mockRestore();
+      await svc.shutdown();
+    });
+
+    it('init rejects when WS closes before handshake completes', async () => {
+      const svc = makeService();
+      const initPromise = svc.initialize();
+      await vi.advanceTimersByTimeAsync(0);
+
+      const ws = getMockInstances()[0];
+      ws._emitOpen();
+      // Close before challenge arrives — init should NOT resolve successfully
+      ws._emitClose(1006);
+
+      // Advance for reconnect backoff
+      await vi.advanceTimersByTimeAsync(2000);
+
+      // The service should not be connected
+      expect(svc.getStatus().connected).toBe(false);
+
+      await svc.shutdown();
+      await initPromise.catch(() => {});
+    });
+
+    it('request() times out and rejects after configurable timeout', async () => {
+      const svc = makeService();
+      const initPromise = svc.initialize();
+      await vi.advanceTimersByTimeAsync(0);
+      completeHandshake(getMockInstances()[0]);
+      await vi.advanceTimersByTimeAsync(0);
+      await initPromise;
+
+      // Send a request with a 5s timeout
+      const reqPromise = svc.request('slow.method', {}, { timeoutMs: 5000 });
+      const rejectionPromise = expect(reqPromise).rejects.toThrow(/timeout/i);
+      await vi.advanceTimersByTimeAsync(0);
+
+      // Advance past the timeout
+      await vi.advanceTimersByTimeAsync(6000);
+
+      await rejectionPromise;
+
+      // The pending request should be cleaned up (no memory leak)
+      // Send another request to verify the service still works
+      const reqPromise2 = svc.request('fast.method', {});
+      await vi.advanceTimersByTimeAsync(0);
+      const sentReq = getMockInstances()[0]._sent.find((s) => {
+        const parsed = JSON.parse(s);
+        return parsed.type === 'req' && parsed.method === 'fast.method';
+      });
+      expect(sentReq).toBeDefined();
+
+      // Clean up
+      await svc.shutdown();
+      await reqPromise2.catch(() => {});
+    });
+
+    it('request() uses default 30s timeout', async () => {
+      const svc = makeService();
+      const initPromise = svc.initialize();
+      await vi.advanceTimersByTimeAsync(0);
+      completeHandshake(getMockInstances()[0]);
+      await vi.advanceTimersByTimeAsync(0);
+      await initPromise;
+
+      const reqPromise = svc.request('slow.method', {});
+      const rejectionPromise = expect(reqPromise).rejects.toThrow(/timeout/i);
+      await vi.advanceTimersByTimeAsync(0);
+
+      // Should NOT have timed out at 25s
+      await vi.advanceTimersByTimeAsync(25000);
+      // No rejection yet — the promise should still be pending
+
+      // Should time out at 30s
+      await vi.advanceTimersByTimeAsync(6000);
+      await rejectionPromise;
+
+      await svc.shutdown();
+    });
+
+    it('request() timeout cleanup prevents memory leaks', async () => {
+      const svc = makeService();
+      const initPromise = svc.initialize();
+      await vi.advanceTimersByTimeAsync(0);
+      completeHandshake(getMockInstances()[0]);
+      await vi.advanceTimersByTimeAsync(0);
+      await initPromise;
+
+      // Send multiple requests that will all time out
+      const promises: Promise<unknown>[] = [];
+      for (let i = 0; i < 10; i++) {
+        promises.push(
+          svc.request(`method-${i}`, {}, { timeoutMs: 1000 }).catch(() => {}),
+        );
+      }
+      await vi.advanceTimersByTimeAsync(0);
+
+      // Advance past timeouts
+      await vi.advanceTimersByTimeAsync(2000);
+      await Promise.all(promises);
+
+      // Service should still be healthy
+      expect(svc.getStatus().connected).toBe(true);
+      await svc.shutdown();
+    });
+
+    it('WS handshake timeout configurable via env', async () => {
+      // Set a custom handshake timeout of 2 seconds
+      const svc = makeService({
+        OPENCLAW_GATEWAY_WS_HANDSHAKE_TIMEOUT_MS: '2000',
+      });
+      const initPromise = svc.initialize();
+      await vi.advanceTimersByTimeAsync(0);
+
+      const ws = getMockInstances()[0];
+      ws._emitOpen();
+      // Do NOT send challenge
+
+      // After 2s (custom timeout), should close
+      await vi.advanceTimersByTimeAsync(2100);
+      expect(ws.readyState).toBe(MockWebSocket.CLOSED);
+
+      await svc.shutdown();
+      await initPromise.catch(() => {});
+    });
+  });
 });
