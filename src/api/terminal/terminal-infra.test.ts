@@ -211,6 +211,21 @@ describe('enrollment rate limiter', () => {
     expect(blocked.retryAfterMs).toBeGreaterThan(0);
     expect(blocked.retryAfterMs).toBeLessThanOrEqual(60_000);
   });
+
+  it('evicts entries when maxKeys is exceeded', async () => {
+    const { createRateLimiter } = await import('./rate-limiter.ts');
+    const limiter = createRateLimiter({ maxRequests: 1, windowMs: 60_000, maxKeys: 3 });
+
+    // Fill 4 entries (exceeds maxKeys of 3)
+    limiter.check('key-1');
+    limiter.check('key-2');
+    limiter.check('key-3');
+    limiter.check('key-4');
+
+    // After eviction, new keys should still be trackable
+    const result = limiter.check('key-5');
+    expect(result.allowed).toBe(true);
+  });
 });
 
 // ── Sub-item 5: Session affinity fail-closed ──

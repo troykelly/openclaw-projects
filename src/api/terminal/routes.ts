@@ -51,14 +51,13 @@ import {
 import { validateNamespaceConsistency } from './namespace-validation.ts';
 import { createRateLimiter } from './rate-limiter.ts';
 import { checkMaxSessions } from './max-sessions.ts';
-import {
-  getDeprecationHeaders,
-  logQueryTokenUsage,
-} from './query-token-deprecation.ts';
+import { logQueryTokenUsage } from './query-token-deprecation.ts';
 // Session affinity module (#2124) provides worker routing for HA deployments.
 // Integration with per-worker gRPC client pools will be done when multi-worker
 // deployments are fully supported. For now, the module provides the lookup
 // infrastructure (getSessionWorkerId, resolveWorkerGrpcUrl, isMultiWorkerMode).
+// Issue #2191, Sub-item 5: resolveWorkerGrpcUrlStrict() provides fail-closed
+// semantics — use it instead of resolveWorkerGrpcUrl() when wiring multi-worker.
 
 // ── Constants ────────────────────────────────────────────────
 
@@ -502,6 +501,16 @@ export async function terminalRoutesPlugin(
     }
 
     // Issue #2191, Sub-item 1: Cross-namespace credential/proxy validation on update
+    if ('credential_id' in body && body.credential_id) {
+      if (!UUID_REGEX.test(body.credential_id as string)) {
+        return reply.code(400).send({ error: 'Invalid credential_id format' });
+      }
+    }
+    if ('proxy_jump_id' in body && body.proxy_jump_id) {
+      if (!UUID_REGEX.test(body.proxy_jump_id as string)) {
+        return reply.code(400).send({ error: 'Invalid proxy_jump_id format' });
+      }
+    }
     const patchNamespace = getStoreNamespace(req);
     if ('credential_id' in body && body.credential_id) {
       const nsCheck = await validateNamespaceConsistency(
@@ -1109,36 +1118,37 @@ export async function terminalRoutesPlugin(
       return reply.code(404).send({ error: 'Connection not found' });
     }
 
-    // Issue #2191, Sub-item 7: Enforce max_sessions with transactional check
-    const maxClient = await pool.connect();
-    try {
-      await maxClient.query('BEGIN');
-      const maxCheck = await checkMaxSessions(maxClient, body.connection_id);
-      await maxClient.query('COMMIT');
-      if (!maxCheck.allowed) {
-        return reply.code(409).send({
-          error: maxCheck.error ?? 'Maximum sessions reached',
-          current: maxCheck.current,
-          max: maxCheck.max,
-        });
-      }
-    } catch (err) {
-      try { await maxClient.query('ROLLBACK'); } catch { /* best-effort */ }
-      throw err;
-    } finally {
-      maxClient.release();
-    }
-
     const namespace = getStoreNamespace(req);
     const sessionName = body.tmux_session_name ?? `session-${Date.now()}`;
-
     const actor = await getActor(req);
 
     // Issue #2128: Propagate trace ID through REST -> gRPC boundary
     const traceId = extractOrCreateTraceId(req);
     app.log.info(traceLogContext(traceId, 'rest'), 'Creating session connection=%s', body.connection_id);
 
+    // Issue #2191, Sub-item 7: Enforce max_sessions with advisory lock.
+    // The advisory lock serializes concurrent session creation for the same
+    // connection, preventing races where two requests both pass the check.
+    // The lock is held for the duration of check + gRPC session creation.
+    const advisoryClient = await pool.connect();
     try {
+      await advisoryClient.query('BEGIN');
+      // Use hashtext to derive a stable int8 advisory lock key from the UUID
+      await advisoryClient.query(
+        `SELECT pg_advisory_xact_lock(hashtext($1))`, [body.connection_id],
+      );
+
+      const maxCheck = await checkMaxSessions(advisoryClient, body.connection_id);
+      if (!maxCheck.allowed) {
+        await advisoryClient.query('COMMIT');
+        return reply.code(409).send({
+          error: maxCheck.error ?? 'Maximum sessions reached',
+          current: maxCheck.current,
+          max: maxCheck.max,
+        });
+      }
+
+      // Create session while holding the advisory lock
       const session = await grpcClient.createSession({
         connection_id: body.connection_id,
         namespace,
@@ -1153,6 +1163,8 @@ export async function terminalRoutesPlugin(
         notes: body.notes ?? '',
       }, traceId);
 
+      await advisoryClient.query('COMMIT');
+
       recordActivity(pool, {
         namespace,
         session_id: session.id,
@@ -1164,8 +1176,11 @@ export async function terminalRoutesPlugin(
 
       return reply.code(201).send(session);
     } catch (err) {
+      try { await advisoryClient.query('ROLLBACK'); } catch { /* best-effort */ }
       const message = err instanceof Error ? err.message : 'Unknown gRPC error';
       return reply.code(502).send({ error: 'Failed to create session', details: message });
+    } finally {
+      advisoryClient.release();
     }
   });
 

@@ -13,6 +13,8 @@ export interface RateLimiterConfig {
   maxRequests: number;
   /** Time window in milliseconds. */
   windowMs: number;
+  /** Maximum number of tracked keys before eviction (default: 10_000). */
+  maxKeys?: number;
 }
 
 /** Result of a rate limit check. */
@@ -47,9 +49,31 @@ export interface RateLimiter {
  */
 export function createRateLimiter(config: RateLimiterConfig): RateLimiter {
   const buckets = new Map<string, BucketEntry>();
+  const maxKeys = config.maxKeys ?? 10_000;
+
+  /** Evict expired entries to cap memory usage. */
+  function evictExpired(now: number): void {
+    if (buckets.size <= maxKeys) return;
+    for (const [k, v] of buckets) {
+      if ((now - v.windowStart) >= config.windowMs) {
+        buckets.delete(k);
+      }
+    }
+    // If still over limit after evicting expired, drop oldest entries
+    if (buckets.size > maxKeys) {
+      const excess = buckets.size - maxKeys;
+      const iter = buckets.keys();
+      for (let i = 0; i < excess; i++) {
+        const next = iter.next();
+        if (next.done) break;
+        buckets.delete(next.value);
+      }
+    }
+  }
 
   function check(key: string): RateLimitResult {
     const now = Date.now();
+    evictExpired(now);
     const existing = buckets.get(key);
 
     // If no entry or window has expired, start a new window
