@@ -19,6 +19,18 @@ describe('Symphony Seed Data Migration 144 (#2194)', () => {
   beforeAll(async () => {
     await runMigrate('up');
     pool = createTestPool();
+
+    // Re-seed data in case previous test suites truncated the tables.
+    // The seed migration (144) is already recorded in schema_migrations,
+    // so runMigrate('up') is a no-op. We must re-apply the INSERT statements
+    // directly to ensure the seed data exists for testing.
+    const { readFileSync } = await import('fs');
+    const { resolve } = await import('path');
+    const seedSql = readFileSync(
+      resolve(import.meta.dirname ?? '.', '..', 'migrations', '144_symphony_seed_data.up.sql'),
+      'utf-8',
+    );
+    await pool.query(seedSql);
   });
 
   afterAll(async () => {
@@ -192,8 +204,14 @@ describe('Symphony Seed Data Migration 144 (#2194)', () => {
   // ─────────────────────────────────────────────────────────────
   describe('down migration', () => {
     it('removes seed data when rolling back migration 144', async () => {
-      // Roll back just migration 144
-      await runMigrate('down', 1);
+      // Roll back from the highest migration down through 144.
+      // With migrations 145-147 present, we need to roll back more than 1.
+      const highestRow = await pool.query<{ version: number }>(
+        `SELECT version::int as version FROM schema_migrations ORDER BY version DESC LIMIT 1`,
+      );
+      const highest = highestRow.rows[0]?.version ?? 144;
+      const stepsToRollback = highest - 144 + 1;
+      await runMigrate('down', stepsToRollback);
 
       // Verify tool configs are removed
       const tools = await pool.query(
