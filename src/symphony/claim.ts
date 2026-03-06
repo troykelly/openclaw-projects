@@ -85,10 +85,11 @@ export interface CandidateSelectionOptions {
 export const CLAIM_TIMEOUT_SECONDS = 60;
 
 /**
- * FNV-1a hash to convert a UUID string to a stable int64 for advisory locks.
- * We use the lower 53 bits to fit safely in a JavaScript number.
+ * FNV-1a hash to convert a UUID string to a stable int32 for advisory locks.
+ * Returns a positive 32-bit integer suitable for the two-parameter
+ * pg_advisory_xact_lock(namespace, id) form.
  */
-function uuidToAdvisoryLockId(uuid: string): number {
+function uuidToLockKey(uuid: string): number {
   let hash = 2166136261;
   for (let i = 0; i < uuid.length; i++) {
     hash ^= uuid.charCodeAt(i);
@@ -99,13 +100,22 @@ function uuidToAdvisoryLockId(uuid: string): number {
 }
 
 /**
- * Well-known advisory lock namespaces to prevent collisions.
- * Global lock uses a fixed ID; project/host locks combine namespace + entity ID.
+ * Advisory lock namespace constants for the two-parameter form:
+ *   pg_advisory_xact_lock(namespace_constant, entity_key)
+ *
+ * Using separate namespace constants prevents collisions between
+ * global, project, host, and state locks even if entity keys overlap.
+ *
+ * Lock acquisition order (deterministic, deadlock-free):
+ *   GLOBAL → PROJECT → HOST → STATE
  */
-const ADVISORY_LOCK_GLOBAL = 900_000_001;
-const ADVISORY_LOCK_PROJECT_BASE = 900_100_000;
-const ADVISORY_LOCK_HOST_BASE = 900_200_000;
-const ADVISORY_LOCK_STATE_BASE = 900_300_000;
+const LOCK_NS_GLOBAL = 1;
+const LOCK_NS_PROJECT = 2;
+const LOCK_NS_HOST = 3;
+const LOCK_NS_STATE = 4;
+
+/** Fixed key for the global singleton lock. */
+const LOCK_KEY_GLOBAL = 1;
 
 /**
  * Symphony Claim Manager handles atomic claim acquisition with
@@ -138,7 +148,7 @@ export class SymphonyClaimManager {
     try {
       await client.query('BEGIN');
 
-      // Idempotency check: if key provided, look for existing active claim
+      // Idempotency check: if key provided, look for existing claim with same key
       if (options.idempotencyKey) {
         const existing = await client.query<{
           id: string;
@@ -148,11 +158,11 @@ export class SymphonyClaimManager {
           `SELECT id, claim_epoch, status
            FROM symphony_claim
            WHERE work_item_id = $1
-             AND orchestrator_id = $2
+             AND idempotency_key = $2
              AND status IN ('pending', 'assigned', 'active')
              AND lease_expires_at > NOW()
            LIMIT 1`,
-          [workItemId, options.orchestratorId],
+          [workItemId, options.idempotencyKey],
         );
 
         if (existing.rows.length > 0) {
@@ -165,35 +175,33 @@ export class SymphonyClaimManager {
         }
       }
 
-      // Acquire advisory locks in deterministic order
+      // Acquire advisory locks in deterministic order: GLOBAL → PROJECT → HOST → STATE
+      // Using two-parameter form pg_advisory_xact_lock(namespace, key) to avoid collisions.
+
       // 1. Global lock
       await client.query(
-        `SELECT pg_advisory_xact_lock($1)`,
-        [ADVISORY_LOCK_GLOBAL],
+        `SELECT pg_advisory_xact_lock($1, $2)`,
+        [LOCK_NS_GLOBAL, LOCK_KEY_GLOBAL],
       );
 
       // 2. Project lock (deterministic: by project ID hash)
-      const projectLockId =
-        ADVISORY_LOCK_PROJECT_BASE + uuidToAdvisoryLockId(options.projectId);
       await client.query(
-        `SELECT pg_advisory_xact_lock($1)`,
-        [projectLockId],
+        `SELECT pg_advisory_xact_lock($1, $2)`,
+        [LOCK_NS_PROJECT, uuidToLockKey(options.projectId)],
       );
 
       // 3. Host lock (deterministic: by host ID hash)
-      const hostLockId =
-        ADVISORY_LOCK_HOST_BASE + uuidToAdvisoryLockId(options.hostId);
       await client.query(
-        `SELECT pg_advisory_xact_lock($1)`,
-        [hostLockId],
+        `SELECT pg_advisory_xact_lock($1, $2)`,
+        [LOCK_NS_HOST, uuidToLockKey(options.hostId)],
       );
 
       // 4. State lock (if per-state limits configured)
       if (options.targetState && options.limits.perStateLimits?.has(options.targetState)) {
         const stateIndex = Object.values(RunState).indexOf(options.targetState);
         await client.query(
-          `SELECT pg_advisory_xact_lock($1)`,
-          [ADVISORY_LOCK_STATE_BASE + stateIndex],
+          `SELECT pg_advisory_xact_lock($1, $2)`,
+          [LOCK_NS_STATE, stateIndex],
         );
       }
 
@@ -308,8 +316,8 @@ export class SymphonyClaimManager {
         claim_epoch: number;
       }>(
         `INSERT INTO symphony_claim
-           (namespace, work_item_id, orchestrator_id, status, claim_epoch, lease_expires_at)
-         VALUES ($1, $2, $3, 'active', $4, $5)
+           (namespace, work_item_id, orchestrator_id, status, claim_epoch, lease_expires_at, idempotency_key)
+         VALUES ($1, $2, $3, 'active', $4, $5, $6)
          RETURNING id, claim_epoch`,
         [
           options.namespace,
@@ -317,6 +325,7 @@ export class SymphonyClaimManager {
           options.orchestratorId,
           nextEpoch,
           leaseExpiresAt,
+          options.idempotencyKey ?? null,
         ],
       );
 

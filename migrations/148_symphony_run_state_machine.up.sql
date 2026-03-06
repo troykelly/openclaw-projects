@@ -15,6 +15,16 @@
 -- 1. Drop existing CHECK constraint on status
 ALTER TABLE symphony_run DROP CONSTRAINT IF EXISTS symphony_run_status_check;
 
+-- 1b. Transform existing rows with old status values to new equivalents
+-- This ensures the new CHECK constraint won't fail on existing data.
+UPDATE symphony_run SET status = 'unclaimed' WHERE status = 'queued';
+UPDATE symphony_run SET status = 'claimed' WHERE status = 'claiming';
+UPDATE symphony_run SET status = 'provisioning' WHERE status IN ('provisioned', 'cloning', 'cloned', 'installing', 'installed', 'branching', 'branched');
+UPDATE symphony_run SET status = 'running' WHERE status IN ('executing', 'resuming');
+UPDATE symphony_run SET status = 'verifying_result' WHERE status = 'reviewing';
+UPDATE symphony_run SET status = 'merge_pending' WHERE status IN ('pushing', 'pr_created', 'merging');
+UPDATE symphony_run SET status = 'failed' WHERE status = 'timed_out';
+
 -- 2. Add new 22-state CHECK constraint
 ALTER TABLE symphony_run ADD CONSTRAINT symphony_run_status_check
   CHECK (status IN (
@@ -101,7 +111,13 @@ CREATE INDEX idx_symphony_run_project_active
   WHERE project_id IS NOT NULL
     AND status NOT IN ('succeeded', 'cancelled', 'terminated', 'released', 'cleanup_failed');
 
--- 10. Add index for watchdog sweep (status + updated_at for timeout detection)
+-- 10. Add idempotency_key to symphony_claim for retry safety (#2197 Codex finding)
+ALTER TABLE symphony_claim ADD COLUMN IF NOT EXISTS idempotency_key TEXT;
+CREATE INDEX IF NOT EXISTS idx_symphony_claim_idempotency
+  ON symphony_claim (idempotency_key)
+  WHERE idempotency_key IS NOT NULL;
+
+-- 11. Add index for watchdog sweep (status + updated_at for timeout detection)
 CREATE INDEX IF NOT EXISTS idx_symphony_run_watchdog
   ON symphony_run (status, updated_at)
   WHERE status IN (

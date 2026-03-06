@@ -215,7 +215,8 @@ describe('Valid transitions', () => {
     expect(isValidTransition(RunState.PostMergeVerify, RunState.Failed)).toBe(true);
   });
 
-  it('IssueClosing can transition to Released', () => {
+  it('IssueClosing can transition to Succeeded or Released', () => {
+    expect(isValidTransition(RunState.IssueClosing, RunState.Succeeded)).toBe(true);
     expect(isValidTransition(RunState.IssueClosing, RunState.Released)).toBe(true);
   });
 
@@ -253,6 +254,32 @@ describe('Valid transitions', () => {
     expect(isValidTransition(RunState.Orphaned, RunState.Failed)).toBe(true);
     expect(isValidTransition(RunState.Orphaned, RunState.Released)).toBe(true);
     expect(isValidTransition(RunState.Orphaned, RunState.Cancelled)).toBe(true);
+  });
+
+  it('every non-initial state has at least one inbound transition', () => {
+    // Build reverse transition map: for each state, find all states that can transition TO it
+    const inboundMap = new Map<RunState, Set<RunState>>();
+    for (const state of Object.values(RunState)) {
+      inboundMap.set(state, new Set());
+    }
+    for (const [from, targets] of VALID_TRANSITIONS) {
+      for (const to of targets) {
+        inboundMap.get(to)!.add(from);
+      }
+    }
+
+    // Unclaimed is the initial state — it doesn't need inbound transitions
+    for (const [state, inbound] of inboundMap) {
+      if (state === RunState.Unclaimed) continue;
+      expect(
+        inbound.size,
+        `State '${state}' has no inbound transitions — it is unreachable`,
+      ).toBeGreaterThan(0);
+    }
+  });
+
+  it('Succeeded is reachable from IssueClosing', () => {
+    expect(isValidTransition(RunState.IssueClosing, RunState.Succeeded)).toBe(true);
   });
 
   it('rejects invalid transitions', () => {

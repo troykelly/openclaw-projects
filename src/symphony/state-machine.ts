@@ -177,8 +177,17 @@ export class SymphonyStateMachine {
       };
     }
 
-    // claim_epoch fencing: if provided, must match
-    if (ctx.claimEpoch !== undefined && currentEpoch !== null) {
+    // claim_epoch fencing: if caller provides epoch, it must match the run's epoch.
+    // If caller provides epoch but run has NULL, reject — the run should have been claimed.
+    if (ctx.claimEpoch !== undefined) {
+      if (currentEpoch === null) {
+        return {
+          success: false,
+          currentState,
+          stateVersion: currentVersion,
+          error: `Claim epoch provided (${ctx.claimEpoch}) but run has no claim epoch`,
+        };
+      }
       if (currentEpoch !== ctx.claimEpoch) {
         return {
           success: false,

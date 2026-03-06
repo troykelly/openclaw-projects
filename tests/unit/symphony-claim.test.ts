@@ -247,7 +247,7 @@ describe('SymphonyClaimManager', () => {
 
       // BEGIN
       mock.pushResult({ rows: [] });
-      // Idempotency check — found existing active claim
+      // Idempotency check — found existing active claim matching key
       mock.pushResult({
         rows: [{ id: 'existing-claim', claim_epoch: 2, status: 'active' }],
       });
@@ -258,16 +258,64 @@ describe('SymphonyClaimManager', () => {
       expect(result.success).toBe(true);
       expect(result.claimId).toBe('existing-claim');
       expect(result.claimEpoch).toBe(2);
+
+      // Verify the idempotency query matches on the key
+      const idemCall = mock.query.mock.calls[1]; // Second call after BEGIN
+      expect(idemCall[0]).toContain('idempotency_key');
+      expect(idemCall[1]).toContain('idem-key-1');
+    });
+
+    it('does not return claim for different idempotency key', async () => {
+      const options = {
+        ...baseOptions,
+        idempotencyKey: 'idem-key-2',
+      };
+
+      // BEGIN
+      mock.pushResult({ rows: [] });
+      // Idempotency check — no match for this key
+      mock.pushResult({ rows: [] });
+      // Advisory locks
+      mock.pushResult({ rows: [] });
+      mock.pushResult({ rows: [] });
+      mock.pushResult({ rows: [] });
+      // No existing claim
+      mock.pushResult({ rows: [] });
+      // Global count OK
+      mock.pushResult({ rows: [{ count: '0' }] });
+      // No project config
+      mock.pushResult({ rows: [] });
+      // No host limit
+      mock.pushResult({ rows: [] });
+      // Epoch
+      mock.pushResult({ rows: [{ next_epoch: 1 }] });
+      // INSERT claim (includes idempotency_key)
+      mock.pushResult({ rows: [{ id: 'new-claim', claim_epoch: 1 }] });
+      // COMMIT
+      mock.pushResult({ rows: [] });
+
+      const result = await cm.claimWorkItem('work-item-1', options);
+      expect(result.success).toBe(true);
+      expect(result.claimId).toBe('new-claim');
+
+      // Verify INSERT includes idempotency_key
+      const insertCall = mock.query.mock.calls.find(
+        (call) =>
+          typeof call[0] === 'string' &&
+          call[0].includes('INSERT INTO symphony_claim'),
+      );
+      expect(insertCall).toBeDefined();
+      expect(insertCall![1]).toContain('idem-key-2');
     });
 
     it('acquires advisory locks in deterministic order: global → project → host', async () => {
       // BEGIN
       mock.pushResult({ rows: [] });
-      // Advisory lock: global
+      // Advisory lock: global (ns=1, key=1)
       mock.pushResult({ rows: [] });
-      // Advisory lock: project
+      // Advisory lock: project (ns=2, key=hash)
       mock.pushResult({ rows: [] });
-      // Advisory lock: host
+      // Advisory lock: host (ns=3, key=hash)
       mock.pushResult({ rows: [] });
       // No existing claim
       mock.pushResult({ rows: [] });
@@ -288,11 +336,13 @@ describe('SymphonyClaimManager', () => {
 
       await cm.claimWorkItem('work-item-1', baseOptions);
 
-      // Verify lock order: global < project < host
+      // Verify lock calls use two-parameter form with ascending namespace constants
+      // advisoryLockCalls captures the first parameter of each pg_advisory_xact_lock call
       expect(mock.advisoryLockCalls.length).toBe(3);
-      // Global lock ID should be the smallest
-      expect(mock.advisoryLockCalls[0]).toBeLessThan(mock.advisoryLockCalls[1]);
-      expect(mock.advisoryLockCalls[1]).toBeLessThan(mock.advisoryLockCalls[2]);
+      // Namespace order: GLOBAL(1) → PROJECT(2) → HOST(3)
+      expect(mock.advisoryLockCalls[0]).toBe(1); // LOCK_NS_GLOBAL
+      expect(mock.advisoryLockCalls[1]).toBe(2); // LOCK_NS_PROJECT
+      expect(mock.advisoryLockCalls[2]).toBe(3); // LOCK_NS_HOST
     });
 
     it('increments claim_epoch monotonically', async () => {

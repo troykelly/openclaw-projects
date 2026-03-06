@@ -179,7 +179,8 @@ export const VALID_TRANSITIONS: ReadonlyMap<RunState, ReadonlySet<RunState>> =
     [
       RunState.IssueClosing,
       new Set([
-        RunState.Released,       // issue closed → complete
+        RunState.Succeeded,      // issue closed → run completed successfully
+        RunState.Released,       // issue closed → complete (alternative terminal)
         RunState.Failed,         // close API failed
         RunState.Cancelled,
         RunState.Terminating,

@@ -18,6 +18,10 @@ CREATE INDEX idx_symphony_run_project_active
   WHERE project_id IS NOT NULL
     AND status NOT IN ('succeeded', 'failed', 'cancelled', 'timed_out');
 
+-- Remove idempotency_key from symphony_claim
+DROP INDEX IF EXISTS idx_symphony_claim_idempotency;
+ALTER TABLE symphony_claim DROP COLUMN IF EXISTS idempotency_key;
+
 -- Remove new columns
 ALTER TABLE symphony_run DROP COLUMN IF EXISTS retry_count;
 ALTER TABLE symphony_run DROP COLUMN IF EXISTS failure_class;

@@ -155,6 +155,25 @@ describe('SymphonyStateMachine', () => {
       expect(result.error).toContain('Claim epoch mismatch');
     });
 
+    it('rejects when claimEpoch provided but run has NULL epoch', async () => {
+      // SELECT current state — epoch is NULL
+      mock.pushResult({
+        rows: [{ status: 'claimed', state_version: 2, claim_epoch: null }],
+      });
+
+      const result = await sm.transition({
+        runId: 'run-1',
+        targetState: RunState.Provisioning,
+        expectedVersion: 2,
+        claimEpoch: 3, // Caller claims epoch 3, but run has no epoch
+        actor: 'orchestrator-1',
+        trigger: 'provision',
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('run has no claim epoch');
+    });
+
     it('allows transition when claimEpoch is not provided', async () => {
       // SELECT current state — has an epoch but caller doesn't provide one
       mock.pushResult({
