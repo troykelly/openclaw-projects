@@ -102,6 +102,74 @@ http:
         replacement: "/app"
         permanent: false
 
+    # Webhook IP allowlists (Issue #2170)
+    # Defense-in-depth: restrict webhook bypass routes to known provider IPs.
+    # Requests from non-allowed IPs are rejected at the edge before reaching
+    # the application. The app also has its own IP whitelist + signature
+    # verification as additional layers.
+    #
+    # To update IP ranges, see:
+    #   Cloudflare: https://www.cloudflare.com/ips/
+    #   Postmark:   https://postmarkapp.com/support/article/800-ips-for-firewalls
+    #   Twilio:     https://www.twilio.com/docs/sip-trunking/ip-addresses
+
+    # Cloudflare IP ranges (IPv4 + IPv6)
+    webhook-cloudflare-ipallowlist:
+      ipAllowList:
+        sourceRange:
+          # IPv4 — https://www.cloudflare.com/ips-v4/
+          - "173.245.48.0/20"
+          - "103.21.244.0/22"
+          - "103.22.200.0/22"
+          - "103.31.4.0/22"
+          - "141.101.64.0/18"
+          - "108.162.192.0/18"
+          - "190.93.240.0/20"
+          - "188.114.96.0/20"
+          - "197.234.240.0/22"
+          - "198.41.128.0/17"
+          - "162.158.0.0/15"
+          - "104.16.0.0/13"
+          - "104.24.0.0/14"
+          - "172.64.0.0/13"
+          # IPv6 — https://www.cloudflare.com/ips-v6/
+          - "2400:cb00::/32"
+          - "2606:4700::/32"
+          - "2803:f800::/32"
+          - "2405:b500::/32"
+          - "2405:8100::/32"
+          - "2a06:98c0::/29"
+          - "2c0f:f248::/32"
+
+    # Postmark IP ranges
+    webhook-postmark-ipallowlist:
+      ipAllowList:
+        sourceRange:
+          # Postmark webhook source IPs
+          # https://postmarkapp.com/support/article/800-ips-for-firewalls
+          - "3.134.147.250/32"
+          - "50.31.156.6/32"
+          - "50.31.156.77/32"
+          - "18.217.206.57/32"
+
+    # Twilio IP ranges
+    webhook-twilio-ipallowlist:
+      ipAllowList:
+        sourceRange:
+          # Twilio webhook source IPs (US)
+          # https://www.twilio.com/docs/sip-trunking/ip-addresses
+          - "54.172.60.0/23"
+          - "54.244.51.0/24"
+          - "54.171.127.192/26"
+          - "52.215.127.0/24"
+          - "54.65.63.192/26"
+          - "54.169.127.128/26"
+          - "54.252.254.64/26"
+          - "177.71.206.192/26"
+          # Twilio media/webhook IPs
+          - "34.203.250.0/23"
+          - "100.20.0.0/16"
+
     # Redirect /api/* on root/www domain to api.DOMAIN/*
     # Strips the /api prefix since API routes no longer use it.
     # Traefik uses 302 for GET, 307 for non-GET methods (preserves method+body).
@@ -138,17 +206,17 @@ http:
         certResolver: letsencrypt
         options: default
 
-    # Inbound webhook router — bypasses ModSecurity WAF (Issue #2167)
-    # External webhook payloads (email bodies, SMS text) contain HTML, URLs, and
-    # patterns that trigger OWASP CRS false positives (XSS, RCE detection).
-    # These endpoints have their own authentication:
-    #   - /cloudflare/email: HMAC-SHA256 signature
-    #   - /postmark/inbound: HTTP Basic auth
-    #   - /twilio/sms: Twilio request signature
-    # Method() restricts bypass to POST only; GET/PUT/DELETE fall through to WAF.
+    # Per-provider webhook routers — bypass ModSecurity WAF (Issue #2167)
+    # Split into individual routers with ipAllowList middleware (Issue #2170)
+    # for defense-in-depth. Non-allowed IPs fall through to the WAF.
+    # Each endpoint has its own app-layer auth (HMAC, Basic, Twilio signature).
+    # Method() restricts bypass to POST only; other methods fall through to WAF.
     # Priority 105 matches before the catch-all api-router.
-    api-webhook-router:
-      rule: "Host(`api.${DOMAIN}`) && (Path(`/cloudflare/email`) || Path(`/postmark/inbound`) || Path(`/twilio/sms`)) && Method(`POST`)"
+
+    # Cloudflare Email webhook
+    # IP ranges: https://www.cloudflare.com/ips/
+    api-webhook-cloudflare-router:
+      rule: "Host(`api.${DOMAIN}`) && Path(`/cloudflare/email`) && Method(`POST`)"
       service: api-service
       priority: 105
       entryPoints:
@@ -156,6 +224,39 @@ http:
       middlewares:
         - security-headers
         - rate-limit
+        - webhook-cloudflare-ipallowlist
+      tls:
+        certResolver: letsencrypt
+        options: default
+
+    # Postmark inbound email webhook
+    # IP ranges: https://postmarkapp.com/support/article/800-ips-for-firewalls
+    api-webhook-postmark-router:
+      rule: "Host(`api.${DOMAIN}`) && Path(`/postmark/inbound`) && Method(`POST`)"
+      service: api-service
+      priority: 105
+      entryPoints:
+        - websecure
+      middlewares:
+        - security-headers
+        - rate-limit
+        - webhook-postmark-ipallowlist
+      tls:
+        certResolver: letsencrypt
+        options: default
+
+    # Twilio SMS webhook
+    # IP ranges: https://www.twilio.com/docs/sip-trunking/ip-addresses
+    api-webhook-twilio-router:
+      rule: "Host(`api.${DOMAIN}`) && Path(`/twilio/sms`) && Method(`POST`)"
+      service: api-service
+      priority: 105
+      entryPoints:
+        - websecure
+      middlewares:
+        - security-headers
+        - rate-limit
+        - webhook-twilio-ipallowlist
       tls:
         certResolver: letsencrypt
         options: default

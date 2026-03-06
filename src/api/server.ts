@@ -127,7 +127,7 @@ import { agentRoutesPlugin } from './agents/routes.ts';
 import { chatRoutesPlugin } from './chat/routes.ts';
 import { initGatewayConnection, shutdownGatewayConnection, getGatewayConnection, initPresenceTracker, initAgentCache } from './gateway/index.ts';
 import { getGatewayMetrics } from './gateway/metrics.ts';
-import { postmarkIPWhitelistMiddleware, twilioIPWhitelistMiddleware } from './webhooks/ip-whitelist.ts';
+import { cloudflareEmailIPWhitelistMiddleware, postmarkIPWhitelistMiddleware, twilioIPWhitelistMiddleware } from './webhooks/ip-whitelist.ts';
 import { validateSsrf as ssrfValidateSsrf } from './webhooks/ssrf.ts';
 import { computeNextRunAt } from './skill-store/schedule-next-run.ts';
 import { assembleSpec } from './openapi/index.ts';
@@ -12424,6 +12424,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       },
     },
     async (req, reply) => {
+      // Check IP whitelist (Issue #2170) - defense in depth
+      await cloudflareEmailIPWhitelistMiddleware(req, reply);
+      if (reply.sent) return;
+
       // Verify HMAC-SHA256 signature (unless auth disabled)
       if (!isAuthDisabled()) {
         if (!verifyCloudflareEmailSecret(req)) {
