@@ -20637,10 +20637,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       // Issue #2189: Hash token with HMAC-SHA-256 + per-token salt before storing.
       // The plaintext token is returned once and never stored.
       const webhookHmacSecret = process.env.WEBHOOK_TOKEN_HMAC_SECRET || '';
+      if (!webhookHmacSecret) {
+        req.log.warn('[Webhook] WEBHOOK_TOKEN_HMAC_SECRET not set — token stored in plaintext. Set this secret in production.');
+      }
       const salt = generateWebhookSalt();
       const tokenHash = webhookHmacSecret
         ? hashWebhookToken(token, salt, webhookHmacSecret)
-        : token; // Fallback: store plaintext if secret not configured (dev/test)
+        : token; // Fallback: store plaintext if secret not configured (dev/test only)
       const tokenSalt = webhookHmacSecret ? salt : null;
 
       const result = await pool.query(

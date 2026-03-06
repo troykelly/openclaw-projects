@@ -9,7 +9,17 @@ UPDATE dev_session
   SET status = 'active'
   WHERE status NOT IN ('active', 'paused', 'completed', 'errored', 'abandoned');
 
--- Step 2: Add CHECK constraint
+-- Step 2: Add CHECK constraint (idempotent — drops first if exists)
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'chk_dev_session_status' AND conrelid = 'dev_session'::regclass
+  ) THEN
+    ALTER TABLE dev_session DROP CONSTRAINT chk_dev_session_status;
+  END IF;
+END $$;
+
 ALTER TABLE dev_session
   ADD CONSTRAINT chk_dev_session_status
   CHECK (status IN ('active', 'paused', 'completed', 'errored', 'abandoned'));

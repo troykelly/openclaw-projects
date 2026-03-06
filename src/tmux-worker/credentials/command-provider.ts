@@ -76,12 +76,23 @@ export async function executeCredentialCommand(
     const [executable, ...args] = parts;
 
     // Issue #2189: Validate executable against allowlist.
-    // Extract basename to prevent path-based bypass (e.g., /usr/bin/curl).
-    const basename = executable.split('/').pop() ?? '';
-    if (!ALLOWED_BINARIES.has(basename)) {
+    // MUST be a bare command name (no path separators). This prevents
+    // bypass via attacker-controlled paths like /tmp/op or ../../../bin/op.
+    // The bare name is resolved via PATH by execFile, ensuring only
+    // system-installed binaries are used.
+    if (executable.includes('/') || executable.includes('\\')) {
       reject(
         new Error(
-          `Credential command binary "${basename}" is not in the allowlist. ` +
+          `Credential command must use a bare binary name, not a path. ` +
+          `Got: "${executable}". Allowed: ${[...ALLOWED_BINARIES].join(', ')}`,
+        ),
+      );
+      return;
+    }
+    if (!ALLOWED_BINARIES.has(executable)) {
+      reject(
+        new Error(
+          `Credential command binary "${executable}" is not in the allowlist. ` +
           `Allowed: ${[...ALLOWED_BINARIES].join(', ')}`,
         ),
       );
