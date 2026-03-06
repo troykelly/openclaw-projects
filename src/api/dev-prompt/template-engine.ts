@@ -4,6 +4,9 @@
  * Renders dev prompt bodies using Handlebars with a registry of built-in
  * variables (dates, namespace, repo info, etc.) that can be supplemented
  * or overridden by user-supplied variables.
+ *
+ * Extended for Symphony orchestration (Epic #2186, Issue #2194) with
+ * issue context, run state, and workspace variables.
  */
 import Handlebars from 'handlebars';
 
@@ -15,6 +18,18 @@ export interface RenderContext {
   promptTitle: string;
   repoOrg?: string;
   repoName?: string;
+  // Symphony orchestration variables (Issue #2194)
+  issueTitle?: string;
+  issueBody?: string;
+  issueLabels?: string;
+  issueAcceptanceCriteria?: string;
+  runAttempt?: string;
+  previousError?: string;
+  continuationCount?: string;
+  branchName?: string;
+  prUrl?: string;
+  workspacePath?: string;
+  projectName?: string;
 }
 
 /** Result of rendering a dev prompt template. */
@@ -66,6 +81,18 @@ export function getBuiltInVariables(
     user_email: ctx.userEmail ?? '',
     prompt_key: ctx.promptKey,
     prompt_title: ctx.promptTitle,
+    // Symphony orchestration variables (Issue #2194)
+    issue_title: ctx.issueTitle ?? '',
+    issue_body: ctx.issueBody ?? '',
+    issue_labels: ctx.issueLabels ?? '',
+    issue_acceptance_criteria: ctx.issueAcceptanceCriteria ?? '',
+    run_attempt: ctx.runAttempt ?? '',
+    previous_error: ctx.previousError ?? '',
+    continuation_count: ctx.continuationCount ?? '',
+    branch_name: ctx.branchName ?? '',
+    pr_url: ctx.prUrl ?? '',
+    workspace_path: ctx.workspacePath ?? '',
+    project_name: ctx.projectName ?? '',
   };
 }
 
@@ -111,6 +138,114 @@ export function renderDevPrompt(
   return { rendered, variables_used };
 }
 
+/**
+ * Render a dev prompt body in strict mode.
+ *
+ * Like {@link renderDevPrompt}, but throws if the template references any
+ * variable that is not a known built-in or user-supplied variable.
+ * Used by Symphony orchestration to catch template errors early.
+ *
+ * @param body - The Handlebars template string
+ * @param context - Context for resolving built-in variables
+ * @param userVariables - Optional user-supplied variables (override built-ins)
+ * @returns The rendered output and list of variables used
+ * @throws Error if the template references an unknown variable
+ * @throws Error if the Handlebars template has syntax errors
+ */
+export function renderDevPromptStrict(
+  body: string,
+  context: RenderContext,
+  userVariables?: Record<string, string>,
+): RenderResult {
+  // First, extract variable references from the template AST
+  const ast = Handlebars.parse(body);
+  const referencedVars = new Set<string>();
+  extractVariableReferences(ast, referencedVars);
+
+  // Build the known variable set
+  const builtIn = getBuiltInVariables(context);
+  const merged = { ...builtIn, ...(userVariables ?? {}) };
+  const knownVars = new Set(Object.keys(merged));
+
+  // Check for unknown variable references
+  const unknownVars = [...referencedVars].filter((v) => !knownVars.has(v));
+  if (unknownVars.length > 0) {
+    throw new Error(
+      `Unknown variable(s) referenced in template: ${unknownVars.join(', ')}`,
+    );
+  }
+
+  // Delegate to normal rendering
+  return renderDevPrompt(body, context, userVariables);
+}
+
+/**
+ * Extract variable name references from a Handlebars AST.
+ * Walks MustacheStatement and BlockStatement nodes to find PathExpression
+ * references at depth 0 (top-level context variables), including params
+ * passed to block helpers (e.g., {{#if some_var}}).
+ */
+function extractVariableReferences(
+  node: hbs.AST.Program,
+  refs: Set<string>,
+): void {
+  for (const statement of node.body) {
+    if (
+      statement.type === 'MustacheStatement' ||
+      statement.type === 'BlockStatement'
+    ) {
+      const st = statement as hbs.AST.MustacheStatement | hbs.AST.BlockStatement;
+      if (
+        st.path.type === 'PathExpression' &&
+        (st.path as hbs.AST.PathExpression).depth === 0 &&
+        (st.path as hbs.AST.PathExpression).parts.length === 1
+      ) {
+        const name = (st.path as hbs.AST.PathExpression).parts[0];
+        // Skip Handlebars built-in helpers (if, each, unless, with, etc.)
+        if (!HANDLEBARS_BUILTINS.has(name)) {
+          refs.add(name);
+        }
+      }
+      // Extract variable references from params (e.g., {{#if some_var}})
+      for (const param of st.params) {
+        extractPathExpression(param, refs);
+      }
+      // Extract variable references from hash pairs (e.g., {{helper key=some_var}})
+      if (st.hash) {
+        for (const pair of st.hash.pairs) {
+          extractPathExpression(pair.value, refs);
+        }
+      }
+      // Walk into block body (e.g., inside #if blocks)
+      if ('program' in st && st.program) {
+        extractVariableReferences(st.program, refs);
+      }
+      if ('inverse' in st && st.inverse) {
+        extractVariableReferences(st.inverse, refs);
+      }
+    }
+  }
+}
+
+/** Extract a top-level variable reference from a single AST expression node. */
+function extractPathExpression(
+  expr: hbs.AST.Expression,
+  refs: Set<string>,
+): void {
+  if (
+    expr.type === 'PathExpression' &&
+    (expr as hbs.AST.PathExpression).depth === 0 &&
+    (expr as hbs.AST.PathExpression).parts.length === 1
+  ) {
+    refs.add((expr as hbs.AST.PathExpression).parts[0]);
+  }
+}
+
+/** Handlebars built-in helper names (not user variables). */
+const HANDLEBARS_BUILTINS = new Set([
+  'if', 'unless', 'each', 'with', 'lookup', 'log',
+]);
+
 /** Documentation definitions for all built-in variables. */
 export const BUILT_IN_VARIABLE_DEFINITIONS: readonly VariableDefinition[] = [
   { name: 'month_year', description: 'Current month and year', example: 'March 2026' },
@@ -124,4 +259,16 @@ export const BUILT_IN_VARIABLE_DEFINITIONS: readonly VariableDefinition[] = [
   { name: 'user_email', description: "Authenticated user's email", example: 'troy@example.com' },
   { name: 'prompt_key', description: "The prompt's own key", example: 'new_feature_request' },
   { name: 'prompt_title', description: "The prompt's own title", example: 'New Feature Request' },
+  // Symphony orchestration variables (Issue #2194)
+  { name: 'issue_title', description: 'GitHub issue title for the current Symphony run', example: 'Fix login bug' },
+  { name: 'issue_body', description: 'GitHub issue body/description', example: 'The login form crashes on submit' },
+  { name: 'issue_labels', description: 'Comma-separated GitHub issue labels', example: 'bug,critical' },
+  { name: 'issue_acceptance_criteria', description: 'Extracted acceptance criteria from the issue', example: '- [ ] Login form submits without crash' },
+  { name: 'run_attempt', description: 'Current Symphony run attempt number (1-based)', example: '1' },
+  { name: 'previous_error', description: 'Error message from the previous failed run attempt', example: 'TypeError: cannot read property of undefined' },
+  { name: 'continuation_count', description: 'Number of continuations in the current run', example: '0' },
+  { name: 'branch_name', description: 'Git branch name for the current run', example: 'issue/123-fix-login' },
+  { name: 'pr_url', description: 'Pull request URL if one exists for the branch', example: 'https://github.com/org/repo/pull/42' },
+  { name: 'workspace_path', description: 'Filesystem path to the worktree/workspace', example: '/tmp/worktree-issue-123-fix-login' },
+  { name: 'project_name', description: 'Project name from the work item', example: 'openclaw-projects' },
 ] as const;
