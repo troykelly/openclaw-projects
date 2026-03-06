@@ -285,8 +285,6 @@ export interface ActivityWindow {
 
 /** Loop detection configuration. */
 export interface LoopDetectionConfig {
-  /** Window duration in seconds (default 300 = 5min). */
-  windowSeconds?: number;
   /** Minimum file change diversity ratio (default 0.3). */
   minFileDiversity?: number;
   /** Minimum command diversity ratio (default 0.3). */

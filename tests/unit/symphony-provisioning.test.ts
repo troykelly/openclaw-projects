@@ -22,6 +22,8 @@ import {
   validatePath,
   normalizePath,
   validateDevcontainerConfig,
+  validateShellSafe,
+  validateContextInputs,
   compareVersions,
   ProvisioningPipeline,
   PIPELINE_STEPS,
@@ -105,6 +107,80 @@ function createDefaultContext(): ProvisioningContext {
     issueSlug: 'fix-bug',
   };
 }
+
+// ─── Shell Safety Validation Tests ────────────────────────────
+
+describe('validateShellSafe', () => {
+  it('accepts safe values', () => {
+    expect(validateShellSafe('testorg', 'org')).toBe('testorg');
+    expect(validateShellSafe('my-repo', 'repo')).toBe('my-repo');
+    expect(validateShellSafe('fix-bug.v2', 'slug')).toBe('fix-bug.v2');
+    expect(validateShellSafe('under_score', 'slug')).toBe('under_score');
+  });
+
+  it('rejects semicolons (command chaining)', () => {
+    expect(() => validateShellSafe('foo;rm -rf /', 'org')).toThrow(/unsafe characters/);
+  });
+
+  it('rejects $() command substitution', () => {
+    expect(() => validateShellSafe('$(whoami)', 'repo')).toThrow(/unsafe characters/);
+  });
+
+  it('rejects backticks', () => {
+    expect(() => validateShellSafe('`id`', 'slug')).toThrow(/unsafe characters/);
+  });
+
+  it('rejects pipe operator', () => {
+    expect(() => validateShellSafe('foo|bar', 'org')).toThrow(/unsafe characters/);
+  });
+
+  it('rejects ampersand', () => {
+    expect(() => validateShellSafe('foo&bar', 'org')).toThrow(/unsafe characters/);
+  });
+
+  it('rejects spaces', () => {
+    expect(() => validateShellSafe('foo bar', 'org')).toThrow(/unsafe characters/);
+  });
+
+  it('rejects path separators', () => {
+    expect(() => validateShellSafe('foo/bar', 'org')).toThrow(/unsafe characters/);
+  });
+});
+
+describe('validateContextInputs', () => {
+  it('passes for safe context', () => {
+    const ctx = createDefaultContext();
+    expect(() => validateContextInputs(ctx)).not.toThrow();
+  });
+
+  it('rejects unsafe org', () => {
+    const ctx = { ...createDefaultContext(), org: 'evil;rm -rf /' };
+    expect(() => validateContextInputs(ctx)).toThrow(/unsafe characters/);
+  });
+
+  it('rejects unsafe repo', () => {
+    const ctx = { ...createDefaultContext(), repo: '$(whoami)' };
+    expect(() => validateContextInputs(ctx)).toThrow(/unsafe characters/);
+  });
+
+  it('rejects unsafe issueSlug', () => {
+    const ctx = { ...createDefaultContext(), issueSlug: '`id`' };
+    expect(() => validateContextInputs(ctx)).toThrow(/unsafe characters/);
+  });
+
+  it('rejects envVaultItem with shell metacharacters', () => {
+    const ctx = { ...createDefaultContext(), envVaultItem: 'item;rm -rf /' };
+    expect(() => validateContextInputs(ctx)).toThrow(/shell metacharacters/);
+  });
+
+  it('allows envVaultItem with spaces and parens', () => {
+    const ctx = {
+      ...createDefaultContext(),
+      envVaultItem: '.env (testorg/testrepo) [User]',
+    };
+    expect(() => validateContextInputs(ctx)).not.toThrow();
+  });
+});
 
 // ─── Safe .env Parser Tests ──────────────────────────────────
 
@@ -328,6 +404,26 @@ describe('validateDevcontainerConfig', () => {
     expect(validateDevcontainerConfig(config, repoPath)).toEqual([]);
   });
 
+  it('rejects mount from path that only shares prefix with /tmp', () => {
+    const config: DevcontainerConfig = {
+      mounts: [
+        { source: '/tmpx/evil', target: '/data', type: 'bind' },
+      ],
+    };
+    const errors = validateDevcontainerConfig(config, repoPath);
+    expect(errors.some((e) => e.includes('outside the repo'))).toBe(true);
+  });
+
+  it('rejects mount from path that shares prefix with repo path', () => {
+    const config: DevcontainerConfig = {
+      mounts: [
+        { source: `${repoPath}-evil/data`, target: '/data', type: 'bind' },
+      ],
+    };
+    const errors = validateDevcontainerConfig(config, repoPath);
+    expect(errors.some((e) => e.includes('outside the repo'))).toBe(true);
+  });
+
   it('rejects unsafe capabilities', () => {
     const config: DevcontainerConfig = {
       capAdd: ['SYS_ADMIN', 'NET_RAW'],
@@ -387,6 +483,20 @@ describe('compareVersions', () => {
   it('handles different length versions', () => {
     expect(compareVersions('1.2', '1.2.1')).toBe(-1);
     expect(compareVersions('1.2.1', '1.2')).toBe(1);
+  });
+
+  it('strips prerelease suffixes', () => {
+    expect(compareVersions('1.2.3-beta', '1.2.3')).toBe(0);
+    expect(compareVersions('1.2.3-beta', '1.2.4')).toBe(-1);
+  });
+
+  it('strips build metadata', () => {
+    expect(compareVersions('1.2.3+build', '1.2.3')).toBe(0);
+  });
+
+  it('handles non-numeric segments gracefully', () => {
+    // Non-numeric segments are treated as 0
+    expect(compareVersions('1.abc.3', '1.0.3')).toBe(0);
   });
 });
 

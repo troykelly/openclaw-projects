@@ -174,6 +174,55 @@ export interface SecretTracker {
 }
 
 // ─────────────────────────────────────────────────────────────
+// Shell-safe input validation (Codex Critical — command injection)
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Pattern for values safe to interpolate into shell commands.
+ * Only allows alphanumeric, dash, underscore, and dot.
+ */
+const SHELL_SAFE_PATTERN = /^[A-Za-z0-9._-]+$/;
+
+/**
+ * Validate that a value is safe for shell interpolation.
+ * Rejects values containing shell metacharacters (;, $, `, |, &, etc.)
+ *
+ * @throws Error if value contains dangerous characters
+ */
+export function validateShellSafe(
+  value: string,
+  fieldName: string,
+): string {
+  if (!SHELL_SAFE_PATTERN.test(value)) {
+    throw new Error(
+      `${fieldName} contains unsafe characters: "${value}". ` +
+      `Only [A-Za-z0-9._-] are allowed.`,
+    );
+  }
+  return value;
+}
+
+/**
+ * Validate all shell-interpolated fields in a provisioning context.
+ * Must be called before any commands are executed.
+ *
+ * @throws Error if any field contains unsafe characters
+ */
+export function validateContextInputs(ctx: ProvisioningContext): void {
+  validateShellSafe(ctx.org, 'org');
+  validateShellSafe(ctx.repo, 'repo');
+  validateShellSafe(ctx.issueSlug, 'issueSlug');
+  if (ctx.envVaultItem) {
+    // Env vault items can have spaces and parentheses but not shell metacharacters
+    if (/[;`$|&><]/.test(ctx.envVaultItem)) {
+      throw new Error(
+        `envVaultItem contains shell metacharacters: "${ctx.envVaultItem}"`,
+      );
+    }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
 // Safe .env parser (SECURITY CRITICAL — P2-6 finding)
 // ─────────────────────────────────────────────────────────────
 
@@ -379,12 +428,14 @@ export function validateDevcontainerConfig(
         errors.push('Docker socket mount is not allowed');
       }
 
-      // Check host path mounts
+      // Check host path mounts (boundary-aware: ensure exact dir match, not prefix)
       if (typeof mount === 'object' && mount.source) {
-        if (
-          !mount.source.startsWith(repoPath) &&
-          !mount.source.startsWith('/tmp')
-        ) {
+        const src = mount.source;
+        const repoMatch =
+          src === repoPath || src.startsWith(repoPath + '/');
+        const tmpMatch =
+          src === '/tmp' || src.startsWith('/tmp/');
+        if (!repoMatch && !tmpMatch) {
           errors.push(
             `host path mount '${mount.source}' is outside the repo directory`,
           );
@@ -446,6 +497,9 @@ export class ProvisioningPipeline {
    * Run the full provisioning pipeline.
    */
   async execute(ctx: ProvisioningContext): Promise<PipelineResult> {
+    // Validate all shell-interpolated inputs upfront (Codex critical)
+    validateContextInputs(ctx);
+
     this.rollbackActions = [];
     this.stepResults = [];
 
@@ -486,6 +540,9 @@ export class ProvisioningPipeline {
    * Resume pipeline from last incomplete step (crash recovery — P2-3 finding).
    */
   async resume(ctx: ProvisioningContext): Promise<PipelineResult> {
+    // Validate all shell-interpolated inputs upfront (Codex critical)
+    validateContextInputs(ctx);
+
     this.rollbackActions = [];
     this.stepResults = [];
 
@@ -836,9 +893,15 @@ export class ProvisioningPipeline {
       effectiveTimeout,
     );
 
-    // Parse container ID from output
+    // Parse container ID from output — fail fast if unparsable
     const containerIdMatch = /containerId.*?:\s*"?([a-f0-9]{12,64})"?/i.exec(output);
-    const containerId = containerIdMatch?.[1] ?? 'unknown';
+    if (!containerIdMatch?.[1]) {
+      throw new Error(
+        'Failed to parse container ID from devcontainer up output. ' +
+        'Cannot safely track or manage the container.',
+      );
+    }
+    const containerId = containerIdMatch[1];
     const containerName = config.name ?? `${ctx.org}-${ctx.repo}`;
 
     // Track container for orphan detection
@@ -1063,10 +1126,23 @@ export class ProvisioningPipeline {
 /**
  * Compare semantic versions. Returns:
  * -1 if a < b, 0 if a == b, 1 if a > b
+ *
+ * Strips prerelease/build suffixes (e.g., 1.2.3-beta → 1.2.3).
+ * Non-numeric segments are treated as 0.
  */
 export function compareVersions(a: string, b: string): number {
-  const partsA = a.split('.').map(Number);
-  const partsB = b.split('.').map(Number);
+  // Strip prerelease/build metadata (anything after - or +)
+  const cleanA = a.split(/[-+]/)[0];
+  const cleanB = b.split(/[-+]/)[0];
+
+  const partsA = cleanA.split('.').map((p) => {
+    const n = parseInt(p, 10);
+    return isNaN(n) ? 0 : n;
+  });
+  const partsB = cleanB.split('.').map((p) => {
+    const n = parseInt(p, 10);
+    return isNaN(n) ? 0 : n;
+  });
   const len = Math.max(partsA.length, partsB.length);
 
   for (let i = 0; i < len; i++) {

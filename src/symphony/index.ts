@@ -50,6 +50,8 @@ export {
   validatePath,
   normalizePath,
   validateDevcontainerConfig,
+  validateShellSafe,
+  validateContextInputs,
   compareVersions,
   PIPELINE_STEPS,
   STEP_TIMEOUTS,
