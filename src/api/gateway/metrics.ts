@@ -42,6 +42,11 @@ export const gwAuthFailures = new Counter(
   'Total gateway WS authentication failures',
 );
 
+export const gwUnknownFrames = new Counter(
+  'gateway_unknown_frames_total',
+  'Total unknown frame types received on gateway WS',
+);
+
 export const gwChatDispatchWs = new Counter(
   'gateway_chat_dispatch_ws_total',
   'Total chat messages dispatched via WS',
@@ -61,6 +66,7 @@ export interface GatewayMetricsSnapshot {
   chat_events_routed: number;
   duplicate_events_suppressed: number;
   auth_failures: number;
+  unknown_frames: number;
   chat_dispatch_ws: number;
   chat_dispatch_http: number;
 }
@@ -74,6 +80,7 @@ export function getGatewayMetrics(): GatewayMetricsSnapshot {
     chat_events_routed: gwChatEventsRouted.get(),
     duplicate_events_suppressed: gwDuplicateEventsSuppressed.get(),
     auth_failures: gwAuthFailures.get(),
+    unknown_frames: gwUnknownFrames.get(),
     chat_dispatch_ws: gwChatDispatchWs.get(),
     chat_dispatch_http: gwChatDispatchHttp.get(),
   };

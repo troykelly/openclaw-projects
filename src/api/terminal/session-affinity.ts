@@ -95,3 +95,44 @@ export function resolveWorkerGrpcUrl(
 export function isMultiWorkerMode(): boolean {
   return parseWorkerRegistry().size > 0;
 }
+
+/** Result of strict worker URL resolution. */
+export type StrictResolveResult =
+  | { ok: true; url: string }
+  | { ok: false; error: string };
+
+/**
+ * Resolve the gRPC URL for a given worker ID with fail-closed semantics.
+ *
+ * Issue #2191, Sub-item 5 — Session affinity fail-closed.
+ *
+ * Unlike `resolveWorkerGrpcUrl` which falls back to localhost (fail-open),
+ * this function returns an error result when the worker cannot be resolved.
+ *
+ * Strategy:
+ * 1. If the registry has entries (multi-worker mode), the worker MUST be in the registry.
+ * 2. If the registry is empty (single-worker mode), use TMUX_WORKER_GRPC_URL.
+ * 3. If nothing is configured, return an error (fail-closed).
+ */
+export function resolveWorkerGrpcUrlStrict(
+  workerId: string,
+  registry?: Map<string, string>,
+): StrictResolveResult {
+  const reg = registry ?? parseWorkerRegistry();
+
+  // Multi-worker mode: worker must be in the registry
+  if (reg.size > 0) {
+    const fromRegistry = reg.get(workerId);
+    if (fromRegistry) return { ok: true, url: fromRegistry };
+    return { ok: false, error: `Worker ${workerId} not found in registry` };
+  }
+
+  // Single-worker mode: use default gRPC URL
+  const defaultUrl = process.env.TMUX_WORKER_GRPC_URL;
+  if (defaultUrl) return { ok: true, url: defaultUrl };
+
+  return {
+    ok: false,
+    error: 'No gRPC URL configured (TMUX_WORKER_GRPC_URL not set and worker registry is empty)',
+  };
+}

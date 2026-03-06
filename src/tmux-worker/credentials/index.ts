@@ -16,6 +16,8 @@ export { encryptCredential, decryptCredential, parseEncryptionKey } from './enve
 export {
   resolveCommandCredential,
   clearCredentialCache,
+  getCredentialCacheMetrics,
+  ALLOWED_BINARIES,
 } from './command-provider.ts';
 
 /** Resolved credential — the decrypted value ready for use. */

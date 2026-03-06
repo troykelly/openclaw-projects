@@ -24,6 +24,9 @@ COPY src/tmux-worker/ ./src/tmux-worker/
 COPY src/db.ts ./src/db.ts
 COPY src/instrument.ts ./src/instrument.ts
 COPY proto/ ./proto/
+# grpc-server.ts imports shared utilities from src/api/terminal/ (#2218)
+COPY src/api/terminal/trace-context.ts ./src/api/terminal/trace-context.ts
+COPY src/api/terminal/grpc-bind.ts ./src/api/terminal/grpc-bind.ts
 COPY tsconfig.json ./
 COPY tsconfig.build.json ./
 
@@ -87,6 +90,9 @@ COPY --from=builder /app/src/tmux-worker/ ./src/tmux-worker/
 COPY --from=builder /app/src/db.ts ./src/db.ts
 COPY --from=builder /app/src/instrument.ts ./src/instrument.ts
 COPY --from=builder /app/proto/ ./proto/
+# Shared utilities imported by grpc-server.ts (#2218)
+COPY --from=builder /app/src/api/terminal/trace-context.ts ./src/api/terminal/trace-context.ts
+COPY --from=builder /app/src/api/terminal/grpc-bind.ts ./src/api/terminal/grpc-bind.ts
 
 # Set environment variables
 ENV NODE_ENV=production

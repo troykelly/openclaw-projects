@@ -14,7 +14,7 @@
 import { randomUUID } from 'node:crypto';
 import WebSocket from 'ws';
 import { validateSsrf } from '../webhooks/ssrf.ts';
-import { gwConnectAttempts, gwReconnects, gwAuthFailures, gwEventsReceived } from './metrics.ts';
+import { gwConnectAttempts, gwReconnects, gwAuthFailures, gwEventsReceived, gwUnknownFrames } from './metrics.ts';
 
 // ── Types ────────────────────────────────────────────────────────────────
 
@@ -54,6 +54,14 @@ export interface GatewayStatus {
 interface PendingRequest {
   resolve: (value: unknown) => void;
   reject: (reason: Error) => void;
+  /** Timeout timer for per-request timeouts (#2188). */
+  timeoutTimer?: ReturnType<typeof setTimeout>;
+}
+
+/** Options for individual gateway requests. */
+export interface GatewayRequestOptions {
+  /** Per-request timeout in milliseconds (default: 30000). */
+  timeoutMs?: number;
 }
 
 // ── Constants ────────────────────────────────────────────────────────────
@@ -63,9 +71,11 @@ const INITIAL_BACKOFF_MS = 1000;
 const MAX_BACKOFF_MS = 30000;
 const INITIAL_JITTER_MS = 500;
 const MAX_JITTER_MS = 5000;
-const CHALLENGE_TIMEOUT_MS = 5000;
+const DEFAULT_CHALLENGE_TIMEOUT_MS = 5000;
 const CONNECT_RESPONSE_TIMEOUT_MS = 10000;
 const DEFAULT_TICK_INTERVAL_MS = 30000;
+/** Default per-request timeout in milliseconds (#2188). */
+const DEFAULT_REQUEST_TIMEOUT_MS = 30000;
 
 // ── Service ──────────────────────────────────────────────────────────────
 
@@ -92,6 +102,8 @@ export class GatewayConnectionService {
   private challengeTimer: ReturnType<typeof setTimeout> | null = null;
   private connectResponseTimer: ReturnType<typeof setTimeout> | null = null;
   private challengeReceived = false;
+  /** Configurable challenge timeout via OPENCLAW_GATEWAY_WS_HANDSHAKE_TIMEOUT_MS (#2188). */
+  private challengeTimeoutMs = DEFAULT_CHALLENGE_TIMEOUT_MS;
 
   // Init promise resolution — called when connect handshake completes
   private resolveInit: (() => void) | null = null;
@@ -164,18 +176,31 @@ export class GatewayConnectionService {
     this.initializePromise = null;
   }
 
-  async request<T = unknown>(method: string, params: unknown, _opts?: unknown): Promise<T> {
+  async request<T = unknown>(method: string, params: unknown, opts?: GatewayRequestOptions): Promise<T> {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN || !this.connected) {
       throw new Error('Gateway WebSocket is not connected');
     }
 
     const id = randomUUID();
     const frame: GatewayReqFrame = { type: 'req', id, method, params };
+    const timeoutMs = opts?.timeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
 
     return new Promise<T>((resolve, reject) => {
+      // Per-request timeout (#2188): reject and clean up if no response within timeoutMs
+      const timeoutTimer = setTimeout(() => {
+        const pending = this.pendingRequests.get(id);
+        if (pending) {
+          this.pendingRequests.delete(id);
+          pending.reject(new Error(
+            `Gateway request timeout after ${timeoutMs}ms for method '${method}'`,
+          ));
+        }
+      }, timeoutMs);
+
       this.pendingRequests.set(id, {
         resolve: resolve as (value: unknown) => void,
         reject,
+        timeoutTimer,
       });
       this.ws!.send(JSON.stringify(frame));
     });
@@ -242,6 +267,15 @@ export class GatewayConnectionService {
     this.wsUrl = wsUrl;
     this.token = token;
     this.gatewayHost = this._extractHost(gatewayUrl);
+
+    // Read configurable handshake timeout (#2188)
+    const handshakeTimeoutEnv = this.env.OPENCLAW_GATEWAY_WS_HANDSHAKE_TIMEOUT_MS;
+    if (handshakeTimeoutEnv) {
+      const parsed = parseInt(handshakeTimeoutEnv, 10);
+      if (!Number.isNaN(parsed) && parsed > 0) {
+        this.challengeTimeoutMs = parsed;
+      }
+    }
 
     // Connect
     return this._connect();
@@ -313,13 +347,13 @@ export class GatewayConnectionService {
       };
 
       ws.on('open', () => {
-        // Start challenge timeout: if no challenge in 5s, close and retry
+        // Start challenge timeout: configurable via OPENCLAW_GATEWAY_WS_HANDSHAKE_TIMEOUT_MS (#2188)
         this.challengeTimer = setTimeout(() => {
           if (!this.challengeReceived && ws.readyState === WebSocket.OPEN) {
-            console.warn(`${LOG_PREFIX} no challenge received within ${CHALLENGE_TIMEOUT_MS}ms, closing`);
+            console.warn(`${LOG_PREFIX} no challenge received within ${this.challengeTimeoutMs}ms, closing`);
             ws.close(4001);
           }
-        }, CHALLENGE_TIMEOUT_MS);
+        }, this.challengeTimeoutMs);
       });
 
       ws.on('message', (data) => {
@@ -329,8 +363,9 @@ export class GatewayConnectionService {
       ws.on('close', (code) => {
         console.log(`${LOG_PREFIX} disconnected (code ${code})`);
         this._onDisconnect();
-        // If we haven't resolved the init promise yet and this is the first connect,
-        // resolve it anyway so the caller isn't stuck waiting
+        // Init resolves only after validated connect response (#2188).
+        // If WS closes before handshake, resolve the promise (to avoid hanging)
+        // but the connected flag remains false, correctly reflecting the state.
         resolveOnce();
       });
 
@@ -356,8 +391,11 @@ export class GatewayConnectionService {
       this._handleEvent(frame as unknown as GatewayEventFrame);
     } else if (type === 'res') {
       this._handleResponse(frame as unknown as GatewayResFrame);
+    } else {
+      // Unknown frame types: log warning and increment counter (#2188)
+      gwUnknownFrames.inc();
+      console.warn(`${LOG_PREFIX} unknown frame type '${type}', ignoring`);
     }
-    // Unknown frame types are silently ignored
   }
 
   private _handleEvent(frame: GatewayEventFrame): void {
@@ -395,6 +433,10 @@ export class GatewayConnectionService {
     if (!pending) return;
 
     this.pendingRequests.delete(frame.id);
+    // Clear per-request timeout timer (#2188)
+    if (pending.timeoutTimer) {
+      clearTimeout(pending.timeoutTimer);
+    }
 
     if (frame.ok) {
       pending.resolve(frame.payload);
@@ -545,6 +587,10 @@ export class GatewayConnectionService {
 
   private _rejectPendingRequests(error: Error): void {
     for (const [, pending] of this.pendingRequests) {
+      // Clean up per-request timeout timers (#2188)
+      if (pending.timeoutTimer) {
+        clearTimeout(pending.timeoutTimer);
+      }
       pending.reject(error);
     }
     this.pendingRequests.clear();

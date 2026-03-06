@@ -2,16 +2,20 @@
  * Session recovery service for the tmux worker.
  *
  * On worker startup, recovers existing sessions that were assigned to this worker.
- * Local sessions check tmux directly; SSH sessions attempt reconnection.
+ * Local sessions check tmux directly; SSH sessions attempt reconnection with
+ * exponential backoff (1s->30s, max 3 retries).
  * On shutdown, marks sessions as disconnected and flushes entry buffers.
  *
  * Issue #1682 — Session recovery after worker restart.
+ * Issue #2187 — SSH Session Recovery for Remote Orchestration.
  * Epic #1667 — TMux Session Management.
  */
 
 import { execFileSync } from 'node:child_process';
 import type pg from 'pg';
 import type { EntryRecorder } from './entry-recorder.ts';
+import type { SSHConnectionManager } from './ssh/client.ts';
+import { SSHReconnectManager, type SSHReconnectConfig } from './ssh/reconnect.ts';
 
 /** Status of a recovery attempt for a single session. */
 export interface RecoveryResult {
@@ -20,6 +24,7 @@ export interface RecoveryResult {
   previousStatus: string;
   newStatus: string;
   isLocal: boolean;
+  reconnectAttempts?: number;
   error?: string;
 }
 
@@ -27,14 +32,22 @@ export interface RecoveryResult {
 export interface SessionRecoveryConfig {
   /** Worker ID to query sessions for. */
   workerId: string;
+  /** SSH connection manager for reconnecting SSH sessions. */
+  sshManager?: SSHConnectionManager;
+  /** Override reconnect configuration (for testing). */
+  reconnectConfig?: Partial<SSHReconnectConfig>;
 }
 
 /**
  * Recover sessions after worker restart.
  *
- * 1. Query sessions with status active/idle/disconnected for this worker_id
+ * 1. Query sessions with status active/idle/disconnected/reconnecting for this worker_id
  * 2. For local sessions: check `tmux has-session`, re-attach or mark terminated
- * 3. For SSH sessions: attempt reconnect (currently marks as disconnected)
+ * 3. For SSH sessions: attempt reconnect with exponential backoff
+ *    - SSH reconnects -> check remote tmux session
+ *    - tmux alive -> mark active (I/O capture resumes on next attach)
+ *    - tmux gone -> host rebooted, mark terminated
+ *    - 3 failed SSH attempts -> mark terminated with clear error
  * 4. Returns recovery results for logging/monitoring
  */
 export async function recoverSessions(
@@ -50,7 +63,7 @@ export async function recoverSessions(
      FROM terminal_session s
      JOIN terminal_connection c ON s.connection_id = c.id
      WHERE s.worker_id = $1
-       AND s.status IN ('active', 'idle', 'disconnected')`,
+       AND s.status IN ('active', 'idle', 'disconnected', 'reconnecting')`,
     [config.workerId],
   );
 
@@ -88,13 +101,26 @@ export async function recoverSessions(
           [session.id],
         );
       }
+    } else if (config.sshManager) {
+      // SSH session: attempt reconnect with exponential backoff
+      const reconnectManager = new SSHReconnectManager(config.reconnectConfig);
+      const reconnectResult = await reconnectManager.attemptReconnect({
+        sessionId: session.id,
+        connectionId: session.connection_id,
+        tmuxSessionName: session.tmux_session_name,
+        pool,
+        sshManager: config.sshManager,
+      });
+
+      result.newStatus = reconnectResult.finalStatus;
+      result.reconnectAttempts = reconnectResult.attempts;
+      if (!reconnectResult.success) {
+        result.error = reconnectResult.error;
+      }
     } else {
-      // SSH session: attempt reconnect
-      // For now, mark as disconnected — full SSH reconnection requires
-      // re-establishing the SSH connection and checking remote tmux.
-      // This is a valid intermediate state that allows later recovery.
+      // No SSH manager available — mark as disconnected for later recovery
       result.newStatus = 'disconnected';
-      result.error = 'SSH reconnection not yet implemented; marked disconnected';
+      result.error = 'SSH reconnection requires SSHConnectionManager; marked disconnected';
       await pool.query(
         `UPDATE terminal_session SET status = 'disconnected', updated_at = NOW() WHERE id = $1`,
         [session.id],

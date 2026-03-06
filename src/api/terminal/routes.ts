@@ -48,10 +48,16 @@ import {
   traceLogContext,
   TRACE_ID_HEADER,
 } from './trace-context.ts';
+import { validateNamespaceConsistency } from './namespace-validation.ts';
+import { createRateLimiter } from './rate-limiter.ts';
+import { checkMaxSessions } from './max-sessions.ts';
+import { logQueryTokenUsage } from './query-token-deprecation.ts';
 // Session affinity module (#2124) provides worker routing for HA deployments.
 // Integration with per-worker gRPC client pools will be done when multi-worker
 // deployments are fully supported. For now, the module provides the lookup
 // infrastructure (getSessionWorkerId, resolveWorkerGrpcUrl, isMultiWorkerMode).
+// Issue #2191, Sub-item 5: resolveWorkerGrpcUrlStrict() provides fail-closed
+// semantics — use it instead of resolveWorkerGrpcUrl() when wiring multi-worker.
 
 // ── Constants ────────────────────────────────────────────────
 
@@ -68,9 +74,15 @@ const MAX_COLS = 1000;
 const MAX_ROWS = 500;
 const VALID_CREDENTIAL_KINDS = ['ssh_key', 'password', 'command'] as const;
 const VALID_SESSION_STATUSES = [
-  'starting', 'active', 'idle', 'disconnected', 'terminated', 'error', 'pending_host_verification',
+  'starting', 'active', 'idle', 'disconnected', 'reconnecting', 'terminated', 'error', 'pending_host_verification',
 ] as const;
 const VALID_ENTRY_KINDS = ['command', 'output', 'scrollback', 'annotation', 'error'] as const;
+
+// ── Rate limiters (#2191 sub-item 4) ────────────────────────
+// Per-IP limit: 10 enrollment requests per 15 minutes
+const enrollmentIpLimiter = createRateLimiter({ maxRequests: 10, windowMs: 15 * 60_000 });
+// Per-token limit: 50 enrollment requests per 15 minutes
+const enrollmentTokenLimiter = createRateLimiter({ maxRequests: 50, windowMs: 15 * 60_000 });
 
 // ── Plugin options ───────────────────────────────────────────
 
@@ -362,6 +374,21 @@ export async function terminalRoutesPlugin(
     }
 
     const namespace = getStoreNamespace(req);
+
+    // Issue #2191, Sub-item 1: Cross-namespace credential/proxy validation
+    if (body.credential_id) {
+      const nsCheck = await validateNamespaceConsistency(pool, 'terminal_credential', body.credential_id, namespace);
+      if (!nsCheck.valid) {
+        return reply.code(403).send({ error: nsCheck.error });
+      }
+    }
+    if (body.proxy_jump_id) {
+      const nsCheck = await validateNamespaceConsistency(pool, 'terminal_connection', body.proxy_jump_id, namespace);
+      if (!nsCheck.valid) {
+        return reply.code(403).send({ error: nsCheck.error });
+      }
+    }
+
     const id = randomUUID();
 
     await pool.query(
@@ -470,6 +497,35 @@ export async function terminalRoutesPlugin(
       if (field in body) {
         const err = validateTimeout(body[field], field);
         if (err) return reply.code(400).send({ error: err });
+      }
+    }
+
+    // Issue #2191, Sub-item 1: Cross-namespace credential/proxy validation on update
+    if ('credential_id' in body && body.credential_id) {
+      if (!UUID_REGEX.test(body.credential_id as string)) {
+        return reply.code(400).send({ error: 'Invalid credential_id format' });
+      }
+    }
+    if ('proxy_jump_id' in body && body.proxy_jump_id) {
+      if (!UUID_REGEX.test(body.proxy_jump_id as string)) {
+        return reply.code(400).send({ error: 'Invalid proxy_jump_id format' });
+      }
+    }
+    const patchNamespace = getStoreNamespace(req);
+    if ('credential_id' in body && body.credential_id) {
+      const nsCheck = await validateNamespaceConsistency(
+        pool, 'terminal_credential', body.credential_id as string, patchNamespace,
+      );
+      if (!nsCheck.valid) {
+        return reply.code(403).send({ error: nsCheck.error });
+      }
+    }
+    if ('proxy_jump_id' in body && body.proxy_jump_id) {
+      const nsCheck = await validateNamespaceConsistency(
+        pool, 'terminal_connection', body.proxy_jump_id as string, patchNamespace,
+      );
+      if (!nsCheck.valid) {
+        return reply.code(403).send({ error: nsCheck.error });
       }
     }
 
@@ -1064,14 +1120,35 @@ export async function terminalRoutesPlugin(
 
     const namespace = getStoreNamespace(req);
     const sessionName = body.tmux_session_name ?? `session-${Date.now()}`;
-
     const actor = await getActor(req);
 
     // Issue #2128: Propagate trace ID through REST -> gRPC boundary
     const traceId = extractOrCreateTraceId(req);
     app.log.info(traceLogContext(traceId, 'rest'), 'Creating session connection=%s', body.connection_id);
 
+    // Issue #2191, Sub-item 7: Enforce max_sessions with advisory lock.
+    // The advisory lock serializes concurrent session creation for the same
+    // connection, preventing races where two requests both pass the check.
+    // The lock is held for the duration of check + gRPC session creation.
+    const advisoryClient = await pool.connect();
     try {
+      await advisoryClient.query('BEGIN');
+      // Use hashtext to derive a stable int8 advisory lock key from the UUID
+      await advisoryClient.query(
+        `SELECT pg_advisory_xact_lock(hashtext($1))`, [body.connection_id],
+      );
+
+      const maxCheck = await checkMaxSessions(advisoryClient, body.connection_id);
+      if (!maxCheck.allowed) {
+        await advisoryClient.query('COMMIT');
+        return reply.code(409).send({
+          error: maxCheck.error ?? 'Maximum sessions reached',
+          current: maxCheck.current,
+          max: maxCheck.max,
+        });
+      }
+
+      // Create session while holding the advisory lock
       const session = await grpcClient.createSession({
         connection_id: body.connection_id,
         namespace,
@@ -1086,6 +1163,8 @@ export async function terminalRoutesPlugin(
         notes: body.notes ?? '',
       }, traceId);
 
+      await advisoryClient.query('COMMIT');
+
       recordActivity(pool, {
         namespace,
         session_id: session.id,
@@ -1097,8 +1176,11 @@ export async function terminalRoutesPlugin(
 
       return reply.code(201).send(session);
     } catch (err) {
+      try { await advisoryClient.query('ROLLBACK'); } catch { /* best-effort */ }
       const message = err instanceof Error ? err.message : 'Unknown gRPC error';
       return reply.code(502).send({ error: 'Failed to create session', details: message });
+    } finally {
+      advisoryClient.release();
     }
   });
 
@@ -1364,10 +1446,8 @@ export async function terminalRoutesPlugin(
     if (isAuthDisabled()) {
       authenticated = true;
     } else if (query.token) {
-      // #2105: Log security warning — query param auth tokens leak via proxy logs and Referer headers
-      console.warn(
-        `WebSocket auth via query param token for session ${params.id} — prefer first-message auth to avoid query string auth token leakage`,
-      );
+      // Issue #2191, Sub-item 6: Deprecation logging for query-token auth
+      logQueryTokenUsage(app.log, params.id, req.ip);
       try {
         await verifyAccessToken(query.token);
         authenticated = true;
@@ -1767,6 +1847,14 @@ export async function terminalRoutesPlugin(
 
   // POST /api/terminal/enroll — Remote self-registration
   app.post('/terminal/enroll', async (req, reply) => {
+    // Issue #2191, Sub-item 4: Rate limiting on enrollment
+    const clientIp = req.ip ?? 'unknown';
+    const ipCheck = enrollmentIpLimiter.check(clientIp);
+    if (!ipCheck.allowed) {
+      reply.header('Retry-After', String(Math.ceil((ipCheck.retryAfterMs ?? 60_000) / 1000)));
+      return reply.code(429).send({ error: 'Too many enrollment requests from this IP' });
+    }
+
     const body = req.body as {
       token?: string;
       hostname?: string;
@@ -1779,6 +1867,15 @@ export async function terminalRoutesPlugin(
     if (!body?.token) {
       return reply.code(400).send({ error: 'token is required' });
     }
+
+    // Per-token rate limiting (uses token hash to avoid leaking actual token)
+    const tokenKey = createHash('sha256').update(body.token).digest('hex').slice(0, 16);
+    const tokenCheck = enrollmentTokenLimiter.check(tokenKey);
+    if (!tokenCheck.allowed) {
+      reply.header('Retry-After', String(Math.ceil((tokenCheck.retryAfterMs ?? 60_000) / 1000)));
+      return reply.code(429).send({ error: 'Too many enrollment requests with this token' });
+    }
+
     if (!body.hostname?.trim()) {
       return reply.code(400).send({ error: 'hostname is required' });
     }
