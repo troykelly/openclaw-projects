@@ -191,3 +191,99 @@ describe('toAgentToolResult contract: per-family fixtures (#2230)', () => {
     });
   });
 });
+
+describe('toAgentToolResult edge cases (#2230)', () => {
+  const edgeCases: Array<{ name: string; input: Record<string, unknown> }> = [
+    { name: 'empty data object', input: { success: true, data: {} } },
+    { name: 'data with only unknown keys', input: { success: true, data: { foo: 'bar', baz: 42 } } },
+    { name: 'content is undefined', input: { success: true, data: { content: undefined, id: 'x' } } },
+    { name: 'content is null', input: { success: true, data: { content: null, id: 'x' } } },
+    { name: 'content is a number', input: { success: true, data: { content: 42 } } },
+    { name: 'content is a boolean', input: { success: true, data: { content: true } } },
+    { name: 'content is an array', input: { success: true, data: { content: [1, 2, 3] } } },
+    { name: 'content is an object', input: { success: true, data: { content: { nested: true } } } },
+    { name: 'deeply nested data', input: { success: true, data: { a: { b: { c: { d: 'deep' } } } } } },
+    { name: 'data with array values', input: { success: true, data: { items: [{ id: 1 }, { id: 2 }] } } },
+    { name: 'error with no message', input: { success: false } },
+    { name: 'error with empty string', input: { success: false, error: '' } },
+    { name: 'error with whitespace', input: { success: false, error: '   ' } },
+    { name: 'success true but no data', input: { success: true } },
+  ];
+
+  it.each(edgeCases)(
+    '$name always produces a valid AgentToolResult',
+    ({ input }) => {
+      const result = toAgentToolResult(input as any);
+      // Must pass schema validation
+      expect(() => AgentToolResultSchema.parse(result)).not.toThrow();
+      // Gateway invariant: every block has type "text" and non-empty string text
+      for (const block of result.content) {
+        expect(block.type).toBe('text');
+        expect(typeof block.text).toBe('string');
+        expect(block.text.length).toBeGreaterThan(0);
+      }
+    },
+  );
+
+  it('survives circular references without crashing', () => {
+    const circular: Record<string, unknown> = { id: 'circ' };
+    circular.self = circular;
+    const result = toAgentToolResult({ success: true, data: circular } as any);
+    expect(() => AgentToolResultSchema.parse(result)).not.toThrow();
+  });
+
+  it('survives BigInt values without crashing', () => {
+    const result = toAgentToolResult({
+      success: true,
+      data: { value: BigInt(9007199254740991) },
+    } as any);
+    expect(() => AgentToolResultSchema.parse(result)).not.toThrow();
+  });
+
+  it('survives data with function values', () => {
+    const result = toAgentToolResult({
+      success: true,
+      data: { callback: () => 'nope' },
+    } as any);
+    expect(() => AgentToolResultSchema.parse(result)).not.toThrow();
+  });
+});
+
+describe('gateway contract invariant (#2230)', () => {
+  it('NEVER produces content blocks with undefined or non-string text', () => {
+    // Exhaustive fuzz: 20 random-ish inputs
+    const inputs = [
+      { success: true, data: {} },
+      { success: true, data: { content: undefined } },
+      { success: true, data: { content: null } },
+      { success: true, data: { content: '' } },
+      { success: true, data: { content: 0 } },
+      { success: true, data: { content: false } },
+      { success: true, data: { content: NaN } },
+      { success: true, data: { content: Infinity } },
+      { success: true, data: { x: 1 } },
+      { success: true },
+      { success: false },
+      { success: false, error: undefined },
+      { success: false, error: null },
+      { success: false, error: '' },
+      { success: false, error: 0 },
+      {} as any,
+      { success: undefined } as any,
+      { success: null } as any,
+      { success: true, data: null } as any,
+      { success: true, data: '' } as any,
+    ];
+
+    for (const input of inputs) {
+      const result = toAgentToolResult(input as any);
+      expect(result.content.length).toBeGreaterThan(0);
+      for (const block of result.content) {
+        expect(block).toHaveProperty('type', 'text');
+        expect(block).toHaveProperty('text');
+        expect(typeof block.text).toBe('string');
+        expect(block.text.length).toBeGreaterThan(0);
+      }
+    }
+  });
+});
