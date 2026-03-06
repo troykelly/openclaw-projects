@@ -8,7 +8,7 @@
  * - CLI registered via `api.registerCli()`
  */
 
-import { ZodError } from 'zod';
+import { z, ZodError } from 'zod';
 import { type ApiClient, createApiClient } from './api-client.js';
 import { type PluginConfig, type RawPluginConfig, redactConfig, resolveConfigSecretsSync, resolveNamespaceConfig, validateRawConfig } from './config.js';
 import { extractContext, getUserScopeKey, resolveAgentId } from './context.js';
@@ -148,6 +148,22 @@ interface PluginState {
 }
 
 /**
+ * Zod schema enforcing the gateway contract: every content block
+ * must have type "text" and a non-empty text string (#2230).
+ */
+export const AgentToolResultSchema = z.object({
+  content: z
+    .array(
+      z.object({
+        type: z.literal('text'),
+        text: z.string().min(1),
+      }),
+    )
+    .min(1),
+  isError: z.boolean().optional(),
+});
+
+/**
  * Convert internal ToolResult format to AgentToolResult format expected by OpenClaw Gateway.
  *
  * The Gateway expects: { content: [{ type: "text", text: "..." }] }
@@ -159,9 +175,11 @@ interface PluginState {
  * `estimateMessageChars` (#2220, #2228).
  */
 export function toAgentToolResult(result: ToolResult): AgentToolResult {
+  let candidate: AgentToolResult;
+
   if (result.success && result.data) {
     let text: string;
-    if (typeof result.data.content === 'string') {
+    if (typeof result.data.content === 'string' && result.data.content.length > 0) {
       text = result.data.content;
     } else {
       // Fallback: serialise the full data object. try/catch guards against
@@ -172,17 +190,35 @@ export function toAgentToolResult(result: ToolResult): AgentToolResult {
         text = String(result.data);
       }
     }
-    return {
-      content: [{ type: 'text' as const, text }],
+    candidate = { content: [{ type: 'text' as const, text }] };
+  } else {
+    // For errors, format the error message
+    const errorText = result.error && String(result.error).trim()
+      ? String(result.error)
+      : 'An unexpected error occurred';
+    candidate = {
+      content: [{ type: 'text' as const, text: `Error: ${errorText}` }],
+      isError: true,
     };
   }
 
-  // For errors, format the error message
-  const errorText = result.error ?? 'An unexpected error occurred';
-  return {
-    content: [{ type: 'text' as const, text: `Error: ${errorText}` }],
-    isError: true,
-  };
+  // Runtime guard: validate the output matches the gateway contract (#2230).
+  const parsed = AgentToolResultSchema.safeParse(candidate);
+  if (!parsed.success) {
+    // Do NOT throw — returning an error result is safer than crashing.
+    // Log enough context to diagnose which tool produced bad output.
+    const dataShape = result.data ? Object.keys(result.data).join(',') : 'none';
+    console.error(
+      `[openclaw-plugin] toAgentToolResult: output failed schema validation (#2230). ` +
+        `success=${result.success} dataKeys=${dataShape} zodError=${parsed.error.message}`,
+    );
+    return {
+      content: [{ type: 'text' as const, text: '(invalid tool result)' }],
+      isError: true,
+    };
+  }
+
+  return candidate;
 }
 
 /** Namespace property for store/create tools (Issue #1428) */
