@@ -1,5 +1,5 @@
 -- ============================================================
--- Migration 136: Add 'reconnecting' to terminal_session status
+-- Migration 139: Add 'reconnecting' to terminal_session status
 -- Issue #2187 — SSH Session Recovery for Remote Orchestration
 -- Issue #2188 — Define terminal_session status during reconnection
 --
