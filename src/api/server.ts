@@ -21897,6 +21897,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // ── Dev Sessions (Issue #1285) ─────────────────────────────────────
 
+  /** Issue #2190: Valid dev_session status values. */
+  const DEV_SESSION_VALID_STATUSES = ['active', 'paused', 'completed', 'errored', 'abandoned'] as const;
+  type DevSessionStatus = typeof DEV_SESSION_VALID_STATUSES[number];
+
   const DEV_SESSION_UPDATABLE = [
     'status', 'task_summary', 'task_prompt', 'branch', 'container',
     'container_user', 'repo_org', 'repo_name', 'context_pct',
@@ -21904,15 +21908,22 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     'linked_issues', 'linked_prs', 'webhook_id',
   ] as const;
 
-  /** Extract user_email from body, query, or x-user-email header. */
-  function getDevSessionEmail(req: { body?: unknown; query?: unknown; headers?: Record<string, string | string[] | undefined> }): string | null {
+  /**
+   * Issue #2190: Resolve the authenticated email for dev session operations.
+   * Uses JWT principal binding instead of caller-supplied user_email.
+   *
+   * - User tokens: returns the JWT subject (ignores body/query/header email).
+   * - M2M tokens: falls back to X-User-Email header (agents operate on behalf of users).
+   * - Auth disabled (dev/test): uses X-User-Email header or body.user_email.
+   */
+  async function getDevSessionPrincipal(req: FastifyRequest): Promise<string | null> {
+    // Extract requested email from body or header for M2M/auth-disabled fallback.
+    // User tokens will ignore this entirely (resolveUserEmail enforces principal binding).
     const body = req.body as Record<string, unknown> | null | undefined;
-    if (body && typeof body.user_email === 'string' && body.user_email) return body.user_email;
-    const query = req.query as Record<string, string | undefined> | undefined;
-    if (query && typeof query.user_email === 'string' && query.user_email) return query.user_email;
-    const hdr = req.headers?.['x-user-email'];
-    if (typeof hdr === 'string' && hdr) return hdr;
-    return null;
+    const requestedEmail =
+      (body && typeof body.user_email === 'string' ? body.user_email : null) ??
+      (typeof req.headers['x-user-email'] === 'string' ? req.headers['x-user-email'] : null);
+    return resolveUserEmail(req, requestedEmail);
   }
 
   /** Text-only fallback search for dev sessions (Issue #1987). */
@@ -21955,19 +21966,27 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   }
 
   // POST /api/dev-sessions — Create a dev session
+  // Issue #2190: Uses authenticated principal, enforces readwrite role.
   app.post('/dev-sessions', async (req, reply) => {
     const body = req.body as Record<string, unknown> | null;
     if (!body) return reply.code(400).send({ error: 'Body required' });
 
-    const email = getDevSessionEmail(req);
-    if (!email) return reply.code(400).send({ error: 'user_email is required' });
+    const email = await getDevSessionPrincipal(req);
+    if (!email) return reply.code(401).send({ error: 'Authentication required' });
 
     const sessionName = typeof body.session_name === 'string' ? body.session_name.trim() : '';
     const node = typeof body.node === 'string' ? body.node.trim() : '';
     if (!sessionName) return reply.code(400).send({ error: 'session_name is required' });
     if (!node) return reply.code(400).send({ error: 'node is required' });
 
-    const namespace = getStoreNamespace(req);
+    let namespace: string;
+    try {
+      namespace = getStoreNamespace(req); // Enforces readwrite role
+    } catch (err) {
+      if (err instanceof RoleError) return reply.code(403).send({ error: err.message });
+      throw err;
+    }
+
     const pool = createPool();
     try {
       const result = await pool.query(
@@ -22001,18 +22020,21 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/dev-sessions — List sessions (filterable by status, node, project_id)
+  // Issue #2190: Scoped by namespace (from JWT), not caller-supplied user_email.
   app.get('/dev-sessions', async (req, reply) => {
-    const email = getDevSessionEmail(req);
-    if (!email) return reply.code(400).send({ error: 'user_email is required (query param or header)' });
+    const namespaces = getEffectiveNamespaces(req);
+    if (namespaces.length === 0) {
+      return reply.code(403).send({ error: 'No namespace access' });
+    }
 
     const query = req.query as Record<string, string | undefined>;
     const conditions: string[] = [];
     const params: unknown[] = [];
     let idx = 1;
 
-    // Epic #1418: user_email takes precedence during Phase 3 transition
-    conditions.push(`user_email = $${idx}`);
-    params.push(email);
+    // Issue #2190: Scope by namespace instead of user_email
+    conditions.push(`namespace = ANY($${idx}::text[])`);
+    params.push(namespaces);
     idx++;
 
     if (query.status) {
@@ -22051,16 +22073,19 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/dev-sessions/:id — Get a specific session (includes linked terminals)
+  // Issue #2190: Scoped by namespace, not user_email.
   app.get('/dev-sessions/:id', async (req, reply) => {
-    const email = getDevSessionEmail(req);
-    if (!email) return reply.code(400).send({ error: 'user_email is required (query param or header)' });
+    const namespaces = getEffectiveNamespaces(req);
+    if (namespaces.length === 0) {
+      return reply.code(403).send({ error: 'No namespace access' });
+    }
 
     const { id } = req.params as { id: string };
     const pool = createPool();
     try {
       const result = await pool.query(
-        `SELECT * FROM dev_session WHERE id = $1 AND user_email = $2`,
-        [id, email],
+        `SELECT * FROM dev_session WHERE id = $1 AND namespace = ANY($2::text[])`,
+        [id, namespaces],
       );
       if (result.rows.length === 0) {
         return reply.code(404).send({ error: 'Dev session not found' });
@@ -22088,19 +22113,34 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // PATCH /api/dev-sessions/:id — Update session fields
+  // Issue #2190: Namespace-scoped, readwrite role, status validation.
   app.patch('/dev-sessions/:id', async (req, reply) => {
-    const email = getDevSessionEmail(req);
-    if (!email) return reply.code(400).send({ error: 'user_email is required' });
+    let namespace: string;
+    try {
+      namespace = getStoreNamespace(req); // Enforces readwrite role
+    } catch (err) {
+      if (err instanceof RoleError) return reply.code(403).send({ error: err.message });
+      throw err;
+    }
 
     const { id } = req.params as { id: string };
     const body = req.body as Record<string, unknown> | null;
     if (!body) return reply.code(400).send({ error: 'Body required' });
 
+    // Issue #2190: Validate status value if provided
+    if ('status' in body && typeof body.status === 'string') {
+      if (!(DEV_SESSION_VALID_STATUSES as readonly string[]).includes(body.status)) {
+        return reply.code(400).send({
+          error: `Invalid status value. Must be one of: ${DEV_SESSION_VALID_STATUSES.join(', ')}`,
+        });
+      }
+    }
+
     // Issue #1988: optional terminal_session_id to link
     const terminalSessionId = typeof body.terminal_session_id === 'string' ? body.terminal_session_id : null;
 
     const setClauses: string[] = ['updated_at = now()'];
-    const params: unknown[] = [id, email];
+    const params: unknown[] = [id, namespace];
     let idx = 3;
 
     // Track whether embeddable text fields changed (Issue #1987)
@@ -22127,9 +22167,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
     try {
+      // Issue #2190: Scope by namespace, not user_email
       const result = await pool.query(
         `UPDATE dev_session SET ${setClauses.join(', ')}
-         WHERE id = $1 AND user_email = $2
+         WHERE id = $1 AND namespace = $2
          RETURNING *`,
         params,
       );
@@ -22137,8 +22178,17 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         return reply.code(404).send({ error: 'Dev session not found' });
       }
 
-      // Issue #1988: link terminal session if provided
+      // Issue #1988 + #2190: link terminal session if provided, with namespace validation
       if (terminalSessionId) {
+        // Verify terminal session exists in the same namespace
+        const termCheck = await pool.query(
+          `SELECT id FROM terminal_session WHERE id = $1 AND namespace = $2`,
+          [terminalSessionId, namespace],
+        );
+        if (termCheck.rows.length === 0) {
+          return reply.code(404).send({ error: 'Terminal session not found in namespace' });
+        }
+
         await pool.query(
           `INSERT INTO dev_session_terminal (dev_session_id, terminal_session_id)
            VALUES ($1, $2)
@@ -22154,9 +22204,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/dev-sessions/:id/complete — Mark session as completed
+  // Issue #2190: Namespace-scoped, readwrite role.
   app.post('/dev-sessions/:id/complete', async (req, reply) => {
-    const email = getDevSessionEmail(req);
-    if (!email) return reply.code(400).send({ error: 'user_email is required' });
+    let namespace: string;
+    try {
+      namespace = getStoreNamespace(req); // Enforces readwrite role
+    } catch (err) {
+      if (err instanceof RoleError) return reply.code(403).send({ error: err.message });
+      throw err;
+    }
 
     const { id } = req.params as { id: string };
     const body = (req.body as Record<string, unknown>) ?? {};
@@ -22170,18 +22226,16 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          SET status = 'completed', completed_at = now(), updated_at = now(),
              completion_summary = COALESCE($3, completion_summary),
              embedding_status = 'pending'
-         WHERE id = $1 AND user_email = $2
+         WHERE id = $1 AND namespace = $2
          RETURNING *`,
-        [id, email, completionSummary],
+        [id, namespace, completionSummary],
       );
       if (result.rows.length === 0) {
         return reply.code(404).send({ error: 'Dev session not found' });
       }
 
       // Issue #1988: terminate linked terminal sessions if requested
-      // Scoped to same namespace as the dev session for authorization safety
       if (terminateTerminals) {
-        const devNs = result.rows[0].namespace;
         await pool.query(
           `UPDATE terminal_session
            SET status = 'terminated', terminated_at = now(), updated_at = now()
@@ -22190,7 +22244,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
            )
            AND namespace = $2
            AND status NOT IN ('terminated', 'error')`,
-          [id, devNs],
+          [id, namespace],
         );
       }
 
@@ -22201,16 +22255,22 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // DELETE /api/dev-sessions/:id — Delete a session
+  // Issue #2190: Namespace-scoped, readwrite role.
   app.delete('/dev-sessions/:id', async (req, reply) => {
-    const email = getDevSessionEmail(req);
-    if (!email) return reply.code(400).send({ error: 'user_email is required' });
+    let namespace: string;
+    try {
+      namespace = getStoreNamespace(req); // Enforces readwrite role
+    } catch (err) {
+      if (err instanceof RoleError) return reply.code(403).send({ error: err.message });
+      throw err;
+    }
 
     const { id } = req.params as { id: string };
     const pool = createPool();
     try {
       const result = await pool.query(
-        `DELETE FROM dev_session WHERE id = $1 AND user_email = $2 RETURNING id`,
-        [id, email],
+        `DELETE FROM dev_session WHERE id = $1 AND namespace = $2 RETURNING id`,
+        [id, namespace],
       );
       if (result.rows.length === 0) {
         return reply.code(404).send({ error: 'Dev session not found' });
@@ -22224,9 +22284,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // ── Dev Session Terminal Links (Issue #1988) ─────────────────────────
 
   // POST /dev-sessions/:id/terminals — Link a terminal session to a dev session
+  // Issue #2190: Namespace-scoped, readwrite role, namespace validation on terminal linking.
   app.post('/dev-sessions/:id/terminals', async (req, reply) => {
-    const email = getDevSessionEmail(req);
-    if (!email) return reply.code(400).send({ error: 'user_email is required' });
+    let namespace: string;
+    try {
+      namespace = getStoreNamespace(req); // Enforces readwrite role
+    } catch (err) {
+      if (err instanceof RoleError) return reply.code(403).send({ error: err.message });
+      throw err;
+    }
 
     const { id } = req.params as { id: string };
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
@@ -22243,20 +22309,19 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
     try {
-      // Verify dev session exists, belongs to user, and get its namespace
+      // Issue #2190: Verify dev session exists in the authenticated namespace
       const devSessionCheck = await pool.query(
-        `SELECT id, namespace FROM dev_session WHERE id = $1 AND user_email = $2`,
-        [id, email],
+        `SELECT id, namespace FROM dev_session WHERE id = $1 AND namespace = $2`,
+        [id, namespace],
       );
       if (devSessionCheck.rows.length === 0) {
         return reply.code(404).send({ error: 'Dev session not found' });
       }
-      const devNamespace = devSessionCheck.rows[0].namespace;
 
       // Verify terminal session exists in the same namespace
       const termSessionCheck = await pool.query(
         `SELECT id FROM terminal_session WHERE id = $1 AND namespace = $2`,
-        [terminalSessionId, devNamespace],
+        [terminalSessionId, namespace],
       );
       if (termSessionCheck.rows.length === 0) {
         return reply.code(404).send({ error: 'Terminal session not found' });
@@ -22282,9 +22347,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /dev-sessions/:id/terminals — List linked terminal sessions
+  // Issue #2190: Namespace-scoped.
   app.get('/dev-sessions/:id/terminals', async (req, reply) => {
-    const email = getDevSessionEmail(req);
-    if (!email) return reply.code(400).send({ error: 'user_email is required' });
+    const namespaces = getEffectiveNamespaces(req);
+    if (namespaces.length === 0) {
+      return reply.code(403).send({ error: 'No namespace access' });
+    }
 
     const { id } = req.params as { id: string };
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
@@ -22293,10 +22361,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
     try {
-      // Verify dev session exists and belongs to user
+      // Verify dev session exists in accessible namespaces
       const devSessionCheck = await pool.query(
-        `SELECT id FROM dev_session WHERE id = $1 AND user_email = $2`,
-        [id, email],
+        `SELECT id FROM dev_session WHERE id = $1 AND namespace = ANY($2::text[])`,
+        [id, namespaces],
       );
       if (devSessionCheck.rows.length === 0) {
         return reply.code(404).send({ error: 'Dev session not found' });
@@ -22320,9 +22388,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // DELETE /dev-sessions/:id/terminals/:terminal_id — Unlink a terminal session
+  // Issue #2190: Namespace-scoped, readwrite role.
   app.delete('/dev-sessions/:id/terminals/:terminal_id', async (req, reply) => {
-    const email = getDevSessionEmail(req);
-    if (!email) return reply.code(400).send({ error: 'user_email is required' });
+    let namespace: string;
+    try {
+      namespace = getStoreNamespace(req); // Enforces readwrite role
+    } catch (err) {
+      if (err instanceof RoleError) return reply.code(403).send({ error: err.message });
+      throw err;
+    }
 
     const { id, terminal_id } = req.params as { id: string; terminal_id: string };
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id) ||
@@ -22332,10 +22406,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
     try {
-      // Verify dev session belongs to user
+      // Verify dev session exists in the authenticated namespace
       const devSessionCheck = await pool.query(
-        `SELECT id FROM dev_session WHERE id = $1 AND user_email = $2`,
-        [id, email],
+        `SELECT id FROM dev_session WHERE id = $1 AND namespace = $2`,
+        [id, namespace],
       );
       if (devSessionCheck.rows.length === 0) {
         return reply.code(404).send({ error: 'Dev session not found' });
