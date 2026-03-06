@@ -1078,4 +1078,147 @@ describe('lifecycle hooks', () => {
       expect(result.error).toBeDefined();
     });
   });
+
+  describe('graph-aware-recall abort on timeout (#2221)', () => {
+    it('should abort the underlying API request when timeout fires', async () => {
+      vi.useFakeTimers();
+
+      // Track if the API post receives an abort signal
+      let receivedSignal: AbortSignal | undefined;
+      const mockPost = vi.fn().mockImplementation((_path: string, _body: unknown, opts?: { signal?: AbortSignal }) => {
+        receivedSignal = opts?.signal;
+        // Never resolve — simulate a hung request
+        return new Promise(() => {});
+      });
+      const client = { ...mockApiClient, post: mockPost };
+
+      const hook = createGraphAwareRecallHook({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        getAgentId: () => 'agent-1',
+        timeoutMs: 100,
+      });
+
+      const resultPromise = hook({ prompt: 'Hello' });
+
+      // Advance past timeout
+      await vi.advanceTimersByTimeAsync(200);
+
+      const result = await resultPromise;
+      expect(result).toBeNull();
+
+      // The signal should have been aborted
+      expect(receivedSignal).toBeDefined();
+      expect(receivedSignal!.aborted).toBe(true);
+
+      vi.useRealTimers();
+    });
+
+    it('should abort the fallback basic recall request when timeout fires', async () => {
+      vi.useFakeTimers();
+
+      // First call (graph-aware) returns failure, second call (fallback get) hangs
+      let receivedSignal: AbortSignal | undefined;
+      const mockPost = vi.fn().mockResolvedValue({
+        success: false,
+        error: { status: 404, message: 'Not Found', code: 'NOT_FOUND' },
+      });
+      const mockGet = vi.fn().mockImplementation((_path: string, opts?: { signal?: AbortSignal }) => {
+        receivedSignal = opts?.signal;
+        return new Promise(() => {});
+      });
+      const client = { ...mockApiClient, post: mockPost, get: mockGet };
+
+      const hook = createGraphAwareRecallHook({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        getAgentId: () => 'agent-1',
+        timeoutMs: 100,
+      });
+
+      const resultPromise = hook({ prompt: 'Hello' });
+
+      // Advance past timeout
+      await vi.advanceTimersByTimeAsync(200);
+
+      const result = await resultPromise;
+      expect(result).toBeNull();
+
+      // The fallback get's signal should have been aborted
+      expect(receivedSignal).toBeDefined();
+      expect(receivedSignal!.aborted).toBe(true);
+
+      vi.useRealTimers();
+    });
+
+    it('should NOT abort the request when it completes before timeout', async () => {
+      let receivedSignal: AbortSignal | undefined;
+      const mockPost = vi.fn().mockImplementation((_path: string, _body: unknown, opts?: { signal?: AbortSignal }) => {
+        receivedSignal = opts?.signal;
+        return Promise.resolve({
+          success: true,
+          data: {
+            context: 'ctx',
+            memories: [
+              {
+                id: '1', title: 'Fact', content: 'Something', memory_type: 'fact',
+                similarity: 0.9, importance: 0.8, confidence: 0.9, combinedRelevance: 0.87,
+                scopeType: 'personal', scopeLabel: 'me',
+              },
+            ],
+            metadata: { queryTimeMs: 50, scopeCount: 1, totalMemoriesFound: 1, search_type: 'graph', maxDepth: 1 },
+          },
+        });
+      });
+      const client = { ...mockApiClient, post: mockPost };
+
+      const hook = createGraphAwareRecallHook({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        getAgentId: () => 'agent-1',
+        timeoutMs: 5000,
+      });
+
+      const result = await hook({ prompt: 'Hello' });
+      expect(result).not.toBeNull();
+
+      // Signal should NOT be aborted
+      expect(receivedSignal).toBeDefined();
+      expect(receivedSignal!.aborted).toBe(false);
+    });
+
+    it('should abort auto-recall API request on timeout (#2221)', async () => {
+      vi.useFakeTimers();
+
+      let receivedSignal: AbortSignal | undefined;
+      const mockGet = vi.fn().mockImplementation((_path: string, opts?: { signal?: AbortSignal }) => {
+        receivedSignal = opts?.signal;
+        return new Promise(() => {});
+      });
+      const client = { ...mockApiClient, get: mockGet };
+
+      const hook = createAutoRecallHook({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        getAgentId: () => 'agent-1',
+        timeoutMs: 100,
+      });
+
+      const resultPromise = hook({ prompt: 'Hello' });
+
+      await vi.advanceTimersByTimeAsync(200);
+
+      const result = await resultPromise;
+      expect(result).toBeNull();
+
+      expect(receivedSignal).toBeDefined();
+      expect(receivedSignal!.aborted).toBe(true);
+
+      vi.useRealTimers();
+    });
+  });
 });

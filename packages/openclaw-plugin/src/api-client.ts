@@ -32,6 +32,8 @@ export interface RequestOptions {
   timeout?: number;
   /** Mark request as coming from an agent (adds X-OpenClaw-Agent header) */
   isAgent?: boolean;
+  /** External abort signal — aborts the request when the caller cancels (#2221) */
+  signal?: AbortSignal;
 }
 
 /** API client options */
@@ -186,6 +188,17 @@ export class ApiClient {
   ): Promise<ApiResponse<T>> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+    // Forward external abort signal to our internal controller (#2221).
+    // When a hook timeout fires, this cancels the in-flight HTTP request
+    // instead of letting it run to the API client's own (longer) timeout.
+    if (options?.signal) {
+      if (options.signal.aborted) {
+        controller.abort();
+      } else {
+        options.signal.addEventListener('abort', () => controller.abort(), { once: true });
+      }
+    }
 
     try {
       const headers: Record<string, string> = {

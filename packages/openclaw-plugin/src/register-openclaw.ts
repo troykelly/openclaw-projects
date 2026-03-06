@@ -152,11 +152,19 @@ interface PluginState {
  *
  * The Gateway expects: { content: [{ type: "text", text: "..." }] }
  * Our handlers return: { success: boolean, data?: { content: string, ... }, error?: string }
+ *
+ * Some tools (notes, notebooks, dev-prompts) return data without a `.content` string field.
+ * In those cases the entire data object is JSON-serialized to guarantee the `text` field
+ * is always a defined string, preventing the gateway crash in
+ * `estimateMessageChars` (#2220).
  */
-function toAgentToolResult(result: ToolResult): AgentToolResult {
+export function toAgentToolResult(result: ToolResult): AgentToolResult {
   if (result.success && result.data) {
+    const text = typeof result.data.content === 'string'
+      ? result.data.content
+      : JSON.stringify(result.data);
     return {
-      content: [{ type: 'text' as const, text: result.data.content }],
+      content: [{ type: 'text' as const, text }],
     };
   }
 
@@ -164,6 +172,7 @@ function toAgentToolResult(result: ToolResult): AgentToolResult {
   const errorText = result.error ?? 'An unexpected error occurred';
   return {
     content: [{ type: 'text' as const, text: `Error: ${errorText}` }],
+    isError: true,
   };
 }
 
