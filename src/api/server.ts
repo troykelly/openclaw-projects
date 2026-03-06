@@ -1,4 +1,5 @@
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash, createHmac, randomBytes } from 'node:crypto';
+import { hashWebhookToken, verifyWebhookToken, generateWebhookSalt } from './webhooks/token-hash.ts';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -20632,13 +20633,24 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }
 
       const token = randomBytes(32).toString('base64url');
+
+      // Issue #2189: Hash token with HMAC-SHA-256 + per-token salt before storing.
+      // The plaintext token is returned once and never stored.
+      const webhookHmacSecret = process.env.WEBHOOK_TOKEN_HMAC_SECRET || '';
+      const salt = generateWebhookSalt();
+      const tokenHash = webhookHmacSecret
+        ? hashWebhookToken(token, salt, webhookHmacSecret)
+        : token; // Fallback: store plaintext if secret not configured (dev/test)
+      const tokenSalt = webhookHmacSecret ? salt : null;
+
       const result = await pool.query(
-        `INSERT INTO project_webhook (project_id, user_email, label, token)
-         VALUES ($1, $2, $3, $4)
-         RETURNING id::text, project_id::text, user_email, label, token, is_active, last_received, created_at, updated_at`,
-        [id, email, body.label.trim(), token],
+        `INSERT INTO project_webhook (project_id, user_email, label, token, token_salt)
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING id::text, project_id::text, user_email, label, is_active, last_received, created_at, updated_at`,
+        [id, email, body.label.trim(), tokenHash, tokenSalt],
       );
-      return reply.code(201).send(result.rows[0]);
+      // Return the plaintext token only at creation time
+      return reply.code(201).send({ ...result.rows[0], token });
     } catch (err) {
       req.log.error({ err, project_id: id }, 'Failed to create webhook');
       return reply.code(500).send({ error: 'Failed to create webhook' });
@@ -20676,9 +20688,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         whereClause += ` AND user_email = $${params.length}`;
       }
 
+      // Issue #2189: Never expose token hash. Show hashed indicator instead.
       const result = await pool.query(
         `SELECT id::text, project_id::text, user_email, label,
-                CONCAT(LEFT(token, 8), '...') AS token,
+                CASE WHEN token_salt IS NOT NULL THEN '(hashed)' ELSE CONCAT(LEFT(token, 8), '...') END AS token_preview,
+                (token_salt IS NOT NULL) AS is_hashed,
                 is_active, last_received, created_at, updated_at
          FROM project_webhook ${whereClause} ORDER BY created_at DESC`,
         params,
@@ -20757,7 +20771,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
     const webhookResult = await pool.query(
-      `SELECT id::text, project_id::text, user_email, token, is_active
+      `SELECT id::text, project_id::text, user_email, token, token_salt, is_active
        FROM project_webhook WHERE id = $1`,
       [webhook_id],
     );
@@ -20767,8 +20781,19 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(404).send({ error: 'webhook not found' });
     }
 
-    const webhook = webhookResult.rows[0] as { id: string; project_id: string; user_email: string | null; token: string; is_active: boolean };
-    if (webhook.token !== bearerToken) {
+    const webhook = webhookResult.rows[0] as {
+      id: string; project_id: string; user_email: string | null;
+      token: string; token_salt: string | null; is_active: boolean;
+    };
+
+    // Issue #2189: Verify token using HMAC if salt is present (hashed token),
+    // otherwise fall back to direct comparison (legacy/dev plaintext tokens).
+    const webhookHmacSecret = process.env.WEBHOOK_TOKEN_HMAC_SECRET || '';
+    const tokenValid = webhook.token_salt && webhookHmacSecret
+      ? verifyWebhookToken(bearerToken, webhook.token, webhook.token_salt, webhookHmacSecret)
+      : webhook.token === bearerToken;
+
+    if (!tokenValid) {
       await pool.end();
       return reply.code(401).send({ error: 'invalid token' });
     }
