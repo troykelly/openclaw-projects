@@ -114,6 +114,7 @@ http:
     #   Twilio:     https://www.twilio.com/docs/sip-trunking/ip-addresses
 
     # Cloudflare IP ranges (IPv4 + IPv6)
+    # Last verified: 2026-03-06 from https://www.cloudflare.com/ips/
     webhook-cloudflare-ipallowlist:
       ipAllowList:
         sourceRange:
@@ -132,6 +133,7 @@ http:
           - "104.16.0.0/13"
           - "104.24.0.0/14"
           - "172.64.0.0/13"
+          - "131.0.72.0/22"
           # IPv6 — https://www.cloudflare.com/ips-v6/
           - "2400:cb00::/32"
           - "2606:4700::/32"
@@ -142,33 +144,38 @@ http:
           - "2c0f:f248::/32"
 
     # Postmark IP ranges
+    # Last verified: 2026-03-06 from https://postmarkapp.com/support/article/800-ips-for-firewalls
     webhook-postmark-ipallowlist:
       ipAllowList:
         sourceRange:
-          # Postmark webhook source IPs
-          # https://postmarkapp.com/support/article/800-ips-for-firewalls
           - "3.134.147.250/32"
           - "50.31.156.6/32"
           - "50.31.156.77/32"
           - "18.217.206.57/32"
 
     # Twilio IP ranges
+    # Twilio does NOT publish webhook-specific source IPs; they use AWS
+    # infrastructure with dynamic ranges. These are their published signaling
+    # gateway IPs from https://www.twilio.com/docs/sip-trunking/ip-addresses
+    # which may cover some webhook traffic. App-layer Twilio signature
+    # verification (X-Twilio-Signature) is the primary auth mechanism.
+    # Last verified: 2026-03-06
     webhook-twilio-ipallowlist:
       ipAllowList:
         sourceRange:
-          # Twilio webhook source IPs (US)
-          # https://www.twilio.com/docs/sip-trunking/ip-addresses
-          - "54.172.60.0/23"
-          - "54.244.51.0/24"
-          - "54.171.127.192/26"
-          - "52.215.127.0/24"
-          - "54.65.63.192/26"
-          - "54.169.127.128/26"
-          - "54.252.254.64/26"
-          - "177.71.206.192/26"
-          # Twilio media/webhook IPs
-          - "34.203.250.0/23"
-          - "100.20.0.0/16"
+          # US1 (Virginia) signaling gateway
+          - "54.172.60.0/30"
+          # US2 (Oregon) signaling gateway
+          - "54.244.51.0/30"
+          # EU (Ireland) signaling gateways
+          - "54.171.127.192/30"
+          - "52.215.127.0/30"
+          # Asia Pacific signaling gateways
+          - "54.65.63.192/30"
+          - "54.169.127.128/30"
+          - "54.252.254.64/30"
+          # South America signaling gateway
+          - "177.71.206.192/30"
 
     # Redirect /api/* on root/www domain to api.DOMAIN/*
     # Strips the /api prefix since API routes no longer use it.
