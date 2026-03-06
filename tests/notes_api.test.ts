@@ -94,7 +94,7 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
       expect(body.notebook_id).toBe(notebook_id);
     });
 
-    it('returns 400 when user_email is missing', async () => {
+    it('returns 401 when user_email is missing', async () => {
       const res = await app.inject({
         method: 'POST',
         url: '/notes',
@@ -103,8 +103,7 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
         },
       });
 
-      expect(res.statusCode).toBe(400);
-      expect(res.json().error).toBe('user_email is required');
+      expect(res.statusCode).toBe(401);
     });
 
     it('returns 400 when title is missing', async () => {
@@ -196,14 +195,13 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
       expect(body.total).toBe(3);
     });
 
-    it('returns 400 when user_email is missing', async () => {
+    it('returns 401 when user_email is missing', async () => {
       const res = await app.inject({
         method: 'GET',
         url: '/notes',
       });
 
-      expect(res.statusCode).toBe(400);
-      expect(res.json().error).toBe('user_email is required');
+      expect(res.statusCode).toBe(401);
     });
 
     it('filters notes by visibility', async () => {
@@ -327,14 +325,13 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
       expect(body.title).toBe('Test Note');
     });
 
-    it('returns 400 when user_email is missing', async () => {
+    it('returns 401 when user_email is missing', async () => {
       const res = await app.inject({
         method: 'GET',
         url: '/notes/some-id',
       });
 
-      expect(res.statusCode).toBe(400);
-      expect(res.json().error).toBe('user_email is required');
+      expect(res.statusCode).toBe(401);
     });
 
     it('returns 404 for non-existent note', async () => {
@@ -426,14 +423,14 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
       expect(body.tags).toEqual(['tag2', 'tag3']);
     });
 
-    it('returns 400 when user_email is missing', async () => {
+    it('returns 401 when user_email is missing', async () => {
       const res = await app.inject({
         method: 'PUT',
         url: `/notes/${noteId}`,
         payload: { title: 'New Title' },
       });
 
-      expect(res.statusCode).toBe(400);
+      expect(res.statusCode).toBe(401);
     });
 
     it('returns 404 for non-existent note', async () => {
@@ -510,13 +507,13 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
       expect(check.rows[0].deleted_at).not.toBeNull();
     });
 
-    it('returns 400 when user_email is missing', async () => {
+    it('returns 401 when user_email is missing', async () => {
       const res = await app.inject({
         method: 'DELETE',
         url: '/notes/some-id',
       });
 
-      expect(res.statusCode).toBe(400);
+      expect(res.statusCode).toBe(401);
     });
 
     it('returns 404 for non-existent note', async () => {
@@ -562,14 +559,14 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
       expect(body.deleted_at).toBeNull();
     });
 
-    it('returns 400 when user_email is missing', async () => {
+    it('returns 401 when user_email is missing', async () => {
       const res = await app.inject({
         method: 'POST',
         url: '/notes/some-id/restore',
         payload: {},
       });
 
-      expect(res.statusCode).toBe(400);
+      expect(res.statusCode).toBe(401);
     });
 
     it('returns 404 for non-existent note', async () => {

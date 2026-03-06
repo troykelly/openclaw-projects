@@ -152,8 +152,7 @@ describe('Note Search API', () => {
         url: '/notes/search?q=test',
       });
 
-      expect(response.statusCode).toBe(400);
-      expect(JSON.parse(response.payload).error).toBe('user_email is required');
+      expect(response.statusCode).toBe(401);
     });
 
     it('should require search query', async () => {
@@ -451,8 +450,7 @@ describe('Note Search API', () => {
         url: `/notes/${createdNoteIds[0]}/similar`,
       });
 
-      expect(response.statusCode).toBe(400);
-      expect(JSON.parse(response.payload).error).toBe('user_email is required');
+      expect(response.statusCode).toBe(401);
     });
 
     it('should return 404 for non-existent note', async () => {

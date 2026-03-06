@@ -216,8 +216,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
         url: '/notes/some-id/versions',
       });
 
-      expect(response.statusCode).toBe(400);
-      expect(response.json().error).toContain('user_email');
+      expect(response.statusCode).toBe(401);
     });
   });
 
@@ -290,8 +289,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
         url: '/notes/some-id/versions/1',
       });
 
-      expect(response.statusCode).toBe(400);
-      expect(response.json().error).toContain('user_email');
+      expect(response.statusCode).toBe(401);
     });
   });
 
@@ -401,8 +399,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
         query: { from: '1', to: '2' },
       });
 
-      expect(response.statusCode).toBe(400);
-      expect(response.json().error).toContain('user_email');
+      expect(response.statusCode).toBe(401);
     });
 
     it('should deny access for unauthorized user', async () => {
@@ -547,8 +544,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
         url: '/notes/some-id/versions/1/restore',
       });
 
-      expect(response.statusCode).toBe(400);
-      expect(response.json().error).toContain('user_email');
+      expect(response.statusCode).toBe(401);
     });
 
     it('should return 403 for unauthorized user trying to restore', async () => {

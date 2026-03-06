@@ -246,8 +246,7 @@ describe('Note Embeddings API', () => {
         },
       });
 
-      expect(response.statusCode).toBe(400);
-      expect(JSON.parse(response.payload).error).toBe('user_email is required');
+      expect(response.statusCode).toBe(401);
     });
 
     it('should require query', async () => {

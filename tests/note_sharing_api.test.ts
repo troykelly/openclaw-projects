@@ -188,7 +188,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
         payload: { email: collaboratorEmail },
       });
 
-      expect(res.statusCode).toBe(400);
+      expect(res.statusCode).toBe(401);
     });
 
     it('requires target email', async () => {

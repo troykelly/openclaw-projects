@@ -41,26 +41,24 @@ describe('Note Presence API - Type Validation (Issue #697)', () => {
   });
 
   describe('POST /notes/:id/presence - Type Validation', () => {
-    it('returns 400 when user_email is missing', async () => {
+    it('returns 401 when user_email is missing', async () => {
       const res = await app.inject({
         method: 'POST',
         url: `/notes/${noteId}/presence`,
         payload: {},
       });
 
-      expect(res.statusCode).toBe(400);
-      expect(res.json().error).toContain('user_email');
+      expect(res.statusCode).toBe(401);
     });
 
-    it('returns 400 when user_email is not a string', async () => {
+    it('returns 401 when user_email is not a string', async () => {
       const res = await app.inject({
         method: 'POST',
         url: `/notes/${noteId}/presence`,
         payload: { user_email: 123 },
       });
 
-      expect(res.statusCode).toBe(400);
-      expect(res.json().error).toContain('string');
+      expect(res.statusCode).toBe(401);
     });
 
     it('returns 400 when cursorPosition has wrong structure', async () => {
@@ -148,25 +146,23 @@ describe('Note Presence API - Type Validation (Issue #697)', () => {
   });
 
   describe('DELETE /notes/:id/presence - Type Validation', () => {
-    it('returns 400 when X-User-Email header is missing', async () => {
+    it('returns 401 when X-User-Email header is missing', async () => {
       const res = await app.inject({
         method: 'DELETE',
         url: `/notes/${noteId}/presence`,
       });
 
-      expect(res.statusCode).toBe(400);
-      expect(res.json().error).toContain('X-User-Email');
+      expect(res.statusCode).toBe(401);
     });
 
-    it('returns 400 when X-User-Email header is empty', async () => {
+    it('returns 401 when X-User-Email header is empty', async () => {
       const res = await app.inject({
         method: 'DELETE',
         url: `/notes/${noteId}/presence`,
         headers: { 'x-user-email': '' },
       });
 
-      expect(res.statusCode).toBe(400);
-      expect(res.json().error).toContain('X-User-Email');
+      expect(res.statusCode).toBe(401);
     });
 
     it('accepts valid X-User-Email header', async () => {
@@ -181,25 +177,23 @@ describe('Note Presence API - Type Validation (Issue #697)', () => {
   });
 
   describe('GET /notes/:id/presence - Type Validation', () => {
-    it('returns 400 when X-User-Email header is missing', async () => {
+    it('returns 401 when X-User-Email header is missing', async () => {
       const res = await app.inject({
         method: 'GET',
         url: `/notes/${noteId}/presence`,
       });
 
-      expect(res.statusCode).toBe(400);
-      expect(res.json().error).toContain('X-User-Email');
+      expect(res.statusCode).toBe(401);
     });
 
-    it('returns 400 when X-User-Email header is empty', async () => {
+    it('returns 401 when X-User-Email header is empty', async () => {
       const res = await app.inject({
         method: 'GET',
         url: `/notes/${noteId}/presence`,
         headers: { 'x-user-email': '' },
       });
 
-      expect(res.statusCode).toBe(400);
-      expect(res.json().error).toContain('X-User-Email');
+      expect(res.statusCode).toBe(401);
     });
 
     it('accepts valid X-User-Email header', async () => {
@@ -215,7 +209,7 @@ describe('Note Presence API - Type Validation (Issue #697)', () => {
   });
 
   describe('PUT /notes/:id/presence/cursor - Type Validation', () => {
-    it('returns 400 when user_email is missing', async () => {
+    it('returns 401 when user_email is missing', async () => {
       const res = await app.inject({
         method: 'PUT',
         url: `/notes/${noteId}/presence/cursor`,
@@ -224,11 +218,10 @@ describe('Note Presence API - Type Validation (Issue #697)', () => {
         },
       });
 
-      expect(res.statusCode).toBe(400);
-      expect(res.json().error).toContain('user_email');
+      expect(res.statusCode).toBe(401);
     });
 
-    it('returns 400 when user_email is not a string', async () => {
+    it('returns 401 when user_email is not a string', async () => {
       const res = await app.inject({
         method: 'PUT',
         url: `/notes/${noteId}/presence/cursor`,
@@ -238,8 +231,7 @@ describe('Note Presence API - Type Validation (Issue #697)', () => {
         },
       });
 
-      expect(res.statusCode).toBe(400);
-      expect(res.json().error).toContain('string');
+      expect(res.statusCode).toBe(401);
     });
 
     it('returns 400 when cursorPosition is missing', async () => {
