@@ -82,6 +82,24 @@ const APPLICATION_TABLES = [
   'agent_identity',
   // Entity links (no FKs, polymorphic references)
   'entity_link',
+  // Symphony orchestration (Epic #2186) — FK children first
+  'symphony_run_terminal',
+  'symphony_provisioning_step',
+  'symphony_run_event',
+  'symphony_cleanup_item',
+  'symphony_secret_deployment',
+  'symphony_container',
+  'symphony_run',
+  'symphony_workspace',
+  'symphony_claim',
+  'symphony_circuit_breaker',
+  'symphony_github_rate_limit',
+  'symphony_orchestrator_heartbeat',
+  'symphony_notification_rule',
+  'symphony_orchestrator_config',
+  'symphony_tool_config',
+  'project_host',
+  'project_repository',
   // Dev session terminal links (Issue #1988)
   'dev_session_terminal',
   // Dev sessions (Issue #1285)
