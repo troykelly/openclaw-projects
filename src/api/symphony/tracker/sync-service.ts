@@ -181,8 +181,11 @@ export class SyncService {
       }, config.lastSyncedAt ?? '');
 
       if (latestUpdatedAt) {
+        // Use GREATEST to ensure monotonic progress (safe under concurrent sync)
         await this.pool.query(
-          `UPDATE project_repository SET last_synced_at = $1 WHERE id = $2`,
+          `UPDATE project_repository
+           SET last_synced_at = GREATEST(last_synced_at, $1::timestamptz)
+           WHERE id = $2`,
           [latestUpdatedAt, config.id],
         );
       }
@@ -241,8 +244,12 @@ export class SyncService {
         config.repo,
         issueIds,
       );
-    } catch {
-      // State refresh failure -> keep workers, retry next tick
+    } catch (err) {
+      // State refresh failure -> keep workers running, retry next tick.
+      // Log the error for diagnosis rather than silently swallowing.
+      console.warn(
+        `[SyncService] Reconciliation state refresh failed for ${config.org}/${config.repo}: ${err instanceof Error ? err.message : String(err)}`,
+      );
       return { checked: activeRuns.rows.length, terminal: 0, active: activeRuns.rows.length, failed: 0 };
     }
 
@@ -397,9 +404,31 @@ export class SyncService {
     );
 
     if (existing.rows.length === 0) {
-      // Create new work_item + sync record + external link
-      await this.createSyncedIssue(config, epicId, issue, syncHash);
-      return 'created';
+      // Create new work_item + sync record + external link.
+      // Handle race condition: if a concurrent worker already created this
+      // sync record, the unique constraint will fire. Catch and treat as update.
+      try {
+        await this.createSyncedIssue(config, epicId, issue, syncHash);
+        return 'created';
+      } catch (err) {
+        const pgCode = err instanceof Error && 'code' in err ? (err as { code: string }).code : '';
+        if (pgCode === '23505') {
+          // Unique violation — concurrent create won the race. Re-query and update.
+          const retried = await this.pool.query<{
+            id: string; work_item_id: string; sync_hash: string | null;
+          }>(
+            `SELECT id, work_item_id, sync_hash FROM github_issue_sync
+             WHERE project_repository_id = $1 AND github_issue_number = $2`,
+            [config.id, issue.externalId],
+          );
+          if (retried.rows.length > 0 && retried.rows[0].sync_hash !== syncHash) {
+            await this.updateSyncedIssue(retried.rows[0].work_item_id, retried.rows[0].id, issue, syncHash);
+            return 'updated';
+          }
+          return 'unchanged';
+        }
+        throw err;
+      }
     }
 
     const syncRecord = existing.rows[0];
@@ -518,26 +547,29 @@ export class SyncService {
   ): Promise<void> {
     const status = issue.state === 'open' ? 'open' : 'closed';
 
-    // Update work_item
-    await this.pool.query(
-      `UPDATE work_item
-       SET title = $1, description = $2, status = $3, updated_at = NOW()
-       WHERE id = $4`,
-      [issue.title, issue.body, status, workItemId],
-    );
+    // Atomic update: both work_item and sync record in a single transaction
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
 
-    // Update github_issue_sync record
-    await this.pool.query(
-      `UPDATE github_issue_sync
-       SET sync_hash = $1, github_state = $2, github_author = $3,
-           github_labels = $4, github_assignees = $5,
-           github_milestone = $6, github_priority = $7,
-           github_updated_at = $8, github_closed_at = $9,
-           last_synced_at = NOW()
-       WHERE id = $10`,
-      [
-        syncHash,
-        issue.state,
+      await client.query(
+        `UPDATE work_item
+         SET title = $1, description = $2, status = $3, updated_at = NOW()
+         WHERE id = $4`,
+        [issue.title, issue.body, status, workItemId],
+      );
+
+      await client.query(
+        `UPDATE github_issue_sync
+         SET sync_hash = $1, github_state = $2, github_author = $3,
+             github_labels = $4, github_assignees = $5,
+             github_milestone = $6, github_priority = $7,
+             github_updated_at = $8, github_closed_at = $9,
+             last_synced_at = NOW()
+         WHERE id = $10`,
+        [
+          syncHash,
+          issue.state,
         issue.author.login,
         JSON.stringify(issue.labels.map((l) => l.name)),
         JSON.stringify(issue.assignees.map((a) => a.login)),
@@ -548,5 +580,13 @@ export class SyncService {
         syncRecordId,
       ],
     );
+
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
   }
 }

@@ -20,7 +20,7 @@ export type {
 
 export { computeSyncHash } from './sync-hash.ts';
 export { MockRateLimitBudget } from './rate-limit-mock.ts';
-export { GitHubTracker, RateLimitExhaustedError, parseLinkHeader } from './github/adapter.ts';
+export { GitHubTracker, RateLimitExhaustedError, parseLinkHeader, validateApiBaseUrl } from './github/adapter.ts';
 export { normalizeIssue, normalizeLabel, normalizeUser, normalizeMilestone, extractPriority, isPullRequest } from './github/normalize.ts';
 export type { GitHubIssue, GitHubLabel, GitHubUser, GitHubMilestone } from './github/normalize.ts';
 export { SyncService } from './sync-service.ts';

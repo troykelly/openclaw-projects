@@ -18,7 +18,7 @@ import {
   type GitHubMilestone,
 } from '../../src/api/symphony/tracker/github/normalize.ts';
 import { computeSyncHash } from '../../src/api/symphony/tracker/sync-hash.ts';
-import { parseLinkHeader, RateLimitExhaustedError, GitHubTracker } from '../../src/api/symphony/tracker/github/adapter.ts';
+import { parseLinkHeader, RateLimitExhaustedError, GitHubTracker, validateApiBaseUrl } from '../../src/api/symphony/tracker/github/adapter.ts';
 import { MockRateLimitBudget } from '../../src/api/symphony/tracker/rate-limit-mock.ts';
 import type { SyncHashInput } from '../../src/api/symphony/tracker/types.ts';
 
@@ -561,5 +561,52 @@ describe('GitHubTracker', () => {
     });
 
     await tracker.fetchIssuesByStates('org', 'repo', ['open', 'closed'], null);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// SSRF validation
+// ─────────────────────────────────────────────────────────────
+
+describe('validateApiBaseUrl', () => {
+  it('accepts default api.github.com', () => {
+    expect(() => validateApiBaseUrl('https://api.github.com')).not.toThrow();
+  });
+
+  it('accepts GitHub Enterprise .ghe.com domains', () => {
+    expect(() => validateApiBaseUrl('https://my-company.ghe.com')).not.toThrow();
+  });
+
+  it('accepts GitHub Enterprise .githubenterprise.com domains', () => {
+    expect(() => validateApiBaseUrl('https://api.my-company.githubenterprise.com')).not.toThrow();
+  });
+
+  it('rejects HTTP (non-HTTPS)', () => {
+    expect(() => validateApiBaseUrl('http://api.github.com')).toThrow('must use HTTPS');
+  });
+
+  it('rejects arbitrary domains', () => {
+    expect(() => validateApiBaseUrl('https://evil.example.com')).toThrow('not allowed');
+  });
+
+  it('rejects private network addresses', () => {
+    expect(() => validateApiBaseUrl('https://10.0.0.1')).toThrow('not allowed');
+  });
+
+  it('rejects localhost', () => {
+    expect(() => validateApiBaseUrl('https://localhost')).toThrow('not allowed');
+  });
+
+  it('rejects invalid URLs', () => {
+    expect(() => validateApiBaseUrl('not-a-url')).toThrow('Invalid');
+  });
+
+  it('GitHubTracker constructor rejects unsafe URLs', () => {
+    expect(() => new GitHubTracker({
+      token: 'test',
+      apiBaseUrl: 'https://evil.example.com',
+      rateLimitBudget: new MockRateLimitBudget(),
+      namespace: 'testns',
+    })).toThrow('not allowed');
   });
 });

@@ -24,6 +24,46 @@ const RATE_LIMIT_RESERVE = 100;
 /** GitHub API resource name for rate limiting */
 const GITHUB_RESOURCE = 'core';
 
+/** Allowed GitHub API base URL hosts to prevent SSRF/token exfiltration */
+const ALLOWED_API_HOSTS = new Set([
+  'api.github.com',
+]);
+
+/**
+ * Validate that an API base URL is safe to send credentials to.
+ * Prevents SSRF by restricting to known GitHub API hosts unless
+ * explicitly configured for GitHub Enterprise.
+ *
+ * @throws Error if the URL is not a valid HTTPS GitHub API endpoint
+ */
+export function validateApiBaseUrl(baseUrl: string): void {
+  let parsed: URL;
+  try {
+    parsed = new URL(baseUrl);
+  } catch {
+    throw new Error(`Invalid GitHub API base URL: ${baseUrl}`);
+  }
+
+  if (parsed.protocol !== 'https:') {
+    throw new Error(`GitHub API base URL must use HTTPS: ${baseUrl}`);
+  }
+
+  // Allow known GitHub hosts and GitHub Enterprise (*.ghe.com, *.githubenterprise.com)
+  const hostname = parsed.hostname.toLowerCase();
+  if (
+    ALLOWED_API_HOSTS.has(hostname) ||
+    hostname.endsWith('.ghe.com') ||
+    hostname.endsWith('.githubenterprise.com')
+  ) {
+    return;
+  }
+
+  throw new Error(
+    `GitHub API base URL host not allowed: ${hostname}. ` +
+    `Only api.github.com and GitHub Enterprise hosts are permitted.`,
+  );
+}
+
 /**
  * Parse GitHub Link header to extract the next page cursor.
  * GitHub uses page-based pagination via Link headers.
@@ -81,8 +121,10 @@ export class GitHubTracker implements Tracker {
   private readonly fetchFn: typeof fetch;
 
   constructor(options: GitHubTrackerOptions) {
+    const baseUrl = options.apiBaseUrl ?? 'https://api.github.com';
+    validateApiBaseUrl(baseUrl);
     this.token = options.token;
-    this.apiBaseUrl = options.apiBaseUrl ?? 'https://api.github.com';
+    this.apiBaseUrl = baseUrl;
     this.rateLimitBudget = options.rateLimitBudget;
     this.namespace = options.namespace;
     this.fetchFn = options.fetchFn ?? fetch;
@@ -151,9 +193,12 @@ export class GitHubTracker implements Tracker {
         stateMap.set(issueId, issue.state === 'open' ? 'open' : 'closed');
         await this.recordRateLimitFromHeaders(response.headers);
       } catch (err) {
-        // If a specific issue fails (404, etc.), skip it
         if (err instanceof RateLimitExhaustedError) throw err;
-        // Record the failure but continue with other issues
+        // Non-fatal: issue may be deleted (404) or inaccessible.
+        // Log context for diagnosis but continue with remaining issues.
+        console.warn(
+          `[GitHubTracker] Failed to fetch issue #${issueId} from ${org}/${repo}: ${err instanceof Error ? err.message : String(err)}`,
+        );
       }
     }
 
