@@ -83,12 +83,20 @@ export interface ToolContext {
   requestId?: string;
 }
 
-/** Tool execution result (internal format used by handlers) */
+/**
+ * Tool execution result (internal format used by handlers).
+ *
+ * `data.content` is optional because some tool families (notes, notebooks,
+ * contacts) return structured response objects without a `content` string.
+ * `toAgentToolResult()` handles the fallback (JSON.stringify) so the gateway
+ * always receives a well-formed text block (#2228).
+ */
 export interface ToolResult {
   success: boolean;
   data?: {
-    content: string;
+    content?: string;
     details?: Record<string, unknown>;
+    [key: string]: unknown;
   };
   error?: string;
 }
