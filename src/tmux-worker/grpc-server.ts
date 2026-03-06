@@ -92,6 +92,10 @@ import {
   extractTraceIdFromCall,
   traceLogContext,
 } from '../api/terminal/trace-context.ts';
+import {
+  getGrpcBindAddress,
+  requireMtlsInProduction,
+} from '../api/terminal/grpc-bind.ts';
 
 const startTime = Date.now();
 
@@ -169,23 +173,32 @@ export function buildServerCredentials(config: TmuxWorkerConfig): grpc.ServerCre
 
 /**
  * Start the gRPC server listening on the configured port.
+ *
+ * Issue #2191, Sub-item 2:
+ * - Binds to 127.0.0.1 by default (not 0.0.0.0) for security.
+ * - Override with GRPC_BIND_ADDRESS if needed.
+ * - Enforces mTLS in production (NODE_ENV=production).
  */
 export function startGrpcServer(
   server: grpc.Server,
   port: number,
   config: TmuxWorkerConfig,
 ): Promise<void> {
+  // Fail fast in production if mTLS is not configured
+  requireMtlsInProduction(config);
+
   const credentials = buildServerCredentials(config);
+  const bindAddress = getGrpcBindAddress();
   return new Promise<void>((resolve, reject) => {
     server.bindAsync(
-      `0.0.0.0:${port}`,
+      `${bindAddress}:${port}`,
       credentials,
       (error, actualPort) => {
         if (error) {
           reject(error);
           return;
         }
-        console.log(`gRPC server listening on port ${actualPort}`);
+        console.log(`gRPC server listening on ${bindAddress}:${actualPort}`);
         resolve();
       },
     );
