@@ -146,10 +146,11 @@ export class ApiClient {
         }
       } catch (error) {
         // Handle timeout or network errors
+        const isAbort = error instanceof Error && error.name === 'AbortError';
         lastError = {
           status: 0,
           message: error instanceof Error ? error.message : 'Unknown error',
-          code: error instanceof Error && error.name === 'AbortError' ? 'TIMEOUT' : 'NETWORK_ERROR',
+          code: isAbort ? 'TIMEOUT' : 'NETWORK_ERROR',
         };
 
         this.logger.error('API request failed', {
@@ -159,8 +160,10 @@ export class ApiClient {
           error: lastError.message,
         });
 
-        // Network errors are retryable
-        if (attempt < this.maxRetries) {
+        // If the caller's signal triggered the abort, stop immediately —
+        // retrying a deliberately-cancelled request wastes resources (#2221).
+        if (isAbort && options?.signal?.aborted) {
+          return { success: false, error: lastError };
         }
       }
     }
