@@ -27,6 +27,8 @@ CREATE INDEX IF NOT EXISTS idx_project_repository_namespace
   ON project_repository(namespace);
 CREATE INDEX IF NOT EXISTS idx_project_repository_project
   ON project_repository(project_id);
+CREATE INDEX IF NOT EXISTS idx_project_repository_sync_epic
+  ON project_repository(sync_epic_id) WHERE sync_epic_id IS NOT NULL;
 
 -- updated_at trigger
 CREATE OR REPLACE FUNCTION set_project_repository_updated_at()
@@ -52,7 +54,8 @@ CREATE TABLE IF NOT EXISTS project_host (
   project_id              UUID        NOT NULL REFERENCES work_item(id) ON DELETE CASCADE,
   connection_id           UUID        NOT NULL REFERENCES terminal_connection(id) ON DELETE CASCADE,
   priority                INTEGER     NOT NULL DEFAULT 0,
-  max_concurrent_sessions INTEGER     NOT NULL DEFAULT 1,
+  max_concurrent_sessions INTEGER     NOT NULL DEFAULT 1
+                            CHECK (max_concurrent_sessions >= 1),
   created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE (project_id, connection_id)
@@ -62,6 +65,8 @@ CREATE INDEX IF NOT EXISTS idx_project_host_namespace
   ON project_host(namespace);
 CREATE INDEX IF NOT EXISTS idx_project_host_project
   ON project_host(project_id);
+CREATE INDEX IF NOT EXISTS idx_project_host_connection
+  ON project_host(connection_id);
 
 -- updated_at trigger
 CREATE OR REPLACE FUNCTION set_project_host_updated_at()
@@ -89,7 +94,8 @@ CREATE TABLE IF NOT EXISTS symphony_tool_config (
   verify_command  TEXT,
   min_version     TEXT,
   auth_config     JSONB,
-  timeout_seconds INTEGER     NOT NULL DEFAULT 300,
+  timeout_seconds INTEGER     NOT NULL DEFAULT 300
+                    CHECK (timeout_seconds >= 1),
   env_vars        JSONB,
   created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -179,6 +185,8 @@ CREATE INDEX IF NOT EXISTS idx_symphony_notification_rule_namespace
   ON symphony_notification_rule(namespace);
 CREATE INDEX IF NOT EXISTS idx_symphony_notification_rule_event
   ON symphony_notification_rule(event) WHERE enabled = TRUE;
+CREATE INDEX IF NOT EXISTS idx_symphony_notification_rule_project
+  ON symphony_notification_rule(project_id) WHERE project_id IS NOT NULL;
 
 -- updated_at trigger
 CREATE OR REPLACE FUNCTION set_symphony_notification_rule_updated_at()

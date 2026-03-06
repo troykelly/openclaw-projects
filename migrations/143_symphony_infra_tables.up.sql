@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS symphony_container (
   image           TEXT,
   warm_state      TEXT        NOT NULL DEFAULT 'cold'
                     CHECK (warm_state IN ('cold', 'warming', 'warm', 'cooling', 'dirty')),
-  max_ttl_hours   INTEGER,
+  max_ttl_hours   INTEGER     CHECK (max_ttl_hours IS NULL OR max_ttl_hours >= 1),
   started_at      TIMESTAMPTZ,
   last_seen_at    TIMESTAMPTZ,
   created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -61,7 +61,8 @@ CREATE TABLE IF NOT EXISTS symphony_cleanup_item (
   reason          TEXT,
   run_id          UUID        REFERENCES symphony_run(id) ON DELETE SET NULL,
   error_message   TEXT,
-  attempts        INTEGER     NOT NULL DEFAULT 0,
+  attempts        INTEGER     NOT NULL DEFAULT 0
+                    CHECK (attempts >= 0),
   slo_deadline_at TIMESTAMPTZ,
   completed_at    TIMESTAMPTZ,
   created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -74,6 +75,9 @@ CREATE INDEX IF NOT EXISTS idx_symphony_cleanup_pending
 
 CREATE INDEX IF NOT EXISTS idx_symphony_cleanup_namespace
   ON symphony_cleanup_item (namespace);
+
+CREATE INDEX IF NOT EXISTS idx_symphony_cleanup_run
+  ON symphony_cleanup_item (run_id) WHERE run_id IS NOT NULL;
 
 -- updated_at trigger
 CREATE OR REPLACE FUNCTION set_symphony_cleanup_item_updated_at()
@@ -136,7 +140,8 @@ CREATE TABLE IF NOT EXISTS symphony_orchestrator_heartbeat (
                       CHECK (namespace ~ '^[a-z0-9][a-z0-9._-]*$' AND length(namespace) <= 63),
   orchestrator_id   TEXT        NOT NULL UNIQUE,
   last_heartbeat_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  active_runs       INTEGER     NOT NULL DEFAULT 0,
+  active_runs       INTEGER     NOT NULL DEFAULT 0
+                      CHECK (active_runs >= 0),
   metadata          JSONB,
   created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -170,8 +175,8 @@ CREATE TABLE IF NOT EXISTS symphony_github_rate_limit (
   namespace       TEXT        NOT NULL
                     CHECK (namespace ~ '^[a-z0-9][a-z0-9._-]*$' AND length(namespace) <= 63),
   resource        TEXT        NOT NULL CHECK (length(TRIM(resource)) > 0),
-  remaining       INTEGER     NOT NULL,
-  "limit"         INTEGER     NOT NULL,
+  remaining       INTEGER     NOT NULL CHECK (remaining >= 0),
+  "limit"         INTEGER     NOT NULL CHECK ("limit" >= 0),
   resets_at       TIMESTAMPTZ NOT NULL,
   created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -206,7 +211,8 @@ CREATE TABLE IF NOT EXISTS symphony_circuit_breaker (
   circuit_name    TEXT        NOT NULL CHECK (length(TRIM(circuit_name)) > 0),
   state           TEXT        NOT NULL DEFAULT 'closed'
                     CHECK (state IN ('closed', 'open', 'half_open')),
-  failure_count   INTEGER     NOT NULL DEFAULT 0,
+  failure_count   INTEGER     NOT NULL DEFAULT 0
+                    CHECK (failure_count >= 0),
   last_failure_at TIMESTAMPTZ,
   opened_at       TIMESTAMPTZ,
   half_open_at    TIMESTAMPTZ,

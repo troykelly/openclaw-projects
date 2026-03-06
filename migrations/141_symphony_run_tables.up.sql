@@ -20,7 +20,8 @@ CREATE TABLE IF NOT EXISTS symphony_claim (
   orchestrator_id TEXT        NOT NULL CHECK (length(TRIM(orchestrator_id)) > 0),
   status          TEXT        NOT NULL
                     CHECK (status IN ('pending', 'assigned', 'active', 'released', 'expired', 'completed')),
-  claim_epoch     INTEGER     NOT NULL DEFAULT 1,
+  claim_epoch     INTEGER     NOT NULL DEFAULT 1
+                    CHECK (claim_epoch >= 1),
   lease_expires_at TIMESTAMPTZ,
   claimed_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   released_at     TIMESTAMPTZ,
@@ -43,6 +44,9 @@ CREATE INDEX IF NOT EXISTS idx_symphony_claim_orchestrator
 
 CREATE INDEX IF NOT EXISTS idx_symphony_claim_namespace
   ON symphony_claim (namespace);
+
+CREATE INDEX IF NOT EXISTS idx_symphony_claim_work_item
+  ON symphony_claim (work_item_id);
 
 -- updated_at trigger
 CREATE OR REPLACE FUNCTION set_symphony_claim_updated_at()
@@ -111,7 +115,8 @@ CREATE TABLE IF NOT EXISTS symphony_run (
   workspace_id    UUID        REFERENCES symphony_workspace(id) ON DELETE SET NULL,
   claim_id        UUID        REFERENCES symphony_claim(id) ON DELETE SET NULL,
   orchestrator_id TEXT,
-  attempt         INTEGER     NOT NULL DEFAULT 1,
+  attempt         INTEGER     NOT NULL DEFAULT 1
+                    CHECK (attempt >= 1),
   status          TEXT        NOT NULL DEFAULT 'queued'
                     CHECK (status IN (
                       'queued', 'claiming', 'claimed', 'provisioning', 'provisioned',
@@ -122,7 +127,8 @@ CREATE TABLE IF NOT EXISTS symphony_run (
                     )),
   stage           TEXT        NOT NULL DEFAULT 'queued'
                     CHECK (stage IN ('queued', 'setup', 'execution', 'review', 'delivery', 'teardown', 'terminal')),
-  state_version   INTEGER     NOT NULL DEFAULT 1,
+  state_version   INTEGER     NOT NULL DEFAULT 1
+                    CHECK (state_version >= 1),
   trace_id        TEXT,
   branch_name     TEXT,
   pr_number       INTEGER,
@@ -159,6 +165,10 @@ CREATE INDEX IF NOT EXISTS idx_symphony_run_orchestrator
 CREATE INDEX IF NOT EXISTS idx_symphony_run_workspace
   ON symphony_run (workspace_id)
   WHERE workspace_id IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_symphony_run_claim
+  ON symphony_run (claim_id)
+  WHERE claim_id IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_symphony_run_namespace
   ON symphony_run (namespace);
