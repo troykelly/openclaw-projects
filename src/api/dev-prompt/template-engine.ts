@@ -182,7 +182,8 @@ export function renderDevPromptStrict(
 /**
  * Extract variable name references from a Handlebars AST.
  * Walks MustacheStatement and BlockStatement nodes to find PathExpression
- * references at depth 0 (top-level context variables).
+ * references at depth 0 (top-level context variables), including params
+ * passed to block helpers (e.g., {{#if some_var}}).
  */
 function extractVariableReferences(
   node: hbs.AST.Program,
@@ -205,6 +206,16 @@ function extractVariableReferences(
           refs.add(name);
         }
       }
+      // Extract variable references from params (e.g., {{#if some_var}})
+      for (const param of st.params) {
+        extractPathExpression(param, refs);
+      }
+      // Extract variable references from hash pairs (e.g., {{helper key=some_var}})
+      if (st.hash) {
+        for (const pair of st.hash.pairs) {
+          extractPathExpression(pair.value, refs);
+        }
+      }
       // Walk into block body (e.g., inside #if blocks)
       if ('program' in st && st.program) {
         extractVariableReferences(st.program, refs);
@@ -213,6 +224,20 @@ function extractVariableReferences(
         extractVariableReferences(st.inverse, refs);
       }
     }
+  }
+}
+
+/** Extract a top-level variable reference from a single AST expression node. */
+function extractPathExpression(
+  expr: hbs.AST.Expression,
+  refs: Set<string>,
+): void {
+  if (
+    expr.type === 'PathExpression' &&
+    (expr as hbs.AST.PathExpression).depth === 0 &&
+    (expr as hbs.AST.PathExpression).parts.length === 1
+  ) {
+    refs.add((expr as hbs.AST.PathExpression).parts[0]);
   }
 }
 

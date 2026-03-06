@@ -184,6 +184,20 @@ describe('Symphony Template Engine Extensions (#2194)', () => {
       expect(result.rendered).toBe('Custom: hello');
     });
 
+    it('throws on unknown variables used as block helper params', () => {
+      const body = '{{#if totally_unknown_var}}content{{/if}}';
+      expect(() => renderDevPromptStrict(body, baseSymphonyContext)).toThrow(
+        'totally_unknown_var',
+      );
+    });
+
+    it('does not throw for known variables used as block helper params', () => {
+      const body = '{{#if previous_error}}Has error{{/if}}';
+      const result = renderDevPromptStrict(body, baseSymphonyContext);
+      // previous_error is empty string, so #if block should not render
+      expect(result.rendered).not.toContain('Has error');
+    });
+
     it('does not throw for empty body', () => {
       const result = renderDevPromptStrict('', baseSymphonyContext);
       expect(result.rendered).toBe('');
