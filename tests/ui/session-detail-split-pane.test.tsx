@@ -5,7 +5,7 @@
  * Issue #2110: Split pane button wired to SplitPane RPC.
  */
 import * as React from 'react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -105,6 +105,11 @@ if (typeof ResizeObserver === 'undefined') {
 
 describe('SessionDetailPage — Split Pane (#2110)', () => {
   let queryClient: QueryClient;
+
+  // Pre-warm the lazy import so the first test doesn't time out (#2224)
+  beforeAll(async () => {
+    await import('@/ui/pages/terminal/SessionDetailPage');
+  });
 
   beforeEach(() => {
     vi.clearAllMocks();

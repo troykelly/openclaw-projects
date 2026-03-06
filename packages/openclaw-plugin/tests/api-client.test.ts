@@ -565,6 +565,29 @@ describe('ApiClient', () => {
         expect(result.error.code).toBe('TIMEOUT');
       }
     });
+
+    it('should not retry when external signal is aborted (#2221)', async () => {
+      const abortController = new AbortController();
+      // Abort immediately so the first fetch throws AbortError
+      abortController.abort();
+
+      const abortError = new Error('The operation was aborted');
+      abortError.name = 'AbortError';
+      mockFetch.mockRejectedValue(abortError);
+
+      const client = createApiClient({
+        config: { ...defaultConfig, maxRetries: 3 },
+        logger: mockLogger,
+      });
+      const result = await client.get('/items', { signal: abortController.signal });
+
+      // Should return immediately without retrying
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.code).toBe('TIMEOUT');
+      }
+    });
   });
 
   describe('HTTP methods', () => {

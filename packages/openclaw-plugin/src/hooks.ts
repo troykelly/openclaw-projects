@@ -159,12 +159,15 @@ export function createAutoRecallHook(options: AutoRecallHookOptions): (event: Au
     });
 
     const timeout = createCancellableTimeout<AutoRecallResult | null>(timeoutMs, null);
+    // Abort in-flight HTTP requests when the hook timeout fires (#2221)
+    const abortController = new AbortController();
 
     try {
       // Race between API call and timeout
       const result = await Promise.race([
-        fetchContext(client, user_id, event.prompt, logger, config.maxRecallMemories, config.minRecallScore),
+        fetchContext(client, user_id, event.prompt, logger, config.maxRecallMemories, config.minRecallScore, abortController.signal),
         timeout.promise.then(() => {
+          abortController.abort();
           logger.warn('auto-recall timeout exceeded', { user_id, timeoutMs });
           return null;
         }),
@@ -186,6 +189,7 @@ export function createAutoRecallHook(options: AutoRecallHookOptions): (event: Au
       return result;
     } catch (error) {
       timeout.cancel();
+      abortController.abort();
       logger.error('auto-recall failed', {
         user_id,
         error: error instanceof Error ? error.message : String(error),
@@ -207,7 +211,7 @@ const RECALL_GUIDANCE_NOTE =
  * The user's actual prompt is passed as the search query for semantic matching.
  * Filters results by minRecallScore with graceful degradation (#1926).
  */
-async function fetchContext(client: ApiClient, user_id: string, prompt: string, logger: Logger, max_results = 5, minScore = 0.7): Promise<AutoRecallResult | null> {
+async function fetchContext(client: ApiClient, user_id: string, prompt: string, logger: Logger, max_results = 5, minScore = 0.7, signal?: AbortSignal): Promise<AutoRecallResult | null> {
   // Truncate prompt to a reasonable length for the search query
   const searchQuery = prompt.substring(0, 500);
 
@@ -223,7 +227,7 @@ async function fetchContext(client: ApiClient, user_id: string, prompt: string, 
       type: string;
       score?: number;
     }>;
-  }>(`/memories/search?${queryParams.toString()}`, { user_id });
+  }>(`/memories/search?${queryParams.toString()}`, { user_id, signal });
 
   if (!response.success) {
     logger.error('auto-recall API error', {
@@ -467,12 +471,15 @@ export function createGraphAwareRecallHook(options: GraphAwareRecallHookOptions)
     });
 
     const timeout = createCancellableTimeout<AutoRecallResult | null>(timeoutMs, null);
+    // Abort in-flight HTTP requests when the hook timeout fires (#2221)
+    const abortController = new AbortController();
 
     try {
       // Race between API call and timeout
       const result = await Promise.race([
-        fetchGraphAwareContext(client, user_id, user_email, event.prompt, logger, config.maxRecallMemories, config.minRecallScore),
+        fetchGraphAwareContext(client, user_id, user_email, event.prompt, logger, config.maxRecallMemories, config.minRecallScore, abortController.signal),
         timeout.promise.then(() => {
+          abortController.abort();
           logger.warn('graph-aware-recall timeout exceeded', { user_id, timeoutMs });
           return null;
         }),
@@ -494,6 +501,7 @@ export function createGraphAwareRecallHook(options: GraphAwareRecallHookOptions)
       return result;
     } catch (error) {
       timeout.cancel();
+      abortController.abort();
       logger.error('graph-aware-recall failed', {
         user_id,
         error: error instanceof Error ? error.message : String(error),
@@ -510,7 +518,7 @@ export function createGraphAwareRecallHook(options: GraphAwareRecallHookOptions)
  * multi-scope semantic search across relationships.
  * Falls back to basic /api/memories/search if the graph-aware endpoint fails.
  */
-async function fetchGraphAwareContext(client: ApiClient, user_id: string, user_email: string | undefined, prompt: string, logger: Logger, max_results = 10, minScore = 0.7): Promise<AutoRecallResult | null> {
+async function fetchGraphAwareContext(client: ApiClient, user_id: string, user_email: string | undefined, prompt: string, logger: Logger, max_results = 10, minScore = 0.7, signal?: AbortSignal): Promise<AutoRecallResult | null> {
   // Truncate prompt for the search query
   const searchPrompt = prompt.substring(0, 500);
 
@@ -522,7 +530,7 @@ async function fetchGraphAwareContext(client: ApiClient, user_id: string, user_e
       maxMemories: max_results,
       maxDepth: 1,
     },
-    { user_id, user_email },
+    { user_id, user_email, signal },
   );
 
   // Use graph-aware formatting when the response contains properly-shaped memories
@@ -571,7 +579,7 @@ async function fetchGraphAwareContext(client: ApiClient, user_id: string, user_e
     graphError: graphResponse.success ? 'no context' : graphResponse.error.code,
   });
 
-  return fetchContext(client, user_id, prompt, logger, max_results, minScore);
+  return fetchContext(client, user_id, prompt, logger, max_results, minScore, signal);
 }
 
 /**

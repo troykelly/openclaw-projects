@@ -104,6 +104,8 @@ export interface ToolResult {
  */
 export interface AgentToolResult {
   content: Array<{ type: 'text'; text: string }>;
+  /** When true, signals to the gateway that this result represents an error (#2220) */
+  isError?: boolean;
 }
 
 /**

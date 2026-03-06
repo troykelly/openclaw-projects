@@ -32,6 +32,8 @@ export interface RequestOptions {
   timeout?: number;
   /** Mark request as coming from an agent (adds X-OpenClaw-Agent header) */
   isAgent?: boolean;
+  /** External abort signal — aborts the request when the caller cancels (#2221) */
+  signal?: AbortSignal;
 }
 
 /** API client options */
@@ -144,10 +146,11 @@ export class ApiClient {
         }
       } catch (error) {
         // Handle timeout or network errors
+        const isAbort = error instanceof Error && error.name === 'AbortError';
         lastError = {
           status: 0,
           message: error instanceof Error ? error.message : 'Unknown error',
-          code: error instanceof Error && error.name === 'AbortError' ? 'TIMEOUT' : 'NETWORK_ERROR',
+          code: isAbort ? 'TIMEOUT' : 'NETWORK_ERROR',
         };
 
         this.logger.error('API request failed', {
@@ -157,8 +160,10 @@ export class ApiClient {
           error: lastError.message,
         });
 
-        // Network errors are retryable
-        if (attempt < this.maxRetries) {
+        // If the caller's signal triggered the abort, stop immediately —
+        // retrying a deliberately-cancelled request wastes resources (#2221).
+        if (isAbort && options?.signal?.aborted) {
+          return { success: false, error: lastError };
         }
       }
     }
@@ -186,6 +191,17 @@ export class ApiClient {
   ): Promise<ApiResponse<T>> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+    // Forward external abort signal to our internal controller (#2221).
+    // When a hook timeout fires, this cancels the in-flight HTTP request
+    // instead of letting it run to the API client's own (longer) timeout.
+    if (options?.signal) {
+      if (options.signal.aborted) {
+        controller.abort();
+      } else {
+        options.signal.addEventListener('abort', () => controller.abort(), { once: true });
+      }
+    }
 
     try {
       const headers: Record<string, string> = {
