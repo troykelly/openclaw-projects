@@ -151,18 +151,27 @@ interface PluginState {
  * Convert internal ToolResult format to AgentToolResult format expected by OpenClaw Gateway.
  *
  * The Gateway expects: { content: [{ type: "text", text: "..." }] }
- * Our handlers return: { success: boolean, data?: { content: string, ... }, error?: string }
+ * Our handlers return: { success: boolean, data?: { content?: string, ... }, error?: string }
  *
- * Some tools (notes, notebooks, dev-prompts) return data without a `.content` string field.
+ * Some tools (notes, notebooks, contacts) return data without a `.content` string field.
  * In those cases the entire data object is JSON-serialized to guarantee the `text` field
  * is always a defined string, preventing the gateway crash in
- * `estimateMessageChars` (#2220).
+ * `estimateMessageChars` (#2220, #2228).
  */
 export function toAgentToolResult(result: ToolResult): AgentToolResult {
   if (result.success && result.data) {
-    const text = typeof result.data.content === 'string'
-      ? result.data.content
-      : JSON.stringify(result.data);
+    let text: string;
+    if (typeof result.data.content === 'string') {
+      text = result.data.content;
+    } else {
+      // Fallback: serialise the full data object. try/catch guards against
+      // circular references, BigInt, or misbehaving toJSON (#2228).
+      try {
+        text = JSON.stringify(result.data);
+      } catch {
+        text = String(result.data);
+      }
+    }
     return {
       content: [{ type: 'text' as const, text }],
     };
