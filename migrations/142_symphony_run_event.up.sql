@@ -15,6 +15,8 @@ CREATE TABLE IF NOT EXISTS symphony_run_event (
   id          UUID        NOT NULL DEFAULT gen_random_uuid(),
   namespace   TEXT        NOT NULL
                 CHECK (namespace ~ '^[a-z0-9][a-z0-9._-]*$' AND length(namespace) <= 63),
+  -- No FK on run_id: TimescaleDB hypertables do not support foreign key constraints.
+  -- Referential integrity to symphony_run(id) is enforced at the application layer.
   run_id      UUID        NOT NULL,
   emitted_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   kind        TEXT        NOT NULL CHECK (length(TRIM(kind)) > 0),

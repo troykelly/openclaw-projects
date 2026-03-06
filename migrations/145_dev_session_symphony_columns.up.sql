@@ -3,7 +3,7 @@
 -- Issue #2193 — Dev Session & Terminal Session Schema Migrations
 --
 -- Adds nullable columns for Symphony integration:
---   - symphony_run_id: links to a symphony run (FK deferred to #2192)
+--   - symphony_run_id: links to a symphony run (FK to symphony_run.id)
 --   - orchestrated: flags sessions created by the orchestrator
 --   - agent_type: classifies the agent (orchestrator, worker, etc.)
 --
@@ -17,15 +17,20 @@ ALTER TABLE dev_session
   ADD COLUMN IF NOT EXISTS orchestrated BOOLEAN NOT NULL DEFAULT false,
   ADD COLUMN IF NOT EXISTS agent_type TEXT;
 
--- Step 2: Index on symphony_run_id for join performance
+-- Step 2: FK to symphony_run (table created in migration 141)
+ALTER TABLE dev_session
+  ADD CONSTRAINT fk_dev_session_symphony_run
+  FOREIGN KEY (symphony_run_id) REFERENCES symphony_run(id) ON DELETE SET NULL;
+
+-- Step 3: Index on symphony_run_id for join performance
 CREATE INDEX IF NOT EXISTS idx_dev_session_symphony_run
   ON dev_session(symphony_run_id) WHERE symphony_run_id IS NOT NULL;
 
--- Step 3: Index on orchestrated for filtering
+-- Step 4: Index on orchestrated for filtering
 CREATE INDEX IF NOT EXISTS idx_dev_session_orchestrated
   ON dev_session(orchestrated) WHERE orchestrated = true;
 
--- Step 4: updated_at trigger (X4 finding — consistent with other tables)
+-- Step 5: updated_at trigger (X4 finding — consistent with other tables)
 CREATE OR REPLACE FUNCTION update_dev_session_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -41,7 +46,7 @@ CREATE TRIGGER dev_session_updated_at
   EXECUTE FUNCTION update_dev_session_updated_at();
 
 COMMENT ON COLUMN dev_session.symphony_run_id IS
-  'Issue #2193: References symphony_run(id) — FK added when symphony_run table exists (#2192).';
+  'Issue #2193: References symphony_run(id) via FK fk_dev_session_symphony_run.';
 COMMENT ON COLUMN dev_session.orchestrated IS
   'Issue #2193: True for sessions created by Symphony orchestrator.';
 COMMENT ON COLUMN dev_session.agent_type IS

@@ -7,6 +7,9 @@
 DROP TRIGGER IF EXISTS dev_session_updated_at ON dev_session;
 DROP FUNCTION IF EXISTS update_dev_session_updated_at();
 
+-- Remove FK constraint
+ALTER TABLE dev_session DROP CONSTRAINT IF EXISTS fk_dev_session_symphony_run;
+
 -- Remove indexes
 DROP INDEX IF EXISTS idx_dev_session_symphony_run;
 DROP INDEX IF EXISTS idx_dev_session_orchestrated;

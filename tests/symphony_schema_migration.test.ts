@@ -1089,8 +1089,14 @@ describe('Symphony Schema Migrations 140-143 (#2192)', () => {
       );
       expect(preCheck.rows).toHaveLength(4);
 
-      // Roll back 4 migrations (143, 142, 141, 140)
-      await runMigrate('down', 4);
+      // Roll back all migrations from the current head down to (and including) 140.
+      // With migrations 140-147 present, we need to roll back 8 to remove 140-143.
+      const highestRow = await pool.query<{ version: number }>(
+        `SELECT version::int as version FROM schema_migrations ORDER BY version DESC LIMIT 1`,
+      );
+      const highest = highestRow.rows[0]?.version ?? 143;
+      const stepsToRollback = highest - 140 + 1;
+      await runMigrate('down', stepsToRollback);
 
       const tables = [
         'project_repository', 'project_host', 'symphony_tool_config',
