@@ -466,36 +466,38 @@ describe('Symphony Schema Migrations 140-143 (#2192)', () => {
         await expect(
           pool.query(
             `INSERT INTO symphony_run (namespace, work_item_id, attempt, status, stage)
-             VALUES ('testns', $1, 1, 'invalid_status', 'queued')`,
+             VALUES ('testns', $1, 1, 'invalid_status', 'reading_issue')`,
             [workItemId],
           ),
         ).rejects.toThrow();
       });
 
-      it('enforces stage CHECK constraint (7 values)', async () => {
+      it('enforces stage CHECK constraint', async () => {
         const workItemId = await insertWorkItem(pool);
         await expect(
           pool.query(
             `INSERT INTO symphony_run (namespace, work_item_id, attempt, status, stage)
-             VALUES ('testns', $1, 1, 'queued', 'invalid_stage')`,
+             VALUES ('testns', $1, 1, 'unclaimed', 'invalid_stage')`,
             [workItemId],
           ),
         ).rejects.toThrow();
       });
 
       it('accepts all 22 valid status values', async () => {
+        // Post-migration 148: 22-state orchestrator lifecycle
         const statuses = [
-          'queued', 'claiming', 'claimed', 'provisioning', 'provisioned',
-          'cloning', 'cloned', 'installing', 'installed', 'branching',
-          'branched', 'executing', 'paused', 'resuming', 'reviewing',
-          'pushing', 'pr_created', 'merging', 'succeeded', 'failed',
-          'cancelled', 'timed_out',
+          'unclaimed', 'claimed', 'provisioning', 'prompting', 'running',
+          'awaiting_approval', 'verifying_result', 'merge_pending',
+          'post_merge_verify', 'issue_closing', 'continuation_wait',
+          'succeeded', 'failed', 'stalled', 'cancelled', 'terminated',
+          'terminating', 'paused', 'orphaned', 'cleanup_failed',
+          'retry_queued', 'released',
         ];
         for (let i = 0; i < statuses.length; i++) {
           const workItemId = await insertWorkItem(pool);
           const result = await pool.query(
             `INSERT INTO symphony_run (namespace, work_item_id, attempt, status, stage)
-             VALUES ('testns', $1, $2, $3, 'queued') RETURNING id`,
+             VALUES ('testns', $1, $2, $3, 'reading_issue') RETURNING id`,
             [workItemId, i + 1, statuses[i]],
           );
           expect(result.rows).toHaveLength(1);
@@ -503,12 +505,13 @@ describe('Symphony Schema Migrations 140-143 (#2192)', () => {
       });
 
       it('accepts all 7 valid stage values', async () => {
-        const stages = ['queued', 'setup', 'execution', 'review', 'delivery', 'teardown', 'terminal'];
+        // Post-migration 148: advisory stages (nullable)
+        const stages = ['reading_issue', 'planning', 'coding', 'testing', 'creating_pr', 'reviewing', 'waiting_review'];
         for (let i = 0; i < stages.length; i++) {
           const workItemId = await insertWorkItem(pool);
           const result = await pool.query(
             `INSERT INTO symphony_run (namespace, work_item_id, attempt, status, stage)
-             VALUES ('testns', $1, $2, 'queued', $3) RETURNING id`,
+             VALUES ('testns', $1, $2, 'unclaimed', $3) RETURNING id`,
             [workItemId, i + 1, stages[i]],
           );
           expect(result.rows).toHaveLength(1);
@@ -519,14 +522,14 @@ describe('Symphony Schema Migrations 140-143 (#2192)', () => {
         const workItemId = await insertWorkItem(pool);
         await pool.query(
           `INSERT INTO symphony_run (namespace, work_item_id, attempt, status, stage)
-           VALUES ('testns', $1, 1, 'executing', 'execution')`,
+           VALUES ('testns', $1, 1, 'running', 'coding')`,
           [workItemId],
         );
         // Same work_item_id + attempt with active status should fail
         await expect(
           pool.query(
             `INSERT INTO symphony_run (namespace, work_item_id, attempt, status, stage)
-             VALUES ('testns', $1, 1, 'queued', 'queued')`,
+             VALUES ('testns', $1, 1, 'unclaimed', 'reading_issue')`,
             [workItemId],
           ),
         ).rejects.toThrow();
@@ -534,17 +537,17 @@ describe('Symphony Schema Migrations 140-143 (#2192)', () => {
 
       it('allows same (work_item_id, attempt) for terminal runs', async () => {
         const workItemId = await insertWorkItem(pool);
-        // Insert a completed run
+        // Insert a completed run (terminal states per migration 148)
         await pool.query(
-          `INSERT INTO symphony_run (namespace, work_item_id, attempt, status, stage)
-           VALUES ('testns', $1, 1, 'succeeded', 'terminal')`,
+          `INSERT INTO symphony_run (namespace, work_item_id, attempt, status)
+           VALUES ('testns', $1, 1, 'succeeded')`,
           [workItemId],
         );
         // Another completed run with same attempt should succeed
-        // (both are terminal, not active)
+        // (both are terminal, not active — stage is nullable post-148)
         await pool.query(
-          `INSERT INTO symphony_run (namespace, work_item_id, attempt, status, stage)
-           VALUES ('testns', $1, 1, 'failed', 'terminal')`,
+          `INSERT INTO symphony_run (namespace, work_item_id, attempt, status)
+           VALUES ('testns', $1, 1, 'cancelled')`,
           [workItemId],
         );
       });
@@ -553,7 +556,7 @@ describe('Symphony Schema Migrations 140-143 (#2192)', () => {
         const workItemId = await insertWorkItem(pool);
         const insert = await pool.query(
           `INSERT INTO symphony_run (namespace, work_item_id, attempt, status, stage)
-           VALUES ('testns', $1, 99, 'queued', 'queued') RETURNING id, state_version`,
+           VALUES ('testns', $1, 99, 'unclaimed', 'reading_issue') RETURNING id, state_version`,
           [workItemId],
         );
         const row = insert.rows[0] as { id: string; state_version: number };
@@ -578,7 +581,7 @@ describe('Symphony Schema Migrations 140-143 (#2192)', () => {
         const workItemId = await insertWorkItem(pool);
         const runResult = await pool.query(
           `INSERT INTO symphony_run (namespace, work_item_id, attempt, status, stage)
-           VALUES ('testns', $1, 100, 'provisioning', 'setup') RETURNING id`,
+           VALUES ('testns', $1, 100, 'provisioning', 'planning') RETURNING id`,
           [workItemId],
         );
         const runId = (runResult.rows[0] as { id: string }).id;
@@ -595,7 +598,7 @@ describe('Symphony Schema Migrations 140-143 (#2192)', () => {
         const workItemId = await insertWorkItem(pool);
         const runResult = await pool.query(
           `INSERT INTO symphony_run (namespace, work_item_id, attempt, status, stage)
-           VALUES ('testns', $1, 101, 'provisioning', 'setup') RETURNING id`,
+           VALUES ('testns', $1, 101, 'provisioning', 'planning') RETURNING id`,
           [workItemId],
         );
         const runId = (runResult.rows[0] as { id: string }).id;
@@ -612,7 +615,7 @@ describe('Symphony Schema Migrations 140-143 (#2192)', () => {
         const workItemId = await insertWorkItem(pool);
         const runResult = await pool.query(
           `INSERT INTO symphony_run (namespace, work_item_id, attempt, status, stage)
-           VALUES ('testns', $1, 102, 'provisioning', 'setup') RETURNING id`,
+           VALUES ('testns', $1, 102, 'provisioning', 'planning') RETURNING id`,
           [workItemId],
         );
         const runId = (runResult.rows[0] as { id: string }).id;
@@ -631,7 +634,7 @@ describe('Symphony Schema Migrations 140-143 (#2192)', () => {
         const workItemId = await insertWorkItem(pool);
         const runResult = await pool.query(
           `INSERT INTO symphony_run (namespace, work_item_id, attempt, status, stage)
-           VALUES ('testns', $1, 103, 'provisioning', 'setup') RETURNING id`,
+           VALUES ('testns', $1, 103, 'provisioning', 'planning') RETURNING id`,
           [workItemId],
         );
         const runId = (runResult.rows[0] as { id: string }).id;
@@ -666,7 +669,7 @@ describe('Symphony Schema Migrations 140-143 (#2192)', () => {
         const workItemId = await insertWorkItem(pool);
         const runResult = await pool.query(
           `INSERT INTO symphony_run (namespace, work_item_id, attempt, status, stage)
-           VALUES ('testns', $1, 200, 'executing', 'execution') RETURNING id`,
+           VALUES ('testns', $1, 200, 'running', 'coding') RETURNING id`,
           [workItemId],
         );
         const runId = (runResult.rows[0] as { id: string }).id;
@@ -683,7 +686,7 @@ describe('Symphony Schema Migrations 140-143 (#2192)', () => {
         const workItemId = await insertWorkItem(pool);
         const runResult = await pool.query(
           `INSERT INTO symphony_run (namespace, work_item_id, attempt, status, stage)
-           VALUES ('testns', $1, 201, 'executing', 'execution') RETURNING id`,
+           VALUES ('testns', $1, 201, 'running', 'coding') RETURNING id`,
           [workItemId],
         );
         const runId = (runResult.rows[0] as { id: string }).id;
