@@ -98,6 +98,7 @@ const APPLICATION_TABLES = [
   'symphony_notification_rule',
   'symphony_orchestrator_config',
   'symphony_tool_config',
+  'github_issue_sync',
   'project_host',
   'project_repository',
   // Dev session terminal links (Issue #1988)
