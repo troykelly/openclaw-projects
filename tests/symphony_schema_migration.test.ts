@@ -1080,6 +1080,15 @@ describe('Symphony Schema Migrations 140-143 (#2192)', () => {
   // ─────────────────────────────────────────────────────────────
   describe('Down migrations', () => {
     it('cleanly rolls back all 4 symphony migrations', async () => {
+      // Ensure migrations are applied before testing rollback
+      await runMigrate('up');
+
+      // Verify our migrations are applied
+      const preCheck = await pool.query(
+        `SELECT version FROM schema_migrations WHERE version IN (140, 141, 142, 143) ORDER BY version`,
+      );
+      expect(preCheck.rows).toHaveLength(4);
+
       // Roll back 4 migrations (143, 142, 141, 140)
       await runMigrate('down', 4);
 
