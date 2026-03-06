@@ -260,17 +260,17 @@ describe('Dev Sessions API (Issue #1285)', () => {
         url: `/dev-sessions/${sessionId}`,
         headers: { 'content-type': 'application/json', 'x-user-email': TEST_EMAIL },
         payload: {
-          status: 'stalled',
+          status: 'paused',
           context_pct: 5,
-          branch: 'fix/stalled-branch',
+          branch: 'fix/paused-branch',
         },
       });
 
       expect(res.statusCode).toBe(200);
       const body = res.json();
-      expect(body.status).toBe('stalled');
+      expect(body.status).toBe('paused');
       expect(body.context_pct).toBe(5);
-      expect(body.branch).toBe('fix/stalled-branch');
+      expect(body.branch).toBe('fix/paused-branch');
     });
 
     it('updates linked_prs and linked_issues', async () => {

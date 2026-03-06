@@ -274,8 +274,8 @@ describe('Auth scoping', () => {
       });
 
       const webhook = listRes.json()[0];
-      // Token should be masked (first 8 chars + ...)
-      expect(webhook.token).toMatch(/^.{8}\.\.\.$/);
+      // Token preview should be masked (first 8 chars + ...) or show '(hashed)' when HMAC is enabled
+      expect(webhook.token_preview).toMatch(/^(.{8}\.\.\.|[(]hashed[)])$/);
     });
 
     it('unauthenticated webhook list returns 401', async () => {
