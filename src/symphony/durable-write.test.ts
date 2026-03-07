@@ -102,6 +102,10 @@ describe('durable-write', () => {
       expect(result.error).toContain('Write and DLQ both failed');
       expect(errorSpy).toHaveBeenCalled();
       expect(errorSpy.mock.calls[0][0]).toContain('[Symphony:DLQ] CRITICAL');
+      // Verify payload is NOT logged in full (security: no PII/secrets)
+      expect(errorSpy.mock.calls[0][0]).not.toContain('"data":"test"');
+      // But payload keys are included for debugging
+      expect(errorSpy.mock.calls[0][0]).toContain('payload_keys=[data]');
 
       errorSpy.mockRestore();
     });

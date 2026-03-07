@@ -105,13 +105,14 @@ export async function durableWrite(
       error: errorMessage,
     };
   } catch (dlqError) {
-    // DLQ write itself failed — log to stderr with all available context
+    // DLQ write itself failed — log to stderr with context (no raw payload to avoid PII/secret leaks)
     const dlqErr = dlqError instanceof Error ? dlqError : new Error(String(dlqError));
+    const payloadKeys = Object.keys(payload).join(',');
     console.error(
       `[Symphony:DLQ] CRITICAL: Dead-letter write failed. ` +
       `source=${options.source} namespace=${options.namespace} ` +
       `original_error="${errorMessage}" dlq_error="${dlqErr.message}" ` +
-      `payload=${JSON.stringify(payload)}`,
+      `payload_keys=[${payloadKeys}]`,
     );
 
     return {

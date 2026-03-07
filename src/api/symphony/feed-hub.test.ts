@@ -272,6 +272,81 @@ describe('SymphonyFeedHub', () => {
       expect(errorMsgs.length).toBe(1);
       expect(JSON.parse(errorMsgs[0]).error).toContain('mismatch');
     });
+
+    it('treats auth_refresh as initial auth when not yet authenticated', async () => {
+      hub = new SymphonyFeedHub({
+        verifyJwt: createVerifier(),
+        resolveNamespaces: createResolver(['ns-fresh']),
+      });
+
+      const { socket, emitter, sentMessages } = createMockSocket();
+
+      // No header token — pending auth
+      await hub.handleConnection(socket);
+      expect(hub.getAuthenticatedCount()).toBe(0);
+
+      // Send auth_refresh instead of auth
+      emitter.emit('message', JSON.stringify({
+        type: 'auth_refresh',
+        token: 'my-jwt',
+      }));
+
+      await vi.advanceTimersByTimeAsync(50);
+
+      // Should be treated as initial auth
+      expect(hub.getAuthenticatedCount()).toBe(1);
+      const authMsgs = sentMessages.filter(m => JSON.parse(m).type === 'auth_success');
+      expect(authMsgs.length).toBe(1);
+    });
+
+    it('rejects concurrent auth_refresh requests', async () => {
+      let resolveSecond: (() => void) | null = null;
+      let callCount = 0;
+      const slowVerifier: JwtVerifier = async () => {
+        callCount++;
+        if (callCount === 2) {
+          // Block second verification
+          await new Promise<void>((resolve) => { resolveSecond = resolve; });
+        }
+        return {
+          sub: 'user@example.com',
+          exp: Math.floor(Date.now() / 1000) + 3600,
+        };
+      };
+
+      hub = new SymphonyFeedHub({
+        verifyJwt: slowVerifier,
+        resolveNamespaces: createResolver(['ns-1']),
+      });
+
+      const { socket, emitter, sentMessages } = createMockSocket();
+      await hub.handleConnection(socket, 'jwt-1');
+
+      // Send first refresh (will block)
+      emitter.emit('message', JSON.stringify({
+        type: 'auth_refresh',
+        token: 'jwt-refresh-1',
+      }));
+
+      await vi.advanceTimersByTimeAsync(10);
+
+      // Send second refresh while first is in progress
+      emitter.emit('message', JSON.stringify({
+        type: 'auth_refresh',
+        token: 'jwt-refresh-2',
+      }));
+
+      await vi.advanceTimersByTimeAsync(10);
+
+      // Second should be rejected
+      const errorMsgs = sentMessages.filter(m => JSON.parse(m).type === 'auth_error');
+      expect(errorMsgs.length).toBe(1);
+      expect(JSON.parse(errorMsgs[0]).error).toContain('already in progress');
+
+      // Clean up
+      if (resolveSecond) resolveSecond();
+      await vi.advanceTimersByTimeAsync(50);
+    });
   });
 
   describe('namespace scoping on every message', () => {

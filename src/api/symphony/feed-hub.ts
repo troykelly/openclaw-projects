@@ -59,6 +59,8 @@ interface FeedConnection {
   lastPong: Date;
   /** JWT expiration timestamp (seconds since epoch). */
   tokenExp: number | null;
+  /** Mutex flag to serialize auth_refresh operations. */
+  refreshing: boolean;
 }
 
 /** JWT verification function signature (injected for testability). */
@@ -162,6 +164,7 @@ export class SymphonyFeedHub {
       connectedAt: now,
       lastPong: now,
       tokenExp: null,
+      refreshing: false,
     };
 
     this.connections.set(connId, conn);
@@ -295,7 +298,22 @@ export class SymphonyFeedHub {
           this.sendError(conn, 'auth_error', 'Missing token for refresh');
           return;
         }
-        await this.handleTokenRefresh(conn, msg.token);
+        // If not yet authenticated, treat as initial auth (Codex review finding #3)
+        if (!conn.userEmail) {
+          await this.authenticateConnection(conn, msg.token);
+          return;
+        }
+        // Serialize concurrent refreshes to prevent race conditions (Codex review finding #1)
+        if (conn.refreshing) {
+          this.sendError(conn, 'auth_error', 'Refresh already in progress');
+          return;
+        }
+        conn.refreshing = true;
+        try {
+          await this.handleTokenRefresh(conn, msg.token);
+        } finally {
+          conn.refreshing = false;
+        }
         break;
 
       case 'pong':
