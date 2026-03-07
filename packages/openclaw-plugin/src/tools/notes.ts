@@ -128,6 +128,7 @@ export function createNoteCreateTool(options: NoteToolOptions): NoteCreateTool {
         const response = await client.post<Note>(
           '/notes',
           {
+            user_email: user_id,
             title: sanitizedTitle,
             content: sanitizedContent,
             notebook_id: notebook_id,
@@ -135,7 +136,7 @@ export function createNoteCreateTool(options: NoteToolOptions): NoteCreateTool {
             visibility,
             summary,
           },
-          { user_id },
+          { user_id, user_email: user_id },
         );
 
         if (!response.success) {
@@ -253,7 +254,7 @@ export function createNoteGetTool(options: NoteToolOptions): NoteGetTool {
           queryParams.set('include_versions', 'true');
         }
 
-        const response = await client.get<Note>(`/notes/${noteId}?${queryParams}`, { user_id });
+        const response = await client.get<Note>(`/notes/${noteId}?${queryParams}`, { user_id, user_email: user_id });
 
         if (!response.success) {
           if (response.error.status === 404) {
@@ -427,7 +428,7 @@ export function createNoteUpdateTool(options: NoteToolOptions): NoteUpdateTool {
       });
 
       try {
-        const response = await client.put<Note>(`/notes/${noteId}`, updateData, { user_id });
+        const response = await client.put<Note>(`/notes/${noteId}`, updateData, { user_id, user_email: user_id });
 
         if (!response.success) {
           if (response.error.status === 404) {
@@ -535,7 +536,7 @@ export function createNoteDeleteTool(options: NoteToolOptions): NoteDeleteTool {
       });
 
       try {
-        const response = await client.delete<void>(`/notes/${noteId}?user_email=${encodeURIComponent(user_id)}`, { user_id });
+        const response = await client.delete<void>(`/notes/${noteId}?user_email=${encodeURIComponent(user_id)}`, { user_id, user_email: user_id });
 
         if (!response.success) {
           if (response.error.status === 404) {
@@ -687,7 +688,7 @@ export function createNoteSearchTool(options: NoteToolOptions): NoteSearchTool {
           total: number;
           limit: number;
           offset: number;
-        }>(`/notes/search?${queryParams}`, { user_id, isAgent: true });
+        }>(`/notes/search?${queryParams}`, { user_id, user_email: user_id, isAgent: true });
 
         if (!response.success) {
           logger.error('note_search API error', {
