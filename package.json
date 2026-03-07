@@ -103,6 +103,7 @@
     "@lexical/selection": "^0.40.0",
     "@lexical/table": "^0.40.0",
     "@lexical/utils": "^0.40.0",
+    "@lexical/yjs": "^0.40.0",
     "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-checkbox": "^1.3.3",
     "@radix-ui/react-dialog": "^1.1.15",
@@ -153,6 +154,9 @@
     "twilio": "^5.12.0",
     "uuid": "^13.0.0",
     "ws": "^8.19.0",
+    "y-protocols": "^1.0.7",
+    "y-websocket": "^3.0.0",
+    "yjs": "^13.6.29",
     "zod": "^3.25.76",
     "zustand": "^5.0.11"
   },
