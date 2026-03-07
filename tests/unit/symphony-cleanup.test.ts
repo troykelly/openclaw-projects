@@ -502,4 +502,30 @@ describe('CleanupSweeper', () => {
     expect(result.status).toBe('failed');
     expect(result.error).toBe('SSH timeout');
   });
+
+  it('records failure when recheck itself throws (transient DB error)', async () => {
+    const sweeper = new CleanupSweeper();
+
+    const recheckOwnership = vi.fn().mockRejectedValue(new Error('connection timeout'));
+    const executeCleanup = vi.fn();
+
+    const result = await sweeper.executeWithDoubleCheck(
+      {
+        id: 'ci-1',
+        namespace: 'testns',
+        resourceType: 'container',
+        resourceId: 'docker-abc',
+        status: 'pending',
+        createdAt: new Date(),
+        attempts: 0,
+      },
+      recheckOwnership,
+      executeCleanup,
+    );
+
+    expect(result.status).toBe('failed');
+    expect(result.error).toContain('Ownership recheck failed');
+    expect(result.error).toContain('connection timeout');
+    expect(executeCleanup).not.toHaveBeenCalled();
+  });
 });

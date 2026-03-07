@@ -382,7 +382,16 @@ export class CleanupSweeper {
     executeCleanup: (item: CleanupItem) => Promise<void>,
   ): Promise<CleanupResult> {
     // Step 3: Recheck ownership before executing
-    const reclaimed = await recheckOwnership(item);
+    let reclaimed: boolean;
+    try {
+      reclaimed = await recheckOwnership(item);
+    } catch (err) {
+      // Recheck failure is a transient error — do NOT proceed with cleanup
+      return {
+        status: 'failed',
+        error: `Ownership recheck failed: ${err instanceof Error ? err.message : String(err)}`,
+      };
+    }
 
     if (reclaimed) {
       // Step 4: Resource reclaimed since detection — abort

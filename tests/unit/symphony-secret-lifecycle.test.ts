@@ -212,4 +212,57 @@ describe('getRedactionPatterns', () => {
     const labels = patterns.map((p) => p.label);
     expect(labels).toContain('custom secret');
   });
+
+  it('returns fresh regex instances (no stale lastIndex)', () => {
+    const patterns1 = getRedactionPatterns();
+    const patterns2 = getRedactionPatterns();
+
+    // Modify lastIndex of first set
+    for (const p of patterns1) {
+      p.pattern.lastIndex = 999;
+    }
+
+    // Second set should have fresh lastIndex = 0
+    for (const p of patterns2) {
+      expect(p.pattern.lastIndex).toBe(0);
+    }
+  });
+
+  it('returned patterns are not shared between calls', () => {
+    const patterns1 = getRedactionPatterns();
+    const patterns2 = getRedactionPatterns();
+
+    // Regex instances should not be the same object
+    expect(patterns1[0].pattern).not.toBe(patterns2[0].pattern);
+  });
+});
+
+// ─── Shell metacharacter validation ──────────────────────────
+describe('validateSecretPreProvisioning with shell metacharacters', () => {
+  it('rejects backtick command substitution', () => {
+    const envContent = 'EVIL=`rm -rf /`\n';
+    const result = validateSecretPreProvisioning(envContent, ['EVIL']);
+    expect(result.valid).toBe(false);
+    expect(result.securityViolation).toBe(true);
+  });
+
+  it('rejects $() command substitution', () => {
+    const envContent = 'EVIL=$(whoami)\n';
+    const result = validateSecretPreProvisioning(envContent, ['EVIL']);
+    expect(result.valid).toBe(false);
+    expect(result.securityViolation).toBe(true);
+  });
+
+  it('rejects ${} variable expansion', () => {
+    const envContent = 'EVIL=${HOME}\n';
+    const result = validateSecretPreProvisioning(envContent, ['EVIL']);
+    expect(result.valid).toBe(false);
+    expect(result.securityViolation).toBe(true);
+  });
+
+  it('accepts safe values with special but non-shell characters', () => {
+    const envContent = 'URL=postgres://user:pass@host:5432/db?ssl=true\n';
+    const result = validateSecretPreProvisioning(envContent, ['URL']);
+    expect(result.valid).toBe(true);
+  });
 });

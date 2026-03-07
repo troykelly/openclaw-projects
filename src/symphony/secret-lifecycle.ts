@@ -198,17 +198,18 @@ export function detectSecretRotation(
 // ─── Redaction Pattern Registry ──────────────────────────────
 
 /**
- * Built-in redaction patterns.
- * These match known secret formats across common services.
+ * Built-in redaction pattern sources.
+ * Stored as [source, flags, label] tuples so we can create fresh RegExp
+ * instances on each call, avoiding stateful lastIndex issues with global regexes.
  */
-const BUILTIN_PATTERNS: RedactionPattern[] = [
-  { pattern: /op:\/\/[^\s'"]+/g, label: '1Password reference' },
-  { pattern: /ghp_[A-Za-z0-9_]{36,}/g, label: 'GitHub PAT (ghp_)' },
-  { pattern: /github_pat_[A-Za-z0-9_]{22,}/g, label: 'GitHub PAT (github_pat_)' },
-  { pattern: /sk-ant-[A-Za-z0-9_-]{40,}/g, label: 'Anthropic API key (sk-ant-)' },
-  { pattern: /sk-[A-Za-z0-9]{40,}/g, label: 'OpenAI API key (sk-)' },
-  { pattern: /Bearer\s+[A-Za-z0-9._~+/=-]{20,}/gi, label: 'Bearer token' },
-  { pattern: /[A-Z_]*(?:KEY|SECRET|TOKEN|PASSWORD|CREDENTIAL)=[^\s'"]+/g, label: 'credential assignment' },
+const BUILTIN_PATTERN_SOURCES: Array<[string, string, string]> = [
+  ['op:\\/\\/[^\\s\'"]+', 'g', '1Password reference'],
+  ['ghp_[A-Za-z0-9_]{36,}', 'g', 'GitHub PAT (ghp_)'],
+  ['github_pat_[A-Za-z0-9_]{22,}', 'g', 'GitHub PAT (github_pat_)'],
+  ['sk-ant-[A-Za-z0-9_-]{40,}', 'g', 'Anthropic API key (sk-ant-)'],
+  ['sk-[A-Za-z0-9]{40,}', 'g', 'OpenAI API key (sk-)'],
+  ['Bearer\\s+[A-Za-z0-9._~+/=-]{20,}', 'gi', 'Bearer token'],
+  ['[A-Z_]*(?:KEY|SECRET|TOKEN|PASSWORD|CREDENTIAL)=[^\\s\'"]+', 'g', 'credential assignment'],
 ];
 
 /**
@@ -228,7 +229,13 @@ export function getRedactionPatterns(
   envValues?: Map<string, string>,
   additionalPatterns?: RedactionPattern[],
 ): RedactionPattern[] {
-  const patterns: RedactionPattern[] = [...BUILTIN_PATTERNS];
+  // Create fresh RegExp instances each call to avoid stateful lastIndex issues
+  const patterns: RedactionPattern[] = BUILTIN_PATTERN_SOURCES.map(
+    ([source, flags, label]) => ({
+      pattern: new RegExp(source, flags),
+      label,
+    }),
+  );
 
   // Add project-specific patterns from env values
   if (envValues) {

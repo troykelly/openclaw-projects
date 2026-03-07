@@ -20,9 +20,11 @@ ALTER TABLE symphony_secret_deployment
   ADD COLUMN IF NOT EXISTS validation_status TEXT NOT NULL DEFAULT 'pending'
     CHECK (validation_status IN ('pending', 'valid', 'invalid', 'skipped'));
 
--- Index for cleanup eligibility: secrets not used recently with no active runs
+-- Index for cleanup eligibility: covers both last_used_at and deployed_at for
+-- COALESCE(last_used_at, deployed_at) queries used by the cleanup logic.
+-- Includes NULL last_used_at rows (never-used secrets) which are a common path.
 CREATE INDEX IF NOT EXISTS idx_symphony_secret_cleanup_eligible
-  ON symphony_secret_deployment (last_used_at)
+  ON symphony_secret_deployment (COALESCE(last_used_at, deployed_at))
   WHERE staleness != 'cleaned';
 
 -- Index for staleness detection
