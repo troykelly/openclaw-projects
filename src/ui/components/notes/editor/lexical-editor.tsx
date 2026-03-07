@@ -1,6 +1,6 @@
 /**
  * Lexical-based rich text editor for notes.
- * Part of Epic #338, Issues #629, #630, #631, #632, #633, #674, #757
+ * Part of Epic #338, Issues #629, #630, #631, #632, #633, #674, #757, #2256
  *
  * Features:
  * - True WYSIWYG editing with Lexical
@@ -12,10 +12,13 @@
  * - Editable tables (#631)
  * - Mermaid diagram support (#632)
  * - LaTeX math rendering (#633)
+ * - Yjs collaborative editing (#2256)
  *
  * Security: All HTML output is sanitized with DOMPurify to prevent XSS (#674).
  *
  * Issue #757: Refactored into smaller modules for maintainability.
+ * Issue #2256: When yjsEnabled, CollaborationPlugin replaces HistoryPlugin,
+ *   ContentSyncPlugin, and InitialContentPlugin. Mode switching is disabled.
  */
 
 import React, { useCallback, useState, useRef } from 'react';
@@ -23,17 +26,20 @@ import { LexicalComposer } from '@lexical/react/LexicalComposer';
 import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin';
 import { ContentEditable } from '@lexical/react/LexicalContentEditable';
 import { HistoryPlugin } from '@lexical/react/LexicalHistoryPlugin';
+import { CollaborationPlugin } from '@lexical/react/LexicalCollaborationPlugin';
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary';
 import { ListPlugin } from '@lexical/react/LexicalListPlugin';
 import { LinkPlugin } from '@lexical/react/LexicalLinkPlugin';
 import { MarkdownShortcutPlugin } from '@lexical/react/LexicalMarkdownShortcutPlugin';
-import { TRANSFORMERS } from '@lexical/markdown';
+import { $convertFromMarkdownString, TRANSFORMERS } from '@lexical/markdown';
 import { HeadingNode, QuoteNode } from '@lexical/rich-text';
 import { ListNode, ListItemNode } from '@lexical/list';
 import { LinkNode, AutoLinkNode } from '@lexical/link';
 import { CodeNode, CodeHighlightNode } from '@lexical/code';
 import { TableNode, TableRowNode, TableCellNode } from '@lexical/table';
 import { TablePlugin } from '@lexical/react/LexicalTablePlugin';
+import type { Provider } from '@lexical/yjs';
+import type { Doc } from 'yjs';
 /**
  * KaTeX CSS (~25KB) is loaded globally when the editor component is first imported.
  * This is an acceptable trade-off for the following reasons (#687):
@@ -48,6 +54,7 @@ import 'katex/dist/katex.min.css';
 import { cn } from '@/ui/lib/utils';
 import { useDarkMode } from '@/ui/hooks/use-dark-mode';
 import { Button } from '@/ui/components/ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/ui/components/ui/tooltip';
 import { Code, Eye, Edit } from 'lucide-react';
 
 // Import modular components
@@ -74,10 +81,15 @@ export function LexicalNoteEditor({
   autoFocus = false,
   className,
   saving = false,
+  yjsDoc,
+  yjsProvider,
+  yjsEnabled = false,
+  currentUser,
 }: LexicalEditorProps): React.JSX.Element {
   const [mode, setMode] = useState<EditorMode>(initialMode);
   const [markdownContent, setMarkdownContent] = useState(initialContent);
   const previewContainerRef = useRef<HTMLDivElement>(null);
+  const cursorsContainerRef = useRef<HTMLDivElement>(null);
   // Use dark mode state for Mermaid theme (#686)
   const { isDark } = useDarkMode();
 
@@ -117,10 +129,9 @@ export function LexicalNoteEditor({
   };
 
   if (readOnly || mode === 'preview') {
+    // NOTE: previewHtml is sanitized via DOMPurify in sanitizeHtml() (#674)
     return (
       <div className={cn('flex flex-col border rounded-lg overflow-hidden', className)}>
-        {/* HTML is sanitized with DOMPurify - see sanitizeHtml() (#674).
-            Mermaid diagrams are rendered separately with securityLevel: 'strict'. */}
         <div
           ref={previewContainerRef}
           className="flex-1 min-h-[300px] p-4 prose prose-sm max-w-none overflow-auto"
@@ -182,38 +193,93 @@ export function LexicalNoteEditor({
       <LexicalComposer initialConfig={initialConfig}>
         <ToolbarPlugin />
 
-        {/* Mode switcher in toolbar */}
+        {/* Mode switcher in toolbar — disabled during Yjs collab (#2256) */}
         <div className="flex items-center justify-end gap-1 px-2 py-1 border-b bg-muted/20">
           <div className="flex items-center gap-1 border rounded-md p-0.5">
             <Button type="button" variant="secondary" size="sm" className="h-7 px-2 text-xs">
               <Edit className="h-3 w-3 mr-1" />
               Edit
             </Button>
-            <Button type="button" variant="ghost" size="sm" onClick={() => setMode('markdown')} className="h-7 px-2 text-xs">
-              <Code className="h-3 w-3 mr-1" />
-              Markdown
-            </Button>
-            <Button type="button" variant="ghost" size="sm" onClick={() => setMode('preview')} className="h-7 px-2 text-xs">
-              <Eye className="h-3 w-3 mr-1" />
-              Preview
-            </Button>
+            {yjsEnabled ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button type="button" variant="ghost" size="sm" disabled className="h-7 px-2 text-xs opacity-50 cursor-not-allowed">
+                      <Code className="h-3 w-3 mr-1" />
+                      Markdown
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Mode switching is unavailable during collaborative editing</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : (
+              <Button type="button" variant="ghost" size="sm" onClick={() => setMode('markdown')} className="h-7 px-2 text-xs">
+                <Code className="h-3 w-3 mr-1" />
+                Markdown
+              </Button>
+            )}
+            {yjsEnabled ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button type="button" variant="ghost" size="sm" disabled className="h-7 px-2 text-xs opacity-50 cursor-not-allowed">
+                      <Eye className="h-3 w-3 mr-1" />
+                      Preview
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Mode switching is unavailable during collaborative editing</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : (
+              <Button type="button" variant="ghost" size="sm" onClick={() => setMode('preview')} className="h-7 px-2 text-xs">
+                <Eye className="h-3 w-3 mr-1" />
+                Preview
+              </Button>
+            )}
           </div>
         </div>
 
-        <div className="flex-1 min-h-[300px] overflow-auto relative">
+        <div ref={cursorsContainerRef} className="flex-1 min-h-[300px] overflow-auto relative">
           <RichTextPlugin
             contentEditable={<ContentEditable className="min-h-[300px] p-4 outline-none prose prose-sm max-w-none" aria-placeholder={placeholder} />}
             placeholder={<div className="absolute top-4 left-4 text-muted-foreground pointer-events-none">{placeholder}</div>}
             ErrorBoundary={LexicalErrorBoundary}
           />
-          <HistoryPlugin />
+          {/* When Yjs is enabled, CollaborationPlugin replaces History, ContentSync, and InitialContent (#2256) */}
+          {yjsEnabled && yjsDoc && yjsProvider ? (
+            <CollaborationPlugin
+              id={yjsDoc.clientID.toString()}
+              providerFactory={(_id: string, yjsDocMap: Map<string, Doc>) => {
+                // Store the doc in the map as expected by CollaborationPlugin
+                yjsDocMap.set(_id, yjsDoc);
+                return yjsProvider as unknown as Provider;
+              }}
+              shouldBootstrap={false}
+              username={currentUser?.name ?? 'Anonymous'}
+              cursorColor={currentUser?.color ?? '#3b82f6'}
+              cursorsContainerRef={cursorsContainerRef}
+              initialEditorState={
+                initialContent
+                  ? (editor) => {
+                      editor.update(() => {
+                        $convertFromMarkdownString(initialContent, TRANSFORMERS);
+                      });
+                    }
+                  : undefined
+              }
+            />
+          ) : (
+            <>
+              <HistoryPlugin />
+              <InitialContentPlugin initialContent={initialContent} />
+              <ContentSyncPlugin onChange={handleLexicalChange} />
+            </>
+          )}
           <ListPlugin />
           <LinkPlugin />
           <TablePlugin />
           <CodeHighlightPlugin />
           <MarkdownShortcutPlugin transformers={TRANSFORMERS} />
-          <InitialContentPlugin initialContent={initialContent} />
-          <ContentSyncPlugin onChange={handleLexicalChange} />
           {autoFocus && <AutoFocusPlugin />}
         </div>
 
