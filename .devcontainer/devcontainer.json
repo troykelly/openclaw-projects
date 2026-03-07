@@ -42,7 +42,8 @@
     }
   },
   "containerEnv": {
-    "PLAYWRIGHT_CHROMIUM_PATH": "/usr/bin/chromium"
+    "PLAYWRIGHT_CHROMIUM_PATH": "/usr/bin/chromium",
+    "ENABLE_YJS_COLLAB": "true"
   },
   "postCreateCommand": "bash .devcontainer/postCreate.sh"
   // Features to add to the dev container. More info: https://containers.dev/features.

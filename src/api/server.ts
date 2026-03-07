@@ -16030,6 +16030,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     try {
+      // Yjs coordination: warn if REST updates content while Yjs doc is active
+      if (body.content !== undefined && yjsHandler?.hasActiveDoc(params.id)) {
+        console.warn(`[Notes] REST PUT content update for ${params.id} while Yjs doc is active — Yjs state will take precedence on next persistence`);
+      }
+
       const note = await updateNote(
         pool,
         params.id,
