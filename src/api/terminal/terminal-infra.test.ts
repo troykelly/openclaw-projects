@@ -88,6 +88,37 @@ describe('validateNamespaceConsistency', () => {
   });
 });
 
+// ── Sub-item 2: gRPC bind address IPv6 formatting ──
+
+describe('formatGrpcAddress', () => {
+  it('returns IPv4 addresses unchanged', async () => {
+    const { formatGrpcAddress } = await import('./grpc-bind.ts');
+    expect(formatGrpcAddress('127.0.0.1')).toBe('127.0.0.1');
+    expect(formatGrpcAddress('0.0.0.0')).toBe('0.0.0.0');
+    expect(formatGrpcAddress('10.0.0.5')).toBe('10.0.0.5');
+  });
+
+  it('wraps bare IPv6 addresses in brackets', async () => {
+    const { formatGrpcAddress } = await import('./grpc-bind.ts');
+    expect(formatGrpcAddress('::')).toBe('[::]');
+    expect(formatGrpcAddress('::1')).toBe('[::1]');
+    expect(formatGrpcAddress('fe80::1')).toBe('[fe80::1]');
+    expect(formatGrpcAddress('2001:db8::1')).toBe('[2001:db8::1]');
+  });
+
+  it('does not double-wrap already-bracketed IPv6 addresses', async () => {
+    const { formatGrpcAddress } = await import('./grpc-bind.ts');
+    expect(formatGrpcAddress('[::]')).toBe('[::]');
+    expect(formatGrpcAddress('[::1]')).toBe('[::1]');
+  });
+
+  it('returns hostnames unchanged', async () => {
+    const { formatGrpcAddress } = await import('./grpc-bind.ts');
+    expect(formatGrpcAddress('localhost')).toBe('localhost');
+    expect(formatGrpcAddress('worker-1.internal')).toBe('worker-1.internal');
+  });
+});
+
 // ── Sub-item 2: gRPC mTLS enforcement in production ──
 
 describe('gRPC bind address and mTLS enforcement', () => {
@@ -103,10 +134,34 @@ describe('gRPC bind address and mTLS enforcement', () => {
     expect(getGrpcBindAddress()).toBe('127.0.0.1');
   });
 
-  it('uses GRPC_BIND_ADDRESS when set', async () => {
+  it('uses GRPC_BIND_ADDRESS when set (IPv4)', async () => {
     process.env.GRPC_BIND_ADDRESS = '10.0.0.5';
     const { getGrpcBindAddress } = await import('./grpc-bind.ts');
     expect(getGrpcBindAddress()).toBe('10.0.0.5');
+  });
+
+  it('wraps IPv6 GRPC_BIND_ADDRESS in brackets', async () => {
+    process.env.GRPC_BIND_ADDRESS = '::';
+    const { getGrpcBindAddress } = await import('./grpc-bind.ts');
+    expect(getGrpcBindAddress()).toBe('[::]');
+  });
+
+  it('wraps full IPv6 address in brackets', async () => {
+    process.env.GRPC_BIND_ADDRESS = '::1';
+    const { getGrpcBindAddress } = await import('./grpc-bind.ts');
+    expect(getGrpcBindAddress()).toBe('[::1]');
+  });
+
+  it('does not double-wrap already-bracketed IPv6 address', async () => {
+    process.env.GRPC_BIND_ADDRESS = '[::1]';
+    const { getGrpcBindAddress } = await import('./grpc-bind.ts');
+    expect(getGrpcBindAddress()).toBe('[::1]');
+  });
+
+  it('leaves 0.0.0.0 unchanged', async () => {
+    process.env.GRPC_BIND_ADDRESS = '0.0.0.0';
+    const { getGrpcBindAddress } = await import('./grpc-bind.ts');
+    expect(getGrpcBindAddress()).toBe('0.0.0.0');
   });
 
   it('throws if NODE_ENV=production and mTLS is not configured', async () => {

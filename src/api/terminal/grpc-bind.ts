@@ -16,13 +16,33 @@ interface TlsConfig {
 }
 
 /**
- * Get the gRPC bind address.
+ * Format an address for use in a gRPC bind string (`address:port`).
+ *
+ * IPv6 addresses (containing `:`) must be wrapped in brackets so that
+ * gRPC-js parses them correctly. Without brackets, `:::50051` (for the
+ * all-interfaces IPv6 address `::`) is mis-parsed as a DNS name.
+ *
+ * IPv4 addresses and hostnames are returned unchanged.
+ */
+export function formatGrpcAddress(address: string): string {
+  if (address.includes(':') && !address.startsWith('[')) {
+    return `[${address}]`;
+  }
+  return address;
+}
+
+/**
+ * Get the gRPC bind address, formatted for use in a `address:port` string.
  *
  * Defaults to 127.0.0.1 (loopback only) for security.
  * Override with GRPC_BIND_ADDRESS to bind to other interfaces.
+ *
+ * IPv6 addresses are automatically wrapped in brackets for gRPC-js
+ * compatibility (e.g. `::` becomes `[::]`).
  */
 export function getGrpcBindAddress(): string {
-  return process.env.GRPC_BIND_ADDRESS ?? '127.0.0.1';
+  const raw = process.env.GRPC_BIND_ADDRESS ?? '127.0.0.1';
+  return formatGrpcAddress(raw);
 }
 
 /**
