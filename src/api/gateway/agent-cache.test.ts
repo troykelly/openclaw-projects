@@ -36,8 +36,16 @@ function createMockPresenceTracker(statuses?: Record<string, string>): AgentPres
   } as unknown as AgentPresenceTracker;
 }
 
-/** Create a mock pg Pool. */
-function createMockPool(rows: Array<{ agent_id: string }> = []) {
+/** DB row shape from gateway_agent_cache table. */
+interface GatewayAgentCacheRow {
+  agent_id: string;
+  display_name: string | null;
+  avatar_url: string | null;
+  is_default: boolean;
+}
+
+/** Create a mock pg Pool with gateway_agent_cache rows. */
+function createMockPool(rows: GatewayAgentCacheRow[] = []) {
   return {
     query: vi.fn(() => Promise.resolve({ rows })),
   } as unknown as Pool;
@@ -159,8 +167,8 @@ describe('AgentCache', () => {
     const conn = createMockConnection(); // connected: false
     const tracker = createMockPresenceTracker();
     const pool = createMockPool([
-      { agent_id: 'db-agent-1' },
-      { agent_id: 'db-agent-2' },
+      { agent_id: 'db-agent-1', display_name: 'Agent 1', avatar_url: null, is_default: true },
+      { agent_id: 'db-agent-2', display_name: 'Agent 2', avatar_url: null, is_default: false },
     ]);
     cache = new AgentCache(conn, tracker);
 
@@ -173,7 +181,9 @@ describe('AgentCache', () => {
   it('DB fallback returns status: "unknown" for all agents', async () => {
     const conn = createMockConnection(); // connected: false
     const tracker = createMockPresenceTracker();
-    const pool = createMockPool([{ agent_id: 'db-agent-1' }]);
+    const pool = createMockPool([
+      { agent_id: 'db-agent-1', display_name: null, avatar_url: null, is_default: false },
+    ]);
     cache = new AgentCache(conn, tracker);
 
     const result = await cache.getAgents(pool, 'ns1');
@@ -210,6 +220,9 @@ describe('AgentCache', () => {
     expect(result[0]).toEqual({
       id: 'agent-1',
       name: 'Agent One',
+      display_name: null,
+      avatar_url: null,
+      is_default: false,
       status: 'online',
     });
   });
@@ -264,7 +277,9 @@ describe('AgentCache', () => {
       request: vi.fn().mockRejectedValue(new Error('Gateway error')),
     });
     const tracker = createMockPresenceTracker();
-    const pool = createMockPool([{ agent_id: 'db-agent-1' }]);
+    const pool = createMockPool([
+      { agent_id: 'db-agent-1', display_name: null, avatar_url: null, is_default: false },
+    ]);
     cache = new AgentCache(conn, tracker);
 
     const result = await cache.getAgents(pool, 'ns1');
@@ -296,7 +311,9 @@ describe('AgentCache', () => {
       }),
     });
     const tracker = createMockPresenceTracker();
-    const pool = createMockPool([{ agent_id: 'db-agent-1' }]);
+    const pool = createMockPool([
+      { agent_id: 'db-agent-1', display_name: null, avatar_url: null, is_default: false },
+    ]);
     cache = new AgentCache(conn, tracker);
 
     // First call - from gateway
@@ -311,5 +328,103 @@ describe('AgentCache', () => {
     const result2 = await cache.getAgents(pool, 'ns1');
     expect(result2).toHaveLength(1);
     expect(result2[0].id).toBe('db-agent-1');
+  });
+
+  // ── Issue #2242: DB fallback queries gateway_agent_cache ─────────
+
+  it('DB fallback queries gateway_agent_cache table (not chat_session)', async () => {
+    const conn = createMockConnection(); // connected: false
+    const tracker = createMockPresenceTracker();
+    const pool = createMockPool([
+      { agent_id: 'cached-agent-1', display_name: 'Cached Agent', avatar_url: 'https://example.com/a.png', is_default: true },
+    ]);
+    cache = new AgentCache(conn, tracker);
+
+    await cache.getAgents(pool, 'ns1');
+
+    // Verify the SQL queries gateway_agent_cache, not chat_session
+    const queryCall = (pool.query as ReturnType<typeof vi.fn>).mock.calls[0];
+    const sql = queryCall[0] as string;
+    expect(sql).toContain('gateway_agent_cache');
+    expect(sql).not.toContain('chat_session');
+  });
+
+  it('DB fallback returns display_name, avatar_url, and is_default', async () => {
+    const conn = createMockConnection(); // connected: false
+    const tracker = createMockPresenceTracker();
+    const pool = createMockPool([
+      { agent_id: 'agent-1', display_name: 'My Agent', avatar_url: 'https://example.com/avatar.png', is_default: true },
+      { agent_id: 'agent-2', display_name: null, avatar_url: null, is_default: false },
+    ]);
+    cache = new AgentCache(conn, tracker);
+
+    const result = await cache.getAgents(pool, 'ns1');
+    expect(result).toHaveLength(2);
+
+    expect(result[0]).toEqual({
+      id: 'agent-1',
+      name: 'agent-1',
+      display_name: 'My Agent',
+      avatar_url: 'https://example.com/avatar.png',
+      is_default: true,
+      status: 'unknown',
+    });
+
+    expect(result[1]).toEqual({
+      id: 'agent-2',
+      name: 'agent-2',
+      display_name: null,
+      avatar_url: null,
+      is_default: false,
+      status: 'unknown',
+    });
+  });
+
+  it('DB fallback returns empty array when gateway_agent_cache has no rows', async () => {
+    const conn = createMockConnection(); // connected: false
+    const tracker = createMockPresenceTracker();
+    const pool = createMockPool([]); // empty gateway_agent_cache
+    cache = new AgentCache(conn, tracker);
+
+    const result = await cache.getAgents(pool, 'ns1');
+    expect(result).toEqual([]);
+    expect(Array.isArray(result)).toBe(true);
+  });
+
+  // ── Issue #2242: Gateway enrichment preserves extra fields ───────
+
+  it('gateway enrichment includes display_name, avatar_url, is_default', async () => {
+    const conn = createMockConnection({
+      getStatus: vi.fn(() => ({ connected: true, gateway_url: 'ws://gw', connected_at: null, last_tick_at: null })),
+      request: vi.fn().mockResolvedValue({
+        agents: [
+          { id: 'agent-1', name: 'Agent One', display_name: 'Display One', avatar_url: 'https://example.com/one.png', is_default: true },
+          { id: 'agent-2', name: 'Agent Two' }, // no extra fields
+        ],
+      }),
+    });
+    const tracker = createMockPresenceTracker({ 'agent-1': 'online' });
+    const pool = createMockPool();
+    cache = new AgentCache(conn, tracker);
+
+    const result = await cache.getAgents(pool, 'ns1');
+    expect(result[0]).toEqual({
+      id: 'agent-1',
+      name: 'Agent One',
+      display_name: 'Display One',
+      avatar_url: 'https://example.com/one.png',
+      is_default: true,
+      status: 'online',
+    });
+
+    // Missing fields default to null/false
+    expect(result[1]).toEqual({
+      id: 'agent-2',
+      name: 'Agent Two',
+      display_name: null,
+      avatar_url: null,
+      is_default: false,
+      status: 'unknown',
+    });
   });
 });

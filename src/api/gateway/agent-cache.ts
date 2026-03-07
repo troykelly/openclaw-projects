@@ -15,12 +15,18 @@ import type { AgentPresenceTracker, AgentStatus } from './presence-tracker.ts';
 export interface CachedAgent {
   id: string;
   name: string;
+  display_name: string | null;
+  avatar_url: string | null;
+  is_default: boolean;
   status: AgentStatus;
 }
 
 interface GatewayAgentSummary {
   id: string;
   name: string;
+  display_name?: string | null;
+  avatar_url?: string | null;
+  is_default?: boolean;
   status?: string;
 }
 
@@ -109,15 +115,19 @@ export class AgentCache {
   private async _getFromDb(pool: Pool, namespace: string): Promise<CachedAgent[]> {
     try {
       const result = await pool.query(
-        `SELECT DISTINCT agent_id FROM chat_session
-         WHERE namespace = $1 AND status != 'expired'
-         ORDER BY agent_id`,
+        `SELECT agent_id, display_name, avatar_url, is_default
+         FROM gateway_agent_cache
+         WHERE namespace = $1
+         ORDER BY is_default DESC, agent_id`,
         [namespace],
       );
 
-      return result.rows.map((row: { agent_id: string }) => ({
+      return result.rows.map((row: { agent_id: string; display_name: string | null; avatar_url: string | null; is_default: boolean }) => ({
         id: row.agent_id,
         name: row.agent_id,
+        display_name: row.display_name ?? null,
+        avatar_url: row.avatar_url ?? null,
+        is_default: row.is_default ?? false,
         status: 'unknown' as AgentStatus,
       }));
     } catch {
@@ -129,6 +139,9 @@ export class AgentCache {
     return agents.map((agent) => ({
       id: agent.id,
       name: agent.name,
+      display_name: agent.display_name ?? null,
+      avatar_url: agent.avatar_url ?? null,
+      is_default: agent.is_default ?? false,
       status: this.presenceTracker.getStatus(agent.id),
     }));
   }
