@@ -35,6 +35,7 @@ export const RelationshipSetParamsSchema = z.object({
   contact_b: z.string().min(1, 'Second contact name or ID is required').max(200, 'Contact reference must be 200 characters or less'),
   relationship: z.string().min(1, 'Relationship description is required').max(200, 'Relationship description must be 200 characters or less'),
   notes: z.string().max(2000, 'Notes must be 2000 characters or less').optional(),
+  namespace: z.string().max(100, 'Namespace must be 100 characters or less').optional(),
 });
 export type RelationshipSetParams = z.infer<typeof RelationshipSetParamsSchema>;
 
@@ -109,7 +110,7 @@ export function createRelationshipSetTool(options: RelationshipToolOptions): Rel
         return { success: false, error: errorMessage };
       }
 
-      const { contact_a, contact_b, relationship, notes } = parseResult.data;
+      const { contact_a, contact_b, relationship, notes, namespace } = parseResult.data;
 
       // Sanitize inputs
       const sanitizedContactA = stripHtml(sanitizeText(contact_a));
@@ -146,7 +147,7 @@ export function createRelationshipSetTool(options: RelationshipToolOptions): Rel
           body.notes = sanitizedNotes;
         }
 
-        const response = await client.post<RelationshipSetApiResponse>('/relationships/set', body, { user_id });
+        const response = await client.post<RelationshipSetApiResponse>('/relationships/set', body, { user_id, user_email: user_id, namespace: namespace ?? user_id });
 
         if (!response.success) {
           logger.error('relationship_set API error', {
@@ -203,6 +204,7 @@ export function createRelationshipSetTool(options: RelationshipToolOptions): Rel
 export const RelationshipQueryParamsSchema = z.object({
   contact: z.string().min(1, 'Contact name or ID is required').max(200, 'Contact reference must be 200 characters or less'),
   type_filter: z.string().max(200, 'Type filter must be 200 characters or less').optional(),
+  namespace: z.string().max(100, 'Namespace must be 100 characters or less').optional(),
 });
 export type RelationshipQueryParams = z.infer<typeof RelationshipQueryParamsSchema>;
 
@@ -272,7 +274,7 @@ export function createRelationshipQueryTool(options: RelationshipToolOptions): R
         return { success: false, error: errorMessage };
       }
 
-      const { contact, type_filter } = parseResult.data;
+      const { contact, type_filter, namespace } = parseResult.data;
 
       // Sanitize input
       const sanitizedContact = stripHtml(sanitizeText(contact));
@@ -296,7 +298,7 @@ export function createRelationshipQueryTool(options: RelationshipToolOptions): R
           queryParams.set('type_filter', type_filter);
         }
 
-        const response = await client.get<RelationshipQueryApiResponse>(`/relationships?${queryParams.toString()}`, { user_id });
+        const response = await client.get<RelationshipQueryApiResponse>(`/relationships?${queryParams.toString()}`, { user_id, user_email: user_id, namespace: namespace ?? user_id });
 
         if (!response.success) {
           if (response.error.code === 'NOT_FOUND') {

@@ -708,15 +708,15 @@ export function createTerminalCredentialCreateTool(options: TerminalConnectionTo
 
       try {
         const body: Record<string, unknown> = { name: sanitizedName, kind };
-        if (private_key) body.private_key = private_key;
-        if (password) body.password = password;
+        if (kind === 'ssh_key' && private_key) body.value = private_key;
+        else if (kind === 'password' && password) body.value = password;
         if (command) body.command = command;
         if (command_timeout_s !== undefined) body.command_timeout_s = command_timeout_s;
 
         const response = await client.post<{ id: string; name?: string; kind?: string; fingerprint?: string }>(
           '/terminal/credentials',
           body,
-          { user_id },
+          { user_id, user_email: user_id },
         );
 
         if (!response.success) {

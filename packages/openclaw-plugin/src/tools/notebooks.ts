@@ -120,7 +120,7 @@ export function createNotebookListTool(options: NotebookToolOptions): NotebookLi
           total: number;
           limit: number;
           offset: number;
-        }>(`/notebooks?${queryParams}`, { user_id });
+        }>(`/notebooks?${queryParams}`, { user_id, user_email: user_id });
 
         if (!response.success) {
           logger.error('notebook_list API error', {
@@ -241,7 +241,7 @@ export function createNotebookCreateTool(options: NotebookToolOptions): Notebook
             name: sanitizedName,
             description: description ? sanitizeText(description) : undefined,
           },
-          { user_id },
+          { user_id, user_email: user_id },
         );
 
         if (!response.success) {
@@ -367,7 +367,7 @@ export function createNotebookGetTool(options: NotebookToolOptions): NotebookGet
           queryParams.set('expand', 'notes');
         }
 
-        const response = await client.get<Notebook & { notes?: NotebookNote[] }>(`/notebooks/${notebook_id}?${queryParams}`, { user_id });
+        const response = await client.get<Notebook & { notes?: NotebookNote[] }>(`/notebooks/${notebook_id}?${queryParams}`, { user_id, user_email: user_id });
 
         if (!response.success) {
           if (response.error.status === 404) {
