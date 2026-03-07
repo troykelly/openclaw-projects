@@ -53,7 +53,7 @@ function formatElapsed(startedAt: string | null): string {
 /** Build GitHub issue URL from run data (review finding P5-5). */
 function githubIssueUrl(run: SymphonyRun): string | null {
   if (!run.github_org || !run.github_repo || !run.github_issue_number) return null;
-  return `https://github.com/${run.github_org}/${run.github_repo}/issues/${run.github_issue_number}`;
+  return `https://github.com/${encodeURIComponent(run.github_org)}/${encodeURIComponent(run.github_repo)}/issues/${run.github_issue_number}`;
 }
 
 /** Format a short issue label (e.g., "org/repo#123"). */

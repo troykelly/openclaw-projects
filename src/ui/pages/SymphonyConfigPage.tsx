@@ -50,7 +50,6 @@ import {
   useSymphonyConfig,
   useSymphonyRepos,
   useSymphonyProjectHosts,
-  useSymphonyTools,
 } from '@/ui/hooks/queries/use-symphony.ts';
 import {
   useUpdateSymphonyConfig,
@@ -68,14 +67,12 @@ export function SymphonyConfigPage(): React.JSX.Element {
   const configQuery = useSymphonyConfig(safeProjectId);
   const reposQuery = useSymphonyRepos(safeProjectId);
   const hostsQuery = useSymphonyProjectHosts(safeProjectId);
-  const toolsQuery = useSymphonyTools();
 
   const updateConfig = useUpdateSymphonyConfig(safeProjectId);
 
   const config = configQuery.data?.data;
   const repos = Array.isArray(reposQuery.data?.data) ? reposQuery.data.data : [];
   const hosts = Array.isArray(hostsQuery.data?.data) ? hostsQuery.data.data : [];
-  const tools = Array.isArray(toolsQuery.data?.data) ? toolsQuery.data.data : [];
 
   const isLoading = configQuery.isLoading;
   const isError = configQuery.isError;

@@ -24,7 +24,7 @@ export function QueueItem({ run, showDragHandle = true, dragHandleProps }: Queue
     ? `${run.github_org}/${run.github_repo}#${run.github_issue_number}`
     : null;
   const issueUrl = issueLabel
-    ? `https://github.com/${run.github_org}/${run.github_repo}/issues/${run.github_issue_number}`
+    ? `https://github.com/${encodeURIComponent(run.github_org!)}/${encodeURIComponent(run.github_repo!)}/issues/${run.github_issue_number}`
     : null;
 
   return (

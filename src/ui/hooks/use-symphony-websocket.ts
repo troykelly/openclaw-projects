@@ -87,6 +87,11 @@ export function useSymphonyWebSocket({
 
         if (msg.type === 'auth_failed' || msg.type === 'auth_error') {
           setStatus('error');
+          // Close the connection on auth failure to prevent hanging
+          if (wsRef.current) {
+            wsRef.current.close();
+            wsRef.current = null;
+          }
           return;
         }
 
@@ -107,22 +112,27 @@ export function useSymphonyWebSocket({
           return;
         }
 
-        // Treat as Symphony feed event
+        // Validate as Symphony feed event — must have type, timestamp, namespace
+        if (
+          typeof msg.type !== 'string' ||
+          !msg.type.startsWith('symphony:') ||
+          typeof msg.timestamp !== 'string' ||
+          typeof msg.namespace !== 'string'
+        ) {
+          return;
+        }
+
         const feedEvent = msg as unknown as SymphonyFeedEvent;
         onEventRef.current?.(feedEvent);
 
         // Invalidate relevant queries based on event type
-        if (typeof feedEvent.type === 'string') {
-          if (feedEvent.type.startsWith('symphony:run_')) {
-            queryClient.invalidateQueries({ queryKey: symphonyKeys.status() });
-            queryClient.invalidateQueries({ queryKey: symphonyKeys.queue() });
-          }
-          if (feedEvent.type === 'symphony:queue_changed') {
-            queryClient.invalidateQueries({ queryKey: symphonyKeys.queue() });
-          }
-          if (feedEvent.type === 'symphony:stage_updated') {
-            queryClient.invalidateQueries({ queryKey: symphonyKeys.status() });
-          }
+        if (feedEvent.type.startsWith('symphony:run_')) {
+          queryClient.invalidateQueries({ queryKey: symphonyKeys.status() });
+          queryClient.invalidateQueries({ queryKey: symphonyKeys.queue() });
+        } else if (feedEvent.type === 'symphony:queue_changed') {
+          queryClient.invalidateQueries({ queryKey: symphonyKeys.queue() });
+        } else if (feedEvent.type === 'symphony:stage_updated') {
+          queryClient.invalidateQueries({ queryKey: symphonyKeys.status() });
         }
       } catch {
         // Ignore non-JSON messages
