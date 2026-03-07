@@ -126,6 +126,7 @@ import { haRoutesPlugin } from './ha-routes.ts';
 import { apiSourceRoutesPlugin } from './api-sources/routes.ts';
 import { agentRoutesPlugin } from './agents/routes.ts';
 import { chatRoutesPlugin } from './chat/routes.ts';
+import { symphonyRoutesPlugin } from './symphony/routes.ts';
 import { initGatewayConnection, shutdownGatewayConnection, getGatewayConnection, initPresenceTracker, initAgentCache } from './gateway/index.ts';
 import { getGatewayMetrics } from './gateway/metrics.ts';
 import { cloudflareEmailIPWhitelistMiddleware, postmarkIPWhitelistMiddleware, twilioIPWhitelistMiddleware } from './webhooks/ip-whitelist.ts';
@@ -23974,6 +23975,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // ── Chat Routes (Epic #1940 — Agent Chat) ─────────────────────────
   const chatPool = createPool();
   app.register(chatRoutesPlugin, { pool: chatPool });
+
+  // ── Symphony Orchestration Routes (Epic #2186, Issue #2204) ────────
+  const symphonyPool = createPool();
+  app.register(symphonyRoutesPlugin, { pool: symphonyPool });
 
   // ── SPA fallback for client-side routing (Issue #481) ──────────────
   // Serve index.html for /static/app/* paths that don't match a real file.
