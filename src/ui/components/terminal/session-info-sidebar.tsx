@@ -68,7 +68,13 @@ export function SessionInfoSidebar({ session }: SessionInfoSidebarProps): React.
           <CardContent>
             <div className="flex flex-wrap gap-1">
               {session.tags.map((tag) => (
-                <Badge key={tag} variant="outline" className="text-xs">{tag}</Badge>
+                <Badge
+                  key={tag}
+                  variant="outline"
+                  className={`text-xs ${tag === 'no-tmux' ? 'border-amber-500/50 bg-amber-500/10 text-amber-600 dark:text-amber-400' : ''}`}
+                >
+                  {tag === 'no-tmux' ? 'SSH Only' : tag}
+                </Badge>
               ))}
             </div>
           </CardContent>
