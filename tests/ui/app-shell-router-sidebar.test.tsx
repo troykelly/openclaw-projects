@@ -88,11 +88,11 @@ describe('AppShell uses RouterSidebar (#1875)', () => {
     expect(screen.queryByTestId('sidebar')).not.toBeInTheDocument();
   });
 
-  it('renders all 15 navigation links in the RouterSidebar', () => {
+  it('renders all 16 navigation links in the RouterSidebar', () => {
     renderAppShellWithRouter('/activity');
     const nav = screen.getByRole('navigation', { name: 'Main navigation' });
     const links = nav.querySelectorAll('a');
-    expect(links.length).toBe(15);
+    expect(links.length).toBe(16);
   });
 
   it('renders Settings link in the footer', () => {
