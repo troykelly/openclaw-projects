@@ -653,7 +653,7 @@ export async function terminalRoutesPlugin(
       return reply.send(result);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown gRPC error';
-      return reply.code(502).send({ error: 'Worker unavailable', details: message });
+      return reply.code(500).send({ error: 'Worker unavailable', details: message });
     }
   });
 
@@ -1178,7 +1178,7 @@ export async function terminalRoutesPlugin(
     } catch (err) {
       try { await advisoryClient.query('ROLLBACK'); } catch { /* best-effort */ }
       const message = err instanceof Error ? err.message : 'Unknown gRPC error';
-      return reply.code(502).send({ error: 'Failed to create session', details: message });
+      return reply.code(500).send({ error: 'Failed to create session', details: message });
     } finally {
       advisoryClient.release();
     }
@@ -1324,7 +1324,7 @@ export async function terminalRoutesPlugin(
       return reply.code(204).send();
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown gRPC error';
-      return reply.code(502).send({ error: 'Failed to terminate session', details: message });
+      return reply.code(500).send({ error: 'Failed to terminate session', details: message });
     }
   });
 
@@ -1371,7 +1371,7 @@ export async function terminalRoutesPlugin(
       return reply.send({ success: true });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown gRPC error';
-      return reply.code(502).send({ error: 'Failed to resize session', details: message });
+      return reply.code(500).send({ error: 'Failed to resize session', details: message });
     }
   });
 
@@ -1641,7 +1641,7 @@ export async function terminalRoutesPlugin(
       return reply.send(result);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown gRPC error';
-      return reply.code(502).send({ error: 'Failed to send command', details: message });
+      return reply.code(500).send({ error: 'Failed to send command', details: message });
     }
   });
 
@@ -1684,7 +1684,7 @@ export async function terminalRoutesPlugin(
       return reply.send({ success: true });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown gRPC error';
-      return reply.code(502).send({ error: 'Failed to send keys', details: message });
+      return reply.code(500).send({ error: 'Failed to send keys', details: message });
     }
   });
 
@@ -1715,7 +1715,7 @@ export async function terminalRoutesPlugin(
       return reply.send(result);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown gRPC error';
-      return reply.code(502).send({ error: 'Failed to capture pane', details: message });
+      return reply.code(500).send({ error: 'Failed to capture pane', details: message });
     }
   });
 
@@ -2178,7 +2178,7 @@ export async function terminalRoutesPlugin(
       return reply.code(201).send(result);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown gRPC error';
-      return reply.code(502).send({ error: 'Failed to create window', details: message });
+      return reply.code(500).send({ error: 'Failed to create window', details: message });
     }
   });
 
@@ -2218,7 +2218,7 @@ export async function terminalRoutesPlugin(
       return reply.code(204).send();
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown gRPC error';
-      return reply.code(502).send({ error: 'Failed to close window', details: message });
+      return reply.code(500).send({ error: 'Failed to close window', details: message });
     }
   });
 
@@ -2262,7 +2262,7 @@ export async function terminalRoutesPlugin(
       return reply.code(201).send(result);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown gRPC error';
-      return reply.code(502).send({ error: 'Failed to split pane', details: message });
+      return reply.code(500).send({ error: 'Failed to split pane', details: message });
     }
   });
 
@@ -2318,7 +2318,7 @@ export async function terminalRoutesPlugin(
       return reply.code(204).send();
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown gRPC error';
-      return reply.code(502).send({ error: 'Failed to close pane', details: message });
+      return reply.code(500).send({ error: 'Failed to close pane', details: message });
     }
   });
 
@@ -2474,7 +2474,7 @@ export async function terminalRoutesPlugin(
       return reply.code(201).send(result);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown gRPC error';
-      return reply.code(502).send({ error: 'Failed to create tunnel', details: message });
+      return reply.code(500).send({ error: 'Failed to create tunnel', details: message });
     }
   });
 
@@ -2505,7 +2505,7 @@ export async function terminalRoutesPlugin(
       return reply.code(204).send();
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown gRPC error';
-      return reply.code(502).send({ error: 'Failed to close tunnel', details: message });
+      return reply.code(500).send({ error: 'Failed to close tunnel', details: message });
     }
   });
 
@@ -2685,7 +2685,7 @@ export async function terminalRoutesPlugin(
       }, traceId);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown gRPC error';
-      return reply.code(502).send({ error: 'Failed to notify worker', details: message });
+      return reply.code(500).send({ error: 'Failed to notify worker', details: message });
     }
 
     // #2141: Wrap DB write in try/catch — if it fails after gRPC success,
@@ -3166,7 +3166,7 @@ export async function terminalRoutesPlugin(
       await grpcClient.rejectHostKey({ session_id: body.session_id }, traceId);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown gRPC error';
-      return reply.code(502).send({ error: 'Failed to notify worker', details: message });
+      return reply.code(500).send({ error: 'Failed to notify worker', details: message });
     }
 
     // #2141: Wrap DB write in try/catch — if it fails after gRPC success,
@@ -3221,7 +3221,7 @@ export async function terminalRoutesPlugin(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic gRPC method access
       const fn = (client as unknown as Record<string, (...args: unknown[]) => void>).GetWorkerStatus;
       if (typeof fn !== 'function') {
-        return reply.code(502).send({ error: 'Worker status RPC not available' });
+        return reply.code(500).send({ error: 'Worker status RPC not available' });
       }
 
       return new Promise<void>((resolve) => {
@@ -3231,7 +3231,7 @@ export async function terminalRoutesPlugin(
           { deadline: new Date(Date.now() + 5000) },
           (err: Error | null, response: unknown) => {
             if (err) {
-              reply.code(502).send({ error: 'Worker unreachable', details: err.message });
+              reply.code(500).send({ error: 'Worker unreachable', details: err.message });
             } else {
               reply.send(response);
             }
@@ -3241,7 +3241,7 @@ export async function terminalRoutesPlugin(
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      return reply.code(502).send({ error: 'Worker unavailable', details: message });
+      return reply.code(500).send({ error: 'Worker unavailable', details: message });
     }
   });
 }
