@@ -3,7 +3,7 @@
  *
  * Exports the state machine engine, claim/concurrency control,
  * provisioning pipeline, and agent runner.
- * Epic #2186, Issues #2196, #2197, #2198, #2199
+ * Epic #2186, Issues #2196, #2197, #2198, #2199, #2204, #2205, #2206, #2212, #2213, #2214
  */
 
 export {
@@ -94,3 +94,78 @@ export type {
   ExitAnalysis,
   AgentLaunchConfig,
 } from './agent-runner.js';
+
+// ── Trace Correlation (Issue #2212) ──
+
+export {
+  createSymphonyTrace,
+  withProvisioningStep,
+  withRunningStage,
+  formatTraceFields,
+  symphonyLog,
+  buildNotificationPayload,
+} from './trace.js';
+export type {
+  SymphonyTraceContext,
+  ProvisioningTraceContext,
+  RunningTraceContext,
+  SymphonyNotificationPayload,
+} from './trace.js';
+
+// ── Durable Writes & Dead-Letter Queue (Issue #2212) ──
+
+export {
+  durableWrite,
+  writeToDeadLetter,
+  resolveDeadLetter,
+  getUnresolvedDeadLetters,
+  DEFAULT_MAX_RETRIES,
+  symphonyDurableWriteRetries,
+  symphonyDeadLetterCount,
+} from './durable-write.js';
+export type {
+  DurableWriteOptions,
+  DurableWriteResult,
+} from './durable-write.js';
+
+// Cleanup Queue & Orphan Detection (#2213)
+export {
+  CleanupSweeper,
+  identifyOrphanedContainers,
+  identifyStaleWorktrees,
+  identifyExpiredSecrets,
+  checkCleanupSlo,
+  shouldDeferCleanup,
+  CLEANUP_RETENTION_DAYS,
+  DEFERRED_GC_HOURS,
+  MAX_CLEANUP_BACKLOG_AGE_SECONDS,
+  MAX_CLEANUP_BACKLOG_SIZE,
+  CRITICAL_BACKLOG_AGE_SECONDS,
+} from './cleanup.js';
+export type {
+  ContainerRecord,
+  WorkspaceRecord,
+  SecretDeploymentRecord,
+  CleanupItem,
+  OrphanCandidate,
+  CleanupResult,
+  SloViolation,
+  SloStatus,
+  CleanupContext,
+} from './cleanup.js';
+
+// Secret Lifecycle Management (#2214)
+export {
+  SecretDeploymentTracker,
+  validateSecretPreProvisioning,
+  detectSecretRotation,
+  getRedactionPatterns,
+  DEFAULT_ROTATION_POLL_INTERVAL_MS,
+} from './secret-lifecycle.js';
+export type {
+  SecretDeployment,
+  CreateDeploymentInput,
+  SecretRotationResult,
+  ValidationResult,
+  RedactionPattern,
+} from './secret-lifecycle.js';

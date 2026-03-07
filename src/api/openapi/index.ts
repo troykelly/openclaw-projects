@@ -51,6 +51,7 @@ import { terminalPaths } from './paths/terminal.ts';
 import { chatPaths } from './paths/chat.ts';
 import { devPromptsPaths } from './paths/dev-prompts.ts';
 import { gatewayPaths } from './paths/gateway.ts';
+import { symphonyPaths } from './paths/symphony.ts';
 
 /** Derive the API server URL from PUBLIC_BASE_URL */
 function deriveApiUrl(publicBaseUrl: string): string {
@@ -122,6 +123,8 @@ function allDomainModules(): OpenApiDomainModule[] {
     devPromptsPaths(),
     // Gateway WebSocket (Epic #2153)
     gatewayPaths(),
+    // Symphony Orchestration (Epic #2186)
+    symphonyPaths(),
   ];
 }
 
