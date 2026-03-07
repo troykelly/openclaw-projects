@@ -69,6 +69,11 @@ export class SymphonyMetrics {
     this._runsActive = Math.max(0, this._runsActive - 1);
   }
 
+  /** Set the active runs gauge directly from DB count (does not affect total counter). */
+  setRunsActive(count: number): void {
+    this._runsActive = Math.max(0, count);
+  }
+
   /** Record provisioning pipeline duration in seconds. */
   recordProvisioningDuration(seconds: number): void {
     this._provisioningDuration.count++;

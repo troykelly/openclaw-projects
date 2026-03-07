@@ -129,6 +129,16 @@ function isValidUUID(s: string): boolean {
   return UUID_REGEX.test(s);
 }
 
+/** Check if a DB error is a duplicate key violation (PG error code 23505). */
+function isDuplicateKeyError(err: unknown): boolean {
+  return typeof err === 'object' && err !== null && 'code' in err && (err as { code: string }).code === '23505';
+}
+
+/** Check if a DB error is a foreign key violation (PG error code 23503). */
+function isForeignKeyError(err: unknown): boolean {
+  return typeof err === 'object' && err !== null && 'code' in err && (err as { code: string }).code === '23503';
+}
+
 /**
  * Resolve the namespace for write operations.
  * Returns null and sends 403 if no namespace context.
@@ -225,7 +235,7 @@ export async function symphonyRoutesPlugin(
     const namespace = getWriteNamespace(req, reply);
     if (!namespace) return;
 
-    const body = req.body as ConfigUpsertBody;
+    const body = (req.body ?? {}) as ConfigUpsertBody;
     if (!body.config || typeof body.config !== 'object') {
       return reply.code(400).send({ error: { code: 'INVALID_BODY', message: 'config object required' } });
     }
@@ -338,7 +348,7 @@ export async function symphonyRoutesPlugin(
     const namespace = getWriteNamespace(req, reply);
     if (!namespace) return;
 
-    const body = req.body as RepoCreateBody;
+    const body = (req.body ?? {}) as RepoCreateBody;
     if (!body.org || !body.repo) {
       return reply.code(400).send({ error: { code: 'INVALID_BODY', message: 'org and repo are required' } });
     }
@@ -347,14 +357,23 @@ export async function symphonyRoutesPlugin(
       return reply.code(400).send({ error: { code: 'INVALID_BODY', message: `Invalid sync_strategy. Must be one of: ${[...VALID_SYNC_STRATEGIES].join(', ')}` } });
     }
 
-    const result = await pool.query(
-      `INSERT INTO project_repository (namespace, project_id, org, repo, default_branch, sync_strategy)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING *`,
-      [namespace, id, body.org, body.repo, body.default_branch ?? 'main', body.sync_strategy ?? null],
-    );
-
-    return reply.code(201).send({ data: result.rows[0] });
+    try {
+      const result = await pool.query(
+        `INSERT INTO project_repository (namespace, project_id, org, repo, default_branch, sync_strategy)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         RETURNING *`,
+        [namespace, id, body.org, body.repo, body.default_branch ?? 'main', body.sync_strategy ?? null],
+      );
+      return reply.code(201).send({ data: result.rows[0] });
+    } catch (err) {
+      if (isDuplicateKeyError(err)) {
+        return reply.code(409).send({ error: { code: 'DUPLICATE', message: 'Repository already exists for this project' } });
+      }
+      if (isForeignKeyError(err)) {
+        return reply.code(400).send({ error: { code: 'INVALID_REFERENCE', message: 'Referenced project does not exist' } });
+      }
+      throw err;
+    }
   });
 
   // PUT /symphony/projects/:id/repos/:repo_id — update repo
@@ -367,7 +386,7 @@ export async function symphonyRoutesPlugin(
     const namespace = getWriteNamespace(req, reply);
     if (!namespace) return;
 
-    const body = req.body as RepoUpdateBody;
+    const body = (req.body ?? {}) as RepoUpdateBody;
     if (body.sync_strategy && !VALID_SYNC_STRATEGIES.has(body.sync_strategy)) {
       return reply.code(400).send({ error: { code: 'INVALID_BODY', message: 'Invalid sync_strategy' } });
     }
@@ -389,10 +408,10 @@ export async function symphonyRoutesPlugin(
       return reply.code(400).send({ error: { code: 'INVALID_BODY', message: 'No fields to update' } });
     }
 
-    params_arr.push(params.repo_id, namespace);
+    params_arr.push(params.repo_id, params.id, namespace);
     const result = await pool.query(
       `UPDATE project_repository SET ${setClauses.join(', ')}
-       WHERE id = $${idx++} AND namespace = $${idx}
+       WHERE id = $${idx++} AND project_id = $${idx++} AND namespace = $${idx}
        RETURNING *`,
       params_arr,
     );
@@ -415,8 +434,8 @@ export async function symphonyRoutesPlugin(
     if (!namespace) return;
 
     const result = await pool.query(
-      'DELETE FROM project_repository WHERE id = $1 AND namespace = $2 RETURNING id',
-      [params.repo_id, namespace],
+      'DELETE FROM project_repository WHERE id = $1 AND project_id = $2 AND namespace = $3 RETURNING id',
+      [params.repo_id, params.id, namespace],
     );
 
     if (result.rowCount === 0) {
@@ -475,19 +494,34 @@ export async function symphonyRoutesPlugin(
     const namespace = getWriteNamespace(req, reply);
     if (!namespace) return;
 
-    const body = req.body as HostCreateBody;
+    const body = (req.body ?? {}) as HostCreateBody;
     if (!body.connection_id || !isValidUUID(body.connection_id)) {
       return reply.code(400).send({ error: { code: 'INVALID_BODY', message: 'Valid connection_id is required' } });
     }
 
-    const result = await pool.query(
-      `INSERT INTO project_host (namespace, project_id, connection_id, priority, max_concurrent_sessions)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING *`,
-      [namespace, id, body.connection_id, body.priority ?? 0, body.max_concurrent_sessions ?? 1],
+    // Verify connection belongs to the same namespace
+    const connCheck = await pool.query(
+      'SELECT id FROM terminal_connection WHERE id = $1 AND namespace = $2',
+      [body.connection_id, namespace],
     );
+    if (connCheck.rows.length === 0) {
+      return reply.code(400).send({ error: { code: 'INVALID_BODY', message: 'connection_id not found in namespace' } });
+    }
 
-    return reply.code(201).send({ data: result.rows[0] });
+    try {
+      const result = await pool.query(
+        `INSERT INTO project_host (namespace, project_id, connection_id, priority, max_concurrent_sessions)
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING *`,
+        [namespace, id, body.connection_id, body.priority ?? 0, body.max_concurrent_sessions ?? 1],
+      );
+      return reply.code(201).send({ data: result.rows[0] });
+    } catch (err) {
+      if (isDuplicateKeyError(err)) {
+        return reply.code(409).send({ error: { code: 'DUPLICATE', message: 'Host already exists for this project and connection' } });
+      }
+      throw err;
+    }
   });
 
   // GET /symphony/projects/:id/hosts/:host_id — get host detail
@@ -501,8 +535,8 @@ export async function symphonyRoutesPlugin(
     if (!namespaces) return;
 
     const result = await pool.query(
-      'SELECT * FROM project_host WHERE id = $1 AND namespace = ANY($2)',
-      [params.host_id, namespaces],
+      'SELECT * FROM project_host WHERE id = $1 AND project_id = $2 AND namespace = ANY($3)',
+      [params.host_id, params.id, namespaces],
     );
 
     if (result.rows.length === 0) {
@@ -523,8 +557,8 @@ export async function symphonyRoutesPlugin(
     if (!namespace) return;
 
     const result = await pool.query(
-      'DELETE FROM project_host WHERE id = $1 AND namespace = $2 RETURNING id',
-      [params.host_id, namespace],
+      'DELETE FROM project_host WHERE id = $1 AND project_id = $2 AND namespace = $3 RETURNING id',
+      [params.host_id, params.id, namespace],
     );
 
     if (result.rowCount === 0) {
@@ -546,9 +580,9 @@ export async function symphonyRoutesPlugin(
 
     const result = await pool.query(
       `UPDATE project_host SET max_concurrent_sessions = 0
-       WHERE id = $1 AND namespace = $2
+       WHERE id = $1 AND project_id = $2 AND namespace = $3
        RETURNING *`,
-      [params.host_id, namespace],
+      [params.host_id, params.id, namespace],
     );
 
     if (result.rowCount === 0) {
@@ -572,10 +606,10 @@ export async function symphonyRoutesPlugin(
     const maxSessions = body?.max_concurrent_sessions ?? 1;
 
     const result = await pool.query(
-      `UPDATE project_host SET max_concurrent_sessions = $3
-       WHERE id = $1 AND namespace = $2
+      `UPDATE project_host SET max_concurrent_sessions = $4
+       WHERE id = $1 AND project_id = $2 AND namespace = $3
        RETURNING *`,
-      [params.host_id, namespace, maxSessions],
+      [params.host_id, params.id, namespace, maxSessions],
     );
 
     if (result.rowCount === 0) {
@@ -622,19 +656,25 @@ export async function symphonyRoutesPlugin(
     const namespace = getWriteNamespace(req, reply);
     if (!namespace) return;
 
-    const body = req.body as ToolCreateBody;
+    const body = (req.body ?? {}) as ToolCreateBody;
     if (!body.tool_name || !body.command) {
       return reply.code(400).send({ error: { code: 'INVALID_BODY', message: 'tool_name and command are required' } });
     }
 
-    const result = await pool.query(
-      `INSERT INTO symphony_tool_config (namespace, tool_name, command, verify_command, min_version, timeout_seconds)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING *`,
-      [namespace, body.tool_name, body.command, body.verify_command ?? null, body.min_version ?? null, body.timeout_seconds ?? 300],
-    );
-
-    return reply.code(201).send({ data: result.rows[0] });
+    try {
+      const result = await pool.query(
+        `INSERT INTO symphony_tool_config (namespace, tool_name, command, verify_command, min_version, timeout_seconds)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         RETURNING *`,
+        [namespace, body.tool_name, body.command, body.verify_command ?? null, body.min_version ?? null, body.timeout_seconds ?? 300],
+      );
+      return reply.code(201).send({ data: result.rows[0] });
+    } catch (err) {
+      if (isDuplicateKeyError(err)) {
+        return reply.code(409).send({ error: { code: 'DUPLICATE', message: 'Tool with this name already exists' } });
+      }
+      throw err;
+    }
   });
 
   // PUT /symphony/tools/:id — update tool
@@ -647,7 +687,7 @@ export async function symphonyRoutesPlugin(
     const namespace = getWriteNamespace(req, reply);
     if (!namespace) return;
 
-    const body = req.body as ToolCreateBody;
+    const body = (req.body ?? {}) as ToolCreateBody;
     const setClauses: string[] = [];
     const params_arr: unknown[] = [];
     let idx = 1;
@@ -1273,13 +1313,9 @@ export async function symphonyRoutesPlugin(
       metrics.setHostActiveSessions(activeSessions);
       metrics.setHostCapacityRemaining(Math.max(0, totalCapacity - activeSessions));
 
-      // Update runs active gauge from DB
+      // Update runs active gauge from DB (does not affect total counter)
       const activeCount = activeResult.rows[0]?.count ?? 0;
-      // Reset and set — avoid drift between in-memory and DB
-      while (metrics.snapshot().runs_active > 0) metrics.recordRunCompleted();
-      for (let i = 0; i < activeCount; i++) metrics.recordRunStarted();
-      // Restore runs_total to not double-count
-      // Since we're using DB as source of truth for gauges, the total counter stays in-memory
+      metrics.setRunsActive(activeCount);
     } catch {
       // If DB is down, serve stale metrics (better than nothing)
     }

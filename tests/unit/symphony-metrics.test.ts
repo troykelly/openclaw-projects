@@ -54,6 +54,14 @@ describe('SymphonyMetrics', () => {
     expect(metrics.snapshot().runs_active).toBe(0);
   });
 
+  it('setRunsActive sets gauge without affecting total', () => {
+    metrics.recordRunStarted(); // total=1, active=1
+    metrics.setRunsActive(5);
+    const snap = metrics.snapshot();
+    expect(snap.runs_active).toBe(5);
+    expect(snap.runs_total).toBe(1); // total unchanged
+  });
+
   it('records provisioning duration', () => {
     metrics.recordProvisioningDuration(15.5);
     metrics.recordProvisioningDuration(30.2);
