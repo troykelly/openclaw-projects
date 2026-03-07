@@ -10,11 +10,11 @@ import { Link } from 'react-router';
 import { Button } from '@/ui/components/ui/button';
 import { Input } from '@/ui/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/components/ui/select';
-import { ArrowLeft, Search, StopCircle, Loader2 } from 'lucide-react';
+import { ArrowLeft, Search, StopCircle, Trash2, Loader2 } from 'lucide-react';
 import { SessionCard } from '@/ui/components/terminal/session-card';
 import { SessionStatusBadge } from '@/ui/components/terminal/session-status-badge';
 import { Badge } from '@/ui/components/ui/badge';
-import { useTerminalSessions, useTerminateTerminalSession } from '@/ui/hooks/queries/use-terminal-sessions';
+import { useTerminalSessions, useTerminateTerminalSession, usePurgeTerminalSession } from '@/ui/hooks/queries/use-terminal-sessions';
 import { Eye, Wand2 } from 'lucide-react';
 
 const STATUS_OPTIONS = [
@@ -35,6 +35,7 @@ export function SessionsListPage(): React.JSX.Element {
   const filters = statusFilter !== 'all' ? { status: statusFilter } : undefined;
   const sessionsQuery = useTerminalSessions(filters);
   const terminateSession = useTerminateTerminalSession();
+  const purgeSession = usePurgeTerminalSession();
 
   const allSessions = Array.isArray(sessionsQuery.data?.sessions) ? sessionsQuery.data.sessions : [];
 
@@ -149,6 +150,23 @@ export function SessionsListPage(): React.JSX.Element {
                     <StopCircle className="size-4" />
                   </Button>
                 ) : null}
+                {['terminated', 'error', 'disconnected'].includes(session.status) && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-muted-foreground hover:text-red-500 shrink-0"
+                    onClick={() => {
+                      if (confirm('Permanently delete this session and all its history?')) {
+                        purgeSession.mutate(session.id);
+                      }
+                    }}
+                    disabled={purgeSession.isPending}
+                    title="Delete session"
+                    data-testid="purge-session-btn"
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
+                )}
               </div>
             );
           })}

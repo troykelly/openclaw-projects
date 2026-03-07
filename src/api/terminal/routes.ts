@@ -1328,6 +1328,53 @@ export async function terminalRoutesPlugin(
     }
   });
 
+  // DELETE /api/terminal/sessions/:id/purge — Hard-delete a terminated/error/disconnected session
+  // Permanently removes the session and all related data (windows, panes, entries via FK CASCADE).
+  // Only sessions in terminal states can be purged.
+  app.delete('/terminal/sessions/:id/purge', async (req, reply) => {
+    const params = req.params as { id: string };
+    if (!UUID_REGEX.test(params.id)) {
+      return reply.code(400).send({ error: 'Invalid session ID format' });
+    }
+
+    if (!(await verifyWriteScope(pool, 'terminal_session', params.id, req))) {
+      return reply.code(404).send({ error: 'Session not found' });
+    }
+
+    const actor = await getActor(req);
+    const traceId = extractOrCreateTraceId(req);
+
+    // Only allow purge of sessions in terminal states
+    const statusResult = await pool.query(
+      `SELECT status FROM terminal_session WHERE id = $1`,
+      [params.id],
+    );
+    if (statusResult.rows.length === 0) {
+      return reply.code(404).send({ error: 'Session not found' });
+    }
+
+    const PURGEABLE_STATUSES = ['terminated', 'error', 'disconnected'];
+    const status = (statusResult.rows[0] as { status: string }).status;
+    if (!PURGEABLE_STATUSES.includes(status)) {
+      return reply.code(409).send({
+        error: `Cannot purge session in '${status}' state. Only terminated, error, or disconnected sessions can be purged.`,
+      });
+    }
+
+    app.log.info(traceLogContext(traceId, 'rest'), 'Purging session=%s (status=%s)', params.id, status);
+
+    await pool.query(`DELETE FROM terminal_session WHERE id = $1`, [params.id]);
+
+    recordActivity(pool, {
+      namespace: getStoreNamespace(req),
+      session_id: params.id,
+      actor,
+      action: 'session.purge',
+    });
+
+    return reply.code(204).send();
+  });
+
   // POST /api/terminal/sessions/:id/resize — Resize terminal via gRPC
   app.post('/terminal/sessions/:id/resize', async (req, reply) => {
     const params = req.params as { id: string };

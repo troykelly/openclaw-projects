@@ -222,6 +222,23 @@ export function terminalSessionsPaths(): OpenApiDomainModule {
         },
       },
 
+      '/terminal/sessions/{id}/purge': {
+        parameters: [uuidParam('id', 'Session UUID')],
+        delete: {
+          operationId: 'purgeTerminalSession',
+          summary: 'Permanently delete a session',
+          description:
+            'Hard-deletes a terminated, error, or disconnected session and all related data ' +
+            '(windows, panes, entries). Active sessions cannot be purged — terminate them first.',
+          tags: ['Terminal Sessions'],
+          parameters: [namespaceParam()],
+          responses: {
+            '204': { description: 'Session purged' },
+            ...errorResponses(400, 401, 403, 404, 409),
+          },
+        },
+      },
+
       '/terminal/sessions/{id}/resize': {
         parameters: [uuidParam('id', 'Session UUID')],
         post: {

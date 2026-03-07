@@ -122,6 +122,18 @@ export function useSplitTerminalPane() {
   });
 }
 
+/** Purge (hard-delete) a terminated/error/disconnected session. */
+export function usePurgeTerminalSession() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => apiClient.delete(`/terminal/sessions/${id}/purge`),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: terminalSessionKeys.all });
+    },
+  });
+}
+
 /** Add annotation to a session. */
 export function useAnnotateTerminalSession() {
   const queryClient = useQueryClient();
