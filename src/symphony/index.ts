@@ -94,3 +94,36 @@ export type {
   ExitAnalysis,
   AgentLaunchConfig,
 } from './agent-runner.js';
+
+// ── Trace Correlation (Issue #2212) ──
+
+export {
+  createSymphonyTrace,
+  withProvisioningStep,
+  withRunningStage,
+  formatTraceFields,
+  symphonyLog,
+  buildNotificationPayload,
+} from './trace.js';
+export type {
+  SymphonyTraceContext,
+  ProvisioningTraceContext,
+  RunningTraceContext,
+  SymphonyNotificationPayload,
+} from './trace.js';
+
+// ── Durable Writes & Dead-Letter Queue (Issue #2212) ──
+
+export {
+  durableWrite,
+  writeToDeadLetter,
+  resolveDeadLetter,
+  getUnresolvedDeadLetters,
+  DEFAULT_MAX_RETRIES,
+  symphonyDurableWriteRetries,
+  symphonyDeadLetterCount,
+} from './durable-write.js';
+export type {
+  DurableWriteOptions,
+  DurableWriteResult,
+} from './durable-write.js';
