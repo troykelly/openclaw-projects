@@ -101,6 +101,8 @@ import {
 } from './postmark/index.ts';
 import { createRateLimitKeyGenerator, type GetSessionEmailFn, getEndpointRateLimitCategory } from './rate-limit/per-user.ts';
 import { RealtimeHub } from './realtime/index.ts';
+import { MessageRouter } from './realtime/message-router.ts';
+import { YjsHandler } from './realtime/yjs-handler.ts';
 import {
   enqueueSmsMessage,
   getPhoneNumberDetails,
@@ -1631,6 +1633,42 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     });
   }
 
+  // Yjs collaborative editing (Issue #2256)
+  const yjsEnabled = process.env.ENABLE_YJS_COLLAB !== 'false';
+  console.log(`[Server] YJS collaborative editing: ${yjsEnabled ? 'ENABLED' : 'DISABLED'}`);
+
+  // Single-process constraint for Yjs (Phase 1)
+  if (process.env.CLUSTER_MODE === 'true' && yjsEnabled) {
+    throw new Error('Yjs collaboration requires CLUSTER_MODE=false until multi-process relay is implemented');
+  }
+
+  const yjsPool = process.env.NODE_ENV !== 'test' ? createPool() : null;
+  const yjsHandler = yjsPool ? new YjsHandler(yjsPool, yjsEnabled) : null;
+
+  // Create MessageRouter for typed WebSocket message dispatch
+  const messageRouter = new MessageRouter();
+
+  // Register connection handler (heartbeat pong)
+  messageRouter.onText('connection:', (_client, parsed) => {
+    if (parsed.type === 'connection:pong') {
+      realtimeHub.updateClientPing(_client.client_id);
+    }
+  });
+
+  // Register Yjs control message handler
+  if (yjsHandler) {
+    messageRouter.onText('yjs:', (client, parsed) => {
+      yjsHandler.handleControlMessage(client, parsed as { type: string; noteId?: string }).catch((err) => {
+        console.error(`[WebSocket] Yjs control message error for ${client.client_id}:`, err);
+      });
+    });
+
+    // Register Yjs binary frame handler
+    messageRouter.onBinary((client, data) => {
+      yjsHandler.handleBinaryMessage(client, data);
+    });
+  }
+
   app.get('/ws', { websocket: true }, async (socket, req) => {
     // Authenticate via JWT in Authorization header or query string
     let user_id: string | undefined;
@@ -1659,34 +1697,43 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     // Add client to the hub
     const client_id = realtimeHub.addClient(socket, user_id);
 
-    // Handle incoming messages
-    socket.on('message', (data: Buffer) => {
-      try {
-        const message = JSON.parse(data.toString());
+    // Get the WebSocketClient for the router
+    const wsClient = {
+      client_id,
+      user_id,
+      socket,
+      connected_at: new Date(),
+      last_ping: new Date(),
+    };
 
-        // Handle ping/pong for heartbeat
-        if (message.event === 'connection:pong') {
-          realtimeHub.updateClientPing(client_id);
-        }
-      } catch {
-        // Ignore malformed messages
-      }
+    // Handle incoming messages via MessageRouter
+    socket.on('message', (data: Buffer, isBinary: boolean) => {
+      messageRouter.dispatch(wsClient, data, isBinary);
     });
 
     // Handle client disconnect
     socket.on('close', () => {
       realtimeHub.removeClient(client_id);
+      if (yjsHandler) {
+        yjsHandler.handleDisconnect(client_id).catch((err) => {
+          console.error(`[WebSocket] Yjs disconnect cleanup error for ${client_id}:`, err);
+        });
+      }
     });
 
     socket.on('error', (err: Error) => {
       console.error(`[WebSocket] Client ${client_id} error:`, err);
       realtimeHub.removeClient(client_id);
+      if (yjsHandler) {
+        yjsHandler.handleDisconnect(client_id).catch(() => {});
+      }
     });
   });
 
   // Realtime stats endpoint (for monitoring)
   app.get('/ws/stats', async () => ({
     connected_clients: realtimeHub.getClientCount(),
+    ...(yjsHandler ? { yjs_active_docs: yjsHandler.getDocManager().getDocCount() } : {}),
   }));
 
   // SSE fallback endpoint (Issue #213)
@@ -1752,9 +1799,23 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // Cleanup on server close
   app.addHook('onClose', async () => {
     await shutdownGatewayConnection();
+    // Flush Yjs docs before shutting down (5-second timeout)
+    if (yjsHandler) {
+      const flushPromise = yjsHandler.shutdown();
+      const timeoutPromise = new Promise<void>((resolve) => {
+        setTimeout(() => {
+          console.warn('[Server] Yjs shutdown timed out after 5 seconds');
+          resolve();
+        }, 5000);
+      });
+      await Promise.race([flushPromise, timeoutPromise]);
+    }
     await realtimeHub.shutdown();
     if (realtimePool) {
       await realtimePool.end();
+    }
+    if (yjsPool) {
+      await yjsPool.end();
     }
     await nsPool.end();
     await healthPool.end();
