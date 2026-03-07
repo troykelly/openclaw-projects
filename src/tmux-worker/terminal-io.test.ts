@@ -97,8 +97,10 @@ describe('resolveSessionPaneTarget', () => {
         {
           id: SESSION_ID,
           namespace: NAMESPACE,
+          connection_id: 'conn-1',
           tmux_session_name: 'oc-test',
           status: 'active',
+          tags: [],
         },
       ],
     });
@@ -117,10 +119,12 @@ describe('resolveSessionPaneTarget', () => {
     expect(result).toEqual({
       sessionId: SESSION_ID,
       namespace: NAMESPACE,
+      connectionId: 'conn-1',
       tmuxSessionName: 'oc-test',
       windowIndex: 0,
       paneIndex: 0,
       paneId: 'pane-uuid',
+      tags: [],
     });
   });
 

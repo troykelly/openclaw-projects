@@ -75,6 +75,10 @@ vi.mock('@/ui/hooks/queries/use-terminal-sessions', () => ({
     mutate: vi.fn(),
     isPending: false,
   })),
+  usePurgeTerminalSession: vi.fn(() => ({
+    mutate: vi.fn(),
+    isPending: false,
+  })),
 }));
 
 // Must import after mocks

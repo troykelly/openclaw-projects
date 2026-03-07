@@ -39,8 +39,18 @@ describe('Phase 1: #2101 — SSH session does not create local tmux', () => {
       createSession: vi.fn(),
       killSession: vi.fn(),
     } as never;
+    // Mock SSH client with exec that simulates tmux not found (exit 127)
+    const mockExec = vi.fn((_cmd: string, cb: (err: Error | undefined, ch: unknown) => void) => {
+      const channel = {
+        on: vi.fn((event: string, handler: (data: unknown) => void) => {
+          if (event === 'close') setTimeout(() => handler(127), 0);
+        }),
+        stderr: { on: vi.fn() },
+      };
+      cb(undefined, channel);
+    });
     const mockSshManager = {
-      getConnection: vi.fn().mockResolvedValue({ id: 'ssh-conn' }),
+      getConnection: vi.fn().mockResolvedValue({ id: 'ssh-conn', client: { exec: mockExec } }),
     } as never;
 
     const result = await handleCreateSession(
