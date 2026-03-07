@@ -1,5 +1,5 @@
 -- ============================================================
--- Migration 150: Symphony cleanup & secret lifecycle enhancements
+-- Migration 151: Symphony cleanup & secret lifecycle enhancements
 -- Epic #2186 — Issues #2213 (Cleanup Queue), #2214 (Secret Lifecycle)
 --
 -- Adds columns to symphony_secret_deployment for lifecycle tracking:

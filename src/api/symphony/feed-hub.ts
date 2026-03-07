@@ -352,7 +352,7 @@ export class SymphonyFeedHub {
         },
       });
 
-      console.log(`${LOG_PREFIX} Authenticated connection ${conn.id} for ${payload.sub}`);
+      console.log(`${LOG_PREFIX} Authenticated connection ${conn.id}`);
       return true;
     } catch (err) {
       symphonyFeedAuthFailures.inc();

@@ -1,5 +1,5 @@
 -- ============================================================
--- Rollback Migration 150: Symphony cleanup & secret lifecycle enhancements
+-- Rollback Migration 151: Symphony cleanup & secret lifecycle enhancements
 -- ============================================================
 
 -- Remove resolved_reason from symphony_cleanup_item
