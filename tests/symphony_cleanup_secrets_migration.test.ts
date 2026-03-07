@@ -1,5 +1,5 @@
 /**
- * Integration tests for Symphony Cleanup & Secret Lifecycle migration 150.
+ * Integration tests for Symphony Cleanup & Secret Lifecycle migration 151.
  * Issues #2213 (Cleanup Queue), #2214 (Secret Lifecycle), Epic #2186.
  *
  * Verifies column additions, constraints, indexes, and clean rollback.
@@ -37,13 +37,13 @@ async function insertRun(
 ): Promise<string> {
   const res = await pool.query(
     `INSERT INTO symphony_run (namespace, work_item_id, status, stage)
-     VALUES ($1, $2, 'queued', 'queued') RETURNING id`,
+     VALUES ($1, $2, 'unclaimed', 'reading_issue') RETURNING id`,
     [namespace, workItemId],
   );
   return (res.rows[0] as { id: string }).id;
 }
 
-describe('Migration 150: Symphony Cleanup & Secret Lifecycle (#2213, #2214)', () => {
+describe('Migration 151: Symphony Cleanup & Secret Lifecycle (#2213, #2214)', () => {
   let pool: Pool;
 
   beforeAll(async () => {
