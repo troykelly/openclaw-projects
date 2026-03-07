@@ -11,6 +11,7 @@
 
 import { randomUUID } from 'node:crypto';
 import type pg from 'pg';
+import type { ClientChannel } from 'ssh2';
 import type { TmuxManager } from './tmux/manager.ts';
 import type { SSHConnectionManager } from './ssh/client.ts';
 import {
@@ -101,6 +102,32 @@ function toSessionInfo(
 }
 
 /**
+ * Execute a command on an SSH connection and return stdout.
+ * Rejects on non-zero exit or stream error.
+ *
+ * NOTE: This uses ssh2's Client.exec() (SSH protocol remote execution),
+ * NOT child_process.exec(). No local shell is spawned.
+ */
+function execSSHCommand(
+  client: { exec: (cmd: string, cb: (err: Error | undefined, channel: ClientChannel) => void) => void },
+  command: string,
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    client.exec(command, (err, channel) => {
+      if (err) return reject(err);
+      let stdout = '';
+      let stderr = '';
+      channel.on('data', (data: Buffer) => { stdout += data.toString(); });
+      channel.stderr.on('data', (data: Buffer) => { stderr += data.toString(); });
+      channel.on('close', (code: number) => {
+        if (code === 0) resolve(stdout.trim());
+        else reject(new Error(`SSH exec exited with code ${code}: ${stderr.trim() || stdout.trim()}`));
+      });
+    });
+  });
+}
+
+/**
  * Create a new terminal session.
  *
  * Flow:
@@ -132,18 +159,16 @@ export async function handleCreateSession(
   // 2. Resolve SSH connection (for non-local)
   if (!conn.is_local) {
     const sshResult = await sshManager.getConnection(req.connection_id);
-    if (!sshResult) {
+    if (!sshResult || !sshResult.client) {
       throw new Error(`Failed to establish SSH connection for ${req.connection_id}`);
     }
-    // SSH sessions should NOT create a local tmux session (#2101).
-    // tmux will run on the remote host via SSH exec; the local tmuxManager
-    // is not involved for SSH sessions.
   }
 
-  // 3. Create tmux session (local only — SSH sessions skip this) (#2101)
+  // 3. Create tmux session — local via TmuxManager, SSH via remote exec (#2101, #2252)
   const sessionName = req.tmux_session_name || `oc-${randomUUID().slice(0, 8)}`;
   const cols = req.cols || 120;
   const rows = req.rows || 40;
+  let remoteTmuxAvailable = true;
 
   if (conn.is_local) {
     const env = conn.env ?? undefined;
@@ -152,6 +177,48 @@ export async function handleCreateSession(
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       throw new Error(`Failed to create tmux session "${sessionName}": ${message}`);
+    }
+  } else {
+    // Create tmux session on the remote host via SSH exec (#2252).
+    const sshResult = await sshManager.getConnection(req.connection_id);
+    if (!sshResult?.client) {
+      throw new Error(`SSH connection lost for ${req.connection_id}`);
+    }
+
+    // Check if tmux is available on the remote host
+    let hasTmux = false;
+    try {
+      await execSSHCommand(sshResult.client, 'which tmux');
+      hasTmux = true;
+    } catch {
+      // tmux not found — attempt unattended install
+      console.log(`tmux not found on ${req.connection_id}, attempting auto-install...`);
+      try {
+        await execSSHCommand(
+          sshResult.client,
+          'sudo apt-get install -y tmux 2>/dev/null || sudo yum install -y tmux 2>/dev/null || sudo apk add tmux 2>/dev/null',
+        );
+        // Verify install succeeded
+        await execSSHCommand(sshResult.client, 'which tmux');
+        hasTmux = true;
+        console.log(`tmux auto-installed on ${req.connection_id}`);
+      } catch {
+        console.log(`tmux auto-install failed on ${req.connection_id}, session will be SSH-only`);
+      }
+    }
+
+    if (hasTmux) {
+      try {
+        await execSSHCommand(
+          sshResult.client,
+          `tmux new-session -d -s ${sessionName} -x ${cols} -y ${rows}`,
+        );
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        throw new Error(`Failed to create remote tmux session "${sessionName}": ${message}`);
+      }
+    } else {
+      remoteTmuxAvailable = false;
     }
   }
 
@@ -181,7 +248,9 @@ export async function handleCreateSession(
         req.embed_commands ?? true,
         req.embed_scrollback ?? false,
         req.capture_interval_s ?? 30,
-        req.tags || [],
+        remoteTmuxAvailable
+          ? (req.tags || [])
+          : [...(req.tags || []), 'no-tmux'],
         req.notes || null,
         now,
       ],
@@ -203,8 +272,20 @@ export async function handleCreateSession(
       [paneId, windowId, req.namespace, now],
     );
   } catch (dbErr) {
-    // Clean up the tmux session to avoid orphan
-    try { await tmuxManager.killSession(sessionName); } catch { /* best-effort */ }
+    // Clean up the tmux session to avoid orphan (#2252: handle both local and SSH)
+    // Skip cleanup for no-tmux sessions (no tmux session to kill)
+    if (remoteTmuxAvailable) {
+      if (conn.is_local) {
+        try { await tmuxManager.killSession(sessionName); } catch { /* best-effort */ }
+      } else {
+        try {
+          const sshResult = await sshManager.getConnection(req.connection_id);
+          if (sshResult?.client) {
+            await execSSHCommand(sshResult.client, `tmux kill-session -t ${sessionName}`);
+          }
+        } catch { /* best-effort */ }
+      }
+    }
     throw dbErr;
   }
 
@@ -241,7 +322,9 @@ export async function handleCreateSession(
     terminated_at: null,
     exit_code: 0,
     error_message: '',
-    tags: req.tags || [],
+    tags: remoteTmuxAvailable
+      ? (req.tags || [])
+      : [...(req.tags || []), 'no-tmux'],
     notes: req.notes || '',
   };
 }
@@ -262,7 +345,7 @@ export async function handleTerminateSession(
 ): Promise<void> {
   // Fetch session
   const result = await pool.query<SessionRow>(
-    `SELECT id, connection_id, tmux_session_name, status
+    `SELECT id, connection_id, tmux_session_name, status, tags
      FROM terminal_session WHERE id = $1`,
     [req.session_id],
   );
@@ -272,12 +355,34 @@ export async function handleTerminateSession(
   }
 
   const session = result.rows[0];
+  const noTmux = (session.tags || []).includes('no-tmux');
 
-  // Kill tmux session (ignore errors if already terminated)
-  try {
-    await tmuxManager.killSession(session.tmux_session_name);
-  } catch {
-    // Session may already be gone — that's OK for termination
+  // Look up connection to determine local vs SSH (#2252)
+  const connResult = await pool.query<{ is_local: boolean }>(
+    `SELECT is_local FROM terminal_connection WHERE id = $1`,
+    [session.connection_id],
+  );
+  const isLocal = connResult.rows.length === 0 || connResult.rows[0].is_local;
+
+  // Kill tmux session — local via TmuxManager, SSH via remote exec (#2252)
+  // Skip tmux kill for no-tmux sessions (plain SSH shell closes on its own)
+  if (!noTmux) {
+    if (isLocal) {
+      try {
+        await tmuxManager.killSession(session.tmux_session_name);
+      } catch {
+        // Session may already be gone — that's OK for termination
+      }
+    } else {
+      try {
+        const sshResult = await sshManager.getConnection(session.connection_id);
+        if (sshResult?.client) {
+          await execSSHCommand(sshResult.client, `tmux kill-session -t ${session.tmux_session_name}`);
+        }
+      } catch {
+        // Session may already be gone on remote — that's OK
+      }
+    }
   }
 
   // Update DB

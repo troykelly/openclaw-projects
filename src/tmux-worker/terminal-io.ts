@@ -9,8 +9,10 @@
 import { randomUUID } from 'node:crypto';
 import * as grpc from '@grpc/grpc-js';
 import type { IPty } from 'node-pty';
+import type { ClientChannel } from 'ssh2';
 import type pg from 'pg';
 import type { TmuxManager } from './tmux/manager.ts';
+import type { SSHConnectionManager } from './ssh/client.ts';
 import type { EntryRecorder } from './entry-recorder.ts';
 import type {
   SendCommandRequest,
@@ -50,10 +52,12 @@ const ACTIVE_STATUSES = ['active', 'idle'];
 export interface SessionPaneTarget {
   sessionId: string;
   namespace: string;
+  connectionId: string;
   tmuxSessionName: string;
   windowIndex: number;
   paneIndex: number;
   paneId: string;
+  tags: string[];
 }
 
 /**
@@ -69,7 +73,7 @@ export async function resolveSessionPaneTarget(
 ): Promise<SessionPaneTarget> {
   // 1. Look up session
   const sessionResult = await pool.query(
-    `SELECT id, namespace, tmux_session_name, status
+    `SELECT id, namespace, connection_id, tmux_session_name, status, tags
      FROM terminal_session WHERE id = $1`,
     [sessionId],
   );
@@ -81,8 +85,10 @@ export async function resolveSessionPaneTarget(
   const session = sessionResult.rows[0] as {
     id: string;
     namespace: string;
+    connection_id: string;
     tmux_session_name: string;
     status: string;
+    tags: string[] | null;
   };
 
   if (!ACTIVE_STATUSES.includes(session.status)) {
@@ -133,10 +139,12 @@ export async function resolveSessionPaneTarget(
   return {
     sessionId: session.id,
     namespace: session.namespace,
+    connectionId: session.connection_id,
     tmuxSessionName: session.tmux_session_name,
     windowIndex: pane.window_index,
     paneIndex: pane.pane_index,
     paneId: pane.pane_id,
+    tags: session.tags ?? [],
   };
 }
 
@@ -334,19 +342,24 @@ export async function handleCapturePane(
  * Client sends: keystrokes (data) and resize events.
  * Server sends: terminal output (data) and status events.
  *
- * Uses node-pty to spawn `tmux attach-session`, providing a real PTY so
- * tmux streams raw terminal output (with escape sequences) — exactly what
- * xterm.js expects. Replaces the previous capture-pane polling approach
- * which produced plain text diffs that garbled the display (#2094).
+ * For local sessions: uses node-pty to spawn `tmux attach-session`,
+ * providing a real PTY so tmux streams raw terminal output (with escape
+ * sequences) — exactly what xterm.js expects (#2094).
+ *
+ * For SSH sessions: uses ssh2 Client.exec() with a PTY to run
+ * `tmux attach-session` on the remote host, streaming I/O through
+ * the SSH channel (#2252).
  */
 export function handleAttachSession(
   call: grpc.ServerDuplexStream<TerminalInput, TerminalOutput>,
   pool: pg.Pool,
   _tmuxManager: TmuxManager,
   entryRecorder: EntryRecorder,
+  sshManager: SSHConnectionManager,
 ): void {
   let target: SessionPaneTarget | null = null;
   let ptyProcess: IPty | null = null;
+  let sshChannel: ClientChannel | null = null;
   let initialized = false;
   let initializing = false;
   let ended = false;
@@ -367,19 +380,41 @@ export function handleAttachSession(
       try { ptyProcess.kill(); } catch { /* already exited */ }
       ptyProcess = null;
     }
+    if (sshChannel) {
+      try { sshChannel.close(); } catch { /* already closed */ }
+      sshChannel = null;
+    }
   };
 
-  /** Process an input message once the PTY is ready. */
-  function handleInput(input: TerminalInput): void {
-    if (ended || !ptyProcess) return;
+  /** Write data to the active transport (PTY or SSH channel). */
+  function writeToTransport(data: string): void {
+    if (ptyProcess) {
+      ptyProcess.write(data);
+    } else if (sshChannel) {
+      sshChannel.write(data);
+    }
+  }
 
-    // Handle keystrokes — write directly to the PTY
+  /** Resize the active transport. */
+  function resizeTransport(cols: number, rows: number): void {
+    if (ptyProcess) {
+      ptyProcess.resize(cols, rows);
+    } else if (sshChannel) {
+      sshChannel.setWindow(rows, cols, rows * 16, cols * 8);
+    }
+  }
+
+  /** Process an input message once the transport is ready. */
+  function handleInput(input: TerminalInput): void {
+    if (ended || (!ptyProcess && !sshChannel)) return;
+
+    // Handle keystrokes — write directly to the transport
     if (input.data && input.data.length > 0) {
       const keyData = typeof input.data === 'string'
         ? input.data
         : Buffer.from(input.data).toString();
       try {
-        ptyProcess.write(keyData);
+        writeToTransport(keyData);
       } catch (err) {
         if (!ended && target) {
           call.write({
@@ -394,12 +429,12 @@ export function handleAttachSession(
       }
     }
 
-    // Handle resize — resize the PTY directly (ioctl TIOCSWINSZ)
+    // Handle resize
     if (input.resize) {
       const { cols, rows } = input.resize;
       if (cols > 0 && rows > 0 && cols <= MAX_COLS && rows <= MAX_ROWS) {
         try {
-          ptyProcess.resize(cols, rows);
+          resizeTransport(cols, rows);
         } catch { /* best-effort resize */ }
 
         // Update DB cols/rows (best-effort)
@@ -413,13 +448,70 @@ export function handleAttachSession(
     }
   }
 
+  /** Stream output data to gRPC client and entry recorder. */
+  function streamOutput(data: Buffer | string): void {
+    if (ended) return;
+    const buf = typeof data === 'string' ? Buffer.from(data) : data;
+    const str = typeof data === 'string' ? data : data.toString();
+
+    const ok = call.write({ data: buf });
+    if (!ok && !waitingForDrain) {
+      waitingForDrain = true;
+      if (ptyProcess) { try { ptyProcess.pause(); } catch { /* best-effort */ } }
+      call.once('drain', () => {
+        waitingForDrain = false;
+        if (!ended && ptyProcess) {
+          try { ptyProcess.resume(); } catch { /* best-effort */ }
+        }
+      });
+    }
+
+    if (target) {
+      entryRecorder.record({
+        session_id: target.sessionId,
+        pane_id: target.paneId,
+        namespace: target.namespace,
+        kind: 'output',
+        content: str,
+        metadata: { source: sshChannel ? 'ssh_stream' : 'pty_stream' },
+      });
+    }
+  }
+
+  /** Handle transport exit/close and persist status to DB (#2102). */
+  function handleTransportExit(exitCode: number): void {
+    if (ended) return;
+    const newStatus = exitCode === 0 ? 'terminated' : 'disconnected';
+    if (target) {
+      call.write({
+        event: {
+          type: 'status_change',
+          message: newStatus,
+          session_id: target.sessionId,
+          host_key: null,
+        },
+      });
+
+      const now = new Date().toISOString();
+      pool.query(
+        `UPDATE terminal_session
+         SET status = $1, exit_code = $2,
+             terminated_at = CASE WHEN $1 = 'terminated' THEN $3::timestamptz ELSE terminated_at END,
+             updated_at = $3
+         WHERE id = $4`,
+        [newStatus, exitCode, now, target.sessionId],
+      ).catch(() => { /* best-effort DB update */ });
+    }
+    cleanup();
+    call.end();
+  }
+
   call.on('data', (input: TerminalInput) => {
     if (ended) return;
 
     // First message must carry session_id to identify the session
     if (!initialized) {
       if (initializing) {
-        // Queue messages during initialization instead of dropping them
         if (pendingMessages.length < MAX_PENDING) {
           pendingMessages.push(input);
         }
@@ -436,13 +528,12 @@ export function handleAttachSession(
 
       initializing = true;
 
-      // Resolve session target, then spawn PTY
       resolveSessionPaneTarget(pool, input.session_id, '')
         .then(async (resolved) => {
           if (ended) return;
           target = resolved;
 
-          // Read stored dimensions from DB for initial PTY size
+          // Read stored dimensions from DB for initial size
           let cols = 120;
           let rows = 40;
           try {
@@ -457,7 +548,7 @@ export function handleAttachSession(
             }
           } catch { /* use defaults */ }
 
-          // Apply any queued resize before spawning the PTY
+          // Apply any queued resize before setting up transport
           for (const msg of pendingMessages) {
             if (msg.resize && msg.resize.cols > 0 && msg.resize.rows > 0
                 && msg.resize.cols <= MAX_COLS && msg.resize.rows <= MAX_ROWS) {
@@ -468,7 +559,7 @@ export function handleAttachSession(
 
           if (ended) return;
 
-          // Validate tmux session name to prevent target syntax abuse (defense-in-depth)
+          // Validate tmux session name (defense-in-depth)
           if (!/^[a-zA-Z0-9_-]+$/.test(target.tmuxSessionName)) {
             call.emit('error', {
               code: grpc.status.INVALID_ARGUMENT,
@@ -477,84 +568,77 @@ export function handleAttachSession(
             return;
           }
 
-          // Spawn tmux attach via node-pty for real PTY streaming
-          // Dynamic import to avoid loading native module at module-level
-          // (prevents failures in tests/CI that import terminal-io transitively)
-          const { spawn: ptySpawn } = await import('node-pty');
-          const pty = ptySpawn(
-            'tmux',
-            ['attach-session', '-t', target.tmuxSessionName],
-            {
-              cols,
-              rows,
-              name: 'xterm-256color',
-              cwd: '/tmp',
-            },
+          // Determine if this is a local or SSH session (#2252)
+          const connResult = await pool.query<{ is_local: boolean }>(
+            `SELECT is_local FROM terminal_connection WHERE id = $1`,
+            [target.connectionId],
           );
+          const isLocal = connResult.rows.length === 0 || connResult.rows[0].is_local;
 
-          ptyProcess = pty;
-          initialized = true;
+          if (isLocal) {
+            // ── Local: spawn tmux attach via node-pty ──────────
+            // Dynamic import avoids loading native module at module-level
+            const { spawn: ptySpawn } = await import('node-pty');
+            const pty = ptySpawn(
+              'tmux',
+              ['attach-session', '-t', target.tmuxSessionName],
+              { cols, rows, name: 'xterm-256color', cwd: '/tmp' },
+            );
 
-          // Stream PTY output to gRPC client with backpressure (#2117)
-          dataDisposable = pty.onData((data: string) => {
-            if (ended) return;
+            ptyProcess = pty;
+            initialized = true;
 
-            const ok = call.write({ data: Buffer.from(data) });
-            if (!ok && !waitingForDrain) {
-              // Backpressure: pause PTY until gRPC stream drains.
-              // Guard with waitingForDrain to avoid stacking drain listeners.
-              waitingForDrain = true;
-              try { pty.pause(); } catch { /* best-effort pause */ }
-              call.once('drain', () => {
-                waitingForDrain = false;
-                if (!ended) {
-                  try { pty.resume(); } catch { /* best-effort resume */ }
-                }
+            dataDisposable = pty.onData((data: string) => streamOutput(data));
+            exitDisposable = pty.onExit(({ exitCode }) => handleTransportExit(exitCode));
+          } else {
+            // ── SSH: run tmux attach on remote host via ssh2 (#2252) ──────────
+            // NOTE: This calls ssh2 Client.exec() (SSH protocol remote execution),
+            // NOT child_process.exec(). No local shell is involved. The tmux session
+            // name is validated above against /^[a-zA-Z0-9_-]+$/.
+            const sshResult = await sshManager.getConnection(target.connectionId);
+            if (!sshResult?.client) {
+              call.emit('error', {
+                code: grpc.status.UNAVAILABLE,
+                message: `SSH connection unavailable for ${target.connectionId}`,
               });
+              return;
             }
 
-            // Record output for session history
-            if (target) {
-              entryRecorder.record({
-                session_id: target.sessionId,
-                pane_id: target.paneId,
-                namespace: target.namespace,
-                kind: 'output',
-                content: data,
-                metadata: { source: 'pty_stream' },
-              });
-            }
-          });
+            // Determine command: tmux attach if available, plain shell if no-tmux (#2252)
+            const noTmux = target!.tags.includes('no-tmux');
+            const remoteCmd = noTmux
+              ? undefined // plain interactive shell
+              : `tmux attach-session -t ${target!.tmuxSessionName}`;
 
-          // Handle PTY exit (tmux session terminated or detached)
-          // Also persist status to DB so it survives reconnection (#2102).
-          exitDisposable = pty.onExit(({ exitCode }) => {
-            if (ended) return;
-            const newStatus = exitCode === 0 ? 'terminated' : 'disconnected';
-            if (target) {
-              call.write({
-                event: {
-                  type: 'status_change',
-                  message: newStatus,
-                  session_id: target.sessionId,
-                  host_key: null,
-                },
-              });
+            const channel = await new Promise<ClientChannel>((resolve, reject) => {
+              if (remoteCmd) {
+                // tmux attach via SSH exec with PTY
+                sshResult.client!.exec(
+                  remoteCmd,
+                  { pty: { cols, rows, term: 'xterm-256color' } },
+                  (err: Error | undefined, ch: ClientChannel) => {
+                    if (err) reject(err);
+                    else resolve(ch);
+                  },
+                );
+              } else {
+                // Plain interactive SSH shell (no tmux on remote host)
+                sshResult.client!.shell(
+                  { cols, rows, term: 'xterm-256color' },
+                  (err: Error | undefined, ch: ClientChannel) => {
+                    if (err) reject(err);
+                    else resolve(ch);
+                  },
+                );
+              }
+            });
 
-              // Persist terminal status to DB (#2102)
-              const now = new Date().toISOString();
-              pool.query(
-                `UPDATE terminal_session
-                 SET status = $1, exit_code = $2,
-                     terminated_at = CASE WHEN $1 = 'terminated' THEN $3::timestamptz ELSE terminated_at END,
-                     updated_at = $3
-                 WHERE id = $4`,
-                [newStatus, exitCode, now, target.sessionId],
-              ).catch(() => { /* best-effort DB update */ });
-            }
-            cleanup();
-            call.end();
-          });
+            sshChannel = channel;
+            initialized = true;
+
+            channel.on('data', (data: Buffer) => streamOutput(data));
+            channel.on('close', (code: number) => handleTransportExit(code ?? 0));
+          }
 
           // Send attached event
           call.write({
@@ -566,7 +650,7 @@ export function handleAttachSession(
             },
           });
 
-          // Replay queued messages (keystrokes, remaining resizes)
+          // Replay queued messages
           for (const msg of pendingMessages) {
             handleInput(msg);
           }
@@ -582,14 +666,12 @@ export function handleAttachSession(
       return;
     }
 
-    // PTY is ready — handle input directly
+    // Transport is ready — handle input directly
     handleInput(input);
   });
 
   call.on('end', () => {
     cleanup();
-    // Don't call call.end() here — the stream already ended from the client side.
-    // The PTY onExit handler calls call.end() when the PTY exits first.
   });
 
   call.on('error', () => {

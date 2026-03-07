@@ -324,6 +324,8 @@ function buildHandlers(
       handleCreateSession(req, pool, tmuxManager, sshManager, config.workerId)
         .then((result) => callback(null, result))
         .catch((err) => {
+          const message = err instanceof Error ? err.message : String(err);
+          console.error('gRPC CreateSession error:', message, traceId ? traceLogContext(traceId, 'grpc') : '');
           callback(mapErrorToGrpcStatus(err));
         });
     },
@@ -396,7 +398,7 @@ function buildHandlers(
         });
         return;
       }
-      handleAttachSession(call, pool, tmuxManager, entryRecorder);
+      handleAttachSession(call, pool, tmuxManager, entryRecorder, sshManager);
     },
 
     SendCommand: (
