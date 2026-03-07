@@ -94,3 +94,45 @@ export type {
   ExitAnalysis,
   AgentLaunchConfig,
 } from './agent-runner.js';
+
+// Cleanup Queue & Orphan Detection (#2213)
+export {
+  CleanupSweeper,
+  identifyOrphanedContainers,
+  identifyStaleWorktrees,
+  identifyExpiredSecrets,
+  checkCleanupSlo,
+  shouldDeferCleanup,
+  CLEANUP_RETENTION_DAYS,
+  DEFERRED_GC_HOURS,
+  MAX_CLEANUP_BACKLOG_AGE_SECONDS,
+  MAX_CLEANUP_BACKLOG_SIZE,
+  CRITICAL_BACKLOG_AGE_SECONDS,
+} from './cleanup.js';
+export type {
+  ContainerRecord,
+  WorkspaceRecord,
+  SecretDeploymentRecord,
+  CleanupItem,
+  OrphanCandidate,
+  CleanupResult,
+  SloViolation,
+  SloStatus,
+  CleanupContext,
+} from './cleanup.js';
+
+// Secret Lifecycle Management (#2214)
+export {
+  SecretDeploymentTracker,
+  validateSecretPreProvisioning,
+  detectSecretRotation,
+  getRedactionPatterns,
+  DEFAULT_ROTATION_POLL_INTERVAL_MS,
+} from './secret-lifecycle.js';
+export type {
+  SecretDeployment,
+  CreateDeploymentInput,
+  SecretRotationResult,
+  ValidationResult,
+  RedactionPattern,
+} from './secret-lifecycle.js';
