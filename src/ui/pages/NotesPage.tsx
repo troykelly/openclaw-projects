@@ -197,14 +197,6 @@ function NotesPageContent(): React.JSX.Element {
     return false;
   }, [view, notesLoading, notesError, notesData, notes]);
 
-  // Get API note for current note (needed for save operations)
-  const currentApiNote = useMemo(() => {
-    if (view.type === 'detail' || view.type === 'history') {
-      return notesData?.notes.find((n) => n.id === view.noteId);
-    }
-    return undefined;
-  }, [notesData?.notes, view]);
-
   // Build URL path based on current state
   const buildNotePath = useCallback(
     (noteId?: string, nbId?: string) => {
@@ -281,7 +273,10 @@ function NotesPageContent(): React.JSX.Element {
         setView({ type: 'detail', noteId: newNote.id });
         // Update URL to include the new note ID
         navigateInternal(buildNotePath(newNote.id, newNote.notebook_id ?? undefined));
-      } else if (view.type === 'detail' && currentApiNote) {
+      } else if (view.type === 'detail') {
+        if (!view.noteId) {
+          throw new Error('Cannot save: note ID is missing');
+        }
         const body: UpdateNoteBody = {
           title: data.title,
           content: data.content,
@@ -289,10 +284,10 @@ function NotesPageContent(): React.JSX.Element {
           visibility: data.visibility,
           hide_from_agents: data.hide_from_agents,
         };
-        await updateNoteMutation.mutateAsync({ id: currentApiNote.id, body });
+        await updateNoteMutation.mutateAsync({ id: view.noteId, body });
       }
     },
-    [view, currentApiNote, selectedNotebookId, createNoteMutation, updateNoteMutation, navigateInternal, buildNotePath],
+    [view, selectedNotebookId, createNoteMutation, updateNoteMutation, navigateInternal, buildNotePath],
   );
 
   const handleDeleteNote = useCallback((note: UINote) => {
