@@ -112,22 +112,25 @@ function makeSymphonyRun(overrides: Record<string, unknown> = {}) {
     namespace: 'default',
     work_item_id: 'wi-1',
     project_id: 'proj-1',
-    workspace_id: null,
-    claim_id: null,
-    orchestrator_id: null,
-    attempt: 1,
+    work_item_title: null,
+    github_issue_number: null,
+    github_repo: null,
+    github_org: null,
     status: 'succeeded',
     stage: 'terminal',
-    state_version: 1,
-    trace_id: null,
-    branch_name: 'issue/123-fix',
-    pr_number: 42,
-    pr_url: 'https://github.com/org/repo/pull/42',
-    manifest: null,
-    tokens_used: 50000,
-    cost_usd: 0.05,
+    trigger: null,
+    host_id: null,
+    session_id: null,
+    agent_type: null,
+    token_count: 50000,
+    estimated_cost_usd: 0.05,
     error_message: null,
-    error_code: null,
+    retry_count: 1,
+    max_retries: 3,
+    priority: 0,
+    dispatch_reasoning: null,
+    terminal_output_snapshot: null,
+    claimed_at: null,
     started_at: '2026-03-01T10:00:00Z',
     completed_at: '2026-03-01T10:30:00Z',
     created_at: '2026-03-01T10:00:00Z',
@@ -420,7 +423,7 @@ describe('ProjectDetailPage — Symphony tab', () => {
     setupProjectMocks({
       id: 'config-1',
       project_id: 'proj-1',
-      config: { enabled: true, max_concurrency: 2, budget_usd: 100 },
+      enabled: true, config: { max_concurrent_agents: 2, daily_budget_usd: 100 },
     });
 
     await renderProjectDetail();
@@ -458,7 +461,7 @@ describe('ProjectDetailPage — Symphony tab', () => {
     setupProjectMocks({
       id: 'config-1',
       project_id: 'proj-1',
-      config: { enabled: true, max_concurrency: 2, budget_usd: 100 },
+      enabled: true, config: { max_concurrent_agents: 2, daily_budget_usd: 100 },
     });
 
     await renderProjectDetailWithView('symphony');
@@ -476,7 +479,8 @@ describe('ProjectDetailPage — Symphony tab', () => {
     setupProjectMocks({
       id: 'config-1',
       project_id: 'proj-1',
-      config: { enabled: true },
+      enabled: true,
+      config: {},
     });
 
     // Override runs response
@@ -498,7 +502,7 @@ describe('ProjectDetailPage — Symphony tab', () => {
       }
       if (url.includes('/symphony/config/proj-1')) {
         return Promise.resolve({
-          data: { id: 'config-1', project_id: 'proj-1', config: { enabled: true } },
+          data: { id: 'config-1', project_id: 'proj-1', enabled: true, config: {} },
         });
       }
       if (url.includes('/symphony/runs')) {
@@ -561,7 +565,7 @@ describe('WorkItemDetailPage — Symphony run history', () => {
       }
       if (url.includes('/symphony/config')) {
         return Promise.resolve({
-          data: { id: 'config-1', config: { enabled: true } },
+          data: { id: 'config-1', enabled: true, config: {} },
         });
       }
       // Default: empty responses for all other endpoints
@@ -593,8 +597,8 @@ describe('WorkItemDetailPage — Symphony run history', () => {
 
   it('renders Symphony section with run history', async () => {
     setupWorkItemMocks([
-      makeSymphonyRun({ id: 'run-1', attempt: 1, status: 'succeeded' }),
-      makeSymphonyRun({ id: 'run-2', attempt: 2, status: 'failed', error_message: 'Test failed' }),
+      makeSymphonyRun({ id: 'run-1', retry_count: 1, status: 'succeeded' }),
+      makeSymphonyRun({ id: 'run-2', retry_count: 2, status: 'failed', error_message: 'Test failed' }),
     ]);
 
     await renderWorkItemDetail();
@@ -677,7 +681,7 @@ describe('WorkItemDetailPage — Symphony run history', () => {
 
   it('links run entries to run detail page', async () => {
     setupWorkItemMocks([
-      makeSymphonyRun({ id: 'run-linked', attempt: 1, status: 'succeeded' }),
+      makeSymphonyRun({ id: 'run-linked', retry_count: 1, status: 'succeeded' }),
     ]);
 
     await renderWorkItemDetail();

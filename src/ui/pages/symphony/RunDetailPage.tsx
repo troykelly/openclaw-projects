@@ -110,11 +110,13 @@ function formatTimestamp(ts: string): string {
   return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
-/** Validate that a URL uses https: or http: protocol (no javascript:, data:, etc.). */
+/** Validate that a URL points to a known trusted host (GitHub). */
 function isSafeUrl(url: string): boolean {
   try {
     const parsed = new URL(url);
-    return parsed.protocol === 'https:' || parsed.protocol === 'http:';
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return false;
+    const host = parsed.hostname.toLowerCase();
+    return host === 'github.com' || host.endsWith('.github.com');
   } catch {
     return false;
   }

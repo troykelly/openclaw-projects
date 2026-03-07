@@ -468,18 +468,19 @@ function ProjectSymphonyView({ project_id }: { project_id: string }): React.JSX.
         <Wand2 className="mx-auto size-8 mb-2 opacity-40" />
         <p className="text-sm">Symphony is not enabled for this project.</p>
         <Button variant="outline" size="sm" className="mt-3" asChild>
-          <Link to={`/symphony/config/${project_id}`}>Enable Symphony</Link>
+          <Link to={`/projects/${project_id}/symphony`}>Enable Symphony</Link>
         </Button>
       </div>
     );
   }
 
-  const rawConfig = configResponse.data?.config ?? {};
-  // Narrow config fields to expected types — config is stored as JSONB
+  const configData = configResponse.data;
+  const rawConfig = configData?.config ?? {};
+  // Narrow config fields to expected types — config fields match SymphonyConfig type
   const config = {
-    enabled: typeof rawConfig.enabled === 'boolean' ? rawConfig.enabled : false,
-    budget_usd: typeof rawConfig.budget_usd === 'number' ? rawConfig.budget_usd : null,
-    max_concurrency: typeof rawConfig.max_concurrency === 'number' ? rawConfig.max_concurrency : null,
+    enabled: typeof configData?.enabled === 'boolean' ? configData.enabled : false,
+    budget_usd: typeof rawConfig.daily_budget_usd === 'number' ? rawConfig.daily_budget_usd : null,
+    max_concurrency: typeof rawConfig.max_concurrent_agents === 'number' ? rawConfig.max_concurrent_agents : null,
   };
   const runs: SymphonyRun[] = Array.isArray(runsResponse?.data) ? runsResponse.data : [];
 
@@ -491,7 +492,7 @@ function ProjectSymphonyView({ project_id }: { project_id: string }): React.JSX.
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-medium">Configuration</h3>
             <Button variant="outline" size="sm" asChild>
-              <Link to={`/symphony/config/${project_id}`}>
+              <Link to={`/projects/${project_id}/symphony`}>
                 <ExternalLink className="mr-1 size-3" />
                 Full Config
               </Link>
@@ -544,9 +545,9 @@ function ProjectSymphonyView({ project_id }: { project_id: string }): React.JSX.
                     <Badge variant={run.status === 'succeeded' ? 'default' : run.status === 'failed' ? 'destructive' : 'secondary'}>
                       {run.status}
                     </Badge>
-                    <span className="text-sm">Attempt #{run.attempt}</span>
-                    {run.cost_usd != null && (
-                      <span className="text-xs text-muted-foreground">${run.cost_usd.toFixed(4)}</span>
+                    <span className="text-sm">Retry #{run.retry_count}</span>
+                    {run.estimated_cost_usd != null && (
+                      <span className="text-xs text-muted-foreground">${run.estimated_cost_usd.toFixed(4)}</span>
                     )}
                   </div>
                   <Link

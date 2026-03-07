@@ -87,7 +87,8 @@ export function useSymphonyWebSocket({
 
         if (msg.type === 'auth_failed' || msg.type === 'auth_error') {
           setStatus('error');
-          // Close the connection on auth failure to prevent hanging
+          // Prevent reconnect loop on persistent auth failure
+          manualDisconnectRef.current = true;
           if (wsRef.current) {
             wsRef.current.close();
             wsRef.current = null;

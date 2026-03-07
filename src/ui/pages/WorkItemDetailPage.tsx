@@ -1065,12 +1065,12 @@ export function WorkItemDetailPage(): React.JSX.Element {
                               >
                                 {run.status}
                               </Badge>
-                              <span className="text-muted-foreground">#{run.attempt}</span>
+                              <span className="text-muted-foreground">#{run.retry_count}</span>
                               {duration != null && (
                                 <span className="text-xs text-muted-foreground">{duration}m</span>
                               )}
-                              {run.cost_usd != null && (
-                                <span className="text-xs text-muted-foreground">${run.cost_usd.toFixed(4)}</span>
+                              {run.estimated_cost_usd != null && (
+                                <span className="text-xs text-muted-foreground">${run.estimated_cost_usd.toFixed(4)}</span>
                               )}
                             </div>
                             <Link
