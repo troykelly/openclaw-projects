@@ -41,8 +41,15 @@ const PantryPage = React.lazy(() => import('@/ui/pages/PantryPage.js').then((m) 
 const VoicePage = React.lazy(() => import('@/ui/pages/VoicePage.js').then((m) => ({ default: m.VoicePage })));
 const DevSessionsPage = React.lazy(() => import('@/ui/pages/DevSessionsPage.js').then((m) => ({ default: m.DevSessionsPage })));
 const DevPromptsPage = React.lazy(() => import('@/ui/pages/DevPromptsPage.js').then((m) => ({ default: m.DevPromptsPage })));
+const SymphonyDashboardPage = React.lazy(() => import('@/ui/pages/SymphonyDashboardPage.js').then((m) => ({ default: m.SymphonyDashboardPage })));
+const SymphonyConfigPage = React.lazy(() => import('@/ui/pages/SymphonyConfigPage.js').then((m) => ({ default: m.SymphonyConfigPage })));
 const OAuthCallbackPage = React.lazy(() => import('@/ui/pages/OAuthCallbackPage.js').then((m) => ({ default: m.OAuthCallbackPage })));
 const AuthConsumePage = React.lazy(() => import('@/ui/pages/AuthConsumePage.js').then((m) => ({ default: m.AuthConsumePage })));
+
+// Symphony pages (Epic #2186)
+const SymphonyRunDetailPage = React.lazy(() => import('@/ui/pages/symphony/RunDetailPage.js').then((m) => ({ default: m.RunDetailPage })));
+const SymphonyHostHealthPage = React.lazy(() => import('@/ui/pages/symphony/HostHealthPage.js').then((m) => ({ default: m.HostHealthPage })));
+const SymphonyToolConfigPage = React.lazy(() => import('@/ui/pages/symphony/ToolConfigPage.js').then((m) => ({ default: m.ToolConfigPage })));
 
 // Terminal pages (Epic #1667)
 const TerminalDashboardPage = React.lazy(() => import('@/ui/pages/terminal/TerminalDashboardPage.js').then((m) => ({ default: m.TerminalDashboardPage })));
@@ -223,6 +230,20 @@ export const routes: RouteObject[] = [
       {
         path: 'dev-prompts',
         element: lazy(DevPromptsPage),
+      },
+      // Symphony routes (Epic #2186)
+      {
+        path: 'symphony',
+        children: [
+          { index: true, element: lazy(SymphonyDashboardPage) },
+          { path: 'runs/:id', element: lazy(SymphonyRunDetailPage) },
+          { path: 'hosts', element: lazy(SymphonyHostHealthPage) },
+          { path: 'tools', element: lazy(SymphonyToolConfigPage) },
+        ],
+      },
+      {
+        path: 'projects/:id/symphony',
+        element: lazy(SymphonyConfigPage),
       },
       {
         path: 'skill-store',

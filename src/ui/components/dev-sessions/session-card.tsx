@@ -1,9 +1,10 @@
 /**
  * Card displaying a dev session's key info and status.
  */
+import { Link } from 'react-router';
 import { Badge } from '@/ui/components/ui/badge';
 import { Button } from '@/ui/components/ui/button';
-import { CheckIcon, TrashIcon, GitBranchIcon } from 'lucide-react';
+import { CheckIcon, TrashIcon, GitBranchIcon, Wand2 } from 'lucide-react';
 import type { DevSession } from '@/ui/lib/api-types';
 
 const STATUS_VARIANTS: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
@@ -28,6 +29,21 @@ export function SessionCard({ session, onComplete, onDelete }: SessionCardProps)
           <Badge variant={STATUS_VARIANTS[session.status] ?? 'secondary'}>
             {session.status}
           </Badge>
+          {session.orchestrated && (
+            <Badge variant="outline" className="text-xs text-purple-600 dark:text-purple-400" data-testid={`orchestrated-badge-${session.id}`}>
+              <Wand2 className="mr-1 h-3 w-3" />
+              orchestrated
+            </Badge>
+          )}
+          {session.orchestrated && session.symphony_run_id && (
+            <Link
+              to={`/symphony/runs/${session.symphony_run_id}`}
+              className="text-xs text-primary hover:underline"
+              data-testid={`symphony-run-link-${session.id}`}
+            >
+              View Run
+            </Link>
+          )}
           {session.context_pct != null && (
             <span className={`text-xs ${session.context_pct < 10 ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
               {session.context_pct}% ctx
