@@ -1964,6 +1964,7 @@ export interface DevPromptRenderResult {
 // Symphony Orchestration (Epic #2186)
 // ---------------------------------------------------------------------------
 
+
 /** Status of a symphony run. */
 export type SymphonyRunStatus =
   | 'unclaimed' | 'claimed' | 'provisioning' | 'prompting' | 'running'
@@ -1973,7 +1974,60 @@ export type SymphonyRunStatus =
   | 'terminating' | 'paused' | 'orphaned' | 'cleanup_failed'
   | 'retry_queued' | 'released';
 
-/** A symphony run record. */
+/** Provisioning pipeline step status. */
+export type SymphonyStepStatus = 'pending' | 'running' | 'completed' | 'failed' | 'rolled_back' | 'skipped';
+
+/** A single step in the provisioning pipeline. */
+export interface SymphonyProvisioningStep {
+  step: string;
+  status: SymphonyStepStatus;
+  started_at: string | null;
+  completed_at: string | null;
+  duration_ms: number | null;
+  error: string | null;
+}
+
+/** Run event log entry. */
+export interface SymphonyRunEvent {
+  id: string;
+  run_id: string;
+  event_type: string;
+  from_state: string | null;
+  to_state: string | null;
+  trigger: string | null;
+  detail: string | null;
+  created_at: string;
+}
+
+/** Token/cost breakdown for a run. */
+export interface SymphonyTokenBreakdown {
+  model: string | null;
+  input_tokens: number;
+  output_tokens: number;
+  estimated_cost_usd: number;
+  project_average_cost_usd: number | null;
+}
+
+/** Previous attempt summary for failure aggregation. */
+export interface SymphonyAttemptSummary {
+  run_id: string;
+  attempt_number: number;
+  status: string;
+  failure_class: string | null;
+  error_summary: string | null;
+  tokens_used: number;
+  created_at: string;
+}
+
+/** Run manifest for reproducibility/audit. */
+export interface SymphonyRunManifest {
+  tool_versions: Record<string, string>;
+  prompt_hash: string | null;
+  secret_versions: Record<string, string>;
+  branch_sha: string | null;
+}
+
+/** A symphony run record (dashboard/list view). */
 export interface SymphonyRun {
   id: string;
   namespace: string;
@@ -2004,12 +2058,66 @@ export interface SymphonyRun {
   updated_at: string;
 }
 
-/** Paginated response wrapper for runs. */
-export interface SymphonyRunsResponse {
+/** Full run detail from GET /api/symphony/runs/:id. */
+export interface SymphonyRunDetail {
+  id: string;
+  namespace: string;
+  project_id: string;
+  work_item_id: string | null;
+  work_item_title: string | null;
+  host_id: string | null;
+  host_name: string | null;
+  tool_config_id: string | null;
+  tool_name: string | null;
+  status: string;
+  stage: string | null;
+  trigger: string;
+  attempt_number: number;
+  branch_name: string | null;
+  pr_url: string | null;
+  pr_number: number | null;
+  issue_url: string | null;
+  terminal_session_id: string | null;
+  provisioning_steps: SymphonyProvisioningStep[];
+  events: SymphonyRunEvent[];
+  token_breakdown: SymphonyTokenBreakdown;
+  failure_history: SymphonyAttemptSummary[];
+  manifest: SymphonyRunManifest;
+  error_message: string | null;
+  failure_class: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Summary run item for list endpoints. */
+export interface SymphonyRunSummary {
+  id: string;
+  project_id: string;
+  work_item_title: string | null;
+  host_name: string | null;
+  tool_name: string | null;
+  status: string;
+  stage: string | null;
+  trigger: string;
+  attempt_number: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Paginated response wrapper for runs (dashboard). */
+export interface SymphonyDashboardRunsResponse {
   data: SymphonyRun[];
   total: number;
   limit: number;
   offset: number;
+}
+
+/** Response from GET /api/symphony/runs. */
+export interface SymphonyRunsResponse {
+  runs: SymphonyRunSummary[];
+  total: number;
 }
 
 /** Dashboard status summary (GET /symphony/dashboard/status). */
@@ -2018,19 +2126,55 @@ export interface SymphonyDashboardStatus {
   last_heartbeat: { last_heartbeat: string } | null;
 }
 
-/** Host entry from the dashboard. */
+/** Host status type. */
+export type SymphonyHostStatus = 'online' | 'degraded' | 'offline';
+
+/** Container summary on a host. */
+export interface SymphonyContainerInfo {
+  id: string;
+  name: string;
+  status: string;
+  ttl_remaining_s: number | null;
+  run_id: string | null;
+}
+
+/** Cleanup item on a host. */
+export interface SymphonyCleanupItem {
+  id: string;
+  resource_type: string;
+  resource_id: string;
+  status: string;
+  created_at: string;
+}
+
+/** Host detail. */
 export interface SymphonyHost {
   id: string;
   namespace: string;
-  project_id: string;
+  project_id?: string;
   connection_id: string;
   connection_name: string | null;
+  status?: SymphonyHostStatus;
+  health_status?: string;
   priority: number;
+  active_sessions?: number;
+  active_runs?: number;
   max_concurrent_sessions: number;
-  health_status: string;
-  active_runs: number;
+  disk_usage_bytes?: number | null;
+  disk_total_bytes?: number | null;
+  containers?: SymphonyContainerInfo[];
+  cleanup_items?: SymphonyCleanupItem[];
+  circuit_breaker_state?: string;
+  circuit_breaker_failures?: number;
+  is_draining?: boolean;
+  last_health_check_at?: string | null;
   created_at: string;
   updated_at: string;
+}
+
+/** Response from GET /api/symphony/hosts. */
+export interface SymphonyHostsResponse {
+  hosts: SymphonyHost[];
 }
 
 /** Dashboard hosts response. */
@@ -2107,8 +2251,47 @@ export interface SymphonyToolConfig {
   verify_command: string | null;
   min_version: string | null;
   timeout_seconds: number;
+  auth_credential_id?: string | null;
+  auth_credential_name?: string | null;
+  supports_auto_approve?: boolean;
+  supports_max_tokens?: boolean;
+  task_types?: string[];
+  is_default_for?: string[];
   created_at: string;
   updated_at: string;
+}
+
+/** Response from GET /api/symphony/tools. */
+export interface SymphonyToolsResponse {
+  tools: SymphonyToolConfig[];
+}
+
+/** Body for POST /api/symphony/tools. */
+export interface CreateSymphonyToolBody {
+  tool_name: string;
+  command: string;
+  verify_command?: string;
+  min_version?: string;
+  timeout_seconds?: number;
+  auth_credential_id?: string;
+  supports_auto_approve?: boolean;
+  supports_max_tokens?: boolean;
+  task_types?: string[];
+  is_default_for?: string[];
+}
+
+/** Body for PATCH /api/symphony/tools/:id. */
+export interface UpdateSymphonyToolBody {
+  tool_name?: string;
+  command?: string;
+  verify_command?: string;
+  min_version?: string;
+  timeout_seconds?: number;
+  auth_credential_id?: string;
+  supports_auto_approve?: boolean;
+  supports_max_tokens?: boolean;
+  task_types?: string[];
+  is_default_for?: string[];
 }
 
 /** WebSocket feed event from the server. */

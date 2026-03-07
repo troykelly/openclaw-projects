@@ -46,6 +46,11 @@ const SymphonyConfigPage = React.lazy(() => import('@/ui/pages/SymphonyConfigPag
 const OAuthCallbackPage = React.lazy(() => import('@/ui/pages/OAuthCallbackPage.js').then((m) => ({ default: m.OAuthCallbackPage })));
 const AuthConsumePage = React.lazy(() => import('@/ui/pages/AuthConsumePage.js').then((m) => ({ default: m.AuthConsumePage })));
 
+// Symphony pages (Epic #2186)
+const SymphonyRunDetailPage = React.lazy(() => import('@/ui/pages/symphony/RunDetailPage.js').then((m) => ({ default: m.RunDetailPage })));
+const SymphonyHostHealthPage = React.lazy(() => import('@/ui/pages/symphony/HostHealthPage.js').then((m) => ({ default: m.HostHealthPage })));
+const SymphonyToolConfigPage = React.lazy(() => import('@/ui/pages/symphony/ToolConfigPage.js').then((m) => ({ default: m.ToolConfigPage })));
+
 // Terminal pages (Epic #1667)
 const TerminalDashboardPage = React.lazy(() => import('@/ui/pages/terminal/TerminalDashboardPage.js').then((m) => ({ default: m.TerminalDashboardPage })));
 const TerminalConnectionsPage = React.lazy(() => import('@/ui/pages/terminal/ConnectionsPage.js').then((m) => ({ default: m.ConnectionsPage })));
@@ -229,7 +234,12 @@ export const routes: RouteObject[] = [
       // Symphony routes (Epic #2186)
       {
         path: 'symphony',
-        element: lazy(SymphonyDashboardPage),
+        children: [
+          { index: true, element: lazy(SymphonyDashboardPage) },
+          { path: 'runs/:id', element: lazy(SymphonyRunDetailPage) },
+          { path: 'hosts', element: lazy(SymphonyHostHealthPage) },
+          { path: 'tools', element: lazy(SymphonyToolConfigPage) },
+        ],
       },
       {
         path: 'projects/:id/symphony',
