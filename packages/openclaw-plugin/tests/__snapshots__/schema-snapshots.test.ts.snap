@@ -1131,6 +1131,10 @@ exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > 
       "minLength": 1,
       "type": "string",
     },
+    "namespace": {
+      "maxLength": 100,
+      "type": "string",
+    },
     "type_filter": {
       "maxLength": 200,
       "type": "string",
@@ -1154,6 +1158,10 @@ exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > 
     "contact_b": {
       "maxLength": 200,
       "minLength": 1,
+      "type": "string",
+    },
+    "namespace": {
+      "maxLength": 100,
       "type": "string",
     },
     "notes": {
