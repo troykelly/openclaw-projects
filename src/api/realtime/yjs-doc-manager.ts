@@ -201,18 +201,26 @@ export class YjsDocManager {
         console.warn(`[YjsDocManager] Large yjs_state for ${noteId}: ${state.byteLength} bytes`);
       }
 
-      // Persist with embedding skip using a transaction for SET LOCAL
-      await this.pool.query('BEGIN');
+      // Persist with embedding skip using a pinned client connection for
+      // transactional SET LOCAL (pool.query may dispatch to different backends).
+      const client = await this.pool.connect();
       try {
-        await this.pool.query(`SET LOCAL app.skip_embedding_pending = 'true'`);
-        await this.pool.query(
-          `UPDATE note SET yjs_state = $1, content = $2 WHERE id = $3`,
+        await client.query('BEGIN');
+        await client.query(`SET LOCAL app.skip_embedding_pending = 'true'`);
+        const result = await client.query(
+          `UPDATE note SET yjs_state = $1, content = $2 WHERE id = $3 AND deleted_at IS NULL`,
           [Buffer.from(state), content, noteId],
         );
-        await this.pool.query('COMMIT');
+        await client.query('COMMIT');
+
+        if ((result.rowCount ?? 0) === 0) {
+          console.warn(`[YjsDocManager] Note ${noteId} not found or deleted during persistence`);
+        }
       } catch (err) {
-        await this.pool.query('ROLLBACK').catch(() => {});
+        await client.query('ROLLBACK').catch(() => {});
         throw err;
+      } finally {
+        client.release();
       }
 
       managed.dirty = false;

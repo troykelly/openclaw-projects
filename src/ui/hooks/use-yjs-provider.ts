@@ -53,16 +53,18 @@ export function useYjsProvider(noteId: string | null): UseYjsProviderResult {
     const doc = new Y.Doc();
     const token = getAccessToken();
 
-    // Build WebSocket URL from current page location
+    // Build WebSocket URL from current page location.
+    // y-websocket WebsocketProvider connects to `${serverUrl}/${roomname}`,
+    // so with serverUrl=/yjs and roomname=noteId, it connects to /yjs/{noteId}.
     const protocol =
       typeof window !== 'undefined' && window.location.protocol === 'https:'
         ? 'wss:'
         : 'ws:';
     const host =
       typeof window !== 'undefined' ? window.location.host : 'localhost';
-    const wsUrl = `${protocol}//${host}/ws`;
+    const wsUrl = `${protocol}//${host}/yjs`;
 
-    const provider = new WebsocketProvider(wsUrl, `note:${noteId}`, doc, {
+    const provider = new WebsocketProvider(wsUrl, noteId, doc, {
       connect: true,
       params: { token: token ?? '' },
     });

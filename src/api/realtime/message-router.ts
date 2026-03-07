@@ -41,10 +41,23 @@ export class MessageRouter {
       return;
     }
 
-    if (typeof parsed.type !== 'string') return;
+    // Support both `type` and legacy `event` field for backward compatibility.
+    // The frontend realtime-context sends { event: 'connection:pong' } while
+    // newer handlers use { type: 'yjs:join' }.
+    const eventField = (parsed as Record<string, unknown>).event;
+    const msgType = typeof parsed.type === 'string'
+      ? parsed.type
+      : typeof eventField === 'string'
+        ? eventField
+        : null;
+
+    if (msgType === null) return;
+
+    // Normalize to `type` field for handlers
+    parsed.type = msgType;
 
     for (const { prefix, handler } of this.textHandlers) {
-      if (parsed.type.startsWith(prefix)) {
+      if (msgType.startsWith(prefix)) {
         handler(client, parsed);
         return;
       }

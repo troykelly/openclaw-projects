@@ -23,9 +23,16 @@ import { YjsDocManager } from '../../src/api/realtime/yjs-doc-manager.ts';
 import { userCanAccessNote } from '../../src/api/notes/service.ts';
 
 function createMockPool() {
+  const clientQuery = vi.fn().mockResolvedValue({ rows: [], rowCount: 1 });
+  const mockClient = {
+    query: clientQuery,
+    release: vi.fn(),
+  };
   return {
     query: vi.fn().mockResolvedValue({ rows: [], rowCount: 0 }),
-    connect: vi.fn(),
+    connect: vi.fn().mockResolvedValue(mockClient),
+    /** Access the mock client returned by connect() for assertions on transactional queries */
+    _mockClient: mockClient,
   };
 }
 
@@ -120,14 +127,14 @@ describe('YjsDocManager', () => {
       await manager.joinRoom('client-1', 'user@test.com', 'note-uuid-1');
       manager.markDirty('note-uuid-1');
 
-      // Reset mock to track persist calls
-      mockPool.query.mockClear();
-      mockPool.query.mockResolvedValue({ rows: [], rowCount: 0 });
+      // Reset mock to track persist calls (persistence uses pool.connect → client.query)
+      mockPool._mockClient.query.mockClear();
+      mockPool._mockClient.query.mockResolvedValue({ rows: [], rowCount: 1 });
 
       await manager.leaveRoom('client-1', 'note-uuid-1');
 
-      // Should have called persist
-      const persistCalls = mockPool.query.mock.calls.filter(
+      // Should have called persist via the connected client
+      const persistCalls = mockPool._mockClient.query.mock.calls.filter(
         (c: unknown[]) => typeof c[0] === 'string' && (c[0] as string).includes('UPDATE note SET'),
       );
       expect(persistCalls.length).toBeGreaterThan(0);
@@ -207,13 +214,13 @@ describe('YjsDocManager', () => {
   describe('markDirty and persistence', () => {
     it('debounces persistence', async () => {
       await manager.joinRoom('client-1', 'user@test.com', 'note-uuid-1');
-      mockPool.query.mockClear();
-      mockPool.query.mockResolvedValue({ rows: [], rowCount: 0 });
+      mockPool._mockClient.query.mockClear();
+      mockPool._mockClient.query.mockResolvedValue({ rows: [], rowCount: 1 });
 
       manager.markDirty('note-uuid-1');
 
       // No persist yet (debounce not elapsed)
-      const callsBeforeDebounce = mockPool.query.mock.calls.length;
+      const callsBeforeDebounce = mockPool._mockClient.query.mock.calls.length;
       expect(callsBeforeDebounce).toBe(0);
 
       // Advance past debounce
@@ -222,7 +229,7 @@ describe('YjsDocManager', () => {
       // Flush promise
       await vi.runAllTimersAsync();
 
-      const persistCalls = mockPool.query.mock.calls.filter(
+      const persistCalls = mockPool._mockClient.query.mock.calls.filter(
         (c: unknown[]) => typeof c[0] === 'string' && (c[0] as string).includes('UPDATE note SET'),
       );
       expect(persistCalls.length).toBeGreaterThan(0);

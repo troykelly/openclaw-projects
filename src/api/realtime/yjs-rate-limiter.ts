@@ -30,8 +30,20 @@ export class YjsRateLimiter {
     return this.checkBucket(this.globalBuckets, clientId, this.globalLimit);
   }
 
-  /** Remove entries older than 5 seconds */
-  cleanup(): void {
+  /** Remove all entries for a specific client (on disconnect) */
+  cleanup(clientId: string): void {
+    // Remove per-room buckets for this client
+    for (const key of this.buckets.keys()) {
+      if (key.startsWith(`${clientId}:`)) {
+        this.buckets.delete(key);
+      }
+    }
+    // Remove global bucket for this client
+    this.globalBuckets.delete(clientId);
+  }
+
+  /** Remove all stale entries older than 5 seconds */
+  cleanupStale(): void {
     const now = Date.now();
     for (const [key, bucket] of this.buckets) {
       if (now - bucket.resetAt > 4000) {

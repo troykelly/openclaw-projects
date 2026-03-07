@@ -103,6 +103,8 @@ import { createRateLimitKeyGenerator, type GetSessionEmailFn, getEndpointRateLim
 import { RealtimeHub } from './realtime/index.ts';
 import { MessageRouter } from './realtime/message-router.ts';
 import { YjsHandler } from './realtime/yjs-handler.ts';
+import { YjsDocManager } from './realtime/yjs-doc-manager.ts';
+import { YjsWsHandler } from './realtime/yjs-ws-handler.ts';
 import {
   enqueueSmsMessage,
   getPhoneNumberDetails,
@@ -1643,19 +1645,24 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   }
 
   const yjsPool = process.env.NODE_ENV !== 'test' ? createPool() : null;
+  // Legacy handler for custom binary protocol (kept for backward compat)
   const yjsHandler = yjsPool ? new YjsHandler(yjsPool, yjsEnabled) : null;
+  // Standard y-protocols handler for /yjs/:noteId endpoint
+  const yjsDocManager = yjsPool ? new YjsDocManager(yjsPool) : null;
+  const yjsWsHandler = yjsDocManager ? new YjsWsHandler(yjsDocManager) : null;
 
   // Create MessageRouter for typed WebSocket message dispatch
   const messageRouter = new MessageRouter();
 
   // Register connection handler (heartbeat pong)
+  // MessageRouter normalizes both { type: ... } and legacy { event: ... } fields.
   messageRouter.onText('connection:', (_client, parsed) => {
     if (parsed.type === 'connection:pong') {
       realtimeHub.updateClientPing(_client.client_id);
     }
   });
 
-  // Register Yjs control message handler
+  // Register Yjs control message handler (for custom binary protocol fallback)
   if (yjsHandler) {
     messageRouter.onText('yjs:', (client, parsed) => {
       yjsHandler.handleControlMessage(client, parsed as { type: string; noteId?: string }).catch((err) => {
@@ -1663,7 +1670,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       });
     });
 
-    // Register Yjs binary frame handler
     messageRouter.onBinary((client, data) => {
       yjsHandler.handleBinaryMessage(client, data);
     });
@@ -1730,10 +1736,73 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     });
   });
 
+  // Yjs collaborative editing WebSocket endpoint (Issue #2256)
+  // Uses standard y-protocols for full compatibility with y-websocket WebsocketProvider.
+  // y-websocket connects to /yjs/{noteId}?token=JWT
+  if (yjsWsHandler && yjsEnabled) {
+    app.get('/yjs/:noteId', { websocket: true }, async (socket, req) => {
+      // Authenticate via JWT from query string
+      let user_email: string | undefined;
+
+      const identity = await getAuthIdentity(req);
+      if (identity) {
+        user_email = identity.email;
+      } else if (!isAuthDisabled()) {
+        const query = req.query as { token?: string };
+        if (query.token) {
+          try {
+            const payload = await verifyAccessToken(query.token);
+            user_email = payload.sub;
+          } catch {
+            socket.close(4001, 'Unauthorized');
+            return;
+          }
+        } else {
+          socket.close(4001, 'Unauthorized');
+          return;
+        }
+      }
+
+      const noteId = (req.params as { noteId: string }).noteId;
+      const client_id = `yjs-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+      try {
+        await yjsWsHandler.handleConnection(
+          socket as unknown as Parameters<typeof yjsWsHandler.handleConnection>[0],
+          client_id,
+          user_email ?? '',
+          noteId,
+        );
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Connection failed';
+        console.error(`[Yjs] Connection error for ${noteId}:`, msg);
+        socket.close(4003, msg);
+        return;
+      }
+
+      // Handle binary Yjs protocol messages
+      socket.on('message', (data: Buffer) => {
+        yjsWsHandler.handleMessage(client_id, data);
+      });
+
+      socket.on('close', () => {
+        yjsWsHandler.handleDisconnect(client_id).catch((err) => {
+          console.error(`[Yjs] Disconnect cleanup error for ${client_id}:`, err);
+        });
+      });
+
+      socket.on('error', (err: Error) => {
+        console.error(`[Yjs] Client ${client_id} error:`, err);
+        yjsWsHandler.handleDisconnect(client_id).catch(() => {});
+      });
+    });
+  }
+
   // Realtime stats endpoint (for monitoring)
   app.get('/ws/stats', async () => ({
     connected_clients: realtimeHub.getClientCount(),
-    ...(yjsHandler ? { yjs_active_docs: yjsHandler.getDocManager().getDocCount() } : {}),
+    ...(yjsWsHandler ? { yjs_active_docs: yjsWsHandler.getDocManager().getDocCount() } : {}),
+    ...(yjsHandler ? { yjs_legacy_docs: yjsHandler.getDocManager().getDocCount() } : {}),
   }));
 
   // SSE fallback endpoint (Issue #213)
@@ -1800,8 +1869,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.addHook('onClose', async () => {
     await shutdownGatewayConnection();
     // Flush Yjs docs before shutting down (5-second timeout)
-    if (yjsHandler) {
-      const flushPromise = yjsHandler.shutdown();
+    const yjsShutdowns: Promise<void>[] = [];
+    if (yjsWsHandler) yjsShutdowns.push(yjsWsHandler.shutdown());
+    if (yjsHandler) yjsShutdowns.push(yjsHandler.shutdown());
+    if (yjsShutdowns.length > 0) {
+      const flushPromise = Promise.all(yjsShutdowns);
       const timeoutPromise = new Promise<void>((resolve) => {
         setTimeout(() => {
           console.warn('[Server] Yjs shutdown timed out after 5 seconds');

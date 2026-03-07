@@ -52,7 +52,7 @@ describe('YjsRateLimiter', () => {
     const limiter = new YjsRateLimiter(10);
     limiter.allow('client-1', 'note-1');
     vi.advanceTimersByTime(5001);
-    limiter.cleanup();
+    limiter.cleanupStale();
     expect(limiter.size()).toBe(0);
   });
 
@@ -60,7 +60,7 @@ describe('YjsRateLimiter', () => {
     const limiter = new YjsRateLimiter(10);
     limiter.allow('client-1', 'note-1');
     vi.advanceTimersByTime(500);
-    limiter.cleanup();
+    limiter.cleanupStale();
     expect(limiter.size()).toBe(1);
   });
 
@@ -80,5 +80,21 @@ describe('YjsRateLimiter', () => {
 
     vi.advanceTimersByTime(1001);
     expect(limiter.allowGlobal('client-1')).toBe(true);
+  });
+
+  it('cleanup(clientId) removes per-client entries', () => {
+    const limiter = new YjsRateLimiter(10);
+    limiter.allow('client-1', 'note-1');
+    limiter.allow('client-1', 'note-2');
+    limiter.allow('client-2', 'note-1');
+    limiter.allowGlobal('client-1');
+    limiter.allowGlobal('client-2');
+
+    expect(limiter.size()).toBe(3);
+
+    limiter.cleanup('client-1');
+
+    // Only client-2's per-room bucket should remain
+    expect(limiter.size()).toBe(1);
   });
 });

@@ -108,4 +108,26 @@ describe('MessageRouter', () => {
     // Should not throw
     router.dispatch(client, data, true);
   });
+
+  it('routes legacy { event: ... } field for backward compatibility', () => {
+    const handler = vi.fn();
+    router.onText('connection:', handler);
+
+    const client = mockClient();
+    // Frontend sends { event: 'connection:pong' } not { type: 'connection:pong' }
+    const data = JSON.stringify({ event: 'connection:pong', data: {}, timestamp: '2026-01-01T00:00:00Z' });
+    router.dispatch(client, data, false);
+
+    expect(handler).toHaveBeenCalledWith(client, expect.objectContaining({ type: 'connection:pong' }));
+  });
+
+  it('ignores text frames with neither type nor event field', () => {
+    const handler = vi.fn();
+    router.onText('connection:', handler);
+
+    const client = mockClient();
+    router.dispatch(client, JSON.stringify({ data: 'hello', action: 'subscribe' }), false);
+
+    expect(handler).not.toHaveBeenCalled();
+  });
 });
