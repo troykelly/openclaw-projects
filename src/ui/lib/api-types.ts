@@ -1959,3 +1959,162 @@ export interface DevPromptRenderResult {
   variables_used: string[];
   available_variables: DevPromptVariableDefinition[];
 }
+
+// ---------------------------------------------------------------------------
+// Symphony Orchestration (Epic #2186)
+// ---------------------------------------------------------------------------
+
+/** Status of a symphony run. */
+export type SymphonyRunStatus =
+  | 'unclaimed' | 'claimed' | 'provisioning' | 'prompting' | 'running'
+  | 'awaiting_approval' | 'verifying_result' | 'merge_pending'
+  | 'post_merge_verify' | 'issue_closing' | 'continuation_wait'
+  | 'succeeded' | 'failed' | 'stalled' | 'cancelled' | 'terminated'
+  | 'terminating' | 'paused' | 'orphaned' | 'cleanup_failed'
+  | 'retry_queued' | 'released';
+
+/** A symphony run record. */
+export interface SymphonyRun {
+  id: string;
+  namespace: string;
+  project_id: string;
+  work_item_id: string | null;
+  work_item_title?: string | null;
+  github_issue_number: number | null;
+  github_repo: string | null;
+  github_org: string | null;
+  status: SymphonyRunStatus;
+  stage: string | null;
+  trigger: string | null;
+  host_id: string | null;
+  session_id: string | null;
+  agent_type: string | null;
+  token_count: number | null;
+  estimated_cost_usd: number | null;
+  error_message: string | null;
+  retry_count: number;
+  max_retries: number;
+  priority: number;
+  dispatch_reasoning: string | null;
+  terminal_output_snapshot: string | null;
+  claimed_at: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Paginated response wrapper for runs. */
+export interface SymphonyRunsResponse {
+  data: SymphonyRun[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+/** Dashboard status summary (GET /symphony/dashboard/status). */
+export interface SymphonyDashboardStatus {
+  status_counts: Record<string, number>;
+  last_heartbeat: { last_heartbeat: string } | null;
+}
+
+/** Host entry from the dashboard. */
+export interface SymphonyHost {
+  id: string;
+  namespace: string;
+  project_id: string;
+  connection_id: string;
+  connection_name: string | null;
+  priority: number;
+  max_concurrent_sessions: number;
+  health_status: string;
+  active_runs: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Dashboard hosts response. */
+export interface SymphonyDashboardHostsResponse {
+  data: SymphonyHost[];
+}
+
+/** Dashboard health response (GET /symphony/dashboard/health). */
+export interface SymphonyDashboardHealth {
+  status: 'healthy' | 'degraded' | 'unhealthy';
+  components: Record<string, { status: string; message?: string }>;
+  active_runs: number;
+  last_poll_time: string | null;
+  circuit_breakers: Array<{ name: string; state: string; failures: number }>;
+  uptime_seconds: number;
+}
+
+/** Queue reorder body (POST /symphony/dashboard/queue/reorder). */
+export interface SymphonyQueueReorderBody {
+  run_ids: string[];
+}
+
+/** Symphony project config (GET /symphony/config/:project_id). */
+export interface SymphonyConfig {
+  id: string;
+  namespace: string;
+  project_id: string;
+  enabled: boolean;
+  config: {
+    daily_budget_usd?: number;
+    per_run_token_limit?: number;
+    polling_interval_seconds?: number;
+    max_concurrent_agents?: number;
+    retry_backoff_max_seconds?: number;
+    max_retry_attempts?: number;
+    cancellation_policy?: string;
+    implementation_agent?: string;
+    review_agent?: string;
+    triage_agent?: string;
+    notification_rules?: SymphonyNotificationRule[];
+    concurrency_limits?: Record<string, number>;
+  };
+  created_at: string;
+  updated_at: string;
+}
+
+/** Notification rule within config. */
+export interface SymphonyNotificationRule {
+  event_type: string;
+  channel: 'in_app' | 'email' | 'webhook';
+  target?: string;
+}
+
+/** Project repo entry. */
+export interface SymphonyRepo {
+  id: string;
+  namespace: string;
+  project_id: string;
+  org: string;
+  repo: string;
+  default_branch: string;
+  sync_strategy: string;
+  last_synced_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Tool config entry. */
+export interface SymphonyToolConfig {
+  id: string;
+  namespace: string;
+  tool_name: string;
+  command: string;
+  verify_command: string | null;
+  min_version: string | null;
+  timeout_seconds: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/** WebSocket feed event from the server. */
+export interface SymphonyFeedEvent {
+  type: string;
+  data: unknown;
+  timestamp: string;
+  namespace: string;
+}

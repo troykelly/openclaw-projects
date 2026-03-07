@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Bell, Folder, Users, Search, Settings, ChevronLeft, ChevronRight, Plus, Brain, MessageSquare, Package, ChefHat, UtensilsCrossed, Code, Home, Warehouse, Mic, Terminal, Globe, StickyNote, FileCode2 } from 'lucide-react';
+import { Bell, Folder, Users, Search, Settings, ChevronLeft, ChevronRight, Plus, Brain, MessageSquare, Package, ChefHat, UtensilsCrossed, Code, Home, Warehouse, Mic, Terminal, Globe, StickyNote, FileCode2, Activity } from 'lucide-react';
 import { cn } from '@/ui/lib/utils';
 import { APP_VERSION } from '@/ui/lib/version';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/ui/components/ui/tooltip';
@@ -33,6 +33,7 @@ const defaultNavItems: RouterNavItem[] = [
   { id: 'pantry', label: 'Pantry', icon: Warehouse, to: '/pantry' },
   { id: 'voice', label: 'Voice', icon: Mic, to: '/voice' },
   { id: 'terminal', label: 'Terminal', icon: Terminal, to: '/terminal' },
+  { id: 'symphony', label: 'Symphony', icon: Activity, to: '/symphony' },
   { id: 'dev-sessions', label: 'Dev Sessions', icon: Code, to: '/dev-sessions' },
   { id: 'dev-prompts', label: 'Dev Prompts', icon: FileCode2, to: '/dev-prompts' },
   { id: 'skill-store', label: 'Skill Store', icon: Package, to: '/skill-store' },
