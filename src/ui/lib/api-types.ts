@@ -954,7 +954,7 @@ export type NoteEmbeddingStatus = 'pending' | 'complete' | 'failed' | 'skipped';
 export interface Note {
   id: string;
   notebook_id: string | null;
-  user_email: string;
+  user_email?: string;
   title: string;
   content: string;
   summary: string | null;
