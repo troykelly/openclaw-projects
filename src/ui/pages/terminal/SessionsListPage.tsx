@@ -107,6 +107,9 @@ export function SessionsListPage(): React.JSX.Element {
       ) : (
         <div className="space-y-2">
           {sessions.map((session) => {
+            // Heuristic: sessions with "symphony-" prefix are created by the orchestrator.
+            // The symphony_run_terminal junction table is not exposed on TerminalSession —
+            // once the API surfaces a `purpose` field, this can be replaced.
             const isOrchestrated = session.tmux_session_name.startsWith('symphony-');
             return (
               <div key={session.id} className="flex items-center gap-2">

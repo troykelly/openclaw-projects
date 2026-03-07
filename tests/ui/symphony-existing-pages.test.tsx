@@ -733,7 +733,12 @@ describe('WorkItemDetailPage — Symphony run history', () => {
       { timeout: 5000 },
     );
 
-    // Page should still be functional — no crash
-    expect(screen.queryByText('Unable to load Symphony data')).toBeInTheDocument();
+    // Symphony error message should appear after query fails
+    await waitFor(
+      () => {
+        expect(screen.getByText('Unable to load Symphony data')).toBeInTheDocument();
+      },
+      { timeout: 5000 },
+    );
   });
 });

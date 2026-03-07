@@ -27,7 +27,7 @@ export function SessionList({ project_id, statusFilter, orchestratedFilter }: Se
     return <div className="text-sm text-muted-foreground">Loading sessions...</div>;
   }
 
-  let sessions = data?.sessions ?? [];
+  let sessions = Array.isArray(data?.sessions) ? data.sessions : [];
 
   // Client-side orchestrated filter
   if (orchestratedFilter === 'true') {

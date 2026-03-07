@@ -109,9 +109,11 @@ export function WorkItemDetailPage(): React.JSX.Element {
   const { data: instancesData } = useRecurrenceInstances(item_id);
   const { data: linkedContactsData } = useWorkItemContacts(item_id);
 
-  // Symphony orchestration data — fetches runs for this work item.
-  // Uses project_id from the work item's parent to scope the query.
-  const symphonyRunsQuery = useSymphonyRuns({ work_item_id: item_id, project_id: apiDetail?.parent_id ?? undefined });
+  // Symphony orchestration data — deferred until work item loads so we can scope by project.
+  const symphonyProjectId = apiDetail?.parent_id ?? undefined;
+  const symphonyRunsQuery = useSymphonyRuns(
+    apiDetail ? { work_item_id: item_id, project_id: symphonyProjectId } : undefined,
+  );
   const symphonyRuns = Array.isArray(symphonyRunsQuery.data?.data) ? symphonyRunsQuery.data.data : [];
   const hasActiveRun = symphonyRuns.some((r) => isActiveRun(r.status));
   const showSymphony = symphonyRuns.length > 0;

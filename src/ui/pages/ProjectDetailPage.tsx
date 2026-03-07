@@ -450,8 +450,19 @@ function ProjectSymphonyView({ project_id }: { project_id: string }): React.JSX.
     );
   }
 
-  // Symphony not configured for this project
-  if (!configResponse || configError) {
+  // API error (non-404) — show error inline, don't confuse with "not enabled"
+  if (configError) {
+    return (
+      <div className="text-center py-12 text-muted-foreground">
+        <Wand2 className="mx-auto size-8 mb-2 opacity-40" />
+        <p className="text-sm text-destructive">Unable to load Symphony configuration.</p>
+        <p className="text-xs text-muted-foreground mt-1">Check your connection and try again.</p>
+      </div>
+    );
+  }
+
+  // Symphony not configured for this project (config query returned null from 404)
+  if (!configResponse) {
     return (
       <div className="text-center py-12 text-muted-foreground">
         <Wand2 className="mx-auto size-8 mb-2 opacity-40" />
@@ -463,7 +474,13 @@ function ProjectSymphonyView({ project_id }: { project_id: string }): React.JSX.
     );
   }
 
-  const config = configResponse.data?.config ?? {};
+  const rawConfig = configResponse.data?.config ?? {};
+  // Narrow config fields to expected types — config is stored as JSONB
+  const config = {
+    enabled: typeof rawConfig.enabled === 'boolean' ? rawConfig.enabled : false,
+    budget_usd: typeof rawConfig.budget_usd === 'number' ? rawConfig.budget_usd : null,
+    max_concurrency: typeof rawConfig.max_concurrency === 'number' ? rawConfig.max_concurrency : null,
+  };
   const runs: SymphonyRun[] = Array.isArray(runsResponse?.data) ? runsResponse.data : [];
 
   return (
@@ -492,13 +509,13 @@ function ProjectSymphonyView({ project_id }: { project_id: string }): React.JSX.
             {config.budget_usd != null && (
               <div>
                 <span className="text-muted-foreground">Budget</span>
-                <p className="mt-0.5 font-medium">${String(config.budget_usd)}</p>
+                <p className="mt-0.5 font-medium">${config.budget_usd}</p>
               </div>
             )}
             {config.max_concurrency != null && (
               <div>
                 <span className="text-muted-foreground">Concurrency</span>
-                <p className="mt-0.5 font-medium">{String(config.max_concurrency)}</p>
+                <p className="mt-0.5 font-medium">{config.max_concurrency}</p>
               </div>
             )}
           </div>
