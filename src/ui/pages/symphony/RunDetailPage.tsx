@@ -110,6 +110,23 @@ function formatTimestamp(ts: string): string {
   return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
+/** Validate that a URL uses https: or http: protocol (no javascript:, data:, etc.). */
+function isSafeUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:';
+  } catch {
+    return false;
+  }
+}
+
+/** Safely extract error message from an unknown error. */
+function getErrorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  if (typeof err === 'string') return err;
+  return 'An unexpected error occurred';
+}
+
 const STEP_LABELS: Record<string, string> = {
   disk_check: 'Disk Check',
   ssh_connect: 'SSH Connect',
@@ -483,7 +500,7 @@ function RunActions({ run }: { run: SymphonyRunDetail }): React.JSX.Element {
         </Button>
       )}
 
-      {run.pr_url && (
+      {run.pr_url && isSafeUrl(run.pr_url) && (
         <Button variant="outline" size="sm" asChild data-testid="view-pr-link">
           <a href={run.pr_url} target="_blank" rel="noopener noreferrer">
             <GitPullRequest className="mr-1 size-3" />
@@ -492,7 +509,7 @@ function RunActions({ run }: { run: SymphonyRunDetail }): React.JSX.Element {
         </Button>
       )}
 
-      {run.issue_url && (
+      {run.issue_url && isSafeUrl(run.issue_url) && (
         <Button variant="outline" size="sm" asChild data-testid="view-issue-link">
           <a href={run.issue_url} target="_blank" rel="noopener noreferrer">
             <ExternalLink className="mr-1 size-3" />
@@ -549,7 +566,7 @@ export function RunDetailPage(): React.JSX.Element {
       <div data-testid="page-symphony-run-detail" className="p-6">
         <Card>
           <CardContent className="p-6 text-center text-muted-foreground">
-            {error ? `Error loading run: ${(error as Error).message}` : 'Run not found'}
+            {error ? `Error loading run: ${getErrorMessage(error)}` : 'Run not found'}
           </CardContent>
         </Card>
       </div>
@@ -563,7 +580,7 @@ export function RunDetailPage(): React.JSX.Element {
         <div>
           <div className="flex items-center gap-3 mb-1">
             <Link
-              to="/symphony"
+              to="/dashboard"
               className="text-sm text-muted-foreground hover:text-foreground"
             >
               Symphony

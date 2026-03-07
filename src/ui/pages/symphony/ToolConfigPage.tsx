@@ -47,6 +47,13 @@ import {
 } from '@/ui/hooks/queries/use-symphony-hosts';
 import type { SymphonyToolConfig, CreateSymphonyToolBody } from '@/ui/lib/api-types';
 
+/** Safely extract error message from an unknown error. */
+function getErrorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  if (typeof err === 'string') return err;
+  return 'An unexpected error occurred';
+}
+
 // ---------------------------------------------------------------------------
 // Tool Card
 // ---------------------------------------------------------------------------
@@ -70,6 +77,7 @@ function ToolCard({
             variant="ghost"
             size="sm"
             data-testid="delete-tool-button"
+            aria-label={`Delete ${tool.tool_name}`}
             onClick={() => onDelete(tool.id)}
           >
             <Trash2 className="size-4 text-muted-foreground" />
@@ -302,7 +310,7 @@ export function ToolConfigPage(): React.JSX.Element {
       <div data-testid="page-symphony-tools" className="p-6">
         <Card>
           <CardContent className="p-6 text-center text-muted-foreground">
-            Error loading tools: {(error as Error).message}
+            Error loading tools: {getErrorMessage(error)}
           </CardContent>
         </Card>
       </div>

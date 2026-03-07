@@ -71,6 +71,13 @@ function formatBytes(bytes: number): string {
   return `${gb.toFixed(1)} GB`;
 }
 
+/** Safely extract error message from an unknown error. */
+function getErrorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  if (typeof err === 'string') return err;
+  return 'An unexpected error occurred';
+}
+
 function circuitBreakerVariant(state: string): 'default' | 'secondary' | 'destructive' | 'outline' {
   switch (state) {
     case 'closed': return 'default';
@@ -120,7 +127,7 @@ function HostCard({ host }: { host: SymphonyHost }): React.JSX.Element {
             {host.active_sessions} / {host.max_concurrent_sessions}
           </span>
         </div>
-        <Progress value={(host.active_sessions / host.max_concurrent_sessions) * 100} />
+        <Progress value={host.max_concurrent_sessions > 0 ? (host.active_sessions / host.max_concurrent_sessions) * 100 : 0} />
 
         {/* Disk Usage */}
         <div data-testid="host-disk-usage">
@@ -243,7 +250,7 @@ export function HostHealthPage(): React.JSX.Element {
       <div data-testid="page-symphony-hosts" className="p-6">
         <Card>
           <CardContent className="p-6 text-center text-muted-foreground">
-            Error loading hosts: {(error as Error).message}
+            Error loading hosts: {getErrorMessage(error)}
           </CardContent>
         </Card>
       </div>
