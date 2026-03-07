@@ -162,14 +162,14 @@ function HostCard({ host }: { host: SymphonyHost }): React.JSX.Element {
         </div>
 
         {/* Containers */}
-        {host.containers.length > 0 && (
+        {(host.containers ?? []).length > 0 && (
           <div>
             <p className="text-sm text-muted-foreground mb-2 flex items-center gap-1">
               <Box className="size-3" />
-              Containers ({host.containers.length})
+              Containers ({(host.containers ?? []).length})
             </p>
             <div className="space-y-1">
-              {host.containers.map((c) => (
+              {(host.containers ?? []).map((c) => (
                 <div
                   key={c.id}
                   data-testid={`container-${c.id}`}
@@ -191,10 +191,10 @@ function HostCard({ host }: { host: SymphonyHost }): React.JSX.Element {
         )}
 
         {/* Cleanup Items */}
-        {host.cleanup_items.length > 0 && (
+        {(host.cleanup_items ?? []).length > 0 && (
           <div>
             <p className="text-xs text-muted-foreground">
-              {host.cleanup_items.length} cleanup item(s) pending
+              {(host.cleanup_items ?? []).length} cleanup item(s) pending
             </p>
           </div>
         )}

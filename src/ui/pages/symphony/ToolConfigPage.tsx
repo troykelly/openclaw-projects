@@ -156,8 +156,8 @@ function ToolCard({
         <div data-testid="tool-task-types">
           <p className="text-xs text-muted-foreground mb-1">Task Types</p>
           <div className="flex flex-wrap gap-1">
-            {tool.task_types.length > 0 ? (
-              tool.task_types.map((t) => (
+            {(tool.task_types ?? []).length > 0 ? (
+              (tool.task_types ?? []).map((t) => (
                 <Badge key={t} variant="outline" className="text-[10px]">
                   {t}
                 </Badge>
@@ -169,14 +169,14 @@ function ToolCard({
         </div>
 
         {/* Default For */}
-        {tool.is_default_for.length > 0 && (
+        {(tool.is_default_for ?? []).length > 0 && (
           <div data-testid="tool-default-for">
             <p className="text-xs text-muted-foreground flex items-center gap-1 mb-1">
               <Star className="size-3" />
               Default For
             </p>
             <div className="flex flex-wrap gap-1">
-              {tool.is_default_for.map((t) => (
+              {(tool.is_default_for ?? []).map((t) => (
                 <Badge key={t} variant="default" className="text-[10px]">
                   {t}
                 </Badge>
@@ -339,7 +339,7 @@ export function ToolConfigPage(): React.JSX.Element {
       </div>
 
       {/* Validation: check that at least one tool is default for implementation */}
-      {tools.length > 0 && !tools.some((t) => t.is_default_for.includes('implementation')) && (
+      {tools.length > 0 && !tools.some((t) => (t.is_default_for ?? []).includes('implementation')) && (
         <div className="mb-4 flex items-start gap-2 p-3 rounded-sm bg-yellow-500/10 border border-yellow-500/20">
           <AlertTriangle className="size-4 text-yellow-500 mt-0.5 flex-shrink-0" />
           <p className="text-sm text-yellow-500">
