@@ -1,7 +1,8 @@
 /**
- * TanStack Query hooks for Symphony orchestration (Epic #2186, Issue #2207).
+ * TanStack Query hooks for Symphony orchestration (Epic #2186).
  *
- * Provides queries for the Symphony dashboard and project config pages.
+ * Provides queries for the Symphony dashboard, project config,
+ * and capability hooks to gate Symphony UI elements.
  */
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/ui/lib/api-client.ts';
@@ -25,7 +26,7 @@ export const symphonyKeys = {
     [...symphonyKeys.dashboard(), 'queue', filters] as const,
   hosts: () => [...symphonyKeys.dashboard(), 'hosts'] as const,
   health: () => [...symphonyKeys.dashboard(), 'health'] as const,
-  runs: (filters?: { status?: string; project_id?: string }) =>
+  runs: (filters?: { status?: string; project_id?: string; work_item_id?: string }) =>
     [...symphonyKeys.all, 'runs', filters] as const,
   run: (id: string) => [...symphonyKeys.all, 'run', id] as const,
   config: (projectId: string) => [...symphonyKeys.all, 'config', projectId] as const,
@@ -82,21 +83,40 @@ export function useSymphonyHealth() {
   });
 }
 
-/** Fetch runs with optional filters. */
-export function useSymphonyRuns(filters?: { status?: string; project_id?: string }) {
+/** Fetch runs with optional filters (supports project_id, work_item_id, status). */
+export function useSymphonyRuns(filters?: {
+  status?: string;
+  project_id?: string;
+  work_item_id?: string;
+  limit?: number;
+}) {
   const params = new URLSearchParams();
   if (filters?.status) params.set('status', filters.status);
   if (filters?.project_id) params.set('project_id', filters.project_id);
+  if (filters?.limit) params.set('limit', String(filters.limit));
   const qs = params.toString();
+
+  // work_item_id filter is client-side since the API doesn't support it directly
+  const workItemId = filters?.work_item_id;
 
   return useQuery({
     queryKey: symphonyKeys.runs(filters),
-    queryFn: ({ signal }) =>
-      apiClient.get<SymphonyRunsResponse>(
+    queryFn: async ({ signal }) => {
+      const response = await apiClient.get<SymphonyRunsResponse>(
         `/symphony/runs${qs ? `?${qs}` : ''}`,
         { signal },
-      ),
+      );
+      // Client-side filter by work_item_id if provided
+      if (workItemId && Array.isArray(response.data)) {
+        return {
+          ...response,
+          data: response.data.filter((r: { work_item_id?: string | null }) => r.work_item_id === workItemId),
+        };
+      }
+      return response;
+    },
     refetchInterval: 10000,
+    enabled: filters?.project_id != null || filters?.work_item_id != null,
   });
 }
 
@@ -110,12 +130,24 @@ export function useSymphonyRun(id: string) {
   });
 }
 
-/** Fetch project symphony config. */
+/**
+ * Fetch project symphony config.
+ * Returns null on 404 (Symphony not configured for this project).
+ */
 export function useSymphonyConfig(projectId: string) {
   return useQuery({
     queryKey: symphonyKeys.config(projectId),
-    queryFn: ({ signal }) =>
-      apiClient.get<{ data: SymphonyConfig }>(`/symphony/config/${projectId}`, { signal }),
+    queryFn: async ({ signal }) => {
+      try {
+        return await apiClient.get<{ data: SymphonyConfig }>(`/symphony/config/${projectId}`, { signal });
+      } catch (err: unknown) {
+        // 404 means Symphony not configured for this project
+        if (err && typeof err === 'object' && 'status' in err && (err as { status: number }).status === 404) {
+          return null;
+        }
+        throw err;
+      }
+    },
     enabled: !!projectId,
   });
 }
@@ -147,4 +179,17 @@ export function useSymphonyTools() {
     queryFn: ({ signal }) =>
       apiClient.get<{ data: SymphonyToolConfig[] }>('/symphony/tools', { signal }),
   });
+}
+
+/** Terminal statuses for Symphony runs. */
+const TERMINAL_STATUSES = new Set(['succeeded', 'failed', 'cancelled', 'timed_out']);
+
+/** Check if a run status is terminal. */
+export function isTerminalStatus(status: string): boolean {
+  return TERMINAL_STATUSES.has(status);
+}
+
+/** Check if a run is actively in progress. */
+export function isActiveRun(status: string): boolean {
+  return !TERMINAL_STATUSES.has(status);
 }

@@ -18,6 +18,7 @@ import { Label } from '@/ui/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/components/ui/select';
 
 const ALL_STATUSES = 'all';
+const ALL_ORCHESTRATION = 'all';
 
 const STATUS_OPTIONS = [
   { value: ALL_STATUSES, label: 'All statuses' },
@@ -27,8 +28,15 @@ const STATUS_OPTIONS = [
   { value: 'errored', label: 'Errored' },
 ] as const;
 
+const ORCHESTRATION_OPTIONS = [
+  { value: ALL_ORCHESTRATION, label: 'All sessions' },
+  { value: 'true', label: 'Orchestrated' },
+  { value: 'false', label: 'Manual' },
+] as const;
+
 export function DevSessionsPage(): React.JSX.Element {
   const [statusFilter, setStatusFilter] = useState(ALL_STATUSES);
+  const [orchestratedFilter, setOrchestratedFilter] = useState(ALL_ORCHESTRATION);
   const [createOpen, setCreateOpen] = useState(false);
 
   return (
@@ -62,12 +70,27 @@ export function DevSessionsPage(): React.JSX.Element {
             ))}
           </SelectContent>
         </Select>
+        <Select value={orchestratedFilter} onValueChange={setOrchestratedFilter}>
+          <SelectTrigger className="w-[180px]" data-testid="orchestrated-filter">
+            <SelectValue placeholder="All sessions" />
+          </SelectTrigger>
+          <SelectContent>
+            {ORCHESTRATION_OPTIONS.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>
+                {opt.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Session list */}
       <Card className="flex-1">
         <CardContent className="p-6">
-          <SessionList statusFilter={statusFilter === ALL_STATUSES ? undefined : statusFilter} />
+          <SessionList
+            statusFilter={statusFilter === ALL_STATUSES ? undefined : statusFilter}
+            orchestratedFilter={orchestratedFilter === ALL_ORCHESTRATION ? undefined : orchestratedFilter}
+          />
         </CardContent>
       </Card>
 

@@ -753,6 +753,9 @@ export interface DevSession {
   completed_at: string | null;
   created_at: string;
   updated_at: string;
+  symphony_run_id: string | null;
+  orchestrated: boolean;
+  agent_type: string | null;
 }
 
 /** Response from GET /dev-sessions */
@@ -1961,9 +1964,6 @@ export interface DevPromptRenderResult {
 }
 
 // ---------------------------------------------------------------------------
-// Symphony Orchestration (Epic #2186)
-// ---------------------------------------------------------------------------
-
 
 /** Status of a symphony run. */
 export type SymphonyRunStatus =
@@ -2106,18 +2106,17 @@ export interface SymphonyRunSummary {
   updated_at: string;
 }
 
-/** Paginated response wrapper for runs (dashboard). */
-export interface SymphonyDashboardRunsResponse {
+/** Paginated response wrapper for runs. */
+export interface SymphonyRunsResponse {
   data: SymphonyRun[];
   total: number;
   limit: number;
   offset: number;
 }
 
-/** Response from GET /api/symphony/runs. */
-export interface SymphonyRunsResponse {
-  runs: SymphonyRunSummary[];
-  total: number;
+/** Single run response wrapper. */
+export interface SymphonyRunDetailResponse {
+  data: SymphonyRun;
 }
 
 /** Dashboard status summary (GET /symphony/dashboard/status). */
@@ -2219,6 +2218,11 @@ export interface SymphonyConfig {
   };
   created_at: string;
   updated_at: string;
+}
+
+/** Config response wrapper. */
+export interface SymphonyConfigResponse {
+  data: SymphonyConfig;
 }
 
 /** Notification rule within config. */
