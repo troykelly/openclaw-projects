@@ -753,6 +753,9 @@ export interface DevSession {
   completed_at: string | null;
   created_at: string;
   updated_at: string;
+  symphony_run_id: string | null;
+  orchestrated: boolean;
+  agent_type: string | null;
 }
 
 /** Response from GET /dev-sessions */
@@ -1958,4 +1961,65 @@ export interface DevPromptRenderResult {
   rendered: string;
   variables_used: string[];
   available_variables: DevPromptVariableDefinition[];
+}
+
+// ---------------------------------------------------------------------------
+// Symphony Orchestration (Epic #2186)
+// ---------------------------------------------------------------------------
+
+/** A Symphony orchestration run. */
+export interface SymphonyRun {
+  id: string;
+  namespace: string;
+  work_item_id: string;
+  project_id: string | null;
+  workspace_id: string | null;
+  claim_id: string | null;
+  orchestrator_id: string | null;
+  attempt: number;
+  status: string;
+  stage: string;
+  state_version: number;
+  trace_id: string | null;
+  branch_name: string | null;
+  pr_number: number | null;
+  pr_url: string | null;
+  manifest: Record<string, unknown> | null;
+  tokens_used: number | null;
+  cost_usd: number | null;
+  error_message: string | null;
+  error_code: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Paginated response from GET /symphony/runs */
+export interface SymphonyRunsResponse {
+  data: SymphonyRun[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+/** Single run response from GET /symphony/runs/:id */
+export interface SymphonyRunDetailResponse {
+  data: SymphonyRun;
+}
+
+/** Symphony orchestrator config for a project. */
+export interface SymphonyConfig {
+  id: string;
+  namespace: string;
+  project_id: string | null;
+  version: number;
+  config: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Response from GET /symphony/config/:project_id */
+export interface SymphonyConfigResponse {
+  data: SymphonyConfig;
 }

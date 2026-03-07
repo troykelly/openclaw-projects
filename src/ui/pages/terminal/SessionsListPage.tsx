@@ -13,7 +13,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ArrowLeft, Search, StopCircle, Loader2 } from 'lucide-react';
 import { SessionCard } from '@/ui/components/terminal/session-card';
 import { SessionStatusBadge } from '@/ui/components/terminal/session-status-badge';
+import { Badge } from '@/ui/components/ui/badge';
 import { useTerminalSessions, useTerminateTerminalSession } from '@/ui/hooks/queries/use-terminal-sessions';
+import { Eye, Wand2 } from 'lucide-react';
 
 const STATUS_OPTIONS = [
   { value: 'all', label: 'All Statuses' },
@@ -104,26 +106,49 @@ export function SessionsListPage(): React.JSX.Element {
         </div>
       ) : (
         <div className="space-y-2">
-          {sessions.map((session) => (
-            <div key={session.id} className="flex items-center gap-2">
-              <div className="flex-1">
-                <SessionCard session={session} />
+          {sessions.map((session) => {
+            const isOrchestrated = session.tmux_session_name.startsWith('symphony-');
+            return (
+              <div key={session.id} className="flex items-center gap-2">
+                <div className="flex-1">
+                  <SessionCard session={session} />
+                </div>
+                {isOrchestrated && (
+                  <>
+                    <Badge
+                      variant="outline"
+                      className="text-xs text-purple-600 dark:text-purple-400 shrink-0"
+                      data-testid={`purpose-badge-${session.id}`}
+                    >
+                      <Wand2 className="mr-1 h-3 w-3" />
+                      orchestrated
+                    </Badge>
+                    <Badge
+                      variant="secondary"
+                      className="text-xs shrink-0"
+                      data-testid={`read-only-indicator-${session.id}`}
+                    >
+                      <Eye className="mr-1 h-3 w-3" />
+                      read-only
+                    </Badge>
+                  </>
+                )}
+                {(session.status === 'active' || session.status === 'idle') && !isOrchestrated ? (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-red-500 shrink-0"
+                    onClick={() => terminateSession.mutate(session.id)}
+                    disabled={terminateSession.isPending}
+                    title="Terminate session"
+                    data-testid="terminate-session-btn"
+                  >
+                    <StopCircle className="size-4" />
+                  </Button>
+                ) : null}
               </div>
-              {session.status === 'active' || session.status === 'idle' ? (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="text-red-500 shrink-0"
-                  onClick={() => terminateSession.mutate(session.id)}
-                  disabled={terminateSession.isPending}
-                  title="Terminate session"
-                  data-testid="terminate-session-btn"
-                >
-                  <StopCircle className="size-4" />
-                </Button>
-              ) : null}
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

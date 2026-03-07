@@ -10,7 +10,7 @@
  */
 
 import { useQueryClient } from '@tanstack/react-query';
-import { Brain, Calendar, ChevronRight, Clock, FolderKanban, GitBranch, LayoutGrid, List } from 'lucide-react';
+import { Brain, Calendar, ChevronRight, Clock, FolderKanban, GitBranch, LayoutGrid, List, Wand2, ExternalLink } from 'lucide-react';
 import React, { useCallback } from 'react';
 import { Link, useParams } from 'react-router';
 import { ErrorState, Skeleton, SkeletonTable } from '@/ui/components/feedback';
@@ -22,8 +22,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/ui/components/ui/tab
 import { useUpdateWorkItem } from '@/ui/hooks/mutations/use-update-work-item';
 import { useProjectMemories } from '@/ui/hooks/queries/use-memories';
 import { useWorkItem, useWorkItemTree } from '@/ui/hooks/queries/use-work-items';
-import type { Memory, WorkItemTreeNode } from '@/ui/lib/api-types';
+import type { Memory, WorkItemTreeNode, SymphonyRun } from '@/ui/lib/api-types';
 import { mapApiTreeToTreeItems, priorityColors } from '@/ui/lib/work-item-utils';
+import { useSymphonyConfig, useSymphonyRuns, isActiveRun } from '@/ui/hooks/queries/use-symphony';
 import { BoardView } from './project-views/BoardView';
 import { CalendarView } from './project-views/CalendarView';
 import { ListView } from './project-views/ListView';
@@ -334,6 +335,10 @@ export function ProjectDetailPage(): React.JSX.Element {
                 <Brain className="size-3.5" />
                 Memories
               </TabsTrigger>
+              <TabsTrigger value="symphony" className="gap-1.5">
+                <Wand2 className="size-3.5" />
+                Symphony
+              </TabsTrigger>
             </TabsList>
           </div>
 
@@ -355,6 +360,10 @@ export function ProjectDetailPage(): React.JSX.Element {
 
           <TabsContent value="memories" data-testid="view-memories" className="px-6 py-4">
             <ProjectMemoriesView project_id={item_id} />
+          </TabsContent>
+
+          <TabsContent value="symphony" data-testid="view-symphony" className="px-6 py-4">
+            <ProjectSymphonyView project_id={item_id} />
           </TabsContent>
         </Tabs>
       </div>
@@ -416,6 +425,125 @@ function ProjectMemoriesView({ project_id }: { project_id: string }): React.JSX.
           </CardContent>
         </Card>
       ))}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// ProjectSymphonyView - inline component for the Symphony tab
+// ---------------------------------------------------------------------------
+
+function ProjectSymphonyView({ project_id }: { project_id: string }): React.JSX.Element {
+  const { data: configResponse, isLoading: configLoading, isError: configError } = useSymphonyConfig(project_id);
+  const { data: runsResponse, isLoading: runsLoading, isError: runsError } = useSymphonyRuns({
+    project_id,
+    limit: 10,
+  });
+
+  if (configLoading) {
+    return (
+      <div className="space-y-3">
+        {Array.from({ length: 2 }, (_, i) => (
+          <Skeleton key={i} width="100%" height={72} />
+        ))}
+      </div>
+    );
+  }
+
+  // Symphony not configured for this project
+  if (!configResponse || configError) {
+    return (
+      <div className="text-center py-12 text-muted-foreground">
+        <Wand2 className="mx-auto size-8 mb-2 opacity-40" />
+        <p className="text-sm">Symphony is not enabled for this project.</p>
+        <Button variant="outline" size="sm" className="mt-3" asChild>
+          <Link to={`/symphony/config/${project_id}`}>Enable Symphony</Link>
+        </Button>
+      </div>
+    );
+  }
+
+  const config = configResponse.data?.config ?? {};
+  const runs: SymphonyRun[] = Array.isArray(runsResponse?.data) ? runsResponse.data : [];
+
+  return (
+    <div className="space-y-6" data-testid="symphony-config-summary">
+      {/* Config summary */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-medium">Configuration</h3>
+            <Button variant="outline" size="sm" asChild>
+              <Link to={`/symphony/config/${project_id}`}>
+                <ExternalLink className="mr-1 size-3" />
+                Full Config
+              </Link>
+            </Button>
+          </div>
+          <div className="grid grid-cols-3 gap-4 text-sm">
+            <div>
+              <span className="text-muted-foreground">Status</span>
+              <div className="mt-0.5">
+                <Badge variant={config.enabled ? 'default' : 'secondary'}>
+                  {config.enabled ? 'Enabled' : 'Disabled'}
+                </Badge>
+              </div>
+            </div>
+            {config.budget_usd != null && (
+              <div>
+                <span className="text-muted-foreground">Budget</span>
+                <p className="mt-0.5 font-medium">${String(config.budget_usd)}</p>
+              </div>
+            )}
+            {config.max_concurrency != null && (
+              <div>
+                <span className="text-muted-foreground">Concurrency</span>
+                <p className="mt-0.5 font-medium">{String(config.max_concurrency)}</p>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Recent runs */}
+      <div data-testid="symphony-runs-list">
+        <h3 className="text-sm font-medium mb-3">Recent Runs</h3>
+        {runsLoading ? (
+          <div className="space-y-2">
+            {Array.from({ length: 3 }, (_, i) => (
+              <Skeleton key={i} width="100%" height={48} />
+            ))}
+          </div>
+        ) : runsError ? (
+          <p className="text-sm text-destructive">Unable to load Symphony runs.</p>
+        ) : runs.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No runs yet.</p>
+        ) : (
+          <div className="space-y-2">
+            {runs.map((run) => (
+              <Card key={run.id}>
+                <CardContent className="p-3 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Badge variant={run.status === 'succeeded' ? 'default' : run.status === 'failed' ? 'destructive' : 'secondary'}>
+                      {run.status}
+                    </Badge>
+                    <span className="text-sm">Attempt #{run.attempt}</span>
+                    {run.cost_usd != null && (
+                      <span className="text-xs text-muted-foreground">${run.cost_usd.toFixed(4)}</span>
+                    )}
+                  </div>
+                  <Link
+                    to={`/symphony/runs/${run.id}`}
+                    className="text-xs text-primary hover:underline"
+                  >
+                    Details
+                  </Link>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

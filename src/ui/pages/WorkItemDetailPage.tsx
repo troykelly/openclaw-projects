@@ -21,6 +21,7 @@ import { useWorkItemAttachments } from '@/ui/hooks/queries/use-attachments';
 import { useWorkItemRollup } from '@/ui/hooks/queries/use-rollup';
 import { useRecurrenceRule, useRecurrenceInstances } from '@/ui/hooks/queries/use-recurrence';
 import { useWorkItemContacts } from '@/ui/hooks/queries/use-work-item-contacts';
+import { useSymphonyRuns, isActiveRun } from '@/ui/hooks/queries/use-symphony';
 import { useUpdateWorkItem } from '@/ui/hooks/mutations/use-update-work-item';
 import { useCreateMemory } from '@/ui/hooks/mutations/use-create-memory';
 import { useUpdateMemory } from '@/ui/hooks/mutations/use-update-memory';
@@ -63,7 +64,7 @@ import { NamespaceBadge } from '@/ui/components/namespace';
 import {
   ChevronRight, Calendar, Network, FileText, CheckSquare, GitBranch, Activity, Brain, Mail,
   Users, Clock, MessageSquare, Paperclip, Link2, Copy, BarChart3, Repeat, UserPlus, Plus, X,
-  Download, Trash2,
+  Download, Trash2, Wand2, Loader2,
 } from 'lucide-react';
 
 /** Format a relative time string from a Date. */
@@ -107,6 +108,13 @@ export function WorkItemDetailPage(): React.JSX.Element {
   const { data: recurrenceData } = useRecurrenceRule(item_id);
   const { data: instancesData } = useRecurrenceInstances(item_id);
   const { data: linkedContactsData } = useWorkItemContacts(item_id);
+
+  // Symphony orchestration data — fetches runs for this work item.
+  // Uses project_id from the work item's parent to scope the query.
+  const symphonyRunsQuery = useSymphonyRuns({ work_item_id: item_id, project_id: apiDetail?.parent_id ?? undefined });
+  const symphonyRuns = Array.isArray(symphonyRunsQuery.data?.data) ? symphonyRunsQuery.data.data : [];
+  const hasActiveRun = symphonyRuns.some((r) => isActiveRun(r.status));
+  const showSymphony = symphonyRuns.length > 0;
 
   // Mutations
   const updateMutation = useUpdateWorkItem();
@@ -1008,6 +1016,75 @@ export function WorkItemDetailPage(): React.JSX.Element {
                   )}
                 </CardContent>
               </Card>
+
+              {/* Symphony orchestration section (#2211) */}
+              {symphonyRunsQuery.isError && (
+                <Card>
+                  <CardContent className="p-4">
+                    <p className="text-sm text-destructive">Unable to load Symphony data</p>
+                  </CardContent>
+                </Card>
+              )}
+              {showSymphony && (
+                <Card data-testid="symphony-section">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-medium flex items-center gap-2">
+                      <Wand2 className="size-4 text-muted-foreground" />
+                      Symphony
+                      {hasActiveRun && (
+                        <Badge variant="default" className="text-xs animate-pulse" data-testid="symphony-active-indicator">
+                          <Loader2 className="mr-1 size-3 animate-spin" />
+                          Working
+                        </Badge>
+                      )}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent data-testid="symphony-run-history">
+                    <div className="space-y-2">
+                      {symphonyRuns.map((run) => {
+                        const duration =
+                          run.started_at && run.completed_at
+                            ? Math.round(
+                                (new Date(run.completed_at).getTime() - new Date(run.started_at).getTime()) / 60000,
+                              )
+                            : null;
+                        return (
+                          <div key={run.id} className="flex items-center justify-between text-sm">
+                            <div className="flex items-center gap-2">
+                              <Badge
+                                variant={
+                                  run.status === 'succeeded'
+                                    ? 'default'
+                                    : run.status === 'failed' || run.status === 'timed_out'
+                                      ? 'destructive'
+                                      : 'secondary'
+                                }
+                                className="text-xs"
+                              >
+                                {run.status}
+                              </Badge>
+                              <span className="text-muted-foreground">#{run.attempt}</span>
+                              {duration != null && (
+                                <span className="text-xs text-muted-foreground">{duration}m</span>
+                              )}
+                              {run.cost_usd != null && (
+                                <span className="text-xs text-muted-foreground">${run.cost_usd.toFixed(4)}</span>
+                              )}
+                            </div>
+                            <Link
+                              to={`/symphony/runs/${run.id}`}
+                              className="text-xs text-primary hover:underline"
+                              data-testid={`symphony-run-link-${run.id}`}
+                            >
+                              View
+                            </Link>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           </div>
         </div>

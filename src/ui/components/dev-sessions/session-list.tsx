@@ -12,9 +12,10 @@ import { SessionCard } from './session-card';
 export interface SessionListProps {
   project_id?: string;
   statusFilter?: string;
+  orchestratedFilter?: string;
 }
 
-export function SessionList({ project_id, statusFilter }: SessionListProps) {
+export function SessionList({ project_id, statusFilter, orchestratedFilter }: SessionListProps) {
   const { data, isLoading } = useDevSessions({
     project_id,
     status: statusFilter,
@@ -26,7 +27,14 @@ export function SessionList({ project_id, statusFilter }: SessionListProps) {
     return <div className="text-sm text-muted-foreground">Loading sessions...</div>;
   }
 
-  const sessions = data?.sessions ?? [];
+  let sessions = data?.sessions ?? [];
+
+  // Client-side orchestrated filter
+  if (orchestratedFilter === 'true') {
+    sessions = sessions.filter((s) => s.orchestrated);
+  } else if (orchestratedFilter === 'false') {
+    sessions = sessions.filter((s) => !s.orchestrated);
+  }
 
   if (sessions.length === 0) {
     return <p className="text-sm text-muted-foreground">No dev sessions found.</p>;
