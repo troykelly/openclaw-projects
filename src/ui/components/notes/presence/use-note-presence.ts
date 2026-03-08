@@ -1,15 +1,18 @@
 /**
  * Hook for subscribing to note presence updates.
- * Part of Epic #338, Issue #634.
+ * Part of Epic #338, Issue #634, #2256.
  *
- * Provides real-time tracking of who is viewing a note,
- * including their cursor positions.
+ * Provides real-time tracking of who is viewing a note.
+ * When a Yjs awareness instance is provided (#2256), reads presence from Yjs
+ * awareness state directly — no REST API calls for join/leave/cursor.
+ * Falls back to REST-based presence when Yjs is not active.
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRealtimeOptional } from '@/ui/components/realtime/realtime-context';
 import { apiClient } from '@/ui/lib/api-client';
 import type { RealtimeEvent } from '@/ui/components/realtime/types';
+import type { WebsocketProvider } from 'y-websocket';
 
 /**
  * User presence information
@@ -41,6 +44,8 @@ interface UseNotePresenceOptions {
   user_email: string;
   /** Whether to automatically join presence on mount */
   autoJoin?: boolean;
+  /** Yjs WebSocket provider for awareness-based presence (#2256). When provided, REST calls are skipped. */
+  yjsProvider?: WebsocketProvider | null;
 }
 
 interface UseNotePresenceReturn {
@@ -61,22 +66,13 @@ interface UseNotePresenceReturn {
 /**
  * Hook for real-time note presence tracking.
  *
- * @example
- * ```tsx
- * const { viewers, join, leave } = useNotePresence({
- *   noteId: '123',
- *   user_email: 'user@example.com',
- *   autoJoin: true,
- * });
+ * When `yjsProvider` is provided (#2256), presence is read from Yjs awareness
+ * state — no REST API calls are made for join/leave/cursor. The awareness
+ * protocol handles real-time user presence natively.
  *
- * return (
- *   <div>
- *     {viewers.length} people viewing
- *   </div>
- * );
- * ```
+ * When `yjsProvider` is null/undefined, falls back to REST-based presence.
  */
-export function useNotePresence({ noteId, user_email, autoJoin = true }: UseNotePresenceOptions): UseNotePresenceReturn {
+export function useNotePresence({ noteId, user_email, autoJoin = true, yjsProvider }: UseNotePresenceOptions): UseNotePresenceReturn {
   const [viewers, setViewers] = useState<NotePresenceUser[]>([]);
   const [error, setError] = useState<Error | null>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -86,12 +82,49 @@ export function useNotePresence({ noteId, user_email, autoJoin = true }: UseNote
   // Use optional realtime hook - returns null when not inside RealtimeProvider (#692)
   const realtimeContext = useRealtimeOptional();
 
+  // --- Yjs awareness-based presence (#2256) ---
+  useEffect(() => {
+    if (!yjsProvider) return;
+
+    const awareness = yjsProvider.awareness;
+    setIsConnected(true);
+
+    const updateViewers = () => {
+      const states = awareness.getStates();
+      const users: NotePresenceUser[] = [];
+      states.forEach((state) => {
+        if (state?.user?.email) {
+          users.push({
+            email: state.user.email as string,
+            display_name: (state.user.name as string) ?? undefined,
+            lastSeenAt: new Date().toISOString(),
+            cursorPosition: state.cursor ?? undefined,
+          });
+        }
+      });
+      setViewers(users);
+    };
+
+    // Initial read
+    updateViewers();
+
+    // Listen for awareness changes
+    awareness.on('update', updateViewers);
+
+    return () => {
+      awareness.off('update', updateViewers);
+    };
+  }, [yjsProvider]);
+
+  // If Yjs is active, skip REST-based presence
+  const useRestPresence = !yjsProvider;
+
   /**
    * Join note presence via API
    * Security: user_email sent in body instead of query params (#689)
    */
   const join = useCallback(async () => {
-    if (hasJoinedRef.current) return;
+    if (!useRestPresence || hasJoinedRef.current) return;
 
     try {
       const data = await apiClient.post<{ collaborators?: NotePresenceUser[] }>(`/notes/${noteId}/presence`, { user_email });
@@ -103,14 +136,14 @@ export function useNotePresence({ noteId, user_email, autoJoin = true }: UseNote
       setError(err instanceof Error ? err : new Error('Unknown error'));
       setIsConnected(false);
     }
-  }, [noteId, user_email]);
+  }, [noteId, user_email, useRestPresence]);
 
   /**
    * Leave note presence via API
    * Security: user_email sent in header instead of query params (#689)
    */
   const leave = useCallback(async () => {
-    if (!hasJoinedRef.current) return;
+    if (!useRestPresence || !hasJoinedRef.current) return;
 
     try {
       await apiClient.delete(`/notes/${noteId}/presence`, undefined, { headers: { 'X-User-Email': user_email } });
@@ -124,7 +157,7 @@ export function useNotePresence({ noteId, user_email, autoJoin = true }: UseNote
         console.error('[NotePresence] Error leaving:', err);
       }
     }
-  }, [noteId, user_email]);
+  }, [noteId, user_email, useRestPresence]);
 
   /**
    * Update cursor position via API
@@ -132,6 +165,9 @@ export function useNotePresence({ noteId, user_email, autoJoin = true }: UseNote
    */
   const updateCursor = useCallback(
     async (position: { line: number; column: number }) => {
+      // When Yjs is active, cursors are handled natively by awareness
+      if (!useRestPresence) return;
+
       try {
         await apiClient.put(`/notes/${noteId}/presence/cursor`, { user_email, cursor_position: position });
       } catch (err) {
@@ -143,7 +179,7 @@ export function useNotePresence({ noteId, user_email, autoJoin = true }: UseNote
         }
       }
     },
-    [noteId, user_email],
+    [noteId, user_email, useRestPresence],
   );
 
   /**
@@ -151,6 +187,9 @@ export function useNotePresence({ noteId, user_email, autoJoin = true }: UseNote
    */
   const handlePresenceEvent = useCallback(
     (event: RealtimeEvent) => {
+      // Skip REST event handling when Yjs awareness is active
+      if (!useRestPresence) return;
+
       const presenceEvent = event as unknown as NotePresenceEvent;
 
       // Only handle events for this note
@@ -193,14 +232,14 @@ export function useNotePresence({ noteId, user_email, autoJoin = true }: UseNote
         }
       }
     },
-    [noteId],
+    [noteId, useRestPresence],
   );
 
   /**
-   * Subscribe to WebSocket events when available
+   * Subscribe to WebSocket events when available (REST-based only)
    */
   useEffect(() => {
-    if (!realtimeContext) return;
+    if (!realtimeContext || !useRestPresence) return;
 
     const eventTypes = ['note:presence_joined', 'note:presence_left', 'note:presence_list', 'note:presence_cursor'] as const;
 
@@ -210,15 +249,13 @@ export function useNotePresence({ noteId, user_email, autoJoin = true }: UseNote
     return () => {
       unsubscribes.forEach((unsub) => unsub());
     };
-  }, [realtimeContext, handlePresenceEvent]);
+  }, [realtimeContext, handlePresenceEvent, useRestPresence]);
 
   /**
    * Reconnect presence when WebSocket reconnects (#699)
-   * Monitors the realtime connection status and re-joins presence
-   * when the connection is restored after a disconnect.
    */
   useEffect(() => {
-    if (!realtimeContext) return;
+    if (!realtimeContext || !useRestPresence) return;
 
     const currentStatus = realtimeContext.status;
     const previousStatus = previousStatusRef.current;
@@ -231,14 +268,14 @@ export function useNotePresence({ noteId, user_email, autoJoin = true }: UseNote
     }
 
     previousStatusRef.current = currentStatus;
-  }, [realtimeContext, realtimeContext?.status, join]);
+  }, [realtimeContext, realtimeContext?.status, join, useRestPresence]);
 
   /**
-   * Clean up stale presence viewers (#700)
-   * Removes viewers who haven't been seen in the last 5 minutes.
-   * This handles cases where leave events are missed due to network issues.
+   * Clean up stale presence viewers (#700) — REST-based only
    */
   useEffect(() => {
+    if (!useRestPresence) return;
+
     const STALE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
     const CLEANUP_INTERVAL_MS = 60 * 1000; // Check every minute
 
@@ -255,14 +292,14 @@ export function useNotePresence({ noteId, user_email, autoJoin = true }: UseNote
     return () => {
       clearInterval(cleanupInterval);
     };
-  }, []);
+  }, [useRestPresence]);
 
   /**
-   * Auto-join on mount, leave on unmount
-   * Note: leave() is async but called fire-and-forget in cleanup, which is acceptable
-   * for cleanup functions. We track mounted state to prevent state updates after unmount. (#696)
+   * Auto-join on mount, leave on unmount — REST-based only
    */
   useEffect(() => {
+    if (!useRestPresence) return;
+
     let isMounted = true;
 
     if (autoJoin) {
@@ -276,11 +313,9 @@ export function useNotePresence({ noteId, user_email, autoJoin = true }: UseNote
 
     return () => {
       isMounted = false;
-      // Fire-and-forget is acceptable for cleanup - the request will complete
-      // even after unmount, we just won't update state
       void leave();
     };
-  }, [autoJoin, join, leave]);
+  }, [autoJoin, join, leave, useRestPresence]);
 
   return {
     viewers,

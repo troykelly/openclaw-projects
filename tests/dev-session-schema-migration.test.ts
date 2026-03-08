@@ -226,8 +226,8 @@ describe('Dev Session Schema Migration (#2193)', () => {
     it('migration 147 down removes purpose column', async () => {
       await truncateAllTables(pool);
 
-      // Roll back migrations 151, 150, 149, 148, 147 (four new migrations added after 147)
-      await runMigrate('down', 5);
+      // Roll back migrations 152, 151, 150, 149, 148, 147 (five new migrations added after 147)
+      await runMigrate('down', 6);
 
       const result = await pool.query(`
         SELECT column_name
@@ -243,8 +243,8 @@ describe('Dev Session Schema Migration (#2193)', () => {
     it('migration 146 down reverts status CHECK to original', async () => {
       await truncateAllTables(pool);
 
-      // Roll back migrations 151, 150, 149, 148, 147, 146 (four new migrations added after 147)
-      await runMigrate('down', 6);
+      // Roll back migrations 152, 151, 150, 149, 148, 147, 146 (five new migrations added after 147)
+      await runMigrate('down', 7);
 
       // stalled should now be rejected
       await ensureTestNamespace(pool, 'rollback-test@example.com', 'default');
@@ -260,8 +260,8 @@ describe('Dev Session Schema Migration (#2193)', () => {
     it('migration 145 down removes symphony columns and trigger', async () => {
       await truncateAllTables(pool);
 
-      // Roll back migrations 151, 150, 149, 148, 147, 146, 145 (four new migrations added after 147)
-      await runMigrate('down', 7);
+      // Roll back migrations 152, 151, 150, 149, 148, 147, 146, 145 (five new migrations added after 147)
+      await runMigrate('down', 8);
 
       // symphony_run_id should not exist
       const cols = await pool.query(`

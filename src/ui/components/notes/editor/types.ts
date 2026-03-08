@@ -3,7 +3,16 @@
  * Part of Epic #338, Issue #757
  */
 
+import type * as Y from 'yjs';
+import type { WebsocketProvider } from 'y-websocket';
+
 export type EditorMode = 'wysiwyg' | 'markdown' | 'preview';
+
+/** User info passed to CollaborationPlugin for awareness/cursors */
+export interface CollabUser {
+  name: string;
+  color: string;
+}
 
 export interface LexicalEditorProps {
   initialContent?: string;
@@ -15,6 +24,14 @@ export interface LexicalEditorProps {
   autoFocus?: boolean;
   className?: string;
   saving?: boolean;
+  /** Yjs document for collaborative editing (Issue #2256) */
+  yjsDoc?: Y.Doc | null;
+  /** Yjs WebSocket provider (Issue #2256) */
+  yjsProvider?: WebsocketProvider | null;
+  /** Whether Yjs collaborative editing is active (Issue #2256) */
+  yjsEnabled?: boolean;
+  /** Current user info for cursor display (Issue #2256) */
+  currentUser?: CollabUser;
 }
 
 export interface ToolbarButtonProps {

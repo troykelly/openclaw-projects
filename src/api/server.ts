@@ -101,6 +101,10 @@ import {
 } from './postmark/index.ts';
 import { createRateLimitKeyGenerator, type GetSessionEmailFn, getEndpointRateLimitCategory } from './rate-limit/per-user.ts';
 import { RealtimeHub } from './realtime/index.ts';
+import { MessageRouter } from './realtime/message-router.ts';
+import { YjsHandler } from './realtime/yjs-handler.ts';
+import { YjsDocManager } from './realtime/yjs-doc-manager.ts';
+import { YjsWsHandler } from './realtime/yjs-ws-handler.ts';
 import {
   enqueueSmsMessage,
   getPhoneNumberDetails,
@@ -1631,6 +1635,47 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     });
   }
 
+  // Yjs collaborative editing (Issue #2256)
+  const yjsEnabled = process.env.ENABLE_YJS_COLLAB !== 'false';
+  console.log(`[Server] YJS collaborative editing: ${yjsEnabled ? 'ENABLED' : 'DISABLED'}`);
+
+  // Single-process constraint for Yjs (Phase 1)
+  if (process.env.CLUSTER_MODE === 'true' && yjsEnabled) {
+    throw new Error('Yjs collaboration requires CLUSTER_MODE=false until multi-process relay is implemented');
+  }
+
+  const yjsPool = process.env.NODE_ENV !== 'test' ? createPool() : null;
+  // Single shared YjsDocManager to prevent duplicate in-memory docs for the same note
+  const yjsDocManager = yjsPool ? new YjsDocManager(yjsPool) : null;
+  // Legacy handler for custom binary protocol (kept for backward compat) — shares doc manager
+  const yjsHandler = yjsPool && yjsDocManager ? new YjsHandler(yjsPool, yjsEnabled, yjsDocManager) : null;
+  // Standard y-protocols handler for /yjs/:noteId endpoint
+  const yjsWsHandler = yjsDocManager ? new YjsWsHandler(yjsDocManager) : null;
+
+  // Create MessageRouter for typed WebSocket message dispatch
+  const messageRouter = new MessageRouter();
+
+  // Register connection handler (heartbeat pong)
+  // MessageRouter normalizes both { type: ... } and legacy { event: ... } fields.
+  messageRouter.onText('connection:', (_client, parsed) => {
+    if (parsed.type === 'connection:pong') {
+      realtimeHub.updateClientPing(_client.client_id);
+    }
+  });
+
+  // Register Yjs control message handler (for custom binary protocol fallback)
+  if (yjsHandler) {
+    messageRouter.onText('yjs:', (client, parsed) => {
+      yjsHandler.handleControlMessage(client, parsed as { type: string; noteId?: string }).catch((err) => {
+        console.error(`[WebSocket] Yjs control message error for ${client.client_id}:`, err);
+      });
+    });
+
+    messageRouter.onBinary((client, data) => {
+      yjsHandler.handleBinaryMessage(client, data);
+    });
+  }
+
   app.get('/ws', { websocket: true }, async (socket, req) => {
     // Authenticate via JWT in Authorization header or query string
     let user_id: string | undefined;
@@ -1659,34 +1704,111 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     // Add client to the hub
     const client_id = realtimeHub.addClient(socket, user_id);
 
-    // Handle incoming messages
-    socket.on('message', (data: Buffer) => {
-      try {
-        const message = JSON.parse(data.toString());
+    // Get the WebSocketClient for the router
+    const wsClient = {
+      client_id,
+      user_id,
+      socket,
+      connected_at: new Date(),
+      last_ping: new Date(),
+    };
 
-        // Handle ping/pong for heartbeat
-        if (message.event === 'connection:pong') {
-          realtimeHub.updateClientPing(client_id);
-        }
-      } catch {
-        // Ignore malformed messages
-      }
+    // Handle incoming messages via MessageRouter
+    socket.on('message', (data: Buffer, isBinary: boolean) => {
+      messageRouter.dispatch(wsClient, data, isBinary);
     });
 
     // Handle client disconnect
     socket.on('close', () => {
       realtimeHub.removeClient(client_id);
+      if (yjsHandler) {
+        yjsHandler.handleDisconnect(client_id).catch((err) => {
+          console.error(`[WebSocket] Yjs disconnect cleanup error for ${client_id}:`, err);
+        });
+      }
     });
 
     socket.on('error', (err: Error) => {
       console.error(`[WebSocket] Client ${client_id} error:`, err);
       realtimeHub.removeClient(client_id);
+      if (yjsHandler) {
+        yjsHandler.handleDisconnect(client_id).catch((disconnectErr) => {
+          console.debug(`[WebSocket] Yjs disconnect cleanup failed for ${client_id}:`, disconnectErr instanceof Error ? disconnectErr.message : disconnectErr);
+        });
+      }
     });
   });
+
+  // Yjs collaborative editing WebSocket endpoint (Issue #2256)
+  // Uses standard y-protocols for full compatibility with y-websocket WebsocketProvider.
+  // y-websocket connects to /yjs/{noteId}?token=JWT
+  if (yjsWsHandler && yjsEnabled) {
+    app.get('/yjs/:noteId', { websocket: true }, async (socket, req) => {
+      // Authenticate via JWT from query string
+      let user_email: string | undefined;
+
+      const identity = await getAuthIdentity(req);
+      if (identity) {
+        user_email = identity.email;
+      } else if (!isAuthDisabled()) {
+        const query = req.query as { token?: string };
+        if (query.token) {
+          try {
+            const payload = await verifyAccessToken(query.token);
+            user_email = payload.sub;
+          } catch (err) {
+            console.debug(`[Yjs] JWT verification failed:`, err instanceof Error ? err.message : err);
+            socket.close(4001, 'Unauthorized');
+            return;
+          }
+        } else {
+          socket.close(4001, 'Unauthorized');
+          return;
+        }
+      }
+
+      const noteId = (req.params as { noteId: string }).noteId;
+      const client_id = `yjs-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+      try {
+        await yjsWsHandler.handleConnection(
+          socket as unknown as Parameters<typeof yjsWsHandler.handleConnection>[0],
+          client_id,
+          user_email ?? '',
+          noteId,
+        );
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Connection failed';
+        console.error(`[Yjs] Connection error for ${noteId}:`, msg);
+        socket.close(4003, msg);
+        return;
+      }
+
+      // Handle binary Yjs protocol messages
+      socket.on('message', (data: Buffer) => {
+        yjsWsHandler.handleMessage(client_id, data);
+      });
+
+      socket.on('close', () => {
+        yjsWsHandler.handleDisconnect(client_id).catch((err) => {
+          console.error(`[Yjs] Disconnect cleanup error for ${client_id}:`, err);
+        });
+      });
+
+      socket.on('error', (err: Error) => {
+        console.error(`[Yjs] Client ${client_id} error:`, err);
+        yjsWsHandler.handleDisconnect(client_id).catch((disconnectErr) => {
+          console.debug(`[Yjs] Disconnect cleanup failed for ${client_id}:`, disconnectErr instanceof Error ? disconnectErr.message : disconnectErr);
+        });
+      });
+    });
+  }
 
   // Realtime stats endpoint (for monitoring)
   app.get('/ws/stats', async () => ({
     connected_clients: realtimeHub.getClientCount(),
+    ...(yjsWsHandler ? { yjs_active_docs: yjsWsHandler.getDocManager().getDocCount() } : {}),
+    ...(yjsHandler ? { yjs_legacy_docs: yjsHandler.getDocManager().getDocCount() } : {}),
   }));
 
   // SSE fallback endpoint (Issue #213)
@@ -1752,9 +1874,28 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // Cleanup on server close
   app.addHook('onClose', async () => {
     await shutdownGatewayConnection();
+    // Flush Yjs docs before shutting down (5-second timeout)
+    const yjsShutdowns: Promise<void>[] = [];
+    if (yjsWsHandler) yjsShutdowns.push(yjsWsHandler.shutdown());
+    if (yjsHandler) yjsShutdowns.push(yjsHandler.shutdown());
+    if (yjsShutdowns.length > 0) {
+      const flushPromise = Promise.all(yjsShutdowns);
+      let shutdownTimer: ReturnType<typeof setTimeout> | null = null;
+      const timeoutPromise = new Promise<void>((resolve) => {
+        shutdownTimer = setTimeout(() => {
+          console.warn('[Server] Yjs shutdown timed out after 5 seconds');
+          resolve();
+        }, 5000);
+      });
+      await Promise.race([flushPromise, timeoutPromise]);
+      if (shutdownTimer) clearTimeout(shutdownTimer);
+    }
     await realtimeHub.shutdown();
     if (realtimePool) {
       await realtimePool.end();
+    }
+    if (yjsPool) {
+      await yjsPool.end();
     }
     await nsPool.end();
     await healthPool.end();
@@ -15969,6 +16110,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     try {
+      // Yjs coordination: strip content from REST updates when a Yjs doc is active.
+      // Yjs persistence manages the content column — REST content would be stale.
+      const yjsDocActive = yjsHandler?.hasActiveDoc(params.id) || yjsWsHandler?.hasActiveDoc(params.id);
+      if (body.content !== undefined && yjsDocActive) {
+        console.log(`[Notes] Stripping content from REST PUT for ${params.id} — Yjs doc is active`);
+        delete body.content;
+      }
+
       const note = await updateNote(
         pool,
         params.id,

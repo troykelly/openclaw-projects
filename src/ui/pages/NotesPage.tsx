@@ -237,9 +237,38 @@ function NotesPageContent(): React.JSX.Element {
     [navigateInternal, buildNotePath],
   );
 
-  const handleAddNote = useCallback(() => {
-    setView({ type: 'new' });
-  }, []);
+  /**
+   * Create a new note immediately on the server (#2256).
+   * Yjs requires a server-side note_id before the collaborative editor can initialize.
+   * We POST to create the note row, then transition to detail view with the new ID.
+   */
+  const handleAddNote = useCallback(async () => {
+    try {
+      const now = new Date();
+      const autoTitle = now.toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: false,
+      });
+      const body: CreateNoteBody = {
+        title: autoTitle,
+        content: '',
+        notebook_id: selectedNotebookId,
+        visibility: 'private',
+        hide_from_agents: false,
+      };
+      const newNote = await createNoteMutation.mutateAsync(body);
+      setView({ type: 'detail', noteId: newNote.id });
+      navigateInternal(buildNotePath(newNote.id, newNote.notebook_id ?? undefined));
+    } catch (err) {
+      console.error('[NotesPage] Failed to create note on server:', err instanceof Error ? err.message : err);
+      // If server creation fails, fall back to local-only new note view
+      setView({ type: 'new' });
+    }
+  }, [selectedNotebookId, createNoteMutation, navigateInternal, buildNotePath]);
 
   const handleBack = useCallback(() => {
     setView({ type: 'list' });

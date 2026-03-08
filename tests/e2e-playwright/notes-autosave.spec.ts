@@ -3,7 +3,21 @@ import { Pool } from 'pg';
 import { createTestPool, truncateAllTables } from '../helpers/db.ts';
 import { NotesPageObject } from './helpers/notes-page.ts';
 
-test.describe('Notes Autosave E2E (Issue #785)', () => {
+/**
+ * Notes save E2E tests.
+ *
+ * With Yjs collaborative editing (#2256), content is persisted via WebSocket
+ * (YjsDocManager debounced writes), not REST autosave. The "New Note" flow
+ * still creates the note row via POST, and metadata saves (title, visibility,
+ * etc.) still go through PUT.
+ *
+ * When ENABLE_YJS_COLLAB=true (default), the save status shows Yjs connection
+ * status (connected/synced/disconnected) instead of REST save status.
+ *
+ * These tests validate the metadata save flow and note creation, which work
+ * the same regardless of whether Yjs is enabled.
+ */
+test.describe('Notes Save E2E (Issues #785, #2256)', () => {
   let pool: Pool;
 
   test.beforeAll(async () => {
@@ -18,48 +32,22 @@ test.describe('Notes Autosave E2E (Issue #785)', () => {
     await pool.end();
   });
 
-  test('typing in editor triggers autosave after 2-second delay', async ({ page }) => {
+  test('creating a new note persists it to the database', async ({ page }) => {
     const notes = new NotesPageObject(page);
     await notes.goto();
+
+    // Click "New Note" — this POSTs to create the note server-side
     await notes.createNewNote();
 
-    await notes.typeInEditor('Hello, this is an autosave test');
+    // Wait for the POST to create the note
+    await notes.waitForNoteSave();
 
-    // Autosave fires after 2-second debounce
-    await notes.waitForAutosave();
+    // URL should include a note ID after creation
+    await page.waitForURL(/\/app\/notes\/[a-f0-9-]+/, { timeout: 5_000 });
 
-    // Verify the note was persisted to the database
-    const result = await pool.query(`SELECT title, content FROM note WHERE namespace = 'default' ORDER BY created_at DESC LIMIT 1`);
+    // Verify the note exists in the database
+    const result = await pool.query(`SELECT id FROM note WHERE namespace = 'default' ORDER BY created_at DESC LIMIT 1`);
     expect(result.rows).toHaveLength(1);
-    expect(result.rows[0].content).toContain('Hello, this is an autosave test');
-  });
-
-  test('save status indicator shows correct state transitions', async ({ page }) => {
-    const notes = new NotesPageObject(page);
-    await notes.goto();
-    await notes.createNewNote();
-
-    // First save creates the note. For new notes, the view switches from
-    // 'new' to 'detail' after create, which resets saveStatus to 'idle'
-    // immediately — so "Saved" is only visible for one render frame.
-    await notes.typeInEditor('Testing status indicator');
-    await notes.waitForAutosave();
-
-    // Now the note exists. Subsequent saves are UPDATEs that keep the note
-    // prop stable, so "Saved" stays visible for the full 3 seconds.
-    const updateResponse = page.waitForResponse((resp) => resp.url().includes('/notes') && resp.request().method() === 'PUT' && resp.ok(), {
-      timeout: 10_000,
-    });
-
-    await notes.typeInEditor(' - updated');
-    await updateResponse;
-
-    // After update save, "Saved" is visible
-    await notes.saveStatusSaved.waitFor({ state: 'visible', timeout: 5_000 });
-
-    // Note: after the refetch, content normalization may cause hasChanges
-    // to be true, showing "Unsaved" instead of "All changes saved".
-    // The idle → saving → saved cycle is the key behavior we verify.
   });
 
   test('auto-generated titles work for new notes', async ({ page }) => {
@@ -68,22 +56,34 @@ test.describe('Notes Autosave E2E (Issue #785)', () => {
     await notes.createNewNote();
 
     // The title input should have a placeholder with auto-generated title
-    // Format: "Feb 6, 2026, 11:00" (locale-dependent but hardcoded to en-US)
     const placeholder = await notes.titleInput.getAttribute('placeholder');
     expect(placeholder).toBeTruthy();
     // Match date format: abbreviated month, day, comma, 4-digit year
     expect(placeholder).toMatch(/\w{3}\s+\d{1,2},\s+\d{4}/);
+  });
 
-    // Type content without explicitly setting a title
-    await notes.typeInEditor('Note without explicit title');
+  test('metadata save persists title changes', async ({ page }) => {
+    const notes = new NotesPageObject(page);
+    await notes.goto();
+    await notes.createNewNote();
 
-    // Wait for autosave
-    await notes.waitForAutosave();
+    // Wait for the initial note creation
+    await notes.waitForNoteSave();
 
-    // Verify the auto-generated title was persisted
+    // Set a custom title — triggers metadata debounced save (5s)
+    await notes.clearAndTypeTitle('Metadata Test Note');
+
+    // Wait for the PUT to save metadata
+    const updateResponse = page.waitForResponse(
+      (resp) => resp.url().includes('/notes') && resp.request().method() === 'PUT' && resp.ok(),
+      { timeout: 15_000 },
+    );
+    await updateResponse;
+
+    // Verify title persisted to database
     const result = await pool.query(`SELECT title FROM note WHERE namespace = 'default' ORDER BY created_at DESC LIMIT 1`);
     expect(result.rows).toHaveLength(1);
-    expect(result.rows[0].title).toBe(placeholder);
+    expect(result.rows[0].title).toBe('Metadata Test Note');
   });
 
   test('content persists across page refresh', async ({ page }) => {
@@ -91,22 +91,32 @@ test.describe('Notes Autosave E2E (Issue #785)', () => {
     await notes.goto();
     await notes.createNewNote();
 
-    // Set title and content
+    // Wait for note creation
+    await notes.waitForNoteSave();
+
+    // Set title
     await notes.clearAndTypeTitle('Persistence Test Note');
+
+    // Type content in the editor
     await notes.typeInEditor('This content should persist');
 
-    // Wait for autosave to complete
-    await notes.waitForAutosave();
+    // Wait for metadata save (title) and give content time to sync
+    await page.waitForResponse(
+      (resp) => resp.url().includes('/notes') && resp.request().method() === 'PUT' && resp.ok(),
+      { timeout: 15_000 },
+    );
 
-    // URL should now include the note ID
+    // Give Yjs/autosave time to persist content
+    await page.waitForTimeout(3_000);
+
+    // URL should include the note ID
     await page.waitForURL(/\/app\/notes\/[a-f0-9-]+/, { timeout: 5_000 });
 
     // Reload the page
     await page.reload();
     await page.waitForLoadState('networkidle');
 
-    // After reload, the note list loads but the detail panel shows
-    // "Select a note" — click the note in the list to re-open it
+    // Click the note in the list to re-open it
     await page.getByRole('heading', { name: 'Persistence Test Note' }).click();
 
     // Wait for the editor to load
@@ -120,10 +130,9 @@ test.describe('Notes Autosave E2E (Issue #785)', () => {
     expect(editorText).toContain('This content should persist');
   });
 
-  test('error state shows when save fails and retries on next change', async ({ page }) => {
+  test('error state shows when note creation fails', async ({ page }) => {
     const notes = new NotesPageObject(page);
     await notes.goto();
-    await notes.createNewNote();
 
     // Intercept POST /notes to simulate server failure
     await page.route('**/notes', (route) => {
@@ -137,23 +146,12 @@ test.describe('Notes Autosave E2E (Issue #785)', () => {
       return route.continue();
     });
 
-    // Type content to trigger autosave
-    await notes.typeInEditor('This should fail to save');
+    await notes.createNewNote();
 
     // Wait for the save attempt — should show error state
     await notes.saveStatusError.waitFor({ state: 'visible', timeout: 10_000 });
 
     // Remove the route interception to allow retry
     await page.unroute('**/notes');
-
-    // Type more to trigger a retry via the autosave debounce
-    await notes.typeInEditor(' - retry');
-
-    // Now the save should succeed
-    await notes.waitForAutosave();
-
-    // Verify the note was eventually saved
-    const result = await pool.query(`SELECT content FROM note WHERE namespace = 'default' ORDER BY created_at DESC LIMIT 1`);
-    expect(result.rows).toHaveLength(1);
   });
 });

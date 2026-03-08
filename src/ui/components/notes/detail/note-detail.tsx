@@ -1,14 +1,15 @@
 /**
  * Note detail and editor view component.
- * Part of Epic #338, Issues #354, #774, #775
+ * Part of Epic #338, Issues #354, #774, #775, #2256
  *
  * Features:
  * - Auto-generated title for new notes (e.g., "Feb 6, 2026 11:00")
- * - Throttled autosave (saves 2 seconds after last change)
- * - Save status indicator (Saved/Saving/Error)
+ * - Yjs collaborative editing for content (#2256)
+ * - Debounced metadata save (title, notebook, visibility, hide_from_agents) — 5s
+ * - Three-tier Yjs-aware save status indicator
  */
 
-import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import {
   ArrowLeft,
   Share2,
@@ -28,6 +29,8 @@ import {
   AlertCircle,
   Cloud,
   CloudOff,
+  Wifi,
+  WifiOff,
 } from 'lucide-react';
 import { cn } from '@/ui/lib/utils';
 import { Button } from '@/ui/components/ui/button';
@@ -38,13 +41,12 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/ui/c
 import { Switch } from '@/ui/components/ui/switch';
 import { Label } from '@/ui/components/ui/label';
 import { NoteEditor } from '../editor';
+import { useYjsProvider } from '@/ui/hooks/use-yjs-provider';
+import type { YjsConnectionStatus } from '@/ui/hooks/use-yjs-provider';
 import type { Note, NoteVisibility, Notebook } from '../types';
 
-/** Autosave delay in milliseconds (2 seconds) */
-const AUTOSAVE_DELAY_MS = 2000;
-
-/** Save status for the indicator */
-type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
+/** Metadata save debounce delay (5 seconds) */
+const METADATA_SAVE_DELAY_MS = 5000;
 
 /**
  * Generate a human-friendly note title from the current date/time.
@@ -93,22 +95,27 @@ export function NoteDetail({
   const autoTitle = useMemo(() => generateAutoTitle(), []);
 
   const [title, setTitle] = useState(note?.title || (isNew ? autoTitle : ''));
-  const [content, setContent] = useState(note?.content || '');
   const [notebook_id, setNotebookId] = useState(note?.notebook_id);
   const [visibility, setVisibility] = useState<NoteVisibility>(note?.visibility || 'private');
   const [hide_from_agents, setHideFromAgents] = useState(note?.hide_from_agents || false);
-  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
-  const [saveError, setSaveError] = useState<string | null>(null);
+  const [metadataSaveStatus, setMetadataSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [metadataSaveError, setMetadataSaveError] = useState<string | null>(null);
+
+  // Track content for non-Yjs fallback (when Yjs is disabled, content changes flow through onChange)
+  const [localContent, setLocalContent] = useState(note?.content ?? '');
 
   // Track whether we've created the note yet (for new notes)
   const [noteCreated, setNoteCreated] = useState(!isNew);
 
-  // Refs for autosave and status reset timers
-  const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Yjs collaborative editing (#2256)
+  const noteId = note?.id ?? null;
+  const { doc: yjsDoc, provider: yjsProvider, status: yjsStatus, yjsEnabled } = useYjsProvider(noteCreated ? noteId : null);
+
+  // Refs for metadata save
+  const metadataSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const statusResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastSavedRef = useRef<{
+  const lastSavedMetadataRef = useRef<{
     title: string;
-    content: string;
     notebook_id?: string;
     visibility: NoteVisibility;
     hide_from_agents: boolean;
@@ -116,7 +123,6 @@ export function NoteDetail({
     note
       ? {
           title: note.title,
-          content: note.content,
           notebook_id: note.notebook_id,
           visibility: note.visibility,
           hide_from_agents: note.hide_from_agents,
@@ -124,127 +130,132 @@ export function NoteDetail({
       : null,
   );
 
-  // Check if there are unsaved changes
-  const hasChanges = useMemo(() => {
-    if (!lastSavedRef.current) {
-      // For new notes, any content counts as a change
-      return title.trim() !== '' || content.trim() !== '';
+  // Handle content change from editor (non-Yjs fallback only)
+  const handleContentChange = useCallback((content: string) => {
+    setLocalContent(content);
+  }, []);
+
+  // Check if there are unsaved changes (metadata, or content when Yjs is disabled)
+  const hasMetadataChanges = useMemo(() => {
+    if (!lastSavedMetadataRef.current) {
+      return title.trim() !== '' || (!yjsEnabled && localContent !== (note?.content ?? ''));
     }
-    return (
-      title !== lastSavedRef.current.title ||
-      content !== lastSavedRef.current.content ||
-      notebook_id !== lastSavedRef.current.notebook_id ||
-      visibility !== lastSavedRef.current.visibility ||
-      hide_from_agents !== lastSavedRef.current.hide_from_agents
-    );
-  }, [title, content, notebook_id, visibility, hide_from_agents]);
+    const metaChanged =
+      title !== lastSavedMetadataRef.current.title ||
+      notebook_id !== lastSavedMetadataRef.current.notebook_id ||
+      visibility !== lastSavedMetadataRef.current.visibility ||
+      hide_from_agents !== lastSavedMetadataRef.current.hide_from_agents;
+    // When Yjs is disabled, content changes also need saving via the REST path
+    const contentChanged = !yjsEnabled && localContent !== (note?.content ?? '');
+    return metaChanged || contentChanged;
+  }, [title, notebook_id, visibility, hide_from_agents, yjsEnabled, localContent, note?.content]);
 
   // Reset when note changes (e.g., navigating to different note)
   useEffect(() => {
     if (note) {
       setTitle(note.title);
-      setContent(note.content);
+      setLocalContent(note.content ?? '');
       setNotebookId(note.notebook_id);
       setVisibility(note.visibility);
       setHideFromAgents(note.hide_from_agents);
       setNoteCreated(true);
-      lastSavedRef.current = {
+      lastSavedMetadataRef.current = {
         title: note.title,
-        content: note.content,
         notebook_id: note.notebook_id,
         visibility: note.visibility,
         hide_from_agents: note.hide_from_agents,
       };
-      setSaveStatus('idle');
-      setSaveError(null);
+      setMetadataSaveStatus('idle');
+      setMetadataSaveError(null);
     }
   }, [note]);
 
-  // Perform the actual save
-  const performSave = useCallback(async () => {
+  // Perform metadata-only save (title, notebook_id, visibility, hide_from_agents)
+  const performMetadataSave = useCallback(async () => {
     if (!onSave) return;
 
     const currentTitle = title.trim() || autoTitle;
     const data = {
       title: currentTitle,
-      content,
+      // When Yjs is active, content is managed server-side (server strips it from REST PUTs).
+      // When Yjs is disabled, use the local content tracked via onChange.
+      content: yjsEnabled ? (note?.content ?? '') : localContent,
       notebook_id,
       visibility,
       hide_from_agents,
     };
 
-    setSaveStatus('saving');
-    setSaveError(null);
+    setMetadataSaveStatus('saving');
+    setMetadataSaveError(null);
 
     try {
       await onSave(data);
-      lastSavedRef.current = data;
+      lastSavedMetadataRef.current = {
+        title: currentTitle,
+        notebook_id,
+        visibility,
+        hide_from_agents,
+      };
       setNoteCreated(true);
-      setSaveStatus('saved');
+      setMetadataSaveStatus('saved');
 
-      // Reset to idle after 3 seconds (use ref to prevent memory leak on unmount)
       if (statusResetTimerRef.current) {
         clearTimeout(statusResetTimerRef.current);
       }
       statusResetTimerRef.current = setTimeout(() => {
-        setSaveStatus((current) => (current === 'saved' ? 'idle' : current));
+        setMetadataSaveStatus((current) => (current === 'saved' ? 'idle' : current));
       }, 3000);
     } catch (error) {
-      // Log detailed error for debugging, show generic message to user
-      console.error('[NoteDetail] Save failed:', error);
-      setSaveError('Unable to save. Please try again.');
-      setSaveStatus('error');
+      console.error('[NoteDetail] Metadata save failed:', error);
+      setMetadataSaveError('Unable to save. Please try again.');
+      setMetadataSaveStatus('error');
     }
-  }, [onSave, title, content, notebook_id, visibility, hide_from_agents, autoTitle]);
+  }, [onSave, title, notebook_id, visibility, hide_from_agents, autoTitle, note?.content, yjsEnabled, localContent]);
 
-  // Cleanup status reset timer on unmount
+  // Cleanup timers on unmount
   useEffect(() => {
     return () => {
       if (statusResetTimerRef.current) {
         clearTimeout(statusResetTimerRef.current);
       }
+      if (metadataSaveTimerRef.current) {
+        clearTimeout(metadataSaveTimerRef.current);
+      }
     };
   }, []);
 
-  // Schedule autosave when changes occur
+  // Debounced metadata save — 5 seconds after last metadata change
   useEffect(() => {
-    // Don't autosave if there's no onSave handler, no changes, or already saving
-    if (!onSave || !hasChanges || saveStatus === 'saving') {
+    if (!onSave || !hasMetadataChanges || metadataSaveStatus === 'saving') {
       return;
     }
 
-    // Clear existing timer
-    if (autosaveTimerRef.current) {
-      clearTimeout(autosaveTimerRef.current);
-    }
-
-    // For new notes, require at least some content before first save
-    if (!noteCreated && !title.trim() && !content.trim()) {
+    // For new notes, require at least a title before first save
+    if (!noteCreated && !title.trim()) {
       return;
     }
 
-    // Schedule autosave
-    autosaveTimerRef.current = setTimeout(() => {
-      performSave();
-    }, AUTOSAVE_DELAY_MS);
+    if (metadataSaveTimerRef.current) {
+      clearTimeout(metadataSaveTimerRef.current);
+    }
+
+    metadataSaveTimerRef.current = setTimeout(() => {
+      performMetadataSave();
+    }, METADATA_SAVE_DELAY_MS);
 
     return () => {
-      if (autosaveTimerRef.current) {
-        clearTimeout(autosaveTimerRef.current);
+      if (metadataSaveTimerRef.current) {
+        clearTimeout(metadataSaveTimerRef.current);
       }
     };
-  }, [onSave, hasChanges, noteCreated, title, content, performSave, saveStatus]);
+  }, [onSave, hasMetadataChanges, noteCreated, title, performMetadataSave, metadataSaveStatus]);
 
   // Sync with external saving state
   useEffect(() => {
     if (saving) {
-      setSaveStatus('saving');
+      setMetadataSaveStatus('saving');
     }
   }, [saving]);
-
-  const handleContentChange = useCallback((newContent: string) => {
-    setContent(newContent);
-  }, []);
 
   const getVisibilityIcon = () => {
     switch (visibility) {
@@ -257,9 +268,15 @@ export function NoteDetail({
     }
   };
 
-  // Save status indicator component
+  // Three-tier Yjs-aware save status indicator (#2256)
   const SaveStatusIndicator = () => {
-    switch (saveStatus) {
+    // If Yjs is enabled, show Yjs connection status
+    if (yjsEnabled) {
+      return <YjsSaveStatus status={yjsStatus} metadataStatus={metadataSaveStatus} metadataError={metadataSaveError} />;
+    }
+
+    // Fallback to metadata-only status when Yjs is not active
+    switch (metadataSaveStatus) {
       case 'saving':
         return (
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -285,14 +302,14 @@ export function NoteDetail({
                 </div>
               </TooltipTrigger>
               <TooltipContent>
-                <p>{saveError || 'Failed to save note'}</p>
+                <p>{metadataSaveError || 'Failed to save note'}</p>
                 <p className="text-xs text-muted-foreground mt-1">Changes will be retried automatically</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
         );
       default:
-        if (hasChanges) {
+        if (hasMetadataChanges) {
           return (
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <CloudOff className="size-3" />
@@ -489,12 +506,93 @@ export function NoteDetail({
         <NoteEditor
           key={note?.id ?? 'new'}
           initialContent={note?.content ?? ''}
-          onChange={handleContentChange}
-          saving={saveStatus === 'saving'}
+          onChange={yjsEnabled ? undefined : handleContentChange}
+          saving={metadataSaveStatus === 'saving'}
           autoFocus={isNew}
           className="h-full border-0 rounded-none"
+          yjsDoc={yjsDoc}
+          yjsProvider={yjsProvider}
+          yjsEnabled={yjsEnabled}
+          currentUser={{ name: 'User', color: '#3b82f6' }}
         />
       </div>
     </div>
   );
+}
+
+/** Three-tier Yjs-aware save status (#2256) */
+function YjsSaveStatus({
+  status,
+  metadataStatus,
+  metadataError,
+}: {
+  status: YjsConnectionStatus;
+  metadataStatus: 'idle' | 'saving' | 'saved' | 'error';
+  metadataError: string | null;
+}) {
+  // Show metadata errors prominently
+  if (metadataStatus === 'error') {
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="flex items-center gap-1.5 text-xs text-destructive cursor-help">
+              <AlertCircle className="size-3" />
+              <span>Error saving</span>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>{metadataError || 'Failed to save note metadata'}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  }
+
+  if (metadataStatus === 'saving') {
+    return (
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <Loader2 className="size-3 animate-spin" />
+        <span>Saving metadata...</span>
+      </div>
+    );
+  }
+
+  switch (status) {
+    case 'synced':
+      return (
+        <div className="flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400">
+          <Check className="size-3" />
+          <span>All changes synced</span>
+        </div>
+      );
+    case 'connected':
+      return (
+        <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
+          <Wifi className="size-3" />
+          <span>Syncing...</span>
+        </div>
+      );
+    case 'connecting':
+      return (
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Loader2 className="size-3 animate-spin" />
+          <span>Connecting...</span>
+        </div>
+      );
+    case 'disconnected':
+      return (
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <WifiOff className="size-3" />
+          <span>Offline — reconnecting...</span>
+        </div>
+      );
+    default:
+      return (
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Cloud className="size-3" />
+          <span>All changes saved</span>
+        </div>
+      );
+  }
 }
