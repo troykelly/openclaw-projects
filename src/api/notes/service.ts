@@ -411,7 +411,7 @@ export async function updateNote(pool: Pool, noteId: string, input: UpdateNoteIn
 
   if (updates.length === 0) {
     // Nothing to update, just return current note
-    return getNote(pool, noteId, namespaces, null);
+    return getNote(pool, noteId, namespaces, sessionEmail);
   }
 
   params.push(noteId);

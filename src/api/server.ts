@@ -16505,11 +16505,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const params = req.params as { id: string };
 
-    const queryNamespaces = req.namespaceContext?.queryNamespaces ?? [];
-    if (queryNamespaces.length === 0) {
+    if (!req.namespaceContext) {
       return reply.code(401).send({ error: 'unauthorized' });
     }
-    const namespace = getStoreNamespace(req);
+    const namespace = req.namespaceContext.storeNamespace ?? 'default';
 
     const pool = createPool();
 
@@ -17338,11 +17337,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const query = req.query as { user_email?: string };
 
-    const queryNamespaces = req.namespaceContext?.queryNamespaces ?? [];
-    if (queryNamespaces.length === 0) {
+    if (!req.namespaceContext) {
       return reply.code(401).send({ error: 'unauthorized' });
     }
-    const namespace = getStoreNamespace(req);
+    const namespace = req.namespaceContext.storeNamespace ?? 'default';
     const callerIdentity = (await resolveUserEmail(req, query.user_email)) ?? (req.headers['x-agent-id'] as string) ?? namespace;
 
     const pool = createPool();
