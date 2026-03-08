@@ -63,6 +63,13 @@ function generateRequestId(): string {
 }
 
 /**
+ * Maximum delay (ms) the client will auto-retry on a 429. If the server's
+ * Retry-After exceeds this threshold, the 429 is returned to the caller
+ * immediately so the agent can decide when to retry (#2279).
+ */
+const MAX_AUTO_RETRY_DELAY_MS = 30_000;
+
+/**
  * Calculate retry delay with exponential backoff and jitter.
  */
 function calculateRetryDelay(attempt: number, baseDelay = 1000, maxDelay = 10000): number {
@@ -123,7 +130,17 @@ export class ApiClient {
 
     for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
       if (attempt > 0) {
-        // For 429 responses, prefer the server-specified Retry-After delay
+        // For 429 responses with a short Retry-After, honour the server delay.
+        // If Retry-After exceeds MAX_AUTO_RETRY_DELAY_MS, return the error
+        // immediately so the agent can decide when to retry (#2279).
+        if (lastError?.status === 429 && lastError.retryAfter && lastError.retryAfter * 1000 > MAX_AUTO_RETRY_DELAY_MS) {
+          this.logger.info('Rate-limited with long Retry-After; returning 429 to caller', {
+            path,
+            retryAfter: lastError.retryAfter,
+          });
+          return { success: false, error: lastError };
+        }
+
         const delay = lastError?.status === 429 && lastError.retryAfter ? lastError.retryAfter * 1000 : calculateRetryDelay(attempt - 1);
         this.logger.debug(`Retrying request (attempt ${attempt + 1}/${this.maxRetries + 1})`, {
           path,

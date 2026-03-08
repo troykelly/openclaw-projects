@@ -487,6 +487,58 @@ describe('ApiClient', () => {
       vi.mocked(globalThis.setTimeout).mockRestore();
     });
 
+    it('should not retry 429 when Retry-After exceeds threshold (#2279)', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 429,
+        statusText: 'Too Many Requests',
+        headers: new Headers({ 'Retry-After': '871' }),
+        json: async () => ({ message: 'Rate limit exceeded. Try again in 871 seconds.' }),
+      });
+
+      const client = createApiClient({
+        config: { ...defaultConfig, maxRetries: 3 },
+        logger: mockLogger,
+      });
+      const result = await client.get('/items');
+
+      // Should return immediately without retrying — 871s >> 30s threshold
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.status).toBe(429);
+        expect(result.error.code).toBe('RATE_LIMITED');
+        expect(result.error.retryAfter).toBe(871);
+        expect(result.error.message).toBe('Rate limit exceeded. Try again in 871 seconds.');
+      }
+    });
+
+    it('should still retry 429 when Retry-After is short', async () => {
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 429,
+          statusText: 'Too Many Requests',
+          headers: new Headers({ 'Retry-After': '2' }),
+          json: async () => ({ message: 'Rate limit exceeded' }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => ({ id: 1 }),
+        });
+
+      const client = createApiClient({
+        config: { ...defaultConfig, maxRetries: 1 },
+        logger: mockLogger,
+      });
+      const result = await client.get('/items');
+
+      // Should retry since 2s < 30s threshold
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      expect(result.success).toBe(true);
+    });
+
     it('should fail on 5xx errors when maxRetries is 0', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
