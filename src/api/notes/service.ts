@@ -66,7 +66,7 @@ export async function userCanAccessNote(pool: Pool, noteId: string, namespaces: 
      WHERE n.id = $1 AND n.deleted_at IS NULL
        AND (
          n.namespace = ANY($2::text[])
-         OR n.visibility = 'public'
+         ${requiredPermission === 'read' ? "OR n.visibility = 'public'" : ''}
          ${shareCondition}
        )`,
     userEmail ? [noteId, namespaces, userEmail] : [noteId, namespaces],

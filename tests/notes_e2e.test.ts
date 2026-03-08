@@ -18,6 +18,9 @@ import { runMigrate } from './helpers/migrate.ts';
 import { createTestPool, truncateAllTables } from './helpers/db.ts';
 import { getAuthHeaders } from './helpers/auth.ts';
 
+const NS_HEADERS = { 'x-namespace': 'default' };
+const OTHER_NS_HEADERS = { 'x-namespace': 'other' };
+
 // ---------------------------------------------------------------------------
 // Response Type Definitions for E2E Tests (Issue #707)
 // ---------------------------------------------------------------------------
@@ -325,7 +328,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
       const res = await app.inject({
         method: 'GET',
         url: '/app/notes',
-        headers: await getAuthHeaders(primaryUser),
+        headers: { ...NS_HEADERS, ...(await getAuthHeaders(primaryUser)) },
       });
 
       expect(res.statusCode).toBe(200);
@@ -339,6 +342,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
       const createRes = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: { user_email: primaryUser, title: 'Navigation Test' },
       });
       const noteId = createRes.json<NoteResponse>().id;
@@ -346,7 +350,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
       const res = await app.inject({
         method: 'GET',
         url: `/app/notes/${noteId}`,
-        headers: await getAuthHeaders(primaryUser),
+        headers: { ...NS_HEADERS, ...(await getAuthHeaders(primaryUser)) },
       });
 
       expect(res.statusCode).toBe(200);
@@ -368,6 +372,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
       const nbRes = await app.inject({
         method: 'POST',
         url: '/notebooks',
+        headers: NS_HEADERS,
         payload: { user_email: primaryUser, name: 'Test Notebook' },
       });
       const notebook_id = nbRes.json<NotebookResponse>().id;
@@ -375,7 +380,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
       const res = await app.inject({
         method: 'GET',
         url: `/app/notes?notebook=${notebook_id}`,
-        headers: await getAuthHeaders(primaryUser),
+        headers: { ...NS_HEADERS, ...(await getAuthHeaders(primaryUser)) },
       });
 
       expect(res.statusCode).toBe(200);
@@ -393,6 +398,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
       const nbRes = await app.inject({
         method: 'POST',
         url: '/notebooks',
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           name: 'Project Notes',
@@ -411,6 +417,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
       const note1Res = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           title: 'Meeting Notes',
@@ -427,6 +434,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
       const note2Res = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           title: 'Action Items',
@@ -442,6 +450,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
       const nbGetRes = await app.inject({
         method: 'GET',
         url: `/notebooks/${notebook.id}`,
+        headers: NS_HEADERS,
         query: { user_email: primaryUser, include_notes: 'true' },
       });
 
@@ -452,6 +461,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
       const updateRes = await app.inject({
         method: 'PUT',
         url: `/notes/${note1.id}`,
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           title: 'Updated Meeting Notes',
@@ -466,6 +476,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
       const deleteRes = await app.inject({
         method: 'DELETE',
         url: `/notes/${note2Res.json<NoteResponse>().id}`,
+        headers: NS_HEADERS,
         query: { user_email: primaryUser },
       });
 
@@ -475,6 +486,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
       const listRes = await app.inject({
         method: 'GET',
         url: '/notes',
+        headers: NS_HEADERS,
         query: { user_email: primaryUser, notebook_id: notebook.id },
       });
 
@@ -484,6 +496,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
       const restoreRes = await app.inject({
         method: 'POST',
         url: `/notes/${note2Res.json<NoteResponse>().id}/restore`,
+        headers: NS_HEADERS,
         payload: { user_email: primaryUser },
       });
 
@@ -493,6 +506,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
       const listRes2 = await app.inject({
         method: 'GET',
         url: '/notes',
+        headers: NS_HEADERS,
         query: { user_email: primaryUser, notebook_id: notebook.id },
       });
 
@@ -502,6 +516,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
       const nbDeleteRes = await app.inject({
         method: 'DELETE',
         url: `/notebooks/${notebook.id}`,
+        headers: NS_HEADERS,
         query: { user_email: primaryUser },
       });
 
@@ -511,6 +526,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
       const finalListRes = await app.inject({
         method: 'GET',
         url: '/notes',
+        headers: NS_HEADERS,
         query: { user_email: primaryUser },
       });
 
@@ -524,6 +540,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
       const rootRes = await app.inject({
         method: 'POST',
         url: '/notebooks',
+        headers: NS_HEADERS,
         payload: { user_email: primaryUser, name: 'Root' },
       });
       const rootId = rootRes.json<NotebookResponse>().id;
@@ -532,6 +549,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
       const childRes = await app.inject({
         method: 'POST',
         url: '/notebooks',
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           name: 'Child',
@@ -546,6 +564,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
       const grandchildRes = await app.inject({
         method: 'POST',
         url: '/notebooks',
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           name: 'Grandchild',
@@ -558,6 +577,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
       const treeRes = await app.inject({
         method: 'GET',
         url: '/notebooks/tree',
+        headers: NS_HEADERS,
         query: { user_email: primaryUser },
       });
 
@@ -575,6 +595,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
       const note1Res = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: { user_email: primaryUser, title: 'Note 1' },
       });
       const note1 = note1Res.json<NoteResponse>();
@@ -583,6 +604,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
       const note2Res = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: { user_email: primaryUser, title: 'Note 2', is_pinned: true },
       });
       const note2 = note2Res.json<NoteResponse>();
@@ -595,6 +617,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
       const pinRes = await app.inject({
         method: 'PUT',
         url: `/notes/${note1Id}`,
+        headers: NS_HEADERS,
         payload: { user_email: primaryUser, is_pinned: true },
       });
       expect(pinRes.json<NoteResponse>().is_pinned).toBe(true);
@@ -603,6 +626,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
       const pinnedRes = await app.inject({
         method: 'GET',
         url: '/notes',
+        headers: NS_HEADERS,
         query: { user_email: primaryUser, is_pinned: 'true' },
       });
       expect(pinnedRes.json<NotesListResponse>().notes).toHaveLength(2);
@@ -635,6 +659,7 @@ This is a **bold** and *italic* text.
       const res = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           title: 'Markdown Test',
@@ -664,6 +689,7 @@ def hello(name: str) -> str:
       const res = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           title: 'Code Block Test',
@@ -689,6 +715,7 @@ def hello(name: str) -> str:
       const res = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           title: 'Table Test',
@@ -712,6 +739,7 @@ def hello(name: str) -> str:
       const res = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           title: 'Links Test',
@@ -737,6 +765,7 @@ graph TD
       const res = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           title: 'Mermaid Test',
@@ -765,6 +794,7 @@ $$
       const res = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           title: 'Math Test',
@@ -789,6 +819,7 @@ $$
       await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           title: 'TypeScript Guide',
@@ -801,6 +832,7 @@ $$
       await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           title: 'Python Tutorial',
@@ -813,6 +845,7 @@ $$
       await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           title: 'Private Journal',
@@ -827,6 +860,7 @@ $$
       const res = await app.inject({
         method: 'GET',
         url: '/notes/search',
+        headers: NS_HEADERS,
         query: {
           user_email: primaryUser,
           q: 'TypeScript',
@@ -846,6 +880,7 @@ $$
       const res = await app.inject({
         method: 'GET',
         url: '/notes',
+        headers: NS_HEADERS,
         query: {
           user_email: primaryUser,
           tags: 'programming',
@@ -862,6 +897,7 @@ $$
       const res = await app.inject({
         method: 'GET',
         url: '/notes',
+        headers: NS_HEADERS,
         query: {
           user_email: primaryUser,
           visibility: 'private',
@@ -878,6 +914,7 @@ $$
       const ascRes = await app.inject({
         method: 'GET',
         url: '/notes',
+        headers: NS_HEADERS,
         query: {
           user_email: primaryUser,
           sort_by: 'title',
@@ -888,6 +925,7 @@ $$
       const descRes = await app.inject({
         method: 'GET',
         url: '/notes',
+        headers: NS_HEADERS,
         query: {
           user_email: primaryUser,
           sort_by: 'title',
@@ -908,6 +946,7 @@ $$
       const page1Res = await app.inject({
         method: 'GET',
         url: '/notes',
+        headers: NS_HEADERS,
         query: {
           user_email: primaryUser,
           limit: '2',
@@ -918,6 +957,7 @@ $$
       const page2Res = await app.inject({
         method: 'GET',
         url: '/notes',
+        headers: NS_HEADERS,
         query: {
           user_email: primaryUser,
           limit: '2',
@@ -955,6 +995,7 @@ $$
       const createRes = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           title: 'Shared Document',
@@ -969,6 +1010,7 @@ $$
       const beforeShareRes = await app.inject({
         method: 'GET',
         url: `/notes/${noteId}`,
+        headers: OTHER_NS_HEADERS,
         query: { user_email: secondaryUser },
       });
       expect(beforeShareRes.statusCode).toBe(404);
@@ -977,6 +1019,7 @@ $$
       const shareRes = await app.inject({
         method: 'POST',
         url: `/notes/${noteId}/share`,
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           email: secondaryUser,
@@ -992,6 +1035,7 @@ $$
       const afterShareRes = await app.inject({
         method: 'GET',
         url: `/notes/${noteId}`,
+        headers: OTHER_NS_HEADERS,
         query: { user_email: secondaryUser },
       });
       expect(afterShareRes.statusCode).toBe(200);
@@ -1001,6 +1045,7 @@ $$
       const sharedListRes = await app.inject({
         method: 'GET',
         url: '/notes/shared-with-me',
+        headers: OTHER_NS_HEADERS,
         query: { user_email: secondaryUser },
       });
       expect(sharedListRes.statusCode).toBe(200);
@@ -1010,6 +1055,7 @@ $$
       const editRes = await app.inject({
         method: 'PUT',
         url: `/notes/${noteId}`,
+        headers: OTHER_NS_HEADERS,
         payload: {
           user_email: secondaryUser,
           title: 'Hacked Title',
@@ -1021,6 +1067,7 @@ $$
       const updateShareRes = await app.inject({
         method: 'PUT',
         url: `/notes/${noteId}/shares/${share.id}`,
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           permission: 'read_write',
@@ -1032,6 +1079,7 @@ $$
       const editRes2 = await app.inject({
         method: 'PUT',
         url: `/notes/${noteId}`,
+        headers: OTHER_NS_HEADERS,
         payload: {
           user_email: secondaryUser,
           title: 'Updated by Collaborator',
@@ -1043,6 +1091,7 @@ $$
       const revokeRes = await app.inject({
         method: 'DELETE',
         url: `/notes/${noteId}/shares/${share.id}`,
+        headers: NS_HEADERS,
         query: { user_email: primaryUser },
       });
       expect(revokeRes.statusCode).toBe(204);
@@ -1051,6 +1100,7 @@ $$
       const afterRevokeRes = await app.inject({
         method: 'GET',
         url: `/notes/${noteId}`,
+        headers: OTHER_NS_HEADERS,
         query: { user_email: secondaryUser },
       });
       expect(afterRevokeRes.statusCode).toBe(404);
@@ -1061,6 +1111,7 @@ $$
       const createRes = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           title: 'Link Shared Note',
@@ -1073,6 +1124,7 @@ $$
       const linkRes = await app.inject({
         method: 'POST',
         url: `/notes/${noteId}/share/link`,
+        headers: NS_HEADERS,
         payload: { user_email: primaryUser },
       });
 
@@ -1098,6 +1150,7 @@ $$
       const createRes = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           title: 'One Time Note',
@@ -1110,6 +1163,7 @@ $$
       const linkRes = await app.inject({
         method: 'POST',
         url: `/notes/${noteId}/share/link`,
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           is_single_view: true,
@@ -1137,6 +1191,7 @@ $$
       const nbRes = await app.inject({
         method: 'POST',
         url: '/notebooks',
+        headers: NS_HEADERS,
         payload: { user_email: primaryUser, name: 'Shared Notebook' },
       });
       const notebook_id = nbRes.json<NotebookResponse>().id;
@@ -1144,6 +1199,7 @@ $$
       await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           title: 'Note in Shared Notebook',
@@ -1155,6 +1211,7 @@ $$
       const shareRes = await app.inject({
         method: 'POST',
         url: `/notebooks/${notebook_id}/share`,
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           email: secondaryUser,
@@ -1167,6 +1224,7 @@ $$
       const sharedNbRes = await app.inject({
         method: 'GET',
         url: '/notebooks/shared-with-me',
+        headers: NS_HEADERS,
         query: { user_email: secondaryUser },
       });
       expect(sharedNbRes.statusCode).toBe(200);
@@ -1184,6 +1242,7 @@ $$
       const createRes = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           title: 'Multi-Party Document',
@@ -1198,6 +1257,7 @@ $$
       const share1Res = await app.inject({
         method: 'POST',
         url: `/notes/${noteId}/share`,
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           email: secondaryUser,
@@ -1210,6 +1270,7 @@ $$
       const share2Res = await app.inject({
         method: 'POST',
         url: `/notes/${noteId}/share`,
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           email: tertiaryUser,
@@ -1222,6 +1283,7 @@ $$
       const secondaryReadRes = await app.inject({
         method: 'GET',
         url: `/notes/${noteId}`,
+        headers: OTHER_NS_HEADERS,
         query: { user_email: secondaryUser },
       });
       expect(secondaryReadRes.statusCode).toBe(200);
@@ -1230,6 +1292,7 @@ $$
       const tertiaryReadRes = await app.inject({
         method: 'GET',
         url: `/notes/${noteId}`,
+        headers: OTHER_NS_HEADERS,
         query: { user_email: tertiaryUser },
       });
       expect(tertiaryReadRes.statusCode).toBe(200);
@@ -1238,6 +1301,7 @@ $$
       const secondaryEditRes = await app.inject({
         method: 'PUT',
         url: `/notes/${noteId}`,
+        headers: OTHER_NS_HEADERS,
         payload: {
           user_email: secondaryUser,
           content: 'Attempted edit by secondary user',
@@ -1249,6 +1313,7 @@ $$
       const tertiaryEditRes = await app.inject({
         method: 'PUT',
         url: `/notes/${noteId}`,
+        headers: OTHER_NS_HEADERS,
         payload: {
           user_email: tertiaryUser,
           content: 'Content updated by tertiary user',
@@ -1260,6 +1325,7 @@ $$
       const verifyRes = await app.inject({
         method: 'GET',
         url: `/notes/${noteId}`,
+        headers: NS_HEADERS,
         query: { user_email: primaryUser },
       });
       expect(verifyRes.json<NoteResponse>().content).toBe('Content updated by tertiary user');
@@ -1268,6 +1334,7 @@ $$
       const secondaryVerifyRes = await app.inject({
         method: 'GET',
         url: `/notes/${noteId}`,
+        headers: OTHER_NS_HEADERS,
         query: { user_email: secondaryUser },
       });
       expect(secondaryVerifyRes.json<NoteResponse>().content).toBe('Content updated by tertiary user');
@@ -1276,6 +1343,7 @@ $$
       const secondaryShareAttempt = await app.inject({
         method: 'POST',
         url: `/notes/${noteId}/share`,
+        headers: OTHER_NS_HEADERS,
         payload: {
           user_email: secondaryUser,
           email: 'another@example.com',
@@ -1288,6 +1356,7 @@ $$
       const tertiaryShareAttempt = await app.inject({
         method: 'POST',
         url: `/notes/${noteId}/share`,
+        headers: OTHER_NS_HEADERS,
         payload: {
           user_email: tertiaryUser,
           email: 'another@example.com',
@@ -1300,6 +1369,7 @@ $$
       const tertiaryDeleteAttempt = await app.inject({
         method: 'DELETE',
         url: `/notes/${noteId}`,
+        headers: OTHER_NS_HEADERS,
         query: { user_email: tertiaryUser },
       });
       expect(tertiaryDeleteAttempt.statusCode).toBe(403);
@@ -1308,6 +1378,7 @@ $$
       const ownerDeleteRes = await app.inject({
         method: 'DELETE',
         url: `/notes/${noteId}`,
+        headers: NS_HEADERS,
         query: { user_email: primaryUser },
       });
       expect(ownerDeleteRes.statusCode).toBe(204);
@@ -1324,6 +1395,7 @@ $$
       const createRes = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           title: 'Version Test',
@@ -1336,6 +1408,7 @@ $$
       await app.inject({
         method: 'PUT',
         url: `/notes/${noteId}`,
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           title: 'Version Test v2',
@@ -1346,6 +1419,7 @@ $$
       await app.inject({
         method: 'PUT',
         url: `/notes/${noteId}`,
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           title: 'Version Test v3',
@@ -1357,6 +1431,7 @@ $$
       const versionsRes = await app.inject({
         method: 'GET',
         url: `/notes/${noteId}/versions`,
+        headers: NS_HEADERS,
         query: { user_email: primaryUser },
       });
 
@@ -1368,6 +1443,7 @@ $$
       const v1Res = await app.inject({
         method: 'GET',
         url: `/notes/${noteId}/versions/1`,
+        headers: NS_HEADERS,
         query: { user_email: primaryUser },
       });
 
@@ -1381,6 +1457,7 @@ $$
       const compareRes = await app.inject({
         method: 'GET',
         url: `/notes/${noteId}/versions/compare`,
+        headers: NS_HEADERS,
         query: {
           user_email: primaryUser,
           from: '1',
@@ -1397,6 +1474,7 @@ $$
       const restoreRes = await app.inject({
         method: 'POST',
         url: `/notes/${noteId}/versions/1/restore`,
+        headers: NS_HEADERS,
         query: { user_email: primaryUser },
       });
 
@@ -1407,6 +1485,7 @@ $$
       const noteRes = await app.inject({
         method: 'GET',
         url: `/notes/${noteId}`,
+        headers: NS_HEADERS,
         query: { user_email: primaryUser },
       });
 
@@ -1418,6 +1497,7 @@ $$
       const finalVersionsRes = await app.inject({
         method: 'GET',
         url: `/notes/${noteId}/versions`,
+        headers: NS_HEADERS,
         query: { user_email: primaryUser },
       });
 
@@ -1436,6 +1516,7 @@ $$
       const createRes = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           title: 'Presence Test Note',
@@ -1449,6 +1530,7 @@ $$
       const joinRes = await app.inject({
         method: 'POST',
         url: `/notes/${noteId}/presence`,
+        headers: NS_HEADERS,
         payload: { user_email: primaryUser },
       });
       expect(joinRes.statusCode).toBe(200);
@@ -1460,7 +1542,7 @@ $$
       const getRes = await app.inject({
         method: 'GET',
         url: `/notes/${noteId}/presence`,
-        headers: { 'x-user-email': primaryUser },
+        headers: { ...NS_HEADERS, 'x-user-email': primaryUser },
       });
       expect(getRes.statusCode).toBe(200);
       expect(getRes.json().collaborators).toBeInstanceOf(Array);
@@ -1469,7 +1551,7 @@ $$
       const leaveRes = await app.inject({
         method: 'DELETE',
         url: `/notes/${noteId}/presence`,
-        headers: { 'x-user-email': primaryUser },
+        headers: { ...NS_HEADERS, 'x-user-email': primaryUser },
       });
       expect(leaveRes.statusCode).toBe(204);
     });
@@ -1479,6 +1561,7 @@ $$
       const createRes = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           title: 'Cursor Test Note',
@@ -1491,6 +1574,7 @@ $$
       await app.inject({
         method: 'POST',
         url: `/notes/${noteId}/presence`,
+        headers: NS_HEADERS,
         payload: { user_email: primaryUser },
       });
 
@@ -1498,6 +1582,7 @@ $$
       const cursorRes = await app.inject({
         method: 'PUT',
         url: `/notes/${noteId}/presence/cursor`,
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           cursor_position: { line: 5, column: 10 },
@@ -1511,6 +1596,7 @@ $$
       const createRes = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           title: 'Private Presence Note',
@@ -1524,6 +1610,7 @@ $$
       const joinRes = await app.inject({
         method: 'POST',
         url: `/notes/${noteId}/presence`,
+        headers: OTHER_NS_HEADERS,
         payload: { user_email: secondaryUser },
       });
       expect(joinRes.statusCode).toBe(403);
@@ -1532,7 +1619,7 @@ $$
       const getRes = await app.inject({
         method: 'GET',
         url: `/notes/${noteId}/presence`,
-        headers: { 'x-user-email': secondaryUser },
+        headers: { ...OTHER_NS_HEADERS, 'x-user-email': secondaryUser },
       });
       expect(getRes.statusCode).toBe(403);
     });
@@ -1542,6 +1629,7 @@ $$
       const createRes = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           title: 'Shared Presence Note',
@@ -1555,6 +1643,7 @@ $$
       await app.inject({
         method: 'POST',
         url: `/notes/${noteId}/share`,
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           email: secondaryUser,
@@ -1566,6 +1655,7 @@ $$
       const joinRes = await app.inject({
         method: 'POST',
         url: `/notes/${noteId}/presence`,
+        headers: NS_HEADERS,
         payload: { user_email: secondaryUser },
       });
       expect(joinRes.statusCode).toBe(200);
@@ -1574,7 +1664,7 @@ $$
       const getRes = await app.inject({
         method: 'GET',
         url: `/notes/${noteId}/presence`,
-        headers: { 'x-user-email': primaryUser },
+        headers: { ...NS_HEADERS, 'x-user-email': primaryUser },
       });
       expect(getRes.statusCode).toBe(200);
       const collaborators = getRes.json().collaborators;
@@ -1586,6 +1676,7 @@ $$
       const createRes = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           title: 'Initial Cursor Note',
@@ -1598,6 +1689,7 @@ $$
       const joinRes = await app.inject({
         method: 'POST',
         url: `/notes/${noteId}/presence`,
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           cursor_position: { line: 1, column: 0 },
@@ -1617,6 +1709,7 @@ $$
       const joinRes = await app.inject({
         method: 'POST',
         url: `/notes/${fakeId}/presence`,
+        headers: NS_HEADERS,
         payload: { user_email: primaryUser },
       });
       // Should return 403 or 404 depending on implementation
@@ -1634,6 +1727,7 @@ $$
       const createRes = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           title: 'Private Note',
@@ -1647,6 +1741,7 @@ $$
       const otherRes = await app.inject({
         method: 'GET',
         url: `/notes/${noteId}`,
+        headers: OTHER_NS_HEADERS,
         query: { user_email: secondaryUser },
       });
       expect(otherRes.statusCode).toBe(404);
@@ -1655,6 +1750,7 @@ $$
       const ownerRes = await app.inject({
         method: 'GET',
         url: `/notes/${noteId}`,
+        headers: NS_HEADERS,
         query: { user_email: primaryUser },
       });
       expect(ownerRes.statusCode).toBe(200);
@@ -1665,6 +1761,7 @@ $$
       const createRes = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           title: 'Public Note',
@@ -1678,6 +1775,7 @@ $$
       const otherRes = await app.inject({
         method: 'GET',
         url: `/notes/${noteId}`,
+        headers: OTHER_NS_HEADERS,
         query: { user_email: secondaryUser },
       });
       expect(otherRes.statusCode).toBe(200);
@@ -1686,6 +1784,7 @@ $$
       const editRes = await app.inject({
         method: 'PUT',
         url: `/notes/${noteId}`,
+        headers: OTHER_NS_HEADERS,
         payload: {
           user_email: secondaryUser,
           title: 'Hacked',
@@ -1699,6 +1798,7 @@ $$
       await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           title: 'Agent Hidden Note',
@@ -1718,6 +1818,7 @@ $$
           search_type: 'text',
         },
         headers: {
+          ...NS_HEADERS,
           'X-OpenClaw-Agent': 'test-agent',
         },
       });
@@ -1730,6 +1831,7 @@ $$
       const userSearchRes = await app.inject({
         method: 'GET',
         url: '/notes/search',
+        headers: NS_HEADERS,
         query: {
           user_email: primaryUser,
           q: 'Agent Hidden',
@@ -1754,6 +1856,7 @@ $$
       const createRes = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           title: 'XSS Test Note',
@@ -1772,6 +1875,7 @@ $$
       const getRes = await app.inject({
         method: 'GET',
         url: `/notes/${note.id}`,
+        headers: NS_HEADERS,
         query: { user_email: primaryUser },
       });
 
@@ -1785,6 +1889,7 @@ $$
       const createRes = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           title: 'Onerror XSS Test',
@@ -1799,6 +1904,7 @@ $$
       const onerrorGetRes = await app.inject({
         method: 'GET',
         url: `/notes/${createRes.json<NoteResponse>().id}`,
+        headers: NS_HEADERS,
         query: { user_email: primaryUser },
       });
 
@@ -1811,6 +1917,7 @@ $$
       const createRes = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           title: 'JavaScript URL Test',
@@ -1824,6 +1931,7 @@ $$
       const jsUrlGetRes = await app.inject({
         method: 'GET',
         url: `/notes/${createRes.json<NoteResponse>().id}`,
+        headers: NS_HEADERS,
         query: { user_email: primaryUser },
       });
 
@@ -1836,6 +1944,7 @@ $$
       const createRes = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           title: 'Data URL Test',
@@ -1852,6 +1961,7 @@ $$
       const createRes = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           title: 'SVG XSS Test',
@@ -1868,6 +1978,7 @@ $$
       const createRes = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           title: 'Iframe Test',
@@ -1885,6 +1996,7 @@ $$
       const createRes = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           title: maliciousTitle,
@@ -1903,6 +2015,7 @@ $$
       const createRes = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           title: 'Style XSS Test',
@@ -1919,6 +2032,7 @@ $$
       const createRes = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           title: 'Form Injection Test',
@@ -1935,6 +2049,7 @@ $$
       const createRes = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           title: 'Base Tag Test',
@@ -1950,6 +2065,7 @@ $$
       await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           title: 'Searchable XSS Note',
@@ -1961,6 +2077,7 @@ $$
       const searchRes = await app.inject({
         method: 'GET',
         url: '/notes/search',
+        headers: NS_HEADERS,
         query: {
           user_email: primaryUser,
           q: 'xyz123',
@@ -1995,6 +2112,7 @@ $$
       const res2 = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: { user_email: primaryUser },
       });
       expect(res2.statusCode).toBe(400);
@@ -2005,6 +2123,7 @@ $$
       const res = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           title: 'Test',
@@ -2022,6 +2141,7 @@ $$
       const noteRes = await app.inject({
         method: 'GET',
         url: `/notes/${fakeId}`,
+        headers: NS_HEADERS,
         query: { user_email: primaryUser },
       });
       expect(noteRes.statusCode).toBe(404);
@@ -2030,6 +2150,7 @@ $$
       const nbRes = await app.inject({
         method: 'GET',
         url: `/notebooks/${fakeId}`,
+        headers: NS_HEADERS,
         query: { user_email: primaryUser },
       });
       expect(nbRes.statusCode).toBe(404);
@@ -2040,6 +2161,7 @@ $$
       const createRes = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           title: 'Owned Note',
@@ -2052,6 +2174,7 @@ $$
       const deleteRes = await app.inject({
         method: 'DELETE',
         url: `/notes/${noteId}`,
+        headers: OTHER_NS_HEADERS,
         query: { user_email: secondaryUser },
       });
       expect(deleteRes.statusCode).toBe(403);
@@ -2061,6 +2184,7 @@ $$
       const createRes = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           title: 'Test Note',
@@ -2072,6 +2196,7 @@ $$
       await app.inject({
         method: 'POST',
         url: `/notes/${noteId}/share`,
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           email: secondaryUser,
@@ -2082,6 +2207,7 @@ $$
       const dupRes = await app.inject({
         method: 'POST',
         url: `/notes/${noteId}/share`,
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           email: secondaryUser,
@@ -2117,6 +2243,7 @@ $$
           app.inject({
             method: 'POST',
             url: '/notes',
+            headers: NS_HEADERS,
             payload: {
               user_email: primaryUser,
               title: `Rate Limit Test Note ${i}`,
@@ -2142,6 +2269,7 @@ $$
           app.inject({
             method: 'GET',
             url: '/notes/search',
+            headers: NS_HEADERS,
             query: {
               user_email: primaryUser,
               q: 'test',
@@ -2162,6 +2290,7 @@ $$
       const createRes = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           title: 'Rate Limit Share Test',
@@ -2178,6 +2307,7 @@ $$
           app.inject({
             method: 'POST',
             url: `/notes/${noteId}/share`,
+            headers: NS_HEADERS,
             payload: {
               user_email: primaryUser,
               email: `rate-limit-test-${i}@example.com`,
@@ -2204,6 +2334,7 @@ $$
           app.inject({
             method: 'POST',
             url: '/notes',
+            headers: NS_HEADERS,
             payload: {
               user_email: primaryUser,
               title: `Concurrent Load Test Note ${i}`,
@@ -2217,6 +2348,7 @@ $$
       const res = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           title: 'Post Concurrent Load Test Note',
@@ -2238,6 +2370,7 @@ $$
       const nb1Res = await app.inject({
         method: 'POST',
         url: '/notebooks',
+        headers: NS_HEADERS,
         payload: { user_email: primaryUser, name: 'Source' },
       });
       const nb1Id = nb1Res.json<NotebookResponse>().id;
@@ -2245,6 +2378,7 @@ $$
       const nb2Res = await app.inject({
         method: 'POST',
         url: '/notebooks',
+        headers: NS_HEADERS,
         payload: { user_email: primaryUser, name: 'Target' },
       });
       const nb2Id = nb2Res.json<NotebookResponse>().id;
@@ -2253,6 +2387,7 @@ $$
       const noteRes = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           title: 'Movable Note',
@@ -2265,6 +2400,7 @@ $$
       const moveRes = await app.inject({
         method: 'POST',
         url: `/notebooks/${nb2Id}/notes`,
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           note_ids: [noteId],
@@ -2279,6 +2415,7 @@ $$
       const checkRes = await app.inject({
         method: 'GET',
         url: `/notes/${noteId}`,
+        headers: NS_HEADERS,
         query: { user_email: primaryUser },
       });
       expect(checkRes.json<NoteResponse>().notebook_id).toBe(nb2Id);
@@ -2289,6 +2426,7 @@ $$
       const nbRes = await app.inject({
         method: 'POST',
         url: '/notebooks',
+        headers: NS_HEADERS,
         payload: { user_email: primaryUser, name: 'Target' },
       });
       const nbId = nbRes.json<NotebookResponse>().id;
@@ -2297,6 +2435,7 @@ $$
       const noteRes = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           title: 'Original Note',
@@ -2309,6 +2448,7 @@ $$
       const copyRes = await app.inject({
         method: 'POST',
         url: `/notebooks/${nbId}/notes`,
+        headers: NS_HEADERS,
         payload: {
           user_email: primaryUser,
           note_ids: [originalId],
@@ -2324,6 +2464,7 @@ $$
       const origCheck = await app.inject({
         method: 'GET',
         url: `/notes/${originalId}`,
+        headers: NS_HEADERS,
         query: { user_email: primaryUser },
       });
       expect(origCheck.json<NoteResponse>().notebook_id).toBeNull();
@@ -2332,6 +2473,7 @@ $$
       const copyCheck = await app.inject({
         method: 'GET',
         url: `/notes/${copiedId}`,
+        headers: NS_HEADERS,
         query: { user_email: primaryUser },
       });
       const copiedNote = copyCheck.json<NoteResponse>();

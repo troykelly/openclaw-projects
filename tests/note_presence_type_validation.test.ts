@@ -9,6 +9,8 @@ import { buildServer } from '../src/api/server.ts';
 import { runMigrate } from './helpers/migrate.ts';
 import { createTestPool, truncateAllTables, ensureTestNamespace } from './helpers/db.ts';
 
+const NS_HEADERS = { 'x-namespace': 'default' };
+
 describe('Note Presence API - Type Validation (Issue #697)', () => {
   const app = buildServer();
   let pool: Pool;
@@ -65,6 +67,7 @@ describe('Note Presence API - Type Validation (Issue #697)', () => {
       const res = await app.inject({
         method: 'POST',
         url: `/notes/${noteId}/presence`,
+        headers: NS_HEADERS,
         payload: {
           user_email: testUserEmail,
           cursor_position: 'invalid',
@@ -79,6 +82,7 @@ describe('Note Presence API - Type Validation (Issue #697)', () => {
       const res = await app.inject({
         method: 'POST',
         url: `/notes/${noteId}/presence`,
+        headers: NS_HEADERS,
         payload: {
           user_email: testUserEmail,
           cursor_position: { line: 'not-a-number', column: 5 },
@@ -93,6 +97,7 @@ describe('Note Presence API - Type Validation (Issue #697)', () => {
       const res = await app.inject({
         method: 'POST',
         url: `/notes/${noteId}/presence`,
+        headers: NS_HEADERS,
         payload: {
           user_email: testUserEmail,
           cursor_position: { line: 1.5, column: 5 },
@@ -107,6 +112,7 @@ describe('Note Presence API - Type Validation (Issue #697)', () => {
       const res = await app.inject({
         method: 'POST',
         url: `/notes/${noteId}/presence`,
+        headers: NS_HEADERS,
         payload: {
           user_email: testUserEmail,
           cursor_position: { line: -1, column: 5 },
@@ -121,6 +127,7 @@ describe('Note Presence API - Type Validation (Issue #697)', () => {
       const res = await app.inject({
         method: 'POST',
         url: `/notes/${noteId}/presence`,
+        headers: NS_HEADERS,
         payload: {
           user_email: testUserEmail,
           cursor_position: { line: 10, column: 5 },
@@ -135,6 +142,7 @@ describe('Note Presence API - Type Validation (Issue #697)', () => {
       const res = await app.inject({
         method: 'POST',
         url: `/notes/${noteId}/presence`,
+        headers: NS_HEADERS,
         payload: {
           user_email: testUserEmail,
         },
@@ -169,7 +177,7 @@ describe('Note Presence API - Type Validation (Issue #697)', () => {
       const res = await app.inject({
         method: 'DELETE',
         url: `/notes/${noteId}/presence`,
-        headers: { 'x-user-email': testUserEmail },
+        headers: { ...NS_HEADERS, 'x-user-email': testUserEmail },
       });
 
       expect(res.statusCode).toBe(204);
@@ -200,7 +208,7 @@ describe('Note Presence API - Type Validation (Issue #697)', () => {
       const res = await app.inject({
         method: 'GET',
         url: `/notes/${noteId}/presence`,
-        headers: { 'x-user-email': testUserEmail },
+        headers: { ...NS_HEADERS, 'x-user-email': testUserEmail },
       });
 
       expect(res.statusCode).toBe(200);
@@ -238,6 +246,7 @@ describe('Note Presence API - Type Validation (Issue #697)', () => {
       const res = await app.inject({
         method: 'PUT',
         url: `/notes/${noteId}/presence/cursor`,
+        headers: NS_HEADERS,
         payload: {
           user_email: testUserEmail,
         },
@@ -251,6 +260,7 @@ describe('Note Presence API - Type Validation (Issue #697)', () => {
       const res = await app.inject({
         method: 'PUT',
         url: `/notes/${noteId}/presence/cursor`,
+        headers: NS_HEADERS,
         payload: {
           user_email: testUserEmail,
           cursor_position: 'invalid',
@@ -265,6 +275,7 @@ describe('Note Presence API - Type Validation (Issue #697)', () => {
       const res = await app.inject({
         method: 'PUT',
         url: `/notes/${noteId}/presence/cursor`,
+        headers: NS_HEADERS,
         payload: {
           user_email: testUserEmail,
           cursor_position: null,
@@ -279,6 +290,7 @@ describe('Note Presence API - Type Validation (Issue #697)', () => {
       const res = await app.inject({
         method: 'PUT',
         url: `/notes/${noteId}/presence/cursor`,
+        headers: NS_HEADERS,
         payload: {
           user_email: testUserEmail,
           cursor_position: { line: 'invalid', column: 1 },
@@ -293,6 +305,7 @@ describe('Note Presence API - Type Validation (Issue #697)', () => {
       const res = await app.inject({
         method: 'PUT',
         url: `/notes/${noteId}/presence/cursor`,
+        headers: NS_HEADERS,
         payload: {
           user_email: testUserEmail,
           cursor_position: { line: 1, column: 'invalid' },
@@ -307,6 +320,7 @@ describe('Note Presence API - Type Validation (Issue #697)', () => {
       const res = await app.inject({
         method: 'PUT',
         url: `/notes/${noteId}/presence/cursor`,
+        headers: NS_HEADERS,
         payload: {
           user_email: testUserEmail,
           cursor_position: { line: 1.5, column: 2.5 },
@@ -321,6 +335,7 @@ describe('Note Presence API - Type Validation (Issue #697)', () => {
       const res = await app.inject({
         method: 'PUT',
         url: `/notes/${noteId}/presence/cursor`,
+        headers: NS_HEADERS,
         payload: {
           user_email: testUserEmail,
           cursor_position: { line: -1, column: 5 },
@@ -335,6 +350,7 @@ describe('Note Presence API - Type Validation (Issue #697)', () => {
       const res = await app.inject({
         method: 'PUT',
         url: `/notes/${noteId}/presence/cursor`,
+        headers: NS_HEADERS,
         payload: {
           user_email: testUserEmail,
           cursor_position: { line: 2000000, column: 5 },
@@ -350,12 +366,14 @@ describe('Note Presence API - Type Validation (Issue #697)', () => {
       await app.inject({
         method: 'POST',
         url: `/notes/${noteId}/presence`,
+        headers: NS_HEADERS,
         payload: { user_email: testUserEmail },
       });
 
       const res = await app.inject({
         method: 'PUT',
         url: `/notes/${noteId}/presence/cursor`,
+        headers: NS_HEADERS,
         payload: {
           user_email: testUserEmail,
           cursor_position: { line: 10, column: 20 },
