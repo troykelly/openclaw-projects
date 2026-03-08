@@ -10,18 +10,19 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, waitFor, act } from '@testing-library/react';
 
-// Mock the api-config module to provide a base URL
-vi.mock('@/ui/lib/api-config', () => ({
-  getApiBaseUrl: vi.fn(() => 'http://localhost:3000/api'),
+// Mock the api-client module
+const mockGet = vi.fn();
+vi.mock('@/ui/lib/api-client', () => ({
+  apiClient: {
+    get: (...args: unknown[]) => mockGet(...args),
+  },
 }));
 
 import { useGatewayStatus } from '@/ui/hooks/use-gateway-status';
 
 describe('useGatewayStatus', () => {
-  let fetchSpy: ReturnType<typeof vi.spyOn>;
-
   beforeEach(() => {
-    fetchSpy = vi.spyOn(globalThis, 'fetch');
+    mockGet.mockReset();
   });
 
   afterEach(() => {
@@ -30,7 +31,7 @@ describe('useGatewayStatus', () => {
   });
 
   it('returns { loading: true } on initial render before fetch completes', () => {
-    fetchSpy.mockReturnValue(new Promise(() => {})); // never resolves
+    mockGet.mockReturnValue(new Promise(() => {})); // never resolves
     const { result } = renderHook(() => useGatewayStatus());
 
     expect(result.current.loading).toBe(true);
@@ -39,12 +40,7 @@ describe('useGatewayStatus', () => {
   });
 
   it('returns { connected: true, loading: false } on successful response', async () => {
-    fetchSpy.mockResolvedValue(
-      new Response(JSON.stringify({ connected: true, connected_at: '2026-03-05T10:00:00Z', last_tick_at: '2026-03-05T10:00:30Z' }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }),
-    );
+    mockGet.mockResolvedValue({ connected: true, connected_at: '2026-03-05T10:00:00Z', last_tick_at: '2026-03-05T10:00:30Z' });
 
     const { result } = renderHook(() => useGatewayStatus());
 
@@ -56,12 +52,7 @@ describe('useGatewayStatus', () => {
   });
 
   it('returns { connected: false, loading: false } when API returns connected=false', async () => {
-    fetchSpy.mockResolvedValue(
-      new Response(JSON.stringify({ connected: false, connected_at: null, last_tick_at: null }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }),
-    );
+    mockGet.mockResolvedValue({ connected: false, connected_at: null, last_tick_at: null });
 
     const { result } = renderHook(() => useGatewayStatus());
 
@@ -73,7 +64,7 @@ describe('useGatewayStatus', () => {
   });
 
   it('returns { connected: false, error: true } on fetch failure', async () => {
-    fetchSpy.mockRejectedValue(new Error('Network error'));
+    mockGet.mockRejectedValue(new Error('Network error'));
 
     const { result } = renderHook(() => useGatewayStatus());
 
@@ -87,12 +78,7 @@ describe('useGatewayStatus', () => {
   it('polls again after 30 seconds', async () => {
     vi.useFakeTimers();
 
-    fetchSpy.mockResolvedValue(
-      new Response(JSON.stringify({ connected: true }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }),
-    );
+    mockGet.mockResolvedValue({ connected: true });
 
     renderHook(() => useGatewayStatus());
 
@@ -100,32 +86,27 @@ describe('useGatewayStatus', () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0);
     });
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(mockGet).toHaveBeenCalledTimes(1);
 
     // Advance by 30 seconds
     await act(async () => {
       await vi.advanceTimersByTimeAsync(30_000);
     });
 
-    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(mockGet).toHaveBeenCalledTimes(2);
   });
 
   it('stops polling when component unmounts', async () => {
     vi.useFakeTimers();
 
-    fetchSpy.mockResolvedValue(
-      new Response(JSON.stringify({ connected: true }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }),
-    );
+    mockGet.mockResolvedValue({ connected: true });
 
     const { unmount } = renderHook(() => useGatewayStatus());
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0);
     });
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(mockGet).toHaveBeenCalledTimes(1);
 
     unmount();
 
@@ -134,21 +115,16 @@ describe('useGatewayStatus', () => {
       await vi.advanceTimersByTimeAsync(30_000);
     });
 
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(mockGet).toHaveBeenCalledTimes(1);
   });
 
   it('re-polls on window focus (visibilitychange)', async () => {
-    fetchSpy.mockResolvedValue(
-      new Response(JSON.stringify({ connected: true }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }),
-    );
+    mockGet.mockResolvedValue({ connected: true });
 
     renderHook(() => useGatewayStatus());
 
     await waitFor(() => {
-      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      expect(mockGet).toHaveBeenCalledTimes(1);
     });
 
     // Simulate tab becoming visible
@@ -158,14 +134,12 @@ describe('useGatewayStatus', () => {
     });
 
     await waitFor(() => {
-      expect(fetchSpy).toHaveBeenCalledTimes(2);
+      expect(mockGet).toHaveBeenCalledTimes(2);
     });
   });
 
-  it('returns { connected: false, error: true } on non-ok HTTP response', async () => {
-    fetchSpy.mockResolvedValue(
-      new Response('Internal Server Error', { status: 500 }),
-    );
+  it('returns { connected: false, error: true } on API error', async () => {
+    mockGet.mockRejectedValue(new Error('Request failed: 500 Internal Server Error'));
 
     const { result } = renderHook(() => useGatewayStatus());
 
@@ -174,5 +148,15 @@ describe('useGatewayStatus', () => {
     });
     expect(result.current.connected).toBe(false);
     expect(result.current.error).toBe(true);
+  });
+
+  it('calls apiClient.get with the correct path', async () => {
+    mockGet.mockResolvedValue({ connected: true });
+
+    renderHook(() => useGatewayStatus());
+
+    await waitFor(() => {
+      expect(mockGet).toHaveBeenCalledWith('/gateway/status');
+    });
   });
 });

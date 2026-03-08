@@ -751,6 +751,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     '/oauth/callback',
     // Chat WebSocket uses one-time ticket auth (Issue #1944)
     '/chat/ws',
+    // Symphony feed WebSocket handles its own JWT auth via message handshake (#2261)
+    '/symphony/feed',
   ]);
 
   // JWT authentication hook for API routes

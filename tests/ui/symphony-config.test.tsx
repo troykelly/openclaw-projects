@@ -141,11 +141,9 @@ function renderConfigPage() {
 
 function setupMocks() {
   mockGet.mockImplementation((url: string) => {
-    if (url.includes('/symphony/config/')) {
-      if (url.includes('/repos')) return Promise.resolve({ data: mockRepos });
-      if (url.includes('/hosts')) return Promise.resolve({ data: mockHosts });
-      return Promise.resolve({ data: mockConfig });
-    }
+    if (url.includes('/symphony/projects/') && url.includes('/repos')) return Promise.resolve({ data: mockRepos });
+    if (url.includes('/symphony/projects/') && url.includes('/hosts')) return Promise.resolve({ data: mockHosts });
+    if (url.includes('/symphony/config/')) return Promise.resolve({ data: mockConfig });
     if (url.includes('/symphony/tools')) return Promise.resolve({ data: [] });
     return Promise.resolve({ data: [] });
   });

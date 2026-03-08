@@ -27,6 +27,8 @@ COPY src/tmux-worker/proto-loader.ts ./src/tmux-worker/proto-loader.ts
 COPY src/tmux-worker/types.ts ./src/tmux-worker/types.ts
 # Gateway metrics import Counter from worker/metrics (Epic #2153)
 COPY src/worker/metrics.ts ./src/worker/metrics.ts
+# Symphony routes import durable-write helpers (Issue #2261)
+COPY src/symphony/ ./src/symphony/
 COPY proto/ ./proto/
 COPY tsconfig.json ./
 COPY tsconfig.build.json ./
@@ -88,6 +90,8 @@ COPY --from=builder /app/src/tmux-worker/proto-loader.ts ./src/tmux-worker/proto
 COPY --from=builder /app/src/tmux-worker/types.ts ./src/tmux-worker/types.ts
 # Gateway metrics import Counter from worker/metrics (Epic #2153)
 COPY --from=builder /app/src/worker/metrics.ts ./src/worker/metrics.ts
+# Symphony routes import durable-write helpers (Issue #2261)
+COPY --from=builder /app/src/symphony/ ./src/symphony/
 COPY --from=builder /app/proto/ ./proto/
 
 # Set environment variables

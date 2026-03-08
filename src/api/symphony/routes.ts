@@ -5,19 +5,25 @@
  * 36 endpoints across config, repos, hosts, tools, runs, dashboard, sync, cleanup, metrics.
  * Full auth middleware (JWT + namespace scoping) on every endpoint.
  *
- * Registered in server.ts with prefix '/api/symphony'.
+ * Registered in server.ts without prefix (routes use /symphony/* paths directly).
  */
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import type { Pool } from 'pg';
 
-import { requireMinRole, RoleError } from '../auth/middleware.ts';
+import { requireMinRole, RoleError, getAuthIdentity } from '../auth/middleware.ts';
+import { verifyAccessToken } from '../auth/jwt.ts';
 import {
   SymphonyMetrics,
   formatPrometheusMetrics,
   buildHealthResponse,
 } from './metrics.ts';
 import type { CircuitBreakerInfo } from './metrics.ts';
+import { SymphonyFeedHub } from './feed-hub.ts';
+import {
+  getUnresolvedDeadLetters,
+  resolveDeadLetter,
+} from '../../symphony/durable-write.ts';
 
 // ─── types ───────────────────────────────────────────────────
 
@@ -1323,4 +1329,100 @@ export async function symphonyRoutesPlugin(
     const text = formatPrometheusMetrics(metrics.snapshot());
     return reply.type('text/plain; version=0.0.4; charset=utf-8').send(text);
   });
+
+  // ============================================================
+  // WebSocket Feed — Issue #2261
+  // ============================================================
+
+  // Instantiate FeedHub with JWT adapter and namespace resolver.
+  const feedHub = new SymphonyFeedHub({
+    verifyJwt: async (token: string) => {
+      const payload = await verifyAccessToken(token);
+      return { sub: payload.sub, exp: payload.exp };
+    },
+    resolveNamespaces: async (email: string) => {
+      const result = await pool.query<{ namespace: string }>(
+        `SELECT DISTINCT namespace FROM namespace_grant WHERE email = $1`,
+        [email],
+      );
+      return result.rows.map((r) => r.namespace);
+    },
+  });
+
+  feedHub.start();
+
+  // Clean up on server close
+  app.addHook('onClose', async () => {
+    await feedHub.shutdown();
+  });
+
+  // GET /symphony/feed — WebSocket endpoint (handles its own JWT auth via message handshake)
+  app.get('/symphony/feed', { websocket: true }, async (socket, req) => {
+    const auth = req.headers.authorization;
+    const headerToken = auth?.startsWith('Bearer ') ? auth.slice(7) : undefined;
+    await feedHub.handleConnection(socket, headerToken);
+  });
+
+  // GET /symphony/feed/stats — connection statistics (namespace-scoped)
+  app.get('/symphony/feed/stats', async (req: FastifyRequest, reply: FastifyReply) => {
+    const namespaces = getQueryNamespaces(req, reply);
+    if (!namespaces) return;
+
+    const counts = feedHub.getNamespaceScopedCounts(namespaces);
+    return reply.send({
+      total_connections: counts.total,
+      authenticated_connections: counts.authenticated,
+    });
+  });
+
+  // ============================================================
+  // Dead-Letter Queue — Issue #2261
+  // ============================================================
+
+  // GET /symphony/dead-letter — list unresolved dead-letter entries
+  app.get('/symphony/dead-letter', async (req: FastifyRequest, reply: FastifyReply) => {
+    const namespaces = getQueryNamespaces(req, reply);
+    if (!namespaces) return;
+
+    const query = req.query as PaginationQuery & { source?: string };
+    const { limit } = parsePagination(query);
+
+    // Fetch dead-letter entries across all user namespaces
+    const allItems = await Promise.all(
+      namespaces.map((ns) =>
+        getUnresolvedDeadLetters(pool, { namespace: ns, source: query.source, limit }),
+      ),
+    );
+    const items = allItems.flat().sort((a, b) => a.created_at.localeCompare(b.created_at)).slice(0, limit);
+
+    return reply.send({ data: items, total: items.length });
+  });
+
+  // POST /symphony/dead-letter/:id/resolve — resolve a dead-letter entry
+  app.post('/symphony/dead-letter/:id/resolve', async (req: FastifyRequest, reply: FastifyReply) => {
+    const ns = getWriteNamespace(req, reply);
+    if (!ns) return;
+
+    const { id } = req.params as IdParams;
+    if (!isValidUUID(id)) {
+      return reply.code(400).send({ error: { code: 'INVALID_UUID', message: 'Invalid dead-letter ID' } });
+    }
+
+    const identity = await getAuthIdentity(req);
+    const resolvedBy = identity?.email ?? 'unknown';
+
+    const resolved = await resolveDeadLetter(pool, id, resolvedBy, ns);
+    if (!resolved) {
+      return reply.code(404).send({ error: { code: 'NOT_FOUND', message: 'Dead-letter entry not found or already resolved' } });
+    }
+
+    return reply.send({ success: true });
+  });
+
+  /**
+   * Expose feedHub for route-level event emission.
+   * Other modules that trigger symphony state changes can import
+   * and call feedHub.emitEvent() to push real-time updates.
+   */
+  app.decorate('symphonyFeedHub', feedHub);
 }

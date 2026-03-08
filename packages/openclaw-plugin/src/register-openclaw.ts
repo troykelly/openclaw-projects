@@ -4933,7 +4933,14 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
   }
 
   // ── Note tools (Issue #1921) ─────────────────────────────────
-  // Reuses termToolOpts (same shape: client, logger, config, user_id getter).
+  // Note/notebook tools need agentEmail for M2M identity resolution (#2233).
+  const noteToolOpts = Object.defineProperties(
+    { client: apiClient, logger, config, user_id: '', agentEmail: undefined as string | undefined },
+    {
+      user_id: { get: () => state.agentId, enumerable: true },
+      agentEmail: { get: () => state.agentEmail, enumerable: true },
+    },
+  );
 
   const noteToolFactories = [
     createNoteCreateTool,
@@ -4945,7 +4952,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
 
   for (const factory of noteToolFactories) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- factory functions have heterogeneous option types that share the same shape
-    const tool = (factory as (opts: typeof termToolOpts) => { name: string; description: string; parameters: unknown; execute: (params: any) => Promise<any> })(termToolOpts);
+    const tool = (factory as (opts: typeof noteToolOpts) => { name: string; description: string; parameters: unknown; execute: (params: any) => Promise<any> })(noteToolOpts);
 
     tools.push({
       name: tool.name,
@@ -4974,7 +4981,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
   }
 
   // ── Notebook tools (Issue #1921) ───────────────────────────────
-  // Reuses termToolOpts (same shape: client, logger, config, user_id getter).
+  // Notebook tools also need agentEmail for M2M identity resolution (#2233).
 
   const notebookToolFactories = [
     createNotebookListTool,
@@ -4984,7 +4991,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
 
   for (const factory of notebookToolFactories) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- factory functions have heterogeneous option types that share the same shape
-    const tool = (factory as (opts: typeof termToolOpts) => { name: string; description: string; parameters: unknown; execute: (params: any) => Promise<any> })(termToolOpts);
+    const tool = (factory as (opts: typeof noteToolOpts) => { name: string; description: string; parameters: unknown; execute: (params: any) => Promise<any> })(noteToolOpts);
 
     tools.push({
       name: tool.name,
