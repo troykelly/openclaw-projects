@@ -109,10 +109,10 @@ describe('containers.yml workflow', () => {
     });
 
     describe('matrix strategy', () => {
-      it('should define matrix strategy for all 8 images', () => {
+      it('should define matrix strategy for all 9 images', () => {
         const matrix = workflow.jobs.build.strategy?.matrix;
         expect(matrix).toBeDefined();
-        expect(matrix?.image).toHaveLength(8);
+        expect(matrix?.image).toHaveLength(9);
       });
 
       it('should include db image with correct dockerfile path', () => {
