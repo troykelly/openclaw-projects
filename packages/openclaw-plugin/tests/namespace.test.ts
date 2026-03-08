@@ -75,6 +75,88 @@ describe('Namespace Configuration (Issue #1428)', () => {
       expect(result.default).toBe('arthouse');
       expect(result.recall).toEqual(['ns1', 'ns2']);
     });
+
+    describe('per-agent namespace overrides (Issue #2260)', () => {
+      it('should use agentNamespaces entry when agent matches', () => {
+        const result = resolveNamespaceConfig(
+          { default: 'global-ns' },
+          'agent-alpha',
+          { 'agent-alpha': { default: 'alpha-ns', recall: ['alpha-ns', 'shared'] } },
+        );
+        expect(result.default).toBe('alpha-ns');
+        expect(result.recall).toEqual(['alpha-ns', 'shared']);
+      });
+
+      it('should fall back to top-level namespace when agent not in map', () => {
+        const result = resolveNamespaceConfig(
+          { default: 'global-ns' },
+          'agent-beta',
+          { 'agent-alpha': { default: 'alpha-ns' } },
+        );
+        expect(result.default).toBe('global-ns');
+        expect(result.recall).toEqual(['global-ns', 'default']);
+      });
+
+      it('should fall back to agent ID when neither agentNamespaces nor top-level namespace match', () => {
+        const result = resolveNamespaceConfig(
+          undefined,
+          'agent-beta',
+          { 'agent-alpha': { default: 'alpha-ns' } },
+        );
+        expect(result.default).toBe('agent-beta');
+        expect(result.recall).toEqual(['agent-beta', 'default']);
+      });
+
+      it('should handle agentNamespaces entry with only default (auto-generate recall)', () => {
+        const result = resolveNamespaceConfig(
+          undefined,
+          'agent-alpha',
+          { 'agent-alpha': { default: 'custom-ns' } },
+        );
+        expect(result.default).toBe('custom-ns');
+        expect(result.recall).toEqual(['custom-ns', 'default']);
+      });
+
+      it('should handle agentNamespaces entry with only recall (fallback default to agent ID)', () => {
+        const result = resolveNamespaceConfig(
+          undefined,
+          'agent-alpha',
+          { 'agent-alpha': { recall: ['ns1', 'ns2'] } },
+        );
+        expect(result.default).toBe('agent-alpha');
+        expect(result.recall).toEqual(['ns1', 'ns2']);
+      });
+
+      it('should work with empty agentNamespaces map (same as no map)', () => {
+        const result = resolveNamespaceConfig(
+          { default: 'global-ns' },
+          'some-agent',
+          {},
+        );
+        expect(result.default).toBe('global-ns');
+        expect(result.recall).toEqual(['global-ns', 'default']);
+      });
+
+      it('should work with undefined agentNamespaces (backward compat)', () => {
+        const result = resolveNamespaceConfig(
+          { default: 'global-ns' },
+          'some-agent',
+          undefined,
+        );
+        expect(result.default).toBe('global-ns');
+        expect(result.recall).toEqual(['global-ns', 'default']);
+      });
+
+      it('should prefer agentNamespaces over top-level namespace (priority order)', () => {
+        const result = resolveNamespaceConfig(
+          { default: 'top-level', recall: ['top-level', 'shared'] },
+          'special-agent',
+          { 'special-agent': { default: 'agent-specific', recall: ['agent-specific'] } },
+        );
+        expect(result.default).toBe('agent-specific');
+        expect(result.recall).toEqual(['agent-specific']);
+      });
+    });
   });
 
   describe('Config schema', () => {
@@ -177,6 +259,78 @@ describe('Namespace Configuration (Issue #1428)', () => {
       if (result.success) {
         expect(result.data.userScoping).toBe('session');
       }
+    });
+
+    describe('agentNamespaces config (Issue #2260)', () => {
+      it('should accept agentNamespaces as Record<string, NamespaceConfig>', () => {
+        const result = safeValidateRawConfig({
+          apiUrl: 'https://example.com',
+          apiKey: 'test-key',
+          agentNamespaces: {
+            'agent-alpha': { default: 'alpha-ns', recall: ['alpha-ns', 'shared'] },
+            'agent-beta': { default: 'beta-ns' },
+          },
+        });
+        expect(result.success).toBe(true);
+        if (result.success) {
+          expect(result.data.agentNamespaces).toEqual({
+            'agent-alpha': { default: 'alpha-ns', recall: ['alpha-ns', 'shared'] },
+            'agent-beta': { default: 'beta-ns' },
+          });
+        }
+      });
+
+      it('should accept empty agentNamespaces', () => {
+        const result = safeValidateRawConfig({
+          apiUrl: 'https://example.com',
+          apiKey: 'test-key',
+          agentNamespaces: {},
+        });
+        expect(result.success).toBe(true);
+        if (result.success) {
+          expect(result.data.agentNamespaces).toEqual({});
+        }
+      });
+
+      it('should accept config without agentNamespaces (backward compat)', () => {
+        const result = safeValidateRawConfig({
+          apiUrl: 'https://example.com',
+          apiKey: 'test-key',
+        });
+        expect(result.success).toBe(true);
+        if (result.success) {
+          expect(result.data.agentNamespaces).toBeUndefined();
+        }
+      });
+
+      it('should reject agentNamespaces with invalid namespace pattern in values', () => {
+        const result = safeValidateRawConfig({
+          apiUrl: 'https://example.com',
+          apiKey: 'test-key',
+          agentNamespaces: {
+            'agent-alpha': { default: 'INVALID NAMESPACE' },
+          },
+        });
+        expect(result.success).toBe(false);
+      });
+
+      it('should accept agentNamespaces alongside top-level namespace', () => {
+        const result = safeValidateRawConfig({
+          apiUrl: 'https://example.com',
+          apiKey: 'test-key',
+          namespace: { default: 'global' },
+          agentNamespaces: {
+            'special-agent': { default: 'special' },
+          },
+        });
+        expect(result.success).toBe(true);
+        if (result.success) {
+          expect(result.data.namespace).toEqual({ default: 'global' });
+          expect(result.data.agentNamespaces).toEqual({
+            'special-agent': { default: 'special' },
+          });
+        }
+      });
     });
   });
 
