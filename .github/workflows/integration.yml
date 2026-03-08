@@ -83,6 +83,7 @@ jobs:
               docker build -f docker/worker/Dockerfile -t ghcr.io/troykelly/openclaw-projects-worker:latest .
               docker build -f docker/ha-connector/Dockerfile -t ghcr.io/troykelly/openclaw-projects-ha-connector:latest .
               docker build -f docker/tmux-worker/Dockerfile -t ghcr.io/troykelly/openclaw-projects-tmux-worker:latest .
+              docker build -f docker/symphony-worker/Dockerfile -t ghcr.io/troykelly/openclaw-projects-symphony-worker:latest .
             else
               echo "::error::Pull failed for unexpected reason"
               cat /tmp/pull.log

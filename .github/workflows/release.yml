@@ -527,6 +527,9 @@ jobs:
           - name: tmux-worker
             context: .
             dockerfile: docker/tmux-worker/Dockerfile
+          - name: symphony-worker
+            context: .
+            dockerfile: docker/symphony-worker/Dockerfile
 
     steps:
       - name: Checkout repository
