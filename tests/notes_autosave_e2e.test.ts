@@ -15,6 +15,9 @@ import { buildServer } from '../src/api/server.ts';
 import { runMigrate } from './helpers/migrate.ts';
 import { createTestPool, truncateAllTables } from './helpers/db.ts';
 
+const NS_HEADERS = { 'x-namespace': 'default' };
+const OTHER_NS_HEADERS = { 'x-namespace': 'other' };
+
 /** Note response from API */
 interface NoteResponse {
   id: string;
@@ -81,6 +84,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: testUser,
           title: '',
@@ -95,6 +99,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: testUser,
           title: '   ',
@@ -110,6 +115,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: testUser,
           title: customTitle,
@@ -128,6 +134,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: testUser,
           title: autoTitle,
@@ -144,6 +151,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       const createRes = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: testUser,
           title: 'Original Title',
@@ -157,6 +165,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       const updateRes = await app.inject({
         method: 'PUT',
         url: `/notes/${noteId}`,
+        headers: NS_HEADERS,
         payload: {
           user_email: testUser,
           title: newTitle,
@@ -178,6 +187,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       const createRes = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: testUser,
           title: 'Autosave Test',
@@ -201,6 +211,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
         const updateRes = await app.inject({
           method: 'PUT',
           url: `/notes/${noteId}`,
+          headers: NS_HEADERS,
           payload: {
             user_email: testUser,
             content,
@@ -214,6 +225,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       const getRes = await app.inject({
         method: 'GET',
         url: `/notes/${noteId}`,
+        headers: NS_HEADERS,
         query: { user_email: testUser },
       });
 
@@ -226,6 +238,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       const createRes = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: testUser,
           title: 'Original Title',
@@ -239,6 +252,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       const updateRes = await app.inject({
         method: 'PUT',
         url: `/notes/${noteId}`,
+        headers: NS_HEADERS,
         payload: {
           user_email: testUser,
           title: 'Updated Title',
@@ -257,6 +271,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       const createRes = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: testUser,
           title: 'Version Test',
@@ -270,6 +285,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       await app.inject({
         method: 'PUT',
         url: `/notes/${noteId}`,
+        headers: NS_HEADERS,
         payload: {
           user_email: testUser,
           content: 'Version 2 content',
@@ -279,6 +295,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       await app.inject({
         method: 'PUT',
         url: `/notes/${noteId}`,
+        headers: NS_HEADERS,
         payload: {
           user_email: testUser,
           content: 'Version 3 content',
@@ -289,6 +306,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       const versionsRes = await app.inject({
         method: 'GET',
         url: `/notes/${noteId}/versions`,
+        headers: NS_HEADERS,
         query: { user_email: testUser },
       });
 
@@ -308,6 +326,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       const createRes = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: testUser,
           title: 'Persistence Test',
@@ -321,6 +340,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       await app.inject({
         method: 'PUT',
         url: `/notes/${noteId}`,
+        headers: NS_HEADERS,
         payload: {
           user_email: testUser,
           content: 'Updated content that should persist',
@@ -331,6 +351,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       const reloadRes = await app.inject({
         method: 'GET',
         url: `/notes/${noteId}`,
+        headers: NS_HEADERS,
         query: { user_email: testUser },
       });
 
@@ -343,6 +364,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       const createRes = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: testUser,
           title: 'Rapid Save Test',
@@ -361,6 +383,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
           app.inject({
             method: 'PUT',
             url: `/notes/${noteId}`,
+            headers: NS_HEADERS,
             payload: {
               user_email: testUser,
               content: `Content version ${i + 1}`,
@@ -377,6 +400,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       const finalRes = await app.inject({
         method: 'GET',
         url: `/notes/${noteId}`,
+        headers: NS_HEADERS,
         query: { user_email: testUser },
       });
 
@@ -392,6 +416,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       const createRes = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: testUser,
           title: 'Empty Content Test',
@@ -405,6 +430,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       const clearRes = await app.inject({
         method: 'PUT',
         url: `/notes/${noteId}`,
+        headers: NS_HEADERS,
         payload: {
           user_email: testUser,
           content: '',
@@ -418,6 +444,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       const getRes = await app.inject({
         method: 'GET',
         url: `/notes/${noteId}`,
+        headers: NS_HEADERS,
         query: { user_email: testUser },
       });
 
@@ -436,6 +463,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       const res = await app.inject({
         method: 'PUT',
         url: `/notes/${fakeId}`,
+        headers: NS_HEADERS,
         payload: {
           user_email: testUser,
           content: 'Attempting to save to non-existent note',
@@ -451,6 +479,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       const createRes = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: testUser,
           title: 'Auth Test',
@@ -461,10 +490,11 @@ describe('Notes Autosave E2E (Issue #780)', () => {
 
       const noteId = createRes.json<NoteResponse>().id;
 
-      // Try to update as different user
+      // Try to update as different user (different namespace)
       const updateRes = await app.inject({
         method: 'PUT',
         url: `/notes/${noteId}`,
+        headers: OTHER_NS_HEADERS,
         payload: {
           user_email: 'other-user@example.com',
           content: 'Unauthorized update attempt',
@@ -479,6 +509,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       const createRes = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: testUser,
           title: 'To Be Deleted',
@@ -492,6 +523,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       await app.inject({
         method: 'DELETE',
         url: `/notes/${noteId}`,
+        headers: NS_HEADERS,
         query: { user_email: testUser },
       });
 
@@ -499,6 +531,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       const updateRes = await app.inject({
         method: 'PUT',
         url: `/notes/${noteId}`,
+        headers: NS_HEADERS,
         payload: {
           user_email: testUser,
           content: 'Update to deleted note',
@@ -514,6 +547,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       const createRes = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: testUser,
           title: 'Restore Test',
@@ -527,6 +561,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       await app.inject({
         method: 'DELETE',
         url: `/notes/${noteId}`,
+        headers: NS_HEADERS,
         query: { user_email: testUser },
       });
 
@@ -534,6 +569,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       const restoreRes = await app.inject({
         method: 'POST',
         url: `/notes/${noteId}/restore`,
+        headers: NS_HEADERS,
         payload: { user_email: testUser },
       });
 
@@ -543,6 +579,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       const updateRes = await app.inject({
         method: 'PUT',
         url: `/notes/${noteId}`,
+        headers: NS_HEADERS,
         payload: {
           user_email: testUser,
           content: 'Content after restore',
@@ -564,6 +601,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       const createRes = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: testUser,
           title: 'Large Content Test',
@@ -579,6 +617,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       const updateRes = await app.inject({
         method: 'PUT',
         url: `/notes/${noteId}`,
+        headers: NS_HEADERS,
         payload: {
           user_email: testUser,
           content: largeContent,
@@ -591,6 +630,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
       const getRes = await app.inject({
         method: 'GET',
         url: `/notes/${noteId}`,
+        headers: NS_HEADERS,
         query: { user_email: testUser },
       });
 
@@ -617,6 +657,7 @@ const x = "test";
       const createRes = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: testUser,
           title: 'Special Chars Test',
@@ -631,6 +672,7 @@ const x = "test";
       const getRes = await app.inject({
         method: 'GET',
         url: `/notes/${noteId}`,
+        headers: NS_HEADERS,
         query: { user_email: testUser },
       });
 
@@ -649,6 +691,7 @@ const x = "test";
       const nbRes = await app.inject({
         method: 'POST',
         url: '/notebooks',
+        headers: NS_HEADERS,
         payload: {
           user_email: testUser,
           name: 'Test Notebook',
@@ -660,6 +703,7 @@ const x = "test";
       const createRes = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: testUser,
           title: 'Note in Notebook',
@@ -677,6 +721,7 @@ const x = "test";
       const nbRes = await app.inject({
         method: 'POST',
         url: '/notebooks',
+        headers: NS_HEADERS,
         payload: {
           user_email: testUser,
           name: 'Persistent Notebook',
@@ -688,6 +733,7 @@ const x = "test";
       const createRes = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: testUser,
           title: 'Notebook Note',
@@ -701,12 +747,14 @@ const x = "test";
       await app.inject({
         method: 'PUT',
         url: `/notes/${noteId}`,
+        headers: NS_HEADERS,
         payload: { user_email: testUser, content: 'V2' },
       });
 
       await app.inject({
         method: 'PUT',
         url: `/notes/${noteId}`,
+        headers: NS_HEADERS,
         payload: { user_email: testUser, content: 'V3' },
       });
 
@@ -714,6 +762,7 @@ const x = "test";
       const getRes = await app.inject({
         method: 'GET',
         url: `/notes/${noteId}`,
+        headers: NS_HEADERS,
         query: { user_email: testUser },
       });
 

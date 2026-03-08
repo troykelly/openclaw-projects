@@ -10,6 +10,9 @@ import { buildServer } from '../src/api/server.ts';
 import { createPool } from '../src/db.ts';
 import { runMigrate } from './helpers/migrate.ts';
 
+const NS_HEADERS = { 'x-namespace': 'default' };
+const OTHER_NS_HEADERS = { 'x-namespace': 'other' };
+
 // Mock the embedding service module
 vi.mock('../src/api/embeddings/service.ts', () => ({
   embeddingService: {
@@ -49,6 +52,7 @@ describe('Note Embeddings API', () => {
       await pool.query('DELETE FROM namespace_grant WHERE email = $1', [email]);
     }
     await pool.query(`INSERT INTO namespace_grant (email, namespace, access, is_home) VALUES ($1, 'default', 'readwrite', true)`, [testUserEmail]);
+    await pool.query(`INSERT INTO namespace_grant (email, namespace, access, is_home) VALUES ($1, 'other', 'readwrite', true)`, [otherUserEmail]);
   });
 
   afterAll(async () => {
@@ -74,6 +78,7 @@ describe('Note Embeddings API', () => {
     const response = await app.inject({
       method: 'POST',
       url: '/notes',
+      headers: NS_HEADERS,
       payload: {
         user_email: overrides.user_email ?? testUserEmail,
         title: overrides.title ?? 'Test Note',
@@ -91,6 +96,7 @@ describe('Note Embeddings API', () => {
     const response = await app.inject({
       method: 'GET',
       url: `/notes/${noteId}?user_email=${user_email}`,
+      headers: NS_HEADERS,
     });
     if (response.statusCode === 200) {
       return JSON.parse(response.payload);
@@ -160,6 +166,7 @@ describe('Note Embeddings API', () => {
       const response = await app.inject({
         method: 'GET',
         url: '/admin/embeddings/status/notes',
+        headers: NS_HEADERS,
       });
 
       expect(response.statusCode).toBe(200);
@@ -185,6 +192,7 @@ describe('Note Embeddings API', () => {
       const response = await app.inject({
         method: 'POST',
         url: '/admin/embeddings/backfill/notes',
+        headers: NS_HEADERS,
         payload: {
           limit: 10,
           only_pending: true,
@@ -207,6 +215,7 @@ describe('Note Embeddings API', () => {
       const response = await app.inject({
         method: 'POST',
         url: '/admin/embeddings/backfill/notes',
+        headers: NS_HEADERS,
         payload: {},
       });
 
@@ -253,6 +262,7 @@ describe('Note Embeddings API', () => {
       const response = await app.inject({
         method: 'POST',
         url: '/notes/search/semantic',
+        headers: NS_HEADERS,
         payload: {
           user_email: testUserEmail,
         },
@@ -266,6 +276,7 @@ describe('Note Embeddings API', () => {
       const response = await app.inject({
         method: 'POST',
         url: '/notes/search/semantic',
+        headers: NS_HEADERS,
         payload: {
           user_email: testUserEmail,
           query: 'programming languages',
@@ -286,6 +297,7 @@ describe('Note Embeddings API', () => {
       const response = await app.inject({
         method: 'POST',
         url: '/notes/search/semantic',
+        headers: NS_HEADERS,
         payload: {
           user_email: testUserEmail,
           query: 'TypeScript',
@@ -310,6 +322,7 @@ describe('Note Embeddings API', () => {
       const notebookResponse = await app.inject({
         method: 'POST',
         url: '/notebooks',
+        headers: NS_HEADERS,
         payload: {
           user_email: testUserEmail,
           name: 'Search Test Notebook',
@@ -326,6 +339,7 @@ describe('Note Embeddings API', () => {
       const response = await app.inject({
         method: 'POST',
         url: '/notes/search/semantic',
+        headers: NS_HEADERS,
         payload: {
           user_email: testUserEmail,
           query: 'notebook',
@@ -346,6 +360,7 @@ describe('Note Embeddings API', () => {
       const response = await app.inject({
         method: 'POST',
         url: '/notes/search/semantic',
+        headers: NS_HEADERS,
         payload: {
           user_email: testUserEmail,
           query: 'tagged',
@@ -368,6 +383,7 @@ describe('Note Embeddings API', () => {
       const ownerResponse = await app.inject({
         method: 'POST',
         url: '/notes/search/semantic',
+        headers: NS_HEADERS,
         payload: {
           user_email: testUserEmail,
           query: 'Owner Only',
@@ -380,6 +396,7 @@ describe('Note Embeddings API', () => {
       const otherResponse = await app.inject({
         method: 'POST',
         url: '/notes/search/semantic',
+        headers: OTHER_NS_HEADERS,
         payload: {
           user_email: otherUserEmail,
           query: 'Owner Only',
@@ -398,6 +415,7 @@ describe('Note Embeddings API', () => {
       const response = await app.inject({
         method: 'POST',
         url: '/notes/search/semantic',
+        headers: NS_HEADERS,
         payload: {
           user_email: testUserEmail,
           query: 'test',
@@ -502,6 +520,7 @@ describe('Note Embeddings API', () => {
       const updateResponse = await app.inject({
         method: 'PUT',
         url: `/notes/${note.id}`,
+        headers: NS_HEADERS,
         payload: {
           user_email: testUserEmail,
           title: 'Updated Title',
@@ -522,6 +541,7 @@ describe('Note Embeddings API', () => {
       const updateResponse = await app.inject({
         method: 'PUT',
         url: `/notes/${note.id}`,
+        headers: NS_HEADERS,
         payload: {
           user_email: testUserEmail,
           content: 'Updated content for embedding',
@@ -541,6 +561,7 @@ describe('Note Embeddings API', () => {
       const updateResponse = await app.inject({
         method: 'PUT',
         url: `/notes/${note.id}`,
+        headers: NS_HEADERS,
         payload: {
           user_email: testUserEmail,
           visibility: 'public',
@@ -562,6 +583,7 @@ describe('Note Embeddings API', () => {
       const updateResponse = await app.inject({
         method: 'PUT',
         url: `/notes/${note.id}`,
+        headers: NS_HEADERS,
         payload: {
           user_email: testUserEmail,
           hide_from_agents: true, // API uses snake_case input

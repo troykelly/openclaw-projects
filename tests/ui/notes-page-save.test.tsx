@@ -235,8 +235,9 @@ describe('NotesPage handleSaveNote (#2240)', () => {
     expect(body).toMatchObject({
       title: 'Updated title',
       content: 'Updated content',
-      user_email: 'test@example.com',
     });
+    // Verify user_email is NOT in the body (removed per #2265)
+    expect(body).not.toHaveProperty('user_email');
   });
 
   it('passes visibility and hide_from_agents fields through to update API', async () => {

@@ -37,13 +37,8 @@ export const notebookKeys = {
 /**
  * Build query string from ListNotebooksParams and user email.
  */
-function buildNotebooksQueryString(user_email: string | null, params?: ListNotebooksParams): string {
+function buildNotebooksQueryString(params?: ListNotebooksParams): string {
   const searchParams = new URLSearchParams();
-
-  // user_email is required by the API
-  if (user_email) {
-    searchParams.set('user_email', user_email);
-  }
 
   if (params?.parent_id !== undefined) {
     searchParams.set('parent_id', params.parent_id ?? 'null');
@@ -77,7 +72,7 @@ function buildNotebooksQueryString(user_email: string | null, params?: ListNoteb
  */
 export function useNotebooks(params?: ListNotebooksParams, options?: { enabled?: boolean; staleTime?: number }) {
   const user_email = useUserEmail();
-  const queryString = buildNotebooksQueryString(user_email, params);
+  const queryString = buildNotebooksQueryString(params);
 
   return useQuery({
     queryKey: notebookKeys.list(params),
@@ -108,9 +103,6 @@ export function useNotebook(
 ) {
   const user_email = useUserEmail();
   const searchParams = new URLSearchParams();
-  if (user_email) {
-    searchParams.set('user_email', user_email);
-  }
   if (options?.includeNotes) {
     searchParams.set('includeNotes', 'true');
   }
@@ -137,9 +129,6 @@ export function useNotebook(
 export function useNotebooksTree(include_note_counts = false, options?: { staleTime?: number }) {
   const user_email = useUserEmail();
   const searchParams = new URLSearchParams();
-  if (user_email) {
-    searchParams.set('user_email', user_email);
-  }
   if (include_note_counts) {
     searchParams.set('include_note_counts', 'true');
   }

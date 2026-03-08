@@ -46,9 +46,32 @@ export function isValidVisibility(value: string): value is NoteVisibility {
 /**
  * Checks if user can access a note (read permission)
  */
-export async function userCanAccessNote(pool: Pool, noteId: string, user_email: string, requiredPermission: 'read' | 'read_write' = 'read'): Promise<boolean> {
-  const result = await pool.query('SELECT user_can_access_note($1, $2, $3) as can_access', [noteId, user_email, requiredPermission]);
-  return result.rows[0]?.can_access ?? false;
+export async function userCanAccessNote(pool: Pool, noteId: string, namespaces: string[], userEmail: string | null, requiredPermission: 'read' | 'read_write' = 'read'): Promise<boolean> {
+  const shareCondition = userEmail
+    ? `OR EXISTS (
+        SELECT 1 FROM note_share ns
+        WHERE ns.note_id = n.id AND ns.shared_with_email = $3
+          AND (ns.expires_at IS NULL OR ns.expires_at > NOW())
+          AND ns.permission IN (${requiredPermission === 'read_write' ? "'read_write'" : "'read', 'read_write'"})
+      )
+      OR EXISTS (
+        SELECT 1 FROM notebook_share nbs
+        WHERE nbs.notebook_id = n.notebook_id AND nbs.shared_with_email = $3
+          AND (nbs.expires_at IS NULL OR nbs.expires_at > NOW())
+          AND nbs.permission IN (${requiredPermission === 'read_write' ? "'read_write'" : "'read', 'read_write'"})
+      )`
+    : '';
+  const result = await pool.query(
+    `SELECT n.id FROM note n
+     WHERE n.id = $1 AND n.deleted_at IS NULL
+       AND (
+         n.namespace = ANY($2::text[])
+         ${requiredPermission === 'read' ? "OR n.visibility = 'public'" : ''}
+         ${shareCondition}
+       )`,
+    userEmail ? [noteId, namespaces, userEmail] : [noteId, namespaces],
+  );
+  return result.rows.length > 0;
 }
 
 /**
@@ -56,12 +79,11 @@ export async function userCanAccessNote(pool: Pool, noteId: string, user_email: 
  * Phase 4 (Epic #1418): user_email column dropped from note table.
  * Ownership is inferred by having a namespace_grant for the note's namespace.
  */
-export async function userOwnsNote(pool: Pool, noteId: string, user_email: string): Promise<boolean> {
+export async function userOwnsNote(pool: Pool, noteId: string, namespace: string): Promise<boolean> {
   const result = await pool.query(
     `SELECT n.id FROM note n
-     JOIN namespace_grant ng ON ng.namespace = n.namespace AND ng.email = $2
-     WHERE n.id = $1 AND n.deleted_at IS NULL`,
-    [noteId, user_email],
+     WHERE n.id = $1 AND n.deleted_at IS NULL AND n.namespace = $2`,
+    [noteId, namespace],
   );
   return result.rows.length > 0;
 }
@@ -69,7 +91,7 @@ export async function userOwnsNote(pool: Pool, noteId: string, user_email: strin
 /**
  * Creates a new note
  */
-export async function createNote(pool: Pool, input: CreateNoteInput, user_email: string, namespace?: string): Promise<Note> {
+export async function createNote(pool: Pool, input: CreateNoteInput, namespace: string): Promise<Note> {
   // Import embedding integration lazily to avoid circular deps
   const { triggerNoteEmbedding } = await import('../embeddings/note-integration.ts');
 
@@ -79,13 +101,12 @@ export async function createNote(pool: Pool, input: CreateNoteInput, user_email:
     throw new Error(`Invalid visibility: ${visibility}. Valid values are: ${VALID_VISIBILITY.join(', ')}`);
   }
 
-  // Validate notebook exists and user owns it (Phase 4: ownership via namespace_grant)
+  // Validate notebook exists and belongs to the same namespace
   if (input.notebook_id) {
     const nbResult = await pool.query(
       `SELECT nb.id FROM notebook nb
-       JOIN namespace_grant ng ON ng.namespace = nb.namespace AND ng.email = $2
-       WHERE nb.id = $1 AND nb.deleted_at IS NULL`,
-      [input.notebook_id, user_email],
+       WHERE nb.id = $1 AND nb.deleted_at IS NULL AND nb.namespace = $2`,
+      [input.notebook_id, namespace],
     );
     if (nbResult.rows.length === 0) {
       const exists = await pool.query('SELECT id FROM notebook WHERE id = $1 AND deleted_at IS NULL', [input.notebook_id]);
@@ -115,7 +136,7 @@ export async function createNote(pool: Pool, input: CreateNoteInput, user_email:
       input.hide_from_agents ?? false,
       input.summary ?? null,
       input.is_pinned ?? false,
-      namespace ?? 'default',
+      namespace,
     ],
   );
 
@@ -130,9 +151,9 @@ export async function createNote(pool: Pool, input: CreateNoteInput, user_email:
 /**
  * Gets a note by ID with access check
  */
-export async function getNote(pool: Pool, noteId: string, user_email: string, options: GetNoteOptions = {}): Promise<Note | null> {
+export async function getNote(pool: Pool, noteId: string, namespaces: string[], userEmail: string | null, options: GetNoteOptions = {}): Promise<Note | null> {
   // Check access
-  const canAccess = await userCanAccessNote(pool, noteId, user_email, 'read');
+  const canAccess = await userCanAccessNote(pool, noteId, namespaces, userEmail, 'read');
   if (!canAccess) {
     return null;
   }
@@ -207,7 +228,7 @@ export async function getNote(pool: Pool, noteId: string, user_email: string, op
 /**
  * Lists notes with filters and pagination
  */
-export async function listNotes(pool: Pool, user_email: string, options: ListNotesOptions = {}): Promise<ListNotesResult> {
+export async function listNotes(pool: Pool, namespaces: string[], userEmail: string | null, options: ListNotesOptions = {}): Promise<ListNotesResult> {
   const limit = Math.min(options.limit ?? 50, 100);
   const offset = options.offset ?? 0;
   const sortBy = options.sort_by ?? 'updated_at';
@@ -225,17 +246,23 @@ export async function listNotes(pool: Pool, user_email: string, options: ListNot
   const params: unknown[] = [];
   let paramIndex = 1;
 
-  // Epic #1418 Phase 4: Access control via namespace + sharing.
+  // Access control via namespace + sharing.
   // Notes visible if: in caller's namespaces, public, or explicitly shared with caller.
-  const queryNs = options.queryNamespaces ?? ['default'];
+  const shareCondition = userEmail
+    ? `OR EXISTS (SELECT 1 FROM note_share ns WHERE ns.note_id = n.id AND ns.shared_with_email = $${paramIndex + 1} AND (ns.expires_at IS NULL OR ns.expires_at > NOW()))
+    OR EXISTS (SELECT 1 FROM notebook_share nbs WHERE nbs.notebook_id = n.notebook_id AND nbs.shared_with_email = $${paramIndex + 1} AND (nbs.expires_at IS NULL OR nbs.expires_at > NOW()))`
+    : '';
   conditions.push(`(
     n.namespace = ANY($${paramIndex}::text[])
     OR n.visibility = 'public'
-    OR EXISTS (SELECT 1 FROM note_share ns WHERE ns.note_id = n.id AND ns.shared_with_email = $${paramIndex + 1} AND (ns.expires_at IS NULL OR ns.expires_at > NOW()))
-    OR EXISTS (SELECT 1 FROM notebook_share nbs WHERE nbs.notebook_id = n.notebook_id AND nbs.shared_with_email = $${paramIndex + 1} AND (nbs.expires_at IS NULL OR nbs.expires_at > NOW()))
+    ${shareCondition}
   )`);
-  params.push(queryNs, user_email);
-  paramIndex += 2;
+  params.push(namespaces);
+  paramIndex++;
+  if (userEmail) {
+    params.push(userEmail);
+    paramIndex++;
+  }
 
   if (options.notebook_id) {
     conditions.push(`n.notebook_id = $${paramIndex}`);
@@ -300,9 +327,9 @@ export async function listNotes(pool: Pool, user_email: string, options: ListNot
 /**
  * Updates a note with write permission check
  */
-export async function updateNote(pool: Pool, noteId: string, input: UpdateNoteInput, user_email: string, queryNamespaces?: string[]): Promise<Note | null> {
-  // Check write access
-  const canWrite = await userCanAccessNote(pool, noteId, user_email, 'read_write');
+export async function updateNote(pool: Pool, noteId: string, input: UpdateNoteInput, namespace: string, namespaces: string[], sessionEmail: string | null, callerIdentity: string): Promise<Note | null> {
+  // Check write access (sessionEmail enables share-based access)
+  const canWrite = await userCanAccessNote(pool, noteId, namespaces, sessionEmail, 'read_write');
   if (!canWrite) {
     // Check if note exists but user lacks permission (403) vs not found (404)
     const exists = await pool.query('SELECT id FROM note WHERE id = $1 AND deleted_at IS NULL', [noteId]);
@@ -319,10 +346,9 @@ export async function updateNote(pool: Pool, noteId: string, input: UpdateNoteIn
 
   // Validate notebook if provided — must exist and belong to caller's namespaces
   if (input.notebook_id) {
-    const nsScope = queryNamespaces ?? ['default'];
     const nbResult = await pool.query(
       'SELECT id FROM notebook WHERE id = $1 AND deleted_at IS NULL AND namespace = ANY($2::text[])',
-      [input.notebook_id, nsScope],
+      [input.notebook_id, namespaces],
     );
     if (nbResult.rows.length === 0) {
       throw new Error('Notebook not found');
@@ -330,7 +356,7 @@ export async function updateNote(pool: Pool, noteId: string, input: UpdateNoteIn
   }
 
   // Set session user for version tracking
-  await pool.query(`SELECT set_config('app.current_user_email', $1, true)`, [user_email]);
+  await pool.query(`SELECT set_config('app.current_user_email', $1, true)`, [callerIdentity]);
 
   // Build UPDATE query dynamically
   const updates: string[] = [];
@@ -385,7 +411,7 @@ export async function updateNote(pool: Pool, noteId: string, input: UpdateNoteIn
 
   if (updates.length === 0) {
     // Nothing to update, just return current note
-    return getNote(pool, noteId, user_email);
+    return getNote(pool, noteId, namespaces, sessionEmail);
   }
 
   params.push(noteId);
@@ -422,9 +448,8 @@ export async function updateNote(pool: Pool, noteId: string, input: UpdateNoteIn
 /**
  * Soft deletes a note (only namespace member can delete)
  */
-export async function deleteNote(pool: Pool, noteId: string, user_email: string): Promise<boolean> {
-  // Phase 4 (Epic #1418): check namespace membership for ownership
-  const isOwner = await userOwnsNote(pool, noteId, user_email);
+export async function deleteNote(pool: Pool, noteId: string, namespace: string): Promise<boolean> {
+  const isOwner = await userOwnsNote(pool, noteId, namespace);
   if (!isOwner) {
     const exists = await pool.query('SELECT id FROM note WHERE id = $1 AND deleted_at IS NULL', [noteId]);
     if (exists.rows.length === 0) {
@@ -441,15 +466,13 @@ export async function deleteNote(pool: Pool, noteId: string, user_email: string)
 /**
  * Restores a soft-deleted note (only namespace member can restore)
  */
-export async function restoreNote(pool: Pool, noteId: string, user_email: string): Promise<Note | null> {
-  // Phase 4 (Epic #1418): check namespace membership for ownership.
-  // Note: can't use userOwnsNote here because it filters deleted_at IS NULL,
-  // and we're restoring a deleted note. Check namespace membership directly.
+export async function restoreNote(pool: Pool, noteId: string, namespace: string): Promise<Note | null> {
+  // Can't use userOwnsNote here because it filters deleted_at IS NULL,
+  // and we're restoring a deleted note. Check namespace directly.
   const accessCheck = await pool.query(
     `SELECT n.id FROM note n
-     JOIN namespace_grant ng ON ng.namespace = n.namespace AND ng.email = $2
-     WHERE n.id = $1`,
-    [noteId, user_email],
+     WHERE n.id = $1 AND n.namespace = $2`,
+    [noteId, namespace],
   );
   if (accessCheck.rows.length === 0) {
     const exists = await pool.query('SELECT id FROM note WHERE id = $1', [noteId]);

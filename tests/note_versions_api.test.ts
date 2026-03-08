@@ -14,6 +14,8 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
   let pool: Pool;
   const testUserEmail = 'version-test@example.com';
   const otherUserEmail = 'other-version@example.com';
+  const NS_HEADERS = { 'x-namespace': 'default' };
+  const OTHER_NS_HEADERS = { 'x-namespace': 'other' };
 
   beforeAll(async () => {
     await runMigrate('up');
@@ -46,6 +48,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/notes',
+      headers: NS_HEADERS,
       payload: {
         user_email: user_email,
         title,
@@ -60,10 +63,11 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
   /**
    * Helper to update a note via API (which creates a new version via trigger)
    */
-  async function updateNote(noteId: string, title: string, content: string, user_email: string): Promise<void> {
+  async function updateNote(noteId: string, title: string, content: string, user_email: string, headers: Record<string, string> = NS_HEADERS): Promise<void> {
     const res = await app.inject({
       method: 'PUT',
       url: `/notes/${noteId}`,
+      headers,
       payload: {
         user_email: user_email,
         title,
@@ -111,6 +115,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
       const response = await app.inject({
         method: 'GET',
         url: `/notes/${noteId}/versions`,
+        headers: NS_HEADERS,
         query: { user_email: testUserEmail },
       });
 
@@ -150,6 +155,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
       const response1 = await app.inject({
         method: 'GET',
         url: `/notes/${noteId}/versions`,
+        headers: NS_HEADERS,
         query: { user_email: testUserEmail, limit: '2', offset: '0' },
       });
 
@@ -161,6 +167,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
       const response2 = await app.inject({
         method: 'GET',
         url: `/notes/${noteId}/versions`,
+        headers: NS_HEADERS,
         query: { user_email: testUserEmail, limit: '2', offset: '2' },
       });
 
@@ -179,6 +186,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
       const response = await app.inject({
         method: 'GET',
         url: '/notes/00000000-0000-0000-0000-000000000000/versions',
+        headers: NS_HEADERS,
         query: { user_email: testUserEmail },
       });
 
@@ -191,6 +199,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
       const response = await app.inject({
         method: 'GET',
         url: `/notes/${noteId}/versions`,
+        headers: OTHER_NS_HEADERS,
         query: { user_email: otherUserEmail },
       });
 
@@ -204,6 +213,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
       const response = await app.inject({
         method: 'GET',
         url: `/notes/${noteId}/versions`,
+        headers: OTHER_NS_HEADERS,
         query: { user_email: otherUserEmail },
       });
 
@@ -233,6 +243,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
       const response = await app.inject({
         method: 'GET',
         url: `/notes/${noteId}/versions/1`,
+        headers: NS_HEADERS,
         query: { user_email: testUserEmail },
       });
 
@@ -252,6 +263,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
       const response = await app.inject({
         method: 'GET',
         url: `/notes/${noteId}/versions/999`,
+        headers: NS_HEADERS,
         query: { user_email: testUserEmail },
       });
 
@@ -264,6 +276,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
       const response = await app.inject({
         method: 'GET',
         url: `/notes/${noteId}/versions/1`,
+        headers: OTHER_NS_HEADERS,
         query: { user_email: otherUserEmail },
       });
 
@@ -276,6 +289,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
       const response = await app.inject({
         method: 'GET',
         url: `/notes/${noteId}/versions/abc`,
+        headers: NS_HEADERS,
         query: { user_email: testUserEmail },
       });
 
@@ -308,6 +322,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
       const response = await app.inject({
         method: 'GET',
         url: `/notes/${noteId}/versions/compare`,
+        headers: NS_HEADERS,
         query: { user_email: testUserEmail, from: '1', to: '2' },
       });
 
@@ -344,6 +359,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
       const response = await app.inject({
         method: 'GET',
         url: `/notes/${noteId}/versions/compare`,
+        headers: NS_HEADERS,
         query: { user_email: testUserEmail, from: '1', to: '2' },
       });
 
@@ -360,6 +376,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
       const response = await app.inject({
         method: 'GET',
         url: `/notes/${noteId}/versions/compare`,
+        headers: NS_HEADERS,
         query: { user_email: testUserEmail, from: '1', to: '999' },
       });
 
@@ -372,6 +389,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
       const response = await app.inject({
         method: 'GET',
         url: `/notes/${noteId}/versions/compare`,
+        headers: NS_HEADERS,
         query: { user_email: testUserEmail },
       });
 
@@ -385,6 +403,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
       const response = await app.inject({
         method: 'GET',
         url: `/notes/${noteId}/versions/compare`,
+        headers: NS_HEADERS,
         query: { user_email: testUserEmail, from: 'abc', to: 'def' },
       });
 
@@ -408,6 +427,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
       const response = await app.inject({
         method: 'GET',
         url: `/notes/${noteId}/versions/compare`,
+        headers: OTHER_NS_HEADERS,
         query: { user_email: otherUserEmail, from: '1', to: '2' },
       });
 
@@ -436,6 +456,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
       const response = await app.inject({
         method: 'POST',
         url: `/notes/${noteId}/versions/1/restore`,
+        headers: NS_HEADERS,
         query: { user_email: testUserEmail },
       });
 
@@ -463,6 +484,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
       await app.inject({
         method: 'POST',
         url: `/notes/${noteId}/versions/1/restore`,
+        headers: NS_HEADERS,
         query: { user_email: testUserEmail },
       });
 
@@ -478,6 +500,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
       const response = await app.inject({
         method: 'POST',
         url: '/notes/00000000-0000-0000-0000-000000000000/versions/1/restore',
+        headers: NS_HEADERS,
         query: { user_email: testUserEmail },
       });
 
@@ -490,6 +513,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
       const response = await app.inject({
         method: 'POST',
         url: `/notes/${noteId}/versions/999/restore`,
+        headers: NS_HEADERS,
         query: { user_email: testUserEmail },
       });
 
@@ -504,6 +528,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
       const response = await app.inject({
         method: 'POST',
         url: `/notes/${noteId}/versions/1/restore`,
+        headers: OTHER_NS_HEADERS,
         query: { user_email: otherUserEmail },
       });
 
@@ -519,6 +544,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
       const response = await app.inject({
         method: 'POST',
         url: `/notes/${noteId}/versions/1/restore`,
+        headers: OTHER_NS_HEADERS,
         query: { user_email: otherUserEmail },
       });
 
@@ -531,6 +557,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
       const response = await app.inject({
         method: 'POST',
         url: `/notes/${noteId}/versions/abc/restore`,
+        headers: NS_HEADERS,
         query: { user_email: testUserEmail },
       });
 
@@ -556,6 +583,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
       const response = await app.inject({
         method: 'POST',
         url: `/notes/${noteId}/versions/1/restore`,
+        headers: OTHER_NS_HEADERS,
         query: { user_email: otherUserEmail },
       });
 
@@ -579,6 +607,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
       const response = await app.inject({
         method: 'GET',
         url: `/notes/${noteId}/versions`,
+        headers: NS_HEADERS,
         query: { user_email: testUserEmail },
       });
 
@@ -596,6 +625,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
       const response = await app.inject({
         method: 'GET',
         url: `/notes/${noteId}/versions`,
+        headers: NS_HEADERS,
         query: { user_email: testUserEmail },
       });
 
@@ -616,11 +646,12 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
       await updateNote(noteId, 'Owner Update', 'Owner content', testUserEmail);
 
       // Shared user makes second update (creates version 2 with owner's content)
-      await updateNote(noteId, 'Shared Update', 'Shared content', otherUserEmail);
+      await updateNote(noteId, 'Shared Update', 'Shared content', otherUserEmail, OTHER_NS_HEADERS);
 
       const response = await app.inject({
         method: 'GET',
         url: `/notes/${noteId}/versions`,
+        headers: NS_HEADERS,
         query: { user_email: testUserEmail },
       });
 
@@ -652,6 +683,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
       const response = await app.inject({
         method: 'GET',
         url: `/notes/${noteId}/versions`,
+        headers: NS_HEADERS,
         query: { user_email: testUserEmail },
       });
 

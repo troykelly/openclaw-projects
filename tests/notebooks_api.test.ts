@@ -9,6 +9,8 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
   let pool: Pool;
   const testUserEmail = 'test@example.com';
   const otherUserEmail = 'other@example.com';
+  const NS_HEADERS = { 'x-namespace': 'default' };
+  const OTHER_NS_HEADERS = { 'x-namespace': 'other' };
 
   beforeAll(async () => {
     await runMigrate('up');
@@ -31,6 +33,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/notebooks',
+        headers: NS_HEADERS,
         payload: {
           user_email: testUserEmail,
           name: 'My Notebook',
@@ -50,6 +53,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/notebooks',
+        headers: NS_HEADERS,
         payload: {
           user_email: testUserEmail,
           name: 'Full Notebook',
@@ -71,6 +75,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       const parentRes = await app.inject({
         method: 'POST',
         url: '/notebooks',
+        headers: NS_HEADERS,
         payload: {
           user_email: testUserEmail,
           name: 'Parent',
@@ -81,6 +86,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/notebooks',
+        headers: NS_HEADERS,
         payload: {
           user_email: testUserEmail,
           name: 'Child',
@@ -106,6 +112,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/notebooks',
+        headers: NS_HEADERS,
         payload: { user_email: testUserEmail },
       });
 
@@ -117,6 +124,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/notebooks',
+        headers: NS_HEADERS,
         payload: {
           user_email: testUserEmail,
           name: 'Test',
@@ -136,6 +144,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/notebooks',
+        headers: NS_HEADERS,
         payload: {
           user_email: testUserEmail,
           name: 'Test',
@@ -164,6 +173,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       const res = await app.inject({
         method: 'GET',
         url: '/notebooks',
+        headers: NS_HEADERS,
         query: { user_email: testUserEmail },
       });
 
@@ -186,6 +196,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       const res = await app.inject({
         method: 'GET',
         url: '/notebooks',
+        headers: NS_HEADERS,
         query: { user_email: testUserEmail, include_archived: 'true' },
       });
 
@@ -203,6 +214,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       const res = await app.inject({
         method: 'GET',
         url: '/notebooks',
+        headers: NS_HEADERS,
         query: { user_email: testUserEmail, parent_id: 'null' },
       });
 
@@ -222,6 +234,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       const res = await app.inject({
         method: 'GET',
         url: '/notebooks',
+        headers: NS_HEADERS,
         query: { user_email: testUserEmail },
       });
 
@@ -249,6 +262,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       const res = await app.inject({
         method: 'GET',
         url: '/notebooks/tree',
+        headers: NS_HEADERS,
         query: { user_email: testUserEmail },
       });
 
@@ -277,6 +291,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       const res = await app.inject({
         method: 'GET',
         url: `/notebooks/${nbId}`,
+        headers: NS_HEADERS,
         query: { user_email: testUserEmail },
       });
 
@@ -297,6 +312,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       const res = await app.inject({
         method: 'GET',
         url: '/notebooks/00000000-0000-0000-0000-000000000000',
+        headers: NS_HEADERS,
         query: { user_email: testUserEmail },
       });
 
@@ -310,6 +326,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       const res = await app.inject({
         method: 'GET',
         url: `/notebooks/${nbId}`,
+        headers: NS_HEADERS,
         query: { user_email: testUserEmail },
       });
 
@@ -325,6 +342,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       const res = await app.inject({
         method: 'GET',
         url: `/notebooks/${nbId}`,
+        headers: NS_HEADERS,
         query: { user_email: testUserEmail, include_notes: 'true' },
       });
 
@@ -341,6 +359,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       const res = await app.inject({
         method: 'GET',
         url: `/notebooks/${parent_id}`,
+        headers: NS_HEADERS,
         query: { user_email: testUserEmail, include_children: 'true' },
       });
 
@@ -361,6 +380,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       const res = await app.inject({
         method: 'PUT',
         url: `/notebooks/${notebook_id}`,
+        headers: NS_HEADERS,
         payload: {
           user_email: testUserEmail,
           name: 'Updated',
@@ -392,6 +412,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       const res = await app.inject({
         method: 'PUT',
         url: '/notebooks/00000000-0000-0000-0000-000000000000',
+        headers: NS_HEADERS,
         payload: { user_email: testUserEmail, name: 'New' },
       });
 
@@ -405,6 +426,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       const res = await app.inject({
         method: 'PUT',
         url: `/notebooks/${otherId}`,
+        headers: NS_HEADERS,
         payload: { user_email: testUserEmail, name: 'Hacked' },
       });
 
@@ -423,6 +445,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       const res = await app.inject({
         method: 'PUT',
         url: `/notebooks/${notebook_id}`,
+        headers: NS_HEADERS,
         payload: {
           user_email: testUserEmail,
           parent_notebook_id: childId,
@@ -440,6 +463,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       const res = await app.inject({
         method: 'PUT',
         url: `/notebooks/${notebook_id}`,
+        headers: NS_HEADERS,
         payload: {
           user_email: testUserEmail,
           parent_notebook_id: newParentId,
@@ -459,6 +483,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       const res = await app.inject({
         method: 'POST',
         url: `/notebooks/${nbId}/archive`,
+        headers: NS_HEADERS,
         payload: { user_email: testUserEmail },
       });
 
@@ -483,6 +508,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       const res = await app.inject({
         method: 'POST',
         url: `/notebooks/${nbId}/archive`,
+        headers: NS_HEADERS,
         payload: { user_email: testUserEmail },
       });
 
@@ -500,6 +526,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       const res = await app.inject({
         method: 'POST',
         url: `/notebooks/${nbId}/unarchive`,
+        headers: NS_HEADERS,
         payload: { user_email: testUserEmail },
       });
 
@@ -519,6 +546,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       const res = await app.inject({
         method: 'DELETE',
         url: `/notebooks/${nbId}`,
+        headers: NS_HEADERS,
         query: { user_email: testUserEmail },
       });
 
@@ -542,6 +570,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       const res = await app.inject({
         method: 'DELETE',
         url: `/notebooks/${nbId}`,
+        headers: NS_HEADERS,
         query: { user_email: testUserEmail, delete_notes: 'true' },
       });
 
@@ -565,6 +594,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       const res = await app.inject({
         method: 'DELETE',
         url: '/notebooks/00000000-0000-0000-0000-000000000000',
+        headers: NS_HEADERS,
         query: { user_email: testUserEmail },
       });
 
@@ -578,6 +608,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       const res = await app.inject({
         method: 'DELETE',
         url: `/notebooks/${nbId}`,
+        headers: NS_HEADERS,
         query: { user_email: testUserEmail },
       });
 
@@ -601,6 +632,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       await app.inject({
         method: 'DELETE',
         url: `/notebooks/${childId}`,
+        headers: NS_HEADERS,
         query: { user_email: testUserEmail },
       });
 
@@ -628,6 +660,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       const res = await app.inject({
         method: 'POST',
         url: `/notebooks/${notebook_id}/notes`,
+        headers: NS_HEADERS,
         payload: {
           user_email: testUserEmail,
           note_ids: [noteId],
@@ -648,6 +681,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       const res = await app.inject({
         method: 'POST',
         url: `/notebooks/${notebook_id}/notes`,
+        headers: NS_HEADERS,
         payload: {
           user_email: testUserEmail,
           note_ids: [noteId],
@@ -678,6 +712,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       const res = await app.inject({
         method: 'POST',
         url: `/notebooks/${notebook_id}/notes`,
+        headers: NS_HEADERS,
         payload: { user_email: testUserEmail, action: 'move' },
       });
 
@@ -688,6 +723,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       const res = await app.inject({
         method: 'POST',
         url: `/notebooks/${notebook_id}/notes`,
+        headers: NS_HEADERS,
         payload: {
           user_email: testUserEmail,
           note_ids: [noteId],
@@ -705,6 +741,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       const res = await app.inject({
         method: 'POST',
         url: `/notebooks/${otherNbId}/notes`,
+        headers: NS_HEADERS,
         payload: {
           user_email: testUserEmail,
           note_ids: [noteId],
@@ -722,6 +759,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       const res = await app.inject({
         method: 'POST',
         url: `/notebooks/${notebook_id}/notes`,
+        headers: NS_HEADERS,
         payload: {
           user_email: testUserEmail,
           note_ids: [otherNoteId],

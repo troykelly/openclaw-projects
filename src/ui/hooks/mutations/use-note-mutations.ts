@@ -47,7 +47,6 @@ import { useUserEmail } from '@/ui/contexts/user-context';
  * API request body for creating a note (snake_case for backend).
  */
 interface CreateNoteApiBody {
-  user_email: string;
   title: string;
   content?: string;
   notebook_id?: string;
@@ -62,7 +61,6 @@ interface CreateNoteApiBody {
  * API request body for updating a note (snake_case for backend).
  */
 interface UpdateNoteApiBody {
-  user_email: string;
   title?: string;
   content?: string;
   notebook_id?: string | null;
@@ -154,9 +152,7 @@ export function useCreateNote(): UseMutationResult<Note, ApiRequestError, Create
       if (!user_email) {
         return Promise.reject(new Error('User not authenticated'));
       }
-      // Convert to snake_case for API
       const apiBody: CreateNoteApiBody = {
-        user_email: user_email,
         title: body.title,
         content: body.content,
         notebook_id: body.notebook_id,
@@ -236,9 +232,7 @@ export function useUpdateNote(): UseMutationResult<Note, ApiRequestError, Update
       if (!user_email) {
         return Promise.reject(new Error('User not authenticated'));
       }
-      // Convert to snake_case for API
       const apiBody: UpdateNoteApiBody = {
-        user_email: user_email,
         title: body.title,
         content: body.content,
         notebook_id: body.notebook_id,
@@ -360,7 +354,7 @@ export function useDeleteNote(): UseMutationResult<void, ApiRequestError, string
       if (!user_email) {
         return Promise.reject(new Error('User not authenticated'));
       }
-      return apiClient.delete(`/notes/${encodeURIComponent(id)}?user_email=${encodeURIComponent(user_email)}`);
+      return apiClient.delete(`/notes/${encodeURIComponent(id)}`);
     },
 
     onMutate: async (id) => {
@@ -458,9 +452,7 @@ export function useRestoreNote(): UseMutationResult<Note, ApiRequestError, strin
       if (!user_email) {
         return Promise.reject(new Error('User not authenticated'));
       }
-      return apiClient.post<Note>(`/notes/${encodeURIComponent(id)}/restore`, {
-        user_email: user_email,
-      });
+      return apiClient.post<Note>(`/notes/${encodeURIComponent(id)}/restore`, {});
     },
 
     onSuccess: (note, id) => {
@@ -534,7 +526,7 @@ export function useRestoreNoteVersion(): UseMutationResult<RestoreVersionRespons
         return Promise.reject(new Error('User not authenticated'));
       }
       return apiClient.post<RestoreVersionResponse>(
-        `/notes/${encodeURIComponent(id)}/versions/${versionNumber}/restore?user_email=${encodeURIComponent(user_email)}`,
+        `/notes/${encodeURIComponent(id)}/versions/${versionNumber}/restore`,
         {},
       );
     },

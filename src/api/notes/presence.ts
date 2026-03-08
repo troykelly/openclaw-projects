@@ -54,11 +54,17 @@ export function getPresenceTimeoutMinutes(): number {
 export async function joinNotePresence(
   pool: Pool,
   noteId: string,
-  user_email: string,
+  userEmail: string | null,
+  namespaces: string[],
   cursorPosition?: { line: number; column: number },
 ): Promise<NotePresenceUser[]> {
+  // M2M callers (no email) get a graceful no-op
+  if (!userEmail) {
+    return [];
+  }
+
   // Verify user has access to the note
-  const accessCheck = await pool.query('SELECT user_can_access_note($1, $2) as has_access', [noteId, user_email]);
+  const accessCheck = await pool.query('SELECT user_can_access_note($1, $2) as has_access', [noteId, userEmail]);
 
   if (!accessCheck.rows[0]?.has_access) {
     throw new Error('FORBIDDEN');
@@ -70,14 +76,14 @@ export async function joinNotePresence(
      VALUES ($1, $2, NOW(), $3)
      ON CONFLICT (note_id, user_email)
      DO UPDATE SET last_seen_at = NOW(), cursor_position = COALESCE($3, note_collaborator.cursor_position)`,
-    [noteId, user_email, cursorPosition ? JSON.stringify(cursorPosition) : null],
+    [noteId, userEmail, cursorPosition ? JSON.stringify(cursorPosition) : null],
   );
 
   // Get all active collaborators for this note
   const collaborators = await getActiveCollaborators(pool, noteId);
 
   // Find the user who just joined to build the event
-  const joiningUser = collaborators.find((c) => c.email === user_email);
+  const joiningUser = collaborators.find((c) => c.email === userEmail);
 
   if (joiningUser) {
     // Broadcast join event to other viewers
@@ -94,13 +100,18 @@ export async function joinNotePresence(
  * Leave note presence - mark user as no longer viewing a note.
  * Removes the note_collaborator record and broadcasts to other viewers.
  */
-export async function leaveNotePresence(pool: Pool, noteId: string, user_email: string): Promise<void> {
+export async function leaveNotePresence(pool: Pool, noteId: string, userEmail: string | null): Promise<void> {
+  // M2M callers (no email) get a graceful no-op
+  if (!userEmail) {
+    return;
+  }
+
   // Get user info before deleting
   const userResult = await pool.query(
     `SELECT nc.user_email, nc.last_seen_at, nc.cursor_position
      FROM note_collaborator nc
      WHERE nc.note_id = $1 AND nc.user_email = $2`,
-    [noteId, user_email],
+    [noteId, userEmail],
   );
 
   if (userResult.rows.length === 0) {
@@ -109,11 +120,11 @@ export async function leaveNotePresence(pool: Pool, noteId: string, user_email: 
   }
 
   // Delete the presence record
-  await pool.query('DELETE FROM note_collaborator WHERE note_id = $1 AND user_email = $2', [noteId, user_email]);
+  await pool.query('DELETE FROM note_collaborator WHERE note_id = $1 AND user_email = $2', [noteId, userEmail]);
 
   // Broadcast leave event
   const user: NotePresenceUser = {
-    email: user_email,
+    email: userEmail,
     last_seen_at: userResult.rows[0].last_seen_at.toISOString(),
     cursor_position: userResult.rows[0].cursor_position,
   };
@@ -128,26 +139,31 @@ export async function leaveNotePresence(pool: Pool, noteId: string, user_email: 
  * Update cursor position for a user viewing a note.
  * Updates the note_collaborator record and broadcasts to other viewers.
  */
-export async function updateCursorPosition(pool: Pool, noteId: string, user_email: string, cursorPosition: { line: number; column: number }): Promise<void> {
+export async function updateCursorPosition(pool: Pool, noteId: string, userEmail: string | null, cursorPosition: { line: number; column: number }): Promise<void> {
+  // M2M callers (no email) get a graceful no-op
+  if (!userEmail) {
+    return;
+  }
+
   // Update cursor position and refresh last_seen_at
   const result = await pool.query(
     `UPDATE note_collaborator
      SET cursor_position = $3, last_seen_at = NOW()
      WHERE note_id = $1 AND user_email = $2
      RETURNING id`,
-    [noteId, user_email, JSON.stringify(cursorPosition)],
+    [noteId, userEmail, JSON.stringify(cursorPosition)],
   );
 
   if (result.rowCount === 0) {
     // User not in presence tracking, add them
-    await joinNotePresence(pool, noteId, user_email, cursorPosition);
+    await joinNotePresence(pool, noteId, userEmail, [], cursorPosition);
     return;
   }
 
   // Broadcast cursor update
   await emitNoteCursorUpdate({
     note_id: noteId,
-    user_email: user_email,
+    user_email: userEmail,
     cursor_position: cursorPosition,
   });
 }
@@ -182,18 +198,31 @@ export async function getActiveCollaborators(pool: Pool, noteId: string): Promis
  * Get presence list and send to requesting user.
  * Used when a user first opens a note to see who else is viewing.
  */
-export async function getNotePresence(pool: Pool, noteId: string, user_email: string): Promise<NotePresenceUser[]> {
-  // Verify user has access to the note
-  const accessCheck = await pool.query('SELECT user_can_access_note($1, $2) as has_access', [noteId, user_email]);
+export async function getNotePresence(pool: Pool, noteId: string, userEmail: string | null, namespaces: string[]): Promise<NotePresenceUser[]> {
+  if (userEmail) {
+    // User caller: verify access via the existing DB function
+    const accessCheck = await pool.query('SELECT user_can_access_note($1, $2) as has_access', [noteId, userEmail]);
 
-  if (!accessCheck.rows[0]?.has_access) {
-    throw new Error('FORBIDDEN');
+    if (!accessCheck.rows[0]?.has_access) {
+      throw new Error('FORBIDDEN');
+    }
+  } else {
+    // M2M caller: verify namespace access directly
+    const nsCheck = await pool.query(
+      `SELECT 1 FROM note WHERE id = $1 AND deleted_at IS NULL AND namespace = ANY($2::text[])`,
+      [noteId, namespaces],
+    );
+    if (nsCheck.rows.length === 0) {
+      throw new Error('FORBIDDEN');
+    }
   }
 
   const collaborators = await getActiveCollaborators(pool, noteId);
 
-  // Send presence list to the requesting user
-  await emitNotePresenceList({ note_id: noteId, users: collaborators }, user_email);
+  // Only emit WebSocket presence list for user callers (M2M has no session to target)
+  if (userEmail) {
+    await emitNotePresenceList({ note_id: noteId, users: collaborators }, userEmail);
+  }
 
   return collaborators;
 }
