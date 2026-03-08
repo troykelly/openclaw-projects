@@ -70,7 +70,7 @@ export function shouldEmbed(note: NoteForEmbedding): boolean {
  * Update just the embedding status.
  */
 async function updateEmbeddingStatus(pool: Pool, noteId: string, status: NoteEmbeddingStatus): Promise<void> {
-  await pool.query(`UPDATE note SET embedding_status = $2 WHERE id = $1`, [noteId, status]);
+  await pool.query('UPDATE note SET embedding_status = $2 WHERE id = $1', [noteId, status]);
 }
 
 /**
@@ -276,7 +276,7 @@ export async function getNoteEmbeddingStats(pool: Pool): Promise<EmbeddingStatsR
   let total = 0;
   for (const row of statusResult.rows) {
     const status = row.embedding_status as NoteEmbeddingStatus | null;
-    const count = parseInt(row.count, 10);
+    const count = Number.parseInt(row.count, 10);
     total += count;
 
     if (status === 'complete') {
@@ -423,7 +423,7 @@ export async function searchNotesSemantic(
         id: row.id,
         title: row.title,
         content: row.content,
-        similarity: parseFloat(row.similarity),
+        similarity: Number.parseFloat(row.similarity),
         updated_at: new Date(row.updated_at),
       })),
       search_type: 'semantic',
@@ -463,7 +463,7 @@ export async function searchNotesSemantic(
       id: row.id,
       title: row.title,
       content: row.content,
-      similarity: parseFloat(row.similarity),
+      similarity: Number.parseFloat(row.similarity),
       updated_at: new Date(row.updated_at),
     })),
     search_type: 'text',

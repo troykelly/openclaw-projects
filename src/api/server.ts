@@ -17986,7 +17986,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       tags?: string[];
     };
 
-    const queryNamespaces = req.namespaceContext?.queryNamespaces ?? [];
+    const queryNamespaces = getEffectiveNamespaces(req);
     if (queryNamespaces.length === 0) {
       return reply.code(401).send({ error: 'unauthorized' });
     }
@@ -17995,8 +17995,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     if (!body?.query) {
       return reply.code(400).send({ error: 'query is required' });
     }
-
-    const queryNamespaces = getEffectiveNamespaces(req);
     const pool = createPool();
 
     try {
