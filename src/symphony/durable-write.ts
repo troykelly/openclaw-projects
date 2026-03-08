@@ -153,14 +153,20 @@ export async function resolveDeadLetter(
   pool: Pool | PoolClient,
   id: string,
   resolvedBy: string,
+  namespace?: string,
 ): Promise<boolean> {
-  const result = await pool.query(
-    `UPDATE symphony_dead_letter
-     SET resolved_at = NOW(), resolved_by = $2
-     WHERE id = $1 AND resolved_at IS NULL
-     RETURNING id`,
-    [id, resolvedBy],
-  );
+  // When namespace is provided, scope the update to prevent cross-namespace resolution.
+  const sql = namespace
+    ? `UPDATE symphony_dead_letter
+       SET resolved_at = NOW(), resolved_by = $2
+       WHERE id = $1 AND resolved_at IS NULL AND namespace = $3
+       RETURNING id`
+    : `UPDATE symphony_dead_letter
+       SET resolved_at = NOW(), resolved_by = $2
+       WHERE id = $1 AND resolved_at IS NULL
+       RETURNING id`;
+  const params = namespace ? [id, resolvedBy, namespace] : [id, resolvedBy];
+  const result = await pool.query(sql, params);
 
   return (result.rowCount ?? 0) > 0;
 }

@@ -1342,7 +1342,7 @@ export async function symphonyRoutesPlugin(
     },
     resolveNamespaces: async (email: string) => {
       const result = await pool.query<{ namespace: string }>(
-        `SELECT DISTINCT namespace FROM namespace_role WHERE email = $1`,
+        `SELECT DISTINCT namespace FROM namespace_grant WHERE email = $1`,
         [email],
       );
       return result.rows.map((r) => r.namespace);
@@ -1358,18 +1358,20 @@ export async function symphonyRoutesPlugin(
 
   // GET /symphony/feed — WebSocket endpoint (handles its own JWT auth via message handshake)
   app.get('/symphony/feed', { websocket: true }, async (socket, req) => {
-    const headerToken = req.headers.authorization?.replace('Bearer ', '');
+    const auth = req.headers.authorization;
+    const headerToken = auth?.startsWith('Bearer ') ? auth.slice(7) : undefined;
     await feedHub.handleConnection(socket, headerToken);
   });
 
-  // GET /symphony/feed/stats — connection statistics
+  // GET /symphony/feed/stats — connection statistics (namespace-scoped)
   app.get('/symphony/feed/stats', async (req: FastifyRequest, reply: FastifyReply) => {
     const namespaces = getQueryNamespaces(req, reply);
     if (!namespaces) return;
 
+    const counts = feedHub.getNamespaceScopedCounts(namespaces);
     return reply.send({
-      total_connections: feedHub.getConnectionCount(),
-      authenticated_connections: feedHub.getAuthenticatedCount(),
+      total_connections: counts.total,
+      authenticated_connections: counts.authenticated,
     });
   });
 
@@ -1385,12 +1387,13 @@ export async function symphonyRoutesPlugin(
     const query = req.query as PaginationQuery & { source?: string };
     const { limit } = parsePagination(query);
 
-    // Filter by first namespace (dead-letter entries are namespace-scoped)
-    const items = await getUnresolvedDeadLetters(pool, {
-      namespace: namespaces[0],
-      source: query.source,
-      limit,
-    });
+    // Fetch dead-letter entries across all user namespaces
+    const allItems = await Promise.all(
+      namespaces.map((ns) =>
+        getUnresolvedDeadLetters(pool, { namespace: ns, source: query.source, limit }),
+      ),
+    );
+    const items = allItems.flat().sort((a, b) => a.created_at.localeCompare(b.created_at)).slice(0, limit);
 
     return reply.send({ data: items, total: items.length });
   });
@@ -1408,7 +1411,7 @@ export async function symphonyRoutesPlugin(
     const identity = await getAuthIdentity(req);
     const resolvedBy = identity?.email ?? 'unknown';
 
-    const resolved = await resolveDeadLetter(pool, id, resolvedBy);
+    const resolved = await resolveDeadLetter(pool, id, resolvedBy, ns);
     if (!resolved) {
       return reply.code(404).send({ error: { code: 'NOT_FOUND', message: 'Dead-letter entry not found or already resolved' } });
     }

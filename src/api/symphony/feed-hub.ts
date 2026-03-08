@@ -251,6 +251,20 @@ export class SymphonyFeedHub {
     return this.connections.size;
   }
 
+  /** Get connection counts scoped to specific namespaces. */
+  getNamespaceScopedCounts(namespaces: string[]): { total: number; authenticated: number } {
+    const nsSet = new Set(namespaces);
+    let total = 0;
+    let authenticated = 0;
+    for (const conn of this.connections.values()) {
+      if ([...conn.allowedNamespaces].some((ns: string) => nsSet.has(ns))) {
+        total++;
+        if (conn.userEmail) authenticated++;
+      }
+    }
+    return { total, authenticated };
+  }
+
   /**
    * Refresh namespace permissions for a connection.
    * Called when namespace permissions might have changed.
