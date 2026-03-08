@@ -25,10 +25,16 @@ interface ExistingMemory {
   metadata: string | Record<string, unknown>;
 }
 
+/** Optional input for refresh, allowing inline spec_content updates. */
+export interface RefreshInput {
+  /** Updated inline spec content. If provided, replaces stored spec_content. */
+  spec_content?: string;
+}
+
 /**
- * Refresh an API source by re-fetching and diffing its spec.
+ * Refresh an API source by re-fetching (or re-reading) and diffing its spec.
  *
- * 1. Fetch new spec from spec_url
+ * 1. Resolve spec text: fetch from spec_url, use provided spec_content, or use stored spec_content
  * 2. Hash and compare with stored spec_hash
  * 3. If unchanged, update last_fetched_at and return early
  * 4. If changed, parse new spec, diff operations, update memories
@@ -38,6 +44,7 @@ export async function refreshApiSource(
   pool: Pool,
   apiSourceId: string,
   namespace: string,
+  input?: RefreshInput,
 ): Promise<RefreshResult> {
   // Get the existing source
   const source = await getApiSource(pool, apiSourceId, namespace);
@@ -45,21 +52,33 @@ export async function refreshApiSource(
     throw new Error('API source not found');
   }
 
-  if (!source.spec_url) {
-    throw new Error('Cannot refresh: API source has no spec_url');
-  }
-
-  // Fetch new spec
+  // Resolve the spec text from one of three sources:
+  // 1. Provided spec_content in refresh input (updates inline spec)
+  // 2. Fetch from spec_url if available
+  // 3. Use stored spec_content from the api_source row
   let specText: string;
-  try {
-    specText = await fetchSpec(source.spec_url);
-  } catch (err) {
-    // Update source status to error
-    await updateApiSource(pool, apiSourceId, namespace, {
-      status: 'error',
-      error_message: err instanceof Error ? err.message : 'Failed to fetch spec',
-    });
-    throw err;
+  let updatedSpecContent: string | undefined;
+
+  if (input?.spec_content) {
+    // Caller provided new inline spec content
+    specText = input.spec_content;
+    updatedSpecContent = input.spec_content;
+  } else if (source.spec_url) {
+    // Fetch from URL
+    try {
+      specText = await fetchSpec(source.spec_url);
+    } catch (err) {
+      await updateApiSource(pool, apiSourceId, namespace, {
+        status: 'error',
+        error_message: err instanceof Error ? err.message : 'Failed to fetch spec',
+      });
+      throw err;
+    }
+  } else if (source.spec_content) {
+    // Use stored inline spec
+    specText = source.spec_content;
+  } else {
+    throw new Error('Cannot refresh: API source has no spec_url or spec_content');
   }
 
   const newHash = hashSpec(specText);
@@ -215,20 +234,37 @@ export async function refreshApiSource(
       ],
     );
 
-    // Update api_source metadata
-    await client.query(
-      `UPDATE api_source
-       SET spec_hash = $1, spec_version = $2, last_fetched_at = now(),
-           servers = $3, status = 'active', error_message = NULL,
-           updated_at = now()
-       WHERE id = $4`,
-      [
-        newHash,
-        parsed.overview.version,
-        JSON.stringify(parsed.overview.servers),
-        apiSourceId,
-      ],
-    );
+    // Update api_source metadata (and spec_content if provided)
+    if (updatedSpecContent !== undefined) {
+      await client.query(
+        `UPDATE api_source
+         SET spec_hash = $1, spec_version = $2, last_fetched_at = now(),
+             servers = $3, spec_content = $4, status = 'active', error_message = NULL,
+             updated_at = now()
+         WHERE id = $5`,
+        [
+          newHash,
+          parsed.overview.version,
+          JSON.stringify(parsed.overview.servers),
+          updatedSpecContent,
+          apiSourceId,
+        ],
+      );
+    } else {
+      await client.query(
+        `UPDATE api_source
+         SET spec_hash = $1, spec_version = $2, last_fetched_at = now(),
+             servers = $3, status = 'active', error_message = NULL,
+             updated_at = now()
+         WHERE id = $4`,
+        [
+          newHash,
+          parsed.overview.version,
+          JSON.stringify(parsed.overview.servers),
+          apiSourceId,
+        ],
+      );
+    }
 
     await client.query('COMMIT');
 

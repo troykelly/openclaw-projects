@@ -194,11 +194,13 @@ export async function onboardApiSource(
       created_by_agent: input.created_by_agent,
     });
 
-    // Update with spec metadata
+    // Update with spec metadata and store inline spec_content if applicable
     await updateApiSource(client, apiSource.id, input.namespace, {
       spec_hash: specHash,
       spec_version: parsed.overview.version,
       last_fetched_at: new Date(),
+      // Store the original spec_content for inline specs so refresh can re-parse (#2277)
+      ...(input.spec_content ? { spec_content: input.spec_content } : {}),
     });
 
     // Create credentials if provided
@@ -335,6 +337,7 @@ async function findExistingBySpecUrl(
     name: row.name,
     description: row.description,
     spec_url: row.spec_url,
+    spec_content: row.spec_content ?? null,
     servers: row.servers,
     spec_version: row.spec_version,
     spec_hash: row.spec_hash,
