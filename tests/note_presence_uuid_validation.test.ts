@@ -9,6 +9,8 @@ import { buildServer } from '../src/api/server.ts';
 import { runMigrate } from './helpers/migrate.ts';
 import { createTestPool, truncateAllTables, ensureTestNamespace } from './helpers/db.ts';
 
+const NS_HEADERS = { 'x-namespace': 'default' };
+
 describe('Note Presence API - UUID Validation (Issue #701)', () => {
   const app = buildServer();
   let pool: Pool;
@@ -49,6 +51,7 @@ describe('Note Presence API - UUID Validation (Issue #701)', () => {
         const res = await app.inject({
           method: 'POST',
           url: `/notes/${encodeURIComponent(invalidId)}/presence`,
+          headers: NS_HEADERS,
           payload: { user_email: testUserEmail },
         });
 
@@ -70,6 +73,7 @@ describe('Note Presence API - UUID Validation (Issue #701)', () => {
       const res = await app.inject({
         method: 'POST',
         url: `/notes/${noteId}/presence`,
+        headers: NS_HEADERS,
         payload: { user_email: testUserEmail },
       });
 
@@ -83,7 +87,7 @@ describe('Note Presence API - UUID Validation (Issue #701)', () => {
         const res = await app.inject({
           method: 'DELETE',
           url: `/notes/${encodeURIComponent(invalidId)}/presence`,
-          headers: { 'x-user-email': testUserEmail },
+          headers: { ...NS_HEADERS, 'x-user-email': testUserEmail },
         });
 
         expect(res.statusCode).toBe(400);
@@ -104,7 +108,7 @@ describe('Note Presence API - UUID Validation (Issue #701)', () => {
       const res = await app.inject({
         method: 'DELETE',
         url: `/notes/${noteId}/presence`,
-        headers: { 'x-user-email': testUserEmail },
+        headers: { ...NS_HEADERS, 'x-user-email': testUserEmail },
       });
 
       expect(res.statusCode).toBe(204);
@@ -117,7 +121,7 @@ describe('Note Presence API - UUID Validation (Issue #701)', () => {
         const res = await app.inject({
           method: 'GET',
           url: `/notes/${encodeURIComponent(invalidId)}/presence`,
-          headers: { 'x-user-email': testUserEmail },
+          headers: { ...NS_HEADERS, 'x-user-email': testUserEmail },
         });
 
         expect(res.statusCode).toBe(400);
@@ -138,7 +142,7 @@ describe('Note Presence API - UUID Validation (Issue #701)', () => {
       const res = await app.inject({
         method: 'GET',
         url: `/notes/${noteId}/presence`,
-        headers: { 'x-user-email': testUserEmail },
+        headers: { ...NS_HEADERS, 'x-user-email': testUserEmail },
       });
 
       expect(res.statusCode).toBe(200);
@@ -151,6 +155,7 @@ describe('Note Presence API - UUID Validation (Issue #701)', () => {
         const res = await app.inject({
           method: 'PUT',
           url: `/notes/${encodeURIComponent(invalidId)}/presence/cursor`,
+          headers: NS_HEADERS,
           payload: {
             user_email: testUserEmail,
             cursor_position: { line: 1, column: 1 },
@@ -176,12 +181,14 @@ describe('Note Presence API - UUID Validation (Issue #701)', () => {
       await app.inject({
         method: 'POST',
         url: `/notes/${noteId}/presence`,
+        headers: NS_HEADERS,
         payload: { user_email: testUserEmail },
       });
 
       const res = await app.inject({
         method: 'PUT',
         url: `/notes/${noteId}/presence/cursor`,
+        headers: NS_HEADERS,
         payload: {
           user_email: testUserEmail,
           cursor_position: { line: 1, column: 1 },

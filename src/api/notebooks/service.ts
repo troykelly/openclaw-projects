@@ -48,12 +48,11 @@ function mapRowToNotebook(row: Record<string, unknown>): Notebook {
  * Ownership is now inferred by namespace membership (checked at the route level).
  * This function returns true if the notebook exists (not deleted).
  */
-export async function userOwnsNotebook(pool: Pool, notebook_id: string, user_email: string): Promise<boolean> {
+export async function userOwnsNotebook(pool: Pool, notebook_id: string, namespace: string): Promise<boolean> {
   const result = await pool.query(
     `SELECT nb.id FROM notebook nb
-     JOIN namespace_grant ng ON ng.namespace = nb.namespace AND ng.email = $2
-     WHERE nb.id = $1 AND nb.deleted_at IS NULL`,
-    [notebook_id, user_email],
+     WHERE nb.id = $1 AND nb.namespace = $2 AND nb.deleted_at IS NULL`,
+    [notebook_id, namespace],
   );
   return result.rows.length > 0;
 }
@@ -86,14 +85,13 @@ async function wouldCreateCircularReference(pool: Pool, notebook_id: string, new
 /**
  * Creates a new notebook
  */
-export async function createNotebook(pool: Pool, input: CreateNotebookInput, user_email: string, namespace?: string): Promise<Notebook> {
-  // Validate parent notebook exists and user owns it (Phase 4: ownership via namespace_grant)
+export async function createNotebook(pool: Pool, input: CreateNotebookInput, namespace: string): Promise<Notebook> {
+  // Validate parent notebook exists and belongs to the same namespace
   if (input.parent_notebook_id) {
     const parentOwned = await pool.query(
       `SELECT nb.id FROM notebook nb
-       JOIN namespace_grant ng ON ng.namespace = nb.namespace AND ng.email = $2
-       WHERE nb.id = $1 AND nb.deleted_at IS NULL`,
-      [input.parent_notebook_id, user_email],
+       WHERE nb.id = $1 AND nb.namespace = $2 AND nb.deleted_at IS NULL`,
+      [input.parent_notebook_id, namespace],
     );
     if (parentOwned.rows.length === 0) {
       const exists = await pool.query('SELECT id FROM notebook WHERE id = $1 AND deleted_at IS NULL', [input.parent_notebook_id]);
@@ -112,7 +110,7 @@ export async function createNotebook(pool: Pool, input: CreateNotebookInput, use
       id::text, name, description, icon, color,
       parent_notebook_id::text, sort_order, is_archived, deleted_at,
       created_at, updated_at`,
-    [input.name, input.description ?? null, input.icon ?? null, input.color ?? null, input.parent_notebook_id ?? null, namespace ?? 'default'],
+    [input.name, input.description ?? null, input.icon ?? null, input.color ?? null, input.parent_notebook_id ?? null, namespace],
   );
 
   const notebook = mapRowToNotebook(result.rows[0]);
@@ -124,8 +122,7 @@ export async function createNotebook(pool: Pool, input: CreateNotebookInput, use
 /**
  * Gets a notebook by ID
  */
-export async function getNotebook(pool: Pool, notebook_id: string, user_email: string, options: GetNotebookOptions = {}): Promise<Notebook | null> {
-  // Get notebook with optional note count (Phase 4: ownership via namespace_grant)
+export async function getNotebook(pool: Pool, notebook_id: string, namespaces: string[], options: GetNotebookOptions = {}): Promise<Notebook | null> {
   const result = await pool.query(
     `SELECT
       nb.id::text, nb.name, nb.description, nb.icon, nb.color,
@@ -135,10 +132,9 @@ export async function getNotebook(pool: Pool, notebook_id: string, user_email: s
       (SELECT COUNT(*) FROM note WHERE notebook_id = nb.id AND deleted_at IS NULL) as note_count,
       (SELECT COUNT(*) FROM notebook WHERE parent_notebook_id = nb.id AND deleted_at IS NULL) as child_count
     FROM notebook nb
-    JOIN namespace_grant ng ON ng.namespace = nb.namespace AND ng.email = $2
     LEFT JOIN notebook pnb ON nb.parent_notebook_id = pnb.id
-    WHERE nb.id = $1 AND nb.deleted_at IS NULL`,
-    [notebook_id, user_email],
+    WHERE nb.id = $1 AND nb.namespace = ANY($2::text[]) AND nb.deleted_at IS NULL`,
+    [notebook_id, namespaces],
   );
 
   if (result.rows.length === 0) {
@@ -187,7 +183,7 @@ export async function getNotebook(pool: Pool, notebook_id: string, user_email: s
 /**
  * Lists notebooks with filters and pagination
  */
-export async function listNotebooks(pool: Pool, user_email: string, options: ListNotebooksOptions = {}): Promise<ListNotebooksResult> {
+export async function listNotebooks(pool: Pool, namespaces: string[], options: ListNotebooksOptions = {}): Promise<ListNotebooksResult> {
   const limit = Math.min(options.limit ?? 100, 200);
   const offset = options.offset ?? 0;
 
@@ -196,10 +192,8 @@ export async function listNotebooks(pool: Pool, user_email: string, options: Lis
   const params: unknown[] = [];
   let paramIndex = 1;
 
-  // Epic #1418 Phase 4: namespace scoping replaces user_email.
-  const queryNs = options.queryNamespaces ?? ['default'];
   conditions.push(`nb.namespace = ANY($${paramIndex}::text[])`);
-  params.push(queryNs);
+  params.push(namespaces);
   paramIndex++;
 
   // Filter by parent (null means root notebooks)
@@ -257,30 +251,20 @@ export async function listNotebooks(pool: Pool, user_email: string, options: Lis
 /**
  * Gets notebooks as a tree structure
  */
-export async function getNotebooksTree(pool: Pool, user_email: string, includeNoteCounts = false, queryNamespaces?: string[]): Promise<NotebookTreeNode[]> {
-  // Get all notebooks for the user
+export async function getNotebooksTree(pool: Pool, namespaces: string[], includeNoteCounts = false): Promise<NotebookTreeNode[]> {
   let selectCounts = '';
   if (includeNoteCounts) {
     selectCounts = ', (SELECT COUNT(*) FROM note WHERE notebook_id = nb.id AND deleted_at IS NULL) as note_count';
   }
 
-  // Epic #1418 Phase 4: user_email column dropped from notebook table.
-  // Namespace scoping is handled via queryNamespaces parameter.
-  let scopeCondition: string;
-  const params: unknown[] = [];
-  if (queryNamespaces && queryNamespaces.length > 0) {
-    params.push(queryNamespaces);
-    scopeCondition = `nb.namespace = ANY($1::text[])`;
-  } else {
-    scopeCondition = `1=1`;
-  }
+  const params: unknown[] = [namespaces];
 
   const result = await pool.query(
     `SELECT
       nb.id::text, nb.name, nb.icon, nb.color, nb.parent_notebook_id::text, nb.sort_order
       ${selectCounts}
     FROM notebook nb
-    WHERE ${scopeCondition} AND nb.deleted_at IS NULL AND nb.is_archived = false
+    WHERE nb.namespace = ANY($1::text[]) AND nb.deleted_at IS NULL AND nb.is_archived = false
     ORDER BY nb.sort_order ASC, nb.name ASC`,
     params,
   );
@@ -332,9 +316,9 @@ export async function getNotebooksTree(pool: Pool, user_email: string, includeNo
 /**
  * Updates a notebook
  */
-export async function updateNotebook(pool: Pool, notebook_id: string, input: UpdateNotebookInput, user_email: string): Promise<Notebook | null> {
+export async function updateNotebook(pool: Pool, notebook_id: string, input: UpdateNotebookInput, namespace: string): Promise<Notebook | null> {
   // Check ownership
-  const isOwner = await userOwnsNotebook(pool, notebook_id, user_email);
+  const isOwner = await userOwnsNotebook(pool, notebook_id, namespace);
   if (!isOwner) {
     const exists = await pool.query('SELECT id FROM notebook WHERE id = $1 AND deleted_at IS NULL', [notebook_id]);
     if (exists.rows.length === 0) {
@@ -396,7 +380,7 @@ export async function updateNotebook(pool: Pool, notebook_id: string, input: Upd
 
   if (updates.length === 0) {
     // Nothing to update, just return current notebook
-    return getNotebook(pool, notebook_id, user_email);
+    return getNotebook(pool, notebook_id, [namespace]);
   }
 
   params.push(notebook_id);
@@ -422,8 +406,8 @@ export async function updateNotebook(pool: Pool, notebook_id: string, input: Upd
 /**
  * Archives a notebook
  */
-export async function archiveNotebook(pool: Pool, notebook_id: string, user_email: string): Promise<Notebook | null> {
-  const isOwner = await userOwnsNotebook(pool, notebook_id, user_email);
+export async function archiveNotebook(pool: Pool, notebook_id: string, namespace: string): Promise<Notebook | null> {
+  const isOwner = await userOwnsNotebook(pool, notebook_id, namespace);
   if (!isOwner) {
     const exists = await pool.query('SELECT id FROM notebook WHERE id = $1 AND deleted_at IS NULL', [notebook_id]);
     if (exists.rows.length === 0) {
@@ -453,8 +437,8 @@ export async function archiveNotebook(pool: Pool, notebook_id: string, user_emai
 /**
  * Unarchives a notebook
  */
-export async function unarchiveNotebook(pool: Pool, notebook_id: string, user_email: string): Promise<Notebook | null> {
-  const isOwner = await userOwnsNotebook(pool, notebook_id, user_email);
+export async function unarchiveNotebook(pool: Pool, notebook_id: string, namespace: string): Promise<Notebook | null> {
+  const isOwner = await userOwnsNotebook(pool, notebook_id, namespace);
   if (!isOwner) {
     const exists = await pool.query('SELECT id FROM notebook WHERE id = $1 AND deleted_at IS NULL', [notebook_id]);
     if (exists.rows.length === 0) {
@@ -484,8 +468,8 @@ export async function unarchiveNotebook(pool: Pool, notebook_id: string, user_em
 /**
  * Soft deletes a notebook
  */
-export async function deleteNotebook(pool: Pool, notebook_id: string, user_email: string, deleteNotes = false): Promise<boolean> {
-  const isOwner = await userOwnsNotebook(pool, notebook_id, user_email);
+export async function deleteNotebook(pool: Pool, notebook_id: string, namespace: string, deleteNotes = false): Promise<boolean> {
+  const isOwner = await userOwnsNotebook(pool, notebook_id, namespace);
   if (!isOwner) {
     const exists = await pool.query('SELECT id FROM notebook WHERE id = $1 AND deleted_at IS NULL', [notebook_id]);
     if (exists.rows.length === 0) {
@@ -518,9 +502,9 @@ export async function deleteNotebook(pool: Pool, notebook_id: string, user_email
 /**
  * Moves or copies notes to a notebook
  */
-export async function moveNotesToNotebook(pool: Pool, notebook_id: string, input: MoveNotesInput, user_email: string): Promise<MoveNotesResult> {
+export async function moveNotesToNotebook(pool: Pool, notebook_id: string, input: MoveNotesInput, namespace: string): Promise<MoveNotesResult> {
   // Verify user owns target notebook
-  const isOwner = await userOwnsNotebook(pool, notebook_id, user_email);
+  const isOwner = await userOwnsNotebook(pool, notebook_id, namespace);
   if (!isOwner) {
     const exists = await pool.query('SELECT id FROM notebook WHERE id = $1 AND deleted_at IS NULL', [notebook_id]);
     if (exists.rows.length === 0) {
@@ -534,13 +518,12 @@ export async function moveNotesToNotebook(pool: Pool, notebook_id: string, input
 
   for (const noteId of input.note_ids) {
     try {
-      // Check if note exists and user owns it (Phase 4: ownership via namespace_grant)
+      // Check if note exists and belongs to the same namespace
       const noteResult = await pool.query(
-        `SELECT n.title, n.content, n.tags, n.visibility, n.hide_from_agents, n.summary, n.is_pinned
+        `SELECT n.namespace, n.title, n.content, n.tags, n.visibility, n.hide_from_agents, n.summary, n.is_pinned
          FROM note n
-         JOIN namespace_grant ng ON ng.namespace = n.namespace AND ng.email = $2
-         WHERE n.id = $1 AND n.deleted_at IS NULL`,
-        [noteId, user_email],
+         WHERE n.id = $1 AND n.namespace = $2 AND n.deleted_at IS NULL`,
+        [noteId, namespace],
       );
 
       if (noteResult.rows.length === 0) {
@@ -556,10 +539,10 @@ export async function moveNotesToNotebook(pool: Pool, notebook_id: string, input
         // Copy: insert new note (Phase 4: user_email column dropped from note table)
         const note = noteResult.rows[0];
         const copyResult = await pool.query(
-          `INSERT INTO note (notebook_id, title, content, tags, visibility, hide_from_agents, summary, is_pinned)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+          `INSERT INTO note (notebook_id, namespace, title, content, tags, visibility, hide_from_agents, summary, is_pinned)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
            RETURNING id::text`,
-          [notebook_id, note.title, note.content, note.tags, note.visibility, note.hide_from_agents, note.summary, note.is_pinned],
+          [notebook_id, note.namespace, note.title, note.content, note.tags, note.visibility, note.hide_from_agents, note.summary, note.is_pinned],
         );
         moved.push(copyResult.rows[0].id);
       }

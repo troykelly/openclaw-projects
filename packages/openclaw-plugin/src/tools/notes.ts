@@ -30,7 +30,6 @@ export interface Note {
   title: string;
   content: string;
   notebook_id: string | null;
-  user_email: string;
   tags: string[];
   visibility: NoteVisibility;
   hide_from_agents: boolean;
@@ -46,8 +45,6 @@ export interface NoteToolOptions {
   logger: Logger;
   config: PluginConfig;
   user_id: string;
-  /** Agent email for M2M identity resolution (#2233). Falls back to user_id. */
-  agentEmail?: string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -91,8 +88,7 @@ export interface NoteCreateTool {
 }
 
 export function createNoteCreateTool(options: NoteToolOptions): NoteCreateTool {
-  const { client, logger, config, user_id, agentEmail } = options;
-  const effectiveEmail = () => agentEmail ?? user_id;
+  const { client, logger, config, user_id } = options;
 
   return {
     name: 'note_create',
@@ -131,7 +127,6 @@ export function createNoteCreateTool(options: NoteToolOptions): NoteCreateTool {
         const response = await client.post<Note>(
           '/notes',
           {
-            user_email: effectiveEmail(),
             title: sanitizedTitle,
             content: sanitizedContent,
             notebook_id: notebook_id,
@@ -139,7 +134,7 @@ export function createNoteCreateTool(options: NoteToolOptions): NoteCreateTool {
             visibility,
             summary,
           },
-          { user_id, user_email: effectiveEmail() },
+          { user_id },
         );
 
         if (!response.success) {
@@ -229,8 +224,7 @@ export interface NoteGetTool {
 }
 
 export function createNoteGetTool(options: NoteToolOptions): NoteGetTool {
-  const { client, logger, config, user_id, agentEmail } = options;
-  const effectiveEmail = () => agentEmail ?? user_id;
+  const { client, logger, config, user_id } = options;
 
   return {
     name: 'note_get',
@@ -253,12 +247,13 @@ export function createNoteGetTool(options: NoteToolOptions): NoteGetTool {
       });
 
       try {
-        const queryParams = new URLSearchParams({ user_email: effectiveEmail() });
+        const queryParams = new URLSearchParams();
         if (include_versions) {
           queryParams.set('include_versions', 'true');
         }
+        const qs = queryParams.toString();
 
-        const response = await client.get<Note>(`/notes/${noteId}?${queryParams}`, { user_id, user_email: effectiveEmail() });
+        const response = await client.get<Note>(`/notes/${noteId}${qs ? `?${qs}` : ''}`, { user_id });
 
         if (!response.success) {
           if (response.error.status === 404) {
@@ -357,8 +352,7 @@ export interface NoteUpdateTool {
 }
 
 export function createNoteUpdateTool(options: NoteToolOptions): NoteUpdateTool {
-  const { client, logger, config, user_id, agentEmail } = options;
-  const effectiveEmail = () => agentEmail ?? user_id;
+  const { client, logger, config, user_id } = options;
 
   return {
     name: 'note_update',
@@ -377,7 +371,7 @@ export function createNoteUpdateTool(options: NoteToolOptions): NoteUpdateTool {
 
       // Track what's being changed
       const changes: string[] = [];
-      const updateData: Record<string, unknown> = { user_email: effectiveEmail() };
+      const updateData: Record<string, unknown> = {};
 
       if (title !== undefined) {
         const sanitizedTitle = sanitizeText(title);
@@ -433,7 +427,7 @@ export function createNoteUpdateTool(options: NoteToolOptions): NoteUpdateTool {
       });
 
       try {
-        const response = await client.put<Note>(`/notes/${noteId}`, updateData, { user_id, user_email: effectiveEmail() });
+        const response = await client.put<Note>(`/notes/${noteId}`, updateData, { user_id });
 
         if (!response.success) {
           if (response.error.status === 404) {
@@ -519,8 +513,7 @@ export interface NoteDeleteTool {
 }
 
 export function createNoteDeleteTool(options: NoteToolOptions): NoteDeleteTool {
-  const { client, logger, user_id, agentEmail } = options;
-  const effectiveEmail = () => agentEmail ?? user_id;
+  const { client, logger, user_id } = options;
 
   return {
     name: 'note_delete',
@@ -542,7 +535,7 @@ export function createNoteDeleteTool(options: NoteToolOptions): NoteDeleteTool {
       });
 
       try {
-        const response = await client.delete<void>(`/notes/${noteId}?user_email=${encodeURIComponent(effectiveEmail())}`, { user_id, user_email: effectiveEmail() });
+        const response = await client.delete<void>(`/notes/${noteId}`, { user_id });
 
         if (!response.success) {
           if (response.error.status === 404) {
@@ -649,8 +642,7 @@ export interface NoteSearchTool {
 }
 
 export function createNoteSearchTool(options: NoteToolOptions): NoteSearchTool {
-  const { client, logger, config, user_id, agentEmail } = options;
-  const effectiveEmail = () => agentEmail ?? user_id;
+  const { client, logger, config, user_id } = options;
 
   return {
     name: 'note_search',
@@ -677,7 +669,6 @@ export function createNoteSearchTool(options: NoteToolOptions): NoteSearchTool {
 
       try {
         const queryParams = new URLSearchParams({
-          user_email: effectiveEmail(),
           q: query,
           search_type,
           limit: String(limit),
@@ -695,7 +686,7 @@ export function createNoteSearchTool(options: NoteToolOptions): NoteSearchTool {
           total: number;
           limit: number;
           offset: number;
-        }>(`/notes/search?${queryParams}`, { user_id, user_email: effectiveEmail(), isAgent: true });
+        }>(`/notes/search?${queryParams}`, { user_id, isAgent: true });
 
         if (!response.success) {
           logger.error('note_search API error', {

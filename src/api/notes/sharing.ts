@@ -142,9 +142,9 @@ function mapRowToShare(row: Record<string, unknown>): NoteShare {
 /**
  * Creates a share with a specific user
  */
-export async function createUserShare(pool: Pool, noteId: string, input: CreateUserShareInput, user_email: string): Promise<NoteUserShare | null> {
+export async function createUserShare(pool: Pool, noteId: string, input: CreateUserShareInput, namespace: string, callerIdentity: string): Promise<NoteUserShare | null> {
   // Check ownership
-  const isOwner = await userOwnsNote(pool, noteId, user_email);
+  const isOwner = await userOwnsNote(pool, noteId, namespace);
   if (!isOwner) {
     // Check if note exists
     const exists = await pool.query('SELECT id FROM note WHERE id = $1 AND deleted_at IS NULL', [noteId]);
@@ -175,7 +175,7 @@ export async function createUserShare(pool: Pool, noteId: string, input: CreateU
     RETURNING
       id::text, note_id::text, shared_with_email, permission,
       expires_at, created_by_email, created_at, last_accessed_at`,
-    [noteId, input.email, input.permission ?? 'read', expires_at, user_email, noteTitle],
+    [noteId, input.email, input.permission ?? 'read', expires_at, callerIdentity, noteTitle],
   );
 
   return mapRowToUserShare(result.rows[0]);
@@ -188,10 +188,11 @@ export async function createLinkShare(
   pool: Pool,
   noteId: string,
   input: CreateLinkShareInput,
-  user_email: string,
+  namespace: string,
+  callerIdentity: string,
 ): Promise<(NoteLinkShare & { url: string }) | null> {
   // Check ownership
-  const isOwner = await userOwnsNote(pool, noteId, user_email);
+  const isOwner = await userOwnsNote(pool, noteId, namespace);
   if (!isOwner) {
     const exists = await pool.query('SELECT id FROM note WHERE id = $1 AND deleted_at IS NULL', [noteId]);
     if (exists.rows.length === 0) {
@@ -219,7 +220,7 @@ export async function createLinkShare(
     RETURNING
       id::text, note_id::text, share_link_token, permission, is_single_view,
       view_count, max_views, expires_at, created_by_email, created_at, last_accessed_at`,
-    [noteId, token, input.permission ?? 'read', input.is_single_view ?? false, input.max_views ?? null, expires_at, user_email, noteTitle],
+    [noteId, token, input.permission ?? 'read', input.is_single_view ?? false, input.max_views ?? null, expires_at, callerIdentity, noteTitle],
   );
 
   const share = mapRowToLinkShare(result.rows[0]);
@@ -234,9 +235,9 @@ export async function createLinkShare(
 /**
  * Lists all shares for a note
  */
-export async function listShares(pool: Pool, noteId: string, user_email: string): Promise<ListSharesResult | null> {
+export async function listShares(pool: Pool, noteId: string, namespace: string): Promise<ListSharesResult | null> {
   // Check ownership
-  const isOwner = await userOwnsNote(pool, noteId, user_email);
+  const isOwner = await userOwnsNote(pool, noteId, namespace);
   if (!isOwner) {
     const exists = await pool.query('SELECT id FROM note WHERE id = $1 AND deleted_at IS NULL', [noteId]);
     if (exists.rows.length === 0) {
@@ -265,9 +266,9 @@ export async function listShares(pool: Pool, noteId: string, user_email: string)
 /**
  * Updates a share's permission or expiration
  */
-export async function updateShare(pool: Pool, noteId: string, shareId: string, input: UpdateShareInput, user_email: string): Promise<NoteShare | null> {
+export async function updateShare(pool: Pool, noteId: string, shareId: string, input: UpdateShareInput, namespace: string): Promise<NoteShare | null> {
   // Check ownership
-  const isOwner = await userOwnsNote(pool, noteId, user_email);
+  const isOwner = await userOwnsNote(pool, noteId, namespace);
   if (!isOwner) {
     const exists = await pool.query('SELECT id FROM note WHERE id = $1 AND deleted_at IS NULL', [noteId]);
     if (exists.rows.length === 0) {
@@ -332,9 +333,9 @@ export async function updateShare(pool: Pool, noteId: string, shareId: string, i
 /**
  * Revokes a share
  */
-export async function revokeShare(pool: Pool, noteId: string, shareId: string, user_email: string): Promise<boolean> {
+export async function revokeShare(pool: Pool, noteId: string, shareId: string, namespace: string): Promise<boolean> {
   // Check ownership
-  const isOwner = await userOwnsNote(pool, noteId, user_email);
+  const isOwner = await userOwnsNote(pool, noteId, namespace);
   if (!isOwner) {
     const exists = await pool.query('SELECT id FROM note WHERE id = $1 AND deleted_at IS NULL', [noteId]);
     if (exists.rows.length === 0) {
