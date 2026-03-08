@@ -2027,6 +2027,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // Graph-aware context retrieval endpoint (Issue #2177, Epic #486)
+  // Issue #2266: user_email is optional. When absent, falls back to
+  // namespace-only memory search (skips graph traversal).
   app.post('/context/graph-aware', async (req, reply) => {
     const { retrieveGraphAwareContext } = await import('./context/graph-aware-service.ts');
 
@@ -2046,9 +2048,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(400).send({ error: 'prompt is required' });
     }
 
+    // Issue #2266: email is optional. When absent and queryNamespaces are
+    // available, use namespace-only mode (no graph traversal).
     const email = await resolveUserEmail(req, body?.user_email);
-    if (!email) {
-      return reply.code(400).send({ error: 'Unable to resolve user email. Provide user_email in the body or X-User-Email header.' });
+    const queryNamespaces = req.namespaceContext?.queryNamespaces;
+
+    if (!email && (!queryNamespaces || queryNamespaces.length === 0)) {
+      return reply.code(400).send({ error: 'Unable to resolve user email. Provide user_email in the body or X-User-Email header, or specify a namespace.' });
     }
 
     // Validate and clamp numeric inputs to prevent expensive queries
@@ -2061,13 +2067,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     try {
       const result = await retrieveGraphAwareContext(pool, {
-        user_email: email,
+        user_email: email ?? undefined,
         prompt,
         max_memories: maxMemories,
         max_depth: maxDepth,
         min_similarity: body?.min_similarity,
         max_context_length: body?.max_context_length,
-        queryNamespaces: req.namespaceContext?.queryNamespaces,
+        queryNamespaces,
       });
 
       // Transform snake_case service response to camelCase for plugin consumption
@@ -20759,6 +20765,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // ── Project Webhooks (Issue #1274) ─────────────────────────────────
 
   // POST /api/projects/:id/webhooks - Create a webhook for a project
+  // Issue #2267: verifyWriteScope is the primary auth check (namespace scoping).
+  // user_email is optional attribution — NULL for M2M callers.
   app.post('/projects/:id/webhooks', async (req, reply) => {
     const { id } = req.params as { id: string };
 
@@ -20768,21 +20776,23 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const body = req.body as { label?: string; user_email?: string };
 
-    const email = await getSessionEmail(req) ?? (isAuthDisabled() ? body?.user_email?.trim() || null : null);
-    if (!email && !isAuthDisabled()) {
-      return reply.code(401).send({ error: 'unauthorized' });
-    }
-
     if (!body?.label || body.label.trim().length === 0) {
       return reply.code(400).send({ error: 'label is required' });
     }
 
     const pool = createPool();
     try {
-      // Issue #1811: Verify caller has write access to the project (namespace scoping)
+      // Issue #2267: verifyWriteScope is the primary auth gatekeeper.
+      // Replaces the old getSessionEmail check — M2M callers pass through
+      // namespace scoping without needing an email.
       if (!(await verifyWriteScope(pool, 'work_item', id, req))) {
         return reply.code(404).send({ error: 'project not found' });
       }
+
+      // Issue #2267: user_email is optional attribution.
+      // Session users get their email from the JWT; M2M callers get NULL.
+      const identity = await getAuthIdentity(req);
+      const email = identity?.type === 'user' ? identity.email : (isAuthDisabled() ? body?.user_email?.trim() || null : null);
 
       const token = randomBytes(32).toString('base64url');
 
@@ -20815,6 +20825,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/projects/:id/webhooks - List webhooks for a project
+  // Issue #2267: verifyReadScope is the primary auth check.
+  // Session users see owner-scoped webhooks; M2M agents see all project webhooks.
   app.get('/projects/:id/webhooks', async (req, reply) => {
     const { id } = req.params as { id: string };
 
@@ -20822,20 +20834,19 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(400).send({ error: 'Invalid project id — expected a UUID' });
     }
 
-    const email = await getSessionEmail(req);
-    if (!email && !isAuthDisabled()) {
-      return reply.code(401).send({ error: 'unauthorized' });
-    }
-
     const pool = createPool();
     try {
-      // Issue #1811: Verify caller has read access to the project (namespace scoping)
+      // Issue #2267: verifyReadScope is the primary auth gatekeeper.
       if (!(await verifyReadScope(pool, 'work_item', id, req))) {
         return reply.code(404).send({ error: 'project not found' });
       }
 
-      // Owner-scoped: only return webhooks created by the authenticated user.
-      // When auth is disabled (tests), return all webhooks for the project.
+      // Issue #2267: Session users see only their own webhooks (owner-scoped).
+      // M2M agents see all webhooks for the project.
+      // When auth is disabled (tests), return all webhooks.
+      const identity = await getAuthIdentity(req);
+      const email = identity?.type === 'user' ? identity.email : null;
+
       const params: unknown[] = [id];
       let whereClause = 'WHERE project_id = $1';
       if (email) {
@@ -20862,6 +20873,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // DELETE /api/projects/:id/webhooks/:webhook_id - Delete a webhook
+  // Issue #2267: verifyWriteScope is the primary auth check.
+  // Session users can only delete own webhooks; M2M agents can delete any.
   app.delete('/projects/:id/webhooks/:webhook_id', async (req, reply) => {
     const { id, webhook_id } = req.params as { id: string; webhook_id: string };
 
@@ -20872,20 +20885,19 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(400).send({ error: 'Invalid webhook id — expected a UUID' });
     }
 
-    const email = await getSessionEmail(req);
-    if (!email && !isAuthDisabled()) {
-      return reply.code(401).send({ error: 'unauthorized' });
-    }
-
     const pool = createPool();
     try {
-      // Issue #1811: Verify caller has write access to the project (namespace scoping)
+      // Issue #2267: verifyWriteScope is the primary auth gatekeeper.
       if (!(await verifyWriteScope(pool, 'work_item', id, req))) {
         return reply.code(404).send({ error: 'project not found' });
       }
 
-      // Owner-scoped: only allow deletion of webhooks owned by the authenticated user.
+      // Issue #2267: Session users can only delete their own webhooks (owner-scoped).
+      // M2M agents can delete any webhook in an accessible project.
       // When auth is disabled (tests), allow deletion without owner check.
+      const identity = await getAuthIdentity(req);
+      const email = identity?.type === 'user' ? identity.email : null;
+
       const params: unknown[] = [webhook_id, id];
       let whereClause = 'WHERE id = $1 AND project_id = $2';
       if (email) {
