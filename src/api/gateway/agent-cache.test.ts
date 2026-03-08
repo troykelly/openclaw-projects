@@ -391,6 +391,40 @@ describe('AgentCache', () => {
     expect(Array.isArray(result)).toBe(true);
   });
 
+  // ── Issue #2242: DB fallback accepts multiple namespaces ─────────
+
+  it('DB fallback accepts namespace array and uses ANY($1::text[])', async () => {
+    const conn = createMockConnection(); // connected: false
+    const tracker = createMockPresenceTracker();
+    const pool = createMockPool([
+      { agent_id: 'agent-1', display_name: 'Agent 1', avatar_url: null, is_default: false },
+    ]);
+    cache = new AgentCache(conn, tracker);
+
+    await cache.getAgents(pool, ['ns1', 'ns2']);
+
+    const queryCall = (pool.query as ReturnType<typeof vi.fn>).mock.calls[0];
+    const sql = queryCall[0] as string;
+    const params = queryCall[1] as unknown[];
+    expect(sql).toContain('ANY($1::text[])');
+    expect(params[0]).toEqual(['ns1', 'ns2']);
+  });
+
+  it('DB fallback returns agents from any of the provided namespaces', async () => {
+    const conn = createMockConnection(); // connected: false
+    const tracker = createMockPresenceTracker();
+    const pool = createMockPool([
+      { agent_id: 'agent-1', display_name: 'Agent 1', avatar_url: null, is_default: true },
+      { agent_id: 'agent-2', display_name: 'Agent 2', avatar_url: null, is_default: false },
+    ]);
+    cache = new AgentCache(conn, tracker);
+
+    const result = await cache.getAgents(pool, ['troy', 'default']);
+    expect(result).toHaveLength(2);
+    expect(result[0].id).toBe('agent-1');
+    expect(result[1].id).toBe('agent-2');
+  });
+
   // ── Issue #2242: Gateway enrichment preserves extra fields ───────
 
   it('gateway enrichment includes display_name, avatar_url, is_default', async () => {
