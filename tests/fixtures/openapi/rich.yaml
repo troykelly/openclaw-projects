@@ -1,0 +1,60 @@
+openapi: "3.0.3"
+info:
+  title: YAML Pet Store
+  description: A pet store API defined in YAML format.
+  version: "2.0.0"
+servers:
+  - url: https://yaml-pets.example.com/v1
+tags:
+  - name: pets
+    description: Pet operations
+paths:
+  /pets:
+    get:
+      operationId: listPets
+      tags:
+        - pets
+      summary: List all pets
+      description: Returns a list of pets from the YAML-defined store.
+      parameters:
+        - name: limit
+          in: query
+          description: Max results
+          required: false
+          schema:
+            type: integer
+            default: 10
+      responses:
+        "200":
+          description: A list of pets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Pet"
+    post:
+      operationId: createPet
+      tags:
+        - pets
+      summary: Create a pet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Pet"
+      responses:
+        "201":
+          description: Pet created
+components:
+  schemas:
+    Pet:
+      type: object
+      required:
+        - name
+      properties:
+        id:
+          type: integer
+        name:
+          type: string

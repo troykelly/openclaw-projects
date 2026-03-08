@@ -14,6 +14,40 @@ import type {
 } from './types.ts';
 import { listApiCredentials } from './credential-service.ts';
 
+/**
+ * Default minimum similarity threshold for API memory search.
+ * Lower than general memory search (0.3) because API recall queries
+ * are often natural-language questions that don't match spec terminology closely.
+ * Issue #2276.
+ */
+export const DEFAULT_API_MIN_SIMILARITY = 0.15;
+
+/**
+ * Score boost factors for discovery-layer memory kinds.
+ * Overview and tag_group memories help agents discover APIs
+ * and should rank higher when they match a query.
+ * Issue #2276.
+ */
+const MEMORY_KIND_BOOSTS: Record<string, number> = {
+  overview: 0.15,
+  tag_group: 0.10,
+};
+
+/**
+ * Apply memory_kind-based score boosting to search results.
+ * Boosts overview and tag_group results to improve API discoverability.
+ * Exported for testing.
+ */
+export function applyMemoryKindBoost(
+  results: ApiMemorySearchResult[],
+): ApiMemorySearchResult[] {
+  return results.map((r) => {
+    const boost = MEMORY_KIND_BOOSTS[r.memory_kind] ?? 0;
+    if (boost === 0) return r;
+    return { ...r, score: r.score + boost };
+  });
+}
+
 /** Internal row shape from the database */
 interface SearchRow {
   id: string;
@@ -86,9 +120,12 @@ async function vectorSearch(
   const { conditions, params, nextIdx } = buildSearchConditions(opts, 2);
 
   const embeddingStr = `[${queryEmbedding.join(',')}]`;
-  const allParams = [embeddingStr, ...params, candidateLimit];
+  const minSim = opts.min_similarity ?? DEFAULT_API_MIN_SIMILARITY;
+  const allParams = [embeddingStr, ...params, minSim, candidateLimit];
 
   const whereClause = conditions.join(' AND ');
+  const simParamIdx = nextIdx;
+  const limitParamIdx = nextIdx + 1;
 
   const result = await pool.query(
     `SELECT
@@ -99,8 +136,9 @@ async function vectorSearch(
     JOIN api_source s ON s.id = m.api_source_id
     WHERE m.embedding IS NOT NULL
       AND ${whereClause}
+      AND 1 - (m.embedding <=> $1::vector) >= $${simParamIdx}
     ORDER BY similarity DESC
-    LIMIT $${nextIdx}`,
+    LIMIT $${limitParamIdx}`,
     allParams,
   );
 
@@ -230,8 +268,10 @@ export async function searchApiMemories(
       results.push(toSearchResult(row, normalizedScore));
     }
 
-    results.sort((a, b) => b.score - a.score);
-    const sliced = results.slice(0, limit);
+    // Apply memory_kind boost for API discoverability (#2276)
+    const boosted = applyMemoryKindBoost(results);
+    boosted.sort((a, b) => b.score - a.score);
+    const sliced = boosted.slice(0, limit);
 
     return attachCredentials(pool, sliced);
   }
@@ -268,8 +308,11 @@ export async function searchApiMemories(
     }
   }
 
+  // Apply memory_kind boost for API discoverability (#2276)
+  const boostedResults = applyMemoryKindBoost(Array.from(combinedMap.values()));
+
   // Sort and limit
-  const results = Array.from(combinedMap.values())
+  const results = boostedResults
     .sort((a, b) => b.score - a.score)
     .slice(0, limit);
 
