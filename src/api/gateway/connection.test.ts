@@ -683,6 +683,58 @@ describe('GatewayConnectionService', () => {
       await svc.shutdown();
     });
 
+    it('SSRF: rejects .internal hostname suffix by default (#2281)', async () => {
+      (validateSsrf as Mock).mockReturnValue('SSRF protection: blocked hostname suffix: .internal');
+
+      const svc = makeService({ OPENCLAW_GATEWAY_URL: 'http://host.docker.internal:18789' });
+      await expect(svc.initialize()).rejects.toThrow(/SSRF/i);
+    });
+
+    it('SSRF: allows .internal hostname suffix with OPENCLAW_GATEWAY_ALLOW_PRIVATE=true (#2281)', async () => {
+      (validateSsrf as Mock).mockReturnValue('SSRF protection: blocked hostname suffix: .internal');
+
+      const svc = makeService({
+        OPENCLAW_GATEWAY_URL: 'http://host.docker.internal:18789',
+        OPENCLAW_GATEWAY_ALLOW_PRIVATE: 'true',
+      });
+      const initPromise = svc.initialize();
+      await vi.advanceTimersByTimeAsync(0);
+
+      // Should have connected despite SSRF blocked hostname
+      expect(getMockInstances()).toHaveLength(1);
+
+      completeHandshake(getMockInstances()[0]);
+      await vi.advanceTimersByTimeAsync(0);
+      await initPromise;
+
+      expect(svc.getStatus().connected).toBe(true);
+      await svc.shutdown();
+    });
+
+    it('SSRF: logs warning when bypassing SSRF with OPENCLAW_GATEWAY_ALLOW_PRIVATE (#2281)', async () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      (validateSsrf as Mock).mockReturnValue('SSRF protection: blocked hostname suffix: .internal');
+
+      const svc = makeService({
+        OPENCLAW_GATEWAY_URL: 'http://host.docker.internal:18789',
+        OPENCLAW_GATEWAY_ALLOW_PRIVATE: 'true',
+      });
+      const initPromise = svc.initialize();
+      await vi.advanceTimersByTimeAsync(0);
+      completeHandshake(getMockInstances()[0]);
+      await vi.advanceTimersByTimeAsync(0);
+      await initPromise;
+
+      // Should have logged a warning about SSRF bypass
+      const ssrfWarns = warnSpy.mock.calls.filter(
+        (args) => typeof args[0] === 'string' && args[0].includes('SSRF'),
+      );
+      expect(ssrfWarns.length).toBeGreaterThanOrEqual(1);
+
+      warnSpy.mockRestore();
+      await svc.shutdown();
+    });
+
     it('rejects non-ws/wss URL schemes', async () => {
       const svc = makeService({ OPENCLAW_GATEWAY_URL: 'file:///etc/passwd' });
       await expect(svc.initialize()).rejects.toThrow(/scheme/i);
