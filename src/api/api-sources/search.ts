@@ -120,9 +120,12 @@ async function vectorSearch(
   const { conditions, params, nextIdx } = buildSearchConditions(opts, 2);
 
   const embeddingStr = `[${queryEmbedding.join(',')}]`;
-  const allParams = [embeddingStr, ...params, candidateLimit];
+  const minSim = opts.min_similarity ?? DEFAULT_API_MIN_SIMILARITY;
+  const allParams = [embeddingStr, ...params, minSim, candidateLimit];
 
   const whereClause = conditions.join(' AND ');
+  const simParamIdx = nextIdx;
+  const limitParamIdx = nextIdx + 1;
 
   const result = await pool.query(
     `SELECT
@@ -133,8 +136,9 @@ async function vectorSearch(
     JOIN api_source s ON s.id = m.api_source_id
     WHERE m.embedding IS NOT NULL
       AND ${whereClause}
+      AND 1 - (m.embedding <=> $1::vector) >= $${simParamIdx}
     ORDER BY similarity DESC
-    LIMIT $${nextIdx}`,
+    LIMIT $${limitParamIdx}`,
     allParams,
   );
 

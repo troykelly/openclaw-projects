@@ -167,6 +167,7 @@ export interface ApiMemorySearchOptions {
   memory_kind?: ApiMemoryKind;
   tags?: string[];
   limit?: number;
+  min_similarity?: number;
   semantic_weight?: number;
   keyword_weight?: number;
 }

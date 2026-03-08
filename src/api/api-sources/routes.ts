@@ -151,6 +151,9 @@ export async function apiSourceRoutesPlugin(
       if (body.spec_content && typeof body.spec_content !== 'string') {
         return reply.code(400).send({ error: 'spec_content must be a string' });
       }
+      if (typeof body.spec_content === 'string' && body.spec_content.length > 10 * 1024 * 1024) {
+        return reply.code(400).send({ error: 'spec_content too large (max 10 MB)' });
+      }
 
       try {
         const result = await onboardApiSource(pool, {
@@ -309,6 +312,9 @@ export async function apiSourceRoutesPlugin(
     const specContent = body?.spec_content;
     if (specContent !== undefined && typeof specContent !== 'string') {
       return reply.code(400).send({ error: 'spec_content must be a string' });
+    }
+    if (typeof specContent === 'string' && specContent.length > 10 * 1024 * 1024) {
+      return reply.code(400).send({ error: 'spec_content too large (max 10 MB)' });
     }
 
     try {
