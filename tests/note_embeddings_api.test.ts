@@ -246,16 +246,18 @@ describe('Note Embeddings API', () => {
       await new Promise((resolve) => setTimeout(resolve, 200));
     });
 
-    it('should require user_email', async () => {
+    it('should allow search without user_email (namespace auth)', async () => {
       const response = await app.inject({
         method: 'POST',
         url: '/notes/search/semantic',
+        headers: NS_HEADERS,
         payload: {
           query: 'programming',
         },
       });
 
-      expect(response.statusCode).toBe(401);
+      // user_email is optional — namespace-scoped auth handles access control
+      expect(response.statusCode).toBe(200);
     });
 
     it('should require query', async () => {

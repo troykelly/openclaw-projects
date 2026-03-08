@@ -17986,7 +17986,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       tags?: string[];
     };
 
-    const queryNamespaces = req.namespaceContext?.queryNamespaces ?? [];
+    const queryNamespaces = getEffectiveNamespaces(req);
     if (queryNamespaces.length === 0) {
       return reply.code(401).send({ error: 'unauthorized' });
     }
@@ -17995,13 +17995,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     if (!body?.query) {
       return reply.code(400).send({ error: 'query is required' });
     }
-
     const pool = createPool();
 
     try {
       // Legacy endpoint: searchNotesSemantic still takes user_email string.
       // Pass session email for share-aware filtering; M2M callers get namespace-only access.
-      const result = await noteEmbeddings.searchNotesSemantic(pool, body.query, sessionEmail ?? '', {
+      const result = await noteEmbeddings.searchNotesSemantic(pool, body.query, sessionEmail ?? '', queryNamespaces, {
         limit: body.limit ?? 20,
         offset: body.offset ?? 0,
         notebook_id: body.notebook_id,
