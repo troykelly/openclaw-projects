@@ -251,8 +251,11 @@ export class GatewayConnectionService {
     // Validate SSRF
     const allowPrivate = this.env.OPENCLAW_GATEWAY_ALLOW_PRIVATE === 'true';
     const ssrfResult = validateSsrf(gatewayUrl);
-    if (ssrfResult && !allowPrivate) {
-      throw new Error(`SSRF validation failed for gateway URL: ${ssrfResult}`);
+    if (ssrfResult) {
+      if (!allowPrivate) {
+        throw new Error(`SSRF validation failed for gateway URL: ${ssrfResult}`);
+      }
+      console.warn(`${LOG_PREFIX} SSRF validation bypassed (OPENCLAW_GATEWAY_ALLOW_PRIVATE=true): ${ssrfResult}`);
     }
 
     // Resolve token

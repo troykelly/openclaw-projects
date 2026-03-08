@@ -135,6 +135,7 @@ import { initGatewayConnection, shutdownGatewayConnection, getGatewayConnection,
 import { getGatewayMetrics } from './gateway/metrics.ts';
 import { cloudflareEmailIPWhitelistMiddleware, postmarkIPWhitelistMiddleware, twilioIPWhitelistMiddleware } from './webhooks/ip-whitelist.ts';
 import { validateSsrf as ssrfValidateSsrf } from './webhooks/ssrf.ts';
+import { buildEmailReceivedPayload, buildSmsReceivedPayload } from './webhooks/payloads.ts';
 import { computeNextRunAt } from './skill-store/schedule-next-run.ts';
 import { assembleSpec } from './openapi/index.ts';
 import { bootstrapGeoProviders } from './geolocation/bootstrap.ts';
@@ -11955,19 +11956,25 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           const { enqueueWebhook } = await import('./webhooks/dispatcher.ts');
           const route = await resolveRoute(pool, payload.To, 'sms', getStoreNamespace(req));
           if (route) {
-            await enqueueWebhook(pool, 'sms_received', '/hooks/agent', {
-              event_type: 'sms_received',
-              agent_id: route.agentId,
-              prompt_content: route.promptContent,
-              context_id: route.contextId,
-              route_source: route.source,
+            const hookPayload = buildSmsReceivedPayload({
               contact_id: result.contact_id,
+              contact_name: payload.From,
+              endpoint_type: 'phone',
+              endpoint_value: payload.From,
               thread_id: result.thread_id,
               message_id: result.message_id,
-              from: payload.From,
-              to: payload.To,
-              body: payload.Body,
-            }, { idempotency_key: result.message_id });
+              message_body: payload.Body || '',
+              agent_id: route.agentId,
+            });
+            // Merge route-specific fields into context for agent consumption
+            hookPayload.context.prompt_content = route.promptContent;
+            hookPayload.context.context_id = route.contextId;
+            hookPayload.context.route_source = route.source;
+            hookPayload.context.from = payload.From;
+            hookPayload.context.to = payload.To;
+            await enqueueWebhook(pool, 'sms_received', '/hooks/agent',
+              hookPayload as unknown as Record<string, unknown>,
+              { idempotency_key: result.message_id });
           }
         } catch (routeErr) {
           console.warn('[Twilio] Route resolution/webhook enqueue failed:', routeErr);
@@ -12369,21 +12376,27 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
           const route = await resolveRoute(pool, routingAddress, 'email', getStoreNamespace(req));
           if (route) {
-            await enqueueWebhook(pool, 'email_received', '/hooks/agent', {
-              event_type: 'email_received',
-              agent_id: route.agentId,
-              prompt_content: route.promptContent,
-              context_id: route.contextId,
-              route_source: route.source,
+            const fromEmail = payload.FromFull?.Email ?? payload.From;
+            const senderName = payload.FromFull?.Name || fromEmail;
+            const hookPayload = buildEmailReceivedPayload({
               contact_id: result.contact_id,
+              contact_name: senderName,
+              from_email: fromEmail,
+              to_email: toAddress,
+              subject: payload.Subject,
               thread_id: result.thread_id,
               message_id: result.message_id,
-              from: payload.FromFull?.Email ?? payload.From,
-              to: toAddress,
-              original_recipient: originalRecipient,
-              subject: payload.Subject,
-              body_preview: (payload.TextBody || '').substring(0, 500),
-            }, { idempotency_key: result.message_id });
+              message_body: (payload.TextBody || '').substring(0, 500),
+              agent_id: route.agentId,
+            });
+            // Merge route-specific fields into context for agent consumption
+            hookPayload.context.prompt_content = route.promptContent;
+            hookPayload.context.context_id = route.contextId;
+            hookPayload.context.route_source = route.source;
+            hookPayload.context.original_recipient = originalRecipient;
+            await enqueueWebhook(pool, 'email_received', '/hooks/agent',
+              hookPayload as unknown as Record<string, unknown>,
+              { idempotency_key: result.message_id });
           }
         } catch (routeErr) {
           console.warn('[Postmark] Route resolution/webhook enqueue failed:', routeErr);
@@ -12640,21 +12653,25 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           // is used for prompt template resolution (#2065).
           route = await resolveRoute(pool, routingAddress, 'email');
           if (route) {
-            await enqueueWebhook(pool, 'email_received', '/hooks/agent', {
-              event_type: 'email_received',
-              agent_id: route.agentId,
-              prompt_content: route.promptContent,
-              context_id: route.contextId,
-              route_source: route.source,
+            const hookPayload = buildEmailReceivedPayload({
               contact_id: result.contact_id,
+              contact_name: payload.from,
+              from_email: payload.from,
+              to_email: payload.to,
+              subject: payload.subject,
               thread_id: result.thread_id,
               message_id: result.message_id,
-              from: payload.from,
-              to: payload.to,
-              original_recipient: originalRecipient,
-              subject: payload.subject,
-              body_preview: (payload.text_body || '').substring(0, 500),
-            }, { idempotency_key: result.message_id });
+              message_body: (payload.text_body || '').substring(0, 500),
+              agent_id: route.agentId,
+            });
+            // Merge route-specific fields into context for agent consumption
+            hookPayload.context.prompt_content = route.promptContent;
+            hookPayload.context.context_id = route.contextId;
+            hookPayload.context.route_source = route.source;
+            hookPayload.context.original_recipient = originalRecipient;
+            await enqueueWebhook(pool, 'email_received', '/hooks/agent',
+              hookPayload as unknown as Record<string, unknown>,
+              { idempotency_key: result.message_id });
           }
         } catch (routeErr) {
           console.warn('[Cloudflare Email] Route resolution/webhook enqueue failed:', routeErr);
