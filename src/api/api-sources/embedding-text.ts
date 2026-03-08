@@ -22,6 +22,38 @@ export interface TextResult {
   content: string;
 }
 
+/** Method verb synonyms for enriching embedding text with natural-language alternatives. */
+const METHOD_SYNONYMS: Record<string, string[]> = {
+  GET: ['fetch', 'retrieve', 'look up', 'query', 'read', 'get'],
+  POST: ['create', 'add', 'submit', 'send', 'insert', 'register'],
+  PUT: ['replace', 'overwrite', 'set', 'update'],
+  PATCH: ['update', 'modify', 'change', 'edit'],
+  DELETE: ['delete', 'remove', 'destroy', 'cancel'],
+  HEAD: ['check', 'verify', 'test'],
+  OPTIONS: ['discover', 'inspect'],
+};
+
+/**
+ * Generate a natural-language use-case line for an operation.
+ * Helps semantic search match natural queries like "how do I create a user?"
+ * to operations like POST /users.
+ */
+function generateUseCaseLine(method: string, path: string, summary: string | null): string {
+  const verb = method.toUpperCase();
+  const synonyms = METHOD_SYNONYMS[verb] ?? [verb.toLowerCase()];
+
+  // Extract meaningful resource name from path
+  const segments = path
+    .split('/')
+    .filter((s) => s && !s.startsWith('{') && !s.match(/^v\d+$/));
+  const resource = segments.length > 0 ? segments[segments.length - 1] : 'this resource';
+
+  // Build the use-case line with synonym alternatives
+  const synonymList = synonyms.slice(0, 3).join(', ');
+  const base = summary ?? `${synonyms[0]} ${resource}`;
+  return `Use this to ${base.toLowerCase().replace(/\.$/, '')}. Also: ${synonymList} ${resource}.`;
+}
+
 /**
  * Synthesize a description from an operation's method and path
  * when no summary or description is provided.
@@ -119,6 +151,10 @@ export function generateOperationText(
       lines.push(`  ${code}: ${resp.description}${schemaNote}`);
     }
   }
+
+  // Natural-language use-case line for better semantic matching (#2276)
+  lines.push('');
+  lines.push(generateUseCaseLine(op.method, op.path, op.summary));
 
   return {
     title: `${op.operationKey}: ${intentLine}`,

@@ -3,6 +3,8 @@
  * Part of API Onboarding feature (#1780).
  */
 
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, it, expect } from 'vitest';
 import { parseOpenApiSpec } from '../../../src/api/api-sources/parser.ts';
 import minimalSpec from '../../fixtures/openapi/minimal.json';
@@ -10,6 +12,10 @@ import richSpec from '../../fixtures/openapi/rich.json';
 import noTagsSpec from '../../fixtures/openapi/no-tags.json';
 import adversarialSpec from '../../fixtures/openapi/adversarial.json';
 import swagger2Spec from '../../fixtures/openapi/swagger2.json';
+import openapi31Spec from '../../fixtures/openapi/openapi31.json';
+import refsInlineSpec from '../../fixtures/openapi/refs-inline.json';
+
+const fixturesDir = resolve(import.meta.dirname, '../../fixtures/openapi');
 
 describe('parseOpenApiSpec', () => {
   describe('minimal spec', () => {
@@ -138,9 +144,76 @@ describe('parseOpenApiSpec', () => {
     });
   });
 
+  describe('YAML spec (#2278)', () => {
+    it('parses a YAML string spec', async () => {
+      const yamlContent = readFileSync(resolve(fixturesDir, 'minimal.yaml'), 'utf-8');
+      const result = await parseOpenApiSpec(yamlContent);
+
+      expect(result.operations).toHaveLength(1);
+      expect(result.operations[0].operationKey).toBe('healthCheck');
+      expect(result.overview.name).toBe('YAML Minimal API');
+    });
+
+    it('parses a rich YAML spec with refs', async () => {
+      const yamlContent = readFileSync(resolve(fixturesDir, 'rich.yaml'), 'utf-8');
+      const result = await parseOpenApiSpec(yamlContent);
+
+      expect(result.operations).toHaveLength(2);
+      expect(result.overview.name).toBe('YAML Pet Store');
+      expect(result.overview.servers).toHaveLength(1);
+
+      // $ref should be resolved
+      for (const op of result.operations) {
+        const json = JSON.stringify(op);
+        expect(json).not.toContain('"$ref"');
+      }
+    });
+
+    it('handles YAML that is also valid JSON gracefully', async () => {
+      // JSON is a subset of YAML; passing JSON string should still work
+      const result = await parseOpenApiSpec(JSON.stringify(minimalSpec));
+      expect(result.operations).toHaveLength(1);
+    });
+  });
+
+  describe('OpenAPI 3.1 spec (#2278)', () => {
+    it('parses an OpenAPI 3.1 spec', async () => {
+      const result = await parseOpenApiSpec(JSON.stringify(openapi31Spec));
+
+      expect(result.operations).toHaveLength(1);
+      expect(result.operations[0].operationKey).toBe('listItems');
+      expect(result.overview.name).toBe('OpenAPI 3.1 API');
+    });
+  });
+
+  describe('$ref resolution for inline specs (#2278)', () => {
+    it('resolves nested $ref references in inline spec objects', async () => {
+      const result = await parseOpenApiSpec(refsInlineSpec);
+
+      expect(result.operations).toHaveLength(2);
+
+      // All refs should be dereferenced
+      for (const op of result.operations) {
+        const json = JSON.stringify(op);
+        expect(json).not.toContain('"$ref"');
+      }
+    });
+
+    it('resolves $ref when passed as a YAML string', async () => {
+      const yamlContent = readFileSync(resolve(fixturesDir, 'rich.yaml'), 'utf-8');
+      const result = await parseOpenApiSpec(yamlContent);
+
+      // After parsing YAML + dereferencing, no $ref should remain
+      for (const op of result.operations) {
+        const json = JSON.stringify(op);
+        expect(json).not.toContain('"$ref"');
+      }
+    });
+  });
+
   describe('error handling', () => {
-    it('rejects invalid JSON', async () => {
-      await expect(parseOpenApiSpec('not json')).rejects.toThrow();
+    it('rejects invalid content (not JSON or YAML)', async () => {
+      await expect(parseOpenApiSpec('{{{')).rejects.toThrow();
     });
 
     it('rejects non-OpenAPI document', async () => {

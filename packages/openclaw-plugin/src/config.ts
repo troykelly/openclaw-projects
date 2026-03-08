@@ -197,6 +197,10 @@ export const RawPluginConfigSchema = z
       }).transform((s: string) => ({ default: s } as NamespaceConfig)),
     ]).optional().describe('Namespace configuration for data scoping'),
 
+    /** Per-agent namespace overrides (Issue #2260). Keys are agent IDs, values follow NamespaceConfigSchema. */
+    agentNamespaces: z.record(z.string(), NamespaceConfigSchema).optional()
+      .describe('Per-agent namespace overrides keyed by agent ID'),
+
     /** How often to refresh namespace list from API in ms. 0 disables dynamic discovery. (Issue #1537) */
     namespaceRefreshIntervalMs: z
       .number()
@@ -277,6 +281,9 @@ export const PluginConfigSchema = z.object({
   /** Namespace configuration for data scoping (Issue #1428) */
   namespace: NamespaceConfigSchema.optional(),
 
+  /** Per-agent namespace overrides (Issue #2260) */
+  agentNamespaces: z.record(z.string(), NamespaceConfigSchema).optional(),
+
   /** How often to refresh namespace list from API in ms. 0 disables dynamic discovery. (Issue #1537) */
   namespaceRefreshIntervalMs: z.number().int().default(300_000),
 });
@@ -326,24 +333,30 @@ export function safeValidateConfig(config: unknown): { success: true; data: RawP
 /**
  * Resolves the effective namespace config for an agent.
  *
- * Priority:
- * 1. Explicit namespace config from plugin settings
- * 2. Agent ID as default namespace (if it matches the naming pattern)
- * 3. 'default' as fallback
+ * Priority (Issue #2260):
+ * 1. `agentNamespaces[agentId]` — per-agent override if defined
+ * 2. Top-level `namespace` config — if defined
+ * 3. Agent ID as default namespace (if it matches the naming pattern)
+ * 4. 'default' as fallback
  *
- * @param configNamespace - Namespace config from plugin config (may be undefined)
+ * @param configNamespace - Top-level namespace config from plugin config (may be undefined)
  * @param agentId - Agent identifier from runtime context
+ * @param agentNamespaces - Per-agent namespace overrides (Issue #2260, may be undefined)
  * @returns Resolved namespace config with default and recall values
  */
 export function resolveNamespaceConfig(
   configNamespace: NamespaceConfig | undefined,
   agentId: string,
+  agentNamespaces?: Record<string, NamespaceConfig>,
 ): { default: string; recall: string[] } {
-  if (configNamespace?.default) {
+  // 1. Check per-agent overrides first (Issue #2260)
+  const effectiveConfig = agentNamespaces?.[agentId] ?? configNamespace;
+
+  if (effectiveConfig?.default) {
     return {
-      default: configNamespace.default,
-      recall: configNamespace.recall ??
-        (configNamespace.default === 'default' ? ['default'] : [configNamespace.default, 'default']),
+      default: effectiveConfig.default,
+      recall: effectiveConfig.recall ??
+        (effectiveConfig.default === 'default' ? ['default'] : [effectiveConfig.default, 'default']),
     };
   }
 
@@ -351,8 +364,8 @@ export function resolveNamespaceConfig(
   const fallbackNs = NAMESPACE_PATTERN.test(agentId) ? agentId : 'default';
 
   return {
-    default: configNamespace?.default ?? fallbackNs,
-    recall: configNamespace?.recall ?? (fallbackNs === 'default' ? ['default'] : [fallbackNs, 'default']),
+    default: effectiveConfig?.default ?? fallbackNs,
+    recall: effectiveConfig?.recall ?? (fallbackNs === 'default' ? ['default'] : [fallbackNs, 'default']),
   };
 }
 
@@ -434,6 +447,7 @@ export async function resolveConfigSecrets(rawConfig: RawPluginConfig): Promise<
     promptGuardUrl: rawConfig.promptGuardUrl,
     agentId: rawConfig.agentId,
     namespace: rawConfig.namespace,
+    agentNamespaces: rawConfig.agentNamespaces,
     namespaceRefreshIntervalMs: rawConfig.namespaceRefreshIntervalMs,
   };
 
@@ -487,6 +501,7 @@ export function resolveConfigSecretsSync(rawConfig: RawPluginConfig): PluginConf
     nominatimUrl: rawConfig.nominatimUrl,
     agentId: rawConfig.agentId,
     namespace: rawConfig.namespace,
+    agentNamespaces: rawConfig.agentNamespaces,
     namespaceRefreshIntervalMs: rawConfig.namespaceRefreshIntervalMs,
   };
 

@@ -4221,7 +4221,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
   );
 
   // Resolve namespace config (Issue #1428)
-  const resolvedNamespace = resolveNamespaceConfig(config.namespace, context.agent.agentId);
+  const resolvedNamespace = resolveNamespaceConfig(config.namespace, context.agent.agentId, config.agentNamespaces);
   // Issue #1537: detect whether static recall was explicitly configured
   const hasStaticRecall = Array.isArray(config.namespace?.recall) && config.namespace.recall.length > 0;
   logger.info('Namespace config resolved', {
@@ -5188,7 +5188,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
       if (resolvedId !== state.agentId) {
         const previousId = state.agentId;
         state.agentId = resolvedId;
-        state.resolvedNamespace = resolveNamespaceConfig(config.namespace, resolvedId);
+        state.resolvedNamespace = resolveNamespaceConfig(config.namespace, resolvedId, config.agentNamespaces);
         logger.info('Agent ID resolved from hook context', {
           previousId,
           resolvedId,
@@ -5241,7 +5241,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
       const resolvedId = resolveAgentId(ctx, config.agentId, state.agentId);
       if (resolvedId !== state.agentId) {
         state.agentId = resolvedId;
-        state.resolvedNamespace = resolveNamespaceConfig(config.namespace, resolvedId);
+        state.resolvedNamespace = resolveNamespaceConfig(config.namespace, resolvedId, config.agentNamespaces);
         logger.info('Agent ID resolved from agent_end context', {
           resolvedId,
           defaultNamespace: state.resolvedNamespace.default,
@@ -5405,7 +5405,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
       if (resolvedId !== state.agentId) {
         const previousId = state.agentId;
         state.agentId = resolvedId;
-        state.resolvedNamespace = resolveNamespaceConfig(config.namespace, resolvedId);
+        state.resolvedNamespace = resolveNamespaceConfig(config.namespace, resolvedId, config.agentNamespaces);
         logger.info('Agent ID resolved from before_prompt_build context', {
           previousId,
           resolvedId,
@@ -5573,7 +5573,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
         const resolvedId = resolveAgentId(ctx, config.agentId, state.agentId);
         if (resolvedId !== state.agentId) {
           state.agentId = resolvedId;
-          state.resolvedNamespace = resolveNamespaceConfig(config.namespace, resolvedId);
+          state.resolvedNamespace = resolveNamespaceConfig(config.namespace, resolvedId, config.agentNamespaces);
         }
 
         // Try to capture from messages in the event

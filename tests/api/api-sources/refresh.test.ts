@@ -99,6 +99,7 @@ const EXISTING_SOURCE = {
   name: 'Test API',
   description: 'A test API',
   spec_url: 'https://api.test.com/spec.json',
+  spec_content: null as string | null,
   servers: [{ url: 'https://api.test.com' }],
   spec_version: '1.0.0',
   spec_hash: 'old-hash-abc123',
@@ -269,14 +270,97 @@ describe('refreshApiSource', () => {
       .rejects.toThrow('API source not found');
   });
 
-  it('throws when API source has no spec_url', async () => {
-    const noUrlSource = { ...EXISTING_SOURCE, spec_url: null };
+  it('throws when API source has no spec_url or spec_content', async () => {
+    const noUrlSource = { ...EXISTING_SOURCE, spec_url: null, spec_content: null };
     const pool = createMockPool({
       query: vi.fn().mockResolvedValueOnce({ rows: [noUrlSource], rowCount: 1 }),
     });
 
     await expect(refreshApiSource(pool, EXISTING_SOURCE.id, 'default'))
-      .rejects.toThrow('no spec_url');
+      .rejects.toThrow('no spec_url or spec_content');
+  });
+
+  it('refreshes from stored spec_content when no spec_url (#2277)', async () => {
+    const storedSpec = '{"openapi":"3.0.3","info":{"title":"Inline API","version":"1.0.0"},"paths":{"/health":{"get":{"operationId":"healthCheck","responses":{"200":{"description":"OK"}}}}}}';
+    const inlineSource = { ...EXISTING_SOURCE, spec_url: null, spec_content: storedSpec };
+
+    vi.mocked(hashSpec).mockReturnValue('new-hash-inline');
+
+    const newParsed = makeParsedApi([
+      { operationKey: 'healthCheck', method: 'GET', path: '/health' },
+    ]);
+    vi.mocked(parseOpenApiSpec).mockResolvedValue(newParsed);
+
+    const mockClient: Partial<PoolClient> = {
+      query: vi.fn()
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // BEGIN
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // existing memories
+        .mockResolvedValueOnce({ rows: [], rowCount: 1 }) // INSERT operation
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // DELETE tag_groups
+        .mockResolvedValueOnce({ rows: [], rowCount: 1 }) // INSERT tag_group
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // DELETE overview
+        .mockResolvedValueOnce({ rows: [], rowCount: 1 }) // INSERT overview
+        .mockResolvedValueOnce({ rows: [inlineSource], rowCount: 1 }) // UPDATE api_source
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 }), // COMMIT
+      release: vi.fn(),
+    };
+
+    const pool = createMockPool({
+      query: vi.fn()
+        .mockResolvedValueOnce({ rows: [inlineSource], rowCount: 1 }) // getApiSource
+        .mockResolvedValueOnce({ rows: [inlineSource], rowCount: 1 }), // re-fetch
+      connect: vi.fn().mockResolvedValue(mockClient),
+    });
+
+    const result = await refreshApiSource(pool, EXISTING_SOURCE.id, 'default');
+
+    // Should NOT call fetchSpec since there's no spec_url
+    expect(vi.mocked(fetchSpec)).not.toHaveBeenCalled();
+    // Should parse the stored spec_content
+    expect(vi.mocked(parseOpenApiSpec)).toHaveBeenCalledWith(storedSpec);
+    expect(result.spec_changed).toBe(true);
+  });
+
+  it('accepts spec_content in refresh input to update inline spec (#2277)', async () => {
+    const newSpecContent = '{"openapi":"3.0.3","info":{"title":"Updated Inline","version":"2.0.0"},"paths":{"/health":{"get":{"operationId":"healthCheck","responses":{"200":{"description":"OK"}}}}}}';
+    const inlineSource = { ...EXISTING_SOURCE, spec_url: null, spec_content: 'old spec' };
+
+    vi.mocked(hashSpec).mockReturnValue('new-hash-updated-inline');
+
+    const newParsed = makeParsedApi([
+      { operationKey: 'healthCheck', method: 'GET', path: '/health' },
+    ]);
+    vi.mocked(parseOpenApiSpec).mockResolvedValue(newParsed);
+
+    const mockClient: Partial<PoolClient> = {
+      query: vi.fn()
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // BEGIN
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // existing memories
+        .mockResolvedValueOnce({ rows: [], rowCount: 1 }) // INSERT operation
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // DELETE tag_groups
+        .mockResolvedValueOnce({ rows: [], rowCount: 1 }) // INSERT tag_group
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // DELETE overview
+        .mockResolvedValueOnce({ rows: [], rowCount: 1 }) // INSERT overview
+        .mockResolvedValueOnce({ rows: [inlineSource], rowCount: 1 }) // UPDATE api_source (with spec_content)
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 }), // COMMIT
+      release: vi.fn(),
+    };
+
+    const pool = createMockPool({
+      query: vi.fn()
+        .mockResolvedValueOnce({ rows: [inlineSource], rowCount: 1 }) // getApiSource
+        .mockResolvedValueOnce({ rows: [inlineSource], rowCount: 1 }), // re-fetch
+      connect: vi.fn().mockResolvedValue(mockClient),
+    });
+
+    const result = await refreshApiSource(pool, EXISTING_SOURCE.id, 'default', {
+      spec_content: newSpecContent,
+    });
+
+    // Should parse the new spec_content, not fetch from URL
+    expect(vi.mocked(fetchSpec)).not.toHaveBeenCalled();
+    expect(vi.mocked(parseOpenApiSpec)).toHaveBeenCalledWith(newSpecContent);
+    expect(result.spec_changed).toBe(true);
   });
 
   it('updates api_source status to error on fetch failure', async () => {

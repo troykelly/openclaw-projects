@@ -112,6 +112,31 @@ describe('generateOperationText', () => {
     const result = generateOperationText(op, 'API', 'none');
     expect(result.content).toContain('204');
   });
+
+  it('includes natural-language use-case section (#2276)', () => {
+    const result = generateOperationText(sampleOperation, 'Transport API', 'API key');
+
+    // Should contain a "Use cases" or "When to use" section with natural-language descriptions
+    expect(result.content).toContain('Use this');
+  });
+
+  it('includes synonyms/alternatives for synthesized descriptions (#2276)', () => {
+    const createOp: ParsedOperation = {
+      operationKey: 'createOrder',
+      method: 'POST',
+      path: '/orders',
+      summary: 'Create an order',
+      description: 'Place a new order in the system.',
+      tags: ['orders'],
+      parameters: [],
+      requestBody: { type: 'object' },
+      responses: { '201': { description: 'Created' } },
+    };
+    const result = generateOperationText(createOp, 'Commerce API', 'Bearer token');
+
+    // Should mention the use case in natural language
+    expect(result.content).toContain('Use this');
+  });
 });
 
 describe('generateTagGroupText', () => {

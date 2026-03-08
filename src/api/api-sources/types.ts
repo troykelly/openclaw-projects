@@ -38,6 +38,7 @@ export interface ApiSource {
   name: string;
   description: string | null;
   spec_url: string | null;
+  spec_content: string | null;
   servers: Record<string, unknown>[];
   spec_version: string | null;
   spec_hash: string | null;
@@ -73,6 +74,7 @@ export interface UpdateApiSourceInput {
   name?: string;
   description?: string | null;
   spec_url?: string | null;
+  spec_content?: string | null;
   servers?: Record<string, unknown>[];
   spec_version?: string | null;
   spec_hash?: string | null;
@@ -165,6 +167,7 @@ export interface ApiMemorySearchOptions {
   memory_kind?: ApiMemoryKind;
   tags?: string[];
   limit?: number;
+  min_similarity?: number;
   semantic_weight?: number;
   keyword_weight?: number;
 }

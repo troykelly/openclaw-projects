@@ -151,6 +151,9 @@ export async function apiSourceRoutesPlugin(
       if (body.spec_content && typeof body.spec_content !== 'string') {
         return reply.code(400).send({ error: 'spec_content must be a string' });
       }
+      if (typeof body.spec_content === 'string' && body.spec_content.length > 10 * 1024 * 1024) {
+        return reply.code(400).send({ error: 'spec_content too large (max 10 MB)' });
+      }
 
       try {
         const result = await onboardApiSource(pool, {
@@ -295,6 +298,7 @@ export async function apiSourceRoutesPlugin(
   });
 
   // POST /api/api-sources/:id/refresh — re-fetch spec and diff memories
+  // Accepts optional { spec_content } body to update inline spec during refresh.
   app.post('/api-sources/:id/refresh', async (req: FastifyRequest, reply: FastifyReply) => {
     const { id } = req.params as IdParams;
     if (!isValidUUID(id)) {
@@ -304,8 +308,19 @@ export async function apiSourceRoutesPlugin(
     const namespace = getNamespace(req, reply);
     if (!namespace) return;
 
+    const body = req.body as Record<string, unknown> | null;
+    const specContent = body?.spec_content;
+    if (specContent !== undefined && typeof specContent !== 'string') {
+      return reply.code(400).send({ error: 'spec_content must be a string' });
+    }
+    if (typeof specContent === 'string' && specContent.length > 10 * 1024 * 1024) {
+      return reply.code(400).send({ error: 'spec_content too large (max 10 MB)' });
+    }
+
     try {
-      const result = await refreshApiSource(pool, id, namespace);
+      const result = await refreshApiSource(pool, id, namespace, {
+        spec_content: specContent as string | undefined,
+      });
       return reply.send({ data: result });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Refresh failed';

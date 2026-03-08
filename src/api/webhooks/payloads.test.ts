@@ -10,6 +10,162 @@ import {
   buildDeadlineApproachingPayload,
 } from './payloads.ts';
 
+/**
+ * Tests for webhook payload structure — AgentHookPayload compliance.
+ * Issue #2280: Webhook payloads must include 'message' field for /hooks/agent endpoint.
+ */
+describe('webhook payloads — AgentHookPayload structure (#2280)', () => {
+  beforeEach(() => {
+    vi.stubEnv('OPENCLAW_GATEWAY_URL', 'https://gateway.test');
+    vi.stubEnv('OPENCLAW_API_TOKEN', 'test-token');
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.resetModules();
+  });
+
+  describe('buildSmsReceivedPayload', () => {
+    const params = {
+      contact_id: 'contact-1',
+      contact_name: 'Alice',
+      endpoint_type: 'phone',
+      endpoint_value: '+61400000000',
+      thread_id: 'thread-1',
+      message_id: 'msg-1',
+      message_body: 'Hello from SMS',
+      agent_id: 'agent@example.com',
+    };
+
+    it('includes required "message" field', () => {
+      const payload = buildSmsReceivedPayload(params);
+      expect(payload.message).toBeDefined();
+      expect(typeof payload.message).toBe('string');
+      expect(payload.message.length).toBeGreaterThan(0);
+    });
+
+    it('includes "name" field', () => {
+      const payload = buildSmsReceivedPayload(params);
+      expect(payload.name).toBeDefined();
+      expect(typeof payload.name).toBe('string');
+    });
+
+    it('includes "session_key" field', () => {
+      const payload = buildSmsReceivedPayload(params);
+      expect(payload.session_key).toBeDefined();
+      expect(typeof payload.session_key).toBe('string');
+    });
+
+    it('includes "wake_mode" field', () => {
+      const payload = buildSmsReceivedPayload(params);
+      expect(payload.wake_mode).toBe('now');
+    });
+
+    it('includes "deliver" field', () => {
+      const payload = buildSmsReceivedPayload(params);
+      expect(payload.deliver).toBe(true);
+    });
+
+    it('includes message body in "message" field', () => {
+      const payload = buildSmsReceivedPayload(params);
+      expect(payload.message).toContain('Hello from SMS');
+    });
+
+    it('includes contact name in "message" field', () => {
+      const payload = buildSmsReceivedPayload(params);
+      expect(payload.message).toContain('Alice');
+    });
+
+    it('includes context with event_type', () => {
+      const payload = buildSmsReceivedPayload(params);
+      expect(payload.context.event_type).toBe('sms_received');
+    });
+
+    it('includes context with contact and thread info', () => {
+      const payload = buildSmsReceivedPayload(params);
+      expect(payload.context.contact_id).toBe('contact-1');
+      expect(payload.context.thread_id).toBe('thread-1');
+      expect(payload.context.message_id).toBe('msg-1');
+    });
+  });
+
+  describe('buildEmailReceivedPayload', () => {
+    const params = {
+      contact_id: 'contact-2',
+      contact_name: 'Bob',
+      from_email: 'bob@example.com',
+      to_email: 'agent@myapp.com',
+      subject: 'Test Subject',
+      thread_id: 'thread-2',
+      message_id: 'msg-2',
+      message_body: 'Hello from email',
+      agent_id: 'agent@example.com',
+    };
+
+    it('includes required "message" field', () => {
+      const payload = buildEmailReceivedPayload(params);
+      expect(payload.message).toBeDefined();
+      expect(typeof payload.message).toBe('string');
+      expect(payload.message.length).toBeGreaterThan(0);
+    });
+
+    it('includes "name" field', () => {
+      const payload = buildEmailReceivedPayload(params);
+      expect(payload.name).toBeDefined();
+      expect(typeof payload.name).toBe('string');
+    });
+
+    it('includes "session_key" field', () => {
+      const payload = buildEmailReceivedPayload(params);
+      expect(payload.session_key).toBeDefined();
+      expect(typeof payload.session_key).toBe('string');
+    });
+
+    it('includes "wake_mode" field', () => {
+      const payload = buildEmailReceivedPayload(params);
+      expect(payload.wake_mode).toBe('now');
+    });
+
+    it('includes "deliver" field', () => {
+      const payload = buildEmailReceivedPayload(params);
+      expect(payload.deliver).toBe(true);
+    });
+
+    it('includes subject in "message" field', () => {
+      const payload = buildEmailReceivedPayload(params);
+      expect(payload.message).toContain('Test Subject');
+    });
+
+    it('includes from email in "message" field', () => {
+      const payload = buildEmailReceivedPayload(params);
+      expect(payload.message).toContain('bob@example.com');
+    });
+
+    it('includes message body in "message" field', () => {
+      const payload = buildEmailReceivedPayload(params);
+      expect(payload.message).toContain('Hello from email');
+    });
+
+    it('includes context with event_type', () => {
+      const payload = buildEmailReceivedPayload(params);
+      expect(payload.context.event_type).toBe('email_received');
+    });
+
+    it('includes context with contact and thread info', () => {
+      const payload = buildEmailReceivedPayload(params);
+      expect(payload.context.contact_id).toBe('contact-2');
+      expect(payload.context.thread_id).toBe('thread-2');
+      expect(payload.context.message_id).toBe('msg-2');
+    });
+
+    it('includes context with email-specific fields', () => {
+      const payload = buildEmailReceivedPayload(params);
+      expect(payload.context.from_email).toBe('bob@example.com');
+      expect(payload.context.subject).toBe('Test Subject');
+    });
+  });
+});
+
 describe('webhook payloads — agent_id', () => {
   beforeEach(() => {
     vi.stubEnv('OPENCLAW_GATEWAY_URL', 'https://gateway.test');

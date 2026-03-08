@@ -72,8 +72,7 @@
     "type-fest": "^5.4.3",
     "typescript": "^5.9.3",
     "vite": "^7.3.1",
-    "vitest": "^4.0.18",
-    "yaml": "^2.8.2"
+    "vitest": "^4.0.18"
   },
   "//sentry": "Sentry SDK pinned to ^8 for GlitchTip compatibility. Do not bump to v9+ without verifying GlitchTip protocol support.",
   "dependencies": {
@@ -157,6 +156,7 @@
     "ws": "^8.19.0",
     "y-protocols": "^1.0.7",
     "y-websocket": "^3.0.0",
+    "yaml": "^2.8.2",
     "yjs": "^13.6.29",
     "zod": "^3.25.76",
     "zustand": "^5.0.11"
