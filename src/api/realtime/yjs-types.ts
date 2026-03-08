@@ -76,5 +76,8 @@ export const YJS_DOC_EVICTION_TIMEOUT_MS = 5 * 60 * 1000;
 /** Max in-memory documents */
 export const YJS_MAX_DOCS = 500;
 
+/** Trailing-edge re-embedding delay after editing quiesces (ms) */
+export const YJS_EMBEDDING_IDLE_MS = 2 * 60 * 1000;
+
 /** Periodic re-auth interval (ms) */
 export const YJS_REAUTH_INTERVAL_MS = 30_000;

@@ -12,7 +12,9 @@ import {
   YJS_MAX_FLUSH_INTERVAL_MS,
   YJS_DOC_EVICTION_TIMEOUT_MS,
   YJS_MAX_DOCS,
+  YJS_EMBEDDING_IDLE_MS,
 } from './yjs-types.ts';
+import { triggerNoteEmbedding } from '../embeddings/note-integration.ts';
 
 interface ManagedDoc {
   doc: Y.Doc;
@@ -22,6 +24,7 @@ interface ManagedDoc {
   persistTimer: ReturnType<typeof setTimeout> | null;
   maxFlushTimer: ReturnType<typeof setTimeout> | null;
   evictionTimer: ReturnType<typeof setTimeout> | null;
+  embeddingTimer: ReturnType<typeof setTimeout> | null;
   lastPersistedAt: number;
 }
 
@@ -86,9 +89,23 @@ export class YjsDocManager {
       }
     }
 
-    // If no clients left, persist immediately and schedule eviction
+    // If no clients left, persist immediately, re-embed, and schedule eviction
     if (managed.clients.size === 0) {
+      // Cancel the idle embedding timer — we'll trigger immediately below
+      if (managed.embeddingTimer) {
+        clearTimeout(managed.embeddingTimer);
+        managed.embeddingTimer = null;
+      }
+
+      const wasDirty = managed.dirty;
       await this.persistDoc(noteId);
+
+      // Trigger re-embedding if we had unsaved edits (content was modified)
+      if (wasDirty) {
+        triggerNoteEmbedding(this.pool, noteId);
+        console.log(`[YjsDocManager] Triggered re-embedding on last client leave for ${noteId}`);
+      }
+
       managed.evictionTimer = setTimeout(() => {
         this.evictDoc(noteId);
       }, YJS_DOC_EVICTION_TIMEOUT_MS);
@@ -171,6 +188,16 @@ export class YjsDocManager {
         }
       }, YJS_MAX_FLUSH_INTERVAL_MS);
     }
+
+    // Reset trailing-edge embedding timer — fires after editing quiesces
+    if (managed.embeddingTimer) {
+      clearTimeout(managed.embeddingTimer);
+    }
+    managed.embeddingTimer = setTimeout(() => {
+      managed.embeddingTimer = null;
+      triggerNoteEmbedding(this.pool, noteId);
+      console.log(`[YjsDocManager] Triggered re-embedding for idle note ${noteId}`);
+    }, YJS_EMBEDDING_IDLE_MS);
   }
 
   /** Persist a doc's state to the database */
@@ -253,6 +280,7 @@ export class YjsDocManager {
       if (managed.persistTimer) clearTimeout(managed.persistTimer);
       if (managed.maxFlushTimer) clearTimeout(managed.maxFlushTimer);
       if (managed.evictionTimer) clearTimeout(managed.evictionTimer);
+      if (managed.embeddingTimer) clearTimeout(managed.embeddingTimer);
       managed.doc.destroy();
     }
     this.docs.clear();
@@ -293,6 +321,7 @@ export class YjsDocManager {
       persistTimer: null,
       maxFlushTimer: null,
       evictionTimer: null,
+      embeddingTimer: null,
       lastPersistedAt: Date.now(),
     };
   }
@@ -308,6 +337,7 @@ export class YjsDocManager {
     if (managed.persistTimer) clearTimeout(managed.persistTimer);
     if (managed.maxFlushTimer) clearTimeout(managed.maxFlushTimer);
     if (managed.evictionTimer) clearTimeout(managed.evictionTimer);
+    if (managed.embeddingTimer) clearTimeout(managed.embeddingTimer);
     managed.doc.destroy();
     this.docs.delete(noteId);
 

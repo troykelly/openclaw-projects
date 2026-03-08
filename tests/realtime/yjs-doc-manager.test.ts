@@ -19,8 +19,14 @@ vi.mock('../../src/api/realtime/hub.ts', () => ({
   }),
 }));
 
+// Mock embedding integration
+vi.mock('../../src/api/embeddings/note-integration.ts', () => ({
+  triggerNoteEmbedding: vi.fn(),
+}));
+
 import { YjsDocManager } from '../../src/api/realtime/yjs-doc-manager.ts';
 import { userCanAccessNote } from '../../src/api/notes/service.ts';
+import { triggerNoteEmbedding } from '../../src/api/embeddings/note-integration.ts';
 
 function createMockPool() {
   const clientQuery = vi.fn().mockResolvedValue({ rows: [], rowCount: 1 });
@@ -233,6 +239,79 @@ describe('YjsDocManager', () => {
         (c: unknown[]) => typeof c[0] === 'string' && (c[0] as string).includes('UPDATE note SET'),
       );
       expect(persistCalls.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('trailing-edge re-embedding', () => {
+    it('triggers re-embedding when last client leaves a dirty doc', async () => {
+      await manager.joinRoom('client-1', 'user@test.com', 'note-uuid-1');
+      manager.markDirty('note-uuid-1');
+
+      // Reset to track
+      mockPool._mockClient.query.mockClear();
+      mockPool._mockClient.query.mockResolvedValue({ rows: [], rowCount: 1 });
+      vi.mocked(triggerNoteEmbedding).mockClear();
+
+      await manager.leaveRoom('client-1', 'note-uuid-1');
+
+      expect(triggerNoteEmbedding).toHaveBeenCalledWith(expect.anything(), 'note-uuid-1');
+    });
+
+    it('does NOT trigger re-embedding when last client leaves a clean doc', async () => {
+      await manager.joinRoom('client-1', 'user@test.com', 'note-uuid-1');
+      vi.mocked(triggerNoteEmbedding).mockClear();
+
+      await manager.leaveRoom('client-1', 'note-uuid-1');
+
+      expect(triggerNoteEmbedding).not.toHaveBeenCalled();
+    });
+
+    it('does NOT trigger re-embedding when non-last client leaves', async () => {
+      await manager.joinRoom('client-1', 'user1@test.com', 'note-uuid-1');
+      await manager.joinRoom('client-2', 'user2@test.com', 'note-uuid-1');
+      manager.markDirty('note-uuid-1');
+      vi.mocked(triggerNoteEmbedding).mockClear();
+
+      await manager.leaveRoom('client-1', 'note-uuid-1');
+
+      // client-2 still connected, no re-embedding yet
+      expect(triggerNoteEmbedding).not.toHaveBeenCalled();
+    });
+
+    it('triggers re-embedding after idle timeout (2 min of no edits)', async () => {
+      await manager.joinRoom('client-1', 'user@test.com', 'note-uuid-1');
+      mockPool._mockClient.query.mockResolvedValue({ rows: [], rowCount: 1 });
+
+      manager.markDirty('note-uuid-1');
+      vi.mocked(triggerNoteEmbedding).mockClear();
+
+      // Advance past the 2-minute idle embedding timer
+      vi.advanceTimersByTime(2 * 60 * 1000 + 100);
+
+      expect(triggerNoteEmbedding).toHaveBeenCalledWith(expect.anything(), 'note-uuid-1');
+    });
+
+    it('resets idle embedding timer on subsequent edits', async () => {
+      await manager.joinRoom('client-1', 'user@test.com', 'note-uuid-1');
+      mockPool._mockClient.query.mockResolvedValue({ rows: [], rowCount: 1 });
+
+      manager.markDirty('note-uuid-1');
+      vi.mocked(triggerNoteEmbedding).mockClear();
+
+      // Advance 1.5 min (less than 2 min threshold)
+      vi.advanceTimersByTime(90_000);
+      expect(triggerNoteEmbedding).not.toHaveBeenCalled();
+
+      // Another edit resets the timer
+      manager.markDirty('note-uuid-1');
+
+      // Advance another 1.5 min — still less than 2 min from last edit
+      vi.advanceTimersByTime(90_000);
+      expect(triggerNoteEmbedding).not.toHaveBeenCalled();
+
+      // Advance the remaining time past the 2 min threshold from last edit
+      vi.advanceTimersByTime(31_000);
+      expect(triggerNoteEmbedding).toHaveBeenCalledWith(expect.anything(), 'note-uuid-1');
     });
   });
 
