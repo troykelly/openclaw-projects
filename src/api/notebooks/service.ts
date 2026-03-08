@@ -520,7 +520,7 @@ export async function moveNotesToNotebook(pool: Pool, notebook_id: string, input
     try {
       // Check if note exists and belongs to the same namespace
       const noteResult = await pool.query(
-        `SELECT n.title, n.content, n.tags, n.visibility, n.hide_from_agents, n.summary, n.is_pinned
+        `SELECT n.namespace, n.title, n.content, n.tags, n.visibility, n.hide_from_agents, n.summary, n.is_pinned
          FROM note n
          WHERE n.id = $1 AND n.namespace = $2 AND n.deleted_at IS NULL`,
         [noteId, namespace],
@@ -539,10 +539,10 @@ export async function moveNotesToNotebook(pool: Pool, notebook_id: string, input
         // Copy: insert new note (Phase 4: user_email column dropped from note table)
         const note = noteResult.rows[0];
         const copyResult = await pool.query(
-          `INSERT INTO note (notebook_id, title, content, tags, visibility, hide_from_agents, summary, is_pinned)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+          `INSERT INTO note (notebook_id, namespace, title, content, tags, visibility, hide_from_agents, summary, is_pinned)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
            RETURNING id::text`,
-          [notebook_id, note.title, note.content, note.tags, note.visibility, note.hide_from_agents, note.summary, note.is_pinned],
+          [notebook_id, note.namespace, note.title, note.content, note.tags, note.visibility, note.hide_from_agents, note.summary, note.is_pinned],
         );
         moved.push(copyResult.rows[0].id);
       }
