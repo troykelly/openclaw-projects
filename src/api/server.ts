@@ -17264,6 +17264,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           expires_at: body.expires_at,
         },
         callerIdentity,
+        namespace,
       );
 
       if (!share) {
@@ -17312,6 +17313,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           expires_at: body.expires_at,
         },
         callerIdentity,
+        namespace,
       );
 
       if (!share) {
@@ -17346,7 +17348,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     try {
-      const result = await notebookSharing.listShares(pool, params.id, callerIdentity);
+      const result = await notebookSharing.listShares(pool, params.id, namespace);
 
       if (!result) {
         return reply.code(404).send({ error: 'Notebook not found' });
@@ -17391,7 +17393,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           permission: body.permission as 'read' | 'read_write' | undefined,
           expires_at: body.expires_at,
         },
-        callerIdentity,
+        namespace,
       );
 
       if (!share) {
@@ -17428,7 +17430,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     try {
-      await notebookSharing.revokeShare(pool, params.id, params.share_id, callerIdentity);
+      await notebookSharing.revokeShare(pool, params.id, params.share_id, namespace);
       return reply.code(204).send();
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';

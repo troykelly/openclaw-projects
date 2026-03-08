@@ -94,15 +94,15 @@ export interface SharedWithMeEntry {
 /**
  * Check if user owns notebook.
  * Phase 4 (Epic #1418): user_email column dropped from notebook table.
- * Ownership is now inferred by namespace membership (checked at the route level).
- * This function returns true if the notebook exists (not deleted).
+ * Ownership is determined by matching the notebook's namespace directly,
+ * consistent with notebooks/service.ts and notes/sharing.ts.
+ * This function returns true if the notebook exists (not deleted) in the given namespace.
  */
-async function userOwnsNotebook(pool: Pool, notebook_id: string, user_email: string): Promise<boolean> {
+async function userOwnsNotebook(pool: Pool, notebook_id: string, namespace: string): Promise<boolean> {
   const result = await pool.query(
     `SELECT nb.id FROM notebook nb
-     JOIN namespace_grant ng ON ng.namespace = nb.namespace AND ng.email = $2
-     WHERE nb.id = $1 AND nb.deleted_at IS NULL`,
-    [notebook_id, user_email],
+     WHERE nb.id = $1 AND nb.deleted_at IS NULL AND nb.namespace = $2`,
+    [notebook_id, namespace],
   );
   return result.rows.length > 0;
 }
@@ -154,9 +154,9 @@ function mapRowToShare(row: Record<string, unknown>): NotebookShare {
 /**
  * Creates a share with a specific user
  */
-export async function createUserShare(pool: Pool, notebook_id: string, input: CreateUserShareInput, user_email: string): Promise<NotebookUserShare | null> {
+export async function createUserShare(pool: Pool, notebook_id: string, input: CreateUserShareInput, user_email: string, namespace: string): Promise<NotebookUserShare | null> {
   // Check ownership
-  const isOwner = await userOwnsNotebook(pool, notebook_id, user_email);
+  const isOwner = await userOwnsNotebook(pool, notebook_id, namespace);
   if (!isOwner) {
     const exists = await pool.query('SELECT id FROM notebook WHERE id = $1 AND deleted_at IS NULL', [notebook_id]);
     if (exists.rows.length === 0) {
@@ -195,9 +195,10 @@ export async function createLinkShare(
   notebook_id: string,
   input: CreateLinkShareInput,
   user_email: string,
+  namespace: string,
 ): Promise<(NotebookLinkShare & { url: string }) | null> {
   // Check ownership
-  const isOwner = await userOwnsNotebook(pool, notebook_id, user_email);
+  const isOwner = await userOwnsNotebook(pool, notebook_id, namespace);
   if (!isOwner) {
     const exists = await pool.query('SELECT id FROM notebook WHERE id = $1 AND deleted_at IS NULL', [notebook_id]);
     if (exists.rows.length === 0) {
@@ -235,9 +236,9 @@ export async function createLinkShare(
 /**
  * Lists all shares for a notebook
  */
-export async function listShares(pool: Pool, notebook_id: string, user_email: string): Promise<ListSharesResult | null> {
+export async function listShares(pool: Pool, notebook_id: string, namespace: string): Promise<ListSharesResult | null> {
   // Check ownership
-  const isOwner = await userOwnsNotebook(pool, notebook_id, user_email);
+  const isOwner = await userOwnsNotebook(pool, notebook_id, namespace);
   if (!isOwner) {
     const exists = await pool.query('SELECT id FROM notebook WHERE id = $1 AND deleted_at IS NULL', [notebook_id]);
     if (exists.rows.length === 0) {
@@ -265,9 +266,9 @@ export async function listShares(pool: Pool, notebook_id: string, user_email: st
 /**
  * Updates a share's permission or expiration
  */
-export async function updateShare(pool: Pool, notebook_id: string, shareId: string, input: UpdateShareInput, user_email: string): Promise<NotebookShare | null> {
+export async function updateShare(pool: Pool, notebook_id: string, shareId: string, input: UpdateShareInput, namespace: string): Promise<NotebookShare | null> {
   // Check ownership
-  const isOwner = await userOwnsNotebook(pool, notebook_id, user_email);
+  const isOwner = await userOwnsNotebook(pool, notebook_id, namespace);
   if (!isOwner) {
     const exists = await pool.query('SELECT id FROM notebook WHERE id = $1 AND deleted_at IS NULL', [notebook_id]);
     if (exists.rows.length === 0) {
@@ -330,9 +331,9 @@ export async function updateShare(pool: Pool, notebook_id: string, shareId: stri
 /**
  * Revokes a share
  */
-export async function revokeShare(pool: Pool, notebook_id: string, shareId: string, user_email: string): Promise<boolean> {
+export async function revokeShare(pool: Pool, notebook_id: string, shareId: string, namespace: string): Promise<boolean> {
   // Check ownership
-  const isOwner = await userOwnsNotebook(pool, notebook_id, user_email);
+  const isOwner = await userOwnsNotebook(pool, notebook_id, namespace);
   if (!isOwner) {
     const exists = await pool.query('SELECT id FROM notebook WHERE id = $1 AND deleted_at IS NULL', [notebook_id]);
     if (exists.rows.length === 0) {
