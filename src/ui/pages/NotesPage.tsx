@@ -263,7 +263,8 @@ function NotesPageContent(): React.JSX.Element {
       const newNote = await createNoteMutation.mutateAsync(body);
       setView({ type: 'detail', noteId: newNote.id });
       navigateInternal(buildNotePath(newNote.id, newNote.notebook_id ?? undefined));
-    } catch {
+    } catch (err) {
+      console.error('[NotesPage] Failed to create note on server:', err instanceof Error ? err.message : err);
       // If server creation fails, fall back to local-only new note view
       setView({ type: 'new' });
     }

@@ -9,7 +9,7 @@
  * - Three-tier Yjs-aware save status indicator
  */
 
-import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import {
   ArrowLeft,
   Share2,
@@ -101,6 +101,9 @@ export function NoteDetail({
   const [metadataSaveStatus, setMetadataSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [metadataSaveError, setMetadataSaveError] = useState<string | null>(null);
 
+  // Track content for non-Yjs fallback (when Yjs is disabled, content changes flow through onChange)
+  const [localContent, setLocalContent] = useState(note?.content ?? '');
+
   // Track whether we've created the note yet (for new notes)
   const [noteCreated, setNoteCreated] = useState(!isNew);
 
@@ -127,23 +130,31 @@ export function NoteDetail({
       : null,
   );
 
-  // Check if metadata has unsaved changes
+  // Handle content change from editor (non-Yjs fallback only)
+  const handleContentChange = useCallback((content: string) => {
+    setLocalContent(content);
+  }, []);
+
+  // Check if there are unsaved changes (metadata, or content when Yjs is disabled)
   const hasMetadataChanges = useMemo(() => {
     if (!lastSavedMetadataRef.current) {
-      return title.trim() !== '';
+      return title.trim() !== '' || (!yjsEnabled && localContent !== (note?.content ?? ''));
     }
-    return (
+    const metaChanged =
       title !== lastSavedMetadataRef.current.title ||
       notebook_id !== lastSavedMetadataRef.current.notebook_id ||
       visibility !== lastSavedMetadataRef.current.visibility ||
-      hide_from_agents !== lastSavedMetadataRef.current.hide_from_agents
-    );
-  }, [title, notebook_id, visibility, hide_from_agents]);
+      hide_from_agents !== lastSavedMetadataRef.current.hide_from_agents;
+    // When Yjs is disabled, content changes also need saving via the REST path
+    const contentChanged = !yjsEnabled && localContent !== (note?.content ?? '');
+    return metaChanged || contentChanged;
+  }, [title, notebook_id, visibility, hide_from_agents, yjsEnabled, localContent, note?.content]);
 
   // Reset when note changes (e.g., navigating to different note)
   useEffect(() => {
     if (note) {
       setTitle(note.title);
+      setLocalContent(note.content ?? '');
       setNotebookId(note.notebook_id);
       setVisibility(note.visibility);
       setHideFromAgents(note.hide_from_agents);
@@ -166,7 +177,9 @@ export function NoteDetail({
     const currentTitle = title.trim() || autoTitle;
     const data = {
       title: currentTitle,
-      content: note?.content ?? '', // Content is managed by Yjs — pass current content through
+      // When Yjs is active, content is managed server-side (server strips it from REST PUTs).
+      // When Yjs is disabled, use the local content tracked via onChange.
+      content: yjsEnabled ? (note?.content ?? '') : localContent,
       notebook_id,
       visibility,
       hide_from_agents,
@@ -197,7 +210,7 @@ export function NoteDetail({
       setMetadataSaveError('Unable to save. Please try again.');
       setMetadataSaveStatus('error');
     }
-  }, [onSave, title, notebook_id, visibility, hide_from_agents, autoTitle, note?.content]);
+  }, [onSave, title, notebook_id, visibility, hide_from_agents, autoTitle, note?.content, yjsEnabled, localContent]);
 
   // Cleanup timers on unmount
   useEffect(() => {
@@ -493,6 +506,7 @@ export function NoteDetail({
         <NoteEditor
           key={note?.id ?? 'new'}
           initialContent={note?.content ?? ''}
+          onChange={yjsEnabled ? undefined : handleContentChange}
           saving={metadataSaveStatus === 'saving'}
           autoFocus={isNew}
           className="h-full border-0 rounded-none"
@@ -570,7 +584,7 @@ function YjsSaveStatus({
       return (
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <WifiOff className="size-3" />
-          <span>Offline — changes saved locally</span>
+          <span>Offline — reconnecting...</span>
         </div>
       );
     default:

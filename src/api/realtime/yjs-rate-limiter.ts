@@ -42,7 +42,7 @@ export class YjsRateLimiter {
     this.globalBuckets.delete(clientId);
   }
 
-  /** Remove all stale entries older than 5 seconds */
+  /** Remove all stale entries older than 4 seconds */
   cleanupStale(): void {
     const now = Date.now();
     for (const [key, bucket] of this.buckets) {

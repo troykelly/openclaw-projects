@@ -22,8 +22,8 @@ export class YjsHandler {
   private rateLimiter: YjsRateLimiter;
   private enabled: boolean;
 
-  constructor(pool: Pool, enabled?: boolean) {
-    this.docManager = new YjsDocManager(pool);
+  constructor(pool: Pool, enabled?: boolean, docManager?: YjsDocManager) {
+    this.docManager = docManager ?? new YjsDocManager(pool);
     this.rateLimiter = new YjsRateLimiter(YJS_RATE_LIMIT_PER_SECOND, YJS_RATE_LIMIT_GLOBAL_PER_SECOND);
     this.enabled = enabled ?? (process.env.ENABLE_YJS_COLLAB !== 'false');
   }
@@ -98,12 +98,14 @@ export class YjsHandler {
     const doc = this.docManager.getDoc(noteId);
     if (!doc) return;
 
+    // Legacy handler cannot distinguish sync step types (custom framing doesn't
+    // preserve y-protocols sub-type), so mark dirty conservatively on any sync message.
+    // This may trigger unnecessary persistence on sync step 1 (read-only), but is safe.
     if (msgType === YJS_MSG_SYNC) {
-      // Mark doc as dirty for persistence
       this.docManager.markDirty(noteId);
     }
 
-    // Broadcast to other clients in the room
+    // Broadcast is a no-op for legacy handler — see broadcastToRoom comment
     this.broadcastToRoom(noteId, client.client_id, data);
   }
 
@@ -153,14 +155,14 @@ export class YjsHandler {
     console.log(`[YjsHandler] Client ${client.client_id} left room ${noteId}`);
   }
 
-  private broadcastToRoom(noteId: string, excludeClientId: string, data: Buffer): void {
-    const clientIds = this.docManager.getRoomClientIds(noteId);
-    for (const clientId of clientIds) {
-      if (clientId === excludeClientId) continue;
-      // Send raw binary via the hub - this is handled by the server.ts wiring
-      // The hub's sendToClient sends JSON, so we need direct socket access
-      // This will be wired up in server.ts where we have access to the raw socket
-    }
+  /**
+   * Broadcast is not implemented for the legacy custom binary protocol handler.
+   * Clients should use the /yjs/:noteId endpoint (YjsWsHandler) for real-time sync.
+   * This handler remains for backward-compatible join/leave control messages only.
+   */
+  private broadcastToRoom(_noteId: string, _excludeClientId: string, _data: Buffer): void {
+    // No-op: Legacy handler does not have direct socket access for binary broadcast.
+    // Real broadcast is handled by YjsWsHandler via the /yjs/:noteId endpoint.
   }
 
   private sendError(client: WebSocketClient, noteId: string, error: string): void {
@@ -169,8 +171,8 @@ export class YjsHandler {
       if (socket.readyState === 1) {
         socket.send(JSON.stringify({ type: 'yjs:error', noteId, error }));
       }
-    } catch {
-      // Client may have disconnected
+    } catch (err) {
+      console.debug(`[YjsHandler] Failed to send error to client:`, err instanceof Error ? err.message : err);
     }
   }
 }

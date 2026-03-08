@@ -36,8 +36,8 @@ export class MessageRouter {
     let parsed: { type: string; [key: string]: unknown };
     try {
       parsed = JSON.parse(typeof data === 'string' ? data : data.toString());
-    } catch {
-      // Malformed JSON — ignore
+    } catch (err) {
+      console.debug(`[MessageRouter] Malformed JSON from client ${client.client_id}:`, err instanceof Error ? err.message : err);
       return;
     }
 

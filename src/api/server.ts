@@ -1645,10 +1645,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   }
 
   const yjsPool = process.env.NODE_ENV !== 'test' ? createPool() : null;
-  // Legacy handler for custom binary protocol (kept for backward compat)
-  const yjsHandler = yjsPool ? new YjsHandler(yjsPool, yjsEnabled) : null;
-  // Standard y-protocols handler for /yjs/:noteId endpoint
+  // Single shared YjsDocManager to prevent duplicate in-memory docs for the same note
   const yjsDocManager = yjsPool ? new YjsDocManager(yjsPool) : null;
+  // Legacy handler for custom binary protocol (kept for backward compat) — shares doc manager
+  const yjsHandler = yjsPool && yjsDocManager ? new YjsHandler(yjsPool, yjsEnabled, yjsDocManager) : null;
+  // Standard y-protocols handler for /yjs/:noteId endpoint
   const yjsWsHandler = yjsDocManager ? new YjsWsHandler(yjsDocManager) : null;
 
   // Create MessageRouter for typed WebSocket message dispatch
@@ -1731,7 +1732,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       console.error(`[WebSocket] Client ${client_id} error:`, err);
       realtimeHub.removeClient(client_id);
       if (yjsHandler) {
-        yjsHandler.handleDisconnect(client_id).catch(() => {});
+        yjsHandler.handleDisconnect(client_id).catch((disconnectErr) => {
+          console.debug(`[WebSocket] Yjs disconnect cleanup failed for ${client_id}:`, disconnectErr instanceof Error ? disconnectErr.message : disconnectErr);
+        });
       }
     });
   });
@@ -1753,7 +1756,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           try {
             const payload = await verifyAccessToken(query.token);
             user_email = payload.sub;
-          } catch {
+          } catch (err) {
+            console.debug(`[Yjs] JWT verification failed:`, err instanceof Error ? err.message : err);
             socket.close(4001, 'Unauthorized');
             return;
           }
@@ -1793,7 +1797,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
       socket.on('error', (err: Error) => {
         console.error(`[Yjs] Client ${client_id} error:`, err);
-        yjsWsHandler.handleDisconnect(client_id).catch(() => {});
+        yjsWsHandler.handleDisconnect(client_id).catch((disconnectErr) => {
+          console.debug(`[Yjs] Disconnect cleanup failed for ${client_id}:`, disconnectErr instanceof Error ? disconnectErr.message : disconnectErr);
+        });
       });
     });
   }
@@ -1874,13 +1880,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     if (yjsHandler) yjsShutdowns.push(yjsHandler.shutdown());
     if (yjsShutdowns.length > 0) {
       const flushPromise = Promise.all(yjsShutdowns);
+      let shutdownTimer: ReturnType<typeof setTimeout> | null = null;
       const timeoutPromise = new Promise<void>((resolve) => {
-        setTimeout(() => {
+        shutdownTimer = setTimeout(() => {
           console.warn('[Server] Yjs shutdown timed out after 5 seconds');
           resolve();
         }, 5000);
       });
       await Promise.race([flushPromise, timeoutPromise]);
+      if (shutdownTimer) clearTimeout(shutdownTimer);
     }
     await realtimeHub.shutdown();
     if (realtimePool) {
@@ -16102,9 +16110,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     try {
-      // Yjs coordination: warn if REST updates content while Yjs doc is active
-      if (body.content !== undefined && yjsHandler?.hasActiveDoc(params.id)) {
-        console.warn(`[Notes] REST PUT content update for ${params.id} while Yjs doc is active — Yjs state will take precedence on next persistence`);
+      // Yjs coordination: strip content from REST updates when a Yjs doc is active.
+      // Yjs persistence manages the content column — REST content would be stale.
+      const yjsDocActive = yjsHandler?.hasActiveDoc(params.id) || yjsWsHandler?.hasActiveDoc(params.id);
+      if (body.content !== undefined && yjsDocActive) {
+        console.log(`[Notes] Stripping content from REST PUT for ${params.id} — Yjs doc is active`);
+        delete body.content;
       }
 
       const note = await updateNote(

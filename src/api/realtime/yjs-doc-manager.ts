@@ -216,7 +216,7 @@ export class YjsDocManager {
     }
 
     try {
-      // Encode compact snapshot
+      // Encode full state as update (standard Yjs persistence format)
       const state = Y.encodeStateAsUpdate(managed.doc);
 
       // Export content from Yjs doc

@@ -217,8 +217,8 @@ export class YjsWsHandler {
         if (client.socket.readyState === 1) { // OPEN
           client.socket.send(data);
         }
-      } catch {
-        // Client may have disconnected, will be cleaned up on close
+      } catch (err) {
+        console.debug(`[YjsWsHandler] Broadcast send failed for ${client.clientId}:`, err instanceof Error ? err.message : err);
       }
     }
   }
