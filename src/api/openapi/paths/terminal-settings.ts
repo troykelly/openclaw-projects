@@ -120,7 +120,7 @@ export function terminalSettingsPaths(): OpenApiDomainModule {
                 uptime_s: { type: 'number' },
               },
             }),
-            ...errorResponses(502),
+            ...errorResponses(500),
           },
         },
       },

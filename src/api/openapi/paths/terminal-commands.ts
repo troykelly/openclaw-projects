@@ -75,7 +75,7 @@ export function terminalCommandsPaths(): OpenApiDomainModule {
           requestBody: jsonBody(ref('TerminalSendCommandInput')),
           responses: {
             '200': jsonResponse('Command result', ref('TerminalSendCommandResult')),
-            ...errorResponses(400, 401, 403, 404, 502),
+            ...errorResponses(400, 401, 403, 404, 500),
           },
         },
       },
@@ -94,7 +94,7 @@ export function terminalCommandsPaths(): OpenApiDomainModule {
               type: 'object',
               properties: { success: { type: 'boolean' } },
             }),
-            ...errorResponses(400, 401, 403, 404, 502),
+            ...errorResponses(400, 401, 403, 404, 500),
           },
         },
       },
@@ -123,7 +123,7 @@ export function terminalCommandsPaths(): OpenApiDomainModule {
           ],
           responses: {
             '200': jsonResponse('Captured pane content', ref('TerminalCaptureResult')),
-            ...errorResponses(400, 401, 403, 404, 502),
+            ...errorResponses(400, 401, 403, 404, 500),
           },
         },
       },

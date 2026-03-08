@@ -179,7 +179,7 @@ export function terminalSessionsPaths(): OpenApiDomainModule {
           requestBody: jsonBody(ref('TerminalSessionCreateInput')),
           responses: {
             '201': jsonResponse('Created session', ref('TerminalSession')),
-            ...errorResponses(400, 401, 403, 404, 502),
+            ...errorResponses(400, 401, 403, 404, 500),
           },
         },
       },
@@ -217,7 +217,7 @@ export function terminalSessionsPaths(): OpenApiDomainModule {
           parameters: [namespaceParam()],
           responses: {
             '204': { description: 'Session terminated' },
-            ...errorResponses(400, 401, 403, 404, 502),
+            ...errorResponses(400, 401, 403, 404, 500),
           },
         },
       },
@@ -253,7 +253,7 @@ export function terminalSessionsPaths(): OpenApiDomainModule {
               type: 'object',
               properties: { success: { type: 'boolean' } },
             }),
-            ...errorResponses(400, 401, 403, 404, 502),
+            ...errorResponses(400, 401, 403, 404, 500),
           },
         },
       },
@@ -315,7 +315,7 @@ export function terminalSessionsPaths(): OpenApiDomainModule {
           }, false),
           responses: {
             '201': jsonResponse('Created window', ref('TerminalSessionWindow')),
-            ...errorResponses(400, 401, 403, 404, 502),
+            ...errorResponses(400, 401, 403, 404, 500),
           },
         },
       },
@@ -339,7 +339,7 @@ export function terminalSessionsPaths(): OpenApiDomainModule {
           parameters: [namespaceParam()],
           responses: {
             '204': { description: 'Window closed' },
-            ...errorResponses(400, 401, 403, 404, 502),
+            ...errorResponses(400, 401, 403, 404, 500),
           },
         },
       },
@@ -374,7 +374,7 @@ export function terminalSessionsPaths(): OpenApiDomainModule {
           }, false),
           responses: {
             '201': jsonResponse('Created pane', ref('TerminalSessionPane')),
-            ...errorResponses(400, 401, 403, 404, 502),
+            ...errorResponses(400, 401, 403, 404, 500),
           },
         },
       },
@@ -398,7 +398,7 @@ export function terminalSessionsPaths(): OpenApiDomainModule {
           parameters: [namespaceParam()],
           responses: {
             '204': { description: 'Pane closed' },
-            ...errorResponses(400, 401, 403, 404, 502),
+            ...errorResponses(400, 401, 403, 404, 500),
           },
         },
       },

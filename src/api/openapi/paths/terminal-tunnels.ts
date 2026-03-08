@@ -109,7 +109,7 @@ export function terminalTunnelsPaths(): OpenApiDomainModule {
           requestBody: jsonBody(ref('TerminalTunnelCreateInput')),
           responses: {
             '201': jsonResponse('Created tunnel', ref('TerminalTunnel')),
-            ...errorResponses(400, 401, 403, 404, 502),
+            ...errorResponses(400, 401, 403, 404, 500),
           },
         },
       },
@@ -124,7 +124,7 @@ export function terminalTunnelsPaths(): OpenApiDomainModule {
           parameters: [namespaceParam()],
           responses: {
             '204': { description: 'Tunnel closed' },
-            ...errorResponses(400, 401, 403, 404, 502),
+            ...errorResponses(400, 401, 403, 404, 500),
           },
         },
       },
