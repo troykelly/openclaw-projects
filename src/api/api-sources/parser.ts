@@ -7,6 +7,7 @@
 
 import SwaggerParser from '@apidevtools/swagger-parser';
 import type { OpenAPI, OpenAPIV3, OpenAPIV2 } from 'openapi-types';
+import { parse as parseYaml } from 'yaml';
 import {
   sanitizeOperationDescription,
   sanitizeParameterDescription,
@@ -218,18 +219,40 @@ function extractServers(doc: OpenAPI.Document): Array<{ url: string }> {
 }
 
 /**
- * Parse an OpenAPI spec (JSON string or object) and decompose into structured data.
+ * Parse a spec string as JSON first, falling back to YAML.
+ * Returns the parsed object or throws if neither format works.
+ */
+function parseSpecString(content: string): unknown {
+  // Try JSON first (fast path)
+  try {
+    return JSON.parse(content);
+  } catch {
+    // Not JSON — try YAML
+  }
+
+  try {
+    const parsed = parseYaml(content);
+    if (parsed && typeof parsed === 'object') {
+      return parsed;
+    }
+    throw new Error('YAML parsed to a non-object value');
+  } catch (yamlErr) {
+    throw new Error(
+      `Could not parse spec content as JSON or YAML: ${yamlErr instanceof Error ? yamlErr.message : 'unknown error'}`,
+    );
+  }
+}
+
+/**
+ * Parse an OpenAPI spec (JSON string, YAML string, or object) and decompose into structured data.
  * Supports OpenAPI 2.0 (Swagger), 3.0, and 3.1.
+ * Accepts JSON strings, YAML strings, or pre-parsed objects.
  */
 export async function parseOpenApiSpec(specContent: string | object): Promise<ParsedApi> {
-  // Parse JSON if string
+  // Parse string content (JSON or YAML)
   let specObj: unknown;
   if (typeof specContent === 'string') {
-    try {
-      specObj = JSON.parse(specContent);
-    } catch {
-      throw new Error('Invalid JSON: could not parse spec content');
-    }
+    specObj = parseSpecString(specContent);
   } else {
     specObj = specContent;
   }

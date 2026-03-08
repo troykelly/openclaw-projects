@@ -1,0 +1,11 @@
+openapi: "3.0.3"
+info:
+  title: YAML Minimal API
+  version: "1.0.0"
+paths:
+  /health:
+    get:
+      operationId: healthCheck
+      responses:
+        "200":
+          description: OK
