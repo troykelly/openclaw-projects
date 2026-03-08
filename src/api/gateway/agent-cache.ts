@@ -53,10 +53,11 @@ export class AgentCache {
 
   /**
    * Get the list of agents. Prefers live gateway data, falls back to DB.
+   * Issue #2242: Accepts namespace array for multi-namespace read access.
    * @param pool - Database connection pool for fallback query
-   * @param namespace - Namespace to filter DB results
+   * @param namespaces - Namespace(s) to filter DB results
    */
-  async getAgents(pool: Pool, namespace: string): Promise<CachedAgent[]> {
+  async getAgents(pool: Pool, namespaces: string[] | string): Promise<CachedAgent[]> {
     const status = this.connection.getStatus();
 
     if (status.connected) {
@@ -68,8 +69,9 @@ export class AgentCache {
       }
     }
 
-    // Fallback to DB
-    return this._getFromDb(pool, namespace);
+    // Normalize to array for DB query
+    const nsArray = Array.isArray(namespaces) ? namespaces : [namespaces];
+    return this._getFromDb(pool, nsArray);
   }
 
   /** Eagerly refresh cache from gateway. Safe to call; errors are logged and ignored. */
@@ -112,14 +114,14 @@ export class AgentCache {
     return this._enrichWithPresence(agents);
   }
 
-  private async _getFromDb(pool: Pool, namespace: string): Promise<CachedAgent[]> {
+  private async _getFromDb(pool: Pool, namespaces: string[]): Promise<CachedAgent[]> {
     try {
       const result = await pool.query(
         `SELECT agent_id, display_name, avatar_url, is_default
          FROM gateway_agent_cache
-         WHERE namespace = $1
+         WHERE namespace = ANY($1::text[])
          ORDER BY is_default DESC, agent_id`,
-        [namespace],
+        [namespaces],
       );
 
       return result.rows.map((row: { agent_id: string; display_name: string | null; avatar_url: string | null; is_default: boolean }) => ({
