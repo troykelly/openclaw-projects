@@ -15,6 +15,9 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
   const ownerEmail = 'owner@example.com';
   const collaboratorEmail = 'collaborator@example.com';
   const otherEmail = 'other@example.com';
+  const NS_HEADERS = { 'x-namespace': 'default' };
+  const COLLABORATOR_NS_HEADERS = { 'x-namespace': 'ns-collaborator' };
+  const OTHER_NS_HEADERS = { 'x-namespace': 'other' };
 
   beforeAll(async () => {
     await runMigrate('up');
@@ -47,6 +50,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/notes',
+      headers: NS_HEADERS,
       payload: { user_email: user_email, title, content, visibility },
     });
     expect(res.statusCode).toBe(201);
@@ -60,6 +64,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/notebooks',
+      headers: NS_HEADERS,
       payload: { user_email: user_email, name },
     });
     expect(res.statusCode).toBe(201);
@@ -77,6 +82,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
       const res = await app.inject({
         method: 'POST',
         url: `/notes/${noteId}/share`,
+        headers: NS_HEADERS,
         payload: {
           user_email: ownerEmail,
           email: collaboratorEmail,
@@ -98,6 +104,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
       const res = await app.inject({
         method: 'POST',
         url: `/notes/${noteId}/share`,
+        headers: NS_HEADERS,
         payload: {
           user_email: ownerEmail,
           email: collaboratorEmail,
@@ -116,6 +123,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
       const res = await app.inject({
         method: 'POST',
         url: `/notes/${noteId}/share`,
+        headers: NS_HEADERS,
         payload: {
           user_email: ownerEmail,
           email: collaboratorEmail,
@@ -131,6 +139,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/notes/00000000-0000-0000-0000-000000000000/share',
+        headers: NS_HEADERS,
         payload: {
           user_email: ownerEmail,
           email: collaboratorEmail,
@@ -146,6 +155,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
       const res = await app.inject({
         method: 'POST',
         url: `/notes/${noteId}/share`,
+        headers: OTHER_NS_HEADERS,
         payload: {
           user_email: otherEmail,
           email: collaboratorEmail,
@@ -162,6 +172,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
       await app.inject({
         method: 'POST',
         url: `/notes/${noteId}/share`,
+        headers: NS_HEADERS,
         payload: {
           user_email: ownerEmail,
           email: collaboratorEmail,
@@ -172,6 +183,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
       const res = await app.inject({
         method: 'POST',
         url: `/notes/${noteId}/share`,
+        headers: NS_HEADERS,
         payload: {
           user_email: ownerEmail,
           email: collaboratorEmail,
@@ -197,6 +209,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
       const res = await app.inject({
         method: 'POST',
         url: `/notes/${noteId}/share`,
+        headers: NS_HEADERS,
         payload: { user_email: ownerEmail },
       });
 
@@ -215,6 +228,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
       const res = await app.inject({
         method: 'POST',
         url: `/notes/${noteId}/share/link`,
+        headers: NS_HEADERS,
         payload: { user_email: ownerEmail },
       });
 
@@ -232,6 +246,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
       const res = await app.inject({
         method: 'POST',
         url: `/notes/${noteId}/share/link`,
+        headers: NS_HEADERS,
         payload: {
           user_email: ownerEmail,
           is_single_view: true,
@@ -248,6 +263,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
       const res = await app.inject({
         method: 'POST',
         url: `/notes/${noteId}/share/link`,
+        headers: NS_HEADERS,
         payload: {
           user_email: ownerEmail,
           max_views: 5,
@@ -264,6 +280,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
       const res = await app.inject({
         method: 'POST',
         url: `/notes/${noteId}/share/link`,
+        headers: OTHER_NS_HEADERS,
         payload: { user_email: otherEmail },
       });
 
@@ -283,6 +300,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
       await app.inject({
         method: 'POST',
         url: `/notes/${noteId}/share`,
+        headers: NS_HEADERS,
         payload: { user_email: ownerEmail, email: collaboratorEmail },
       });
 
@@ -290,12 +308,14 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
       await app.inject({
         method: 'POST',
         url: `/notes/${noteId}/share/link`,
+        headers: NS_HEADERS,
         payload: { user_email: ownerEmail },
       });
 
       const res = await app.inject({
         method: 'GET',
         url: `/notes/${noteId}/shares`,
+        headers: NS_HEADERS,
         query: { user_email: ownerEmail },
       });
 
@@ -315,6 +335,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
       const res = await app.inject({
         method: 'GET',
         url: `/notes/${noteId}/shares`,
+        headers: OTHER_NS_HEADERS,
         query: { user_email: otherEmail },
       });
 
@@ -329,6 +350,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
       const shareRes = await app.inject({
         method: 'POST',
         url: `/notes/${noteId}/share`,
+        headers: NS_HEADERS,
         payload: { user_email: ownerEmail, email: collaboratorEmail, permission: 'read' },
       });
       const shareId = shareRes.json().id;
@@ -336,6 +358,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
       const res = await app.inject({
         method: 'PUT',
         url: `/notes/${noteId}/shares/${shareId}`,
+        headers: NS_HEADERS,
         payload: { user_email: ownerEmail, permission: 'read_write' },
       });
 
@@ -349,6 +372,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
       const res = await app.inject({
         method: 'PUT',
         url: `/notes/${noteId}/shares/00000000-0000-0000-0000-000000000000`,
+        headers: NS_HEADERS,
         payload: { user_email: ownerEmail, permission: 'read_write' },
       });
 
@@ -363,6 +387,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
       const shareRes = await app.inject({
         method: 'POST',
         url: `/notes/${noteId}/share`,
+        headers: NS_HEADERS,
         payload: { user_email: ownerEmail, email: collaboratorEmail },
       });
       const shareId = shareRes.json().id;
@@ -370,6 +395,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
       const res = await app.inject({
         method: 'DELETE',
         url: `/notes/${noteId}/shares/${shareId}`,
+        headers: NS_HEADERS,
         query: { user_email: ownerEmail },
       });
 
@@ -379,6 +405,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
       const listRes = await app.inject({
         method: 'GET',
         url: `/notes/${noteId}/shares`,
+        headers: NS_HEADERS,
         query: { user_email: ownerEmail },
       });
       expect(listRes.json().shares.length).toBe(0);
@@ -390,6 +417,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
       const res = await app.inject({
         method: 'DELETE',
         url: `/notes/${noteId}/shares/00000000-0000-0000-0000-000000000000`,
+        headers: NS_HEADERS,
         query: { user_email: ownerEmail },
       });
 
@@ -408,6 +436,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
       const linkRes = await app.inject({
         method: 'POST',
         url: `/notes/${noteId}/share/link`,
+        headers: NS_HEADERS,
         payload: { user_email: ownerEmail },
       });
       const token = linkRes.json().token;
@@ -441,6 +470,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
       const linkRes = await app.inject({
         method: 'POST',
         url: `/notes/${noteId}/share/link`,
+        headers: NS_HEADERS,
         payload: { user_email: ownerEmail, is_single_view: true },
       });
       const token = linkRes.json().token;
@@ -466,6 +496,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
       const linkRes = await app.inject({
         method: 'POST',
         url: `/notes/${noteId}/share/link`,
+        headers: NS_HEADERS,
         payload: { user_email: ownerEmail },
       });
       const token = linkRes.json().token;
@@ -491,12 +522,14 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
       await app.inject({
         method: 'POST',
         url: `/notes/${noteId}/share`,
+        headers: NS_HEADERS,
         payload: { user_email: ownerEmail, email: collaboratorEmail },
       });
 
       const res = await app.inject({
         method: 'GET',
         url: '/notes/shared-with-me',
+        headers: COLLABORATOR_NS_HEADERS,
         query: { user_email: collaboratorEmail },
       });
 
@@ -512,6 +545,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
       const res = await app.inject({
         method: 'GET',
         url: '/notes/shared-with-me',
+        headers: COLLABORATOR_NS_HEADERS,
         query: { user_email: collaboratorEmail },
       });
 
@@ -527,12 +561,14 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
       await app.inject({
         method: 'POST',
         url: `/notes/${noteId}/share`,
+        headers: NS_HEADERS,
         payload: { user_email: ownerEmail, email: collaboratorEmail, expires_at: pastDate },
       });
 
       const res = await app.inject({
         method: 'GET',
         url: '/notes/shared-with-me',
+        headers: COLLABORATOR_NS_HEADERS,
         query: { user_email: collaboratorEmail },
       });
 
@@ -553,6 +589,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
         const res = await app.inject({
           method: 'POST',
           url: `/notebooks/${notebook_id}/share`,
+          headers: NS_HEADERS,
           payload: {
             user_email: ownerEmail,
             email: collaboratorEmail,
@@ -575,6 +612,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
         const res = await app.inject({
           method: 'POST',
           url: `/notebooks/${notebook_id}/share/link`,
+          headers: NS_HEADERS,
           payload: { user_email: ownerEmail },
         });
 
@@ -591,12 +629,14 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
         await app.inject({
           method: 'POST',
           url: `/notebooks/${notebook_id}/share`,
+          headers: NS_HEADERS,
           payload: { user_email: ownerEmail, email: collaboratorEmail },
         });
 
         const res = await app.inject({
           method: 'GET',
           url: `/notebooks/${notebook_id}/shares`,
+          headers: NS_HEADERS,
           query: { user_email: ownerEmail },
         });
 
@@ -612,6 +652,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
         const linkRes = await app.inject({
           method: 'POST',
           url: `/notebooks/${notebook_id}/share/link`,
+          headers: NS_HEADERS,
           payload: { user_email: ownerEmail },
         });
         const token = linkRes.json().token;
@@ -634,12 +675,14 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
         await app.inject({
           method: 'POST',
           url: `/notebooks/${notebook_id}/share`,
+          headers: NS_HEADERS,
           payload: { user_email: ownerEmail, email: collaboratorEmail },
         });
 
         const res = await app.inject({
           method: 'GET',
           url: '/notebooks/shared-with-me',
+          headers: COLLABORATOR_NS_HEADERS,
           query: { user_email: collaboratorEmail },
         });
 
@@ -662,6 +705,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
       const beforeRes = await app.inject({
         method: 'GET',
         url: `/notes/${noteId}`,
+        headers: COLLABORATOR_NS_HEADERS,
         query: { user_email: collaboratorEmail },
       });
       expect(beforeRes.statusCode).toBe(404);
@@ -670,6 +714,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
       await app.inject({
         method: 'POST',
         url: `/notes/${noteId}/share`,
+        headers: NS_HEADERS,
         payload: { user_email: ownerEmail, email: collaboratorEmail },
       });
 
@@ -677,6 +722,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
       const afterRes = await app.inject({
         method: 'GET',
         url: `/notes/${noteId}`,
+        headers: COLLABORATOR_NS_HEADERS,
         query: { user_email: collaboratorEmail },
       });
       expect(afterRes.statusCode).toBe(200);
@@ -690,6 +736,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
       await app.inject({
         method: 'POST',
         url: `/notes/${noteId}/share`,
+        headers: NS_HEADERS,
         payload: { user_email: ownerEmail, email: collaboratorEmail, permission: 'read_write' },
       });
 
@@ -697,6 +744,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
       const res = await app.inject({
         method: 'PUT',
         url: `/notes/${noteId}`,
+        headers: COLLABORATOR_NS_HEADERS,
         payload: {
           user_email: collaboratorEmail,
           content: 'Updated by collaborator',

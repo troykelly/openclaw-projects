@@ -293,10 +293,10 @@ describe('release.yml workflow', () => {
       expect(workflow.jobs['publish-npm'].permissions?.['id-token']).toBe('write');
     });
 
-    it('should publish containers with matrix for all 8 images', () => {
+    it('should publish containers with matrix for all 9 images', () => {
       const matrix = workflow.jobs['publish-containers'].strategy?.matrix;
       const images = matrix?.image as Array<{ name: string }>;
-      expect(images).toHaveLength(8);
+      expect(images).toHaveLength(9);
       const names = images.map((i) => i.name);
       expect(names).toContain('db');
       expect(names).toContain('api');
@@ -306,6 +306,7 @@ describe('release.yml workflow', () => {
       expect(names).toContain('ha-connector');
       expect(names).toContain('prompt-guard');
       expect(names).toContain('tmux-worker');
+      expect(names).toContain('symphony-worker');
     });
   });
 });

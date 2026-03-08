@@ -63,39 +63,42 @@ export interface SimilarNotesResponse {
  * Handles owner, shared, public visibility and agent filtering.
  */
 function buildAccessConditions(
-  user_email: string,
+  namespaces: string[],
+  userEmail: string | null,
   isAgent: boolean,
   paramIndex: number,
-): { conditions: string[]; params: (string | boolean)[]; nextIndex: number } {
+): { conditions: string[]; params: (string | string[] | boolean)[]; nextIndex: number } {
   const conditions: string[] = [];
-  const params: (string | boolean)[] = [];
+  const params: (string | string[] | boolean)[] = [];
 
   // Base condition: not deleted
   conditions.push('n.deleted_at IS NULL');
 
-  // Access control: Phase 4 (Epic #1418) - user_email column dropped from note table.
-  // Check ownership via namespace_grant, plus public/shared access.
-  conditions.push(`(
-    n.visibility = 'public'
-    OR EXISTS (
-      SELECT 1 FROM namespace_grant ng
-      WHERE ng.namespace = n.namespace AND ng.email = $${paramIndex}
-    )
-    OR (n.visibility = 'shared' AND EXISTS (
+  const accessParts: string[] = [
+    `n.namespace = ANY($${paramIndex}::text[])`,
+    `n.visibility = 'public'`,
+  ];
+  params.push(namespaces);
+  paramIndex++;
+
+  if (userEmail !== null) {
+    accessParts.push(`(n.visibility = 'shared' AND EXISTS (
       SELECT 1 FROM note_share ns
       WHERE ns.note_id = n.id
         AND ns.shared_with_email = $${paramIndex}
         AND (ns.expires_at IS NULL OR ns.expires_at > NOW())
-    ))
-    OR (n.visibility = 'shared' AND n.notebook_id IS NOT NULL AND EXISTS (
+    ))`);
+    accessParts.push(`(n.visibility = 'shared' AND n.notebook_id IS NOT NULL AND EXISTS (
       SELECT 1 FROM notebook_share nbs
       WHERE nbs.notebook_id = n.notebook_id
         AND nbs.shared_with_email = $${paramIndex}
         AND (nbs.expires_at IS NULL OR nbs.expires_at > NOW())
-    ))
-  )`);
-  params.push(user_email);
-  paramIndex++;
+    ))`);
+    params.push(userEmail);
+    paramIndex++;
+  }
+
+  conditions.push(`(${accessParts.join('\n    OR ')})`);
 
   // Agent filtering: agents cannot see private notes or notes with hideFromAgents
   if (isAgent) {
@@ -111,12 +114,13 @@ function buildAccessConditions(
 export async function textSearch(
   pool: Pool,
   query: string,
-  user_email: string,
+  namespaces: string[],
+  userEmail: string | null,
   options: SearchOptions = {},
 ): Promise<{ results: SearchResult[]; total: number }> {
   const { notebook_id, tags, visibility, limit = 20, offset = 0, is_agent = false } = options;
 
-  const { conditions, params, nextIndex } = buildAccessConditions(user_email, is_agent, 1);
+  const { conditions, params, nextIndex } = buildAccessConditions(namespaces, userEmail, is_agent, 1);
   let paramIndex = nextIndex;
 
   // Add query parameter
@@ -209,7 +213,8 @@ export async function textSearch(
 export async function semanticSearch(
   pool: Pool,
   query: string,
-  user_email: string,
+  namespaces: string[],
+  userEmail: string | null,
   options: SearchOptions = {},
 ): Promise<{ results: SearchResult[]; total: number }> {
   const { notebook_id, tags, visibility, limit = 20, offset = 0, min_similarity = 0.3, is_agent = false } = options;
@@ -220,7 +225,7 @@ export async function semanticSearch(
   // Check if embedding service is configured
   if (!embeddingService.isConfigured()) {
     // Fall back to text search
-    return textSearch(pool, query, user_email, options);
+    return textSearch(pool, query, namespaces, userEmail, options);
   }
 
   // Generate embedding for query
@@ -232,14 +237,14 @@ export async function semanticSearch(
     }
   } catch (error) {
     console.warn('[Search] Query embedding failed, falling back to text search');
-    return textSearch(pool, query, user_email, options);
+    return textSearch(pool, query, namespaces, userEmail, options);
   }
 
   if (!queryEmbedding) {
-    return textSearch(pool, query, user_email, options);
+    return textSearch(pool, query, namespaces, userEmail, options);
   }
 
-  const { conditions, params, nextIndex } = buildAccessConditions(user_email, is_agent, 1);
+  const { conditions, params, nextIndex } = buildAccessConditions(namespaces, userEmail, is_agent, 1);
   let paramIndex = nextIndex;
 
   // Add embedding condition
@@ -368,7 +373,8 @@ function reciprocalRankFusion(textResults: SearchResult[], semanticResults: Sear
 export async function hybridSearch(
   pool: Pool,
   query: string,
-  user_email: string,
+  namespaces: string[],
+  userEmail: string | null,
   options: SearchOptions = {},
 ): Promise<{ results: SearchResult[]; total: number }> {
   const { limit = 20, offset = 0 } = options;
@@ -376,8 +382,8 @@ export async function hybridSearch(
   // Run both searches in parallel, fetching more results for fusion
   const fetchLimit = Math.max(limit * 2, 40);
   const [textResult, semanticResult] = await Promise.all([
-    textSearch(pool, query, user_email, { ...options, limit: fetchLimit, offset: 0 }),
-    semanticSearch(pool, query, user_email, { ...options, limit: fetchLimit, offset: 0 }),
+    textSearch(pool, query, namespaces, userEmail, { ...options, limit: fetchLimit, offset: 0 }),
+    semanticSearch(pool, query, namespaces, userEmail, { ...options, limit: fetchLimit, offset: 0 }),
   ]);
 
   // Combine with RRF
@@ -398,21 +404,21 @@ export async function hybridSearch(
 /**
  * Main search function that routes to appropriate search method.
  */
-export async function searchNotes(pool: Pool, query: string, user_email: string, options: SearchOptions = {}): Promise<SearchResponse> {
+export async function searchNotes(pool: Pool, query: string, namespaces: string[], userEmail: string | null, options: SearchOptions = {}): Promise<SearchResponse> {
   const { search_type = 'hybrid', limit = 20, offset = 0 } = options;
 
   let result: { results: SearchResult[]; total: number };
 
   switch (search_type) {
     case 'text':
-      result = await textSearch(pool, query, user_email, options);
+      result = await textSearch(pool, query, namespaces, userEmail, options);
       break;
     case 'semantic':
-      result = await semanticSearch(pool, query, user_email, options);
+      result = await semanticSearch(pool, query, namespaces, userEmail, options);
       break;
     case 'hybrid':
     default:
-      result = await hybridSearch(pool, query, user_email, options);
+      result = await hybridSearch(pool, query, namespaces, userEmail, options);
       break;
   }
 
@@ -432,7 +438,8 @@ export async function searchNotes(pool: Pool, query: string, user_email: string,
 export async function findSimilarNotes(
   pool: Pool,
   noteId: string,
-  user_email: string,
+  namespaces: string[],
+  userEmail: string | null,
   options: { limit?: number; min_similarity?: number; is_agent?: boolean } = {},
 ): Promise<SimilarNotesResponse | null> {
   const { limit = 5, min_similarity = 0.5, is_agent = false } = options;
@@ -440,7 +447,7 @@ export async function findSimilarNotes(
   // First, get the source note and verify access
   const noteResult = await pool.query(
     `SELECT
-      n.id::text, n.title, n.embedding, n.visibility
+      n.id::text, n.title, n.embedding, n.visibility, n.namespace
     FROM note n
     WHERE n.id = $1 AND n.deleted_at IS NULL`,
     [noteId],
@@ -452,25 +459,21 @@ export async function findSimilarNotes(
 
   const sourceNote = noteResult.rows[0];
 
-  // Phase 4 (Epic #1418): check ownership via namespace_grant
-  const ownerCheck = await pool.query(
-    `SELECT 1 FROM namespace_grant ng WHERE ng.namespace = (SELECT namespace FROM note WHERE id = $1) AND ng.email = $2`,
-    [noteId, user_email],
-  );
-  const canAccess = sourceNote.visibility === 'public' || ownerCheck.rows.length > 0;
+  let canAccess = sourceNote.visibility === 'public' || namespaces.includes(sourceNote.namespace);
 
-  if (!canAccess) {
-    // Check for shares
+  if (!canAccess && userEmail !== null) {
     const shareResult = await pool.query(
       `SELECT 1 FROM note_share
        WHERE note_id = $1 AND shared_with_email = $2
          AND (expires_at IS NULL OR expires_at > NOW())
        LIMIT 1`,
-      [noteId, user_email],
+      [noteId, userEmail],
     );
-    if (shareResult.rows.length === 0) {
-      return null;
-    }
+    canAccess = shareResult.rows.length > 0;
+  }
+
+  if (!canAccess) {
+    return null;
   }
 
   // If source note has no embedding, return empty similar list
@@ -482,7 +485,7 @@ export async function findSimilarNotes(
   }
 
   // Build access conditions for similar notes
-  const { conditions, params, nextIndex } = buildAccessConditions(user_email, is_agent, 1);
+  const { conditions, params, nextIndex } = buildAccessConditions(namespaces, userEmail, is_agent, 1);
   let paramIndex = nextIndex;
 
   // Exclude the source note

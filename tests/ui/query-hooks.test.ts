@@ -393,7 +393,7 @@ describe('useNotes', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toEqual(data);
-    expect(globalThis.fetch).toHaveBeenCalledWith('/notes?user_email=test%40example.com', expect.any(Object));
+    expect(globalThis.fetch).toHaveBeenCalledWith('/notes', expect.any(Object));
   });
 
   it('should append notebook_id to query string', async () => {
@@ -404,7 +404,7 @@ describe('useNotes', () => {
     renderHook(() => useNotes({ notebook_id: 'nb-123' }), { wrapper: Wrapper });
 
     await waitFor(() => {
-      expect(globalThis.fetch).toHaveBeenCalledWith('/notes?user_email=test%40example.com&notebook_id=nb-123', expect.any(Object));
+      expect(globalThis.fetch).toHaveBeenCalledWith('/notes?notebook_id=nb-123', expect.any(Object));
     });
   });
 
@@ -416,7 +416,7 @@ describe('useNotes', () => {
     renderHook(() => useNotes({ tags: ['tag1', 'tag2'] }), { wrapper: Wrapper });
 
     await waitFor(() => {
-      expect(globalThis.fetch).toHaveBeenCalledWith('/notes?user_email=test%40example.com&tags=tag1&tags=tag2', expect.any(Object));
+      expect(globalThis.fetch).toHaveBeenCalledWith('/notes?tags=tag1&tags=tag2', expect.any(Object));
     });
   });
 
@@ -428,7 +428,7 @@ describe('useNotes', () => {
     renderHook(() => useNotes({ visibility: 'private' }), { wrapper: Wrapper });
 
     await waitFor(() => {
-      expect(globalThis.fetch).toHaveBeenCalledWith('/notes?user_email=test%40example.com&visibility=private', expect.any(Object));
+      expect(globalThis.fetch).toHaveBeenCalledWith('/notes?visibility=private', expect.any(Object));
     });
   });
 
@@ -440,7 +440,7 @@ describe('useNotes', () => {
     renderHook(() => useNotes({ limit: 10, offset: 20 }), { wrapper: Wrapper });
 
     await waitFor(() => {
-      expect(globalThis.fetch).toHaveBeenCalledWith('/notes?user_email=test%40example.com&limit=10&offset=20', expect.any(Object));
+      expect(globalThis.fetch).toHaveBeenCalledWith('/notes?limit=10&offset=20', expect.any(Object));
     });
   });
 
@@ -452,7 +452,7 @@ describe('useNotes', () => {
     renderHook(() => useNotes({ sort_by: 'title', sort_order: 'asc' }), { wrapper: Wrapper });
 
     await waitFor(() => {
-      expect(globalThis.fetch).toHaveBeenCalledWith('/notes?user_email=test%40example.com&sort_by=title&sort_order=asc', expect.any(Object));
+      expect(globalThis.fetch).toHaveBeenCalledWith('/notes?sort_by=title&sort_order=asc', expect.any(Object));
     });
   });
 
@@ -481,7 +481,7 @@ describe('useNote', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toEqual(data);
-    expect(globalThis.fetch).toHaveBeenCalledWith('/notes/note-1?user_email=test%40example.com', expect.any(Object));
+    expect(globalThis.fetch).toHaveBeenCalledWith('/notes/note-1', expect.any(Object));
   });
 
   it('should not fetch when id is empty', async () => {
@@ -660,7 +660,7 @@ describe('useNotebooks', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toEqual(data);
-    expect(globalThis.fetch).toHaveBeenCalledWith('/notebooks?user_email=test%40example.com', expect.any(Object));
+    expect(globalThis.fetch).toHaveBeenCalledWith('/notebooks', expect.any(Object));
   });
 
   it('should append parent_id to query string', async () => {
@@ -671,7 +671,7 @@ describe('useNotebooks', () => {
     renderHook(() => useNotebooks({ parent_id: 'parent-1' }), { wrapper: Wrapper });
 
     await waitFor(() => {
-      expect(globalThis.fetch).toHaveBeenCalledWith('/notebooks?user_email=test%40example.com&parent_id=parent-1', expect.any(Object));
+      expect(globalThis.fetch).toHaveBeenCalledWith('/notebooks?parent_id=parent-1', expect.any(Object));
     });
   });
 
@@ -683,7 +683,7 @@ describe('useNotebooks', () => {
     renderHook(() => useNotebooks({ include_archived: true }), { wrapper: Wrapper });
 
     await waitFor(() => {
-      expect(globalThis.fetch).toHaveBeenCalledWith('/notebooks?user_email=test%40example.com&include_archived=true', expect.any(Object));
+      expect(globalThis.fetch).toHaveBeenCalledWith('/notebooks?include_archived=true', expect.any(Object));
     });
   });
 
@@ -712,7 +712,7 @@ describe('useNotebook', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toEqual(data);
-    expect(globalThis.fetch).toHaveBeenCalledWith('/notebooks/nb-1?user_email=test%40example.com', expect.any(Object));
+    expect(globalThis.fetch).toHaveBeenCalledWith('/notebooks/nb-1', expect.any(Object));
   });
 
   it('should append include options to query string', async () => {
@@ -724,7 +724,7 @@ describe('useNotebook', () => {
 
     await waitFor(() => {
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        '/notebooks/nb-1?user_email=test%40example.com&includeNotes=true&includeChildren=true',
+        '/notebooks/nb-1?includeNotes=true&includeChildren=true',
         expect.any(Object),
       );
     });
@@ -755,7 +755,7 @@ describe('useNotebooksTree', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toEqual(data);
-    expect(globalThis.fetch).toHaveBeenCalledWith('/notebooks/tree?user_email=test%40example.com', expect.any(Object));
+    expect(globalThis.fetch).toHaveBeenCalledWith('/notebooks/tree', expect.any(Object));
   });
 
   it('should append include_note_counts when true', async () => {
@@ -766,7 +766,7 @@ describe('useNotebooksTree', () => {
     renderHook(() => useNotebooksTree(true), { wrapper: Wrapper });
 
     await waitFor(() => {
-      expect(globalThis.fetch).toHaveBeenCalledWith('/notebooks/tree?user_email=test%40example.com&include_note_counts=true', expect.any(Object));
+      expect(globalThis.fetch).toHaveBeenCalledWith('/notebooks/tree?include_note_counts=true', expect.any(Object));
     });
   });
 });

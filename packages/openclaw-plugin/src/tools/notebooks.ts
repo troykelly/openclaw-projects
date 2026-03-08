@@ -23,7 +23,6 @@ export interface Notebook {
   id: string;
   name: string;
   description: string | null;
-  user_email: string;
   is_archived: boolean;
   note_count?: number;
   created_at: string;
@@ -36,8 +35,6 @@ export interface NotebookToolOptions {
   logger: Logger;
   config: PluginConfig;
   user_id: string;
-  /** Agent email for M2M identity resolution (#2233). Falls back to user_id. */
-  agentEmail?: string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -83,8 +80,7 @@ export interface NotebookListTool {
 }
 
 export function createNotebookListTool(options: NotebookToolOptions): NotebookListTool {
-  const { client, logger, config, user_id, agentEmail } = options;
-  const effectiveEmail = () => agentEmail ?? user_id;
+  const { client, logger, config, user_id } = options;
 
   return {
     name: 'notebook_list',
@@ -109,7 +105,6 @@ export function createNotebookListTool(options: NotebookToolOptions): NotebookLi
 
       try {
         const queryParams = new URLSearchParams({
-          user_email: effectiveEmail(),
           limit: String(limit),
           offset: String(offset),
         });
@@ -123,7 +118,7 @@ export function createNotebookListTool(options: NotebookToolOptions): NotebookLi
           total: number;
           limit: number;
           offset: number;
-        }>(`/notebooks?${queryParams}`, { user_id, user_email: effectiveEmail() });
+        }>(`/notebooks?${queryParams}`, { user_id });
 
         if (!response.success) {
           logger.error('notebook_list API error', {
@@ -209,8 +204,7 @@ export interface NotebookCreateTool {
 }
 
 export function createNotebookCreateTool(options: NotebookToolOptions): NotebookCreateTool {
-  const { client, logger, config, user_id, agentEmail } = options;
-  const effectiveEmail = () => agentEmail ?? user_id;
+  const { client, logger, config, user_id } = options;
 
   return {
     name: 'notebook_create',
@@ -241,11 +235,10 @@ export function createNotebookCreateTool(options: NotebookToolOptions): Notebook
         const response = await client.post<Notebook>(
           '/notebooks',
           {
-            user_email: effectiveEmail(),
             name: sanitizedName,
             description: description ? sanitizeText(description) : undefined,
           },
-          { user_id, user_email: effectiveEmail() },
+          { user_id },
         );
 
         if (!response.success) {
@@ -342,8 +335,7 @@ export interface NotebookGetTool {
 }
 
 export function createNotebookGetTool(options: NotebookToolOptions): NotebookGetTool {
-  const { client, logger, config, user_id, agentEmail } = options;
-  const effectiveEmail = () => agentEmail ?? user_id;
+  const { client, logger, config, user_id } = options;
 
   return {
     name: 'notebook_get',
@@ -367,12 +359,13 @@ export function createNotebookGetTool(options: NotebookToolOptions): NotebookGet
       });
 
       try {
-        const queryParams = new URLSearchParams({ user_email: effectiveEmail() });
+        const queryParams = new URLSearchParams();
         if (includeNotes) {
           queryParams.set('expand', 'notes');
         }
+        const qs = queryParams.toString();
 
-        const response = await client.get<Notebook & { notes?: NotebookNote[] }>(`/notebooks/${notebook_id}?${queryParams}`, { user_id, user_email: effectiveEmail() });
+        const response = await client.get<Notebook & { notes?: NotebookNote[] }>(`/notebooks/${notebook_id}${qs ? `?${qs}` : ''}`, { user_id });
 
         if (!response.success) {
           if (response.error.status === 404) {
