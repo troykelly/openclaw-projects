@@ -333,7 +333,7 @@ export function webhooksNotificationsPaths(): OpenApiDomainModule {
           user_email: {
             type: 'string',
             nullable: true,
-            description: 'Email address associated with this webhook, if set',
+            description: 'Email of the session user who created this webhook, or null for M2M-created webhooks (Issue #2267)',
             example: 'alice@example.com',
           },
           label: {
@@ -866,7 +866,7 @@ export function webhooksNotificationsPaths(): OpenApiDomainModule {
         post: {
           operationId: 'createProjectWebhook',
           summary: 'Create a project webhook',
-          description: 'Creates a new webhook endpoint for a project with a generated bearer token.',
+          description: 'Creates a new webhook endpoint for a project with a generated bearer token. Namespace scoping (verifyWriteScope) is the primary auth check. Session users have their email recorded; M2M callers get user_email=null (Issue #2267).',
           tags: ['ProjectWebhooks'],
           parameters: [uuidParam('id', 'Project ID')],
           requestBody: jsonBody({

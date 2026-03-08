@@ -386,7 +386,8 @@ export function bootstrapPaths(): OpenApiDomainModule {
           user_email: {
             type: 'string',
             format: 'email',
-            description: 'User email for identity resolution (M2M tokens). Falls back to X-User-Email header.',
+            nullable: true,
+            description: 'User email for identity resolution (M2M tokens). Falls back to X-User-Email header. When absent, search uses namespace-only mode (Issue #2266).',
             example: 'alice@example.com',
           },
           min_similarity: {
@@ -436,7 +437,7 @@ export function bootstrapPaths(): OpenApiDomainModule {
               queryTimeMs: { type: 'number' },
               scopeCount: { type: 'integer' },
               totalMemoriesFound: { type: 'integer' },
-              search_type: { type: 'string', enum: ['semantic', 'text'] },
+              search_type: { type: 'string', enum: ['semantic', 'text', 'namespace_only'] },
               maxDepth: { type: 'integer' },
             },
           },

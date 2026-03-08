@@ -44,8 +44,12 @@ export interface GraphTraversalOptions {
 
 /** Input for graph-aware context retrieval */
 export interface GraphAwareContextInput {
-  /** User email for identifying the user */
-  user_email: string;
+  /**
+   * User email for identifying the user.
+   * Issue #2266: optional. When absent, search uses namespace-only mode
+   * (skips graph traversal via collectGraphScopes).
+   */
+  user_email?: string;
   /** The user's prompt/query for semantic matching */
   prompt: string;
   /** Maximum number of memories to return (default: 10) */
@@ -92,8 +96,8 @@ export interface GraphContextMetadata {
   scope_count: number;
   /** Total memories found before filtering */
   total_memories_found: number;
-  /** Search type used */
-  search_type: 'semantic' | 'text';
+  /** Search type used. 'namespace_only' when email is absent (Issue #2266). */
+  search_type: 'semantic' | 'text' | 'namespace_only';
   /** Graph traversal depth used */
   max_depth: number;
 }
@@ -621,11 +625,26 @@ function buildGraphContextString(memories: ScopedMemoryResult[], maxLength: numb
  * 3. Filter: expired excluded, superseded excluded, similarity threshold applied
  * 4. Rank by combined relevance (similarity * importance/10 * confidence)
  * 5. Format with source attribution
+ *
+ * Issue #2266: When user_email is absent, falls back to namespace-only mode.
+ * Skips graph traversal and searches memories by queryNamespaces only.
  */
 export async function retrieveGraphAwareContext(pool: Pool, input: GraphAwareContextInput): Promise<GraphAwareContextResult> {
   const startTime = Date.now();
 
-  const { user_email: user_email, prompt, max_memories: maxMemories = 10, min_similarity: min_similarity = 0.3, max_depth: maxDepth = 1, max_context_length: maxContextLength = 4000, queryNamespaces } = input;
+  const { user_email, prompt, max_memories: maxMemories = 10, min_similarity: min_similarity = 0.3, max_depth: maxDepth = 1, max_context_length: maxContextLength = 4000, queryNamespaces } = input;
+
+  // Issue #2266: namespace-only mode when email is absent
+  if (!user_email) {
+    return namespaceOnlySearch(pool, {
+      prompt,
+      maxMemories,
+      min_similarity,
+      maxContextLength,
+      queryNamespaces,
+      startTime,
+    });
+  }
 
   // Step 1: Collect scopes via graph traversal
   const scopes = await collectGraphScopes(pool, user_email, { max_depth: maxDepth });
@@ -689,6 +708,189 @@ export async function retrieveGraphAwareContext(pool: Pool, input: GraphAwareCon
       total_memories_found: searchResult.results.length,
       search_type: searchResult.search_type,
       max_depth: maxDepth,
+    },
+  };
+}
+
+/**
+ * Issue #2266: Namespace-only memory search when user_email is absent.
+ *
+ * Searches memories by namespace only (no graph traversal). Returns results
+ * with scope_type='personal' and search_type='namespace_only' in metadata.
+ */
+async function namespaceOnlySearch(
+  pool: Pool,
+  opts: {
+    prompt: string;
+    maxMemories: number;
+    min_similarity: number;
+    maxContextLength: number;
+    queryNamespaces?: string[];
+    startTime: number;
+  },
+): Promise<GraphAwareContextResult> {
+  const { prompt, maxMemories, min_similarity, maxContextLength, queryNamespaces, startTime } = opts;
+
+  // Build namespace filter
+  const params: (string | string[] | number)[] = [];
+  let paramIndex = 1;
+  let namespaceWhere = '';
+
+  if (queryNamespaces && queryNamespaces.length > 0) {
+    namespaceWhere = `AND m.namespace = ANY($${paramIndex}::text[])`;
+    params.push(queryNamespaces);
+    paramIndex++;
+  }
+
+  // Try semantic search first
+  let queryEmbedding: number[] | null = null;
+  try {
+    const { embeddingService } = await import('../embeddings/service.ts');
+    if (embeddingService.isConfigured()) {
+      const embResult = await embeddingService.embed(prompt);
+      if (embResult) {
+        queryEmbedding = embResult.embedding;
+      }
+    }
+  } catch (err) {
+    console.warn('[GraphContext] Semantic search failed in namespace-only mode, falling back to text search:', err);
+  }
+
+  type MemoryRow = {
+    id: string;
+    title: string;
+    content: string;
+    memory_type: string;
+    importance: number;
+    confidence: number;
+    similarity: number;
+  };
+
+  let results: MemoryRow[];
+  let searchType: 'semantic' | 'text' = 'text';
+
+  if (queryEmbedding) {
+    const embeddingStr = `[${queryEmbedding.join(',')}]`;
+    params.push(embeddingStr);
+    const embParamIdx = paramIndex++;
+    params.push(maxMemories);
+    const limitIdx = paramIndex++;
+
+    const semanticResult = await pool.query(
+      `SELECT
+        m.id::text as id, m.title, m.content,
+        m.memory_type::text as memory_type,
+        m.importance, m.confidence,
+        1 - (m.embedding <=> $${embParamIdx}::vector) as similarity
+      FROM memory m
+      WHERE m.embedding IS NOT NULL
+        AND m.embedding_status = 'complete'
+        AND (m.expires_at IS NULL OR m.expires_at > NOW())
+        AND m.superseded_by IS NULL
+        ${namespaceWhere}
+      ORDER BY m.embedding <=> $${embParamIdx}::vector ASC
+      LIMIT $${limitIdx}`,
+      params,
+    );
+
+    if (semanticResult.rows.length > 0) {
+      results = semanticResult.rows as MemoryRow[];
+      searchType = 'semantic';
+    } else {
+      // Fall through to text search
+      results = [];
+    }
+  } else {
+    results = [];
+  }
+
+  if (results.length === 0) {
+    // Text search fallback
+    const textParams: (string | string[] | number)[] = [];
+    let textParamIndex = 1;
+    let textNamespaceWhere = '';
+
+    if (queryNamespaces && queryNamespaces.length > 0) {
+      textNamespaceWhere = `AND m.namespace = ANY($${textParamIndex}::text[])`;
+      textParams.push(queryNamespaces);
+      textParamIndex++;
+    }
+
+    textParams.push(prompt);
+    const searchParamIdx = textParamIndex++;
+    textParams.push(maxMemories);
+    const limitIdx = textParamIndex++;
+
+    const textResult = await pool.query(
+      `SELECT
+        m.id::text as id, m.title, m.content,
+        m.memory_type::text as memory_type,
+        m.importance, m.confidence,
+        COALESCE(ts_rank(m.search_vector, websearch_to_tsquery('english', $${searchParamIdx})), 0.3) as similarity
+      FROM memory m
+      WHERE (m.expires_at IS NULL OR m.expires_at > NOW())
+        AND m.superseded_by IS NULL
+        ${textNamespaceWhere}
+        AND (
+          m.search_vector @@ websearch_to_tsquery('english', $${searchParamIdx})
+          OR m.title ILIKE '%' || $${searchParamIdx} || '%'
+          OR m.content ILIKE '%' || $${searchParamIdx} || '%'
+        )
+      ORDER BY
+        COALESCE(ts_rank(m.search_vector, websearch_to_tsquery('english', $${searchParamIdx})), 0) DESC,
+        m.importance DESC,
+        m.updated_at DESC
+      LIMIT $${limitIdx}`,
+      textParams,
+    );
+
+    results = textResult.rows as MemoryRow[];
+    searchType = 'text';
+  }
+
+  // Score and filter
+  const scoredMemories: ScopedMemoryResult[] = results
+    .filter((m) => m.similarity >= min_similarity)
+    .map((m) => {
+      const normalizedImportance = (m.importance ?? 5) / 10;
+      const confidence = m.confidence ?? 1.0;
+      return {
+        id: m.id,
+        title: m.title,
+        content: m.content,
+        memory_type: m.memory_type,
+        similarity: m.similarity,
+        importance: m.importance,
+        confidence,
+        combined_relevance: m.similarity * normalizedImportance * confidence,
+        scope_type: 'personal' as ScopeType,
+        scope_label: 'Namespace',
+      };
+    });
+
+  scoredMemories.sort((a, b) => b.combined_relevance - a.combined_relevance);
+  const limitedMemories = scoredMemories.slice(0, maxMemories);
+  const context = buildGraphContextString(limitedMemories, maxContextLength);
+  const queryTimeMs = Date.now() - startTime;
+
+  // Return empty scopes since no graph traversal was performed
+  const emptyScopes: GraphScope = {
+    user_email: '',
+    contact_ids: [],
+    relationship_ids: [],
+    scope_details: [],
+  };
+
+  return {
+    context: context || null,
+    memories: limitedMemories,
+    scopes: emptyScopes,
+    metadata: {
+      query_time_ms: queryTimeMs,
+      scope_count: 0,
+      total_memories_found: results.length,
+      search_type: 'namespace_only',
+      max_depth: 0,
     },
   };
 }
