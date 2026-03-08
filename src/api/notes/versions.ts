@@ -129,9 +129,9 @@ async function getCurrentVersionNumber(pool: Pool, noteId: string): Promise<numb
 /**
  * Lists versions for a note with pagination
  */
-export async function listVersions(pool: Pool, noteId: string, user_email: string, options: ListVersionsOptions = {}): Promise<ListVersionsResult | null> {
+export async function listVersions(pool: Pool, noteId: string, namespaces: string[], userEmail: string | null, options: ListVersionsOptions = {}): Promise<ListVersionsResult | null> {
   // Check access
-  const canAccess = await userCanAccessNote(pool, noteId, user_email, 'read');
+  const canAccess = await userCanAccessNote(pool, noteId, namespaces, userEmail, 'read');
   if (!canAccess) {
     return null;
   }
@@ -169,9 +169,9 @@ export async function listVersions(pool: Pool, noteId: string, user_email: strin
 /**
  * Gets a specific version with full content
  */
-export async function getVersion(pool: Pool, noteId: string, versionNumber: number, user_email: string): Promise<NoteVersion | null> {
+export async function getVersion(pool: Pool, noteId: string, versionNumber: number, namespaces: string[], userEmail: string | null): Promise<NoteVersion | null> {
   // Check access
-  const canAccess = await userCanAccessNote(pool, noteId, user_email, 'read');
+  const canAccess = await userCanAccessNote(pool, noteId, namespaces, userEmail, 'read');
   if (!canAccess) {
     return null;
   }
@@ -292,10 +292,11 @@ export async function compareVersions(
   noteId: string,
   fromVersionNum: number,
   toVersionNum: number,
-  user_email: string,
+  namespaces: string[],
+  userEmail: string | null,
 ): Promise<CompareVersionsResult | null> {
   // Check access
-  const canAccess = await userCanAccessNote(pool, noteId, user_email, 'read');
+  const canAccess = await userCanAccessNote(pool, noteId, namespaces, userEmail, 'read');
   if (!canAccess) {
     return null;
   }
@@ -355,9 +356,9 @@ export async function compareVersions(
  * Restores a note to a previous version
  * This creates a new version with the old content (non-destructive)
  */
-export async function restoreVersion(pool: Pool, noteId: string, versionNumber: number, user_email: string): Promise<RestoreVersionResult | null> {
+export async function restoreVersion(pool: Pool, noteId: string, versionNumber: number, namespaces: string[], userEmail: string | null, callerIdentity: string): Promise<RestoreVersionResult | null> {
   // Check write access
-  const canWrite = await userCanAccessNote(pool, noteId, user_email, 'read_write');
+  const canWrite = await userCanAccessNote(pool, noteId, namespaces, userEmail, 'read_write');
   if (!canWrite) {
     // Check if note exists
     const exists = await pool.query('SELECT id FROM note WHERE id = $1 AND deleted_at IS NULL', [noteId]);
@@ -379,8 +380,8 @@ export async function restoreVersion(pool: Pool, noteId: string, versionNumber: 
 
   const version = versionResult.rows[0];
 
-  // Set session user for version tracking
-  await pool.query(`SELECT set_config('app.current_user_email', $1, true)`, [user_email]);
+  // Set session user for version tracking (callerIdentity = email for users, agent ID for M2M)
+  await pool.query(`SELECT set_config('app.current_user_email', $1, true)`, [callerIdentity]);
 
   // Update the note with version content
   // This will trigger the version creation trigger automatically

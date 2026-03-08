@@ -9,6 +9,8 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
   let pool: Pool;
   const testUserEmail = 'test@example.com';
   const otherUserEmail = 'other@example.com';
+  const NS_HEADERS = { 'x-namespace': 'default' };
+  const OTHER_NS_HEADERS = { 'x-namespace': 'other' };
 
   beforeAll(async () => {
     await runMigrate('up');
@@ -31,6 +33,7 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: testUserEmail,
           title: 'My First Note',
@@ -53,6 +56,7 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: testUserEmail,
           title: 'Full Note',
@@ -82,6 +86,7 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: testUserEmail,
           title: 'Notebook Note',
@@ -94,7 +99,7 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
       expect(body.notebook_id).toBe(notebook_id);
     });
 
-    it('returns 401 when user_email is missing', async () => {
+    it('returns 401 when not authenticated', async () => {
       const res = await app.inject({
         method: 'POST',
         url: '/notes',
@@ -110,6 +115,7 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: testUserEmail,
         },
@@ -123,6 +129,7 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: testUserEmail,
           title: 'Test',
@@ -138,6 +145,7 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: testUserEmail,
           title: 'Test',
@@ -157,6 +165,7 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/notes',
+        headers: NS_HEADERS,
         payload: {
           user_email: testUserEmail,
           title: 'Test',
@@ -186,6 +195,7 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
       const res = await app.inject({
         method: 'GET',
         url: '/notes',
+        headers: NS_HEADERS,
         query: { user_email: testUserEmail },
       });
 
@@ -195,7 +205,7 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
       expect(body.total).toBe(3);
     });
 
-    it('returns 401 when user_email is missing', async () => {
+    it('returns 401 when not authenticated', async () => {
       const res = await app.inject({
         method: 'GET',
         url: '/notes',
@@ -208,6 +218,7 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
       const res = await app.inject({
         method: 'GET',
         url: '/notes',
+        headers: NS_HEADERS,
         query: { user_email: testUserEmail, visibility: 'public' },
       });
 
@@ -221,6 +232,7 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
       const res = await app.inject({
         method: 'GET',
         url: '/notes',
+        headers: NS_HEADERS,
         query: { user_email: testUserEmail, tags: 'work' },
       });
 
@@ -233,6 +245,7 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
       const res = await app.inject({
         method: 'GET',
         url: '/notes',
+        headers: NS_HEADERS,
         query: { user_email: testUserEmail, is_pinned: 'true' },
       });
 
@@ -246,6 +259,7 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
       const res = await app.inject({
         method: 'GET',
         url: '/notes',
+        headers: NS_HEADERS,
         query: { user_email: testUserEmail, limit: '2', offset: '0' },
       });
 
@@ -261,6 +275,7 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
       const res = await app.inject({
         method: 'GET',
         url: '/notes',
+        headers: NS_HEADERS,
         query: { user_email: testUserEmail, sort_by: 'title', sort_order: 'asc' },
       });
 
@@ -277,6 +292,7 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
       const res = await app.inject({
         method: 'GET',
         url: '/notes',
+        headers: NS_HEADERS,
         query: { user_email: testUserEmail, visibility: 'public' },
       });
 
@@ -296,6 +312,7 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
       const res = await app.inject({
         method: 'GET',
         url: '/notes',
+        headers: NS_HEADERS,
         query: { user_email: testUserEmail, notebook_id: notebook_id },
       });
 
@@ -316,6 +333,7 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
       const res = await app.inject({
         method: 'GET',
         url: `/notes/${noteId}`,
+        headers: NS_HEADERS,
         query: { user_email: testUserEmail },
       });
 
@@ -325,7 +343,7 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
       expect(body.title).toBe('Test Note');
     });
 
-    it('returns 401 when user_email is missing', async () => {
+    it('returns 401 when not authenticated', async () => {
       const res = await app.inject({
         method: 'GET',
         url: '/notes/some-id',
@@ -338,6 +356,7 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
       const res = await app.inject({
         method: 'GET',
         url: '/notes/00000000-0000-0000-0000-000000000000',
+        headers: NS_HEADERS,
         query: { user_email: testUserEmail },
       });
 
@@ -354,6 +373,7 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
       const res = await app.inject({
         method: 'GET',
         url: `/notes/${noteId}`,
+        headers: NS_HEADERS,
         query: { user_email: testUserEmail },
       });
 
@@ -369,6 +389,7 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
       const res = await app.inject({
         method: 'GET',
         url: `/notes/${noteId}`,
+        headers: NS_HEADERS,
         query: { user_email: testUserEmail },
       });
 
@@ -383,6 +404,7 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
       const res = await app.inject({
         method: 'GET',
         url: `/notes/${noteId}`,
+        headers: NS_HEADERS,
         query: { user_email: testUserEmail },
       });
 
@@ -408,6 +430,7 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
       const res = await app.inject({
         method: 'PUT',
         url: `/notes/${noteId}`,
+        headers: NS_HEADERS,
         payload: {
           user_email: testUserEmail,
           title: 'Updated Title',
@@ -423,7 +446,7 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
       expect(body.tags).toEqual(['tag2', 'tag3']);
     });
 
-    it('returns 401 when user_email is missing', async () => {
+    it('returns 401 when not authenticated', async () => {
       const res = await app.inject({
         method: 'PUT',
         url: `/notes/${noteId}`,
@@ -437,6 +460,7 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
       const res = await app.inject({
         method: 'PUT',
         url: '/notes/00000000-0000-0000-0000-000000000000',
+        headers: NS_HEADERS,
         payload: { user_email: testUserEmail, title: 'New' },
       });
 
@@ -453,6 +477,7 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
       const res = await app.inject({
         method: 'PUT',
         url: `/notes/${otherNoteId}`,
+        headers: NS_HEADERS,
         payload: { user_email: testUserEmail, title: 'Hacked' },
       });
 
@@ -463,6 +488,7 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
       const res = await app.inject({
         method: 'PUT',
         url: `/notes/${noteId}`,
+        headers: NS_HEADERS,
         payload: {
           user_email: testUserEmail,
           is_pinned: true,
@@ -479,6 +505,7 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
       const res = await app.inject({
         method: 'PUT',
         url: `/notes/${noteId}`,
+        headers: NS_HEADERS,
         payload: {
           user_email: testUserEmail,
           visibility: 'invalid',
@@ -497,6 +524,7 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
       const res = await app.inject({
         method: 'DELETE',
         url: `/notes/${noteId}`,
+        headers: NS_HEADERS,
         query: { user_email: testUserEmail },
       });
 
@@ -507,7 +535,7 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
       expect(check.rows[0].deleted_at).not.toBeNull();
     });
 
-    it('returns 401 when user_email is missing', async () => {
+    it('returns 401 when not authenticated', async () => {
       const res = await app.inject({
         method: 'DELETE',
         url: '/notes/some-id',
@@ -520,6 +548,7 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
       const res = await app.inject({
         method: 'DELETE',
         url: '/notes/00000000-0000-0000-0000-000000000000',
+        headers: NS_HEADERS,
         query: { user_email: testUserEmail },
       });
 
@@ -527,12 +556,13 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
     });
 
     it('returns 403 when non-owner tries to delete', async () => {
-      const noteResult = await pool.query(`INSERT INTO note (namespace, title) VALUES ($1, 'Other Note') RETURNING id::text as id`, ['other']);
+      const noteResult = await pool.query(`INSERT INTO note (namespace, title) VALUES ($1, 'Other Note') RETURNING id::text as id`, ['default']);
       const noteId = (noteResult.rows[0] as { id: string }).id;
 
       const res = await app.inject({
         method: 'DELETE',
         url: `/notes/${noteId}`,
+        headers: OTHER_NS_HEADERS,
         query: { user_email: testUserEmail },
       });
 
@@ -550,6 +580,7 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
       const res = await app.inject({
         method: 'POST',
         url: `/notes/${noteId}/restore`,
+        headers: NS_HEADERS,
         payload: { user_email: testUserEmail },
       });
 
@@ -559,7 +590,7 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
       expect(body.deleted_at).toBeNull();
     });
 
-    it('returns 401 when user_email is missing', async () => {
+    it('returns 401 when not authenticated', async () => {
       const res = await app.inject({
         method: 'POST',
         url: '/notes/some-id/restore',
@@ -573,6 +604,7 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/notes/00000000-0000-0000-0000-000000000000/restore',
+        headers: NS_HEADERS,
         payload: { user_email: testUserEmail },
       });
 
@@ -581,13 +613,14 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
 
     it('returns 403 when non-owner tries to restore', async () => {
       const noteResult = await pool.query(`INSERT INTO note (namespace, title, deleted_at) VALUES ($1, 'Other Deleted', NOW()) RETURNING id::text as id`, [
-        'other',
+        'default',
       ]);
       const noteId = (noteResult.rows[0] as { id: string }).id;
 
       const res = await app.inject({
         method: 'POST',
         url: `/notes/${noteId}/restore`,
+        headers: OTHER_NS_HEADERS,
         payload: { user_email: testUserEmail },
       });
 
@@ -601,6 +634,7 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
       const res = await app.inject({
         method: 'POST',
         url: `/notes/${noteId}/restore`,
+        headers: NS_HEADERS,
         payload: { user_email: testUserEmail },
       });
 
@@ -629,6 +663,7 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
       const res = await app.inject({
         method: 'GET',
         url: `/notes/${noteId}`,
+        headers: NS_HEADERS,
         query: { user_email: testUserEmail },
       });
 
@@ -655,6 +690,7 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
       const res = await app.inject({
         method: 'PUT',
         url: `/notes/${noteId}`,
+        headers: NS_HEADERS,
         payload: {
           user_email: testUserEmail,
           title: 'Updated by Collaborator',
@@ -684,6 +720,7 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
       const res = await app.inject({
         method: 'PUT',
         url: `/notes/${noteId}`,
+        headers: NS_HEADERS,
         payload: {
           user_email: testUserEmail,
           title: 'Attempted Edit',

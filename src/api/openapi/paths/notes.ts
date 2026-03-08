@@ -16,18 +16,6 @@ import {
   namespaceParam,
 } from '../helpers.ts';
 
-/** Reusable user_email query parameter required on most note routes. */
-function userEmailQuery(required = true) {
-  return {
-    name: 'user_email',
-    in: 'query' as const,
-    required,
-    description: 'Email of the authenticated user',
-    schema: { type: 'string' as const },
-    example: 'user@example.com',
-  };
-}
-
 export function notesPaths(): OpenApiDomainModule {
   return {
     tags: [
@@ -38,7 +26,7 @@ export function notesPaths(): OpenApiDomainModule {
     schemas: {
       Note: {
         type: 'object',
-        required: ['id', 'title', 'user_email', 'visibility', 'hide_from_agents', 'is_pinned', 'sort_order', 'version_number', 'created_at', 'updated_at'],
+        required: ['id', 'title', 'visibility', 'hide_from_agents', 'is_pinned', 'sort_order', 'version_number', 'created_at', 'updated_at'],
         properties: {
           id: {
             type: 'string',
@@ -63,11 +51,6 @@ export function notesPaths(): OpenApiDomainModule {
             nullable: true,
             description: 'ID of the notebook this note belongs to, if any',
             example: 'a1b2c3d4-5e6f-7a8b-9c0d-e1f2a3b4c5d6',
-          },
-          user_email: {
-            type: 'string',
-            description: 'Email of the note owner',
-            example: 'user@example.com',
           },
           tags: {
             type: 'array',
@@ -137,13 +120,8 @@ export function notesPaths(): OpenApiDomainModule {
 
       NoteCreateInput: {
         type: 'object',
-        required: ['user_email', 'title'],
+        required: ['title'],
         properties: {
-          user_email: {
-            type: 'string',
-            description: 'Email of the user creating the note',
-            example: 'user@example.com',
-          },
           title: {
             type: 'string',
             description: 'Title of the new note',
@@ -192,13 +170,7 @@ export function notesPaths(): OpenApiDomainModule {
 
       NoteUpdateInput: {
         type: 'object',
-        required: ['user_email'],
         properties: {
-          user_email: {
-            type: 'string',
-            description: 'Email of the user performing the update',
-            example: 'user@example.com',
-          },
           title: {
             type: 'string',
             description: 'Updated title',
@@ -405,7 +377,6 @@ export function notesPaths(): OpenApiDomainModule {
           summary: 'List notes with filters and pagination',
           tags: ['Notes'],
           parameters: [
-            userEmailQuery(),
             namespaceParam(),
             {
               name: 'notebook_id',
@@ -498,7 +469,6 @@ export function notesPaths(): OpenApiDomainModule {
           summary: 'Get a single note by ID',
           tags: ['Notes'],
           parameters: [
-            userEmailQuery(),
             {
               name: 'include_versions',
               in: 'query',
@@ -533,7 +503,6 @@ export function notesPaths(): OpenApiDomainModule {
           operationId: 'deleteNote',
           summary: 'Soft delete a note',
           tags: ['Notes'],
-          parameters: [userEmailQuery()],
           responses: {
             '204': { description: 'Note deleted' },
             ...errorResponses(400, 401, 403, 404, 500),
@@ -547,17 +516,6 @@ export function notesPaths(): OpenApiDomainModule {
           operationId: 'restoreNote',
           summary: 'Restore a soft-deleted note',
           tags: ['Notes'],
-          requestBody: jsonBody({
-            type: 'object',
-            required: ['user_email'],
-            properties: {
-              user_email: {
-                type: 'string',
-                description: 'Email of the user performing the restore',
-                example: 'user@example.com',
-              },
-            },
-          }),
           responses: {
             '200': jsonResponse('Restored note', ref('Note')),
             ...errorResponses(400, 401, 403, 404, 500),
@@ -573,7 +531,6 @@ export function notesPaths(): OpenApiDomainModule {
           summary: 'List version history for a note',
           tags: ['Notes'],
           parameters: [
-            userEmailQuery(),
             ...paginationParams(),
           ],
           responses: {
@@ -605,7 +562,6 @@ export function notesPaths(): OpenApiDomainModule {
           summary: 'Compare two versions of a note',
           tags: ['Notes'],
           parameters: [
-            userEmailQuery(),
             {
               name: 'from',
               in: 'query',
@@ -682,7 +638,6 @@ export function notesPaths(): OpenApiDomainModule {
           operationId: 'getNoteVersion',
           summary: 'Get a specific version of a note',
           tags: ['Notes'],
-          parameters: [userEmailQuery()],
           responses: {
             '200': jsonResponse('Version details', ref('NoteVersion')),
             ...errorResponses(400, 401, 404, 500),
@@ -706,7 +661,6 @@ export function notesPaths(): OpenApiDomainModule {
           operationId: 'restoreNoteVersion',
           summary: 'Restore a note to a specific version',
           tags: ['Notes'],
-          parameters: [userEmailQuery()],
           responses: {
             '200': jsonResponse('Restored note', ref('Note')),
             ...errorResponses(400, 401, 403, 404, 500),
@@ -723,13 +677,8 @@ export function notesPaths(): OpenApiDomainModule {
           tags: ['Notes'],
           requestBody: jsonBody({
             type: 'object',
-            required: ['user_email', 'email'],
+            required: ['email'],
             properties: {
-              user_email: {
-                type: 'string',
-                description: 'Email of the authenticated user (note owner)',
-                example: 'user@example.com',
-              },
               email: {
                 type: 'string',
                 description: 'Email of the user to share the note with',
@@ -765,13 +714,7 @@ export function notesPaths(): OpenApiDomainModule {
           tags: ['Notes'],
           requestBody: jsonBody({
             type: 'object',
-            required: ['user_email'],
             properties: {
-              user_email: {
-                type: 'string',
-                description: 'Email of the authenticated user (note owner)',
-                example: 'user@example.com',
-              },
               permission: {
                 type: 'string',
                 enum: ['read', 'read_write'],
@@ -810,7 +753,6 @@ export function notesPaths(): OpenApiDomainModule {
           operationId: 'listNoteShares',
           summary: 'List all shares for a note',
           tags: ['Notes'],
-          parameters: [userEmailQuery()],
           responses: {
             '200': jsonResponse('Shares list', {
               type: 'object',
@@ -839,13 +781,7 @@ export function notesPaths(): OpenApiDomainModule {
           tags: ['Notes'],
           requestBody: jsonBody({
             type: 'object',
-            required: ['user_email'],
             properties: {
-              user_email: {
-                type: 'string',
-                description: 'Email of the authenticated user (note owner)',
-                example: 'user@example.com',
-              },
               permission: {
                 type: 'string',
                 enum: ['read', 'read_write'],
@@ -870,7 +806,6 @@ export function notesPaths(): OpenApiDomainModule {
           operationId: 'revokeNoteShare',
           summary: 'Revoke a note share',
           tags: ['Notes'],
-          parameters: [userEmailQuery()],
           responses: {
             '204': { description: 'Share revoked' },
             ...errorResponses(400, 401, 403, 404, 500),
@@ -883,7 +818,6 @@ export function notesPaths(): OpenApiDomainModule {
           operationId: 'listNotesSharedWithMe',
           summary: 'List notes shared with the current user',
           tags: ['Notes'],
-          parameters: [userEmailQuery()],
           responses: {
             '200': jsonResponse('Shared notes', {
               type: 'object',
@@ -934,13 +868,7 @@ export function notesPaths(): OpenApiDomainModule {
           tags: ['Notes'],
           requestBody: jsonBody({
             type: 'object',
-            required: ['user_email'],
             properties: {
-              user_email: {
-                type: 'string',
-                description: 'Email of the user joining presence',
-                example: 'user@example.com',
-              },
               cursor_position: ref('CursorPosition'),
             },
           }),
@@ -1018,13 +946,8 @@ export function notesPaths(): OpenApiDomainModule {
           tags: ['Notes'],
           requestBody: jsonBody({
             type: 'object',
-            required: ['user_email', 'cursor_position'],
+            required: ['cursor_position'],
             properties: {
-              user_email: {
-                type: 'string',
-                description: 'Email of the user updating their cursor',
-                example: 'user@example.com',
-              },
               cursor_position: ref('CursorPosition'),
             },
           }),
@@ -1043,13 +966,8 @@ export function notesPaths(): OpenApiDomainModule {
           tags: ['Notes'],
           requestBody: jsonBody({
             type: 'object',
-            required: ['user_email', 'query'],
+            required: ['query'],
             properties: {
-              user_email: {
-                type: 'string',
-                description: 'Email of the user performing the search',
-                example: 'user@example.com',
-              },
               query: {
                 type: 'string',
                 description: 'Natural language search query',
@@ -1120,7 +1038,6 @@ export function notesPaths(): OpenApiDomainModule {
           description: 'Supports hybrid (text + semantic), text-only, or semantic-only search. Respects hide_from_agents for agent callers.',
           tags: ['Notes'],
           parameters: [
-            userEmailQuery(),
             {
               name: 'q',
               in: 'query',
@@ -1212,7 +1129,6 @@ export function notesPaths(): OpenApiDomainModule {
           summary: 'Find notes similar to a given note',
           tags: ['Notes'],
           parameters: [
-            userEmailQuery(),
             {
               name: 'limit',
               in: 'query',

@@ -38,9 +38,9 @@ export class YjsDocManager {
   }
 
   /** Join a client to a note's Yjs document room */
-  async joinRoom(clientId: string, userEmail: string, noteId: string): Promise<Y.Doc> {
-    // Authorization check
-    const canAccess = await userCanAccessNote(this.pool, noteId, userEmail, 'read_write');
+  async joinRoom(clientId: string, userEmail: string, noteId: string, namespaces: string[] = []): Promise<Y.Doc> {
+    // Authorization check: pass namespaces for namespace-scoped access, userEmail for sharing lookups
+    const canAccess = await userCanAccessNote(this.pool, noteId, namespaces, userEmail || null, 'read_write');
     if (!canAccess) {
       throw new Error('Access denied');
     }
