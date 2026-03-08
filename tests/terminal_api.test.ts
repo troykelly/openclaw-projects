@@ -371,7 +371,7 @@ Host db-server
         expect(res.statusCode).toBe(404);
       });
 
-      it('returns 502 when gRPC worker is unavailable', async () => {
+      it('returns 500 when gRPC worker is unavailable', async () => {
         const connId = '00000000-0000-0000-0000-000000000001';
         await pool.query(
           `INSERT INTO terminal_connection (id, namespace, name, host) VALUES ($1, 'default', 'test-conn', 'example.com')`,
@@ -383,8 +383,8 @@ Host db-server
           url: `/terminal/connections/${connId}/test`,
         });
 
-        // Worker is not running in tests — gRPC call fails with 502
-        expect(res.statusCode).toBe(502);
+        // Worker is not running in tests — gRPC call fails with 500
+        expect(res.statusCode).toBe(500);
       });
     });
   });
@@ -715,7 +715,7 @@ Host db-server
         expect(res.statusCode).toBe(404);
       });
 
-      it('returns 502 when worker is unavailable', async () => {
+      it('returns 500 when worker is unavailable', async () => {
         await pool.query(
           `INSERT INTO terminal_connection (id, namespace, name, host) VALUES ($1, 'default', 'test-conn', 'example.com')`,
           ['00000000-0000-0000-0000-000000000001'],
@@ -727,8 +727,8 @@ Host db-server
           payload: { connection_id: '00000000-0000-0000-0000-000000000001' },
         });
 
-        // Worker is not running in tests, should get 502
-        expect(res.statusCode).toBe(502);
+        // Worker is not running in tests, should get 500
+        expect(res.statusCode).toBe(500);
       });
     });
 
@@ -828,7 +828,7 @@ Host db-server
         expect(res.statusCode).toBe(404);
       });
 
-      it('returns 502 when gRPC worker is unavailable', async () => {
+      it('returns 500 when gRPC worker is unavailable', async () => {
         const connId = '00000000-0000-0000-0000-000000000001';
         const sessId = '00000000-0000-0000-0000-000000000010';
 
@@ -847,8 +847,8 @@ Host db-server
           url: `/terminal/sessions/${sessId}`,
         });
 
-        // Worker is not running in tests — gRPC call fails with 502
-        expect(res.statusCode).toBe(502);
+        // Worker is not running in tests — gRPC call fails with 500
+        expect(res.statusCode).toBe(500);
         const body = res.json() as { error: string };
         expect(body.error).toContain('Failed to terminate');
       });
@@ -910,7 +910,7 @@ Host db-server
   });
 
   // ================================================================
-  // Issue #1676 — Command Execution (gRPC-dependent, returns 502 without worker)
+  // Issue #1676 — Command Execution (gRPC-dependent, returns 500 without worker)
   // ================================================================
 
   describe('Command Execution (#1676)', () => {
@@ -940,7 +940,7 @@ Host db-server
         expect(body.error).toContain('command is required');
       });
 
-      it('returns 502 when worker is unavailable', async () => {
+      it('returns 500 when worker is unavailable', async () => {
         const connId = '00000000-0000-0000-0000-000000000001';
         const sessId = '00000000-0000-0000-0000-000000000010';
 
@@ -960,7 +960,7 @@ Host db-server
           payload: { command: 'ls -la', timeout_s: 5 },
         });
 
-        expect(res.statusCode).toBe(502);
+        expect(res.statusCode).toBe(500);
       });
     });
 
@@ -990,7 +990,7 @@ Host db-server
     });
 
     describe('GET /terminal/sessions/:id/capture', () => {
-      it('returns 502 when worker is unavailable', async () => {
+      it('returns 500 when worker is unavailable', async () => {
         const connId = '00000000-0000-0000-0000-000000000001';
         const sessId = '00000000-0000-0000-0000-000000000010';
 
@@ -1009,7 +1009,7 @@ Host db-server
           url: `/terminal/sessions/${sessId}/capture`,
         });
 
-        expect(res.statusCode).toBe(502);
+        expect(res.statusCode).toBe(500);
       });
     });
   });
@@ -1093,7 +1093,7 @@ Host db-server
     }
 
     describe('POST /terminal/sessions/:id/windows', () => {
-      it('returns 502 when worker is unavailable', async () => {
+      it('returns 500 when worker is unavailable', async () => {
         await createSessionFixture();
 
         const res = await app.inject({
@@ -1102,7 +1102,7 @@ Host db-server
           payload: { name: 'new-window' },
         });
 
-        expect(res.statusCode).toBe(502);
+        expect(res.statusCode).toBe(500);
       });
 
       it('returns 404 for non-existent session', async () => {
@@ -1127,7 +1127,7 @@ Host db-server
     });
 
     describe('DELETE /terminal/sessions/:sid/windows/:wid', () => {
-      it('returns 502 when worker is unavailable', async () => {
+      it('returns 500 when worker is unavailable', async () => {
         await createSessionFixture();
 
         const res = await app.inject({
@@ -1135,7 +1135,7 @@ Host db-server
           url: `/terminal/sessions/${sessId}/windows/0`,
         });
 
-        expect(res.statusCode).toBe(502);
+        expect(res.statusCode).toBe(500);
       });
 
       it('returns 400 for invalid window index', async () => {
@@ -1151,7 +1151,7 @@ Host db-server
     });
 
     describe('POST /terminal/sessions/:sid/windows/:wid/split', () => {
-      it('returns 502 when worker is unavailable', async () => {
+      it('returns 500 when worker is unavailable', async () => {
         await createSessionFixture();
 
         const res = await app.inject({
@@ -1160,7 +1160,7 @@ Host db-server
           payload: { direction: 'horizontal' },
         });
 
-        expect(res.statusCode).toBe(502);
+        expect(res.statusCode).toBe(500);
       });
 
       it('returns 400 for invalid window index', async () => {
@@ -1177,7 +1177,7 @@ Host db-server
     });
 
     describe('DELETE /terminal/sessions/:sid/panes/:pid', () => {
-      it('returns 502 when worker is unavailable', async () => {
+      it('returns 500 when worker is unavailable', async () => {
         await createSessionFixture();
         // Insert window and pane so the DB lookup succeeds (#2096)
         const winId = '00000000-0000-0000-0000-000000000020';
@@ -1198,7 +1198,7 @@ Host db-server
           url: `/terminal/sessions/${sessId}/panes/0`,
         });
 
-        expect(res.statusCode).toBe(502);
+        expect(res.statusCode).toBe(500);
       });
 
       it('returns 404 when pane does not exist (#2096)', async () => {
@@ -1378,7 +1378,7 @@ Host db-server
         expect(body.error).toContain('target_host');
       });
 
-      it('returns 502 when worker is unavailable for valid request', async () => {
+      it('returns 500 when worker is unavailable for valid request', async () => {
         await createConnectionFixture();
 
         const res = await app.inject({
@@ -1393,7 +1393,7 @@ Host db-server
           },
         });
 
-        expect(res.statusCode).toBe(502);
+        expect(res.statusCode).toBe(500);
       });
 
       it('allows dynamic tunnel without target_host/target_port', async () => {
@@ -1410,7 +1410,7 @@ Host db-server
         });
 
         // Worker unavailable but validation passed
-        expect(res.statusCode).toBe(502);
+        expect(res.statusCode).toBe(500);
       });
     });
 
@@ -1620,7 +1620,7 @@ Host db-server
         expect(res.statusCode).toBe(404);
       });
 
-      it('returns 502 without storing key when worker unavailable (#2107)', async () => {
+      it('returns 500 without storing key when worker unavailable (#2107)', async () => {
         const connId = '00000000-0000-0000-0000-000000000001';
         const sessId = '00000000-0000-0000-0000-000000000010';
 
@@ -1647,9 +1647,9 @@ Host db-server
           },
         });
 
-        // #2107: gRPC is called first — worker unavailable returns 502
+        // #2107: gRPC is called first — worker unavailable returns 500
         // and DB is NOT written (consistent state)
-        expect(res.statusCode).toBe(502);
+        expect(res.statusCode).toBe(500);
 
         // Verify the known host was NOT stored (gRPC-first ordering)
         const list = await app.inject({
@@ -2046,13 +2046,13 @@ Host db-server
 
   describe('Worker Status (#1682)', () => {
     describe('GET /terminal/worker/status', () => {
-      it('returns 502 when worker is unavailable', async () => {
+      it('returns 500 when worker is unavailable', async () => {
         const res = await app.inject({
           method: 'GET',
           url: '/terminal/worker/status',
         });
 
-        expect(res.statusCode).toBe(502);
+        expect(res.statusCode).toBe(500);
       });
     });
   });

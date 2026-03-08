@@ -270,7 +270,7 @@ export function terminalConnectionsPaths(): OpenApiDomainModule {
           },
           responses: {
             '200': jsonResponse('Test result', ref('TerminalConnectionTestResult')),
-            ...errorResponses(400, 401, 403, 404, 502),
+            ...errorResponses(400, 401, 403, 404, 500),
           },
         },
       },

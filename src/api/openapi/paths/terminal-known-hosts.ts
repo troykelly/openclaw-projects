@@ -138,7 +138,7 @@ export function terminalKnownHostsPaths(): OpenApiDomainModule {
                 session_id: { type: 'string', format: 'uuid' },
               },
             }),
-            ...errorResponses(400, 401, 403, 404, 502),
+            ...errorResponses(400, 401, 403, 404, 500),
           },
         },
       },
