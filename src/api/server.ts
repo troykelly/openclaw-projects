@@ -17996,12 +17996,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(400).send({ error: 'query is required' });
     }
 
+    const queryNamespaces = getEffectiveNamespaces(req);
     const pool = createPool();
 
     try {
       // Legacy endpoint: searchNotesSemantic still takes user_email string.
       // Pass session email for share-aware filtering; M2M callers get namespace-only access.
-      const result = await noteEmbeddings.searchNotesSemantic(pool, body.query, sessionEmail ?? '', {
+      const result = await noteEmbeddings.searchNotesSemantic(pool, body.query, sessionEmail ?? '', queryNamespaces, {
         limit: body.limit ?? 20,
         offset: body.offset ?? 0,
         notebook_id: body.notebook_id,

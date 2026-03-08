@@ -310,6 +310,7 @@ export async function getNoteEmbeddingStats(pool: Pool): Promise<EmbeddingStatsR
  * @param pool Database pool
  * @param query Search query text
  * @param user_email User making the query (for access control)
+ * @param namespaces Authorized namespaces for the requesting user
  * @param options Search options
  * @returns Search results with similarity scores
  */
@@ -317,6 +318,7 @@ export async function searchNotesSemantic(
   pool: Pool,
   query: string,
   user_email: string,
+  namespaces: string[],
   options: {
     limit?: number;
     offset?: number;
@@ -357,8 +359,8 @@ export async function searchNotesSemantic(
 
   // Build access control condition
   // Phase 4 (Epic #1418): user_email column dropped from note table.
-  // Namespace scoping is handled at the route level.
-  // Here we check public/shared access.
+  // Namespace scoping is enforced via the namespaces array passed from the route.
+  // Additionally check public/shared access.
   const accessCondition = `(
     n.visibility = 'public'
     OR EXISTS (
@@ -367,13 +369,13 @@ export async function searchNotesSemantic(
       AND ns.shared_with_email = $1
       AND (ns.expires_at IS NULL OR ns.expires_at > NOW())
     )
-    OR 1=1
+    OR n.namespace = ANY($2::text[])
   )`;
 
   // Build dynamic WHERE clause
   const conditions: string[] = ['n.deleted_at IS NULL', accessCondition];
-  const params: (string | string[] | number)[] = [user_email];
-  let paramIndex = 2;
+  const params: (string | string[] | number)[] = [user_email, namespaces];
+  let paramIndex = 3;
 
   if (notebook_id) {
     conditions.push(`n.notebook_id = $${paramIndex}`);
