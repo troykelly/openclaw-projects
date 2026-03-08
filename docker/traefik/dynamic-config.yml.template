@@ -213,6 +213,23 @@ http:
         certResolver: letsencrypt
         options: default
 
+    # Symphony WebSocket feed — bypasses ModSecurity WAF (#2261)
+    # Same pattern as api-ws-router: ModSecurity cannot proxy WebSocket upgrades.
+    # Path is exact (/symphony/feed), HeaderRegexp restricts to WS upgrades.
+    # FeedHub handles its own JWT authentication via message handshake.
+    symphony-ws-router:
+      rule: "Host(`api.${DOMAIN}`) && Path(`/symphony/feed`) && HeaderRegexp(`Upgrade`, `(?i)^websocket$`)"
+      service: api-service
+      priority: 110
+      entryPoints:
+        - websecure
+      middlewares:
+        - security-headers
+        - rate-limit
+      tls:
+        certResolver: letsencrypt
+        options: default
+
     # Per-provider webhook routers — bypass ModSecurity WAF (Issue #2167)
     # Split into individual routers with ipAllowList middleware (Issue #2170)
     # for defense-in-depth. Non-allowed IPs fall through to the WAF.

@@ -157,7 +157,7 @@ export function useSymphonyRepos(projectId: string) {
   return useQuery({
     queryKey: symphonyKeys.repos(projectId),
     queryFn: ({ signal }) =>
-      apiClient.get<{ data: SymphonyRepo[] }>(`/symphony/config/${projectId}/repos`, { signal }),
+      apiClient.get<{ data: SymphonyRepo[] }>(`/symphony/projects/${projectId}/repos`, { signal }),
     enabled: !!projectId,
   });
 }
@@ -167,7 +167,7 @@ export function useSymphonyProjectHosts(projectId: string) {
   return useQuery({
     queryKey: symphonyKeys.projectHosts(projectId),
     queryFn: ({ signal }) =>
-      apiClient.get<{ data: SymphonyHost[] }>(`/symphony/config/${projectId}/hosts`, { signal }),
+      apiClient.get<{ data: SymphonyHost[] }>(`/symphony/projects/${projectId}/hosts`, { signal }),
     enabled: !!projectId,
   });
 }

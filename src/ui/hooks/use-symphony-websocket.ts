@@ -56,7 +56,7 @@ export function useSymphonyWebSocket({
     const baseUrl = getApiBaseUrl();
     const wsProtocol = baseUrl.startsWith('https') ? 'wss' : 'ws';
     const wsBase = baseUrl ? baseUrl.replace(/^https?/, wsProtocol) : `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}`;
-    const url = `${wsBase}/api/symphony/feed`;
+    const url = `${wsBase}/symphony/feed`;
 
     setStatus('connecting');
 

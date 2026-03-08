@@ -40,7 +40,7 @@ export function useAddRepo(projectId: string) {
 
   return useMutation({
     mutationFn: (body: { org: string; repo: string; default_branch?: string; sync_strategy?: string }) =>
-      apiClient.post(`/symphony/config/${projectId}/repos`, body),
+      apiClient.post(`/symphony/projects/${projectId}/repos`, body),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: symphonyKeys.repos(projectId) });
     },
@@ -53,7 +53,7 @@ export function useRemoveRepo(projectId: string) {
 
   return useMutation({
     mutationFn: (repoId: string) =>
-      apiClient.delete(`/symphony/config/${projectId}/repos/${repoId}`),
+      apiClient.delete(`/symphony/projects/${projectId}/repos/${repoId}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: symphonyKeys.repos(projectId) });
     },
@@ -66,7 +66,7 @@ export function useAddHost(projectId: string) {
 
   return useMutation({
     mutationFn: (body: { connection_id: string; priority?: number; max_concurrent_sessions?: number }) =>
-      apiClient.post(`/symphony/config/${projectId}/hosts`, body),
+      apiClient.post(`/symphony/projects/${projectId}/hosts`, body),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: symphonyKeys.projectHosts(projectId) });
     },
@@ -79,7 +79,7 @@ export function useDrainHost(projectId: string) {
 
   return useMutation({
     mutationFn: (hostId: string) =>
-      apiClient.post(`/symphony/config/${projectId}/hosts/${hostId}/drain`, {}),
+      apiClient.post(`/symphony/projects/${projectId}/hosts/${hostId}/drain`, {}),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: symphonyKeys.projectHosts(projectId) });
       queryClient.invalidateQueries({ queryKey: symphonyKeys.hosts() });
@@ -93,7 +93,7 @@ export function useActivateHost(projectId: string) {
 
   return useMutation({
     mutationFn: (hostId: string) =>
-      apiClient.post(`/symphony/config/${projectId}/hosts/${hostId}/activate`, {}),
+      apiClient.post(`/symphony/projects/${projectId}/hosts/${hostId}/activate`, {}),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: symphonyKeys.projectHosts(projectId) });
       queryClient.invalidateQueries({ queryKey: symphonyKeys.hosts() });
