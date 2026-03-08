@@ -129,15 +129,27 @@ function buildCalendarActions(permission_level: string): string[] {
   return actions;
 }
 
+/** Error result from a backend API request. */
+interface BackendError {
+  ok: false;
+  error: string;
+  status?: number;
+  retry_after?: number;
+}
+
 /**
  * Make an HTTP request to the backend API.
  * Handles JSON parsing, error responses, and network failures.
+ *
+ * For 429 responses the descriptive `message` field is preferred over the
+ * terse `error` field, and `retry_after` is extracted so callers can forward
+ * it to the agent (#2279).
  */
 async function backendFetch(
   baseUrl: string,
   path: string,
   apiKey?: string,
-): Promise<{ ok: true; data: unknown } | { ok: false; error: string; status?: number }> {
+): Promise<{ ok: true; data: unknown } | BackendError> {
   const url = `${baseUrl.replace(/\/+$/, '')}${path}`;
   const headers: Record<string, string> = {
     Accept: 'application/json',
@@ -151,11 +163,18 @@ async function backendFetch(
     const data = await response.json();
 
     if (!response.ok) {
-      const errorMsg = (data as Record<string, unknown>)?.error;
+      const body = data as Record<string, unknown>;
+      // Prefer `message` ("Rate limit exceeded. Try again in 871 seconds.")
+      // over `error` ("Too Many Requests") for agent-facing errors.
+      const message = typeof body.message === 'string' ? body.message : undefined;
+      const errorMsg = typeof body.error === 'string' ? body.error : undefined;
+      const retry_after = typeof body.retry_after === 'number' ? body.retry_after : undefined;
+
       return {
         ok: false,
-        error: typeof errorMsg === 'string' ? errorMsg : `Backend returned ${response.status}`,
+        error: message || errorMsg || `Backend returned ${response.status}`,
         status: response.status,
+        retry_after,
       };
     }
 
@@ -169,6 +188,17 @@ async function backendFetch(
 }
 
 type RespondFn = (ok: boolean, payload?: unknown) => void;
+
+/**
+ * Forward a backend error through `respond()`, preserving HTTP status and
+ * retry_after so agents can distinguish rate-limits from server errors (#2279).
+ */
+function respondWithBackendError(respond: RespondFn, result: BackendError): void {
+  const payload: Record<string, unknown> = { error: result.error };
+  if (result.status !== undefined) payload.status = result.status;
+  if (result.retry_after !== undefined) payload.retry_after = result.retry_after;
+  respond(false, payload);
+}
 
 /** Validate that a string param is present; respond with error if not. */
 function requireParam(params: Record<string, unknown>, name: string, respond: RespondFn): string | null {
@@ -189,7 +219,7 @@ async function resolveConnection(baseUrl: string, apiKey: string | undefined, co
   // For large connection counts a dedicated endpoint would be better.
   const result = await backendFetch(baseUrl, '/oauth/connections');
   if (!result.ok) {
-    respond(false, { error: result.error });
+    respondWithBackendError(respond, result);
     return null;
   }
 
@@ -256,7 +286,7 @@ export function createOAuthGatewayPlugin() {
 
         const result = await backendFetch(backendUrl, path, apiKey);
         if (!result.ok) {
-          respond(false, { error: result.error });
+          respondWithBackendError(respond, result);
           return;
         }
 
@@ -301,7 +331,7 @@ export function createOAuthGatewayPlugin() {
 
         const result = await backendFetch(backendUrl, `/contacts?${qs.toString()}`, apiKey);
         if (!result.ok) {
-          respond(false, { error: result.error });
+          respondWithBackendError(respond, result);
           return;
         }
 
@@ -340,7 +370,7 @@ export function createOAuthGatewayPlugin() {
 
         const result = await backendFetch(backendUrl, `/email/messages?${qs.toString()}`, apiKey);
         if (!result.ok) {
-          respond(false, { error: result.error });
+          respondWithBackendError(respond, result);
           return;
         }
 
@@ -378,7 +408,7 @@ export function createOAuthGatewayPlugin() {
         const qs = new URLSearchParams({ connection_id });
         const result = await backendFetch(backendUrl, `/email/messages/${encodeURIComponent(message_id)}?${qs.toString()}`, apiKey);
         if (!result.ok) {
-          respond(false, { error: result.error });
+          respondWithBackendError(respond, result);
           return;
         }
 
@@ -412,7 +442,7 @@ export function createOAuthGatewayPlugin() {
 
         const result = await backendFetch(backendUrl, `/drive/files?${qs.toString()}`, apiKey);
         if (!result.ok) {
-          respond(false, { error: result.error });
+          respondWithBackendError(respond, result);
           return;
         }
 
@@ -452,7 +482,7 @@ export function createOAuthGatewayPlugin() {
 
         const result = await backendFetch(backendUrl, `/drive/files/search?${qs.toString()}`, apiKey);
         if (!result.ok) {
-          respond(false, { error: result.error });
+          respondWithBackendError(respond, result);
           return;
         }
 
@@ -490,7 +520,7 @@ export function createOAuthGatewayPlugin() {
         const qs = new URLSearchParams({ connection_id });
         const result = await backendFetch(backendUrl, `/drive/files/${encodeURIComponent(fileId)}?${qs.toString()}`, apiKey);
         if (!result.ok) {
-          respond(false, { error: result.error });
+          respondWithBackendError(respond, result);
           return;
         }
 
@@ -525,7 +555,7 @@ export function createOAuthGatewayPlugin() {
 
         const result = await backendFetch(backendUrl, `/calendar/events/live?${qs.toString()}`, apiKey);
         if (!result.ok) {
-          respond(false, { error: result.error });
+          respondWithBackendError(respond, result);
           return;
         }
 

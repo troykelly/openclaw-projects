@@ -157,6 +157,33 @@ describe('OAuth Gateway Plugin', () => {
 
       expect(respond).toHaveBeenCalledWith(false, expect.objectContaining({
         error: expect.stringContaining('Internal error'),
+        status: 500,
+      }));
+    });
+
+    it('forwards 429 rate-limit with retry_after and descriptive message (#2279)', async () => {
+      const { methods } = await setupPlugin({ backendUrl: 'http://localhost:3001' });
+      const handler = methods.get('oauth.accounts.list')!;
+
+      fetchSpy.mockResolvedValueOnce({
+        ok: false,
+        status: 429,
+        json: async () => ({
+          error: 'Too Many Requests',
+          message: 'Rate limit exceeded. Try again in 871 seconds.',
+          status_code: 429,
+          retry_after: 871,
+        }),
+      });
+
+      const respond = vi.fn();
+      await handler({ params: {}, respond });
+
+      // Should prefer `message` over `error` for the error string
+      expect(respond).toHaveBeenCalledWith(false, expect.objectContaining({
+        error: 'Rate limit exceeded. Try again in 871 seconds.',
+        status: 429,
+        retry_after: 871,
       }));
     });
 
