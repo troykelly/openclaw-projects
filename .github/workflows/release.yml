@@ -711,7 +711,8 @@ jobs:
 
           for f in docker-compose.yml docker-compose.traefik.yml docker-compose.quickstart.yml docker-compose.full.yml; do
             # Only replace project images (ghcr.io/troykelly/openclaw-projects-*), not third-party
-            sed "s|ghcr.io/troykelly/openclaw-projects-\([^:]*\):latest|ghcr.io/troykelly/openclaw-projects-\1:${RELEASE_VERSION}|g" \
+            # Main branch compose files use :edge; replace with the release version
+            sed "s|ghcr.io/troykelly/openclaw-projects-\([^:]*\):edge|ghcr.io/troykelly/openclaw-projects-\1:${RELEASE_VERSION}|g" \
               "${f}" > "release/${f}"
             echo "Generated release/${f}"
           done
