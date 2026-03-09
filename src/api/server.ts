@@ -1,6 +1,7 @@
 import { createHash, createHmac, randomBytes } from 'node:crypto';
 import { validateHierarchy, isValidWorkItemKind } from './hierarchy-validation.ts';
 import type { WorkItemKind } from './hierarchy-validation.ts';
+import { emitTodoCreated, emitTodoUpdated, emitTodoDeleted, emitTodoReordered } from './realtime/emitter.ts';
 import { hashWebhookToken, verifyWebhookToken, generateWebhookSalt } from './webhooks/token-hash.ts';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -13352,6 +13353,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     );
 
     await pool.end();
+
+    // Emit real-time event (#2306)
+    const created = result.rows[0] as { id: string; text: string };
+    emitTodoCreated({ id: created.id, work_item_id: params.id, text: created.text }).catch(() => {});
+
     return reply.code(201).send(result.rows[0]);
   });
 
@@ -13474,6 +13480,24 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       );
 
       await pool.end();
+
+      // Emit real-time event (#2306)
+      const updated = result.rows[0] as { id: string; text: string; completed: boolean };
+      const changes: string[] = [];
+      if (hasText) changes.push('text');
+      if (hasCompleted) changes.push('completed');
+      if (hasSortOrder) changes.push('sort_order');
+      if (hasNotBefore) changes.push('not_before');
+      if (hasNotAfter) changes.push('not_after');
+      if (hasPriority) changes.push('priority');
+      emitTodoUpdated({
+        id: updated.id,
+        work_item_id: params.id,
+        text: updated.text,
+        completed: updated.completed,
+        changes,
+      }).catch(() => {});
+
       return reply.send(result.rows[0]);
     } catch (err) {
       await pool.end();
@@ -13528,6 +13552,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     await pool.end();
+
+    // Emit real-time event (#2306)
+    emitTodoReordered({ id: params.id, work_item_id: params.id }).catch(() => {});
+
     return reply.send({ ok: true });
   });
 
@@ -13556,6 +13584,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     if (result.rows.length === 0) {
       return reply.code(404).send({ error: 'not found' });
     }
+
+    // Emit real-time event (#2306)
+    emitTodoDeleted({ id: params.todo_id, work_item_id: params.id }).catch(() => {});
 
     return reply.code(204).send();
   });
