@@ -217,7 +217,12 @@ describe('GatewayConnectionService', () => {
       });
       expect(connectReq).toBeDefined();
       const parsed = JSON.parse(connectReq!);
-      expect(parsed.params?.token).toBe('fallback-token');
+      expect(parsed.params?.auth?.token).toBe('fallback-token');
+      expect(parsed.params?.minProtocol).toBe(3);
+      expect(parsed.params?.maxProtocol).toBe(3);
+      expect(parsed.params?.client?.id).toBe('openclaw-projects-api');
+      expect(parsed.params?.client?.platform).toBe('node');
+      expect(parsed.params?.client?.mode).toBe('node');
 
       // Complete the handshake
       ws._emitMessage(JSON.stringify({
