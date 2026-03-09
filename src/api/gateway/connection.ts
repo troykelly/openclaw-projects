@@ -259,7 +259,7 @@ export class GatewayConnectionService {
     }
 
     // Resolve token
-    const token = this.env.OPENCLAW_GATEWAY_TOKEN ?? this.env.OPENCLAW_HOOK_TOKEN;
+    const token = this.env.OPENCLAW_GATEWAY_TOKEN || this.env.OPENCLAW_HOOK_TOKEN;
     if (!token) {
       throw new Error(
         'Gateway WS enabled but no authentication token configured. ' +
