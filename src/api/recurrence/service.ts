@@ -3,7 +3,9 @@
  * Part of Issue #217.
  */
 
-import { RRule } from 'rrule';
+import rruleModule from 'rrule';
+const { RRule } = rruleModule;
+type RRuleInstance = InstanceType<typeof RRule>;
 import type { Pool } from 'pg';
 import type { RecurrenceInfo, RecurrenceInstance } from './types.ts';
 import { parseNaturalLanguage, describeRrule } from './parser.ts';
@@ -11,7 +13,7 @@ import { parseNaturalLanguage, describeRrule } from './parser.ts';
 /**
  * Parse an RRULE string and return the RRule object
  */
-export function parseRRule(ruleString: string): RRule {
+export function parseRRule(ruleString: string): RRuleInstance {
   // Remove RRULE: prefix if present
   const cleanRule = ruleString.replace(/^RRULE:/i, '');
   return RRule.fromString(`RRULE:${cleanRule}`);
@@ -26,7 +28,7 @@ export function getNextOccurrences(ruleString: string, count: number = 10, after
   if (!nextDate) return [];
 
   const endDate = rule.options.until || new Date(after.getTime() + 365 * 24 * 60 * 60 * 1000);
-  return rule.between(after, endDate, true, (_, len) => len < count);
+  return rule.between(after, endDate, true, (_: Date, len: number) => len < count);
 }
 
 /**

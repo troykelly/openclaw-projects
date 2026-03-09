@@ -1250,6 +1250,16 @@ docker compose run --rm migrate -path /migrations -database "postgresql://..." u
 docker compose run --rm migrate -path /migrations -database "postgresql://..." down 1
 ```
 
+### Traefik Configuration Updates
+
+Traefik renders its dynamic config from a bind-mounted template (`dynamic-config.yml.template`) at container startup. If an upgrade changes this template (e.g. adding new routes), **Traefik must be restarted** to pick up the changes:
+
+```bash
+docker restart openclaw-traefik
+```
+
+This causes a brief interruption (seconds). Traefik re-reads the template on restart and re-renders the active config. Without this, new routes (e.g. WebSocket bypass routes) won't take effect even though the template file on disk is updated.
+
 ### Zero-Downtime Updates
 
 For production with minimal downtime:
@@ -1261,6 +1271,9 @@ docker compose -f docker-compose.traefik.yml pull
 # Update one service at a time
 docker compose -f docker-compose.traefik.yml up -d --no-deps api
 docker compose -f docker-compose.traefik.yml up -d --no-deps app
+
+# Restart Traefik if the dynamic config template changed
+docker restart openclaw-traefik
 
 # Migrations run automatically if needed
 ```

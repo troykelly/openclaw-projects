@@ -5553,9 +5553,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(404).send({ error: 'not found' });
     }
 
-    const { getRecurrenceInfo, describeRrule } = await import('./recurrence/index.ts');
-
     try {
+      const { getRecurrenceInfo, describeRrule } = await import('./recurrence/index.ts');
       const info = await getRecurrenceInfo(pool, params.id);
       if (!info) {
         await pool.end();

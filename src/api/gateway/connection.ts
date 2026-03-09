@@ -12,9 +12,28 @@
  */
 
 import { randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import WebSocket from 'ws';
 import { validateSsrf } from '../webhooks/ssrf.ts';
 import { gwConnectAttempts, gwReconnects, gwAuthFailures, gwEventsReceived, gwUnknownFrames } from './metrics.ts';
+
+// ── Protocol constants ───────────────────────────────────────────────────
+
+/** Current OpenClaw gateway protocol version. */
+const GATEWAY_PROTOCOL_VERSION = 3;
+
+/** Package version for the connect handshake client metadata. */
+const PKG_VERSION: string = (() => {
+  try {
+    const __dirname = dirname(fileURLToPath(import.meta.url));
+    const pkg = JSON.parse(readFileSync(resolve(__dirname, '../../../package.json'), 'utf8'));
+    return pkg.version ?? '0.0.0';
+  } catch {
+    return '0.0.0';
+  }
+})();
 
 // ── Types ────────────────────────────────────────────────────────────────
 
@@ -259,7 +278,7 @@ export class GatewayConnectionService {
     }
 
     // Resolve token
-    const token = this.env.OPENCLAW_GATEWAY_TOKEN ?? this.env.OPENCLAW_HOOK_TOKEN;
+    const token = this.env.OPENCLAW_GATEWAY_TOKEN || this.env.OPENCLAW_HOOK_TOKEN;
     if (!token) {
       throw new Error(
         'Gateway WS enabled but no authentication token configured. ' +
@@ -457,9 +476,15 @@ export class GatewayConnectionService {
       id,
       method: 'connect',
       params: {
-        token: this.token,
-        challenge: challengePayload,
-        client: { type: 'openclaw-projects-api' },
+        minProtocol: GATEWAY_PROTOCOL_VERSION,
+        maxProtocol: GATEWAY_PROTOCOL_VERSION,
+        client: {
+          id: 'openclaw-projects-api',
+          version: PKG_VERSION,
+          platform: 'node',
+          mode: 'node',
+        },
+        auth: { token: this.token },
       },
     };
 
