@@ -479,10 +479,10 @@ export class GatewayConnectionService {
         minProtocol: GATEWAY_PROTOCOL_VERSION,
         maxProtocol: GATEWAY_PROTOCOL_VERSION,
         client: {
-          id: 'openclaw-projects-api',
+          id: 'node-host',
           version: PKG_VERSION,
           platform: 'node',
-          mode: 'node',
+          mode: 'backend',
         },
         auth: { token: this.token },
       },

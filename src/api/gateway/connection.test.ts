@@ -220,9 +220,9 @@ describe('GatewayConnectionService', () => {
       expect(parsed.params?.auth?.token).toBe('fallback-token');
       expect(parsed.params?.minProtocol).toBe(3);
       expect(parsed.params?.maxProtocol).toBe(3);
-      expect(parsed.params?.client?.id).toBe('openclaw-projects-api');
+      expect(parsed.params?.client?.id).toBe('node-host');
       expect(parsed.params?.client?.platform).toBe('node');
-      expect(parsed.params?.client?.mode).toBe('node');
+      expect(parsed.params?.client?.mode).toBe('backend');
 
       // Complete the handshake
       ws._emitMessage(JSON.stringify({
