@@ -3571,6 +3571,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       parent_work_item_id?: string;
       parent_id?: string;
       status?: string;
+      scope?: string;
       limit?: string;
     };
     const pool = createPool();
@@ -3584,11 +3585,17 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       conditions.push('deleted_at IS NULL');
     }
 
+    // Issue #2288: scope=triage — unparented issues only
+    if (query.scope === 'triage') {
+      conditions.push('parent_work_item_id IS NULL');
+      conditions.push("work_item_kind = 'issue'");
+    }
+
     // Filter by kind (accepts both `kind` and legacy `item_type`) (#1901)
     const kindFilter = query.kind || query.item_type;
     if (kindFilter) {
       params.push(kindFilter);
-      conditions.push(`kind = $${params.length}`);
+      conditions.push(`work_item_kind::text = $${params.length}`);
     }
 
     // Filter by parent (accepts both `parent_id` and legacy `parent_work_item_id`) (#1882)
@@ -3599,7 +3606,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         return reply.code(400).send({ error: 'Invalid parent_id format' });
       }
       params.push(parentFilter);
-      conditions.push(`parent_id = $${params.length}`);
+      conditions.push(`parent_work_item_id = $${params.length}`);
     }
 
     // Filter by status (#1900)
@@ -3624,8 +3631,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
               status,
               priority::text as priority,
               task_type::text as task_type,
-              kind,
-              parent_id::text as parent_id,
+              work_item_kind::text as kind,
+              parent_work_item_id::text as parent_id,
               created_at,
               updated_at,
               estimate_minutes,
@@ -3788,6 +3795,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params: (string | string[])[] = [];
     let paramIndex = 1;
 
+    // Issue #2287: Namespace scoping — prevent cross-tenant data exposure
+    const nsCtx = req.namespaceContext;
+    const queryNamespaces = nsCtx?.queryNamespaces ?? ['default'];
+    params.push(queryNamespaces);
+    conditions.push(`namespace = ANY($${paramIndex}::text[])`);
+    paramIndex++;
+
     if (statuses && statuses.length > 0) {
       conditions.push(`status = ANY($${paramIndex})`);
       params.push(statuses);
@@ -3815,14 +3829,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
               status,
               priority::text as priority,
               task_type::text as task_type,
-              work_item_kind as kind,
+              work_item_kind::text as kind,
               parent_work_item_id::text as parent_id,
               not_before,
               not_after,
               estimate_minutes,
               actual_minutes,
               created_at,
-              updated_at
+              updated_at,
+              namespace
          FROM work_item
         ${whereClause}
         ORDER BY priority, created_at
@@ -4264,8 +4279,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
-  app.get('/inbox', async (_req, reply) => {
+  app.get('/inbox', async (req, reply) => {
     const pool = createPool();
+
+    // Issue #2287: Namespace scoping — prevent cross-tenant data exposure
+    const nsCtx = req.namespaceContext;
+    const queryNamespaces = nsCtx?.queryNamespaces ?? ['default'];
+
     const result = await pool.query(
       `SELECT wi.id::text as work_item_id,
               wi.title,
@@ -4278,8 +4298,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          JOIN work_item wi ON wi.id = wic.work_item_id
          JOIN external_thread et ON et.id = wic.thread_id
          LEFT JOIN external_message em ON em.id = wic.message_id
+        WHERE wi.namespace = ANY($1::text[])
         ORDER BY wi.created_at DESC
         LIMIT 50`,
+      [queryNamespaces],
     );
     await pool.end();
     return reply.send({ items: result.rows });
@@ -4315,9 +4337,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     // Accept 'type', 'kind', or 'item_type' parameter (type takes precedence, then kind, then item_type)
     const kind = body.type ?? body.kind ?? body.item_type ?? 'issue';
-    const allowedKinds = new Set(['project', 'initiative', 'epic', 'issue', 'task']);
+    const allowedKinds = new Set(['project', 'initiative', 'epic', 'issue', 'task', 'list']);
     if (!allowedKinds.has(kind)) {
-      return reply.code(400).send({ error: 'kind/type/item_type must be one of project|initiative|epic|issue|task' });
+      return reply.code(400).send({ error: 'kind/type/item_type must be one of project|initiative|epic|issue|task|list' });
     }
 
     // Validate estimate/actual constraints before hitting DB
@@ -4347,16 +4369,28 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         return reply.code(400).send({ error: 'parent_id must be a UUID' });
       }
 
-      const parent = await pool.query('SELECT kind FROM work_item WHERE id = $1', [parent_id]);
+      const parent = await pool.query('SELECT work_item_kind::text as kind, namespace FROM work_item WHERE id = $1', [parent_id]);
       if (parent.rows.length === 0) {
         await pool.end();
         return reply.code(400).send({ error: 'parent not found' });
       }
-      const parentKind = (parent.rows[0] as { kind: string }).kind;
+      const parentRow = parent.rows[0] as { kind: string; namespace: string };
+      const parentKind = parentRow.kind;
+
+      // Issue #2286: Cross-namespace parent linking prevention
+      const childNamespace = getStoreNamespace(req);
+      if (parentRow.namespace !== childNamespace) {
+        await pool.end();
+        return reply.code(400).send({ error: 'parent must be in the same namespace' });
+      }
 
       if (kind === 'project') {
         await pool.end();
         return reply.code(400).send({ error: 'project cannot have parent' });
+      }
+      if (kind === 'list') {
+        await pool.end();
+        return reply.code(400).send({ error: 'list cannot have parent' });
       }
       if (kind === 'initiative' && parentKind !== 'project') {
         await pool.end();
@@ -4370,7 +4404,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         await pool.end();
         return reply.code(400).send({ error: 'issue parent must be epic' });
       }
-      // tasks can have any parent
+      if (parentKind === 'list') {
+        await pool.end();
+        return reply.code(400).send({ error: 'cannot create child under a list' });
+      }
+      // tasks can have any parent (except list, handled above)
     } else {
       if (kind === 'epic') {
         await pool.end();
@@ -4379,7 +4417,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       if (kind === 'issue') {
         // issues may be top-level for backwards compatibility
       }
-      // tasks may be top-level
+      // tasks, lists may be top-level
     }
 
     // Handle recurrence if specified (Issue #217)
@@ -4487,9 +4525,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     const kind = body.kind;
-    const allowedKinds = new Set(['project', 'initiative', 'epic', 'issue']);
+    const allowedKinds = new Set(['project', 'initiative', 'epic', 'issue', 'task', 'list']);
     if (!allowedKinds.has(kind)) {
-      return reply.code(400).send({ error: 'kind must be one of project|initiative|epic|issue' });
+      return reply.code(400).send({ error: 'kind must be one of project|initiative|epic|issue|task|list' });
     }
 
     const parent_id = body.parent_id ?? null;
@@ -4507,16 +4545,31 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         return reply.code(400).send({ error: 'parent_id must be a UUID' });
       }
 
-      const parent = await pool.query('SELECT kind FROM work_item WHERE id = $1', [parent_id]);
+      const parent = await pool.query('SELECT work_item_kind::text as kind, namespace FROM work_item WHERE id = $1', [parent_id]);
       if (parent.rows.length === 0) {
         await pool.end();
         return reply.code(400).send({ error: 'parent not found' });
       }
-      const parentKind = (parent.rows[0] as { kind: string }).kind;
+      const parentRow = parent.rows[0] as { kind: string; namespace: string };
+      const parentKind = parentRow.kind;
+
+      // Issue #2286: Cross-namespace parent linking prevention
+      const itemNs = await pool.query('SELECT namespace FROM work_item WHERE id = $1', [params.id]);
+      if (itemNs.rows.length > 0) {
+        const itemNamespace = (itemNs.rows[0] as { namespace: string }).namespace;
+        if (parentRow.namespace !== itemNamespace) {
+          await pool.end();
+          return reply.code(400).send({ error: 'parent must be in the same namespace' });
+        }
+      }
 
       if (kind === 'project') {
         await pool.end();
         return reply.code(400).send({ error: 'project cannot have parent' });
+      }
+      if (kind === 'list') {
+        await pool.end();
+        return reply.code(400).send({ error: 'list cannot have parent' });
       }
       if (kind === 'initiative' && parentKind !== 'project') {
         await pool.end();
@@ -4529,6 +4582,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       if (kind === 'issue' && parentKind !== 'epic') {
         await pool.end();
         return reply.code(400).send({ error: 'issue parent must be epic' });
+      }
+      if (parentKind === 'list') {
+        await pool.end();
+        return reply.code(400).send({ error: 'cannot create child under a list' });
       }
     } else {
       if (kind === 'project') {
@@ -12779,7 +12836,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
       // Get the work item being reparented
       const itemResult = await client.query(
-        `SELECT id, work_item_kind as kind, parent_work_item_id, sort_order
+        `SELECT id, work_item_kind::text as kind, parent_work_item_id, sort_order, namespace
          FROM work_item WHERE id = $1 FOR UPDATE`,
         [params.id],
       );
@@ -12795,6 +12852,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         kind: string;
         parent_work_item_id: string | null;
         sort_order: number;
+        namespace: string;
       };
 
       // Check for self-reparenting
@@ -12808,14 +12866,31 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       // Get new parent info if not null
       let newParentKind: string | null = null;
       if (newParentId) {
-        const parentResult = await client.query('SELECT kind FROM work_item WHERE id = $1', [newParentId]);
+        const parentResult = await client.query('SELECT work_item_kind::text as kind, namespace FROM work_item WHERE id = $1', [newParentId]);
         if (parentResult.rows.length === 0) {
           await client.query('ROLLBACK');
           client.release();
           await pool.end();
           return reply.code(400).send({ error: 'parent not found' });
         }
-        newParentKind = (parentResult.rows[0] as { kind: string }).kind;
+        const parentRow = parentResult.rows[0] as { kind: string; namespace: string };
+        newParentKind = parentRow.kind;
+
+        // Issue #2286: Cross-namespace parent linking prevention
+        if (parentRow.namespace !== item.namespace) {
+          await client.query('ROLLBACK');
+          client.release();
+          await pool.end();
+          return reply.code(400).send({ error: 'parent must be in the same namespace' });
+        }
+
+        // Cannot reparent under a list
+        if (newParentKind === 'list') {
+          await client.query('ROLLBACK');
+          client.release();
+          await pool.end();
+          return reply.code(400).send({ error: 'cannot reparent under a list' });
+        }
       }
 
       // Validate hierarchy constraints
