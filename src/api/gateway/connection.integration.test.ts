@@ -67,7 +67,7 @@ describe('GatewayConnectionService integration', () => {
       ws.on('message', (raw) => {
         const msg = JSON.parse(raw.toString());
         if (msg.type === 'req' && msg.method === 'connect') {
-          if (msg.params?.token === token) {
+          if (msg.params?.auth?.token === token) {
             ws.send(JSON.stringify({
               type: 'res',
               id: msg.id,
@@ -93,7 +93,7 @@ describe('GatewayConnectionService integration', () => {
     wss.on('connection', (ws) => {
       ws.on('message', (raw) => {
         const msg = JSON.parse(raw.toString());
-        if (msg.type === 'req' && msg.method === 'connect' && msg.params?.token === 'my-token') {
+        if (msg.type === 'req' && msg.method === 'connect' && msg.params?.auth?.token === 'my-token') {
           setTimeout(() => {
             ws.send(JSON.stringify({
               type: 'event',
