@@ -229,3 +229,56 @@ Todo mutations emit events scoped to the parent work item:
 
 Subscribe to these events via the SSE/WebSocket real-time connection to
 receive live updates when viewing a list.
+
+---
+
+## Common Error Scenarios and Recovery
+
+### Hierarchy constraint violation (400)
+
+```
+POST /work-items
+{ "kind": "epic", "title": "My Epic" }
+→ 400 { "error": "epic requires a parent of kind initiative" }
+```
+
+**Recovery:** Create the parent first (initiative under a project), then set `parent_id`.
+
+### Cross-namespace reparent (403)
+
+```
+PATCH /work-items/{id}/reparent
+{ "new_parent_id": "{id_in_different_namespace}" }
+→ 403 { "error": "Cannot reparent across namespaces" }
+```
+
+**Recovery:** Both parent and child must belong to the same namespace.
+
+### List cannot have children (400)
+
+```
+POST /work-items
+{ "kind": "issue", "parent_id": "{list_id}" }
+→ 400 { "error": "list cannot have children" }
+```
+
+**Recovery:** Use the todo endpoint instead: `POST /work-items/{list_id}/todos`.
+
+### Todo not found after deletion (404)
+
+```
+PATCH /work-items/{id}/todos/{deleted_todo_id}
+→ 404 { "error": "todo not found" }
+```
+
+**Recovery:** Re-fetch the todo list with `GET /work-items/{id}/todos` to get current IDs.
+
+### Empty title (400)
+
+```
+POST /work-items
+{ "kind": "issue", "title": "" }
+→ 400 { "error": "title is required" }
+```
+
+**Recovery:** Ensure `title` is a non-empty string.
