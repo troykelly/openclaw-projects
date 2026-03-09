@@ -11,6 +11,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { getPluginPath } from './setup.js';
 import path from 'node:path';
+import { RawPluginConfigSchema } from '../../src/config.js';
 
 describe('Gateway Manifest Validation', () => {
   it('should have valid openclaw.plugin.json manifest', () => {
@@ -60,6 +61,30 @@ describe('Gateway Manifest Validation', () => {
     expect(props.timeout).toBeDefined();
     expect(props.maxRetries).toBeDefined();
     expect(props.debug).toBeDefined();
+  });
+
+  it('should have namespace-related config fields in configSchema (#2304)', () => {
+    const manifestPath = path.join(getPluginPath(), 'openclaw.plugin.json');
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8'));
+    const props = manifest.configSchema.properties;
+
+    // Fields added for Issue #2260 / #1537 / #1644
+    expect(props.agentId).toBeDefined();
+    expect(props.agentNamespaces).toBeDefined();
+    expect(props.namespaceRefreshIntervalMs).toBeDefined();
+  });
+
+  it('should have configSchema properties matching RawPluginConfigSchema keys (#2304)', () => {
+    const manifestPath = path.join(getPluginPath(), 'openclaw.plugin.json');
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8'));
+    const manifestKeys = new Set(Object.keys(manifest.configSchema.properties));
+
+    // RawPluginConfigSchema is a ZodObject with .strip() — its shape contains all valid keys
+    // Every Zod key must be present in the manifest to prevent gateway rejection
+    const zodKeys = Object.keys(RawPluginConfigSchema.shape);
+
+    const missingInManifest = zodKeys.filter((k) => !manifestKeys.has(k));
+    expect(missingInManifest).toEqual([]);
   });
 
   it('should have skills directory referenced in manifest', () => {
