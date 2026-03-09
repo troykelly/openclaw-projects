@@ -20,7 +20,8 @@
  * Epic #1667 — TMux Session Management.
  */
 
-import { generateKeyPairSync, randomBytes, randomUUID, createHash } from 'node:crypto';
+import { randomBytes, randomUUID, createHash } from 'node:crypto';
+import { generateSSHKeyPair, generateSSHKeyPairFallback } from '../../tmux-worker/ssh/keygen.ts';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { Pool } from 'pg';
 import type { WebSocket } from 'ws';
@@ -977,26 +978,26 @@ export async function terminalRoutesPlugin(
     }
 
     const keyType = body.type ?? 'ed25519';
+    if (keyType !== 'ed25519' && keyType !== 'rsa') {
+      return reply.code(400).send({ error: 'type must be "ed25519" or "rsa"' });
+    }
+
     let publicKey: string;
     let privateKey: string;
-
-    if (keyType === 'ed25519') {
-      const pair = generateKeyPairSync('ed25519', {
-        publicKeyEncoding: { type: 'spki', format: 'pem' },
-        privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
-      });
+    try {
+      const pair = generateSSHKeyPair(keyType);
       publicKey = pair.publicKey;
       privateKey = pair.privateKey;
-    } else if (keyType === 'rsa') {
-      const pair = generateKeyPairSync('rsa', {
-        modulusLength: 4096,
-        publicKeyEncoding: { type: 'spki', format: 'pem' },
-        privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
-      });
+    } catch {
+      // ssh-keygen unavailable — fall back to RSA via Node crypto
+      if (keyType !== 'rsa') {
+        return reply.code(500).send({
+          error: `Cannot generate ${keyType} key: ssh-keygen is not available`,
+        });
+      }
+      const pair = generateSSHKeyPairFallback();
       publicKey = pair.publicKey;
       privateKey = pair.privateKey;
-    } else {
-      return reply.code(400).send({ error: 'type must be "ed25519" or "rsa"' });
     }
 
     const namespace = getStoreNamespace(req);

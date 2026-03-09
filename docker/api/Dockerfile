@@ -25,6 +25,8 @@ COPY src/email/ ./src/email/
 COPY src/tmux-worker/credentials/ ./src/tmux-worker/credentials/
 COPY src/tmux-worker/proto-loader.ts ./src/tmux-worker/proto-loader.ts
 COPY src/tmux-worker/types.ts ./src/tmux-worker/types.ts
+# SSH key generation shared module (Issue #2320)
+COPY src/tmux-worker/ssh/keygen.ts ./src/tmux-worker/ssh/keygen.ts
 # Gateway metrics import Counter from worker/metrics (Epic #2153)
 COPY src/worker/metrics.ts ./src/worker/metrics.ts
 # Symphony routes import durable-write helpers (Issue #2261)
@@ -69,7 +71,7 @@ LABEL org.opencontainers.image.created="${BUILD_DATE}" \
       org.opencontainers.image.licenses="MIT"
 
 # Install curl for healthcheck (Issue #958)
-RUN apt-get update && apt-get install -y --no-install-recommends curl \
+RUN apt-get update && apt-get install -y --no-install-recommends curl openssh-client \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -88,6 +90,8 @@ COPY --from=builder /app/src/email/ ./src/email/
 COPY --from=builder /app/src/tmux-worker/credentials/ ./src/tmux-worker/credentials/
 COPY --from=builder /app/src/tmux-worker/proto-loader.ts ./src/tmux-worker/proto-loader.ts
 COPY --from=builder /app/src/tmux-worker/types.ts ./src/tmux-worker/types.ts
+# SSH key generation shared module (Issue #2320)
+COPY --from=builder /app/src/tmux-worker/ssh/keygen.ts ./src/tmux-worker/ssh/keygen.ts
 # Gateway metrics import Counter from worker/metrics (Epic #2153)
 COPY --from=builder /app/src/worker/metrics.ts ./src/worker/metrics.ts
 # Symphony routes import durable-write helpers (Issue #2261)
