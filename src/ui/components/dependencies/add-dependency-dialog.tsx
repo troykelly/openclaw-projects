@@ -3,7 +3,7 @@
  * Issue #390: Implement dependency creation UI
  */
 import * as React from 'react';
-import { AlertTriangle, ArrowLeft, ArrowRight, Folder, Target, Layers, FileText, Search } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, ArrowRight, Folder, Target, Layers, FileText, Search, CheckSquare, ListChecks } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/ui/components/ui/dialog';
 import { Button } from '@/ui/components/ui/button';
 import { Input } from '@/ui/components/ui/input';
@@ -39,6 +39,10 @@ function getKindIcon(kind: WorkItemKind) {
       return <Layers className="size-4" />;
     case 'issue':
       return <FileText className="size-4" />;
+    case 'task':
+      return <CheckSquare className="size-4" />;
+    case 'list':
+      return <ListChecks className="size-4" />;
   }
 }
 

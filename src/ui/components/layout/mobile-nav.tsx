@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useState } from 'react';
-import { Bell, Folder, Users, Brain, MessageSquare, ChefHat, UtensilsCrossed, Code, Home, Warehouse, Mic, Terminal, Package, MoreHorizontal, X, StickyNote } from 'lucide-react';
+import { Bell, Folder, Users, Brain, MessageSquare, ChefHat, UtensilsCrossed, Code, Home, Warehouse, Mic, Terminal, Package, MoreHorizontal, X, StickyNote, AlertCircle, ListChecks } from 'lucide-react';
 import { cn } from '@/ui/lib/utils';
 import { PrefetchLink } from '@/ui/components/navigation/PrefetchLink';
 
@@ -21,10 +21,10 @@ export interface MobileNavItem {
  * Matches RouterSidebar navigation items for consistency.
  */
 const primaryNavItems: MobileNavItem[] = [
-  { id: 'activity', label: 'Activity', icon: Bell, to: '/activity' },
+  { id: 'triage', label: 'Triage', icon: AlertCircle, to: '/triage' },
   { id: 'projects', label: 'Projects', icon: Folder, to: '/work-items' },
   { id: 'people', label: 'People', icon: Users, to: '/contacts' },
-  { id: 'memory', label: 'Memory', icon: Brain, to: '/memory' },
+  { id: 'activity', label: 'Activity', icon: Bell, to: '/activity' },
 ];
 
 /**
@@ -32,6 +32,7 @@ const primaryNavItems: MobileNavItem[] = [
  * Includes all remaining nav items from RouterSidebar.
  */
 const overflowNavItems: MobileNavItem[] = [
+  { id: 'memory', label: 'Memory', icon: Brain, to: '/memory' },
   { id: 'notes', label: 'Notes', icon: StickyNote, to: '/notes' },
   { id: 'communications', label: 'Communications', icon: MessageSquare, to: '/communications' },
   { id: 'recipes', label: 'Recipes', icon: ChefHat, to: '/recipes' },

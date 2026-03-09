@@ -18,6 +18,8 @@ const kindLabels: Record<WorkItemKind, string> = {
   initiative: 'Initiative',
   epic: 'Epic',
   issue: 'Issue',
+  task: 'Task',
+  list: 'List',
 };
 
 const kindDescriptions: Record<WorkItemKind, string> = {
@@ -25,6 +27,8 @@ const kindDescriptions: Record<WorkItemKind, string> = {
   initiative: 'Strategic goal or theme (belongs to a project)',
   epic: 'Large body of work (belongs to an initiative)',
   issue: 'Specific task or bug (belongs to an epic)',
+  task: 'Actionable task (belongs to an issue or epic)',
+  list: 'Checklist or collection of todo items',
 };
 
 // Maps child kind to allowed parent kind
@@ -33,6 +37,8 @@ const parentKindMap: Record<WorkItemKind, WorkItemKind | null> = {
   initiative: 'project',
   epic: 'initiative',
   issue: 'epic',
+  task: 'issue',
+  list: null, // Lists are top-level
 };
 
 type ApiTreeItem = {

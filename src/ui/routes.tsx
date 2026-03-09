@@ -16,6 +16,8 @@ const AppLayout = React.lazy(() => import('@/ui/layouts/app-layout.js').then((m)
 // Lazy-loaded page components for code splitting.
 // Each page is loaded on demand, reducing the initial bundle size.
 const ActivityPage = React.lazy(() => import('@/ui/pages/ActivityPage.js').then((m) => ({ default: m.ActivityPage })));
+const TriagePage = React.lazy(() => import('@/ui/pages/TriagePage.js').then((m) => ({ default: m.TriagePage })));
+const ListDetailPage = React.lazy(() => import('@/ui/pages/ListDetailPage.js').then((m) => ({ default: m.ListDetailPage })));
 const ProjectListPage = React.lazy(() => import('@/ui/pages/ProjectListPage.js').then((m) => ({ default: m.ProjectListPage })));
 const WorkItemDetailPage = React.lazy(() => import('@/ui/pages/WorkItemDetailPage.js').then((m) => ({ default: m.WorkItemDetailPage })));
 const ItemTimelinePage = React.lazy(() => import('@/ui/pages/ItemTimelinePage.js').then((m) => ({ default: m.ItemTimelinePage })));
@@ -134,6 +136,14 @@ export const routes: RouteObject[] = [
       {
         path: 'activity',
         element: lazy(ActivityPage),
+      },
+      {
+        path: 'triage',
+        element: lazy(TriagePage),
+      },
+      {
+        path: 'lists/:id',
+        element: lazy(ListDetailPage),
       },
       {
         path: 'work-items',

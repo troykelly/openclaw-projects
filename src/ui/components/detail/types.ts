@@ -1,4 +1,4 @@
-export type WorkItemKind = 'project' | 'initiative' | 'epic' | 'issue';
+export type WorkItemKind = 'project' | 'initiative' | 'epic' | 'issue' | 'task' | 'list';
 
 export type WorkItemStatus = 'not_started' | 'in_progress' | 'blocked' | 'done' | 'cancelled';
 

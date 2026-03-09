@@ -44,6 +44,8 @@ function pathToSection(pathname: string): string {
   if (pathname.startsWith('/terminal')) return 'terminal';
   if (pathname.startsWith('/settings')) return 'settings';
   if (pathname.startsWith('/search')) return 'search';
+  if (pathname.startsWith('/triage')) return 'triage';
+  if (pathname.startsWith('/lists')) return 'lists';
   if (pathname.startsWith('/work-items') || pathname.startsWith('/kanban')) return 'projects';
   return 'dashboard';
 }
@@ -61,6 +63,8 @@ const sectionRoutes: Record<string, string> = {
   'meal-log': '/meal-log',
   terminal: '/terminal',
   'dev-sessions': '/dev-sessions',
+  triage: '/triage',
+  lists: '/work-items',
   settings: '/settings',
 };
 
@@ -112,6 +116,12 @@ function deriveBreadcrumbs(pathname: string, bootstrap: AppBootstrap | null, not
     else if (pathname.startsWith('/terminal/search')) crumbs.push({ id: 'terminal-search', label: 'Search' });
     else if (pathname.startsWith('/terminal/activity')) crumbs.push({ id: 'terminal-activity', label: 'Activity' });
     return crumbs;
+  }
+  if (pathname.startsWith('/triage')) {
+    return [{ id: 'triage', label: 'Triage' }];
+  }
+  if (pathname.startsWith('/lists')) {
+    return [{ id: 'lists', label: 'Lists' }];
   }
   if (pathname.startsWith('/settings')) {
     return [{ id: 'settings', label: 'Settings' }];

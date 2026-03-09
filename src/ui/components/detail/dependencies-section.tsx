@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { ArrowLeft, ArrowRight, Folder, Target, Layers, FileText, Plus } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Folder, Target, Layers, FileText, Plus, CheckSquare, ListChecks } from 'lucide-react';
 import { cn } from '@/ui/lib/utils';
 import { Badge } from '@/ui/components/ui/badge';
 import { Button } from '@/ui/components/ui/button';
@@ -15,6 +15,10 @@ function getKindIcon(kind: WorkItemKind) {
       return <Layers className="size-4" />;
     case 'issue':
       return <FileText className="size-4" />;
+    case 'task':
+      return <CheckSquare className="size-4" />;
+    case 'list':
+      return <ListChecks className="size-4" />;
   }
 }
 

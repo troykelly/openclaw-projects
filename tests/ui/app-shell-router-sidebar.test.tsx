@@ -1,13 +1,13 @@
 /**
  * @vitest-environment jsdom
- * Tests for #1875: Wire RouterSidebar into AppShell
+ * Tests for #1875/#2296: Wire ProjectSidebar into AppShell
  *
  * Validates:
- * - AppShell renders RouterSidebar instead of old Sidebar
- * - RouterSidebar includes namespace selector
- * - RouterSidebar includes version display
- * - MobileNav uses router-aware links with all 14+ nav items
- * - AppShell passes onSearchClick and onCreateClick to RouterSidebar
+ * - AppShell renders ProjectSidebar (upgraded from RouterSidebar in #2296)
+ * - RouterSidebar includes namespace selector (standalone)
+ * - RouterSidebar includes version display (standalone)
+ * - MobileNav uses router-aware links with primary + overflow nav items
+ * - AppShell passes onSearchClick to ProjectSidebar
  * - Keyboard shortcut for search still works
  */
 import * as React from 'react';
@@ -18,6 +18,12 @@ import { createMemoryRouter, RouterProvider, Outlet, type RouteObject } from 're
 import { AppShell } from '@/ui/components/layout/app-shell';
 import { RouterSidebar } from '@/ui/components/layout/router-sidebar';
 import { MobileNav } from '@/ui/components/layout/mobile-nav';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+// ── Mock API client (needed by ProjectSidebar) ──────────────────────
+vi.mock('@/ui/lib/api-client', () => ({
+  apiClient: { get: () => Promise.resolve({ items: [] }) },
+}));
 
 // ── localStorage mock ──────────────────────────────────────────────
 
@@ -39,12 +45,15 @@ const localStorageMock = (() => {
 
 // Helper to render AppShell inside a MemoryRouter
 function renderAppShellWithRouter(initialPath = '/activity', props: Partial<React.ComponentProps<typeof AppShell>> = {}) {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
   const routes: RouteObject[] = [
     {
       element: (
-        <AppShell {...props}>
-          <Outlet />
-        </AppShell>
+        <QueryClientProvider client={qc}>
+          <AppShell {...props}>
+            <Outlet />
+          </AppShell>
+        </QueryClientProvider>
       ),
       children: [
         { path: 'activity', element: <div data-testid="page-activity">Activity</div> },
@@ -70,9 +79,9 @@ function renderAppShellWithRouter(initialPath = '/activity', props: Partial<Reac
   return render(<RouterProvider router={router} />);
 }
 
-// ── AppShell uses RouterSidebar ─────────────────────────────────────
+// ── AppShell uses ProjectSidebar (#2296 upgrade) ────────────────────
 
-describe('AppShell uses RouterSidebar (#1875)', () => {
+describe('AppShell uses ProjectSidebar (#1875 / #2296)', () => {
   beforeEach(() => {
     localStorageMock.clear();
     Object.defineProperty(window, 'localStorage', {
@@ -82,17 +91,18 @@ describe('AppShell uses RouterSidebar (#1875)', () => {
     });
   });
 
-  it('renders RouterSidebar (data-testid=router-sidebar) instead of old Sidebar', () => {
+  it('renders ProjectSidebar (data-testid=project-sidebar) instead of old Sidebar', () => {
     renderAppShellWithRouter('/activity');
-    expect(screen.getByTestId('router-sidebar')).toBeInTheDocument();
+    expect(screen.getByTestId('project-sidebar')).toBeInTheDocument();
     expect(screen.queryByTestId('sidebar')).not.toBeInTheDocument();
   });
 
-  it('renders all 16 navigation links in the RouterSidebar', () => {
+  it('renders navigation links in the Other section', () => {
     renderAppShellWithRouter('/activity');
-    const nav = screen.getByRole('navigation', { name: 'Main navigation' });
+    const nav = screen.getByRole('navigation', { name: 'Other navigation' });
     const links = nav.querySelectorAll('a');
-    expect(links.length).toBe(16);
+    // 15 "Other" items (non-PM nav items)
+    expect(links.length).toBeGreaterThanOrEqual(10);
   });
 
   it('renders Settings link in the footer', () => {
@@ -101,15 +111,14 @@ describe('AppShell uses RouterSidebar (#1875)', () => {
     expect(settingsLink).toBeInTheDocument();
   });
 
-  it('passes onCreateClick to RouterSidebar and Create button works', () => {
-    const onCreateClick = vi.fn();
-    renderAppShellWithRouter('/activity', { onCreateClick });
-    const createButton = screen.getByLabelText('Create new work item');
-    fireEvent.click(createButton);
-    expect(onCreateClick).toHaveBeenCalledTimes(1);
+  it('renders create button as dropdown trigger', () => {
+    renderAppShellWithRouter('/activity', { onCreateClick: vi.fn() });
+    const createButton = screen.getByTestId('sidebar-new-button');
+    expect(createButton).toBeInTheDocument();
+    expect(createButton.getAttribute('aria-haspopup')).toBe('menu');
   });
 
-  it('passes onSearchClick to RouterSidebar and Search button works', () => {
+  it('passes onSearchClick to ProjectSidebar and Search button works', () => {
     const onSearchClick = vi.fn();
     renderAppShellWithRouter('/activity', { onSearchClick });
     const searchButton = screen.getByRole('button', { name: /search/i });

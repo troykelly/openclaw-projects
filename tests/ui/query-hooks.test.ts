@@ -144,7 +144,7 @@ describe('useWorkItems', () => {
   });
 
   it('should fetch work items successfully', async () => {
-    const data = { items: [{ id: '1', title: 'Test', status: 'open', priority: 'medium', task_type: null, created_at: '2025-01-01T00:00:00Z', updated_at: '2025-01-01T00:00:00Z' }] };
+    const data = { items: [{ id: '1', title: 'Test', status: 'open', priority: 'medium', kind: 'issue', task_type: null, parent_id: null, created_at: '2025-01-01T00:00:00Z', updated_at: '2025-01-01T00:00:00Z' }] };
     mockFetchResponse(data);
 
     const { Wrapper } = createWrapper();
