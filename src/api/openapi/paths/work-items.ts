@@ -138,7 +138,7 @@ export function workItemsPaths(): OpenApiDomainModule {
         properties: {
           title: { type: 'string', description: 'Title of the work item (required)', example: 'Implement user authentication' },
           description: { type: 'string', nullable: true, description: 'Detailed description in markdown', example: 'Add JWT-based auth flow with refresh tokens' },
-          kind: { $ref: '#/components/schemas/WorkItemKind', description: 'Hierarchy level (defaults to task if omitted)' },
+          kind: { $ref: '#/components/schemas/WorkItemKind', description: 'Hierarchy level (defaults to issue if omitted)' },
           type: { type: 'string', description: 'Alias for kind (client compatibility)', example: 'task' },
           item_type: { type: 'string', description: 'Alias for kind (OpenClaw plugin compatibility)', example: 'task' },
           parent_id: { type: 'string', format: 'uuid', nullable: true, description: 'UUID of the parent work item', example: 'a1b2c3d4-5678-90ab-cdef-1234567890ab' },

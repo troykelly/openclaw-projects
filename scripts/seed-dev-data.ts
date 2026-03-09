@@ -8,12 +8,14 @@
  * - Sample comments on 2 issues
  *
  * Idempotent: uses fixed UUIDs so re-running is safe (INSERT ... ON CONFLICT DO NOTHING).
+ * All data is created in the 'default' namespace (shared dev dataset).
  *
  * Usage:
  *   node --experimental-transform-types scripts/seed-dev-data.ts [email]
  *
- * The optional email argument controls which user's namespace receives the data
- * (defaults to test@example.com).
+ * The optional email argument specifies the user to grant access to the
+ * seeded data (defaults to test@example.com). Multiple users can be
+ * granted access by running the script multiple times with different emails.
  */
 import { Pool } from 'pg';
 import { existsSync } from 'node:fs';

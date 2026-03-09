@@ -244,12 +244,12 @@ POST /work-items
 
 **Recovery:** Create the parent first (initiative under a project), then set `parent_id`.
 
-### Cross-namespace reparent (403)
+### Cross-namespace reparent (400)
 
 ```
 PATCH /work-items/{id}/reparent
 { "new_parent_id": "{id_in_different_namespace}" }
-→ 403 { "error": "Cannot reparent across namespaces" }
+→ 400 { "error": "parent must be in the same namespace" }
 ```
 
 **Recovery:** Both parent and child must belong to the same namespace.
