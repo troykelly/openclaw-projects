@@ -50,6 +50,36 @@ exports[`Schema Snapshots > Manifest configSchema > configSchema should match sn
 {
   "additionalProperties": false,
   "properties": {
+    "agentId": {
+      "description": "Explicit agent ID override (used as namespace fallback when hook context is unavailable)",
+      "maxLength": 63,
+      "pattern": "^[a-z0-9][a-z0-9._-]*$",
+      "type": "string",
+    },
+    "agentNamespaces": {
+      "additionalProperties": {
+        "properties": {
+          "default": {
+            "description": "Namespace for store/create when none specified",
+            "maxLength": 63,
+            "pattern": "^[a-z0-9][a-z0-9._-]*$",
+            "type": "string",
+          },
+          "recall": {
+            "description": "Namespaces to search when none specified",
+            "items": {
+              "maxLength": 63,
+              "pattern": "^[a-z0-9][a-z0-9._-]*$",
+              "type": "string",
+            },
+            "type": "array",
+          },
+        },
+        "type": "object",
+      },
+      "description": "Per-agent namespace overrides keyed by agent ID",
+      "type": "object",
+    },
     "apiKey": {
       "description": "API authentication key (direct value, least secure)",
       "type": "string",
@@ -137,6 +167,12 @@ exports[`Schema Snapshots > Manifest configSchema > configSchema should match sn
           "type": "string",
         },
       ],
+    },
+    "namespaceRefreshIntervalMs": {
+      "default": 300000,
+      "description": "Namespace refresh interval in ms (0 to disable dynamic namespace discovery)",
+      "minimum": 0,
+      "type": "integer",
     },
     "nominatimUrl": {
       "description": "Nominatim reverse geocoding URL (e.g., http://nominatim:8080)",
@@ -256,6 +292,17 @@ exports[`Schema Snapshots > Manifest configSchema > full manifest structure (exc
 
 exports[`Schema Snapshots > Manifest configSchema > manifest uiHints should match snapshot 1`] = `
 {
+  "agentId": {
+    "group": "Namespace",
+    "help": "Explicit agent ID override (used as namespace fallback when hook context is unavailable)",
+    "label": "Agent ID",
+    "placeholder": "my-agent",
+  },
+  "agentNamespaces": {
+    "group": "Namespace",
+    "help": "Per-agent namespace overrides keyed by agent ID. Each value is { default, recall[] }.",
+    "label": "Per-Agent Namespaces",
+  },
   "apiKey": {
     "help": "Direct API key value (least secure, for development)",
     "label": "API Key",
@@ -314,9 +361,14 @@ exports[`Schema Snapshots > Manifest configSchema > manifest uiHints should matc
     "label": "Min Recall Score",
   },
   "namespace": {
-    "group": "Advanced",
+    "group": "Namespace",
     "help": "Namespace config for data scoping. Can be a string (shorthand for default) or { default, recall[] }.",
     "label": "Namespace",
+  },
+  "namespaceRefreshIntervalMs": {
+    "group": "Namespace",
+    "help": "How often to refresh namespace list from API in ms (0 to disable dynamic discovery)",
+    "label": "Namespace Refresh Interval",
   },
   "nominatimUrl": {
     "group": "Advanced",
