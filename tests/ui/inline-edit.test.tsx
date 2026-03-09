@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import * as React from 'react';
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { InlineEdit, InlineEditableText } from '@/ui/components/inline-edit';
@@ -118,7 +118,6 @@ describe('InlineEdit', () => {
   });
 
   it('shows loading state during async save', async () => {
-    vi.useFakeTimers();
     let saveResolve: () => void;
     const savePromise = new Promise<void>((resolve) => { saveResolve = resolve; });
     const onSave = vi.fn(() => savePromise);
@@ -137,8 +136,6 @@ describe('InlineEdit', () => {
       saveResolve!();
       await savePromise;
     });
-
-    vi.useRealTimers();
   });
 
   it('focuses input when entering edit mode', () => {
