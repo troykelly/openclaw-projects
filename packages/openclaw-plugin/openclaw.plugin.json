@@ -162,6 +162,12 @@
         "pattern": "^https?://",
         "description": "PromptGuard-2 classifier URL for multilingual injection detection (e.g., http://prompt-guard:8190)"
       },
+      "agentId": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9._-]*$",
+        "maxLength": 63,
+        "description": "Explicit agent ID override (used as namespace fallback when hook context is unavailable)"
+      },
       "namespace": {
         "oneOf": [
           {
@@ -192,6 +198,36 @@
           }
         ],
         "description": "Namespace configuration for data scoping"
+      },
+      "agentNamespaces": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "object",
+          "properties": {
+            "default": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9._-]*$",
+              "maxLength": 63,
+              "description": "Namespace for store/create when none specified"
+            },
+            "recall": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9._-]*$",
+                "maxLength": 63
+              },
+              "description": "Namespaces to search when none specified"
+            }
+          }
+        },
+        "description": "Per-agent namespace overrides keyed by agent ID"
+      },
+      "namespaceRefreshIntervalMs": {
+        "type": "integer",
+        "minimum": 0,
+        "default": 300000,
+        "description": "Namespace refresh interval in ms (0 to disable dynamic namespace discovery)"
       }
     },
     "additionalProperties": false,
@@ -350,10 +386,26 @@
       "help": "URL for PromptGuard-2 classifier service (enables multilingual prompt injection detection)",
       "group": "Advanced"
     },
+    "agentId": {
+      "label": "Agent ID",
+      "placeholder": "my-agent",
+      "help": "Explicit agent ID override (used as namespace fallback when hook context is unavailable)",
+      "group": "Namespace"
+    },
     "namespace": {
       "label": "Namespace",
       "help": "Namespace config for data scoping. Can be a string (shorthand for default) or { default, recall[] }.",
-      "group": "Advanced"
+      "group": "Namespace"
+    },
+    "agentNamespaces": {
+      "label": "Per-Agent Namespaces",
+      "help": "Per-agent namespace overrides keyed by agent ID. Each value is { default, recall[] }.",
+      "group": "Namespace"
+    },
+    "namespaceRefreshIntervalMs": {
+      "label": "Namespace Refresh Interval",
+      "help": "How often to refresh namespace list from API in ms (0 to disable dynamic discovery)",
+      "group": "Namespace"
     }
   }
 }
