@@ -3795,6 +3795,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params: (string | string[])[] = [];
     let paramIndex = 1;
 
+    // Exclude soft-deleted items
+    conditions.push('deleted_at IS NULL');
+
     // Issue #2287: Namespace scoping — prevent cross-tenant data exposure
     const nsCtx = req.namespaceContext;
     const queryNamespaces = nsCtx?.queryNamespaces ?? ['default'];
