@@ -10,7 +10,7 @@
  */
 
 import { useQueryClient } from '@tanstack/react-query';
-import { Brain, Calendar, ChevronRight, Clock, FolderKanban, GitBranch, LayoutGrid, List, Wand2, ExternalLink } from 'lucide-react';
+import { Brain, Calendar, ChevronRight, Clock, FolderKanban, GitBranch, LayoutGrid, List, Plus, Wand2, ExternalLink } from 'lucide-react';
 import React, { useCallback } from 'react';
 import { Link, useParams } from 'react-router';
 import { ErrorState, Skeleton, SkeletonTable } from '@/ui/components/feedback';
@@ -90,6 +90,14 @@ const statusColors: Record<string, string> = {
   done: 'bg-green-500/10 text-green-600 dark:text-green-400',
   not_started: 'bg-gray-500/10 text-gray-600 dark:text-gray-400',
   cancelled: 'bg-gray-500/10 text-gray-500',
+};
+
+/** Map a parent kind to the label for its primary child kind. */
+const childKindLabel: Record<string, string> = {
+  project: 'Initiative',
+  initiative: 'Epic',
+  epic: 'Issue',
+  issue: 'Task',
 };
 
 export function ProjectDetailPage(): React.JSX.Element {
@@ -220,14 +228,13 @@ export function ProjectDetailPage(): React.JSX.Element {
 
   return (
     <div data-testid="page-project-detail" className="flex flex-col h-full">
-      {/* Navigation bar */}
-      <div className="px-4 py-3 border-b border-border bg-background flex items-center gap-3 shrink-0">
-        <Button variant="ghost" size="sm" asChild>
-          <Link to="/work-items">
-            <ChevronRight className="mr-1 size-4 rotate-180" />
-            Back
-          </Link>
-        </Button>
+      {/* Breadcrumb navigation */}
+      <nav data-testid="project-breadcrumb" className="px-4 py-3 border-b border-border bg-background flex items-center gap-1.5 shrink-0 text-sm">
+        <Link to="/work-items" className="text-muted-foreground hover:text-foreground transition-colors">
+          Projects
+        </Link>
+        <ChevronRight className="size-3 text-muted-foreground" />
+        <span className="font-medium truncate">{project.title}</span>
         <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
           <Clock className="size-3" />
           Updated {formatRelativeTime(new Date(project.updated_at))}
@@ -237,7 +244,7 @@ export function ProjectDetailPage(): React.JSX.Element {
             </Badge>
           )}
         </div>
-      </div>
+      </nav>
 
       {/* Project header */}
       <div className="px-6 pt-5 pb-4 border-b border-border bg-gradient-to-b from-muted/30 to-background">
@@ -269,6 +276,12 @@ export function ProjectDetailPage(): React.JSX.Element {
           {project.priority && <Badge className={`text-xs ${priorityColors[project.priority] ?? ''}`}>{project.priority}</Badge>}
           {project.not_before && <span className="text-xs text-muted-foreground">Start: {formatDate(project.not_before)}</span>}
           {project.not_after && <span className="text-xs text-muted-foreground">Due: {formatDate(project.not_after)}</span>}
+          {childKindLabel[project.kind] && (
+            <Button variant="outline" size="sm" data-testid="add-child-button" className="ml-auto gap-1.5">
+              <Plus className="size-3" />
+              Add {childKindLabel[project.kind]}
+            </Button>
+          )}
         </div>
 
         {/* Progress bar */}

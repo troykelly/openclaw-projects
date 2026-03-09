@@ -385,7 +385,7 @@ describe('ProjectDetailPage', () => {
       renderPage('/projects/proj-1');
 
       await waitFor(() => {
-        expect(screen.getByText('Website Redesign')).toBeInTheDocument();
+        expect(screen.getByTestId('inline-edit-display')).toHaveTextContent('Website Redesign');
       });
     });
 
@@ -401,7 +401,7 @@ describe('ProjectDetailPage', () => {
       renderPage('/projects/proj-1');
 
       await waitFor(() => {
-        expect(screen.getByText('Website Redesign')).toBeInTheDocument();
+        expect(screen.getByTestId('inline-edit-display')).toHaveTextContent('Website Redesign');
       });
 
       // Should show kind and status badges
@@ -415,7 +415,7 @@ describe('ProjectDetailPage', () => {
       renderPage('/projects/proj-1');
 
       await waitFor(() => {
-        expect(screen.getByText('Website Redesign')).toBeInTheDocument();
+        expect(screen.getByTestId('inline-edit-display')).toHaveTextContent('Website Redesign');
       });
 
       expect(screen.getByRole('tab', { name: /list/i })).toBeInTheDocument();
@@ -428,7 +428,7 @@ describe('ProjectDetailPage', () => {
       renderPage('/projects/proj-1');
 
       await waitFor(() => {
-        expect(screen.getByText('Website Redesign')).toBeInTheDocument();
+        expect(screen.getByTestId('inline-edit-display')).toHaveTextContent('Website Redesign');
       });
 
       expect(screen.getByTestId('view-list')).toBeInTheDocument();
@@ -438,7 +438,7 @@ describe('ProjectDetailPage', () => {
       renderPage('/projects/proj-1');
 
       await waitFor(() => {
-        expect(screen.getByText('Website Redesign')).toBeInTheDocument();
+        expect(screen.getByTestId('inline-edit-display')).toHaveTextContent('Website Redesign');
       });
 
       const boardTab = screen.getByRole('tab', { name: /board/i });
@@ -453,7 +453,7 @@ describe('ProjectDetailPage', () => {
       renderPage('/projects/proj-1');
 
       await waitFor(() => {
-        expect(screen.getByText('Website Redesign')).toBeInTheDocument();
+        expect(screen.getByTestId('inline-edit-display')).toHaveTextContent('Website Redesign');
       });
 
       const treeTab = screen.getByRole('tab', { name: /tree/i });
@@ -468,7 +468,7 @@ describe('ProjectDetailPage', () => {
       renderPage('/projects/proj-1');
 
       await waitFor(() => {
-        expect(screen.getByText('Website Redesign')).toBeInTheDocument();
+        expect(screen.getByTestId('inline-edit-display')).toHaveTextContent('Website Redesign');
       });
 
       const calendarTab = screen.getByRole('tab', { name: /calendar/i });
@@ -500,7 +500,7 @@ describe('ProjectDetailPage', () => {
       renderPage('/projects/proj-1');
 
       await waitFor(() => {
-        expect(screen.getByText('Website Redesign')).toBeInTheDocument();
+        expect(screen.getByTestId('inline-edit-display')).toHaveTextContent('Website Redesign');
       });
 
       const boardTab = screen.getByRole('tab', { name: /board/i });
@@ -517,7 +517,7 @@ describe('ProjectDetailPage', () => {
       renderPage('/projects/proj-1');
 
       await waitFor(() => {
-        expect(screen.getByText('Website Redesign')).toBeInTheDocument();
+        expect(screen.getByTestId('inline-edit-display')).toHaveTextContent('Website Redesign');
       });
 
       const treeTab = screen.getByRole('tab', { name: /tree/i });
@@ -534,7 +534,7 @@ describe('ProjectDetailPage', () => {
       renderPage('/projects/proj-1');
 
       await waitFor(() => {
-        expect(screen.getByText('Website Redesign')).toBeInTheDocument();
+        expect(screen.getByTestId('inline-edit-display')).toHaveTextContent('Website Redesign');
       });
 
       const calendarTab = screen.getByRole('tab', { name: /calendar/i });
