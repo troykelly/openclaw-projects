@@ -8,7 +8,7 @@ import type { Pool } from 'pg';
 import type { InternalJob, JobProcessorResult, JobProcessorStats, JobHandler } from './types.ts';
 import { processJobWithSpan } from '../../worker/sentry-integration.ts';
 import { enqueueWebhook } from '../webhooks/dispatcher.ts';
-import { buildReminderDuePayload, buildDeadlineApproachingPayload, getWebhookDestination } from '../webhooks/payloads.ts';
+import { buildReminderDuePayload, buildDeadlineApproachingPayload, buildTodoReminderDuePayload, buildTodoDeadlineApproachingPayload, getWebhookDestination } from '../webhooks/payloads.ts';
 import { handleSmsSendJob } from '../twilio/sms-outbound.ts';
 import { handleEmailSendJob } from '../postmark/email-outbound.ts';
 import { handleMessageEmbedJob } from '../embeddings/message-integration.ts';
@@ -201,6 +201,131 @@ async function handleNudgeJob(pool: Pool, job: InternalJob): Promise<JobProcesso
 }
 
 /**
+ * Handle reminder.todo.not_before job.
+ * Issue #2292: Fetches todo + parent work item details, enqueues a webhook.
+ */
+async function handleTodoReminderJob(pool: Pool, job: InternalJob): Promise<JobProcessorResult> {
+  const todoId = job.payload.todo_id as string;
+  const workItemId = job.payload.work_item_id as string;
+
+  // Fetch todo details
+  const todoResult = await pool.query(
+    `SELECT id::text as id, text, completed, not_before, updated_at
+     FROM work_item_todo WHERE id = $1`,
+    [todoId],
+  );
+
+  if (todoResult.rows.length === 0) {
+    return { success: false, error: `Todo ${todoId} not found` };
+  }
+
+  const todo = todoResult.rows[0] as {
+    id: string;
+    text: string;
+    completed: boolean;
+    not_before: Date;
+    updated_at: Date;
+  };
+
+  // Skip completed todos
+  if (todo.completed) {
+    return { success: true };
+  }
+
+  // Fetch parent work item for context
+  const workItemResult = await pool.query(
+    `SELECT id::text as id, title, work_item_kind::text as kind
+     FROM work_item WHERE id = $1`,
+    [workItemId],
+  );
+
+  const workItem = workItemResult.rows[0] as { id: string; title: string; kind: string } | undefined;
+
+  const payload = buildTodoReminderDuePayload({
+    todo_id: todo.id,
+    work_item_id: workItemId,
+    todo_text: todo.text,
+    work_item_title: workItem?.title,
+    work_item_kind: workItem?.kind,
+    not_before: new Date(todo.not_before),
+    agent_id: undefined,
+  });
+
+  const destination = getWebhookDestination('todo_reminder_due');
+  const idempotency_key = `todo_reminder:${todoId}:${new Date(todo.not_before).toISOString().split('T')[0]}`;
+
+  await enqueueWebhook(pool, 'reminder.todo.not_before', destination, payload, {
+    idempotency_key,
+  });
+
+  return { success: true };
+}
+
+/**
+ * Handle nudge.todo.not_after job.
+ * Issue #2292: Fetches todo + parent work item details, enqueues a wake webhook.
+ */
+async function handleTodoNudgeJob(pool: Pool, job: InternalJob): Promise<JobProcessorResult> {
+  const todoId = job.payload.todo_id as string;
+  const workItemId = job.payload.work_item_id as string;
+
+  // Fetch todo details
+  const todoResult = await pool.query(
+    `SELECT id::text as id, text, completed, not_after
+     FROM work_item_todo WHERE id = $1`,
+    [todoId],
+  );
+
+  if (todoResult.rows.length === 0) {
+    return { success: false, error: `Todo ${todoId} not found` };
+  }
+
+  const todo = todoResult.rows[0] as {
+    id: string;
+    text: string;
+    completed: boolean;
+    not_after: Date;
+  };
+
+  // Skip completed todos
+  if (todo.completed) {
+    return { success: true };
+  }
+
+  // Fetch parent work item for context
+  const workItemResult = await pool.query(
+    `SELECT id::text as id, title, work_item_kind::text as kind
+     FROM work_item WHERE id = $1`,
+    [workItemId],
+  );
+
+  const workItem = workItemResult.rows[0] as { id: string; title: string; kind: string } | undefined;
+
+  const notAfter = new Date(todo.not_after);
+  const hoursRemaining = Math.max(0, Math.round((notAfter.getTime() - Date.now()) / (1000 * 60 * 60)));
+
+  const payload = buildTodoDeadlineApproachingPayload({
+    todo_id: todo.id,
+    work_item_id: workItemId,
+    todo_text: todo.text,
+    work_item_title: workItem?.title,
+    work_item_kind: workItem?.kind,
+    not_after: notAfter,
+    hours_remaining: hoursRemaining,
+    agent_id: undefined,
+  });
+
+  const destination = getWebhookDestination('todo_deadline_approaching');
+  const idempotency_key = `todo_nudge:${todoId}:${notAfter.toISOString().split('T')[0]}`;
+
+  await enqueueWebhook(pool, 'nudge.todo.not_after', destination, payload, {
+    idempotency_key,
+  });
+
+  return { success: true };
+}
+
+/**
  * Handle skill_store.scheduled_process job.
  * Reads schedule, fires webhook via webhook_outbox, updates last_run_at/status.
  * Respects max_retries from payload; after max consecutive failures, auto-disables.
@@ -334,6 +459,10 @@ function getJobHandler(pool: Pool, kind: string): ((job: InternalJob) => Promise
       return (job) => handleReminderJob(pool, job);
     case 'nudge.work_item.not_after':
       return (job) => handleNudgeJob(pool, job);
+    case 'reminder.todo.not_before':
+      return (job) => handleTodoReminderJob(pool, job);
+    case 'nudge.todo.not_after':
+      return (job) => handleTodoNudgeJob(pool, job);
     case 'message.send.sms':
       return (job) => handleSmsSendJob(pool, job);
     case 'message.send.email':
