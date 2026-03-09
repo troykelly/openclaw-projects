@@ -16,7 +16,7 @@ AS $$
            t.namespace
       FROM work_item_todo t
      WHERE t.not_before IS NOT NULL
-       AND t.not_before <= now() + interval '1 hour'
+       AND t.not_before <= now()
        AND t.completed = false
   ),
   inserted AS (

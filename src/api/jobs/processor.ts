@@ -206,11 +206,10 @@ async function handleNudgeJob(pool: Pool, job: InternalJob): Promise<JobProcesso
  */
 async function handleTodoReminderJob(pool: Pool, job: InternalJob): Promise<JobProcessorResult> {
   const todoId = job.payload.todo_id as string;
-  const workItemId = job.payload.work_item_id as string;
 
-  // Fetch todo details
+  // Fetch todo details — derive work_item_id from the row, not the payload
   const todoResult = await pool.query(
-    `SELECT id::text as id, text, completed, not_before, updated_at
+    `SELECT id::text as id, work_item_id::text as work_item_id, text, completed, not_before, updated_at
      FROM work_item_todo WHERE id = $1`,
     [todoId],
   );
@@ -221,6 +220,7 @@ async function handleTodoReminderJob(pool: Pool, job: InternalJob): Promise<JobP
 
   const todo = todoResult.rows[0] as {
     id: string;
+    work_item_id: string;
     text: string;
     completed: boolean;
     not_before: Date;
@@ -231,6 +231,9 @@ async function handleTodoReminderJob(pool: Pool, job: InternalJob): Promise<JobP
   if (todo.completed) {
     return { success: true };
   }
+
+  // Use verified work_item_id from the todo row, not payload
+  const workItemId = todo.work_item_id;
 
   // Fetch parent work item for context
   const workItemResult = await pool.query(
@@ -267,11 +270,10 @@ async function handleTodoReminderJob(pool: Pool, job: InternalJob): Promise<JobP
  */
 async function handleTodoNudgeJob(pool: Pool, job: InternalJob): Promise<JobProcessorResult> {
   const todoId = job.payload.todo_id as string;
-  const workItemId = job.payload.work_item_id as string;
 
-  // Fetch todo details
+  // Fetch todo details — derive work_item_id from the row, not the payload
   const todoResult = await pool.query(
-    `SELECT id::text as id, text, completed, not_after
+    `SELECT id::text as id, work_item_id::text as work_item_id, text, completed, not_after
      FROM work_item_todo WHERE id = $1`,
     [todoId],
   );
@@ -282,6 +284,7 @@ async function handleTodoNudgeJob(pool: Pool, job: InternalJob): Promise<JobProc
 
   const todo = todoResult.rows[0] as {
     id: string;
+    work_item_id: string;
     text: string;
     completed: boolean;
     not_after: Date;
@@ -291,6 +294,9 @@ async function handleTodoNudgeJob(pool: Pool, job: InternalJob): Promise<JobProc
   if (todo.completed) {
     return { success: true };
   }
+
+  // Use verified work_item_id from the todo row, not payload
+  const workItemId = todo.work_item_id;
 
   // Fetch parent work item for context
   const workItemResult = await pool.query(
