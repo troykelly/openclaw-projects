@@ -41,7 +41,7 @@ function formatStatus(status: string): string {
 
 export function WorkItemPanel({ workItemId, open, onClose }: WorkItemPanelProps) {
   const queryClient = useQueryClient();
-  const { data: item, isLoading } = useWorkItem(workItemId);
+  const { data: item, isLoading, isError } = useWorkItem(workItemId);
   const { data: todosData } = useTodos(workItemId);
   const todos = todosData?.todos ?? [];
 
@@ -148,7 +148,12 @@ export function WorkItemPanel({ workItemId, open, onClose }: WorkItemPanelProps)
             </Tabs>
           </>
         )}
-        {!isLoading && !item && (
+        {!isLoading && isError && (
+          <div className="py-12 text-center text-destructive">
+            <p>Failed to load work item. Please try again.</p>
+          </div>
+        )}
+        {!isLoading && !isError && !item && (
           <div className="py-12 text-center text-muted-foreground">
             <p>Work item not found.</p>
           </div>

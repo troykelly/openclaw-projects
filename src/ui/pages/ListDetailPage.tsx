@@ -21,7 +21,7 @@ export function ListDetailPage() {
   const { id } = useParams<{ id: string }>();
   const workItemId = id ?? '';
   const queryClient = useQueryClient();
-  const { data: listData, isLoading: listLoading } = useWorkItem(workItemId);
+  const { data: listData, isLoading: listLoading, isError: listError } = useWorkItem(workItemId);
   const { data: todosData, isLoading: todosLoading } = useTodos(workItemId);
 
   const [addText, setAddText] = React.useState('');
@@ -81,6 +81,14 @@ export function ListDetailPage() {
     return (
       <div data-testid="list-detail-page" className="flex items-center justify-center py-12">
         <div className="size-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (listError) {
+    return (
+      <div data-testid="list-detail-page" className="py-12 text-center text-destructive">
+        <p>Failed to load list. Please try again.</p>
       </div>
     );
   }

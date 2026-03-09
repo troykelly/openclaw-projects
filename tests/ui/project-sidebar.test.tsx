@@ -120,7 +120,7 @@ function createQueryClient() {
 
 function setupMockApi() {
   mockGet.mockImplementation((url: string) => {
-    if (url.includes('kind=issue') && url.includes('parent_id=none')) {
+    if (url.includes('scope=triage')) {
       return Promise.resolve(triageItems);
     }
     if (url.includes('kind=list')) {

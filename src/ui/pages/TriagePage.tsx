@@ -21,7 +21,7 @@ function formatStatus(status: string): string {
 
 export function TriagePage() {
   const queryClient = useQueryClient();
-  const { data, isLoading } = useWorkItems({ scope: 'triage' });
+  const { data, isLoading, isError } = useWorkItems({ scope: 'triage' });
   const items = data?.items ?? [];
 
   const [quickAddValue, setQuickAddValue] = React.useState('');
@@ -84,12 +84,17 @@ export function TriagePage() {
           <div className="size-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
         </div>
       )}
-      {!isLoading && items.length === 0 && (
+      {!isLoading && isError && (
+        <div className="py-12 text-center text-destructive">
+          <p>Failed to load triage items. Please try again.</p>
+        </div>
+      )}
+      {!isLoading && !isError && items.length === 0 && (
         <div className="py-12 text-center text-muted-foreground">
           <p>All caught up! No items in triage.</p>
         </div>
       )}
-      {!isLoading && items.length > 0 && (
+      {!isLoading && !isError && items.length > 0 && (
         <div className="space-y-2">
           {items.map((item) => (
             <div key={item.id} className="flex items-center gap-3 rounded-lg border p-3">

@@ -202,7 +202,7 @@ export function ProjectSidebar({
   const hasMultipleNamespaces = ns?.hasMultipleNamespaces ?? false;
 
   // Data fetching
-  const { data: triageData } = useWorkItems({ kind: 'issue', parent_id: 'none' });
+  const { data: triageData } = useWorkItems({ scope: 'triage' });
   const { data: listsData } = useWorkItems({ kind: 'list' });
   const { data: treeData } = useWorkItemTree();
 
