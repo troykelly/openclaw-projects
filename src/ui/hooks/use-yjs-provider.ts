@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react';
 import * as Y from 'yjs';
 import { WebsocketProvider } from 'y-websocket';
 import { getAccessToken } from '@/ui/lib/auth-manager';
+import { getWsBaseUrl } from '@/ui/lib/api-config';
 
 /** Connection status derived from WebSocket + sync state */
 export type YjsConnectionStatus =
@@ -53,16 +54,12 @@ export function useYjsProvider(noteId: string | null): UseYjsProviderResult {
     const doc = new Y.Doc();
     const token = getAccessToken();
 
-    // Build WebSocket URL from current page location.
+    // Build WebSocket URL targeting the API host (api.DOMAIN in production).
     // y-websocket WebsocketProvider connects to `${serverUrl}/${roomname}`,
-    // so with serverUrl=/yjs and roomname=noteId, it connects to /yjs/{noteId}.
-    const protocol =
-      typeof window !== 'undefined' && window.location.protocol === 'https:'
-        ? 'wss:'
-        : 'ws:';
-    const host =
-      typeof window !== 'undefined' ? window.location.host : 'localhost';
-    const wsUrl = `${protocol}//${host}/yjs`;
+    // so with serverUrl=wss://api.example.com/yjs and roomname=noteId,
+    // it connects to wss://api.example.com/yjs/{noteId}.
+    const wsBase = getWsBaseUrl();
+    const wsUrl = wsBase ? `${wsBase}/yjs` : '/yjs';
 
     const provider = new WebsocketProvider(wsUrl, noteId, doc, {
       connect: true,
