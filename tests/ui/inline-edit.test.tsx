@@ -118,7 +118,9 @@ describe('InlineEdit', () => {
   });
 
   it('shows loading state during async save', async () => {
-    const onSave = vi.fn(() => new Promise((resolve) => setTimeout(resolve, 100)));
+    let saveResolve: () => void;
+    const savePromise = new Promise<void>((resolve) => { saveResolve = resolve; });
+    const onSave = vi.fn(() => savePromise);
     render(<InlineEdit {...defaultProps} onSave={onSave} />);
 
     fireEvent.click(screen.getByText('Test Value'));
@@ -128,6 +130,12 @@ describe('InlineEdit', () => {
     fireEvent.keyDown(input, { key: 'Enter' });
 
     expect(input).toBeDisabled();
+
+    // Resolve the save and flush React state updates so no async work leaks
+    await act(async () => {
+      saveResolve!();
+      await savePromise;
+    });
   });
 
   it('focuses input when entering edit mode', () => {
