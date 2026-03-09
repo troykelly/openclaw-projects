@@ -29,6 +29,11 @@ export type RealtimeEventType =
   | 'work_item:created'
   | 'work_item:updated'
   | 'work_item:deleted'
+  // Todo events (#2306)
+  | 'todo:created'
+  | 'todo:updated'
+  | 'todo:deleted'
+  | 'todo:reordered'
   | 'memory:created'
   | 'memory:updated'
   | 'memory:deleted'
@@ -69,6 +74,18 @@ export interface WorkItemEventData {
   changes?: string[];
   title?: string;
   action?: string;
+}
+
+/**
+ * Todo event data (#2306)
+ * Scoped to parent work_item_id for room targeting.
+ */
+export interface TodoEventData {
+  id: string;
+  work_item_id: string;
+  text?: string;
+  completed?: boolean;
+  changes?: string[];
 }
 
 /**

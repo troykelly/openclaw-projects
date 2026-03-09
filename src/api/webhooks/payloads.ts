@@ -149,15 +149,85 @@ export function buildDeadlineApproachingPayload(params: {
 }
 
 /**
+ * Build payload for todo reminder due event.
+ * Issue #2292: pgcron todo reminder support.
+ */
+export function buildTodoReminderDuePayload(params: {
+  todo_id: string;
+  work_item_id: string;
+  todo_text: string;
+  work_item_title?: string;
+  work_item_kind?: string;
+  not_before: Date;
+  agent_id?: string;
+}): AgentHookPayload {
+  const config = getOpenClawConfig();
+
+  const parentContext = params.work_item_title
+    ? ` (from "${params.work_item_title}"${params.work_item_kind ? ` [${params.work_item_kind}]` : ''})`
+    : '';
+
+  return {
+    message: `Todo reminder: ${params.todo_text}${parentContext}`,
+    name: 'Todo Reminder Handler',
+    session_key: `reminder:todo:${params.todo_id}`,
+    wake_mode: 'now',
+    deliver: true,
+    channel: 'last',
+    model: config?.defaultModel || 'anthropic/claude-sonnet-4-20250514',
+    timeout_seconds: config?.timeout_seconds || 120,
+    ...(params.agent_id ? { agent_id: params.agent_id } : {}),
+    context: {
+      event_type: 'todo_reminder_due',
+      entity_type: 'todo',
+      todo_id: params.todo_id,
+      work_item_id: params.work_item_id,
+      todo_text: params.todo_text,
+      work_item_title: params.work_item_title,
+      work_item_kind: params.work_item_kind,
+      not_before: params.not_before.toISOString(),
+      ...(params.agent_id ? { agent_id: params.agent_id } : {}),
+    },
+  };
+}
+
+/**
+ * Build payload for todo deadline approaching event.
+ * Issue #2292: pgcron todo nudge support.
+ */
+export function buildTodoDeadlineApproachingPayload(params: {
+  todo_id: string;
+  work_item_id: string;
+  todo_text: string;
+  work_item_title?: string;
+  work_item_kind?: string;
+  not_after: Date;
+  hours_remaining: number;
+  agent_id?: string;
+}): WakeHookPayload {
+  const parentContext = params.work_item_title
+    ? ` (from "${params.work_item_title}"${params.work_item_kind ? ` [${params.work_item_kind}]` : ''})`
+    : '';
+
+  return {
+    text: `Todo deadline approaching: "${params.todo_text}"${parentContext} is due in ${params.hours_remaining} hours (${params.not_after.toISOString()})`,
+    mode: 'now',
+    ...(params.agent_id ? { agent_id: params.agent_id } : {}),
+  };
+}
+
+/**
  * Get the correct webhook destination for an event type.
  */
 export function getWebhookDestination(eventType: string): string {
   switch (eventType) {
     case 'deadline_approaching':
+    case 'todo_deadline_approaching':
       return '/hooks/wake';
     case 'sms_received':
     case 'email_received':
     case 'reminder_due':
+    case 'todo_reminder_due':
     case 'spawn_agent':
     default:
       return '/hooks/agent';

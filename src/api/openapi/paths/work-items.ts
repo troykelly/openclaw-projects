@@ -35,8 +35,8 @@ export function workItemsPaths(): OpenApiDomainModule {
     schemas: {
       WorkItemKind: {
         type: 'string',
-        enum: ['project', 'initiative', 'epic', 'issue', 'task'],
-        description: 'Hierarchy level of the work item',
+        enum: ['project', 'initiative', 'epic', 'issue', 'task', 'list'],
+        description: 'Hierarchy level of the work item. Lists are lightweight containers for todo items.',
         example: 'project',
       },
       WorkItemStatus: {
@@ -206,13 +206,18 @@ export function workItemsPaths(): OpenApiDomainModule {
       },
       Todo: {
         type: 'object',
-        required: ['id', 'text', 'completed', 'created_at'],
+        required: ['id', 'text', 'completed', 'sort_order', 'priority', 'created_at', 'updated_at'],
         properties: {
           id: { type: 'string', format: 'uuid', description: 'Unique identifier for the todo item', example: 'f5a6b7c8-9012-34de-f567-890123456789' },
           text: { type: 'string', description: 'Text content of the checklist item', example: 'Write unit tests for login endpoint' },
           completed: { type: 'boolean', description: 'Whether the checklist item is completed', example: false },
+          sort_order: { type: 'integer', description: 'Sort order for display within the list. Lower values appear first.', example: 1000 },
+          not_before: { type: 'string', format: 'date-time', nullable: true, description: 'Reminder date — pgcron fires a hook when this time is reached', example: null },
+          not_after: { type: 'string', format: 'date-time', nullable: true, description: 'Deadline date — pgcron fires a nudge hook as this approaches', example: null },
+          priority: { type: 'string', enum: ['P0', 'P1', 'P2', 'P3', 'P4'], description: 'Priority level (default P2)', example: 'P2' },
           created_at: { type: 'string', format: 'date-time', description: 'When the todo was created', example: '2026-02-21T14:30:00Z' },
           completed_at: { type: 'string', format: 'date-time', nullable: true, description: 'When the todo was marked as completed, or null if incomplete', example: null },
+          updated_at: { type: 'string', format: 'date-time', description: 'When the todo was last updated', example: '2026-02-21T14:30:00Z' },
         },
       },
       TodoCreate: {
@@ -227,6 +232,30 @@ export function workItemsPaths(): OpenApiDomainModule {
         properties: {
           text: { type: 'string', description: 'Updated text content for the checklist item', example: 'Write integration tests for login endpoint' },
           completed: { type: 'boolean', description: 'Set to true to mark as completed, false to re-open', example: true },
+          sort_order: { type: 'integer', description: 'Sort order for display within the list. Lower values appear first.', example: 1000 },
+          not_before: { type: 'string', format: 'date-time', nullable: true, description: 'Reminder date — pgcron fires a hook when this time is reached', example: '2026-03-10T09:00:00Z' },
+          not_after: { type: 'string', format: 'date-time', nullable: true, description: 'Deadline date — pgcron fires a nudge hook as this approaches', example: '2026-03-15T17:00:00Z' },
+          priority: { type: 'string', enum: ['P0', 'P1', 'P2', 'P3', 'P4'], description: 'Priority level (default P2)', example: 'P1' },
+        },
+      },
+      TodoReorderItem: {
+        type: 'object',
+        required: ['todo_id', 'sort_order'],
+        properties: {
+          todo_id: { type: 'string', format: 'uuid', description: 'UUID of the todo to reorder', example: 'a1b2c3d4-5678-90ab-cdef-012345678901' },
+          sort_order: { type: 'integer', description: 'New sort order value', example: 1000 },
+        },
+      },
+      TodoReorderRequest: {
+        type: 'object',
+        required: ['items'],
+        properties: {
+          items: {
+            type: 'array',
+            description: 'Array of todo IDs with their new sort orders',
+            items: { $ref: '#/components/schemas/TodoReorderItem' },
+            minItems: 1,
+          },
         },
       },
       Comment: {
@@ -541,9 +570,16 @@ export function workItemsPaths(): OpenApiDomainModule {
               example: 'active',
             },
             {
+              name: 'scope',
+              in: 'query',
+              description: 'Scope filter. Use "triage" to return only unparented issues (standalone tasks not yet assigned to a project).',
+              schema: { type: 'string', enum: ['triage'] },
+              example: 'triage',
+            },
+            {
               name: 'kind',
               in: 'query',
-              description: 'Filter by work item kind (project, initiative, epic, issue, task). Alias for item_type.',
+              description: 'Filter by work item kind (project, initiative, epic, issue, task, list). Alias for item_type.',
               schema: { type: 'string' },
               example: 'task',
             },
@@ -1021,6 +1057,26 @@ export function workItemsPaths(): OpenApiDomainModule {
           responses: {
             '204': { description: 'Todo deleted' },
             ...errorResponses(401, 404, 500),
+          },
+        },
+      },
+
+      '/work-items/{id}/todos/reorder': {
+        parameters: [workItemIdParam],
+        post: {
+          operationId: 'reorderWorkItemTodos',
+          summary: 'Reorder todos',
+          description: 'Bulk-reorder todos within a work item by setting new sort_order values. All specified todos must belong to the work item.',
+          tags: ['Work Item Todos'],
+          requestBody: jsonBody(ref('TodoReorderRequest')),
+          responses: {
+            '200': jsonResponse('Reorder success', {
+              type: 'object',
+              properties: {
+                ok: { type: 'boolean', description: 'Whether the reorder succeeded', example: true },
+              },
+            }),
+            ...errorResponses(400, 401, 404, 500),
           },
         },
       },

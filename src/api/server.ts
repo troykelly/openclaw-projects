@@ -1,4 +1,7 @@
 import { createHash, createHmac, randomBytes } from 'node:crypto';
+import { validateHierarchy, isValidWorkItemKind } from './hierarchy-validation.ts';
+import type { WorkItemKind } from './hierarchy-validation.ts';
+import { emitTodoCreated, emitTodoUpdated, emitTodoDeleted, emitTodoReordered } from './realtime/emitter.ts';
 import { hashWebhookToken, verifyWebhookToken, generateWebhookSalt } from './webhooks/token-hash.ts';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -4340,8 +4343,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     // Accept 'type', 'kind', or 'item_type' parameter (type takes precedence, then kind, then item_type)
     const kind = body.type ?? body.kind ?? body.item_type ?? 'issue';
-    const allowedKinds = new Set(['project', 'initiative', 'epic', 'issue', 'task', 'list']);
-    if (!allowedKinds.has(kind)) {
+    if (!isValidWorkItemKind(kind)) {
       return reply.code(400).send({ error: 'kind/type/item_type must be one of project|initiative|epic|issue|task|list' });
     }
 
@@ -4363,7 +4365,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
 
-    // Validate parent relationship before insert for a clearer 4xx than a DB exception.
+    // Validate parent relationship before insert using centralized hierarchy validation (#2293)
     const parent_id = body.parent_id ?? null;
     if (parent_id) {
       const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -4378,7 +4380,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         return reply.code(400).send({ error: 'parent not found' });
       }
       const parentRow = parent.rows[0] as { kind: string; namespace: string };
-      const parentKind = parentRow.kind;
+      const parentKind = parentRow.kind as WorkItemKind;
 
       // Issue #2286: Cross-namespace parent linking prevention
       const childNamespace = getStoreNamespace(req);
@@ -4387,40 +4389,17 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         return reply.code(400).send({ error: 'parent must be in the same namespace' });
       }
 
-      if (kind === 'project') {
+      const hierarchyResult = validateHierarchy(kind, parentKind);
+      if (!hierarchyResult.valid) {
         await pool.end();
-        return reply.code(400).send({ error: 'project cannot have parent' });
+        return reply.code(400).send({ error: hierarchyResult.error });
       }
-      if (kind === 'list') {
-        await pool.end();
-        return reply.code(400).send({ error: 'list cannot have parent' });
-      }
-      if (kind === 'initiative' && parentKind !== 'project') {
-        await pool.end();
-        return reply.code(400).send({ error: 'initiative parent must be project' });
-      }
-      if (kind === 'epic' && parentKind !== 'initiative') {
-        await pool.end();
-        return reply.code(400).send({ error: 'epic parent must be initiative' });
-      }
-      if (kind === 'issue' && parentKind !== 'epic') {
-        await pool.end();
-        return reply.code(400).send({ error: 'issue parent must be epic' });
-      }
-      if (parentKind === 'list') {
-        await pool.end();
-        return reply.code(400).send({ error: 'cannot create child under a list' });
-      }
-      // tasks can have any parent (except list, handled above)
     } else {
-      if (kind === 'epic') {
+      const hierarchyResult = validateHierarchy(kind, null);
+      if (!hierarchyResult.valid) {
         await pool.end();
-        return reply.code(400).send({ error: 'epic requires parent initiative' });
+        return reply.code(400).send({ error: hierarchyResult.error });
       }
-      if (kind === 'issue') {
-        // issues may be top-level for backwards compatibility
-      }
-      // tasks, lists may be top-level
     }
 
     // Handle recurrence if specified (Issue #217)
@@ -4528,8 +4507,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     const kind = body.kind;
-    const allowedKinds = new Set(['project', 'initiative', 'epic', 'issue', 'task', 'list']);
-    if (!allowedKinds.has(kind)) {
+    if (!isValidWorkItemKind(kind)) {
       return reply.code(400).send({ error: 'kind must be one of project|initiative|epic|issue|task|list' });
     }
 
@@ -4554,7 +4532,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         return reply.code(400).send({ error: 'parent not found' });
       }
       const parentRow = parent.rows[0] as { kind: string; namespace: string };
-      const parentKind = parentRow.kind;
+      const parentKind = parentRow.kind as WorkItemKind;
 
       // Issue #2286: Cross-namespace parent linking prevention
       const itemNs = await pool.query('SELECT namespace FROM work_item WHERE id = $1', [params.id]);
@@ -4566,38 +4544,16 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         }
       }
 
-      if (kind === 'project') {
+      const hierarchyResult = validateHierarchy(kind, parentKind);
+      if (!hierarchyResult.valid) {
         await pool.end();
-        return reply.code(400).send({ error: 'project cannot have parent' });
-      }
-      if (kind === 'list') {
-        await pool.end();
-        return reply.code(400).send({ error: 'list cannot have parent' });
-      }
-      if (kind === 'initiative' && parentKind !== 'project') {
-        await pool.end();
-        return reply.code(400).send({ error: 'initiative parent must be project' });
-      }
-      if (kind === 'epic' && parentKind !== 'initiative') {
-        await pool.end();
-        return reply.code(400).send({ error: 'epic parent must be initiative' });
-      }
-      if (kind === 'issue' && parentKind !== 'epic') {
-        await pool.end();
-        return reply.code(400).send({ error: 'issue parent must be epic' });
-      }
-      if (parentKind === 'list') {
-        await pool.end();
-        return reply.code(400).send({ error: 'cannot create child under a list' });
+        return reply.code(400).send({ error: hierarchyResult.error });
       }
     } else {
-      if (kind === 'project') {
-        // ok
-      } else if (kind === 'initiative') {
-        // initiatives may be top-level
-      } else if (kind === 'epic') {
+      const hierarchyResult = validateHierarchy(kind, null);
+      if (!hierarchyResult.valid) {
         await pool.end();
-        return reply.code(400).send({ error: 'epic requires parent initiative' });
+        return reply.code(400).send({ error: hierarchyResult.error });
       }
     }
 
@@ -12887,45 +12843,19 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           return reply.code(400).send({ error: 'parent must be in the same namespace' });
         }
 
-        // Cannot reparent under a list
-        if (newParentKind === 'list') {
-          await client.query('ROLLBACK');
-          client.release();
-          await pool.end();
-          return reply.code(400).send({ error: 'cannot reparent under a list' });
-        }
       }
 
-      // Validate hierarchy constraints
-      const kind = item.kind;
-      if (kind === 'project') {
-        if (newParentId !== null) {
-          await client.query('ROLLBACK');
-          client.release();
-          await pool.end();
-          return reply.code(400).send({ error: 'project cannot have parent' });
-        }
-      } else if (kind === 'initiative') {
-        if (newParentId !== null && newParentKind !== 'project') {
-          await client.query('ROLLBACK');
-          client.release();
-          await pool.end();
-          return reply.code(400).send({ error: 'initiative parent must be project' });
-        }
-      } else if (kind === 'epic') {
-        if (newParentId === null || newParentKind !== 'initiative') {
-          await client.query('ROLLBACK');
-          client.release();
-          await pool.end();
-          return reply.code(400).send({ error: 'epic parent must be initiative' });
-        }
-      } else if (kind === 'issue') {
-        if (newParentId === null || newParentKind !== 'epic') {
-          await client.query('ROLLBACK');
-          client.release();
-          await pool.end();
-          return reply.code(400).send({ error: 'issue parent must be epic' });
-        }
+      // Validate hierarchy constraints using centralized validator (#2293)
+      const kind = item.kind as WorkItemKind;
+      const hierarchyResult = validateHierarchy(
+        isValidWorkItemKind(kind) ? kind : 'task',
+        newParentId ? (newParentKind as WorkItemKind) : null,
+      );
+      if (!hierarchyResult.valid) {
+        await client.query('ROLLBACK');
+        client.release();
+        await pool.end();
+        return reply.code(400).send({ error: hierarchyResult.error });
       }
 
       // Calculate new sort_order among new siblings
@@ -13366,11 +13296,16 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       `SELECT id::text as id,
               text,
               completed,
+              sort_order::float8 as sort_order,
+              not_before as "not_before",
+              not_after as "not_after",
+              priority::text as priority,
               created_at as "created_at",
-              completed_at as "completed_at"
+              completed_at as "completed_at",
+              updated_at as "updated_at"
          FROM work_item_todo
         WHERE work_item_id = $1
-        ORDER BY created_at ASC`,
+        ORDER BY sort_order ASC, created_at ASC`,
       [params.id],
     );
 
@@ -13407,25 +13342,54 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
        RETURNING id::text as id,
                  text,
                  completed,
+                 sort_order::float8 as sort_order,
+                 not_before as "not_before",
+                 not_after as "not_after",
+                 priority::text as priority,
                  created_at as "created_at",
-                 completed_at as "completed_at"`,
+                 completed_at as "completed_at",
+                 updated_at as "updated_at"`,
       [params.id, body.text.trim()],
     );
 
     await pool.end();
+
+    // Emit real-time event (#2306)
+    const created = result.rows[0] as { id: string; text: string };
+    emitTodoCreated({ id: created.id, work_item_id: params.id, text: created.text }).catch(() => {});
+
     return reply.code(201).send(result.rows[0]);
   });
 
   // PATCH /api/work-items/:id/todos/:todo_id - Update a todo
   app.patch('/work-items/:id/todos/:todo_id', async (req, reply) => {
     const params = req.params as { id: string; todo_id: string };
-    const body = req.body as { text?: string; completed?: boolean };
+    const body = req.body as {
+      text?: string;
+      completed?: boolean;
+      sort_order?: number;
+      not_before?: string | null;
+      not_after?: string | null;
+      priority?: string;
+    };
 
     // Check at least one field is provided
     const hasText = body.text !== undefined;
     const hasCompleted = body.completed !== undefined;
-    if (!hasText && !hasCompleted) {
+    const hasSortOrder = body.sort_order !== undefined;
+    const hasNotBefore = 'not_before' in body;
+    const hasNotAfter = 'not_after' in body;
+    const hasPriority = body.priority !== undefined;
+    if (!hasText && !hasCompleted && !hasSortOrder && !hasNotBefore && !hasNotAfter && !hasPriority) {
       return reply.code(400).send({ error: 'at least one field is required' });
+    }
+
+    // Validate priority value if provided
+    if (hasPriority) {
+      const validPriorities = new Set(['P0', 'P1', 'P2', 'P3', 'P4']);
+      if (!validPriorities.has(body.priority!)) {
+        return reply.code(400).send({ error: 'priority must be one of P0|P1|P2|P3|P4' });
+      }
     }
 
     const pool = createPool();
@@ -13451,7 +13415,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     // Build update query
     const updates: string[] = [];
-    const values: (string | boolean | null)[] = [];
+    const values: (string | boolean | number | null)[] = [];
     let paramIndex = 1;
 
     if (hasText) {
@@ -13473,20 +13437,126 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }
     }
 
+    if (hasSortOrder) {
+      updates.push(`sort_order = $${paramIndex}`);
+      values.push(body.sort_order!);
+      paramIndex++;
+    }
+
+    if (hasNotBefore) {
+      updates.push(`not_before = $${paramIndex}::timestamptz`);
+      values.push(body.not_before ?? null);
+      paramIndex++;
+    }
+
+    if (hasNotAfter) {
+      updates.push(`not_after = $${paramIndex}::timestamptz`);
+      values.push(body.not_after ?? null);
+      paramIndex++;
+    }
+
+    if (hasPriority) {
+      updates.push(`priority = $${paramIndex}::work_item_priority`);
+      values.push(body.priority!);
+      paramIndex++;
+    }
+
     values.push(params.todo_id);
 
-    const result = await pool.query(
-      `UPDATE work_item_todo SET ${updates.join(', ')} WHERE id = $${paramIndex}
-       RETURNING id::text as id,
-                 text,
-                 completed,
-                 created_at as "created_at",
-                 completed_at as "completed_at"`,
-      values,
-    );
+    try {
+      const result = await pool.query(
+        `UPDATE work_item_todo SET ${updates.join(', ')} WHERE id = $${paramIndex}
+         RETURNING id::text as id,
+                   text,
+                   completed,
+                   sort_order::float8 as sort_order,
+                   not_before as "not_before",
+                   not_after as "not_after",
+                   priority::text as priority,
+                   created_at as "created_at",
+                   completed_at as "completed_at",
+                   updated_at as "updated_at"`,
+        values,
+      );
+
+      await pool.end();
+
+      // Emit real-time event (#2306)
+      const updated = result.rows[0] as { id: string; text: string; completed: boolean };
+      const changes: string[] = [];
+      if (hasText) changes.push('text');
+      if (hasCompleted) changes.push('completed');
+      if (hasSortOrder) changes.push('sort_order');
+      if (hasNotBefore) changes.push('not_before');
+      if (hasNotAfter) changes.push('not_after');
+      if (hasPriority) changes.push('priority');
+      emitTodoUpdated({
+        id: updated.id,
+        work_item_id: params.id,
+        text: updated.text,
+        completed: updated.completed,
+        changes,
+      }).catch(() => {});
+
+      return reply.send(result.rows[0]);
+    } catch (err) {
+      await pool.end();
+      // Check for DB constraint violation (e.g., not_before > not_after)
+      const pgErr = err as { code?: string; constraint?: string };
+      if (pgErr.code === '23514') {
+        return reply.code(400).send({ error: 'date constraint violation: not_before must be <= not_after' });
+      }
+      throw err;
+    }
+  });
+
+  // POST /api/work-items/:id/todos/reorder - Bulk reorder todos within a work item
+  app.post('/work-items/:id/todos/reorder', async (req, reply) => {
+    const params = req.params as { id: string };
+    const body = req.body as { items?: Array<{ todo_id: string; sort_order: number }> };
+
+    if (!body?.items || !Array.isArray(body.items) || body.items.length === 0) {
+      return reply.code(400).send({ error: 'items array is required and must not be empty' });
+    }
+
+    const pool = createPool();
+
+    if (!(await verifyWriteScope(pool, 'work_item', params.id, req))) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+
+    // Check if work item exists
+    const workItemExists = await pool.query('SELECT 1 FROM work_item WHERE id = $1', [params.id]);
+    if (workItemExists.rows.length === 0) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+
+    // Update each todo's sort_order in a single transaction
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      for (const item of body.items) {
+        await client.query(
+          'UPDATE work_item_todo SET sort_order = $1 WHERE id = $2 AND work_item_id = $3',
+          [item.sort_order, item.todo_id, params.id],
+        );
+      }
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
 
     await pool.end();
-    return reply.send(result.rows[0]);
+
+    // Emit real-time event (#2306)
+    emitTodoReordered({ id: params.id, work_item_id: params.id }).catch(() => {});
+
+    return reply.send({ ok: true });
   });
 
   // DELETE /api/work-items/:id/todos/:todo_id - Delete a todo
@@ -13514,6 +13584,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     if (result.rows.length === 0) {
       return reply.code(404).send({ error: 'not found' });
     }
+
+    // Emit real-time event (#2306)
+    emitTodoDeleted({ id: params.todo_id, work_item_id: params.id }).catch(() => {});
 
     return reply.code(204).send();
   });

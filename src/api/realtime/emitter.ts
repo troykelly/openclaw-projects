@@ -6,6 +6,7 @@
 import { getRealtimeHub } from './hub.ts';
 import type {
   WorkItemEventData,
+  TodoEventData,
   MemoryEventData,
   ContactEventData,
   MessageEventData,
@@ -39,6 +40,38 @@ export async function emitWorkItemUpdated(data: WorkItemEventData, user_id?: str
  */
 export async function emitWorkItemDeleted(data: WorkItemEventData, user_id?: string): Promise<void> {
   await getRealtimeHub().emit('work_item:deleted', data, user_id);
+}
+
+// ============================================================================
+// Todo Events (#2306)
+// ============================================================================
+
+/**
+ * Emit todo created event
+ */
+export async function emitTodoCreated(data: TodoEventData, user_id?: string): Promise<void> {
+  await getRealtimeHub().emit('todo:created', data, user_id);
+}
+
+/**
+ * Emit todo updated event
+ */
+export async function emitTodoUpdated(data: TodoEventData, user_id?: string): Promise<void> {
+  await getRealtimeHub().emit('todo:updated', data, user_id);
+}
+
+/**
+ * Emit todo deleted event
+ */
+export async function emitTodoDeleted(data: TodoEventData, user_id?: string): Promise<void> {
+  await getRealtimeHub().emit('todo:deleted', data, user_id);
+}
+
+/**
+ * Emit todo reordered event
+ */
+export async function emitTodoReordered(data: TodoEventData, user_id?: string): Promise<void> {
+  await getRealtimeHub().emit('todo:reordered', data, user_id);
 }
 
 /**
