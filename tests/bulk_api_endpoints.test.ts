@@ -37,7 +37,7 @@ describe('Bulk API Endpoints', () => {
           items: [
             { title: 'Task 1', work_item_kind: 'issue' },
             { title: 'Task 2', work_item_kind: 'issue' },
-            { title: 'Task 3', work_item_kind: 'epic' },
+            { title: 'Task 3', work_item_kind: 'project' },
           ],
         },
       });
@@ -102,17 +102,21 @@ describe('Bulk API Endpoints', () => {
     });
 
     it('creates items with parent_work_item_id', async () => {
-      // Create a parent first
-      const parentResult = await pool.query("INSERT INTO work_item (title, work_item_kind) VALUES ('Parent Epic', 'epic') RETURNING id::text as id");
-      const parent_id = parentResult.rows[0].id;
+      // Create proper hierarchy: project -> initiative -> epic
+      const projResult = await pool.query("INSERT INTO work_item (title, work_item_kind) VALUES ('Parent Project', 'project') RETURNING id::text as id");
+      const projId = projResult.rows[0].id;
+      const initResult = await pool.query("INSERT INTO work_item (title, work_item_kind, parent_work_item_id) VALUES ('Parent Init', 'initiative', $1) RETURNING id::text as id", [projId]);
+      const initId = initResult.rows[0].id;
+      const epicResult = await pool.query("INSERT INTO work_item (title, work_item_kind, parent_work_item_id) VALUES ('Parent Epic', 'epic', $1) RETURNING id::text as id", [initId]);
+      const epicId = epicResult.rows[0].id;
 
       const response = await app.inject({
         method: 'POST',
         url: '/work-items/bulk',
         payload: {
           items: [
-            { title: 'Child 1', parent_work_item_id: parent_id },
-            { title: 'Child 2', parent_work_item_id: parent_id },
+            { title: 'Child 1', work_item_kind: 'issue', parent_work_item_id: epicId },
+            { title: 'Child 2', work_item_kind: 'issue', parent_work_item_id: epicId },
           ],
         },
       });
@@ -121,7 +125,7 @@ describe('Bulk API Endpoints', () => {
       expect(response.json().created).toBe(2);
 
       // Verify parent relationship
-      const childResult = await pool.query('SELECT COUNT(*) FROM work_item WHERE parent_work_item_id = $1', [parent_id]);
+      const childResult = await pool.query('SELECT COUNT(*) FROM work_item WHERE parent_work_item_id = $1', [epicId]);
       expect(parseInt(childResult.rows[0].count, 10)).toBe(2);
     });
   });

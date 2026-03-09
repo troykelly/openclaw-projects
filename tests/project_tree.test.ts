@@ -40,7 +40,7 @@ describe('Project Tree', () => {
     });
 
     it('returns top-level work items with children counts', async () => {
-      // Create a project
+      // Create a project with proper hierarchy
       const project = await pool.query(
         `INSERT INTO work_item (title, work_item_kind, status)
          VALUES ('Project Alpha', 'project', 'in_progress')
@@ -48,10 +48,10 @@ describe('Project Tree', () => {
       );
       const project_id = (project.rows[0] as { id: string }).id;
 
-      // Create child issues
+      // Create child initiatives (initiatives can be under projects)
       await pool.query(
         `INSERT INTO work_item (title, work_item_kind, parent_work_item_id)
-         VALUES ('Issue 1', 'issue', $1), ('Issue 2', 'issue', $1)`,
+         VALUES ('Init 1', 'initiative', $1), ('Init 2', 'initiative', $1)`,
         [project_id],
       );
 
@@ -80,7 +80,7 @@ describe('Project Tree', () => {
     });
 
     it('returns hierarchical structure with nested children', async () => {
-      // Create hierarchy: Project > Epic > Issues
+      // Create hierarchy: Project > Initiative > Epic > Issues
       const project = await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
          VALUES ('Project Beta', 'project')
@@ -88,11 +88,19 @@ describe('Project Tree', () => {
       );
       const project_id = (project.rows[0] as { id: string }).id;
 
+      const init = await pool.query(
+        `INSERT INTO work_item (title, work_item_kind, parent_work_item_id)
+         VALUES ('Init 1', 'initiative', $1)
+         RETURNING id::text as id`,
+        [project_id],
+      );
+      const initId = (init.rows[0] as { id: string }).id;
+
       const epic = await pool.query(
         `INSERT INTO work_item (title, work_item_kind, parent_work_item_id)
          VALUES ('Epic 1', 'epic', $1)
          RETURNING id::text as id`,
-        [project_id],
+        [initId],
       );
       const epicId = (epic.rows[0] as { id: string }).id;
 
@@ -115,16 +123,22 @@ describe('Project Tree', () => {
           children: Array<{
             id: string;
             title: string;
-            children_count: number;
-            children: unknown[];
+            children: Array<{
+              id: string;
+              title: string;
+              children_count: number;
+              children: unknown[];
+            }>;
           }>;
         }>;
       };
       expect(body.items.length).toBe(1);
       expect(body.items[0].title).toBe('Project Beta');
       expect(body.items[0].children.length).toBe(1);
-      expect(body.items[0].children[0].title).toBe('Epic 1');
-      expect(body.items[0].children[0].children_count).toBe(2);
+      expect(body.items[0].children[0].title).toBe('Init 1');
+      expect(body.items[0].children[0].children.length).toBe(1);
+      expect(body.items[0].children[0].children[0].title).toBe('Epic 1');
+      expect(body.items[0].children[0].children[0].children_count).toBe(2);
     });
 
     it('includes status in tree items', async () => {
@@ -150,7 +164,7 @@ describe('Project Tree', () => {
     });
 
     it('filters by root_id to get subtree', async () => {
-      // Create hierarchy
+      // Create hierarchy: project -> initiative
       const project = await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
          VALUES ('Project 1', 'project')
@@ -160,7 +174,7 @@ describe('Project Tree', () => {
 
       await pool.query(
         `INSERT INTO work_item (title, work_item_kind, parent_work_item_id)
-         VALUES ('Epic 1', 'epic', $1)`,
+         VALUES ('Init 1', 'initiative', $1)`,
         [project_id],
       );
 

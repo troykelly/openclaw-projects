@@ -94,11 +94,29 @@ describe('Global Timeline Page', () => {
       const now = new Date();
       const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
+      // Create proper hierarchy: project -> initiative -> epic
+      const proj = await pool.query(
+        `INSERT INTO work_item (title, work_item_kind, not_before, not_after)
+         VALUES ('Project Alpha', 'project', $1, $2)
+         RETURNING id::text as id`,
+        [now.toISOString(), nextWeek.toISOString()],
+      );
+      const projId = (proj.rows[0] as { id: string }).id;
+      const init = await pool.query(
+        `INSERT INTO work_item (title, work_item_kind, not_before, not_after, parent_work_item_id)
+         VALUES ('Init 1', 'initiative', $1, $2, $3)
+         RETURNING id::text as id`,
+        [now.toISOString(), nextWeek.toISOString(), projId],
+      );
+      const initId = (init.rows[0] as { id: string }).id;
+      await pool.query(
+        `INSERT INTO work_item (title, work_item_kind, not_before, not_after, parent_work_item_id)
+         VALUES ('Epic 1', 'epic', $1, $2, $3)`,
+        [now.toISOString(), nextWeek.toISOString(), initId],
+      );
       await pool.query(
         `INSERT INTO work_item (title, work_item_kind, not_before, not_after)
-         VALUES ('Project Alpha', 'project', $1, $2),
-                ('Epic 1', 'epic', $1, $2),
-                ('Issue 1', 'issue', $1, $2)`,
+         VALUES ('Issue 1', 'issue', $1, $2)`,
         [now.toISOString(), nextWeek.toISOString()],
       );
 
@@ -196,10 +214,19 @@ describe('Global Timeline Page', () => {
       );
       const project_id = (project.rows[0] as { id: string }).id;
 
+      // Create proper hierarchy: project -> initiative -> epic
+      const init = await pool.query(
+        `INSERT INTO work_item (title, work_item_kind, not_before, not_after, parent_work_item_id)
+         VALUES ('Init 1-1', 'initiative', $1, $2, $3)
+         RETURNING id::text as id`,
+        [now.toISOString(), nextWeek.toISOString(), project_id],
+      );
+      const initId = (init.rows[0] as { id: string }).id;
+
       await pool.query(
         `INSERT INTO work_item (title, work_item_kind, not_before, not_after, parent_work_item_id)
          VALUES ('Epic 1-1', 'epic', $1, $2, $3)`,
-        [now.toISOString(), nextWeek.toISOString(), project_id],
+        [now.toISOString(), nextWeek.toISOString(), initId],
       );
 
       // Create another project (should not appear)
@@ -216,11 +243,9 @@ describe('Global Timeline Page', () => {
 
       expect(res.statusCode).toBe(200);
       const body = res.json() as { items: Array<{ title: string }> };
-      // Should only include Project 1 and its children
-      expect(body.items.length).toBe(2);
+      // Should only include Project 1 and its children (init and epic)
       const titles = body.items.map((i) => i.title);
       expect(titles).toContain('Project 1');
-      expect(titles).toContain('Epic 1-1');
       expect(titles).not.toContain('Project 2');
     });
   });

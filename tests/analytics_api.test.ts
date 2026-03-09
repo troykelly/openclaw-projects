@@ -28,7 +28,7 @@ describe('Analytics API', () => {
 
   describe('GET /analytics/project-health', () => {
     it('returns health metrics for all projects', async () => {
-      // Create a project with work items
+      // Create a project with proper hierarchy: project -> initiative -> epic -> issues
       const projectRes = await pool.query(
         `INSERT INTO work_item (title, status, work_item_kind)
          VALUES ('Test Project', 'open', 'project')
@@ -36,13 +36,40 @@ describe('Analytics API', () => {
       );
       const project_id = projectRes.rows[0].id;
 
-      // Create issues under the project
+      const initRes = await pool.query(
+        `INSERT INTO work_item (title, status, work_item_kind, parent_work_item_id)
+         VALUES ('Test Initiative', 'open', 'initiative', $1)
+         RETURNING id`,
+        [project_id],
+      );
+      const initId = initRes.rows[0].id;
+
+      const epicRes = await pool.query(
+        `INSERT INTO work_item (title, status, work_item_kind, parent_work_item_id)
+         VALUES ('Test Epic', 'open', 'epic', $1)
+         RETURNING id`,
+        [initId],
+      );
+      const epicId = epicRes.rows[0].id;
+
+      // Create issues under the epic
       await pool.query(
         `INSERT INTO work_item (title, status, work_item_kind, parent_work_item_id)
          VALUES
            ('Issue 1', 'open', 'issue', $1),
            ('Issue 2', 'in_progress', 'issue', $1),
            ('Issue 3', 'closed', 'issue', $1)`,
+        [epicId],
+      );
+
+      // project-health counts direct children of project, so add tasks
+      // directly under the project with varied statuses
+      await pool.query(
+        `INSERT INTO work_item (title, status, work_item_kind, parent_work_item_id)
+         VALUES
+           ('Task Open', 'open', 'task', $1),
+           ('Task InProgress', 'in_progress', 'task', $1),
+           ('Task Done', 'done', 'task', $1)`,
         [project_id],
       );
 
@@ -64,7 +91,7 @@ describe('Analytics API', () => {
     });
 
     it('filters by project_id', async () => {
-      // Create two projects
+      // Create two projects with proper hierarchy
       const project1Res = await pool.query(
         `INSERT INTO work_item (title, status, work_item_kind)
          VALUES ('Project 1', 'open', 'project')
@@ -78,10 +105,26 @@ describe('Analytics API', () => {
          RETURNING id`,
       );
 
+      const init1Res = await pool.query(
+        `INSERT INTO work_item (title, status, work_item_kind, parent_work_item_id)
+         VALUES ('Init 1', 'open', 'initiative', $1)
+         RETURNING id`,
+        [project1Id],
+      );
+      const init1Id = init1Res.rows[0].id;
+
+      const epic1Res = await pool.query(
+        `INSERT INTO work_item (title, status, work_item_kind, parent_work_item_id)
+         VALUES ('Epic 1', 'open', 'epic', $1)
+         RETURNING id`,
+        [init1Id],
+      );
+      const epic1Id = epic1Res.rows[0].id;
+
       await pool.query(
         `INSERT INTO work_item (title, status, work_item_kind, parent_work_item_id)
          VALUES ('Issue 1', 'open', 'issue', $1)`,
-        [project1Id],
+        [epic1Id],
       );
 
       const response = await app.inject({
@@ -167,11 +210,27 @@ describe('Analytics API', () => {
 
   describe('GET /analytics/burndown/:id', () => {
     it('returns burndown data for an epic', async () => {
-      // Create an epic with child issues
-      const epicRes = await pool.query(
+      // Create proper hierarchy: project -> initiative -> epic -> issues
+      const projRes = await pool.query(
         `INSERT INTO work_item (title, status, work_item_kind)
-         VALUES ('Test Epic', 'open', 'epic')
+         VALUES ('Burndown Project', 'open', 'project')
          RETURNING id`,
+      );
+      const projId = projRes.rows[0].id;
+
+      const initRes = await pool.query(
+        `INSERT INTO work_item (title, status, work_item_kind, parent_work_item_id)
+         VALUES ('Burndown Init', 'open', 'initiative', $1)
+         RETURNING id`,
+        [projId],
+      );
+      const initId = initRes.rows[0].id;
+
+      const epicRes = await pool.query(
+        `INSERT INTO work_item (title, status, work_item_kind, parent_work_item_id)
+         VALUES ('Test Epic', 'open', 'epic', $1)
+         RETURNING id`,
+        [initId],
       );
       const epicId = epicRes.rows[0].id;
 

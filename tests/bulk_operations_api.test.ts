@@ -106,11 +106,23 @@ describe('Bulk Operations API', () => {
 
   describe('PATCH /work-items/bulk/parent', () => {
     it('reparents multiple items to a new parent', async () => {
-      // Create a parent
-      const parentResult = await pool.query(
+      // Create proper hierarchy: project -> initiative -> epic
+      const projResult = await pool.query(
         `INSERT INTO work_item (title, work_item_kind, status)
-         VALUES ($1, 'epic', 'backlog') RETURNING id::text as id`,
-        ['bulk-test-parent'],
+         VALUES ($1, 'project', 'backlog') RETURNING id::text as id`,
+        ['bulk-test-project'],
+      );
+      const projId = projResult.rows[0].id;
+      const initResult = await pool.query(
+        `INSERT INTO work_item (title, work_item_kind, status, parent_work_item_id)
+         VALUES ($1, 'initiative', 'backlog', $2) RETURNING id::text as id`,
+        ['bulk-test-init', projId],
+      );
+      const initId = initResult.rows[0].id;
+      const parentResult = await pool.query(
+        `INSERT INTO work_item (title, work_item_kind, status, parent_work_item_id)
+         VALUES ($1, 'epic', 'backlog', $2) RETURNING id::text as id`,
+        ['bulk-test-parent', initId],
       );
       const parent_id = parentResult.rows[0].id;
 
@@ -136,11 +148,23 @@ describe('Bulk Operations API', () => {
     });
 
     it('can unparent multiple items', async () => {
-      // First create parent and reparent items
-      const parentResult = await pool.query(
+      // First create proper hierarchy: project -> initiative -> epic
+      const projResult = await pool.query(
         `INSERT INTO work_item (title, work_item_kind, status)
-         VALUES ($1, 'epic', 'backlog') RETURNING id::text as id`,
-        ['bulk-test-parent-2'],
+         VALUES ($1, 'project', 'backlog') RETURNING id::text as id`,
+        ['bulk-test-project-2'],
+      );
+      const projId = projResult.rows[0].id;
+      const initResult = await pool.query(
+        `INSERT INTO work_item (title, work_item_kind, status, parent_work_item_id)
+         VALUES ($1, 'initiative', 'backlog', $2) RETURNING id::text as id`,
+        ['bulk-test-init-2', projId],
+      );
+      const initId = initResult.rows[0].id;
+      const parentResult = await pool.query(
+        `INSERT INTO work_item (title, work_item_kind, status, parent_work_item_id)
+         VALUES ($1, 'epic', 'backlog', $2) RETURNING id::text as id`,
+        ['bulk-test-parent-2', initId],
       );
       const parent_id = parentResult.rows[0].id;
 
