@@ -30,8 +30,8 @@ CREATE INDEX IF NOT EXISTS idx_work_item_triage
 -- STEP 3: Migrate sort_order from INTEGER to BIGINT (#2305)
 -- Must drop and recreate views that reference sort_order
 -- ============================================================
-DROP VIEW IF EXISTS work_item_active CASCADE;
-DROP VIEW IF EXISTS work_item_trash CASCADE;
+DROP VIEW IF EXISTS work_item_active;
+DROP VIEW IF EXISTS work_item_trash;
 
 ALTER TABLE work_item ALTER COLUMN sort_order TYPE bigint;
 ALTER TABLE work_item ALTER COLUMN sort_order SET DEFAULT EXTRACT(EPOCH FROM now())::bigint;

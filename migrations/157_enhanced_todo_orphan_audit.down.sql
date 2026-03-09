@@ -10,6 +10,10 @@ DROP FUNCTION IF EXISTS log_orphan_to_triage();
 DROP TRIGGER IF EXISTS work_item_todo_updated_at ON work_item_todo;
 DROP FUNCTION IF EXISTS update_todo_updated_at();
 
+-- Remove namespace cascade trigger
+DROP TRIGGER IF EXISTS work_item_namespace_cascade_todos ON work_item;
+DROP FUNCTION IF EXISTS cascade_work_item_namespace_to_todos();
+
 -- Remove namespace sync trigger
 DROP TRIGGER IF EXISTS work_item_todo_namespace_sync ON work_item_todo;
 DROP FUNCTION IF EXISTS sync_todo_namespace();

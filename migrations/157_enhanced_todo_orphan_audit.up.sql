@@ -42,11 +42,10 @@ $$;
 -- Add namespace CHECK constraint matching the pattern from migration 090
 DO $$
 BEGIN
-  -- Check if there's already a namespace check constraint
   IF NOT EXISTS (
     SELECT 1 FROM pg_constraint
     WHERE conrelid = 'work_item_todo'::regclass
-      AND conname LIKE '%namespace%'
+      AND conname = 'work_item_todo_namespace_check'
   ) THEN
     ALTER TABLE work_item_todo
       ADD CONSTRAINT work_item_todo_namespace_check
@@ -78,6 +77,28 @@ CREATE TRIGGER work_item_todo_namespace_sync
   BEFORE INSERT OR UPDATE OF work_item_id ON work_item_todo
   FOR EACH ROW
   EXECUTE FUNCTION sync_todo_namespace();
+
+-- ============================================================
+-- STEP 4b: Cascade namespace changes from work_item to work_item_todo
+-- When a work_item's namespace changes, propagate to all its todos
+-- ============================================================
+CREATE OR REPLACE FUNCTION cascade_work_item_namespace_to_todos()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF OLD.namespace IS DISTINCT FROM NEW.namespace THEN
+    UPDATE work_item_todo
+    SET namespace = NEW.namespace
+    WHERE work_item_id = NEW.id;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS work_item_namespace_cascade_todos ON work_item;
+CREATE TRIGGER work_item_namespace_cascade_todos
+  AFTER UPDATE OF namespace ON work_item
+  FOR EACH ROW
+  EXECUTE FUNCTION cascade_work_item_namespace_to_todos();
 
 -- ============================================================
 -- STEP 5: updated_at auto-update trigger

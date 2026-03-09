@@ -5,6 +5,8 @@ DROP TRIGGER IF EXISTS trg_skip_list_embedding ON work_item;
 DROP FUNCTION IF EXISTS skip_list_embedding();
 
 -- Revert sort_order back to integer
+-- WARNING: This will fail if any sort_order values exceed INT4_MAX (2,147,483,647).
+-- In that case, first UPDATE rows with sort_order > 2147483647 to bring them in range.
 ALTER TABLE work_item ALTER COLUMN sort_order TYPE integer;
 ALTER TABLE work_item ALTER COLUMN sort_order SET DEFAULT EXTRACT(EPOCH FROM now())::integer;
 

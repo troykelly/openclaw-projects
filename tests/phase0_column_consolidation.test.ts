@@ -274,10 +274,15 @@ describe('Phase 0: Column consolidation, namespace security, scoped endpoints, t
       });
       expect(res.statusCode).toBe(200);
       const body = res.json() as { items: Array<{ title: string; namespace?: string }> };
-
-      // In test mode with no auth, it should scope to accessible namespaces
-      // At minimum, the endpoint should not blindly return all items
       expect(Array.isArray(body.items)).toBe(true);
+
+      // In test mode with default namespace context, should only see 'default' namespace
+      // Verify no items from other namespaces leak through
+      for (const item of body.items) {
+        if (item.namespace) {
+          expect(item.namespace).toBe('default');
+        }
+      }
     });
   });
 
@@ -378,9 +383,18 @@ describe('Phase 0: Column consolidation, namespace security, scoped endpoints, t
         url: '/work-items?scope=triage',
       });
       expect(res.statusCode).toBe(200);
-      const body = res.json() as { items: Array<{ title: string }> };
-      // In test mode, should scope appropriately
+      const body = res.json() as { items: Array<{ title: string; namespace?: string }> };
       expect(Array.isArray(body.items)).toBe(true);
+
+      // In test mode with default namespace context, should only see 'default' namespace
+      for (const item of body.items) {
+        if (item.namespace) {
+          expect(item.namespace).toBe('default');
+        }
+      }
+      // Should only see the default namespace issue
+      expect(body.items.length).toBe(1);
+      expect(body.items[0].title).toBe('Default Issue');
     });
   });
 });

@@ -233,6 +233,37 @@ describe('Phase 1: Schema changes', () => {
       }
     });
 
+    it('todo namespace cascades when parent work_item namespace changes', async () => {
+      const nsItem = await pool.query(
+        `INSERT INTO work_item (title, work_item_kind, namespace)
+         VALUES ('NS Cascade Item', 'issue', 'ns-old')
+         RETURNING id`,
+      );
+      const nsItemId = (nsItem.rows[0] as { id: string }).id;
+
+      const todo = await pool.query(
+        `INSERT INTO work_item_todo (work_item_id, text)
+         VALUES ($1, 'Cascade Todo')
+         RETURNING id, namespace`,
+        [nsItemId],
+      );
+      const todoId = (todo.rows[0] as { id: string }).id;
+      expect((todo.rows[0] as { namespace: string }).namespace).toBe('ns-old');
+
+      // Change the parent's namespace
+      await pool.query(
+        `UPDATE work_item SET namespace = 'ns-new' WHERE id = $1`,
+        [nsItemId],
+      );
+
+      // Todo should now have the new namespace
+      const check = await pool.query(
+        `SELECT namespace FROM work_item_todo WHERE id = $1`,
+        [todoId],
+      );
+      expect((check.rows[0] as { namespace: string }).namespace).toBe('ns-new');
+    });
+
     it('default sort_order is based on epoch', async () => {
       const res = await pool.query(
         `INSERT INTO work_item_todo (work_item_id, text)
