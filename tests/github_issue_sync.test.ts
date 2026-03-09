@@ -609,8 +609,8 @@ describe('GitHub Issue Sync (#2202)', () => {
 
   describe('Migration 149 down', () => {
     it('cleanly rolls back migration 149', async () => {
-      // Roll back to migration 148: 157..149 = 9 steps
-      await runMigrate('down', 9);
+      // Roll back to migration 148: 158..149 = 10 steps
+      await runMigrate('down', 10);
 
       // Verify table dropped
       const tableCheck = await pool.query(
