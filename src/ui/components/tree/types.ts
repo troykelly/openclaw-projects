@@ -1,4 +1,4 @@
-export type TreeItemKind = 'project' | 'initiative' | 'epic' | 'issue';
+export type TreeItemKind = 'project' | 'initiative' | 'epic' | 'issue' | 'task' | 'list';
 
 export type TreeItemStatus = 'not_started' | 'in_progress' | 'blocked' | 'done' | 'cancelled';
 

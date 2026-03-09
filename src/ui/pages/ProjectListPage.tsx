@@ -6,7 +6,7 @@
  * editing via the tree panel context menu.
  */
 import React, { useState, useCallback, useMemo } from 'react';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { useWorkItems, workItemKeys } from '@/ui/hooks/queries/use-work-items';
 import { useWorkItemTree } from '@/ui/hooks/queries/use-work-items';
 import { useUpdateWorkItem } from '@/ui/hooks/mutations/use-update-work-item';
@@ -24,6 +24,7 @@ import { mapApiTreeToTreeItems, findTreeItem, flattenTreeForParents, priorityCol
 import { apiClient } from '@/ui/lib/api-client';
 import { LayoutGrid, Calendar, Network, Clock, AlertCircle, CheckCircle2, Circle, FolderTree, PanelLeftClose, PanelLeft } from 'lucide-react';
 import { NamespaceBadge } from '@/ui/components/namespace';
+import { WorkItemCreateDialog } from '@/ui/components/work-item-create';
 
 /** Status icons mapped by status key. */
 const statusIcons: Record<string, React.ReactNode> = {
@@ -36,10 +37,12 @@ const statusIcons: Record<string, React.ReactNode> = {
 
 export function ProjectListPage(): React.JSX.Element {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const { data: workItemsData, isLoading, error, refetch } = useWorkItems();
   const { data: treeData, isLoading: treeLoading } = useWorkItemTree();
 
   const [treePanelOpen, setTreePanelOpen] = useState(true);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
   // Map tree data
   const treeItems = useMemo(() => (treeData ? mapApiTreeToTreeItems(treeData.items) : []), [treeData]);
@@ -63,9 +66,8 @@ export function ProjectListPage(): React.JSX.Element {
   });
 
   const handleTreeSelect = useCallback((id: string) => {
-    // Use Link-based navigation instead of page reload
-    window.location.href = `/app/work-items/${id}`;
-  }, []);
+    navigate(`/work-items/${id}`);
+  }, [navigate]);
 
   const handleTreeDelete = useCallback(
     (id: string) => {
@@ -173,15 +175,27 @@ export function ProjectListPage(): React.JSX.Element {
 
   if (items.length === 0) {
     return (
-      <div data-testid="page-project-list" className="p-6">
-        <EmptyState
-          variant="no-data"
-          title="No work items"
-          description="Create your first work item to get started"
-          actionLabel="Create Work Item"
-          onAction={() => {}}
+      <>
+        <div data-testid="page-project-list" className="p-6">
+          <EmptyState
+            variant="no-data"
+            title="No work items"
+            description="Create your first work item to get started"
+            actionLabel="Create Work Item"
+            onAction={() => setCreateDialogOpen(true)}
+          />
+        </div>
+        <WorkItemCreateDialog
+          open={createDialogOpen}
+          onOpenChange={setCreateDialogOpen}
+          onCreated={(item) => {
+            queryClient.invalidateQueries({ queryKey: workItemKeys.all });
+            if (item?.id) {
+              navigate(`/work-items/${item.id}`);
+            }
+          }}
         />
-      </div>
+      </>
     );
   }
 

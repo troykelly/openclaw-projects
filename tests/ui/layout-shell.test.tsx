@@ -19,9 +19,15 @@ import '@testing-library/jest-dom';
 import * as React from 'react';
 import { createMemoryRouter, RouterProvider, Outlet, type RouteObject } from 'react-router';
 
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Sidebar, type SidebarProps, type NavItem } from '@/ui/components/layout/sidebar';
 import { MobileNav } from '@/ui/components/layout/mobile-nav';
 import { AppShell } from '@/ui/components/layout/app-shell';
+
+// Mock API client (needed by ProjectSidebar which AppShell now uses)
+vi.mock('@/ui/lib/api-client', () => ({
+  apiClient: { get: () => Promise.resolve({ items: [] }) },
+}));
 
 // ── helpers ──────────────────────────────────────────────────────────
 
@@ -103,14 +109,17 @@ function renderMobileNavInRouter(initialPath = '/activity') {
   return render(<RouterProvider router={router} />);
 }
 
-/** Render AppShell inside a MemoryRouter (requires router for RouterSidebar + MobileNav). */
+/** Render AppShell inside a MemoryRouter (requires router for ProjectSidebar + MobileNav). */
 function renderAppShellInRouter(initialPath = '/activity', props: Partial<React.ComponentProps<typeof AppShell>> = {}) {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
   const routes: RouteObject[] = [
     {
       element: (
-        <AppShell {...props}>
-          <Outlet />
-        </AppShell>
+        <QueryClientProvider client={qc}>
+          <AppShell {...props}>
+            <Outlet />
+          </AppShell>
+        </QueryClientProvider>
       ),
       children: [
         { path: 'activity', element: <div>Content</div> },
@@ -400,7 +409,7 @@ describe('AppShell - Layout Structure', () => {
 
   it('should include both desktop RouterSidebar and mobile nav', () => {
     renderAppShellInRouter();
-    const sidebar = screen.getByTestId('router-sidebar');
+    const sidebar = screen.getByTestId('project-sidebar');
     const mobileNav = screen.getByTestId('mobile-nav');
     expect(sidebar).toBeInTheDocument();
     expect(mobileNav).toBeInTheDocument();
@@ -442,7 +451,7 @@ describe('Z-Index Hierarchy', () => {
 
   it('should maintain proper stacking order: header(10) < sidebar(20) < mobile-nav(50)', () => {
     renderAppShellInRouter('/activity', { breadcrumbs: [{ label: 'Test' }] });
-    const sidebar = screen.getByTestId('router-sidebar');
+    const sidebar = screen.getByTestId('project-sidebar');
     const mobileNav = screen.getByTestId('mobile-nav');
     const header = screen.getByTestId('app-shell').querySelector('header');
 
@@ -468,10 +477,11 @@ describe('Z-Index Hierarchy', () => {
 
 /** Render AppShell with custom children (not Outlet) inside a router. */
 function renderAppShellWithChildrenInRouter(children: React.ReactNode) {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
   const routes: RouteObject[] = [
     {
       path: 'activity',
-      element: <AppShell>{children}</AppShell>,
+      element: <QueryClientProvider client={qc}><AppShell>{children}</AppShell></QueryClientProvider>,
     },
   ];
   const router = createMemoryRouter(routes, { initialEntries: ['/activity'] });

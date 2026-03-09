@@ -16,7 +16,9 @@ export interface WorkItemSummary {
   title: string;
   status: string | null;
   priority: string | null;
+  kind: string;
   task_type: string | null;
+  parent_id: string | null;
   created_at: string;
   updated_at: string;
   namespace?: string;

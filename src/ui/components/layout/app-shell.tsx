@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useState, useEffect, useCallback } from 'react';
 import { cn } from '@/ui/lib/utils';
-import { RouterSidebar } from './router-sidebar';
+import { ProjectSidebar } from './project-sidebar';
 import { MobileNav } from './mobile-nav';
 import { Breadcrumb, type BreadcrumbItem } from './breadcrumb';
 import { KeyboardShortcutsModal } from '@/ui/components/keyboard-shortcuts-modal';
@@ -57,7 +57,7 @@ export function AppShell({
     <div data-testid="app-shell" className={cn('flex h-screen bg-background', className)}>
       {/* Desktop Sidebar */}
       <div className="hidden md:block">
-        <RouterSidebar
+        <ProjectSidebar
           onCreateClick={onCreateClick}
           onSearchClick={onSearchClick}
           collapsed={sidebarCollapsed}

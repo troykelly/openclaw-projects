@@ -28,6 +28,12 @@ export function getValidParentKinds(kind: TreeItemKind): TreeItemKind[] {
     case 'issue':
       // Issues can be under projects, initiatives, or epics
       return ['project', 'initiative', 'epic'];
+    case 'task':
+      // Tasks can be under issues or epics
+      return ['issue', 'epic'];
+    case 'list':
+      // Lists are top-level - no parent allowed
+      return [];
   }
 }
 

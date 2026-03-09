@@ -21,6 +21,7 @@ import { ThemeProvider } from '@/ui/providers/ThemeProvider';
 import { UserProvider } from '@/ui/contexts/user-context';
 import { NamespaceProvider } from '@/ui/contexts/namespace-context';
 import { ErrorBoundary } from '@/ui/components/error-boundary';
+import { Toaster } from '@/ui/components/ui/sonner';
 import { routes } from '@/ui/routes';
 import { initSentry } from '@/ui/lib/sentry';
 
@@ -61,6 +62,7 @@ createRoot(el).render(
           <UserProvider>
             <NamespaceProvider>
               <RouterProvider router={router} />
+              <Toaster />
             </NamespaceProvider>
           </UserProvider>
         </QueryClientProvider>

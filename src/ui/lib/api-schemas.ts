@@ -22,7 +22,9 @@ export const workItemSummarySchema = z.object({
   title: z.string(),
   status: z.string().nullable(),
   priority: z.string().nullable(),
+  kind: z.string(),
   task_type: z.string().nullable(),
+  parent_id: z.string().nullable(),
   created_at: z.string(),
   updated_at: z.string(),
 }).passthrough();
