@@ -213,6 +213,8 @@ services:
       # OpenClaw integration
       OPENCLAW_GATEWAY_URL: ${OPENCLAW_GATEWAY_URL:-}
       OPENCLAW_GATEWAY_ALLOW_PRIVATE: ${OPENCLAW_GATEWAY_ALLOW_PRIVATE:-false}
+      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN:-}
+      OPENCLAW_HOOK_TOKEN: ${OPENCLAW_HOOK_TOKEN:-}
       # Nominatim (reverse geocoding for geo-contextual search)
       NOMINATIM_URL: ${NOMINATIM_URL:-http://nominatim:8080}
       # File upload
