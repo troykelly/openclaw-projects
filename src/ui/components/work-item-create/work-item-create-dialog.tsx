@@ -7,6 +7,7 @@ import { Textarea } from '@/ui/components/ui/textarea';
 import { Label } from '@/ui/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/components/ui/select';
 import { Loader2, FileText } from 'lucide-react';
+import { toast } from 'sonner';
 import { apiClient } from '@/ui/lib/api-client';
 import { NamespacePicker } from '@/ui/components/namespace';
 import { useNamespaceSafe } from '@/ui/contexts/namespace-context';
@@ -83,8 +84,8 @@ export function WorkItemCreateDialog({ open, onOpenChange, onCreated, defaultPar
       try {
         const data = await apiClient.get<{ items: ApiTreeItem[] }>('/work-items/tree');
         setParentOptions(flattenTree(data.items));
-      } catch {
-        // Silently fail - parent selection will just be empty
+      } catch (err) {
+        toast.error('Failed to load parent items');
       } finally {
         setLoadingParents(false);
       }

@@ -11,7 +11,7 @@
  * @see Issue #469, #1707, #1708, #1710, #1712, #1714, #1715, #1717, #1718, #1720
  */
 import React, { useState, useCallback } from 'react';
-import { useParams, Link } from 'react-router';
+import { useParams, Link, useNavigate } from 'react-router';
 import { useWorkItem, workItemKeys } from '@/ui/hooks/queries/use-work-items';
 import { useWorkItemMemories, memoryKeys } from '@/ui/hooks/queries/use-memories';
 import { useWorkItemCommunications, communicationsKeys } from '@/ui/hooks/queries/use-communications';
@@ -33,6 +33,7 @@ import { useSetRecurrence, useDeleteRecurrence } from '@/ui/hooks/mutations/use-
 import { useLinkContact, useUnlinkContact } from '@/ui/hooks/mutations/use-work-item-contacts';
 import { useCreateWorkItem } from '@/ui/hooks/mutations/use-create-work-item';
 import { useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { apiClient } from '@/ui/lib/api-client';
 import type { AppBootstrap } from '@/ui/lib/api-types';
 import { mapApiPriority, mapPriorityToApi, readBootstrap } from '@/ui/lib/work-item-utils';
@@ -93,6 +94,7 @@ export function WorkItemDetailPage(): React.JSX.Element {
   const { id } = useParams<{ id: string }>();
   const item_id = id ?? '';
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const bootstrap = readBootstrap<AppBootstrap>();
   const participants = bootstrap?.participants ?? [];
   const currentUserEmail = bootstrap?.me?.email ?? '';
@@ -150,7 +152,7 @@ export function WorkItemDetailPage(): React.JSX.Element {
     dismissUndo,
   } = useWorkItemDelete({
     onDeleted: () => {
-      window.location.href = '/app/work-items';
+      navigate('/work-items');
     },
   });
 
@@ -282,11 +284,11 @@ export function WorkItemDetailPage(): React.JSX.Element {
   };
   const handleParentClick = () => {
     if (workItem?.parent_id) {
-      window.location.href = `/app/work-items/${workItem.parent_id}`;
+      navigate(`/work-items/${workItem.parent_id}`);
     }
   };
   const handleDependencyClick = (dep: WorkItemDependency) => {
-    window.location.href = `/app/work-items/${dep.id}`;
+    navigate(`/work-items/${dep.id}`);
   };
 
   // Dependency handlers (#1712)
@@ -360,7 +362,7 @@ export function WorkItemDetailPage(): React.JSX.Element {
       });
       setCloneDialogOpen(false);
       if (cloned?.id) {
-        window.location.href = `/app/work-items/${cloned.id}`;
+        navigate(`/work-items/${cloned.id}`);
       }
     } finally {
       setIsCloning(false);
@@ -425,8 +427,8 @@ export function WorkItemDetailPage(): React.JSX.Element {
     try {
       await apiClient.delete(`/memories/${memory.id}`);
       queryClient.invalidateQueries({ queryKey: memoryKeys.forWorkItem(item_id) });
-    } catch {
-      // Silently fail
+    } catch (err) {
+      toast.error(`Failed to delete memory: ${err instanceof Error ? err.message : 'Unknown error'}`);
     }
   };
 
@@ -436,8 +438,8 @@ export function WorkItemDetailPage(): React.JSX.Element {
     try {
       await apiClient.delete(`/work-items/${item_id}/communications/${email.id}`);
       queryClient.invalidateQueries({ queryKey: communicationsKeys.forWorkItem(item_id) });
-    } catch {
-      // Silently fail
+    } catch (err) {
+      toast.error(`Failed to unlink email: ${err instanceof Error ? err.message : 'Unknown error'}`);
     }
   };
   const handleUnlinkEvent = async (event: LinkedCalendarEvent) => {
@@ -445,8 +447,8 @@ export function WorkItemDetailPage(): React.JSX.Element {
     try {
       await apiClient.delete(`/work-items/${item_id}/communications/${event.id}`);
       queryClient.invalidateQueries({ queryKey: communicationsKeys.forWorkItem(item_id) });
-    } catch {
-      // Silently fail
+    } catch (err) {
+      toast.error(`Failed to unlink event: ${err instanceof Error ? err.message : 'Unknown error'}`);
     }
   };
 
@@ -869,9 +871,9 @@ export function WorkItemDetailPage(): React.JSX.Element {
                     direction="source"
                     onLinkClick={(type, id) => {
                       if (type === 'project' || type === 'todo') {
-                        window.location.href = `/app/work-items/${id}`;
+                        navigate(`/work-items/${id}`);
                       } else if (type === 'contact') {
-                        window.location.href = `/app/contacts/${id}`;
+                        navigate(`/contacts/${id}`);
                       }
                     }}
                   />
