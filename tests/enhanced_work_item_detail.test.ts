@@ -133,19 +133,35 @@ describe('Enhanced Work Item Detail', () => {
     });
 
     it('returns parent information', async () => {
-      // Create parent and child
-      const parent = await pool.query(
+      // Create proper hierarchy: project -> initiative -> epic -> issue
+      const project = await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
          VALUES ('Parent Project', 'project')
          RETURNING id::text as id`,
       );
-      const parent_id = (parent.rows[0] as { id: string }).id;
+      const projectId = (project.rows[0] as { id: string }).id;
+
+      const init = await pool.query(
+        `INSERT INTO work_item (title, work_item_kind, parent_work_item_id)
+         VALUES ('Parent Init', 'initiative', $1)
+         RETURNING id::text as id`,
+        [projectId],
+      );
+      const initId = (init.rows[0] as { id: string }).id;
+
+      const epic = await pool.query(
+        `INSERT INTO work_item (title, work_item_kind, parent_work_item_id)
+         VALUES ('Parent Epic', 'epic', $1)
+         RETURNING id::text as id`,
+        [initId],
+      );
+      const epicId = (epic.rows[0] as { id: string }).id;
 
       const child = await pool.query(
         `INSERT INTO work_item (title, work_item_kind, parent_work_item_id)
          VALUES ('Child Issue', 'issue', $1)
          RETURNING id::text as id`,
-        [parent_id],
+        [epicId],
       );
       const childId = (child.rows[0] as { id: string }).id;
 
@@ -159,9 +175,9 @@ describe('Enhanced Work Item Detail', () => {
         parent: { id: string; title: string; kind: string } | null;
       };
       expect(body.parent).toBeDefined();
-      expect(body.parent?.id).toBe(parent_id);
-      expect(body.parent?.title).toBe('Parent Project');
-      expect(body.parent?.kind).toBe('project');
+      expect(body.parent?.id).toBe(epicId);
+      expect(body.parent?.title).toBe('Parent Epic');
+      expect(body.parent?.kind).toBe('epic');
     });
 
     it('returns 404 for non-existent work item', async () => {

@@ -99,11 +99,26 @@ describe('Backlog API: GET /backlog', () => {
   });
 
   it('filters by kind', async () => {
+    // Must create proper hierarchy: project -> initiative -> epic
+    const proj = await pool.query(
+      `INSERT INTO work_item (title, status, work_item_kind)
+       VALUES ('Project', 'open', 'project') RETURNING id`,
+    );
+    const projId = (proj.rows[0] as { id: string }).id;
+    const init = await pool.query(
+      `INSERT INTO work_item (title, status, work_item_kind, parent_work_item_id)
+       VALUES ('Init', 'open', 'initiative', $1) RETURNING id`,
+      [projId],
+    );
+    const initId = (init.rows[0] as { id: string }).id;
+    await pool.query(
+      `INSERT INTO work_item (title, status, work_item_kind, parent_work_item_id)
+       VALUES ('Epic task', 'open', 'epic', $1)`,
+      [initId],
+    );
     await pool.query(
       `INSERT INTO work_item (title, status, work_item_kind)
-       VALUES ('Project', 'open', 'project'),
-              ('Epic task', 'open', 'epic'),
-              ('Issue', 'open', 'issue')`,
+       VALUES ('Issue', 'open', 'issue')`,
     );
 
     const response = await app.inject({
@@ -118,12 +133,28 @@ describe('Backlog API: GET /backlog', () => {
   });
 
   it('combines multiple filters', async () => {
+    // Create proper hierarchy for the epic
+    const proj = await pool.query(
+      `INSERT INTO work_item (title, status, work_item_kind)
+       VALUES ('Project', 'open', 'project') RETURNING id`,
+    );
+    const projId = (proj.rows[0] as { id: string }).id;
+    const init = await pool.query(
+      `INSERT INTO work_item (title, status, work_item_kind, parent_work_item_id)
+       VALUES ('Init', 'open', 'initiative', $1) RETURNING id`,
+      [projId],
+    );
+    const initId = (init.rows[0] as { id: string }).id;
     await pool.query(
       `INSERT INTO work_item (title, status, priority, work_item_kind)
        VALUES ('Match', 'open', 'P0', 'issue'),
               ('Wrong status', 'closed', 'P0', 'issue'),
-              ('Wrong priority', 'open', 'P2', 'issue'),
-              ('Wrong kind', 'open', 'P0', 'epic')`,
+              ('Wrong priority', 'open', 'P2', 'issue')`,
+    );
+    await pool.query(
+      `INSERT INTO work_item (title, status, priority, work_item_kind, parent_work_item_id)
+       VALUES ('Wrong kind', 'open', 'P0', 'epic', $1)`,
+      [initId],
     );
 
     const response = await app.inject({

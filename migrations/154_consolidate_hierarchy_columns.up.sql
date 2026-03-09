@@ -23,13 +23,46 @@ WHERE parent_id IS DISTINCT FROM parent_work_item_id;
 CREATE OR REPLACE FUNCTION sync_work_item_columns()
 RETURNS TRIGGER AS $$
 BEGIN
-  -- Sync kind ↔ work_item_kind
-  -- Canonical source is work_item_kind; copy to kind
-  NEW.kind := NEW.work_item_kind::text;
+  IF TG_OP = 'INSERT' THEN
+    -- On INSERT: detect which column was explicitly set via defaults
+    IF NEW.kind IS DISTINCT FROM NEW.work_item_kind::text THEN
+      IF NEW.work_item_kind::text = 'issue' AND NEW.kind <> 'issue' THEN
+        NEW.work_item_kind := NEW.kind::work_item_kind;
+      ELSE
+        NEW.kind := NEW.work_item_kind::text;
+      END IF;
+    END IF;
 
-  -- Sync parent_id ↔ parent_work_item_id
-  -- Canonical source is parent_work_item_id; copy to parent_id
-  NEW.parent_id := NEW.parent_work_item_id;
+    IF NEW.parent_id IS DISTINCT FROM NEW.parent_work_item_id THEN
+      IF NEW.parent_work_item_id IS NULL AND NEW.parent_id IS NOT NULL THEN
+        NEW.parent_work_item_id := NEW.parent_id;
+      ELSE
+        NEW.parent_id := NEW.parent_work_item_id;
+      END IF;
+    END IF;
+
+  ELSE  -- UPDATE
+    -- On UPDATE: detect which column actually changed using OLD vs NEW
+    IF NEW.kind IS DISTINCT FROM NEW.work_item_kind::text THEN
+      IF OLD.kind IS DISTINCT FROM NEW.kind AND OLD.work_item_kind::text IS NOT DISTINCT FROM NEW.work_item_kind::text THEN
+        -- Only kind changed
+        NEW.work_item_kind := NEW.kind::work_item_kind;
+      ELSE
+        -- work_item_kind changed (or both changed — prefer canonical)
+        NEW.kind := NEW.work_item_kind::text;
+      END IF;
+    END IF;
+
+    IF NEW.parent_id IS DISTINCT FROM NEW.parent_work_item_id THEN
+      IF OLD.parent_id IS DISTINCT FROM NEW.parent_id AND OLD.parent_work_item_id IS NOT DISTINCT FROM NEW.parent_work_item_id THEN
+        -- Only parent_id changed
+        NEW.parent_work_item_id := NEW.parent_id;
+      ELSE
+        -- parent_work_item_id changed (or both changed — prefer canonical)
+        NEW.parent_id := NEW.parent_work_item_id;
+      END IF;
+    END IF;
+  END IF;
 
   RETURN NEW;
 END;

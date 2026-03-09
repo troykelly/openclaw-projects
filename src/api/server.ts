@@ -12837,9 +12837,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     try {
       await client.query('BEGIN');
 
-      // Get the work item being reparented
+      // Get the work item being reparented (cast sort_order to float8 so pg returns JS number)
       const itemResult = await client.query(
-        `SELECT id, work_item_kind::text as kind, parent_work_item_id, sort_order, namespace
+        `SELECT id, work_item_kind::text as kind, parent_work_item_id, sort_order::float8 as sort_order, namespace
          FROM work_item WHERE id = $1 FOR UPDATE`,
         [params.id],
       );
@@ -12934,7 +12934,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
       if (afterId) {
         // Position after a specific sibling in new parent
-        const afterResult = await client.query('SELECT sort_order, parent_work_item_id FROM work_item WHERE id = $1', [afterId]);
+        const afterResult = await client.query('SELECT sort_order::float8 as sort_order, parent_work_item_id FROM work_item WHERE id = $1', [afterId]);
         if (afterResult.rows.length === 0) {
           await client.query('ROLLBACK');
           client.release();
@@ -12956,7 +12956,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
         // Get next sibling
         const nextResult = await client.query(
-          `SELECT sort_order FROM work_item
+          `SELECT sort_order::float8 as sort_order FROM work_item
            WHERE parent_work_item_id IS NOT DISTINCT FROM $1
              AND sort_order > $2
              AND id != $3
@@ -12977,7 +12977,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       } else {
         // Position at end of new siblings
         const maxResult = await client.query(
-          `SELECT COALESCE(MAX(sort_order), 0) + 1000 as new_order
+          `SELECT (COALESCE(MAX(sort_order), 0) + 1000)::float8 as new_order
            FROM work_item
            WHERE parent_work_item_id IS NOT DISTINCT FROM $1
              AND id != $2`,
@@ -13060,8 +13060,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     try {
       await client.query('BEGIN');
 
-      // Get the work item being reordered
-      const itemResult = await client.query('SELECT id, parent_work_item_id, sort_order FROM work_item WHERE id = $1 FOR UPDATE', [params.id]);
+      // Get the work item being reordered (cast sort_order to float8 so pg returns JS number, not string)
+      const itemResult = await client.query('SELECT id, parent_work_item_id, sort_order::float8 as sort_order FROM work_item WHERE id = $1 FOR UPDATE', [params.id]);
       if (itemResult.rows.length === 0) {
         await client.query('ROLLBACK');
         client.release();
@@ -13095,7 +13095,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         if (insertPosition === 'after') {
           // afterId: null means move to first position
           const minResult = await client.query(
-            `SELECT COALESCE(MIN(sort_order), 0) - 1000 as new_order
+            `SELECT (COALESCE(MIN(sort_order), 0) - 1000)::float8 as new_order
              FROM work_item
              WHERE parent_work_item_id IS NOT DISTINCT FROM $1
                AND id != $2`,
@@ -13105,7 +13105,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         } else {
           // beforeId: null means move to last position
           const maxResult = await client.query(
-            `SELECT COALESCE(MAX(sort_order), 0) + 1000 as new_order
+            `SELECT (COALESCE(MAX(sort_order), 0) + 1000)::float8 as new_order
              FROM work_item
              WHERE parent_work_item_id IS NOT DISTINCT FROM $1
                AND id != $2`,
@@ -13115,7 +13115,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         }
       } else {
         // Move relative to a specific sibling
-        const targetResult = await client.query('SELECT id, parent_work_item_id, sort_order FROM work_item WHERE id = $1', [targetId]);
+        const targetResult = await client.query('SELECT id, parent_work_item_id, sort_order::float8 as sort_order FROM work_item WHERE id = $1', [targetId]);
         if (targetResult.rows.length === 0) {
           await client.query('ROLLBACK');
           client.release();
@@ -13143,7 +13143,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         if (insertPosition === 'after') {
           // Get the next sibling's sort_order (excluding the item being moved)
           const nextResult = await client.query(
-            `SELECT sort_order FROM work_item
+            `SELECT sort_order::float8 as sort_order FROM work_item
              WHERE parent_work_item_id IS NOT DISTINCT FROM $1
                AND sort_order > $2
                AND id != $3
@@ -13160,7 +13160,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
             if (newSortOrder === target.sort_order || newSortOrder === nextOrder) {
               await normalizeSort(target.parent_work_item_id);
               // Re-fetch target order after normalization
-              const refetch = await client.query('SELECT sort_order FROM work_item WHERE id = $1', [targetId]);
+              const refetch = await client.query('SELECT sort_order::float8 as sort_order FROM work_item WHERE id = $1', [targetId]);
               const targetOrder = (refetch.rows[0] as { sort_order: number }).sort_order;
               newSortOrder = targetOrder + 500;
             }
@@ -13171,7 +13171,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         } else {
           // Insert before target - get the previous sibling
           const prevResult = await client.query(
-            `SELECT sort_order FROM work_item
+            `SELECT sort_order::float8 as sort_order FROM work_item
              WHERE parent_work_item_id IS NOT DISTINCT FROM $1
                AND sort_order < $2
                AND id != $3
@@ -13188,7 +13188,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
             if (newSortOrder === prevOrder || newSortOrder === target.sort_order) {
               await normalizeSort(target.parent_work_item_id);
               // Re-fetch target order after normalization
-              const refetch = await client.query('SELECT sort_order FROM work_item WHERE id = $1', [targetId]);
+              const refetch = await client.query('SELECT sort_order::float8 as sort_order FROM work_item WHERE id = $1', [targetId]);
               const targetOrder = (refetch.rows[0] as { sort_order: number }).sort_order;
               newSortOrder = targetOrder - 500;
             }

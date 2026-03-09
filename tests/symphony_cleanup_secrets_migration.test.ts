@@ -317,8 +317,8 @@ describe('Migration 151: Symphony Cleanup & Secret Lifecycle (#2213, #2214)', ()
   // ─── Rollback ──────────────────────────────────────────────
   describe('Rollback', () => {
     it('removes all added columns and indexes', async () => {
-      // Run down migrations (153, 152, 151)
-      await runMigrate('down', 3);
+      // Run down migrations (157..151 = 7 steps)
+      await runMigrate('down', 7);
 
       // Check columns removed
       const secretCols = await pool.query(
