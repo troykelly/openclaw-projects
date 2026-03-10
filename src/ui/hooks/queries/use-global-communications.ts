@@ -6,6 +6,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/ui/lib/api-client.ts';
 import type { EmailsResponse, CalendarEventsResponse } from '@/ui/lib/api-types.ts';
+import { useNamespaceQueryKey } from '@/ui/hooks/use-namespace-query-key';
 
 /** Query key factory for global communications. */
 export const globalCommunicationsKeys = {
@@ -20,8 +21,9 @@ export const globalCommunicationsKeys = {
  * @returns TanStack Query result with `EmailsResponse`
  */
 export function useEmails() {
+  const queryKey = useNamespaceQueryKey(globalCommunicationsKeys.emails());
   return useQuery({
-    queryKey: globalCommunicationsKeys.emails(),
+    queryKey,
     queryFn: ({ signal }) => apiClient.get<EmailsResponse>('/emails', { signal }),
   });
 }
@@ -32,8 +34,9 @@ export function useEmails() {
  * @returns TanStack Query result with `CalendarEventsResponse`
  */
 export function useCalendarEvents() {
+  const queryKey = useNamespaceQueryKey(globalCommunicationsKeys.calendarEvents());
   return useQuery({
-    queryKey: globalCommunicationsKeys.calendarEvents(),
+    queryKey,
     queryFn: ({ signal }) => apiClient.get<CalendarEventsResponse>('/calendar/events', { signal }),
   });
 }

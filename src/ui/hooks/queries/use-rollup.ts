@@ -9,6 +9,7 @@
  */
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/ui/lib/api-client.ts';
+import { useNamespaceQueryKey } from '@/ui/hooks/use-namespace-query-key';
 
 /** Rollup data from the API — matches actual server response. */
 export interface WorkItemRollup {
@@ -25,8 +26,9 @@ export const rollupKeys = {
 
 /** Fetch rollup/aggregation for a work item. */
 export function useWorkItemRollup(workItemId: string) {
+  const queryKey = useNamespaceQueryKey(rollupKeys.forWorkItem(workItemId));
   return useQuery({
-    queryKey: rollupKeys.forWorkItem(workItemId),
+    queryKey,
     queryFn: ({ signal }) =>
       apiClient.get<WorkItemRollup>(`/work-items/${workItemId}/rollup`, { signal }),
     enabled: !!workItemId,

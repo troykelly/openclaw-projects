@@ -19,6 +19,7 @@ import type {
   ChatAgentsResponse,
 } from '@/ui/lib/api-types.ts';
 import { useRealtimeOptional } from '@/ui/components/realtime/realtime-context.tsx';
+import { useNamespaceQueryKey } from '@/ui/hooks/use-namespace-query-key';
 
 /** Query key factory for chat. */
 export const chatKeys = {
@@ -76,8 +77,9 @@ export function useChatSessions(status?: string) {
   if (status) params.set('status', status);
   const qs = params.toString();
 
+  const queryKey = useNamespaceQueryKey(chatKeys.sessionsList(status));
   return useQuery({
-    queryKey: chatKeys.sessionsList(status),
+    queryKey,
     queryFn: ({ signal }) =>
       apiClient.get<ChatSessionsResponse>(
         `/chat/sessions${qs ? `?${qs}` : ''}`,
@@ -97,8 +99,9 @@ export function useChatMessages(sessionId: string, cursor?: string) {
   if (cursor) params.set('cursor', cursor);
   const qs = params.toString();
 
+  const queryKey = useNamespaceQueryKey(chatKeys.messagesCursor(sessionId, cursor));
   return useQuery({
-    queryKey: chatKeys.messagesCursor(sessionId, cursor),
+    queryKey,
     queryFn: ({ signal }) =>
       apiClient.get<ChatMessagesResponse>(
         `/chat/sessions/${encodeURIComponent(sessionId)}/messages${qs ? `?${qs}` : ''}`,
@@ -112,8 +115,9 @@ export function useChatMessages(sessionId: string, cursor?: string) {
  * Fetch available agents for chat.
  */
 export function useAvailableAgents() {
+  const queryKey = useNamespaceQueryKey(chatKeys.agents());
   return useQuery({
-    queryKey: chatKeys.agents(),
+    queryKey,
     queryFn: ({ signal }) =>
       apiClient.get<ChatAgentsResponse>(
         '/chat/agents',
@@ -130,8 +134,9 @@ export function useAvailableAgents() {
  * arrive via WebSocket events (see useRealtimeChatInvalidation).
  */
 export function useChatUnreadCount() {
+  const queryKey = useNamespaceQueryKey(chatKeys.unreadCount());
   return useQuery({
-    queryKey: chatKeys.unreadCount(),
+    queryKey,
     queryFn: ({ signal }) =>
       apiClient.get<{ count: number }>(
         '/chat/sessions/unread-count',

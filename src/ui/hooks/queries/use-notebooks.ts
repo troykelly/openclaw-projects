@@ -21,6 +21,7 @@ const NOTEBOOK_TREE_STALE_TIME = 60 * 1000;
 /** Stale time for notebook shares (1 minute) */
 const NOTEBOOK_SHARES_STALE_TIME = 60 * 1000;
 import type { NotebooksResponse, Notebook, ListNotebooksParams, NotebookTreeNode, SharedWithMeResponse, NotebookSharesResponse } from '@/ui/lib/api-types.ts';
+import { useNamespaceQueryKey } from '@/ui/hooks/use-namespace-query-key';
 
 /** Query key factory for notebooks. */
 export const notebookKeys = {
@@ -74,8 +75,9 @@ export function useNotebooks(params?: ListNotebooksParams, options?: { enabled?:
   const user_email = useUserEmail();
   const queryString = buildNotebooksQueryString(params);
 
+  const queryKey = useNamespaceQueryKey(notebookKeys.list(params));
   return useQuery({
-    queryKey: notebookKeys.list(params),
+    queryKey,
     queryFn: ({ signal }) =>
       apiClient.get<NotebooksResponse>(`/notebooks${queryString}`, {
         signal,
@@ -111,8 +113,9 @@ export function useNotebook(
   }
   const queryString = searchParams.toString();
 
+  const queryKey = useNamespaceQueryKey(notebookKeys.detail(id));
   return useQuery({
-    queryKey: notebookKeys.detail(id),
+    queryKey,
     queryFn: ({ signal }) => apiClient.get<Notebook>(`/notebooks/${encodeURIComponent(id)}${queryString ? `?${queryString}` : ''}`, { signal }),
     enabled: (options?.enabled ?? true) && !!id && !!user_email,
     staleTime: options?.staleTime ?? NOTEBOOK_STALE_TIME,
@@ -134,8 +137,9 @@ export function useNotebooksTree(include_note_counts = false, options?: { staleT
   }
   const queryString = searchParams.toString();
 
+  const queryKey = useNamespaceQueryKey(notebookKeys.tree());
   return useQuery({
-    queryKey: notebookKeys.tree(),
+    queryKey,
     queryFn: ({ signal }) => apiClient.get<NotebookTreeNode[]>(`/notebooks/tree${queryString ? `?${queryString}` : ''}`, { signal }),
     enabled: !!user_email,
     staleTime: options?.staleTime ?? NOTEBOOK_TREE_STALE_TIME,
@@ -150,8 +154,9 @@ export function useNotebooksTree(include_note_counts = false, options?: { staleT
  * @returns TanStack Query result with shares
  */
 export function useNotebookShares(id: string, options?: { staleTime?: number }) {
+  const queryKey = useNamespaceQueryKey(notebookKeys.shares(id));
   return useQuery({
-    queryKey: notebookKeys.shares(id),
+    queryKey,
     queryFn: ({ signal }) => apiClient.get<NotebookSharesResponse>(`/notebooks/${encodeURIComponent(id)}/shares`, { signal }),
     enabled: !!id,
     staleTime: options?.staleTime ?? NOTEBOOK_SHARES_STALE_TIME,
@@ -165,8 +170,9 @@ export function useNotebookShares(id: string, options?: { staleTime?: number }) 
  * @returns TanStack Query result with `SharedWithMeResponse`
  */
 export function useNotebooksSharedWithMe(options?: { staleTime?: number }) {
+  const queryKey = useNamespaceQueryKey(notebookKeys.sharedWithMe());
   return useQuery({
-    queryKey: notebookKeys.sharedWithMe(),
+    queryKey,
     queryFn: ({ signal }) =>
       apiClient.get<SharedWithMeResponse>('/notebooks/shared-with-me', {
         signal,

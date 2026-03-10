@@ -13,6 +13,7 @@ import type {
   CreateAgentIdentityBody,
   ProposeIdentityChangeBody,
 } from '@/ui/lib/api-types.ts';
+import { useNamespaceQueryKey } from '@/ui/hooks/use-namespace-query-key';
 
 /** Query key factory for agent identity. */
 export const identityKeys = {
@@ -26,8 +27,9 @@ export const identityKeys = {
  */
 export function useAgentIdentity(name?: string) {
   const url = name ? `/identity?name=${encodeURIComponent(name)}` : '/identity';
+  const queryKey = useNamespaceQueryKey(identityKeys.current(name));
   return useQuery({
-    queryKey: identityKeys.current(name),
+    queryKey,
     queryFn: ({ signal }) => apiClient.get<AgentIdentity>(url, { signal }),
   });
 }
@@ -36,8 +38,9 @@ export function useAgentIdentity(name?: string) {
  * Fetch identity version history.
  */
 export function useAgentIdentityHistory(name: string) {
+  const queryKey = useNamespaceQueryKey(identityKeys.history(name));
   return useQuery({
-    queryKey: identityKeys.history(name),
+    queryKey,
     queryFn: ({ signal }) =>
       apiClient.get<AgentIdentityHistoryResponse>(`/identity/history?name=${encodeURIComponent(name)}`, { signal }),
     enabled: !!name,

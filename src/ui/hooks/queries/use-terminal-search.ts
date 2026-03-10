@@ -6,6 +6,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { apiClient } from '@/ui/lib/api-client.ts';
 import type { TerminalSearchResponse } from '@/ui/lib/api-types.ts';
+import { useNamespaceQueryKey } from '@/ui/hooks/use-namespace-query-key';
 
 /** Search request parameters. */
 export interface TerminalSearchParams {

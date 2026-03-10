@@ -8,6 +8,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/ui/lib/api-client.ts';
 import { useUserEmail } from '@/ui/contexts/user-context';
+import { useNamespaceQueryKey } from '@/ui/hooks/use-namespace-query-key';
 
 /** Default stale time for note queries (5 minutes) */
 const NOTE_STALE_TIME = 5 * 60 * 1000;
@@ -97,8 +98,9 @@ export function useNotes(params?: ListNotesParams, options?: { enabled?: boolean
   const user_email = useUserEmail();
   const queryString = buildNotesQueryString(params);
 
+  const queryKey = useNamespaceQueryKey(noteKeys.list(params));
   return useQuery({
-    queryKey: noteKeys.list(params),
+    queryKey,
     queryFn: ({ signal }) => apiClient.get<NotesResponse>(`/notes${queryString}`, { signal }),
     // Only fetch if we have a user email (authenticated)
     enabled: (options?.enabled ?? true) && !!user_email,
@@ -116,8 +118,9 @@ export function useNotes(params?: ListNotesParams, options?: { enabled?: boolean
 export function useNote(id: string, options?: { staleTime?: number; enabled?: boolean }) {
   const user_email = useUserEmail();
 
+  const queryKey = useNamespaceQueryKey(noteKeys.detail(id));
   return useQuery({
-    queryKey: noteKeys.detail(id),
+    queryKey,
     queryFn: ({ signal }) => apiClient.get<Note>(`/notes/${encodeURIComponent(id)}`, { signal }),
     enabled: (options?.enabled ?? true) && !!id && !!user_email,
     staleTime: options?.staleTime ?? NOTE_STALE_TIME,
@@ -141,8 +144,9 @@ export function useNoteVersions(id: string, options?: { limit?: number; offset?:
   }
   const queryString = searchParams.toString();
 
+  const queryKey = useNamespaceQueryKey(noteKeys.versions(id));
   return useQuery({
-    queryKey: noteKeys.versions(id),
+    queryKey,
     queryFn: ({ signal }) =>
       apiClient.get<NoteVersionsResponse>(`/notes/${encodeURIComponent(id)}/versions${queryString ? `?${queryString}` : ''}`, { signal }),
     enabled: !!id,
@@ -159,8 +163,9 @@ export function useNoteVersions(id: string, options?: { limit?: number; offset?:
  * @returns TanStack Query result with `NoteVersion`
  */
 export function useNoteVersion(id: string, versionNumber: number, options?: { staleTime?: number }) {
+  const queryKey = useNamespaceQueryKey(noteKeys.version(id, versionNumber));
   return useQuery({
-    queryKey: noteKeys.version(id, versionNumber),
+    queryKey,
     queryFn: ({ signal }) => apiClient.get<NoteVersion>(`/notes/${encodeURIComponent(id)}/versions/${versionNumber}`, { signal }),
     enabled: !!id && versionNumber > 0,
     // Individual versions are immutable, so they can be cached indefinitely
@@ -178,8 +183,9 @@ export function useNoteVersion(id: string, versionNumber: number, options?: { st
  * @returns TanStack Query result with `CompareVersionsResponse`
  */
 export function useNoteVersionCompare(id: string, from: number, to: number, options?: { staleTime?: number }) {
+  const queryKey = useNamespaceQueryKey(noteKeys.versionCompare(id, from, to));
   return useQuery({
-    queryKey: noteKeys.versionCompare(id, from, to),
+    queryKey,
     queryFn: ({ signal }) => apiClient.get<CompareVersionsResponse>(`/notes/${encodeURIComponent(id)}/versions/compare?from=${from}&to=${to}`, { signal }),
     enabled: !!id && from > 0 && to > 0 && from !== to,
     // Version comparisons are deterministic, can be cached indefinitely
@@ -195,8 +201,9 @@ export function useNoteVersionCompare(id: string, from: number, to: number, opti
  * @returns TanStack Query result with `NoteSharesResponse`
  */
 export function useNoteShares(id: string, options?: { staleTime?: number }) {
+  const queryKey = useNamespaceQueryKey(noteKeys.shares(id));
   return useQuery({
-    queryKey: noteKeys.shares(id),
+    queryKey,
     queryFn: ({ signal }) => apiClient.get<NoteSharesResponse>(`/notes/${encodeURIComponent(id)}/shares`, { signal }),
     enabled: !!id,
     staleTime: options?.staleTime ?? NOTE_SHARES_STALE_TIME,
@@ -210,8 +217,9 @@ export function useNoteShares(id: string, options?: { staleTime?: number }) {
  * @returns TanStack Query result with `SharedWithMeResponse`
  */
 export function useNotesSharedWithMe(options?: { staleTime?: number }) {
+  const queryKey = useNamespaceQueryKey(noteKeys.sharedWithMe());
   return useQuery({
-    queryKey: noteKeys.sharedWithMe(),
+    queryKey,
     queryFn: ({ signal }) =>
       apiClient.get<SharedWithMeResponse>('/notes/shared-with-me', {
         signal,

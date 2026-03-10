@@ -14,6 +14,7 @@ import type {
   SkillStoreSchedulesResponse,
   SkillStoreSearchResponse,
 } from '@/ui/lib/api-types.ts';
+import { useNamespaceQueryKey } from '@/ui/hooks/use-namespace-query-key';
 
 /** Query key factory for skill store entities. */
 export const skillStoreKeys = {
@@ -33,8 +34,9 @@ export const skillStoreKeys = {
  * @returns TanStack Query result with `SkillStoreSkillsResponse`
  */
 export function useSkillStoreSkills() {
+  const queryKey = useNamespaceQueryKey(skillStoreKeys.skills());
   return useQuery({
-    queryKey: skillStoreKeys.skills(),
+    queryKey,
     queryFn: ({ signal }) => apiClient.get<SkillStoreSkillsResponse>('/admin/skill-store/skills', { signal }),
   });
 }
@@ -46,8 +48,9 @@ export function useSkillStoreSkills() {
  * @returns TanStack Query result with `SkillStoreCollectionsResponse`
  */
 export function useSkillStoreCollections(skillId: string) {
+  const queryKey = useNamespaceQueryKey(skillStoreKeys.collections(skillId));
   return useQuery({
-    queryKey: skillStoreKeys.collections(skillId),
+    queryKey,
     queryFn: ({ signal }) => apiClient.get<SkillStoreCollectionsResponse>(`/skill-store/collections?skill_id=${encodeURIComponent(skillId)}`, { signal }),
     enabled: !!skillId,
   });
@@ -80,8 +83,9 @@ export function useSkillStoreItems(params: UseSkillStoreItemsParams) {
   if (status) searchParams.set('status', status);
   if (tags) searchParams.set('tags', tags);
 
+  const queryKey = useNamespaceQueryKey(skillStoreKeys.items(skillId, collection, status, tags, offset));
   return useQuery({
-    queryKey: skillStoreKeys.items(skillId, collection, status, tags, offset),
+    queryKey,
     queryFn: ({ signal }) => apiClient.get<SkillStoreItemsResponse>(`/skill-store/items?${searchParams.toString()}`, { signal }),
     enabled: !!skillId,
   });
@@ -94,8 +98,9 @@ export function useSkillStoreItems(params: UseSkillStoreItemsParams) {
  * @returns TanStack Query result with `SkillStoreItem`
  */
 export function useSkillStoreItem(id: string) {
+  const queryKey = useNamespaceQueryKey(skillStoreKeys.item(id));
   return useQuery({
-    queryKey: skillStoreKeys.item(id),
+    queryKey,
     queryFn: ({ signal }) => apiClient.get<SkillStoreItem>(`/skill-store/items/${id}`, { signal }),
     enabled: !!id,
   });
@@ -108,8 +113,9 @@ export function useSkillStoreItem(id: string) {
  * @returns TanStack Query result with `SkillStoreSchedulesResponse`
  */
 export function useSkillStoreSchedules(skillId: string) {
+  const queryKey = useNamespaceQueryKey(skillStoreKeys.schedules(skillId));
   return useQuery({
-    queryKey: skillStoreKeys.schedules(skillId),
+    queryKey,
     queryFn: ({ signal }) => apiClient.get<SkillStoreSchedulesResponse>(`/skill-store/schedules?skill_id=${encodeURIComponent(skillId)}`, { signal }),
     enabled: !!skillId,
   });

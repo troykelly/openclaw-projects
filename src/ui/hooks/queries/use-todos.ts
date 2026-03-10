@@ -3,6 +3,7 @@
  */
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/ui/lib/api-client.ts';
+import { useNamespaceQueryKey } from '@/ui/hooks/use-namespace-query-key';
 
 export interface Todo {
   id: string;
@@ -31,8 +32,9 @@ export const todoKeys = {
  * Fetch todos for a work item.
  */
 export function useTodos(workItemId: string) {
+  const queryKey = useNamespaceQueryKey(todoKeys.list(workItemId));
   return useQuery({
-    queryKey: todoKeys.list(workItemId),
+    queryKey,
     queryFn: ({ signal }) =>
       apiClient.get<TodosResponse>(`/work-items/${workItemId}/todos`, { signal }),
     enabled: !!workItemId,

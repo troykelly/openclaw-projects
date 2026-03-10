@@ -6,6 +6,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/ui/lib/api-client.ts';
 import type { TimelineResponse } from '@/ui/lib/api-types.ts';
+import { useNamespaceQueryKey } from '@/ui/hooks/use-namespace-query-key';
 
 /** Query key factory for timelines. */
 export const timelineKeys = {
@@ -21,8 +22,9 @@ export const timelineKeys = {
  * @returns TanStack Query result with `TimelineResponse`
  */
 export function useItemTimeline(id: string) {
+  const queryKey = useNamespaceQueryKey(timelineKeys.item(id));
   return useQuery({
-    queryKey: timelineKeys.item(id),
+    queryKey,
     queryFn: ({ signal }) => apiClient.get<TimelineResponse>(`/work-items/${id}/timeline`, { signal }),
     enabled: !!id,
   });
@@ -37,8 +39,9 @@ export function useItemTimeline(id: string) {
 export function useGlobalTimeline(kindFilter?: string[]) {
   const params = kindFilter && kindFilter.length > 0 ? `?kind=${kindFilter.join(',')}` : '';
 
+  const queryKey = useNamespaceQueryKey(timelineKeys.global(kindFilter));
   return useQuery({
-    queryKey: timelineKeys.global(kindFilter),
+    queryKey,
     queryFn: ({ signal }) => apiClient.get<TimelineResponse>(`/timeline${params}`, { signal }),
   });
 }

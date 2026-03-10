@@ -4,6 +4,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/ui/lib/api-client.ts';
 import type { ContactSuggestMatchResponse } from '@/ui/lib/api-types.ts';
+import { useNamespaceQueryKey } from '@/ui/hooks/use-namespace-query-key';
 
 export const contactSuggestMatchKeys = {
   all: ['contact-suggest-match'] as const,
@@ -21,8 +22,9 @@ interface SuggestMatchParams {
 export function useContactSuggestMatch(params: SuggestMatchParams) {
   const hasParams = !!(params.phone || params.email || params.name);
 
+  const queryKey = useNamespaceQueryKey(contactSuggestMatchKeys.suggest(params));
   return useQuery({
-    queryKey: contactSuggestMatchKeys.suggest(params),
+    queryKey,
     queryFn: ({ signal }) => {
       const searchParams = new URLSearchParams();
       if (params.phone) searchParams.set('phone', params.phone);

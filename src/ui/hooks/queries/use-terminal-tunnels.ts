@@ -4,6 +4,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/ui/lib/api-client.ts';
 import type { TerminalTunnel, TerminalTunnelsResponse } from '@/ui/lib/api-types.ts';
+import { useNamespaceQueryKey } from '@/ui/hooks/use-namespace-query-key';
 
 export const terminalTunnelKeys = {
   all: ['terminal-tunnels'] as const,
@@ -12,8 +13,9 @@ export const terminalTunnelKeys = {
 };
 
 export function useTerminalTunnels() {
+  const queryKey = useNamespaceQueryKey(terminalTunnelKeys.list());
   return useQuery({
-    queryKey: terminalTunnelKeys.list(),
+    queryKey,
     queryFn: ({ signal }) => apiClient.get<TerminalTunnelsResponse>('/terminal/tunnels', { signal }),
   });
 }

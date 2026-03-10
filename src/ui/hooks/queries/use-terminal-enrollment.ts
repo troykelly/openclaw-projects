@@ -4,6 +4,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/ui/lib/api-client.ts';
 import type { TerminalEnrollmentToken, TerminalEnrollmentTokensResponse } from '@/ui/lib/api-types.ts';
+import { useNamespaceQueryKey } from '@/ui/hooks/use-namespace-query-key';
 
 export const terminalEnrollmentKeys = {
   all: ['terminal-enrollment'] as const,
@@ -12,8 +13,9 @@ export const terminalEnrollmentKeys = {
 };
 
 export function useTerminalEnrollmentTokens() {
+  const queryKey = useNamespaceQueryKey(terminalEnrollmentKeys.list());
   return useQuery({
-    queryKey: terminalEnrollmentKeys.list(),
+    queryKey,
     queryFn: ({ signal }) => apiClient.get<TerminalEnrollmentTokensResponse>('/terminal/enrollment-tokens', { signal }),
   });
 }

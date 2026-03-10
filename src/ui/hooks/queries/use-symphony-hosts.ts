@@ -16,6 +16,7 @@ import type {
   CreateSymphonyToolBody,
   UpdateSymphonyToolBody,
 } from '@/ui/lib/api-types.ts';
+import { useNamespaceQueryKey } from '@/ui/hooks/use-namespace-query-key';
 
 /** Query key factory for symphony hosts. */
 export const symphonyHostKeys = {
@@ -35,8 +36,9 @@ export const symphonyToolKeys = {
  * Fetch all symphony hosts.
  */
 export function useSymphonyHosts() {
+  const queryKey = useNamespaceQueryKey(symphonyHostKeys.list());
   return useQuery({
-    queryKey: symphonyHostKeys.list(),
+    queryKey,
     queryFn: ({ signal }) => apiClient.get<SymphonyHostsResponse>('/symphony/hosts', { signal }),
   });
 }
@@ -45,8 +47,9 @@ export function useSymphonyHosts() {
  * Fetch a single host by ID.
  */
 export function useSymphonyHost(id: string) {
+  const queryKey = useNamespaceQueryKey(symphonyHostKeys.detail(id));
   return useQuery({
-    queryKey: symphonyHostKeys.detail(id),
+    queryKey,
     queryFn: ({ signal }) => apiClient.get<SymphonyHost>(`/symphony/hosts/${id}`, { signal }),
     enabled: !!id,
   });
@@ -86,8 +89,9 @@ export function useActivateSymphonyHost() {
  * Fetch all symphony tool configs.
  */
 export function useSymphonyTools() {
+  const queryKey = useNamespaceQueryKey(symphonyToolKeys.list());
   return useQuery({
-    queryKey: symphonyToolKeys.list(),
+    queryKey,
     queryFn: ({ signal }) => apiClient.get<SymphonyToolsResponse>('/symphony/tools', { signal }),
   });
 }
@@ -96,8 +100,9 @@ export function useSymphonyTools() {
  * Fetch a single tool config by ID.
  */
 export function useSymphonyTool(id: string) {
+  const queryKey = useNamespaceQueryKey(symphonyToolKeys.detail(id));
   return useQuery({
-    queryKey: symphonyToolKeys.detail(id),
+    queryKey,
     queryFn: ({ signal }) => apiClient.get<SymphonyToolConfig>(`/symphony/tools/${id}`, { signal }),
     enabled: !!id,
   });
