@@ -40,15 +40,30 @@ export function paginationParams(): ParameterObject[] {
   ];
 }
 
-/** Namespace header parameter (X-Namespace) */
+/** Namespace header parameter (X-Namespace) for single-namespace requests */
 export function namespaceParam(): ParameterObject {
   return {
     name: 'X-Namespace',
     in: 'header',
     description:
-      'Target namespace for the request. Determines which namespace context the operation runs in. If omitted, the default namespace for the authenticated user is used.',
-    schema: { type: 'string' },
+      'Target namespace for the request. Determines which namespace context the operation runs in. For user tokens, if omitted, the home namespace is used for writes and all granted namespaces for reads. For M2M tokens, defaults to "default". Names must match ^[a-z0-9][a-z0-9._-]*$ and be at most 63 characters.',
+    schema: { type: 'string', pattern: '^[a-z0-9][a-z0-9._-]*$', maxLength: 63 },
     example: 'my-workspace',
+  };
+}
+
+/**
+ * Multi-namespace header parameter (X-Namespaces) for cross-namespace read queries.
+ * Supported for both user tokens (grant-validated) and M2M tokens (trusted).
+ */
+export function namespacesParam(): ParameterObject {
+  return {
+    name: 'X-Namespaces',
+    in: 'header',
+    description:
+      'Comma-separated list of namespaces for cross-namespace read queries. For user tokens, each namespace is validated against grants (unauthorized namespaces are filtered). For M2M tokens, all requested namespaces are accepted. The first namespace is used as the store namespace. Maximum 20 namespaces per request. Each name must match ^[a-z0-9][a-z0-9._-]*$ (max 63 chars). Invalid names are silently filtered. Takes precedence over X-Namespace when both are present.',
+    schema: { type: 'string' },
+    example: 'workspace-a,workspace-b',
   };
 }
 
