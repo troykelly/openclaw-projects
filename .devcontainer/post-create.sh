@@ -185,43 +185,31 @@ WRAPPER
 # 5. Playwright browsers
 ###############################################################################
 install_playwright() {
-    if ! command -v pnpm &>/dev/null; then
-        echo "pnpm not available — skipping Playwright"
-        return 1
-    fi
-
-    cd "$WORKSPACE_DIR" || return 1
-
-    # Only install if playwright is a project dependency
-    if ! pnpm list --depth=0 2>/dev/null | grep -q playwright; then
-        echo "Playwright not in project dependencies — skipping"
+    if [ "$OS" != "Linux" ]; then
+        echo "Not Linux — skipping Playwright"
         return 0
     fi
 
-    pnpm exec playwright install --with-deps chromium
-    echo "Playwright chromium installed"
+    # Install ALL browsers (chromium, firefox, webkit) plus OS-level shared
+    # libraries (libgtk, libnss, fonts, etc.) via --with-deps.
+    # Both Playwright and its deps are architecture-aware (amd64/arm64).
+    npx --yes playwright install --with-deps
+    echo "Playwright browsers installed"
 }
 
 ###############################################################################
 # 6. Puppeteer browsers + arm64 fallback
 ###############################################################################
 install_puppeteer() {
-    if ! command -v pnpm &>/dev/null; then
-        echo "pnpm not available — skipping Puppeteer"
-        return 1
-    fi
-
-    cd "$WORKSPACE_DIR" || return 1
-
-    # Only install if puppeteer is a project dependency
-    if ! pnpm list --depth=0 2>/dev/null | grep -q puppeteer; then
-        echo "Puppeteer not in project dependencies — skipping"
+    if [ "$OS" != "Linux" ]; then
+        echo "Not Linux — skipping Puppeteer"
         return 0
     fi
 
-    # Install Puppeteer browsers
-    pnpm exec puppeteer browsers install chrome || true
-    pnpm exec puppeteer browsers install chrome-headless-shell || true
+    # Install the exact Chrome version that the installed puppeteer expects.
+    # Playwright's --with-deps (above) already installed the system libraries.
+    npx --yes puppeteer browsers install chrome || true
+    npx --yes puppeteer browsers install chrome-headless-shell || true
 
     # arm64 Linux: Chrome for Testing has no native build.
     # Fall back to Playwright's Chromium via PUPPETEER_EXECUTABLE_PATH.
@@ -275,11 +263,13 @@ install_plugins() {
     fi
 
     # Add official marketplace
-    claude plugins add-marketplace "https://raw.githubusercontent.com/anthropics/claude-code-plugins/refs/heads/main/marketplace.json" 2>/dev/null || true
+    claude plugin marketplace add anthropics/claude-plugins-official || true
 
+    # Install plugins from the official marketplace
     local plugins=(
         circleback
         claude-code-setup
+        claude-md-management
         code-review
         code-simplifier
         commit-commands
@@ -288,24 +278,26 @@ install_plugins() {
         github
         hookify
         linear
-        playwright
         playground
+        playwright
         pr-review-toolkit
         pyright-lsp
         ralph-loop
-        ralph-wiggum
         security-guidance
         sentry
         stripe
-        thinking-tool
+        superpowers
         typescript-lsp
     )
 
+    local failed=0
     for plugin in "${plugins[@]}"; do
-        claude plugin add "$plugin" 2>/dev/null || true
+        if ! claude plugin install "${plugin}@claude-plugins-official"; then
+            ((failed++))
+        fi
     done
 
-    echo "Installed ${#plugins[@]} plugins"
+    echo "Installed $((${#plugins[@]} - failed))/${#plugins[@]} plugins"
 }
 
 ###############################################################################
@@ -405,6 +397,36 @@ CODEX_WRAPPER
                 "$pw_config" > "$tmp_pw" 2>/dev/null && mv "$tmp_pw" "$pw_config"
             echo "Playwright MCP configured for system chromium"
         fi
+    fi
+
+    # GlitchTip MCP — error tracking with project filtering (CleverMobi/glitchtip-mcp)
+    # Conditional on GLITCHTIP_AUTH_TOKEN in env (passed via --env-file in devcontainer.json)
+    if [ -n "${GLITCHTIP_AUTH_TOKEN:-}" ]; then
+        local glitchtip_org="${GLITCHTIP_ORGANIZATION:-aperim}"
+        local glitchtip_url="${GLITCHTIP_API_URL:-https://glitchtip.sy3.aperim.net}"
+
+        claude mcp add-json glitchtip "{
+            \"type\": \"stdio\",
+            \"command\": \"npx\",
+            \"args\": [\"-y\", \"github:CleverMobi/glitchtip-mcp\"],
+            \"env\": {
+                \"GLITCHTIP_API_TOKEN\": \"${GLITCHTIP_AUTH_TOKEN}\",
+                \"GLITCHTIP_API_ENDPOINT\": \"${glitchtip_url}\",
+                \"GLITCHTIP_ORGANIZATION_SLUG\": \"${glitchtip_org}\"
+            }
+        }" --scope user || true
+
+        if command -v codex &>/dev/null; then
+            codex mcp add glitchtip \
+                --env "GLITCHTIP_API_TOKEN=${GLITCHTIP_AUTH_TOKEN}" \
+                --env "GLITCHTIP_API_ENDPOINT=${glitchtip_url}" \
+                --env "GLITCHTIP_ORGANIZATION_SLUG=${glitchtip_org}" \
+                -- npx -y github:CleverMobi/glitchtip-mcp || true
+        fi
+
+        echo "GlitchTip MCP registered (org=$glitchtip_org, endpoint=${glitchtip_url})"
+    else
+        echo "GLITCHTIP_AUTH_TOKEN not set — skipping GlitchTip MCP"
     fi
 }
 
