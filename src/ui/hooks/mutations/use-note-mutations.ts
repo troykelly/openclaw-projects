@@ -42,6 +42,7 @@ import type { Note, NotesResponse, CreateNoteBody, UpdateNoteBody, RestoreVersio
 import { noteKeys } from '@/ui/hooks/queries/use-notes.ts';
 import { notebookKeys } from '@/ui/hooks/queries/use-notebooks.ts';
 import { useUserEmail } from '@/ui/contexts/user-context';
+import { useNamespaceInvalidate } from '@/ui/hooks/use-namespace-invalidate.ts';
 
 /**
  * API request body for creating a note (snake_case for backend).
@@ -146,6 +147,7 @@ export interface RestoreNoteVersionVariables {
 export function useCreateNote(): UseMutationResult<Note, ApiRequestError, CreateNoteBody> {
   const queryClient = useQueryClient();
   const user_email = useUserEmail();
+  const nsInvalidate = useNamespaceInvalidate();
 
   return useMutation({
     mutationFn: (body: CreateNoteBody) => {
@@ -166,12 +168,12 @@ export function useCreateNote(): UseMutationResult<Note, ApiRequestError, Create
     },
 
     onSuccess: (note) => {
-      // Invalidate notes list queries
-      queryClient.invalidateQueries({ queryKey: noteKeys.lists() });
+      // Invalidate notes list queries (#2363: namespace-aware)
+      nsInvalidate(noteKeys.lists());
 
       // If note has a notebook, invalidate notebook tree (includes detail)
       if (note.notebook_id) {
-        queryClient.invalidateQueries({ queryKey: notebookKeys.tree() });
+        nsInvalidate(notebookKeys.tree());
       }
     },
 
@@ -226,6 +228,7 @@ export function useCreateNote(): UseMutationResult<Note, ApiRequestError, Create
 export function useUpdateNote(): UseMutationResult<Note, ApiRequestError, UpdateNoteVariables> {
   const queryClient = useQueryClient();
   const user_email = useUserEmail();
+  const nsInvalidate = useNamespaceInvalidate();
 
   return useMutation({
     mutationFn: ({ id, body }: UpdateNoteVariables) => {
@@ -293,14 +296,14 @@ export function useUpdateNote(): UseMutationResult<Note, ApiRequestError, Update
     },
 
     onSettled: (note, _error, { id }) => {
-      // Always refetch to ensure consistency with server
-      queryClient.invalidateQueries({ queryKey: noteKeys.detail(id) });
-      queryClient.invalidateQueries({ queryKey: noteKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: noteKeys.versions(id) });
+      // Always refetch to ensure consistency with server (#2363: namespace-aware)
+      nsInvalidate(noteKeys.detail(id));
+      nsInvalidate(noteKeys.lists());
+      nsInvalidate(noteKeys.versions(id));
 
       // If note has a notebook, invalidate notebook tree
       if (note?.notebook_id) {
-        queryClient.invalidateQueries({ queryKey: notebookKeys.tree() });
+        nsInvalidate(notebookKeys.tree());
       }
     },
   });
@@ -348,6 +351,7 @@ export function useUpdateNote(): UseMutationResult<Note, ApiRequestError, Update
 export function useDeleteNote(): UseMutationResult<void, ApiRequestError, string> {
   const queryClient = useQueryClient();
   const user_email = useUserEmail();
+  const nsInvalidate = useNamespaceInvalidate();
 
   return useMutation({
     mutationFn: (id: string) => {
@@ -396,11 +400,11 @@ export function useDeleteNote(): UseMutationResult<void, ApiRequestError, string
     },
 
     onSettled: (_, _error, id) => {
-      // Always refetch to ensure consistency
-      queryClient.invalidateQueries({ queryKey: noteKeys.detail(id) });
-      queryClient.invalidateQueries({ queryKey: noteKeys.lists() });
+      // Always refetch to ensure consistency (#2363: namespace-aware)
+      nsInvalidate(noteKeys.detail(id));
+      nsInvalidate(noteKeys.lists());
       // Invalidate all notebook queries (tree includes lists)
-      queryClient.invalidateQueries({ queryKey: notebookKeys.all });
+      nsInvalidate(notebookKeys.all);
     },
   });
 }
@@ -444,8 +448,8 @@ export function useDeleteNote(): UseMutationResult<void, ApiRequestError, string
  * ```
  */
 export function useRestoreNote(): UseMutationResult<Note, ApiRequestError, string> {
-  const queryClient = useQueryClient();
   const user_email = useUserEmail();
+  const nsInvalidate = useNamespaceInvalidate();
 
   return useMutation({
     mutationFn: (id: string) => {
@@ -456,15 +460,13 @@ export function useRestoreNote(): UseMutationResult<Note, ApiRequestError, strin
     },
 
     onSuccess: (note, id) => {
-      // Invalidate the specific note detail
-      queryClient.invalidateQueries({ queryKey: noteKeys.detail(id) });
-
-      // Invalidate notes list queries
-      queryClient.invalidateQueries({ queryKey: noteKeys.lists() });
+      // Invalidate the specific note detail (#2363: namespace-aware)
+      nsInvalidate(noteKeys.detail(id));
+      nsInvalidate(noteKeys.lists());
 
       // If note has a notebook, invalidate notebook tree (includes detail)
       if (note.notebook_id) {
-        queryClient.invalidateQueries({ queryKey: notebookKeys.tree() });
+        nsInvalidate(notebookKeys.tree());
       }
     },
 
@@ -517,8 +519,8 @@ export function useRestoreNote(): UseMutationResult<Note, ApiRequestError, strin
  * ```
  */
 export function useRestoreNoteVersion(): UseMutationResult<RestoreVersionResponse, ApiRequestError, RestoreNoteVersionVariables> {
-  const queryClient = useQueryClient();
   const user_email = useUserEmail();
+  const nsInvalidate = useNamespaceInvalidate();
 
   return useMutation({
     mutationFn: ({ id, versionNumber }: RestoreNoteVersionVariables) => {
@@ -532,10 +534,10 @@ export function useRestoreNoteVersion(): UseMutationResult<RestoreVersionRespons
     },
 
     onSuccess: (_, { id }) => {
-      // Invalidate note detail, versions, and lists
-      queryClient.invalidateQueries({ queryKey: noteKeys.detail(id) });
-      queryClient.invalidateQueries({ queryKey: noteKeys.versions(id) });
-      queryClient.invalidateQueries({ queryKey: noteKeys.lists() });
+      // Invalidate note detail, versions, and lists (#2363: namespace-aware)
+      nsInvalidate(noteKeys.detail(id));
+      nsInvalidate(noteKeys.versions(id));
+      nsInvalidate(noteKeys.lists());
     },
 
     onError: (error) => {

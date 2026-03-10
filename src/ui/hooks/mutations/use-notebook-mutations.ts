@@ -49,6 +49,7 @@ import type {
 } from '@/ui/lib/api-types.ts';
 import { noteKeys } from '@/ui/hooks/queries/use-notes.ts';
 import { notebookKeys } from '@/ui/hooks/queries/use-notebooks.ts';
+import { useNamespaceInvalidate } from '@/ui/hooks/use-namespace-invalidate.ts';
 
 /**
  * Variables for the updateNotebook mutation.
@@ -131,13 +132,14 @@ export interface MoveNotesVariables {
  */
 export function useCreateNotebook(): UseMutationResult<Notebook, ApiRequestError, CreateNotebookBody> {
   const queryClient = useQueryClient();
+  const nsInvalidate = useNamespaceInvalidate();
 
   return useMutation({
     mutationFn: (body: CreateNotebookBody) => apiClient.post<Notebook>('/notebooks', body),
 
     onSuccess: () => {
       // Invalidate all notebook queries (tree includes lists and details)
-      queryClient.invalidateQueries({ queryKey: notebookKeys.all });
+      nsInvalidate(notebookKeys.all);
     },
 
     onError: (error) => {
@@ -206,6 +208,7 @@ function updateNotebookInTree(nodes: NotebookTreeNode[], id: string, updates: Pa
 
 export function useUpdateNotebook(): UseMutationResult<Notebook, ApiRequestError, UpdateNotebookVariables> {
   const queryClient = useQueryClient();
+  const nsInvalidate = useNamespaceInvalidate();
 
   return useMutation({
     mutationFn: ({ id, body }: UpdateNotebookVariables) => apiClient.put<Notebook>(`/notebooks/${encodeURIComponent(id)}`, body),
@@ -275,7 +278,7 @@ export function useUpdateNotebook(): UseMutationResult<Notebook, ApiRequestError
 
     onSettled: () => {
       // Always refetch to ensure consistency
-      queryClient.invalidateQueries({ queryKey: notebookKeys.all });
+      nsInvalidate(notebookKeys.all);
     },
   });
 }
@@ -320,6 +323,7 @@ export function useUpdateNotebook(): UseMutationResult<Notebook, ApiRequestError
  */
 export function useArchiveNotebook(): UseMutationResult<Notebook, ApiRequestError, string> {
   const queryClient = useQueryClient();
+  const nsInvalidate = useNamespaceInvalidate();
 
   return useMutation({
     mutationFn: (id: string) => apiClient.post<Notebook>(`/notebooks/${encodeURIComponent(id)}/archive`, {}),
@@ -376,7 +380,7 @@ export function useArchiveNotebook(): UseMutationResult<Notebook, ApiRequestErro
 
     onSettled: () => {
       // Always refetch to ensure consistency
-      queryClient.invalidateQueries({ queryKey: notebookKeys.all });
+      nsInvalidate(notebookKeys.all);
     },
   });
 }
@@ -421,13 +425,14 @@ export function useArchiveNotebook(): UseMutationResult<Notebook, ApiRequestErro
  */
 export function useUnarchiveNotebook(): UseMutationResult<Notebook, ApiRequestError, string> {
   const queryClient = useQueryClient();
+  const nsInvalidate = useNamespaceInvalidate();
 
   return useMutation({
     mutationFn: (id: string) => apiClient.post<Notebook>(`/notebooks/${encodeURIComponent(id)}/unarchive`, {}),
 
     onSuccess: () => {
       // Invalidate all notebook queries
-      queryClient.invalidateQueries({ queryKey: notebookKeys.all });
+      nsInvalidate(notebookKeys.all);
     },
 
     onError: (error) => {
@@ -501,6 +506,7 @@ function removeNotebookFromTree(nodes: NotebookTreeNode[], id: string): Notebook
 
 export function useDeleteNotebook(): UseMutationResult<void, ApiRequestError, DeleteNotebookVariables> {
   const queryClient = useQueryClient();
+  const nsInvalidate = useNamespaceInvalidate();
 
   return useMutation({
     mutationFn: ({ id, deleteNotes = false }: DeleteNotebookVariables) =>
@@ -556,8 +562,8 @@ export function useDeleteNotebook(): UseMutationResult<void, ApiRequestError, De
     onSettled: () => {
       // Always refetch to ensure consistency
       // Use prefix invalidation to catch all notebook and note queries
-      queryClient.invalidateQueries({ queryKey: notebookKeys.all });
-      queryClient.invalidateQueries({ queryKey: noteKeys.lists() });
+      nsInvalidate(notebookKeys.all);
+      nsInvalidate(noteKeys.lists());
     },
   });
 }
@@ -625,14 +631,15 @@ export function useDeleteNotebook(): UseMutationResult<void, ApiRequestError, De
  */
 export function useMoveNotesToNotebook(): UseMutationResult<MoveNotesResponse, ApiRequestError, MoveNotesVariables> {
   const queryClient = useQueryClient();
+  const nsInvalidate = useNamespaceInvalidate();
 
   return useMutation({
     mutationFn: ({ notebook_id, body }: MoveNotesVariables) => apiClient.post<MoveNotesResponse>(`/notebooks/${encodeURIComponent(notebook_id)}/notes`, body),
 
     onSuccess: () => {
       // Invalidate all notebook and note queries using prefix invalidation
-      queryClient.invalidateQueries({ queryKey: notebookKeys.all });
-      queryClient.invalidateQueries({ queryKey: noteKeys.lists() });
+      nsInvalidate(notebookKeys.all);
+      nsInvalidate(noteKeys.lists());
     },
 
     onError: (error) => {

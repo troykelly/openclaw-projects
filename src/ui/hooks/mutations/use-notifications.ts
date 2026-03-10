@@ -8,6 +8,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/ui/lib/api-client.ts';
 import type { NotificationsResponse, UnreadCountResponse } from '@/ui/lib/api-types.ts';
 import { notificationKeys } from '@/ui/hooks/queries/use-notifications.ts';
+import { useNamespaceInvalidate } from '@/ui/hooks/use-namespace-invalidate.ts';
 
 /**
  * Mark a single notification as read.
@@ -17,6 +18,7 @@ import { notificationKeys } from '@/ui/hooks/queries/use-notifications.ts';
  */
 export function useMarkNotificationRead() {
   const queryClient = useQueryClient();
+  const nsInvalidate = useNamespaceInvalidate();
 
   return useMutation({
     mutationFn: (id: string) => apiClient.post<void>(`/notifications/${id}/read`, {}),
@@ -54,8 +56,8 @@ export function useMarkNotificationRead() {
     },
 
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: notificationKeys.list() });
-      queryClient.invalidateQueries({ queryKey: notificationKeys.unread_count() });
+      nsInvalidate(notificationKeys.list());
+      nsInvalidate(notificationKeys.unread_count());
     },
   });
 }
@@ -68,6 +70,7 @@ export function useMarkNotificationRead() {
  */
 export function useMarkAllNotificationsRead() {
   const queryClient = useQueryClient();
+  const nsInvalidate = useNamespaceInvalidate();
 
   return useMutation({
     mutationFn: () => apiClient.post<void>('/notifications/read-all', {}),
@@ -101,8 +104,8 @@ export function useMarkAllNotificationsRead() {
     },
 
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: notificationKeys.list() });
-      queryClient.invalidateQueries({ queryKey: notificationKeys.unread_count() });
+      nsInvalidate(notificationKeys.list());
+      nsInvalidate(notificationKeys.unread_count());
     },
   });
 }
@@ -115,6 +118,7 @@ export function useMarkAllNotificationsRead() {
  */
 export function useDismissNotification() {
   const queryClient = useQueryClient();
+  const nsInvalidate = useNamespaceInvalidate();
 
   return useMutation({
     mutationFn: (id: string) => apiClient.delete(`/notifications/${id}`),
@@ -155,8 +159,8 @@ export function useDismissNotification() {
     },
 
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: notificationKeys.list() });
-      queryClient.invalidateQueries({ queryKey: notificationKeys.unread_count() });
+      nsInvalidate(notificationKeys.list());
+      nsInvalidate(notificationKeys.unread_count());
     },
   });
 }

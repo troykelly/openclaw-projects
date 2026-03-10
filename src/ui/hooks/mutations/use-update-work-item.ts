@@ -8,6 +8,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/ui/lib/api-client.ts';
 import type { UpdateWorkItemBody, WorkItemDetail } from '@/ui/lib/api-types.ts';
 import { workItemKeys } from '@/ui/hooks/queries/use-work-items.ts';
+import { useNamespaceInvalidate } from '@/ui/hooks/use-namespace-invalidate.ts';
 
 /** Variables required by the update mutation. */
 export interface UpdateWorkItemVariables {
@@ -33,6 +34,7 @@ export interface UpdateWorkItemVariables {
  */
 export function useUpdateWorkItem() {
   const queryClient = useQueryClient();
+  const nsInvalidate = useNamespaceInvalidate();
 
   return useMutation({
     mutationFn: ({ id, body }: UpdateWorkItemVariables) => apiClient.put<WorkItemDetail>(`/work-items/${id}`, body),
@@ -67,10 +69,10 @@ export function useUpdateWorkItem() {
     },
 
     onSettled: (_data, _error, { id }) => {
-      // Always refetch to ensure server state is accurate
-      queryClient.invalidateQueries({ queryKey: workItemKeys.detail(id) });
-      queryClient.invalidateQueries({ queryKey: workItemKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: workItemKeys.tree() });
+      // Always refetch to ensure server state is accurate (#2363: namespace-aware)
+      nsInvalidate(workItemKeys.detail(id));
+      nsInvalidate(workItemKeys.lists());
+      nsInvalidate(workItemKeys.tree());
     },
   });
 }

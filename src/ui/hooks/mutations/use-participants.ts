@@ -3,9 +3,10 @@
  *
  * Issue #1714: Participant management (was read-only).
  */
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { apiClient } from '@/ui/lib/api-client.ts';
 import { workItemKeys } from '@/ui/hooks/queries/use-work-items.ts';
+import { useNamespaceInvalidate } from '@/ui/hooks/use-namespace-invalidate.ts';
 
 /** Body for adding a participant. */
 export interface AddParticipantBody {
@@ -23,7 +24,7 @@ export interface Participant {
 
 /** Add a participant to a work item. */
 export function useAddParticipant(workItemId: string) {
-  const queryClient = useQueryClient();
+  const nsInvalidate = useNamespaceInvalidate();
 
   return useMutation({
     mutationFn: (body: AddParticipantBody) =>
@@ -32,20 +33,20 @@ export function useAddParticipant(workItemId: string) {
         role: body.role || 'assignee',
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: workItemKeys.detail(workItemId) });
+      nsInvalidate(workItemKeys.detail(workItemId));
     },
   });
 }
 
 /** Remove a participant from a work item. */
 export function useRemoveParticipant(workItemId: string) {
-  const queryClient = useQueryClient();
+  const nsInvalidate = useNamespaceInvalidate();
 
   return useMutation({
     mutationFn: (participantId: string) =>
       apiClient.delete(`/work-items/${workItemId}/participants/${participantId}`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: workItemKeys.detail(workItemId) });
+      nsInvalidate(workItemKeys.detail(workItemId));
     },
   });
 }

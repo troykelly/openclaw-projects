@@ -3,10 +3,11 @@
  *
  * Invalidates work item list/tree queries on success.
  */
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { apiClient } from '@/ui/lib/api-client.ts';
 import type { CreateWorkItemBody, WorkItemDetail } from '@/ui/lib/api-types.ts';
 import { workItemKeys } from '@/ui/hooks/queries/use-work-items.ts';
+import { useNamespaceInvalidate } from '@/ui/hooks/use-namespace-invalidate.ts';
 
 /**
  * Create a new work item.
@@ -20,14 +21,14 @@ import { workItemKeys } from '@/ui/hooks/queries/use-work-items.ts';
  * ```
  */
 export function useCreateWorkItem() {
-  const queryClient = useQueryClient();
+  const nsInvalidate = useNamespaceInvalidate();
 
   return useMutation({
     mutationFn: (body: CreateWorkItemBody) => apiClient.post<WorkItemDetail>('/work-items', body),
 
     onSuccess: () => {
-      // Invalidate all work item queries so lists and trees refresh
-      queryClient.invalidateQueries({ queryKey: workItemKeys.all });
+      // Invalidate all work item queries so lists and trees refresh (#2363: namespace-aware)
+      nsInvalidate(workItemKeys.all);
     },
   });
 }
