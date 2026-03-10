@@ -52,13 +52,14 @@ describe('LexicalNoteEditor', () => {
   it('renders in markdown mode when mode prop is markdown', () => {
     render(<LexicalNoteEditor mode="markdown" initialContent="# Hello" />);
 
-    // Should show textarea for raw markdown editing
-    const textarea = screen.getByRole('textbox');
-    expect(textarea).toBeInTheDocument();
-    expect(textarea).toHaveValue('# Hello');
+    // Should show textarea for raw markdown editing (use getAllByRole since WYSIWYG pane is hidden but mounted)
+    const textareas = screen.getAllByRole('textbox');
+    const markdownTextarea = textareas.find((el) => el.tagName === 'TEXTAREA');
+    expect(markdownTextarea).toBeInTheDocument();
+    expect(markdownTextarea).toHaveValue('# Hello');
 
     // Markdown button should be visible and active
-    expect(screen.getByRole('button', { name: /markdown/i })).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /markdown/i }).length).toBeGreaterThan(0);
   });
 
   it('shows saving indicator when saving is true', () => {
@@ -85,11 +86,11 @@ describe('LexicalNoteEditor', () => {
   it('renders in preview mode explicitly', () => {
     render(<LexicalNoteEditor mode="preview" initialContent="# Test heading" />);
 
-    // Should not show mode switcher (preview mode has static content)
-    expect(screen.queryByRole('button', { name: /edit/i })).not.toBeInTheDocument();
+    // Preview pane should show edit buttons for switching back (#2343: LexicalComposer stays mounted)
+    expect(screen.getAllByRole('button', { name: /edit/i }).length).toBeGreaterThan(0);
 
     // Should show character count
-    expect(screen.getByText(/characters/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/characters/i).length).toBeGreaterThan(0);
   });
 
   it('renders correct content in preview mode', () => {
@@ -97,7 +98,7 @@ describe('LexicalNoteEditor', () => {
 
     // The markdown should be converted to HTML in preview
     // Note: We can't check the exact HTML structure easily, but we can verify the content renders
-    expect(screen.getByText(/characters/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/characters/i).length).toBeGreaterThan(0);
   });
 
   // Code block tests for Issue #630
@@ -526,7 +527,7 @@ graph TD;
 
       // Note: Our simple markdownToHtml doesn't handle links yet,
       // but when it does, safe https links should be preserved
-      expect(screen.getByText(/characters/i)).toBeInTheDocument();
+      expect(screen.getAllByText(/characters/i).length).toBeGreaterThan(0);
     });
 
     it('sanitizes nested markdown injection attempts', () => {
@@ -598,8 +599,8 @@ graph TD;
     it('handles content with only whitespace', () => {
       render(<LexicalNoteEditor mode="preview" initialContent="   \n\t\n   " />);
 
-      // Should render without errors
-      expect(screen.getByText(/characters/i)).toBeInTheDocument();
+      // Should render without errors (#2343: multiple character count spans due to always-mounted WYSIWYG)
+      expect(screen.getAllByText(/characters/i).length).toBeGreaterThan(0);
     });
 
     it('handles very long content without crashing', () => {
@@ -608,10 +609,10 @@ graph TD;
       render(<LexicalNoteEditor mode="preview" initialContent={longContent} />);
 
       // Should render without errors and show character count
-      expect(screen.getByText(/characters/i)).toBeInTheDocument();
-      // Verify the content length is reflected in the count (may include additional chars from HTML)
-      const countText = screen.getByText(/\d+ characters/i);
-      expect(countText).toBeInTheDocument();
+      expect(screen.getAllByText(/characters/i).length).toBeGreaterThan(0);
+      // Verify the content length is reflected in the count
+      const countTexts = screen.getAllByText(/\d+ characters/i);
+      expect(countTexts.length).toBeGreaterThan(0);
     });
 
     it('handles content with many paragraphs', () => {
@@ -619,7 +620,7 @@ graph TD;
       render(<LexicalNoteEditor mode="preview" initialContent={manyParagraphs} />);
 
       // Should render without errors
-      expect(screen.getByText(/characters/i)).toBeInTheDocument();
+      expect(screen.getAllByText(/characters/i).length).toBeGreaterThan(0);
     });
 
     it('handles special Unicode characters', () => {
@@ -638,7 +639,7 @@ graph TD;
       render(<LexicalNoteEditor mode="preview" initialContent={zeroWidthContent} />);
 
       // Should render without errors
-      expect(screen.getByText(/characters/i)).toBeInTheDocument();
+      expect(screen.getAllByText(/characters/i).length).toBeGreaterThan(0);
     });
 
     it('handles malformed markdown gracefully', () => {
@@ -647,7 +648,7 @@ graph TD;
       render(<LexicalNoteEditor mode="preview" initialContent={malformedContent} />);
 
       // Should render without crashing
-      expect(screen.getByText(/characters/i)).toBeInTheDocument();
+      expect(screen.getAllByText(/characters/i).length).toBeGreaterThan(0);
     });
 
     it('handles deeply nested lists', () => {
@@ -669,21 +670,21 @@ graph TD;
       render(<LexicalNoteEditor mode="preview" initialContent={specialChars} />);
 
       // Should render without errors
-      expect(screen.getByText(/characters/i)).toBeInTheDocument();
+      expect(screen.getAllByText(/characters/i).length).toBeGreaterThan(0);
     });
 
     it('displays character count correctly', () => {
       const content = 'Hello World!'; // 12 characters
       render(<LexicalNoteEditor mode="preview" initialContent={content} />);
 
-      expect(screen.getByText(/12 characters/i)).toBeInTheDocument();
+      expect(screen.getAllByText(/12 characters/i).length).toBeGreaterThan(0);
     });
 
     it('displays word count correctly', () => {
       const content = 'one two three four five'; // 5 words
       render(<LexicalNoteEditor mode="preview" initialContent={content} />);
 
-      expect(screen.getByText(/5 words/i)).toBeInTheDocument();
+      expect(screen.getAllByText(/5 words/i).length).toBeGreaterThan(0);
     });
 
     it('shows placeholder in wysiwyg mode', () => {
@@ -723,17 +724,18 @@ graph TD;
     it('starts in preview mode when specified', () => {
       render(<LexicalNoteEditor mode="preview" initialContent="# Test" />);
 
-      // Should not show edit buttons (preview is read-only view)
-      expect(screen.queryByRole('button', { name: /edit/i })).not.toBeInTheDocument();
+      // #2343: Preview mode now shows edit buttons for switching back (LexicalComposer stays mounted)
+      expect(screen.getAllByRole('button', { name: /edit/i }).length).toBeGreaterThan(0);
     });
 
     it('shows textarea in markdown mode', () => {
       render(<LexicalNoteEditor mode="markdown" initialContent="# Test" />);
 
-      // Should show textarea
-      const textarea = screen.getByRole('textbox');
-      expect(textarea).toBeInTheDocument();
-      expect(textarea).toHaveValue('# Test');
+      // Should show textarea (use getAllByRole since WYSIWYG pane is hidden but mounted)
+      const textareas = screen.getAllByRole('textbox');
+      const markdownTextarea = textareas.find((el) => el.tagName === 'TEXTAREA');
+      expect(markdownTextarea).toBeInTheDocument();
+      expect(markdownTextarea).toHaveValue('# Test');
     });
 
     it('renders in readOnly mode without edit controls', () => {

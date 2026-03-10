@@ -774,6 +774,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return;
     }
 
+    // Yjs WebSocket endpoint handles its own auth via JWT query param (Issue #2341)
+    if (url.startsWith('/yjs/')) {
+      return;
+    }
+
     // Skip auth for explicitly allowed paths
     if (authSkipPaths.has(url)) {
       return;
