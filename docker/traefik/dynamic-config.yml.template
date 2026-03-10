@@ -78,6 +78,8 @@ http:
           - Accept
           - sentry-trace
           - baggage
+          - X-Namespace
+          - X-Namespaces
         accessControlAllowCredentials: true
         accessControlMaxAge: 86400
         addVaryHeader: true

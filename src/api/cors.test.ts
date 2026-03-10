@@ -240,6 +240,30 @@ describe('CORS configuration (Issue #1327)', () => {
     });
   });
 
+  describe('namespace headers in allowlist (Issue #2369)', () => {
+    it('includes X-Namespace and X-Namespaces in preflight Access-Control-Allow-Headers', async () => {
+      process.env.PUBLIC_BASE_URL = 'https://app.example.com';
+      const app = await buildCorsApp();
+
+      const res = await app.inject({
+        method: 'OPTIONS',
+        url: '/test',
+        headers: {
+          origin: 'https://app.example.com',
+          'access-control-request-method': 'GET',
+          'access-control-request-headers': 'X-Namespace',
+        },
+      });
+
+      expect(res.statusCode).toBe(204);
+      const allowedHeaders = res.headers['access-control-allow-headers'];
+      expect(allowedHeaders).toContain('X-Namespace');
+      expect(allowedHeaders).toContain('X-Namespaces');
+
+      await app.close();
+    });
+  });
+
   describe('Vary header', () => {
     it('includes Vary: Origin for requests with origin header', async () => {
       process.env.PUBLIC_BASE_URL = 'https://app.example.com';

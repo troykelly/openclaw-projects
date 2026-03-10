@@ -63,7 +63,17 @@ export function registerCors(app: FastifyInstance): void {
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     // sentry-trace and baggage are required for Sentry distributed tracing
     // (frontend → backend trace propagation). See Epic #1998, Issue #2000.
-    allowedHeaders: ['Authorization', 'Content-Type', 'Accept', 'sentry-trace', 'baggage'],
+    // X-Namespace and X-Namespaces are required for namespace-scoped API
+    // requests (Issue #2369, Epic #2345).
+    allowedHeaders: [
+      'Authorization',
+      'Content-Type',
+      'Accept',
+      'sentry-trace',
+      'baggage',
+      'X-Namespace',
+      'X-Namespaces',
+    ],
     credentials: true,
     maxAge: 86400,
   });
