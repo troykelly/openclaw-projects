@@ -877,6 +877,94 @@ test_api_cors_no_wildcard() {
     cleanup_test_env "${test_dir}"
 }
 
+# Test 35: Custom configs should be copied from source dir to dynamic/custom
+test_custom_configs_copied_from_source() {
+    run_test
+    local test_dir
+    test_dir=$(setup_test_env)
+
+    export DOMAIN="example.com"
+    export ACME_EMAIL="test@example.com"
+
+    # Create a custom-source directory with .yml files
+    local custom_source="${test_dir}/etc/traefik/custom-source"
+    mkdir -p "${custom_source}"
+    echo "http: {}" > "${custom_source}/abs-proxy.yml"
+    echo "http: {}" > "${custom_source}/moltbot-gateway.yml"
+
+    # Set the env var to point at our custom source
+    export CUSTOM_CONFIG_SOURCE_DIR="${custom_source}"
+
+    "${test_dir}/entrypoint-test.sh" >/dev/null 2>&1
+
+    local custom_dir="${test_dir}/etc/traefik/dynamic/custom"
+
+    if [ -f "${custom_dir}/abs-proxy.yml" ] && [ -f "${custom_dir}/moltbot-gateway.yml" ]; then
+        pass "Custom configs copied from source to dynamic/custom"
+    else
+        fail "Custom configs should be copied from source to dynamic/custom"
+    fi
+
+    unset CUSTOM_CONFIG_SOURCE_DIR
+    cleanup_test_env "${test_dir}"
+}
+
+# Test 36: No error when CUSTOM_CONFIG_SOURCE_DIR is absent
+test_custom_configs_no_error_when_source_absent() {
+    run_test
+    local test_dir
+    test_dir=$(setup_test_env)
+
+    export DOMAIN="example.com"
+    export ACME_EMAIL="test@example.com"
+
+    # Point to a non-existent directory
+    export CUSTOM_CONFIG_SOURCE_DIR="${test_dir}/nonexistent-source"
+
+    if "${test_dir}/entrypoint-test.sh" >/dev/null 2>&1; then
+        pass "No error when custom config source dir is absent"
+    else
+        fail "Should not error when custom config source dir is absent"
+    fi
+
+    unset CUSTOM_CONFIG_SOURCE_DIR
+    cleanup_test_env "${test_dir}"
+}
+
+# Test 37: Non-.yml files in source should NOT be copied
+test_custom_configs_non_yml_not_copied() {
+    run_test
+    local test_dir
+    test_dir=$(setup_test_env)
+
+    export DOMAIN="example.com"
+    export ACME_EMAIL="test@example.com"
+
+    # Create a custom-source directory with mixed files
+    local custom_source="${test_dir}/etc/traefik/custom-source"
+    mkdir -p "${custom_source}"
+    echo "http: {}" > "${custom_source}/valid-route.yml"
+    echo "not a config" > "${custom_source}/readme.txt"
+    echo "some notes" > "${custom_source}/notes.md"
+
+    export CUSTOM_CONFIG_SOURCE_DIR="${custom_source}"
+
+    "${test_dir}/entrypoint-test.sh" >/dev/null 2>&1
+
+    local custom_dir="${test_dir}/etc/traefik/dynamic/custom"
+
+    if [ -f "${custom_dir}/valid-route.yml" ] && \
+       [ ! -f "${custom_dir}/readme.txt" ] && \
+       [ ! -f "${custom_dir}/notes.md" ]; then
+        pass "Non-.yml files are not copied to dynamic/custom"
+    else
+        fail "Only .yml files should be copied to dynamic/custom"
+    fi
+
+    unset CUSTOM_CONFIG_SOURCE_DIR
+    cleanup_test_env "${test_dir}"
+}
+
 # Run all tests
 echo "======================================"
 echo "Traefik Entrypoint Script Test Suite"
@@ -917,6 +1005,9 @@ test_api_router_has_cors
 test_api_cors_methods
 test_api_cors_vary_header
 test_api_cors_no_wildcard
+test_custom_configs_copied_from_source
+test_custom_configs_no_error_when_source_absent
+test_custom_configs_non_yml_not_copied
 
 echo ""
 echo "======================================"

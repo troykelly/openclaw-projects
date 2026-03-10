@@ -129,9 +129,13 @@ services:
   #
   traefik:
     volumes:
-      # Mount custom config directory for file provider routes
-      # Place your *.yml files in traefik-custom/ and they'll be auto-loaded
-      - ./traefik-custom:/etc/traefik/dynamic/custom:ro
+      # Mount custom config directory as a staging source for the entrypoint.
+      # IMPORTANT: Do NOT mount directly into /etc/traefik/dynamic/custom —
+      # Docker silently ignores bind-mounts into named volume subdirectories
+      # (the traefik_dynamic named volume takes precedence). Instead, mount
+      # to /etc/traefik/custom-source and the entrypoint copies .yml files
+      # into the named volume at startup. See issue #2338.
+      - ./traefik-custom:/etc/traefik/custom-source:ro
 
 # Uncomment if using Grafana example:
 # volumes:
