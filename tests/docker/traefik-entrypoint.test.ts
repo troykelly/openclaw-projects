@@ -527,6 +527,41 @@ describe('Traefik entrypoint: copy_custom_configs (Issue #2338)', () => {
   });
 });
 
+describe('Traefik dynamic config: api-cors namespace headers (Issue #2369)', () => {
+  const defaultEnv = {
+    DOMAIN: 'test.example.com',
+    ACME_EMAIL: 'test@example.com',
+    TRUSTED_IPS: '',
+    DISABLE_HTTP: 'false',
+    SERVICE_HOST: '[::1]',
+    MODSEC_HOST_PORT: '8080',
+    API_HOST_PORT: '3001',
+    APP_HOST_PORT: '8081',
+    GATEWAY_HOST_PORT: '18789',
+    SEAWEEDFS_HOST_PORT: '8333',
+  };
+
+  function getParsedConfig(env = defaultEnv) {
+    const output = runSedSubstitution(env);
+    return parseYaml(output) as {
+      http: {
+        middlewares: Record<string, { headers?: { accessControlAllowHeaders?: string[] } }>;
+        routers: Record<string, unknown>;
+      };
+    };
+  }
+
+  it('api-cors middleware includes X-Namespace and X-Namespaces in accessControlAllowHeaders', () => {
+    const config = getParsedConfig();
+    const apiCors = config.http.middlewares['api-cors'];
+    expect(apiCors).toBeDefined();
+    const allowedHeaders = apiCors.headers?.accessControlAllowHeaders;
+    expect(allowedHeaders).toBeDefined();
+    expect(allowedHeaders).toContain('X-Namespace');
+    expect(allowedHeaders).toContain('X-Namespaces');
+  });
+});
+
 describe('ModSecurity ALLOWED_METHODS in compose files (Issue #1917)', () => {
   const COMPOSE_FILES = ['docker-compose.traefik.yml', 'docker-compose.full.yml'];
 
