@@ -91,8 +91,8 @@ setup_node() {
     if [ -f "${WORKSPACE_DIR}/.nvmrc" ]; then
         nvm install
     else
-        echo "No .nvmrc found — using default node"
-        nvm install --lts
+        echo "No .nvmrc found — installing current node"
+        nvm install node
     fi
 
     echo "Node $(node --version) / npm $(npm --version)"
@@ -115,7 +115,7 @@ setup_pnpm() {
 
     if ! command -v pnpm &>/dev/null; then
         echo "Installing pnpm..."
-        npm install -g pnpm
+        curl -fsSL https://get.pnpm.io/install.sh | sh -
     fi
 
     echo "pnpm $(pnpm --version)"
@@ -252,11 +252,10 @@ install_claude() {
     fi
 
     echo "Installing Claude Code CLI..."
-    # Official installer
-    curl -fsSL https://claude.ai/install.sh | sh
+    curl -fsSL https://claude.ai/install.sh | bash
 
     # Ensure it's on PATH for the rest of this script
-    export PATH="${DEV_HOME}/.claude/bin:${PATH}"
+    export PATH="${DEV_HOME}/.claude/bin:${DEV_HOME}/.local/bin:${PATH}"
 
     if command -v claude &>/dev/null; then
         echo "Claude Code installed: $(claude --version 2>/dev/null || echo 'ok')"
@@ -332,42 +331,44 @@ install_codex() {
 
     echo "Fetching latest Codex release for $codex_arch..."
 
-    local latest_version=""
-    latest_version="$(curl -fsSL --retry 3 --retry-delay 2 \
+    local latest_tag=""
+    latest_tag="$(curl -fsSL --retry 3 --retry-delay 2 \
         "https://api.github.com/repos/openai/codex/releases" \
         | jq -r '[.[] | select(.prerelease==false)][0].tag_name' 2>/dev/null)"
 
-    if [ -z "$latest_version" ] || [ "$latest_version" = "null" ]; then
+    if [ -z "$latest_tag" ] || [ "$latest_tag" = "null" ]; then
         echo "Could not determine latest Codex version"
         return 1
     fi
 
-    # Strip leading v if present for the download filename
-    local version_num="${latest_version#v}"
-    local download_url="https://github.com/openai/codex/releases/download/${latest_version}/codex-${version_num}-${codex_arch}.tar.gz"
+    # Asset names are codex-{arch}.tar.gz (no version in filename)
+    local download_url="https://github.com/openai/codex/releases/download/${latest_tag}/codex-${codex_arch}.tar.gz"
 
-    local tmpdir=""
-    tmpdir="$(mktemp -d)"
-    trap 'rm -rf "$tmpdir"' RETURN
+    local _tmpdir=""
+    _tmpdir="$(mktemp -d)"
 
     echo "Downloading $download_url"
-    curl -fsSL --retry 3 --retry-delay 2 "$download_url" -o "${tmpdir}/codex.tar.gz"
-    tar -xzf "${tmpdir}/codex.tar.gz" -C "$tmpdir"
-
-    local codex_bin=""
-    codex_bin="$(find "$tmpdir" -name 'codex' -type f -executable 2>/dev/null | head -1)"
-    if [ -z "$codex_bin" ]; then
-        # Some archives have a flat binary without executable bit
-        codex_bin="$(find "$tmpdir" -name 'codex' -type f 2>/dev/null | head -1)"
+    if ! curl -fsSL --retry 3 --retry-delay 2 "$download_url" -o "${_tmpdir}/codex.tar.gz"; then
+        rm -rf "$_tmpdir"
+        echo "Download failed"
+        return 1
     fi
 
+    tar -xzf "${_tmpdir}/codex.tar.gz" -C "$_tmpdir"
+
+    # The archive contains a single binary named codex-{arch}, not "codex"
+    local codex_bin=""
+    codex_bin="$(find "$_tmpdir" -maxdepth 1 -name 'codex*' -type f 2>/dev/null | head -1)"
+
     if [ -z "$codex_bin" ]; then
+        rm -rf "$_tmpdir"
         echo "Codex binary not found in archive"
         return 1
     fi
 
     sudo install -m 755 "$codex_bin" /usr/local/bin/codex
-    echo "Codex $(codex --version 2>/dev/null || echo "$latest_version") installed"
+    rm -rf "$_tmpdir"
+    echo "Codex $(codex --version 2>/dev/null || echo "$latest_tag") installed"
 }
 
 ###############################################################################
@@ -586,6 +587,10 @@ esac
 case ":${PATH}:" in
     *":${HOME}/.claude/bin:"*) ;;
     *) export PATH="${HOME}/.claude/bin:${PATH}" ;;
+esac
+case ":${PATH}:" in
+    *":${HOME}/.local/bin:"*) ;;
+    *) export PATH="${HOME}/.local/bin:${PATH}" ;;
 esac
 
 # GitHub token for MCP servers
