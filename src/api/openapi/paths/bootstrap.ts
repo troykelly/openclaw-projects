@@ -535,6 +535,20 @@ export function bootstrapPaths(): OpenApiDomainModule {
             description: 'Minimum distance in meters before a new high-resolution location point is recorded',
             example: 50.0,
           },
+          active_namespaces: {
+            type: 'array',
+            nullable: true,
+            description: 'User-selected active namespaces for the UI. Persisted server-side so the selection survives across devices. First element is the primary namespace for write operations.',
+            items: { type: 'string' },
+            example: ['my-workspace', 'shared-team'],
+          },
+          active_namespaces_sanitized: {
+            type: 'array',
+            nullable: true,
+            description: 'Active namespaces filtered to only include namespaces the user currently has grants for. Returned on GET /settings and bootstrap. Revoked grants are automatically removed.',
+            items: { type: 'string' },
+            example: ['my-workspace'],
+          },
           created_at: {
             type: 'string',
             format: 'date-time',
@@ -621,6 +635,12 @@ export function bootstrapPaths(): OpenApiDomainModule {
             type: 'number',
             description: 'Minimum distance in meters for new high-res location point',
             example: 50.0,
+          },
+          active_namespaces: {
+            type: 'array',
+            description: 'Set the user\'s active namespace selection. First element becomes the primary namespace for write operations. Invalid or revoked namespaces are silently filtered on next read.',
+            items: { type: 'string' },
+            example: ['my-workspace', 'shared-team'],
           },
         },
       },

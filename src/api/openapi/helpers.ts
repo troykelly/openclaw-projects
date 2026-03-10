@@ -40,15 +40,27 @@ export function paginationParams(): ParameterObject[] {
   ];
 }
 
-/** Namespace header parameter (X-Namespace) */
+/** Namespace header parameter (X-Namespace) for single-namespace requests */
 export function namespaceParam(): ParameterObject {
   return {
     name: 'X-Namespace',
     in: 'header',
     description:
-      'Target namespace for the request. Determines which namespace context the operation runs in. If omitted, the default namespace for the authenticated user is used.',
-    schema: { type: 'string' },
+      'Target namespace for the request. Determines which namespace context the operation runs in. If omitted, the default namespace for the authenticated user is used. For multi-namespace queries, use X-Namespaces instead.',
+    schema: { type: 'string', pattern: '^[a-z0-9][a-z0-9._-]*$', maxLength: 63 },
     example: 'my-workspace',
+  };
+}
+
+/** Multi-namespace header parameter (X-Namespaces) for cross-namespace read queries */
+export function namespacesParam(): ParameterObject {
+  return {
+    name: 'X-Namespaces',
+    in: 'header',
+    description:
+      'Comma-separated list of namespaces for cross-namespace read queries. The first namespace is the primary (used for writes). Maximum 20 namespaces per request. Takes precedence over X-Namespace when both are present.',
+    schema: { type: 'string' },
+    example: 'workspace-a,workspace-b',
   };
 }
 
