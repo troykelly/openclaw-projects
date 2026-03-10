@@ -138,12 +138,21 @@ describe('Access enforcement (#1485, #1486, #1571)', () => {
         body: null,
       } as unknown as FastifyRequest;
 
+      // Issue #2359: resolveNamespaces now queries both namespace_grant and user_setting
       const mockPool = {
-        query: vi.fn().mockResolvedValue({
-          rows: [
-            { namespace: 'ns-a', access: 'readwrite', is_home: true },
-            { namespace: 'ns-b', access: 'read', is_home: false },
-          ],
+        query: vi.fn().mockImplementation((sql: string) => {
+          if (sql.includes('namespace_grant')) {
+            return {
+              rows: [
+                { namespace: 'ns-a', access: 'readwrite', is_home: true },
+                { namespace: 'ns-b', access: 'read', is_home: false },
+              ],
+            };
+          }
+          if (sql.includes('user_setting')) {
+            return { rows: [{ active_namespaces: ['ns-a', 'ns-b'] }] };
+          }
+          return { rows: [] };
         }),
       };
 
