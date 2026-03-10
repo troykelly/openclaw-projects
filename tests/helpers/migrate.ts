@@ -211,17 +211,21 @@ export function migrationCount(): number {
 
 /**
  * Compute how many `down` steps are needed to roll back from the latest
- * migration to just *before* the given target version (i.e. the target
- * migration itself will be the last one rolled back).
+ * migration down to and including `targetVersion`.
  *
- * Example: if the latest migration is 160 and you want to roll back
- * everything from 160 down to 147 inclusive, call `stepsToRollbackTo(147)`.
+ * Example: if migrations 145..160 exist and you call `stepsToRollbackTo(147)`,
+ * the result is the count of migrations with version >= 147, i.e. 14.
+ *
+ * Throws if `targetVersion` does not correspond to a known migration file.
+ * Assumes the database is fully migrated to head (callers run `runMigrate('up')`
+ * in `beforeAll`).
  */
 export function stepsToRollbackTo(targetVersion: number): number {
   const migrations = listMigrations();
-  const latest = migrations[migrations.length - 1];
-  if (!latest) throw new Error('No migrations found');
+  if (migrations.length === 0) throw new Error('No migrations found');
+  if (!migrations.some((m) => m.version === targetVersion)) {
+    throw new Error(`Migration version ${targetVersion} not found on disk`);
+  }
 
-  // Count migrations with version >= targetVersion
   return migrations.filter((m) => m.version >= targetVersion).length;
 }
