@@ -13,6 +13,7 @@ import type {
   UpdateDevPromptBody,
   DevPromptRenderResult,
 } from '@/ui/lib/api-types.ts';
+import { useNamespaceQueryKey } from '@/ui/hooks/use-namespace-query-key';
 
 /** Query key factory for dev prompts. */
 export const devPromptKeys = {
@@ -46,8 +47,9 @@ export function useDevPrompts(filters?: DevPromptListFilters) {
   const qs = params.toString();
   const url = `/dev-prompts${qs ? `?${qs}` : ''}`;
 
+  const queryKey = useNamespaceQueryKey(devPromptKeys.list(filters));
   return useQuery({
-    queryKey: devPromptKeys.list(filters),
+    queryKey,
     queryFn: ({ signal }) => apiClient.get<DevPromptsResponse>(url, { signal }),
   });
 }
@@ -56,8 +58,9 @@ export function useDevPrompts(filters?: DevPromptListFilters) {
  * Fetch a single dev prompt by ID.
  */
 export function useDevPrompt(id: string) {
+  const queryKey = useNamespaceQueryKey(devPromptKeys.detail(id));
   return useQuery({
-    queryKey: devPromptKeys.detail(id),
+    queryKey,
     queryFn: ({ signal }) => apiClient.get<DevPrompt>(`/dev-prompts/${id}`, { signal }),
     enabled: !!id,
   });

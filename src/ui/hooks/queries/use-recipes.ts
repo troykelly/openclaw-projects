@@ -9,6 +9,7 @@ import type {
   CreateRecipeBody,
   UpdateRecipeBody,
 } from '@/ui/lib/api-types.ts';
+import { useNamespaceQueryKey } from '@/ui/hooks/use-namespace-query-key';
 
 export const recipeKeys = {
   all: ['recipes'] as const,
@@ -18,15 +19,17 @@ export const recipeKeys = {
 
 export function useRecipes(filters?: Record<string, string>) {
   const params = filters ? '?' + new URLSearchParams(filters).toString() : '';
+  const queryKey = useNamespaceQueryKey(recipeKeys.list(filters));
   return useQuery({
-    queryKey: recipeKeys.list(filters),
+    queryKey,
     queryFn: ({ signal }) => apiClient.get<RecipesResponse>(`/recipes${params}`, { signal }),
   });
 }
 
 export function useRecipeDetail(id: string) {
+  const queryKey = useNamespaceQueryKey(recipeKeys.detail(id));
   return useQuery({
-    queryKey: recipeKeys.detail(id),
+    queryKey,
     queryFn: ({ signal }) => apiClient.get<RecipeWithDetails>(`/recipes/${id}`, { signal }),
     enabled: !!id,
   });

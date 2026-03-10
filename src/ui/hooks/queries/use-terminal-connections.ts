@@ -6,6 +6,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/ui/lib/api-client.ts';
 import type { TerminalConnection, TerminalConnectionsResponse, TerminalKnownHostsResponse, SshConfigImportResponse } from '@/ui/lib/api-types.ts';
+import { useNamespaceQueryKey } from '@/ui/hooks/use-namespace-query-key';
 
 /** Response from POST /terminal/connections/:id/test */
 export interface TestConnectionResponse {
@@ -35,16 +36,18 @@ export const terminalKnownHostKeys = {
 export function useTerminalConnections(search?: string) {
   const qs = search ? `?search=${encodeURIComponent(search)}` : '';
 
+  const queryKey = useNamespaceQueryKey(terminalConnectionKeys.list(search));
   return useQuery({
-    queryKey: terminalConnectionKeys.list(search),
+    queryKey,
     queryFn: ({ signal }) => apiClient.get<TerminalConnectionsResponse>(`/terminal/connections${qs}`, { signal }),
   });
 }
 
 /** Fetch a single terminal connection by ID. */
 export function useTerminalConnection(id: string) {
+  const queryKey = useNamespaceQueryKey(terminalConnectionKeys.detail(id));
   return useQuery({
-    queryKey: terminalConnectionKeys.detail(id),
+    queryKey,
     queryFn: ({ signal }) => apiClient.get<TerminalConnection>(`/terminal/connections/${id}`, { signal }),
     enabled: !!id,
   });
@@ -117,8 +120,9 @@ export function useImportSshConfig() {
 export function useTerminalKnownHosts(connectionId?: string) {
   const qs = connectionId ? `?connection_id=${encodeURIComponent(connectionId)}` : '';
 
+  const queryKey = useNamespaceQueryKey(terminalKnownHostKeys.list(connectionId));
   return useQuery({
-    queryKey: terminalKnownHostKeys.list(connectionId),
+    queryKey,
     queryFn: ({ signal }) => apiClient.get<TerminalKnownHostsResponse>(`/terminal/known-hosts${qs}`, { signal }),
     enabled: !!connectionId,
   });

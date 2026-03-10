@@ -4,6 +4,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/ui/lib/api-client.ts';
 import type { TerminalActivityResponse } from '@/ui/lib/api-types.ts';
+import { useNamespaceQueryKey } from '@/ui/hooks/use-namespace-query-key';
 
 export const terminalActivityKeys = {
   all: ['terminal-activity'] as const,
@@ -19,8 +20,9 @@ export function useTerminalActivity(filters?: { session_id?: string; connection_
   if (filters?.limit) params.set('limit', String(filters.limit));
   const qs = params.toString();
 
+  const queryKey = useNamespaceQueryKey(terminalActivityKeys.list(filters as Record<string, string>));
   return useQuery({
-    queryKey: terminalActivityKeys.list(filters as Record<string, string>),
+    queryKey,
     queryFn: ({ signal }) => apiClient.get<TerminalActivityResponse>(`/terminal/activity${qs ? `?${qs}` : ''}`, { signal }),
   });
 }

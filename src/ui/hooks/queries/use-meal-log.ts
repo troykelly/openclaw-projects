@@ -10,6 +10,7 @@ import type {
   UpdateMealLogBody,
   MealLogStats,
 } from '@/ui/lib/api-types.ts';
+import { useNamespaceQueryKey } from '@/ui/hooks/use-namespace-query-key';
 
 export const mealLogKeys = {
   all: ['meal-log'] as const,
@@ -20,15 +21,17 @@ export const mealLogKeys = {
 
 export function useMealLog(filters?: Record<string, string>) {
   const params = filters ? '?' + new URLSearchParams(filters).toString() : '';
+  const queryKey = useNamespaceQueryKey(mealLogKeys.list(filters));
   return useQuery({
-    queryKey: mealLogKeys.list(filters),
+    queryKey,
     queryFn: ({ signal }) => apiClient.get<MealLogResponse>(`/meal-log${params}`, { signal }),
   });
 }
 
 export function useMealLogDetail(id: string) {
+  const queryKey = useNamespaceQueryKey(mealLogKeys.detail(id));
   return useQuery({
-    queryKey: mealLogKeys.detail(id),
+    queryKey,
     queryFn: ({ signal }) => apiClient.get<MealLogEntry>(`/meal-log/${id}`, { signal }),
     enabled: !!id,
   });
@@ -36,8 +39,9 @@ export function useMealLogDetail(id: string) {
 
 export function useMealLogStats(days?: number) {
   const params = days ? `?days=${days}` : '';
+  const queryKey = useNamespaceQueryKey(mealLogKeys.stats(days));
   return useQuery({
-    queryKey: mealLogKeys.stats(days),
+    queryKey,
     queryFn: ({ signal }) => apiClient.get<MealLogStats>(`/meal-log/stats${params}`, { signal }),
   });
 }

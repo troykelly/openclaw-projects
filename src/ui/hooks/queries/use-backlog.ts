@@ -6,6 +6,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/ui/lib/api-client.ts';
 import type { BacklogResponse } from '@/ui/lib/api-types.ts';
+import { useNamespaceQueryKey } from '@/ui/hooks/use-namespace-query-key';
 
 /** Query key factory for backlog. */
 export const backlogKeys = {
@@ -25,8 +26,9 @@ export function useBacklog(filters?: { priority?: string[]; kind?: string[] }) {
   filters?.kind?.forEach((k) => params.append('kind', k));
   const queryString = params.toString() ? `?${params.toString()}` : '';
 
+  const queryKey = useNamespaceQueryKey(backlogKeys.list(filters));
   return useQuery({
-    queryKey: backlogKeys.list(filters),
+    queryKey,
     queryFn: ({ signal }) => apiClient.get<BacklogResponse>(`/backlog${queryString}`, { signal }),
   });
 }

@@ -4,6 +4,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/ui/lib/api-client.ts';
 import type { TerminalKnownHost, TerminalKnownHostsResponse } from '@/ui/lib/api-types.ts';
+import { useNamespaceQueryKey } from '@/ui/hooks/use-namespace-query-key';
 
 export const terminalKnownHostKeys = {
   all: ['terminal-known-hosts'] as const,
@@ -12,8 +13,9 @@ export const terminalKnownHostKeys = {
 };
 
 export function useTerminalKnownHosts() {
+  const queryKey = useNamespaceQueryKey(terminalKnownHostKeys.list());
   return useQuery({
-    queryKey: terminalKnownHostKeys.list(),
+    queryKey,
     queryFn: ({ signal }) => apiClient.get<TerminalKnownHostsResponse>('/terminal/known-hosts', { signal }),
   });
 }

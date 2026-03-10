@@ -7,6 +7,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/ui/lib/api-client.ts';
 import type { WorkItemsResponse } from '@/ui/lib/api-types.ts';
+import { useNamespaceQueryKey } from '@/ui/hooks/use-namespace-query-key';
 
 /** Query key factory for projects. */
 export const projectKeys = {
@@ -20,8 +21,9 @@ export const projectKeys = {
  * @returns TanStack Query result with `WorkItemsResponse`
  */
 export function useProjects() {
+  const queryKey = useNamespaceQueryKey(projectKeys.list());
   return useQuery({
-    queryKey: projectKeys.list(),
+    queryKey,
     queryFn: ({ signal }) => apiClient.get<WorkItemsResponse>('/work-items?kind=project', { signal }),
   });
 }

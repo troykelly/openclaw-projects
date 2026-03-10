@@ -6,6 +6,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/ui/lib/api-client.ts';
 import type { Comment } from '@/ui/components/comments/types';
+import { useNamespaceQueryKey } from '@/ui/hooks/use-namespace-query-key';
 
 /** API response for comments list. */
 export interface CommentsResponse {
@@ -24,8 +25,9 @@ export const commentKeys = {
  * @param workItemId - The work item UUID
  */
 export function useWorkItemComments(workItemId: string) {
+  const queryKey = useNamespaceQueryKey(commentKeys.forWorkItem(workItemId));
   return useQuery({
-    queryKey: commentKeys.forWorkItem(workItemId),
+    queryKey,
     queryFn: ({ signal }) =>
       apiClient.get<CommentsResponse>(`/work-items/${workItemId}/comments`, { signal }),
     enabled: !!workItemId,

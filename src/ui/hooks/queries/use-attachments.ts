@@ -5,6 +5,7 @@
  */
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/ui/lib/api-client.ts';
+import { useNamespaceQueryKey } from '@/ui/hooks/use-namespace-query-key';
 
 /** File attachment from the API. */
 export interface FileAttachment {
@@ -28,8 +29,9 @@ export const attachmentKeys = {
 
 /** Fetch file attachments for a work item. */
 export function useWorkItemAttachments(workItemId: string) {
+  const queryKey = useNamespaceQueryKey(attachmentKeys.forWorkItem(workItemId));
   return useQuery({
-    queryKey: attachmentKeys.forWorkItem(workItemId),
+    queryKey,
     queryFn: ({ signal }) =>
       apiClient.get<AttachmentsResponse>(`/work-items/${workItemId}/attachments`, { signal }),
     enabled: !!workItemId,

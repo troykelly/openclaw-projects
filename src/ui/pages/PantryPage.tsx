@@ -7,31 +7,21 @@
  *
  * @see Issue #1753
  */
-import React, { useState, useCallback } from 'react';
-import { Warehouse, Plus, Trash2, PackageMinus, Pencil, AlertTriangle } from 'lucide-react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiClient } from '@/ui/lib/api-client';
+
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { AlertTriangle, PackageMinus, Pencil, Plus, Trash2, Warehouse } from 'lucide-react';
+import type React from 'react';
+import { useCallback, useState } from 'react';
 import { Badge } from '@/ui/components/ui/badge';
 import { Button } from '@/ui/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/ui/components/ui/card';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/ui/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/ui/components/ui/dialog';
 import { Input } from '@/ui/components/ui/input';
 import { Label } from '@/ui/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/ui/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/components/ui/select';
 import { Textarea } from '@/ui/components/ui/textarea';
+import { useNamespaceQueryKey } from '@/ui/hooks/use-namespace-query-key';
+import { apiClient } from '@/ui/lib/api-client';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -84,10 +74,7 @@ const EMPTY_FORM: PantryFormData = {
   notes: '',
 };
 
-const CATEGORIES = [
-  'dairy', 'produce', 'meat', 'seafood', 'bakery', 'pantry',
-  'frozen', 'beverages', 'snacks', 'condiments', 'other',
-];
+const CATEGORIES = ['dairy', 'produce', 'meat', 'seafood', 'bakery', 'pantry', 'frozen', 'beverages', 'snacks', 'condiments', 'other'];
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -121,8 +108,9 @@ export function PantryPage(): React.JSX.Element {
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
 
   // Fetch pantry items
+  const pantryQueryKey = useNamespaceQueryKey(['pantry', categoryFilter] as const);
   const pantryQuery = useQuery({
-    queryKey: ['pantry', categoryFilter],
+    queryKey: pantryQueryKey,
     queryFn: () => {
       const params = new URLSearchParams();
       if (categoryFilter !== 'all') params.set('category', categoryFilter);
@@ -143,8 +131,7 @@ export function PantryPage(): React.JSX.Element {
 
   // Update item
   const updateMutation = useMutation({
-    mutationFn: ({ id, ...data }: PantryFormData & { id: string }) =>
-      apiClient.patch<PantryItem>(`/pantry/${id}`, data),
+    mutationFn: ({ id, ...data }: PantryFormData & { id: string }) => apiClient.patch<PantryItem>(`/pantry/${id}`, data),
     onSuccess: () => {
       setEditingItem(null);
       setFormData(EMPTY_FORM);
@@ -195,12 +182,9 @@ export function PantryPage(): React.JSX.Element {
     setCreateOpen(true);
   }, []);
 
-  const updateField = useCallback(
-    <K extends keyof PantryFormData>(key: K, value: PantryFormData[K]) => {
-      setFormData((prev) => ({ ...prev, [key]: value }));
-    },
-    [],
-  );
+  const updateField = useCallback(<K extends keyof PantryFormData>(key: K, value: PantryFormData[K]) => {
+    setFormData((prev) => ({ ...prev, [key]: value }));
+  }, []);
 
   const items = Array.isArray(pantryQuery.data?.data) ? pantryQuery.data.data : [];
   const activeItems = items.filter((i) => !i.is_depleted);
@@ -243,9 +227,7 @@ export function PantryPage(): React.JSX.Element {
       {/* Item list */}
       <Card className="flex-1">
         <CardHeader>
-          <CardTitle className="text-lg">
-            Items{activeItems.length > 0 && ` (${activeItems.length})`}
-          </CardTitle>
+          <CardTitle className="text-lg">Items{activeItems.length > 0 && ` (${activeItems.length})`}</CardTitle>
         </CardHeader>
         <CardContent>
           {pantryQuery.isLoading && (
@@ -253,11 +235,7 @@ export function PantryPage(): React.JSX.Element {
               <div className="size-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
             </div>
           )}
-          {!pantryQuery.isLoading && activeItems.length === 0 && (
-            <p className="text-sm text-muted-foreground text-center py-8">
-              Your pantry is empty.
-            </p>
-          )}
+          {!pantryQuery.isLoading && activeItems.length === 0 && <p className="text-sm text-muted-foreground text-center py-8">Your pantry is empty.</p>}
           <div className="space-y-2">
             {activeItems.map((item) => {
               const expiringSoon = isExpiringSoon(item);
@@ -277,38 +255,22 @@ export function PantryPage(): React.JSX.Element {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="font-medium text-foreground">{item.name}</span>
-                      {item.quantity && (
-                        <span className="text-sm text-muted-foreground">({item.quantity})</span>
-                      )}
-                      {item.category && (
-                        <Badge variant="outline">{item.category}</Badge>
-                      )}
-                      {item.is_leftover && (
-                        <Badge variant="secondary">leftover</Badge>
-                      )}
+                      {item.quantity && <span className="text-sm text-muted-foreground">({item.quantity})</span>}
+                      {item.category && <Badge variant="outline">{item.category}</Badge>}
+                      {item.is_leftover && <Badge variant="secondary">leftover</Badge>}
                     </div>
                     <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground">
                       <span>{item.location}</span>
                       {item.use_by_date && (
                         <span className="flex items-center gap-1">
-                          {(expiringSoon || expired) && (
-                            <AlertTriangle
-                              className="size-3"
-                              data-testid={`expiry-warning-${item.id}`}
-                            />
-                          )}
+                          {(expiringSoon || expired) && <AlertTriangle className="size-3" data-testid={`expiry-warning-${item.id}`} />}
                           Use by: {new Date(item.use_by_date).toLocaleDateString()}
                         </span>
                       )}
                     </div>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      title="Edit"
-                      onClick={() => handleEdit(item)}
-                    >
+                    <Button variant="ghost" size="icon" title="Edit" onClick={() => handleEdit(item)}>
                       <Pencil className="size-4" />
                     </Button>
                     <Button
@@ -320,13 +282,7 @@ export function PantryPage(): React.JSX.Element {
                     >
                       <PackageMinus className="size-4" />
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      title="Delete"
-                      onClick={() => deleteMutation.mutate(item.id)}
-                      disabled={deleteMutation.isPending}
-                    >
+                    <Button variant="ghost" size="icon" title="Delete" onClick={() => deleteMutation.mutate(item.id)} disabled={deleteMutation.isPending}>
                       <Trash2 className="size-4 text-red-500" />
                     </Button>
                   </div>
@@ -349,10 +305,7 @@ export function PantryPage(): React.JSX.Element {
             <Button variant="outline" onClick={() => setCreateOpen(false)}>
               Cancel
             </Button>
-            <Button
-              onClick={handleCreate}
-              disabled={createMutation.isPending || !formData.name.trim() || !formData.location.trim()}
-            >
+            <Button onClick={handleCreate} disabled={createMutation.isPending || !formData.name.trim() || !formData.location.trim()}>
               Add
             </Button>
           </DialogFooter>
@@ -371,10 +324,7 @@ export function PantryPage(): React.JSX.Element {
             <Button variant="outline" onClick={() => setEditingItem(null)}>
               Cancel
             </Button>
-            <Button
-              onClick={handleSaveEdit}
-              disabled={updateMutation.isPending || !formData.name.trim() || !formData.location.trim()}
-            >
+            <Button onClick={handleSaveEdit} disabled={updateMutation.isPending || !formData.name.trim() || !formData.location.trim()}>
               Save
             </Button>
           </DialogFooter>
@@ -398,12 +348,7 @@ function PantryForm({ formData, updateField }: PantryFormProps): React.JSX.Eleme
     <div className="space-y-3 py-2">
       <div>
         <Label htmlFor="pantry-name">Name *</Label>
-        <Input
-          id="pantry-name"
-          value={formData.name}
-          onChange={(e) => updateField('name', e.target.value)}
-          placeholder="e.g. Organic Milk"
-        />
+        <Input id="pantry-name" value={formData.name} onChange={(e) => updateField('name', e.target.value)} placeholder="e.g. Organic Milk" />
       </div>
       <div>
         <Label htmlFor="pantry-location">Location *</Label>
@@ -417,12 +362,7 @@ function PantryForm({ formData, updateField }: PantryFormProps): React.JSX.Eleme
       <div className="grid grid-cols-2 gap-3">
         <div>
           <Label htmlFor="pantry-quantity">Quantity</Label>
-          <Input
-            id="pantry-quantity"
-            value={formData.quantity}
-            onChange={(e) => updateField('quantity', e.target.value)}
-            placeholder="e.g. 1L, 500g"
-          />
+          <Input id="pantry-quantity" value={formData.quantity} onChange={(e) => updateField('quantity', e.target.value)} placeholder="e.g. 1L, 500g" />
         </div>
         <div>
           <Label htmlFor="pantry-category">Category</Label>
@@ -443,21 +383,11 @@ function PantryForm({ formData, updateField }: PantryFormProps): React.JSX.Eleme
       </div>
       <div>
         <Label htmlFor="pantry-use-by">Use by date</Label>
-        <Input
-          id="pantry-use-by"
-          type="date"
-          value={formData.use_by_date}
-          onChange={(e) => updateField('use_by_date', e.target.value)}
-        />
+        <Input id="pantry-use-by" type="date" value={formData.use_by_date} onChange={(e) => updateField('use_by_date', e.target.value)} />
       </div>
       <div>
         <Label htmlFor="pantry-notes">Notes</Label>
-        <Textarea
-          id="pantry-notes"
-          value={formData.notes}
-          onChange={(e) => updateField('notes', e.target.value)}
-          rows={2}
-        />
+        <Textarea id="pantry-notes" value={formData.notes} onChange={(e) => updateField('notes', e.target.value)} rows={2} />
       </div>
     </div>
   );

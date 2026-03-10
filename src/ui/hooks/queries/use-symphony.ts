@@ -16,6 +16,7 @@ import type {
   SymphonyHost,
   SymphonyToolConfig,
 } from '@/ui/lib/api-types.ts';
+import { useNamespaceQueryKey } from '@/ui/hooks/use-namespace-query-key';
 
 /** Query key factory for symphony data. */
 export const symphonyKeys = {
@@ -37,8 +38,9 @@ export const symphonyKeys = {
 
 /** Fetch dashboard status summary. */
 export function useSymphonyStatus() {
+  const queryKey = useNamespaceQueryKey(symphonyKeys.status());
   return useQuery({
-    queryKey: symphonyKeys.status(),
+    queryKey,
     queryFn: ({ signal }) =>
       apiClient.get<SymphonyDashboardStatus>('/symphony/dashboard/status', { signal }),
     refetchInterval: 10000,
@@ -52,8 +54,9 @@ export function useSymphonyQueue(filters?: { limit?: number; offset?: number }) 
   if (filters?.offset) params.set('offset', String(filters.offset));
   const qs = params.toString();
 
+  const queryKey = useNamespaceQueryKey(symphonyKeys.queue(filters));
   return useQuery({
-    queryKey: symphonyKeys.queue(filters),
+    queryKey,
     queryFn: ({ signal }) =>
       apiClient.get<SymphonyRunsResponse>(
         `/symphony/dashboard/queue${qs ? `?${qs}` : ''}`,
@@ -65,8 +68,9 @@ export function useSymphonyQueue(filters?: { limit?: number; offset?: number }) 
 
 /** Fetch dashboard host statuses. */
 export function useSymphonyHosts() {
+  const queryKey = useNamespaceQueryKey(symphonyKeys.hosts());
   return useQuery({
-    queryKey: symphonyKeys.hosts(),
+    queryKey,
     queryFn: ({ signal }) =>
       apiClient.get<SymphonyDashboardHostsResponse>('/symphony/dashboard/hosts', { signal }),
     refetchInterval: 15000,
@@ -75,8 +79,9 @@ export function useSymphonyHosts() {
 
 /** Fetch dashboard health. */
 export function useSymphonyHealth() {
+  const queryKey = useNamespaceQueryKey(symphonyKeys.health());
   return useQuery({
-    queryKey: symphonyKeys.health(),
+    queryKey,
     queryFn: ({ signal }) =>
       apiClient.get<SymphonyDashboardHealth>('/symphony/dashboard/health', { signal }),
     refetchInterval: 15000,
@@ -99,8 +104,9 @@ export function useSymphonyRuns(filters?: {
   // work_item_id filter is client-side since the API doesn't support it directly
   const workItemId = filters?.work_item_id;
 
+  const queryKey = useNamespaceQueryKey(symphonyKeys.runs(filters));
   return useQuery({
-    queryKey: symphonyKeys.runs(filters),
+    queryKey,
     queryFn: async ({ signal }) => {
       const response = await apiClient.get<SymphonyRunsResponse>(
         `/symphony/runs${qs ? `?${qs}` : ''}`,
@@ -122,8 +128,9 @@ export function useSymphonyRuns(filters?: {
 
 /** Fetch a single run by ID. */
 export function useSymphonyRun(id: string) {
+  const queryKey = useNamespaceQueryKey(symphonyKeys.run(id));
   return useQuery({
-    queryKey: symphonyKeys.run(id),
+    queryKey,
     queryFn: ({ signal }) =>
       apiClient.get<{ data: Record<string, unknown> }>(`/symphony/runs/${id}`, { signal }),
     enabled: !!id,
@@ -135,8 +142,9 @@ export function useSymphonyRun(id: string) {
  * Returns null on 404 (Symphony not configured for this project).
  */
 export function useSymphonyConfig(projectId: string) {
+  const queryKey = useNamespaceQueryKey(symphonyKeys.config(projectId));
   return useQuery({
-    queryKey: symphonyKeys.config(projectId),
+    queryKey,
     queryFn: async ({ signal }) => {
       try {
         return await apiClient.get<{ data: SymphonyConfig }>(`/symphony/config/${projectId}`, { signal });
@@ -154,8 +162,9 @@ export function useSymphonyConfig(projectId: string) {
 
 /** Fetch repos for a project. */
 export function useSymphonyRepos(projectId: string) {
+  const queryKey = useNamespaceQueryKey(symphonyKeys.repos(projectId));
   return useQuery({
-    queryKey: symphonyKeys.repos(projectId),
+    queryKey,
     queryFn: ({ signal }) =>
       apiClient.get<{ data: SymphonyRepo[] }>(`/symphony/projects/${projectId}/repos`, { signal }),
     enabled: !!projectId,
@@ -164,8 +173,9 @@ export function useSymphonyRepos(projectId: string) {
 
 /** Fetch hosts for a project. */
 export function useSymphonyProjectHosts(projectId: string) {
+  const queryKey = useNamespaceQueryKey(symphonyKeys.projectHosts(projectId));
   return useQuery({
-    queryKey: symphonyKeys.projectHosts(projectId),
+    queryKey,
     queryFn: ({ signal }) =>
       apiClient.get<{ data: SymphonyHost[] }>(`/symphony/projects/${projectId}/hosts`, { signal }),
     enabled: !!projectId,
@@ -174,8 +184,9 @@ export function useSymphonyProjectHosts(projectId: string) {
 
 /** Fetch tool configs. */
 export function useSymphonyTools() {
+  const queryKey = useNamespaceQueryKey(symphonyKeys.tools());
   return useQuery({
-    queryKey: symphonyKeys.tools(),
+    queryKey,
     queryFn: ({ signal }) =>
       apiClient.get<{ data: SymphonyToolConfig[] }>('/symphony/tools', { signal }),
   });

@@ -10,6 +10,7 @@ import { apiClient } from '@/ui/lib/api-client.ts';
 import { notificationsResponseSchema, unreadCountResponseSchema } from '@/ui/lib/api-schemas.ts';
 import type { NotificationsResponse, UnreadCountResponse } from '@/ui/lib/api-types.ts';
 import { useRealtimeOptional } from '@/ui/components/realtime/realtime-context.tsx';
+import { useNamespaceQueryKey } from '@/ui/hooks/use-namespace-query-key';
 
 /** Query key factory for notifications. */
 export const notificationKeys = {
@@ -45,8 +46,9 @@ export function useRealtimeNotificationInvalidation(): void {
  * @returns TanStack Query result with `NotificationsResponse`
  */
 export function useNotifications() {
+  const queryKey = useNamespaceQueryKey(notificationKeys.list());
   return useQuery({
-    queryKey: notificationKeys.list(),
+    queryKey,
     queryFn: ({ signal }) => apiClient.get<NotificationsResponse>('/notifications', { signal, schema: notificationsResponseSchema }),
   });
 }
@@ -61,8 +63,9 @@ export function useNotifications() {
  * @returns TanStack Query result with `UnreadCountResponse`
  */
 export function useUnreadNotificationCount() {
+  const queryKey = useNamespaceQueryKey(notificationKeys.unread_count());
   return useQuery({
-    queryKey: notificationKeys.unread_count(),
+    queryKey,
     queryFn: ({ signal }) => apiClient.get<UnreadCountResponse>('/notifications/unread-count', { signal, schema: unreadCountResponseSchema }),
     refetchInterval: 300_000,
   });

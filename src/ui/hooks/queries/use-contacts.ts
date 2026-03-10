@@ -8,6 +8,7 @@ import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/ui/lib/api-client.ts';
 import { contactsResponseSchema, tagCountArraySchema } from '@/ui/lib/api-schemas.ts';
 import type { Contact, ContactsResponse, TagCount } from '@/ui/lib/api-types.ts';
+import { useNamespaceQueryKey } from '@/ui/hooks/use-namespace-query-key';
 
 /** Query key factory for contacts. */
 export const contactKeys = {
@@ -24,9 +25,10 @@ export const contactKeys = {
  */
 export function useContacts(search?: string) {
   const queryString = search ? `?search=${encodeURIComponent(search)}` : '';
+  const queryKey = useNamespaceQueryKey(contactKeys.list(search));
 
   return useQuery({
-    queryKey: contactKeys.list(search),
+    queryKey,
     queryFn: ({ signal }) => apiClient.get<ContactsResponse>(`/contacts${queryString}`, { signal, schema: contactsResponseSchema }),
   });
 }
@@ -43,8 +45,11 @@ export function useContactDetail(id: string, include?: string) {
   const qs = params.toString();
   const url = `/contacts/${id}${qs ? `?${qs}` : ''}`;
 
+  const queryKey = useNamespaceQueryKey(
+    include ? contactKeys.detailIncludes(id, include) : contactKeys.detail(id),
+  );
   return useQuery({
-    queryKey: include ? contactKeys.detailIncludes(id, include) : contactKeys.detail(id),
+    queryKey,
     queryFn: ({ signal }) => apiClient.get<Contact>(url, { signal }),
     enabled: !!id,
   });
@@ -54,8 +59,9 @@ export function useContactDetail(id: string, include?: string) {
  * Fetch all tags with contact counts (for tag picker).
  */
 export function useContactTags() {
+  const queryKey = useNamespaceQueryKey(contactKeys.tags());
   return useQuery({
-    queryKey: contactKeys.tags(),
+    queryKey,
     queryFn: ({ signal }) => apiClient.get<TagCount[]>('/tags', { signal, schema: tagCountArraySchema }),
   });
 }

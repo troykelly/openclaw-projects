@@ -10,6 +10,7 @@ import type {
   TerminalCredentialsResponse,
   TerminalKeyPairResponse,
 } from '@/ui/lib/api-types.ts';
+import { useNamespaceQueryKey } from '@/ui/hooks/use-namespace-query-key';
 
 /** Query key factory for terminal credentials. */
 export const terminalCredentialKeys = {
@@ -21,16 +22,18 @@ export const terminalCredentialKeys = {
 
 /** Fetch terminal credentials list. */
 export function useTerminalCredentials() {
+  const queryKey = useNamespaceQueryKey(terminalCredentialKeys.list());
   return useQuery({
-    queryKey: terminalCredentialKeys.list(),
+    queryKey,
     queryFn: ({ signal }) => apiClient.get<TerminalCredentialsResponse>('/terminal/credentials', { signal }),
   });
 }
 
 /** Fetch a single terminal credential by ID. */
 export function useTerminalCredential(id: string) {
+  const queryKey = useNamespaceQueryKey(terminalCredentialKeys.detail(id));
   return useQuery({
-    queryKey: terminalCredentialKeys.detail(id),
+    queryKey,
     queryFn: ({ signal }) => apiClient.get<TerminalCredential>(`/terminal/credentials/${id}`, { signal }),
     enabled: !!id,
   });

@@ -12,6 +12,7 @@ import type {
   SymphonyRunDetail,
   SymphonyRunsResponse,
 } from '@/ui/lib/api-types.ts';
+import { useNamespaceQueryKey } from '@/ui/hooks/use-namespace-query-key';
 
 /** Query key factory for symphony runs. */
 export const symphonyRunKeys = {
@@ -32,8 +33,9 @@ export function useSymphonyRuns(filters?: { status?: string; project_id?: string
   const qs = params.toString();
   const url = `/symphony/runs${qs ? `?${qs}` : ''}`;
 
+  const queryKey = useNamespaceQueryKey(symphonyRunKeys.list(filters));
   return useQuery({
-    queryKey: symphonyRunKeys.list(filters),
+    queryKey,
     queryFn: ({ signal }) => apiClient.get<SymphonyRunsResponse>(url, { signal }),
   });
 }
@@ -42,8 +44,9 @@ export function useSymphonyRuns(filters?: { status?: string; project_id?: string
  * Fetch a single symphony run by ID.
  */
 export function useSymphonyRun(id: string) {
+  const queryKey = useNamespaceQueryKey(symphonyRunKeys.detail(id));
   return useQuery({
-    queryKey: symphonyRunKeys.detail(id),
+    queryKey,
     queryFn: ({ signal }) => apiClient.get<SymphonyRunDetail>(`/symphony/runs/${id}`, { signal }),
     enabled: !!id,
     refetchInterval: 5000,

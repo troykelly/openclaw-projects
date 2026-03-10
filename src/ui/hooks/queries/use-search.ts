@@ -7,6 +7,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/ui/lib/api-client.ts';
 import type { SearchResponse } from '@/ui/lib/api-types.ts';
+import { useNamespaceQueryKey } from '@/ui/hooks/use-namespace-query-key';
 
 /** Query key factory for search. */
 export const searchKeys = {
@@ -26,8 +27,9 @@ export function useSearch(query: string, types?: string[]) {
   if (query) params.set('q', query);
   if (types?.length) params.set('types', types.join(','));
 
+  const queryKey = useNamespaceQueryKey(searchKeys.query(query, types));
   return useQuery({
-    queryKey: searchKeys.query(query, types),
+    queryKey,
     queryFn: ({ signal }) => apiClient.get<SearchResponse>(`/search?${params.toString()}`, { signal }),
     enabled: query.length > 0,
   });

@@ -2,7 +2,8 @@
  * Typed API client for openclaw-projects.
  *
  * Wraps fetch() with consistent error handling, base URL resolution,
- * Bearer token injection, and automatic 401 retry with token refresh.
+ * Bearer token injection, namespace header injection (#2349), and
+ * automatic 401 retry with token refresh.
  * Base URL is derived from the hostname via {@link getApiBaseUrl} —
  * same-origin for localhost, cross-origin (`api.{domain}`) for production.
  */
@@ -11,6 +12,30 @@ import type { ZodSchema } from 'zod';
 
 import { getApiBaseUrl } from './api-config.ts';
 import { clearAccessToken, getAccessToken, refreshAccessToken } from './auth-manager.ts';
+
+// ---------------------------------------------------------------------------
+// Namespace resolver (#2349)
+// ---------------------------------------------------------------------------
+
+/**
+ * Module-level namespace resolver.
+ * Called by buildHeaders() on every request to inject X-Namespace / X-Namespaces.
+ * Set by NamespaceProvider via setNamespaceResolver().
+ */
+let getActiveNamespaces: () => string[] = () => [];
+
+/**
+ * Register a function that returns the current active namespace(s).
+ * Called from NamespaceProvider so the api-client can inject headers
+ * without circular imports (context -> api-client -> context).
+ */
+export function setNamespaceResolver(resolver: () => string[]): void {
+  getActiveNamespaces = resolver;
+}
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
 /** Standard error shape returned by the API. */
 export interface ApiError {
@@ -54,7 +79,7 @@ function resolveUrl(path: string): string {
 
 /**
  * Build the headers for a request, injecting the Authorization header
- * when an access token is available.
+ * when an access token is available and namespace headers from the resolver.
  */
 function buildHeaders(base: Record<string, string>, extra?: Record<string, string>): Record<string, string> {
   const headers: Record<string, string> = { ...base, ...extra };
@@ -62,6 +87,15 @@ function buildHeaders(base: Record<string, string>, extra?: Record<string, strin
   if (token) {
     headers.authorization = `Bearer ${token}`;
   }
+
+  // Inject namespace headers (#2349)
+  const namespaces = getActiveNamespaces();
+  if (namespaces.length === 1) {
+    headers['x-namespace'] = namespaces[0] as string;
+  } else if (namespaces.length > 1) {
+    headers['x-namespaces'] = namespaces.join(',');
+  }
+
   return headers;
 }
 
@@ -98,8 +132,18 @@ async function parseErrorResponse(res: Response): Promise<ApiRequestError> {
  * On a 401 response (except for auth endpoints), attempts to refresh
  * the access token and retries the original request once. If refresh
  * fails, clears the token and redirects to the login page.
+ *
+ * Headers are snapshotted at request initiation. On 401 retry, only
+ * the auth token is refreshed — namespace headers remain from the
+ * original snapshot to prevent race conditions (#2360).
  */
-async function request<T>(path: string, init: RequestInit, baseHeaders: Record<string, string>, opts?: RequestOptions<T>): Promise<{ res: Response; parsed: T }> {
+async function request<T>(
+  path: string,
+  init: RequestInit,
+  baseHeaders: Record<string, string>,
+  opts?: RequestOptions<T>,
+): Promise<{ res: Response; parsed: T }> {
+  // Snapshot namespace headers at request initiation (#2360)
   const headers = buildHeaders(baseHeaders, opts?.headers);
   const url = resolveUrl(path);
 
@@ -121,8 +165,13 @@ async function request<T>(path: string, init: RequestInit, baseHeaders: Record<s
       throw await parseErrorResponse(res);
     }
 
-    // Retry with the new token
-    const retryHeaders = buildHeaders(baseHeaders, opts?.headers);
+    // Retry with the new token but SAME namespace headers (#2360).
+    // Only update the auth token in the snapshotted headers.
+    const newToken = getAccessToken();
+    const retryHeaders = { ...headers };
+    if (newToken) {
+      retryHeaders.authorization = `Bearer ${newToken}`;
+    }
     const retryRes = await fetch(url, {
       ...init,
       credentials: 'include',
@@ -143,7 +192,6 @@ async function request<T>(path: string, init: RequestInit, baseHeaders: Record<s
 
   return { res, parsed: await parseBody<T>(res, opts?.schema) };
 }
-
 
 /**
  * Recursively convert all camelCase object keys to snake_case.

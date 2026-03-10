@@ -6,6 +6,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/ui/lib/api-client.ts';
 import type { Contact } from '@/ui/lib/api-types.ts';
+import { useNamespaceQueryKey } from '@/ui/hooks/use-namespace-query-key';
 
 /** Linked contact from the API. Server returns contact_id as the identifier. */
 export interface LinkedContact {
@@ -43,8 +44,9 @@ export const workItemContactKeys = {
 
 /** Fetch linked contacts for a work item. */
 export function useWorkItemContacts(workItemId: string) {
+  const queryKey = useNamespaceQueryKey(workItemContactKeys.forWorkItem(workItemId));
   return useQuery({
-    queryKey: workItemContactKeys.forWorkItem(workItemId),
+    queryKey,
     queryFn: ({ signal }) =>
       apiClient.get<WorkItemContactsResponse>(`/work-items/${workItemId}/contacts`, { signal }),
     enabled: !!workItemId,
@@ -53,8 +55,9 @@ export function useWorkItemContacts(workItemId: string) {
 
 /** Fetch linked work items for a contact. */
 export function useContactWorkItems(contactId: string) {
+  const queryKey = useNamespaceQueryKey(workItemContactKeys.forContact(contactId));
   return useQuery({
-    queryKey: workItemContactKeys.forContact(contactId),
+    queryKey,
     queryFn: ({ signal }) =>
       apiClient.get<ContactWorkItemsResponse>(`/contacts/${contactId}/work-items`, { signal }),
     enabled: !!contactId,

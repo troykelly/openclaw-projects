@@ -7,6 +7,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/ui/lib/api-client.ts';
 import type { EntityLinksResponse } from '@/ui/lib/api-types.ts';
+import { useNamespaceQueryKey } from '@/ui/hooks/use-namespace-query-key';
 
 /** Query key factory for entity links. */
 export const entityLinkKeys = {
@@ -17,8 +18,9 @@ export const entityLinkKeys = {
 
 /** Fetch entity links where the given entity is the source. */
 export function useEntityLinksFromSource(sourceType: string, sourceId: string) {
+  const queryKey = useNamespaceQueryKey(entityLinkKeys.fromSource(sourceType, sourceId));
   return useQuery({
-    queryKey: entityLinkKeys.fromSource(sourceType, sourceId),
+    queryKey,
     queryFn: ({ signal }) =>
       apiClient.get<EntityLinksResponse>(`/entity-links?source_type=${sourceType}&source_id=${sourceId}`, { signal }),
     enabled: !!sourceId,
@@ -27,8 +29,9 @@ export function useEntityLinksFromSource(sourceType: string, sourceId: string) {
 
 /** Fetch entity links where the given entity is the target. */
 export function useEntityLinksToTarget(targetType: string, targetId: string) {
+  const queryKey = useNamespaceQueryKey(entityLinkKeys.toTarget(targetType, targetId));
   return useQuery({
-    queryKey: entityLinkKeys.toTarget(targetType, targetId),
+    queryKey,
     queryFn: ({ signal }) =>
       apiClient.get<EntityLinksResponse>(`/entity-links?target_type=${targetType}&target_id=${targetId}`, { signal }),
     enabled: !!targetId,

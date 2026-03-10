@@ -6,6 +6,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/ui/lib/api-client.ts';
 import type { DependencyGraphResponse } from '@/ui/lib/api-types.ts';
+import { useNamespaceQueryKey } from '@/ui/hooks/use-namespace-query-key';
 
 /** Query key factory for dependency graphs. */
 export const dependencyGraphKeys = {
@@ -20,8 +21,9 @@ export const dependencyGraphKeys = {
  * @returns TanStack Query result with `DependencyGraphResponse`
  */
 export function useDependencyGraph(id: string) {
+  const queryKey = useNamespaceQueryKey(dependencyGraphKeys.item(id));
   return useQuery({
-    queryKey: dependencyGraphKeys.item(id),
+    queryKey,
     queryFn: ({ signal }) => apiClient.get<DependencyGraphResponse>(`/work-items/${id}/dependency-graph`, { signal }),
     enabled: !!id,
   });

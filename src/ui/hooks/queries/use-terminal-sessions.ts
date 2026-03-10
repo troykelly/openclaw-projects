@@ -11,6 +11,7 @@ import type {
   TerminalEntriesResponse,
   TerminalDashboardStats,
 } from '@/ui/lib/api-types.ts';
+import { useNamespaceQueryKey } from '@/ui/hooks/use-namespace-query-key';
 
 /** Query key factory for terminal sessions. */
 export const terminalSessionKeys = {
@@ -29,8 +30,9 @@ export function useTerminalSessions(filters?: { status?: string; connection_id?:
   if (filters?.connection_id) params.set('connection_id', filters.connection_id);
   const qs = params.toString();
 
+  const queryKey = useNamespaceQueryKey(terminalSessionKeys.list(filters as Record<string, string>));
   return useQuery({
-    queryKey: terminalSessionKeys.list(filters as Record<string, string>),
+    queryKey,
     queryFn: ({ signal }) => apiClient.get<TerminalSessionsResponse>(`/terminal/sessions${qs ? `?${qs}` : ''}`, { signal }),
     refetchInterval: 30_000,
   });
@@ -38,8 +40,9 @@ export function useTerminalSessions(filters?: { status?: string; connection_id?:
 
 /** Fetch a single terminal session by ID. */
 export function useTerminalSession(id: string) {
+  const queryKey = useNamespaceQueryKey(terminalSessionKeys.detail(id));
   return useQuery({
-    queryKey: terminalSessionKeys.detail(id),
+    queryKey,
     queryFn: ({ signal }) => apiClient.get<TerminalSession>(`/terminal/sessions/${id}`, { signal }),
     enabled: !!id,
   });
@@ -53,8 +56,9 @@ export function useTerminalEntries(sessionId: string, params?: { limit?: number;
   if (params?.kind) qs.set('kind', params.kind);
   const qsStr = qs.toString();
 
+  const queryKey = useNamespaceQueryKey(terminalSessionKeys.entries(sessionId, params as Record<string, string>));
   return useQuery({
-    queryKey: terminalSessionKeys.entries(sessionId, params as Record<string, string>),
+    queryKey,
     queryFn: ({ signal }) =>
       apiClient.get<TerminalEntriesResponse>(`/terminal/sessions/${sessionId}/entries${qsStr ? `?${qsStr}` : ''}`, { signal }),
     enabled: !!sessionId,
@@ -63,8 +67,9 @@ export function useTerminalEntries(sessionId: string, params?: { limit?: number;
 
 /** Fetch terminal dashboard stats. Auto-refreshes every 30s. */
 export function useTerminalStats() {
+  const queryKey = useNamespaceQueryKey(terminalSessionKeys.stats());
   return useQuery({
-    queryKey: terminalSessionKeys.stats(),
+    queryKey,
     queryFn: ({ signal }) => apiClient.get<TerminalDashboardStats>('/terminal/stats', { signal }),
     refetchInterval: 30_000,
   });

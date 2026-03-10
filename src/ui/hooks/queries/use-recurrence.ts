@@ -12,6 +12,7 @@
  */
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/ui/lib/api-client.ts';
+import { useNamespaceQueryKey } from '@/ui/hooks/use-namespace-query-key';
 
 /** Recurrence rule from the API — matches actual server response. */
 export interface RecurrenceRule {
@@ -48,8 +49,9 @@ export const recurrenceKeys = {
 
 /** Fetch recurrence rule for a work item. */
 export function useRecurrenceRule(workItemId: string) {
+  const queryKey = useNamespaceQueryKey(recurrenceKeys.rule(workItemId));
   return useQuery({
-    queryKey: recurrenceKeys.rule(workItemId),
+    queryKey,
     queryFn: ({ signal }) =>
       apiClient.get<RecurrenceRule>(`/work-items/${workItemId}/recurrence`, { signal }),
     enabled: !!workItemId,
@@ -58,8 +60,9 @@ export function useRecurrenceRule(workItemId: string) {
 
 /** Fetch instances of a recurring work item. */
 export function useRecurrenceInstances(workItemId: string) {
+  const queryKey = useNamespaceQueryKey(recurrenceKeys.instances(workItemId));
   return useQuery({
-    queryKey: recurrenceKeys.instances(workItemId),
+    queryKey,
     queryFn: ({ signal }) =>
       apiClient.get<RecurrenceInstancesResponse>(`/work-items/${workItemId}/instances`, { signal }),
     enabled: !!workItemId,

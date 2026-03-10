@@ -12,6 +12,7 @@ import type {
   CreateDevSessionBody,
   UpdateDevSessionBody,
 } from '@/ui/lib/api-types.ts';
+import { useNamespaceQueryKey } from '@/ui/hooks/use-namespace-query-key';
 
 /** Query key factory for dev sessions. */
 export const devSessionKeys = {
@@ -32,8 +33,9 @@ export function useDevSessions(filters?: { status?: string; node?: string; proje
   const qs = params.toString();
   const url = `/dev-sessions${qs ? `?${qs}` : ''}`;
 
+  const queryKey = useNamespaceQueryKey(devSessionKeys.list(filters));
   return useQuery({
-    queryKey: devSessionKeys.list(filters),
+    queryKey,
     queryFn: ({ signal }) => apiClient.get<DevSessionsResponse>(url, { signal }),
   });
 }
@@ -42,8 +44,9 @@ export function useDevSessions(filters?: { status?: string; node?: string; proje
  * Fetch a single dev session by ID.
  */
 export function useDevSession(id: string) {
+  const queryKey = useNamespaceQueryKey(devSessionKeys.detail(id));
   return useQuery({
-    queryKey: devSessionKeys.detail(id),
+    queryKey,
     queryFn: ({ signal }) => apiClient.get<DevSession>(`/dev-sessions/${id}`, { signal }),
     enabled: !!id,
   });

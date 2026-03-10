@@ -7,6 +7,7 @@ import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/ui/lib/api-client.ts';
 import { workItemsResponseSchema, workItemTreeResponseSchema } from '@/ui/lib/api-schemas.ts';
 import type { WorkItemsResponse, WorkItemDetail, WorkItemTreeResponse } from '@/ui/lib/api-types.ts';
+import { useNamespaceQueryKey } from '@/ui/hooks/use-namespace-query-key';
 
 /** Query key factory for work items. */
 export const workItemKeys = {
@@ -26,9 +27,10 @@ export const workItemKeys = {
  */
 export function useWorkItems(filters?: Record<string, string>) {
   const queryString = filters ? '?' + new URLSearchParams(filters).toString() : '';
+  const queryKey = useNamespaceQueryKey(workItemKeys.list(filters));
 
   return useQuery({
-    queryKey: workItemKeys.list(filters),
+    queryKey,
     queryFn: ({ signal }) => apiClient.get<WorkItemsResponse>(`/work-items${queryString}`, { signal, schema: workItemsResponseSchema }),
   });
 }
@@ -40,8 +42,9 @@ export function useWorkItems(filters?: Record<string, string>) {
  * @returns TanStack Query result with `WorkItemDetail`
  */
 export function useWorkItem(id: string) {
+  const queryKey = useNamespaceQueryKey(workItemKeys.detail(id));
   return useQuery({
-    queryKey: workItemKeys.detail(id),
+    queryKey,
     queryFn: ({ signal }) => apiClient.get<WorkItemDetail>(`/work-items/${id}`, { signal }),
     enabled: !!id,
   });
@@ -53,8 +56,9 @@ export function useWorkItem(id: string) {
  * @returns TanStack Query result with `WorkItemTreeResponse`
  */
 export function useWorkItemTree() {
+  const queryKey = useNamespaceQueryKey(workItemKeys.tree());
   return useQuery({
-    queryKey: workItemKeys.tree(),
+    queryKey,
     queryFn: ({ signal }) => apiClient.get<WorkItemTreeResponse>('/work-items/tree', { signal, schema: workItemTreeResponseSchema }),
   });
 }
