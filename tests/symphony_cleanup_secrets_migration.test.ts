@@ -7,7 +7,7 @@
 import type { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createTestPool } from './helpers/db.ts';
-import { runMigrate } from './helpers/migrate.ts';
+import { runMigrate, stepsToRollbackTo } from './helpers/migrate.ts';
 
 /** Helper: insert a minimal work_item and return its id */
 async function insertWorkItem(pool: Pool, namespace: string = 'testns'): Promise<string> {
@@ -317,8 +317,8 @@ describe('Migration 151: Symphony Cleanup & Secret Lifecycle (#2213, #2214)', ()
   // ─── Rollback ──────────────────────────────────────────────
   describe('Rollback', () => {
     it('removes all added columns and indexes', async () => {
-      // Run down migrations (159..151 = 9 steps)
-      await runMigrate('down', 9);
+      // Roll back from latest down to (and including) migration 151
+      await runMigrate('down', stepsToRollbackTo(151));
 
       // Check columns removed
       const secretCols = await pool.query(

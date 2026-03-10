@@ -208,3 +208,20 @@ export function migrationCount(): number {
   });
   return parseInt(out.trim() || '0');
 }
+
+/**
+ * Compute how many `down` steps are needed to roll back from the latest
+ * migration to just *before* the given target version (i.e. the target
+ * migration itself will be the last one rolled back).
+ *
+ * Example: if the latest migration is 160 and you want to roll back
+ * everything from 160 down to 147 inclusive, call `stepsToRollbackTo(147)`.
+ */
+export function stepsToRollbackTo(targetVersion: number): number {
+  const migrations = listMigrations();
+  const latest = migrations[migrations.length - 1];
+  if (!latest) throw new Error('No migrations found');
+
+  // Count migrations with version >= targetVersion
+  return migrations.filter((m) => m.version >= targetVersion).length;
+}
