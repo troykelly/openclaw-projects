@@ -356,19 +356,38 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
    *  Epic #1418: automatically injects namespace_grants from the user's email.
    *  Uses the shared nsPool (initialised later in buildServer but always before any route handler). */
   async function sendAppHtml(reply: any, bootstrap: unknown | null): Promise<any> {
-    // Inject namespace grants if bootstrap contains user email
+    // Inject namespace grants and active_namespaces if bootstrap contains user email
     const bs = bootstrap as Record<string, unknown> | null;
     const email = (bs?.me as Record<string, unknown> | undefined)?.email as string | undefined;
     if (email && bs) {
       try {
-        const grants = await nsPool.query(
-          `SELECT namespace, access, is_home FROM namespace_grant WHERE email = $1 ORDER BY is_home DESC, namespace`,
-          [email],
-        );
+        const [grants, settings] = await Promise.all([
+          nsPool.query(
+            `SELECT namespace, access, is_home FROM namespace_grant WHERE email = $1 ORDER BY is_home DESC, namespace`,
+            [email],
+          ),
+          nsPool.query(
+            `SELECT active_namespaces FROM user_setting WHERE email = $1`,
+            [email],
+          ),
+        ]);
         bs.namespace_grants = grants.rows;
+        // Issue #2354: Include active_namespaces in bootstrap, sanitized against grants
+        const grantedNs = new Set(grants.rows.map((r: { namespace: string }) => r.namespace));
+        const rawActiveNs: string[] = settings.rows[0]?.active_namespaces ?? [];
+        bs.active_namespaces = rawActiveNs.filter((ns: string) => grantedNs.has(ns));
+        if ((bs.active_namespaces as string[]).length === 0) {
+          const homeGrant = grants.rows.find((r: { is_home: boolean }) => r.is_home);
+          bs.active_namespaces = homeGrant
+            ? [(homeGrant as { namespace: string }).namespace]
+            : grantedNs.size > 0
+              ? [grants.rows[0].namespace]
+              : ['default'];
+        }
       } catch (err) {
         (reply.request?.log ?? console).error(err, '[Namespace] Failed to load grants for bootstrap');
         bs.namespace_grants = [];
+        bs.active_namespaces = ['default'];
       }
     }
     const nonce = generateCspNonce();
@@ -1486,23 +1505,43 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
     try {
-      const user = await pool.query(
-        `SELECT email, theme, default_view, timezone, created_at, updated_at
-         FROM user_setting WHERE email = $1`,
-        [targetEmail],
-      );
+      const [user, grants] = await Promise.all([
+        pool.query(
+          `SELECT email, theme, default_view, timezone, active_namespaces, created_at, updated_at
+           FROM user_setting WHERE email = $1`,
+          [targetEmail],
+        ),
+        pool.query(
+          `SELECT id::text, namespace, access, is_home, created_at, updated_at
+           FROM namespace_grant WHERE email = $1 ORDER BY namespace`,
+          [targetEmail],
+        ),
+      ]);
+
       if (user.rows.length === 0) {
         return reply.code(404).send({ error: 'User not found' });
       }
 
-      const grants = await pool.query(
-        `SELECT id::text, namespace, access, is_home, created_at, updated_at
-         FROM namespace_grant WHERE email = $1 ORDER BY namespace`,
-        [targetEmail],
-      );
+      // Issue #2354: Sanitize active_namespaces against current grants
+      const grantedNamespaces = new Set(grants.rows.map((r: { namespace: string }) => r.namespace));
+      const raw: string[] = (user.rows[0] as { active_namespaces?: string[] }).active_namespaces ?? [];
+      const sanitized = raw.filter((ns) => grantedNamespaces.has(ns));
+      const wasSanitized = sanitized.length !== raw.length;
+
+      // If all stored prefs were revoked, fall back to home namespace
+      const homeGrant = grants.rows.find((r: { is_home: boolean }) => r.is_home);
+      const effectiveActiveNs = sanitized.length > 0
+        ? sanitized
+        : homeGrant
+          ? [(homeGrant as { namespace: string }).namespace]
+          : grantedNamespaces.size > 0
+            ? [grants.rows[0].namespace as string]
+            : ['default'];
 
       return {
         ...user.rows[0],
+        active_namespaces: effectiveActiveNs,
+        active_namespaces_sanitized: wasSanitized,
         grants: grants.rows,
       };
     } finally {
@@ -1528,6 +1567,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const body = req.body as {
       theme?: string; default_view?: string; timezone?: string;
       sidebar_collapsed?: boolean; show_completed_items?: boolean;
+      active_namespaces?: string[];
     } | null;
 
     if (!body) {
@@ -1546,6 +1586,47 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       if (body.sidebar_collapsed !== undefined) { sets.push(`sidebar_collapsed = $${idx++}`); values.push(body.sidebar_collapsed); }
       if (body.show_completed_items !== undefined) { sets.push(`show_completed_items = $${idx++}`); values.push(body.show_completed_items); }
 
+      // Issue #2354: Validate and persist active_namespaces
+      if (body.active_namespaces !== undefined) {
+        if (!Array.isArray(body.active_namespaces)) {
+          return reply.code(400).send({ error: 'active_namespaces must be an array' });
+        }
+
+        // Deduplicate
+        const deduplicated = [...new Set(body.active_namespaces)];
+
+        if (deduplicated.length === 0) {
+          return reply.code(400).send({ error: 'active_namespaces must not be empty (at least 1 namespace required)' });
+        }
+        if (deduplicated.length > 20) {
+          return reply.code(400).send({ error: 'active_namespaces must not exceed 20 entries' });
+        }
+
+        // Validate namespace name pattern
+        const nsPattern = /^[a-z0-9][a-z0-9._-]*$/;
+        for (const ns of deduplicated) {
+          if (typeof ns !== 'string' || ns.length === 0 || ns.length > 63 || !nsPattern.test(ns)) {
+            return reply.code(400).send({ error: `Invalid namespace name: ${ns}` });
+          }
+        }
+
+        // Validate all namespaces exist in user's grants
+        const grantCheck = await pool.query(
+          `SELECT namespace FROM namespace_grant WHERE email = $1 AND namespace = ANY($2::text[])`,
+          [targetEmail, deduplicated],
+        );
+        const grantedNs = new Set(grantCheck.rows.map((r: { namespace: string }) => r.namespace));
+        const invalidNs = deduplicated.filter((ns) => !grantedNs.has(ns));
+        if (invalidNs.length > 0) {
+          return reply.code(400).send({
+            error: `No grant for namespace(s): ${invalidNs.join(', ')}`,
+          });
+        }
+
+        sets.push(`active_namespaces = $${idx++}`);
+        values.push(deduplicated);
+      }
+
       if (sets.length === 0) {
         return reply.code(400).send({ error: 'No updatable fields provided' });
       }
@@ -1554,7 +1635,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const result = await pool.query(
         `UPDATE user_setting SET ${sets.join(', ')}, updated_at = now()
          WHERE email = $${idx}
-         RETURNING email, theme, default_view, timezone, sidebar_collapsed, show_completed_items, created_at, updated_at`,
+         RETURNING email, theme, default_view, timezone, sidebar_collapsed, show_completed_items, active_namespaces, created_at, updated_at`,
         values,
       );
 
