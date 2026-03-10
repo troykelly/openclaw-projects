@@ -88,6 +88,7 @@ const localConnection: ConnectionRow = {
   host_key_policy: 'strict',
   tags: [],
   notes: null,
+  tmux_path: null,
 };
 
 const sshKeyConnection: ConnectionRow = {
@@ -109,6 +110,7 @@ const sshKeyConnection: ConnectionRow = {
   host_key_policy: 'tofu',
   tags: ['prod'],
   notes: 'Production server',
+  tmux_path: null,
 };
 
 const passwordConnection: ConnectionRow = {
@@ -130,6 +132,7 @@ const passwordConnection: ConnectionRow = {
   host_key_policy: 'skip',
   tags: [],
   notes: null,
+  tmux_path: null,
 };
 
 const bastionConnection: ConnectionRow = {
@@ -151,6 +154,7 @@ const bastionConnection: ConnectionRow = {
   host_key_policy: 'tofu',
   tags: ['bastion'],
   notes: null,
+  tmux_path: null,
 };
 
 const proxyConnection: ConnectionRow = {
@@ -172,6 +176,7 @@ const proxyConnection: ConnectionRow = {
   host_key_policy: 'strict',
   tags: [],
   notes: null,
+  tmux_path: null,
 };
 
 // ─── Tests ──────────────────────────────────────────────────

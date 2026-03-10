@@ -43,6 +43,8 @@ export interface ConnectionRow {
   host_key_policy: string;
   tags: string[];
   notes: string | null;
+  /** Optional explicit path to the tmux binary on the remote host (#2324). */
+  tmux_path: string | null;
 }
 
 /** Database row shape for terminal_known_host. */
@@ -182,7 +184,7 @@ export async function resolveProxyChain(
       `SELECT id, namespace, name, host, port, username, auth_method,
               credential_id, proxy_jump_id, is_local, env,
               connect_timeout_s, keepalive_interval, idle_timeout_s,
-              max_sessions, host_key_policy, tags, notes
+              max_sessions, host_key_policy, tags, notes, tmux_path
        FROM terminal_connection
        WHERE id = $1 AND deleted_at IS NULL`,
       [currentJumpId],
@@ -534,7 +536,7 @@ export class SSHConnectionManager {
       `SELECT id, namespace, name, host, port, username, auth_method,
               credential_id, proxy_jump_id, is_local, env,
               connect_timeout_s, keepalive_interval, idle_timeout_s,
-              max_sessions, host_key_policy, tags, notes
+              max_sessions, host_key_policy, tags, notes, tmux_path
        FROM terminal_connection
        WHERE id = $1 AND deleted_at IS NULL`,
       [connectionId],
@@ -671,7 +673,7 @@ export class SSHConnectionManager {
         `SELECT id, namespace, name, host, port, username, auth_method,
                 credential_id, proxy_jump_id, is_local, env,
                 connect_timeout_s, keepalive_interval, idle_timeout_s,
-                max_sessions, host_key_policy, tags, notes
+                max_sessions, host_key_policy, tags, notes, tmux_path
          FROM terminal_connection
          WHERE id = $1 AND deleted_at IS NULL`,
         [connectionId],

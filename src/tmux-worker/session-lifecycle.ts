@@ -32,6 +32,8 @@ interface ConnectionRow {
   id: string;
   is_local: boolean;
   env: Record<string, string> | null;
+  /** Optional explicit path to the tmux binary on the remote host (#2324). */
+  tmux_path: string | null;
 }
 
 /** Database row shape for terminal_session. */
@@ -128,6 +130,122 @@ function execSSHCommand(
 }
 
 /**
+ * Common paths where tmux may be installed, especially on macOS.
+ * Checked in order before falling back to auto-install (#2324).
+ */
+const TMUX_PROBE_PATHS = [
+  '/opt/homebrew/bin/tmux',   // macOS ARM (Apple Silicon) Homebrew
+  '/usr/local/bin/tmux',      // macOS Intel Homebrew / manual install
+  '/snap/bin/tmux',           // Ubuntu snap
+  '/home/linuxbrew/.linuxbrew/bin/tmux', // Linuxbrew
+];
+
+/**
+ * Try to run a command, returning stdout on success or null on failure.
+ * Used for probing paths where failure is expected.
+ */
+async function tryExecSSH(
+  client: { exec: (cmd: string, cb: (err: Error | undefined, channel: ClientChannel) => void) => void },
+  command: string,
+): Promise<string | null> {
+  try {
+    return await execSSHCommand(client, command);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Discover the tmux binary path on a remote SSH host (#2324).
+ *
+ * Strategy:
+ * 1. If connection has an explicit tmux_path configured, verify it and use it
+ * 2. Try `command -v tmux` (respects PATH)
+ * 3. Probe common installation paths (Homebrew, snap, etc.)
+ * 4. Detect OS and attempt auto-install with the correct package manager
+ *    (macOS → brew, Linux → apt-get/yum/apk)
+ * 5. Return the discovered path, or null if tmux is unavailable
+ *
+ * @returns The absolute path to tmux, or null if unavailable
+ */
+async function discoverRemoteTmux(
+  client: { exec: (cmd: string, cb: (err: Error | undefined, channel: ClientChannel) => void) => void },
+  connectionId: string,
+  configuredPath: string | null,
+): Promise<string | null> {
+  // 1. Explicit tmux_path from connection config
+  if (configuredPath) {
+    const version = await tryExecSSH(client, `${configuredPath} --version`);
+    if (version) {
+      console.log(`Using configured tmux_path for ${connectionId}: ${configuredPath}`);
+      return configuredPath;
+    }
+    console.warn(`Configured tmux_path "${configuredPath}" not found on ${connectionId}, falling back to discovery`);
+  }
+
+  // 2. Try standard PATH lookup
+  const whichResult = await tryExecSSH(client, 'command -v tmux');
+  if (whichResult) {
+    console.log(`tmux found via PATH for ${connectionId}: ${whichResult}`);
+    return whichResult;
+  }
+
+  // 3. Probe common paths (important for macOS where PATH is minimal over SSH)
+  for (const probePath of TMUX_PROBE_PATHS) {
+    const version = await tryExecSSH(client, `${probePath} --version`);
+    if (version) {
+      console.log(`tmux found at ${probePath} for ${connectionId}`);
+      return probePath;
+    }
+  }
+
+  // 4. Auto-install attempt, with OS detection (#2324)
+  console.log(`tmux not found on ${connectionId}, attempting auto-install...`);
+
+  const osName = await tryExecSSH(client, 'uname -s');
+  const isMacOS = osName?.trim() === 'Darwin';
+
+  if (isMacOS) {
+    // macOS: try Homebrew install only (apt-get/yum don't exist on macOS)
+    const brewResult = await tryExecSSH(client, 'brew install tmux 2>&1');
+    if (brewResult !== null) {
+      // Verify install succeeded by probing Homebrew paths
+      for (const probePath of TMUX_PROBE_PATHS) {
+        if (!probePath.includes('homebrew') && !probePath.includes('usr/local')) continue;
+        const version = await tryExecSSH(client, `${probePath} --version`);
+        if (version) {
+          console.log(`tmux auto-installed via brew on ${connectionId}: ${probePath}`);
+          return probePath;
+        }
+      }
+      // Fallback: check PATH after install
+      const installed = await tryExecSSH(client, 'command -v tmux');
+      if (installed) {
+        console.log(`tmux auto-installed via brew on ${connectionId}: ${installed}`);
+        return installed;
+      }
+    }
+    console.log(`tmux auto-install failed on macOS ${connectionId} (brew not available or install failed), session will be SSH-only`);
+  } else {
+    // Linux: try apt-get, yum, apk
+    const installResult = await tryExecSSH(
+      client,
+      'sudo apt-get install -y tmux 2>/dev/null || sudo yum install -y tmux 2>/dev/null || sudo apk add tmux 2>/dev/null',
+    );
+    if (installResult !== null) {
+      const installed = await tryExecSSH(client, 'command -v tmux');
+      if (installed) {
+        console.log(`tmux auto-installed on ${connectionId}: ${installed}`);
+        return installed;
+      }
+    }
+    console.log(`tmux auto-install failed on ${connectionId}, session will be SSH-only`);
+  }
+
+  return null;
+}
+
+/**
  * Create a new terminal session.
  *
  * Flow:
@@ -146,7 +264,7 @@ export async function handleCreateSession(
 ): Promise<SessionInfo> {
   // 1. Fetch connection
   const connResult = await pool.query<ConnectionRow>(
-    `SELECT id, is_local, env FROM terminal_connection WHERE id = $1 AND deleted_at IS NULL`,
+    `SELECT id, is_local, env, tmux_path FROM terminal_connection WHERE id = $1 AND deleted_at IS NULL`,
     [req.connection_id],
   );
 
@@ -179,39 +297,22 @@ export async function handleCreateSession(
       throw new Error(`Failed to create tmux session "${sessionName}": ${message}`);
     }
   } else {
-    // Create tmux session on the remote host via SSH exec (#2252).
+    // Create tmux session on the remote host via SSH exec (#2252, #2324).
     const sshResult = await sshManager.getConnection(req.connection_id);
     if (!sshResult?.client) {
       throw new Error(`SSH connection lost for ${req.connection_id}`);
     }
 
-    // Check if tmux is available on the remote host
-    let hasTmux = false;
-    try {
-      await execSSHCommand(sshResult.client, 'which tmux');
-      hasTmux = true;
-    } catch {
-      // tmux not found — attempt unattended install
-      console.log(`tmux not found on ${req.connection_id}, attempting auto-install...`);
-      try {
-        await execSSHCommand(
-          sshResult.client,
-          'sudo apt-get install -y tmux 2>/dev/null || sudo yum install -y tmux 2>/dev/null || sudo apk add tmux 2>/dev/null',
-        );
-        // Verify install succeeded
-        await execSSHCommand(sshResult.client, 'which tmux');
-        hasTmux = true;
-        console.log(`tmux auto-installed on ${req.connection_id}`);
-      } catch {
-        console.log(`tmux auto-install failed on ${req.connection_id}, session will be SSH-only`);
-      }
-    }
+    // Issue #2324: Discover tmux binary path on remote host.
+    // macOS SSH non-interactive sessions use minimal PATH that excludes
+    // /opt/homebrew/bin and /usr/local/bin, so we must probe common paths.
+    const tmuxBin = await discoverRemoteTmux(sshResult.client, req.connection_id, conn.tmux_path);
 
-    if (hasTmux) {
+    if (tmuxBin) {
       try {
         await execSSHCommand(
           sshResult.client,
-          `tmux new-session -d -s ${sessionName} -x ${cols} -y ${rows}`,
+          `${tmuxBin} new-session -d -s ${sessionName} -x ${cols} -y ${rows}`,
         );
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);

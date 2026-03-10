@@ -187,6 +187,301 @@ describe('session-lifecycle', () => {
       );
     });
 
+    it('probes common paths before auto-install on SSH remote (#2324)', async () => {
+      const sshConnection = {
+        id: 'conn-ssh',
+        namespace: 'test-ns',
+        name: 'remote',
+        host: '10.0.0.1',
+        port: 22,
+        username: 'deploy',
+        auth_method: 'key',
+        credential_id: null,
+        proxy_jump_id: null,
+        is_local: false,
+        env: null,
+        connect_timeout_s: 30,
+        keepalive_interval: 60,
+      };
+      pool._queryResults.set('conn-ssh', { rows: [sshConnection] });
+
+      const execCommands: string[] = [];
+      const mockClient = {
+        exec: vi.fn((cmd: string, cb: (err: Error | undefined, channel: unknown) => void) => {
+          execCommands.push(cmd);
+          // "which tmux" fails, probed paths fail, then auto-install succeeds
+          if (cmd === 'which tmux' || cmd === 'command -v tmux') {
+            const channel = {
+              on: vi.fn((event: string, handler: (arg: unknown) => void) => {
+                if (event === 'close') setTimeout(() => handler(1), 0);
+                return channel;
+              }),
+              stderr: { on: vi.fn().mockReturnThis() },
+            };
+            cb(undefined, channel);
+          } else if (cmd.includes('new-session')) {
+            // tmux new-session should use the discovered path — succeed
+            const channel = {
+              on: vi.fn((event: string, handler: (arg: unknown) => void) => {
+                if (event === 'close') setTimeout(() => handler(0), 0);
+                return channel;
+              }),
+              stderr: { on: vi.fn().mockReturnThis() },
+            };
+            cb(undefined, channel);
+          } else if (cmd.includes('/usr/local/bin/tmux --version')) {
+            // Probe path - simulate /usr/local/bin/tmux found
+            const channel = {
+              on: vi.fn((event: string, handler: (arg: unknown) => void) => {
+                if (event === 'data') handler(Buffer.from('tmux 3.4'));
+                if (event === 'close') setTimeout(() => handler(0), 0);
+                return channel;
+              }),
+              stderr: { on: vi.fn().mockReturnThis() },
+            };
+            cb(undefined, channel);
+          } else if (cmd.includes('--version')) {
+            // Other probe paths fail
+            const channel = {
+              on: vi.fn((event: string, handler: (arg: unknown) => void) => {
+                if (event === 'close') setTimeout(() => handler(1), 0);
+                return channel;
+              }),
+              stderr: { on: vi.fn().mockReturnThis() },
+            };
+            cb(undefined, channel);
+          } else {
+            const channel = {
+              on: vi.fn((event: string, handler: (arg: unknown) => void) => {
+                if (event === 'close') setTimeout(() => handler(0), 0);
+                return channel;
+              }),
+              stderr: { on: vi.fn().mockReturnThis() },
+            };
+            cb(undefined, channel);
+          }
+        }),
+      };
+
+      sshManager = {
+        ...createMockSSHManager(),
+        getConnection: vi.fn().mockResolvedValue({
+          isLocal: false,
+          client: mockClient,
+          connectionId: 'conn-ssh',
+        }),
+      } as unknown as SSHConnectionManager;
+
+      const result = await handleCreateSession(
+        {
+          connection_id: 'conn-ssh',
+          namespace: 'test-ns',
+          tmux_session_name: 'my-session',
+          cols: 120,
+          rows: 40,
+          capture_on_command: true,
+          embed_commands: true,
+          embed_scrollback: false,
+          capture_interval_s: 30,
+          tags: [],
+          notes: '',
+        },
+        pool as unknown as pg.Pool,
+        tmuxManager,
+        sshManager,
+        'worker-1',
+      );
+
+      expect(result.status).toBe('active');
+      // Should have probed paths before attempting auto-install
+      const probeCommands = execCommands.filter(c =>
+        c.includes('/opt/homebrew/bin/tmux') ||
+        c.includes('/usr/local/bin/tmux') ||
+        c.includes('/snap/bin/tmux'),
+      );
+      expect(probeCommands.length).toBeGreaterThan(0);
+      // The tmux new-session command should use the discovered path
+      const newSessionCmd = execCommands.find(c => c.includes('new-session'));
+      expect(newSessionCmd).toBeDefined();
+      expect(newSessionCmd).toContain('/usr/local/bin/tmux');
+    });
+
+    it('detects macOS and skips apt-get/yum in auto-install (#2324)', async () => {
+      const sshConnection = {
+        id: 'conn-mac',
+        namespace: 'test-ns',
+        name: 'mac-remote',
+        host: '10.0.0.3',
+        port: 22,
+        username: 'user',
+        auth_method: 'key',
+        credential_id: null,
+        proxy_jump_id: null,
+        is_local: false,
+        env: null,
+        connect_timeout_s: 30,
+        keepalive_interval: 60,
+      };
+      pool._queryResults.set('conn-mac', { rows: [sshConnection] });
+
+      const execCommands: string[] = [];
+      const mockClient = {
+        exec: vi.fn((cmd: string, cb: (err: Error | undefined, channel: unknown) => void) => {
+          execCommands.push(cmd);
+          if (cmd === 'which tmux' || cmd === 'command -v tmux') {
+            // tmux not found via which
+            const channel = {
+              on: vi.fn((event: string, handler: (arg: unknown) => void) => {
+                if (event === 'close') setTimeout(() => handler(1), 0);
+                return channel;
+              }),
+              stderr: { on: vi.fn().mockReturnThis() },
+            };
+            cb(undefined, channel);
+          } else if (cmd.includes('--version')) {
+            // All probe paths fail
+            const channel = {
+              on: vi.fn((event: string, handler: (arg: unknown) => void) => {
+                if (event === 'close') setTimeout(() => handler(1), 0);
+                return channel;
+              }),
+              stderr: { on: vi.fn().mockReturnThis() },
+            };
+            cb(undefined, channel);
+          } else if (cmd === 'uname -s') {
+            // macOS detected
+            const channel = {
+              on: vi.fn((event: string, handler: (arg: unknown) => void) => {
+                if (event === 'data') handler(Buffer.from('Darwin'));
+                if (event === 'close') setTimeout(() => handler(0), 0);
+                return channel;
+              }),
+              stderr: { on: vi.fn().mockReturnThis() },
+            };
+            cb(undefined, channel);
+          } else {
+            // Everything else fails (including brew install)
+            const channel = {
+              on: vi.fn((event: string, handler: (arg: unknown) => void) => {
+                if (event === 'close') setTimeout(() => handler(1), 0);
+                return channel;
+              }),
+              stderr: { on: vi.fn().mockReturnThis() },
+            };
+            cb(undefined, channel);
+          }
+        }),
+      };
+
+      sshManager = {
+        ...createMockSSHManager(),
+        getConnection: vi.fn().mockResolvedValue({
+          isLocal: false,
+          client: mockClient,
+          connectionId: 'conn-mac',
+        }),
+      } as unknown as SSHConnectionManager;
+
+      const result = await handleCreateSession(
+        {
+          connection_id: 'conn-mac',
+          namespace: 'test-ns',
+          tmux_session_name: 'mac-session',
+          cols: 120,
+          rows: 40,
+          capture_on_command: true,
+          embed_commands: true,
+          embed_scrollback: false,
+          capture_interval_s: 30,
+          tags: [],
+          notes: '',
+        },
+        pool as unknown as pg.Pool,
+        tmuxManager,
+        sshManager,
+        'worker-1',
+      );
+
+      // Should succeed as SSH-only (no-tmux tag)
+      expect(result.tags).toContain('no-tmux');
+      // Should NOT have attempted apt-get or yum on macOS
+      const linuxInstallCmd = execCommands.find(c =>
+        c.includes('apt-get') || c.includes('yum'),
+      );
+      expect(linuxInstallCmd).toBeUndefined();
+    });
+
+    it('uses custom tmux_path from connection config (#2324)', async () => {
+      const sshConnection = {
+        id: 'conn-custom-tmux',
+        namespace: 'test-ns',
+        name: 'custom-path',
+        host: '10.0.0.5',
+        port: 22,
+        username: 'user',
+        auth_method: 'key',
+        credential_id: null,
+        proxy_jump_id: null,
+        is_local: false,
+        env: { TMUX_PATH: '/custom/path/tmux' },
+        connect_timeout_s: 30,
+        keepalive_interval: 60,
+        tmux_path: '/custom/path/tmux',
+      };
+      pool._queryResults.set('conn-custom-tmux', { rows: [sshConnection] });
+
+      const execCommands: string[] = [];
+      const mockClient = {
+        exec: vi.fn((cmd: string, cb: (err: Error | undefined, channel: unknown) => void) => {
+          execCommands.push(cmd);
+          const channel = {
+            on: vi.fn((event: string, handler: (arg: unknown) => void) => {
+              if (event === 'data') handler(Buffer.from('tmux 3.4'));
+              if (event === 'close') setTimeout(() => handler(0), 0);
+              return channel;
+            }),
+            stderr: { on: vi.fn().mockReturnThis() },
+          };
+          cb(undefined, channel);
+        }),
+      };
+
+      sshManager = {
+        ...createMockSSHManager(),
+        getConnection: vi.fn().mockResolvedValue({
+          isLocal: false,
+          client: mockClient,
+          connectionId: 'conn-custom-tmux',
+        }),
+      } as unknown as SSHConnectionManager;
+
+      const result = await handleCreateSession(
+        {
+          connection_id: 'conn-custom-tmux',
+          namespace: 'test-ns',
+          tmux_session_name: 'custom-session',
+          cols: 120,
+          rows: 40,
+          capture_on_command: true,
+          embed_commands: true,
+          embed_scrollback: false,
+          capture_interval_s: 30,
+          tags: [],
+          notes: '',
+        },
+        pool as unknown as pg.Pool,
+        tmuxManager,
+        sshManager,
+        'worker-1',
+      );
+
+      expect(result.status).toBe('active');
+      // The new-session command should use the custom tmux_path
+      const newSessionCmd = execCommands.find(c => c.includes('new-session'));
+      expect(newSessionCmd).toBeDefined();
+      expect(newSessionCmd).toContain('/custom/path/tmux');
+    });
+
     it('throws when connection is not found', async () => {
       // No results for connection lookup
       await expect(
