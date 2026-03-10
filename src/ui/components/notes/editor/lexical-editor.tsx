@@ -126,14 +126,25 @@ export function LexicalNoteEditor({
     setMode('markdown');
   }, []);
 
-  /** Switch to preview mode, extracting current editor content (#2343) */
-  const handleSwitchToPreview = useCallback(() => {
+  /** Switch from WYSIWYG to preview — snapshot editor state as markdown (#2343) */
+  const handleWysiwygToPreview = useCallback(() => {
     if (editorRef.current) {
       const md = editorRef.current.getEditorState().read(() => $convertToMarkdownString(TRANSFORMERS));
       setMarkdownContent(md);
     }
     setMode('preview');
   }, []);
+
+  /** Switch from markdown to preview — write textarea content back to Lexical/Yjs first (#2343) */
+  const handleMarkdownToPreview = useCallback(() => {
+    if (editorRef.current) {
+      const content = markdownContent;
+      editorRef.current.update(() => {
+        $convertFromMarkdownString(content, TRANSFORMERS);
+      });
+    }
+    setMode('preview');
+  }, [markdownContent]);
 
   /** Switch from markdown textarea back to WYSIWYG, applying edits to Lexical (#2343) */
   const handleSwitchFromMarkdownToWysiwyg = useCallback(() => {
@@ -197,7 +208,7 @@ export function LexicalNoteEditor({
                 <Code className="h-3 w-3 mr-1" />
                 Markdown
               </Button>
-              <Button type="button" variant="ghost" size="sm" onClick={handleSwitchToPreview} className="h-7 px-2 text-xs">
+              <Button type="button" variant="ghost" size="sm" onClick={handleMarkdownToPreview} className="h-7 px-2 text-xs">
                 <Eye className="h-3 w-3 mr-1" />
                 Preview
               </Button>
@@ -206,7 +217,7 @@ export function LexicalNoteEditor({
           {yjsEnabled && (
             <div className="px-3 py-1.5 text-xs text-muted-foreground bg-amber-50 dark:bg-amber-950/20 border-b flex items-center gap-1.5">
               <WifiOff className="h-3 w-3" />
-              Collaborative sync is paused while editing markdown. Switch back to Edit mode to sync your changes.
+              Your changes will sync when you switch to Edit or Preview mode.
             </div>
           )}
           <textarea
@@ -275,7 +286,7 @@ export function LexicalNoteEditor({
                 <Code className="h-3 w-3 mr-1" />
                 Markdown
               </Button>
-              <Button type="button" variant="ghost" size="sm" onClick={handleSwitchToPreview} className="h-7 px-2 text-xs">
+              <Button type="button" variant="ghost" size="sm" onClick={handleWysiwygToPreview} className="h-7 px-2 text-xs">
                 <Eye className="h-3 w-3 mr-1" />
                 Preview
               </Button>
