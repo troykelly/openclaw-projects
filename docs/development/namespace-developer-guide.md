@@ -8,10 +8,10 @@ Namespace context flows through the system in this order:
 
 ```
 UI (NamespaceProvider)
-  → api-client (header injection via resolver)
-    → HTTP headers (X-Namespace / X-Namespaces)
-      → Backend middleware (resolveNamespaces)
-        → SQL queries (namespace filtering)
+  -> api-client (header injection via resolver)
+    -> HTTP header (X-Namespace)
+      -> Backend middleware (resolveNamespaces)
+        -> SQL queries (namespace filtering)
 ```
 
 ## Frontend Components
@@ -27,8 +27,8 @@ Root-level React context provider that manages namespace state. Must wrap the en
 | `NamespaceProvider` | Component | Root context provider |
 | `useNamespace()` | Hook | Full namespace context (throws if outside provider) |
 | `useNamespaceSafe()` | Hook | Full context or null (safe for test environments) |
-| `useActiveNamespace()` | Hook | Just the primary namespace string |
-| `useActiveNamespaces()` | Hook | All selected namespace strings |
+| `useActiveNamespace()` | Hook | Just the primary namespace string (returns `'default'` outside provider) |
+| `useActiveNamespaces()` | Hook | All selected namespace strings (returns `['default']` outside provider) |
 
 **Context value shape (`NamespaceContextValue`):**
 
@@ -44,6 +44,8 @@ Root-level React context provider that manages namespace state. Must wrap the en
 | `isMultiNamespaceMode` | `boolean` | Whether >1 namespace is currently selected |
 | `isNamespaceReady` | `boolean` | Whether context is initialized |
 | `namespaceVersion` | `number` | Monotonic counter, increments on switch |
+
+**Note on multi-namespace:** The context supports multi-namespace selection (`activeNamespaces`, `toggleNamespace`, `isMultiNamespaceMode`), but the backend does not currently honor `X-Namespaces` for user tokens. These fields prepare for future backend support. Currently, `toggleNamespace` has no call sites in the UI.
 
 ### useNamespaceQueryKey (`src/ui/hooks/use-namespace-query-key.ts`)
 
@@ -61,14 +63,12 @@ export function useProjects() {
 
 ### UI Components
 
-| Component | File | Purpose |
-|-----------|------|---------|
-| `NamespaceIndicator` | `src/ui/components/namespace/namespace-indicator.tsx` | Header bar indicator/dropdown for switching namespaces |
-| `NamespaceBadge` | `src/ui/components/namespace/namespace-badge.tsx` | Small badge showing which namespace an entity belongs to |
-| `NamespacePicker` | `src/ui/components/namespace/namespace-picker.tsx` | Dropdown for selecting target namespace in creation forms |
-| `NamespaceSettingsPage` | `src/ui/pages/NamespaceSettingsPage.tsx` | Settings page for namespace management (create, invite, remove) |
-
-All components use `useNamespaceSafe()` and render nothing when the user has only one namespace (single-namespace optimization).
+| Component | File | Behavior |
+|-----------|------|----------|
+| `NamespaceIndicator` | `src/ui/components/namespace/namespace-indicator.tsx` | Header bar: **passive label** for single-namespace users, **interactive dropdown** for multi-namespace users. Always renders (shows namespace name). |
+| `NamespaceBadge` | `src/ui/components/namespace/namespace-badge.tsx` | Small badge showing namespace name. **Hidden** when user has only one namespace. |
+| `NamespacePicker` | `src/ui/components/namespace/namespace-picker.tsx` | Dropdown for creation forms. **Hidden** when user has only one namespace. |
+| `NamespaceSettingsPage` | `src/ui/pages/NamespaceSettingsPage.tsx` | Settings page at `/settings/namespaces` -- list, detail, create, invite, remove. |
 
 ## Backend: Namespace Resolution
 
@@ -81,23 +81,33 @@ interface NamespaceContext {
   storeNamespace: string;      // For write operations
   queryNamespaces: string[];   // For read operations
   isM2M: boolean;              // Whether token is machine-to-machine
-  roles: Record<string, NamespaceAccess>; // namespace → 'read' | 'readwrite'
+  roles: Record<string, NamespaceAccess>; // namespace -> 'read' | 'readwrite'
 }
 ```
 
 **Resolution logic by token type:**
 
-| Token Type | Store Namespace | Query Namespaces | Grant Check |
-|------------|----------------|-----------------|-------------|
-| User | Requested or home | Requested or all grants | Yes — verified against `namespace_grant` |
-| M2M | First requested or 'default' | All requested | No — trusted |
-| Auth disabled | Requested | Requested | No |
+| Token Type | Namespace Header Used | Store Namespace | Query Namespaces | Grant Check |
+|------------|----------------------|----------------|-----------------|-------------|
+| User (with X-Namespace) | `extractRequestedNamespace` (singular) | Requested | `[requested]` | Yes -- must have grant |
+| User (no header) | N/A | Home or first alphabetical | **All** granted namespaces | Yes |
+| M2M (with X-Namespaces) | `extractRequestedNamespaces` (plural) | First requested | All requested | No -- trusted |
+| M2M (with X-Namespace) | `extractRequestedNamespace` (singular) | Requested | `[requested]` | No -- trusted |
+| M2M (no header) | N/A | `'default'` | `['default']` | No |
+| Auth disabled (with header) | `extractRequestedNamespace` (singular) | Requested | `[requested]` | No |
+| Auth disabled (no header) | N/A | Returns `null` | N/A | No |
+
+**Important:** User tokens do **not** support multi-namespace queries via `X-Namespaces`. The backend only calls `extractRequestedNamespaces()` for M2M tokens.
 
 ### Header Extraction Priority
 
-`extractRequestedNamespaces()` checks in this order:
+For singular extraction (`extractRequestedNamespace`):
+1. `X-Namespace` header
+2. `?namespace=` query param
+3. `body.namespace` string
 
-1. `X-Namespaces` header (comma-separated) — multi-namespace queries
+For plural extraction (`extractRequestedNamespaces`, M2M only):
+1. `X-Namespaces` header (comma-separated)
 2. `X-Namespace` header (single)
 3. `?namespaces=` query param (comma-separated)
 4. `?namespace=` query param (single)
@@ -106,11 +116,13 @@ interface NamespaceContext {
 
 ### Namespace Validation
 
-All namespace names are validated against:
+All namespace names are validated by `validateNamespaceList()`:
 
 - Pattern: `^[a-z0-9][a-z0-9._-]*$`
-- Max length: 63 characters
+- Max length: 63 characters per name
 - Max namespaces per request: 20
+- **Invalid names are silently filtered** (not rejected with 400)
+- Duplicate names are **not** deduplicated
 
 ### Access Enforcement
 
@@ -122,6 +134,10 @@ import { requireMinRole } from './auth/middleware.ts';
 // In a route handler:
 requireMinRole(req, namespace, 'readwrite'); // Throws RoleError if insufficient
 ```
+
+- M2M tokens bypass all role checks.
+- `'readwrite'` satisfies any requirement; `'read'` only satisfies `'read'`.
+- No grant for the namespace = `RoleError`.
 
 ## API Client: Header Injection
 
@@ -142,13 +158,15 @@ if (namespaces.length === 1) {
 
 On 401 retry (token refresh), namespace headers are preserved from the original request snapshot to prevent race conditions.
 
+**Note:** The client sends `x-namespaces` when multiple are selected, but the backend currently ignores this for user tokens. This is forward-compatible.
+
 ## OpenAPI Specification
 
 Namespace-related endpoints are documented in:
 
-- `src/api/openapi/paths/namespaces.ts` — CRUD for namespaces and grants
-- `src/api/openapi/paths/bootstrap.ts` — Settings endpoints, bootstrap context
-- `src/api/openapi/helpers.ts` — `namespaceParam()` helper for X-Namespace header docs
+- `src/api/openapi/paths/namespaces.ts` -- CRUD for namespaces and grants
+- `src/api/openapi/paths/bootstrap.ts` -- Settings endpoints, bootstrap context
+- `src/api/openapi/helpers.ts` -- `namespaceParam()` and `namespacesParam()` header helpers
 
 The `namespaceParam()` helper should be included in any endpoint that accepts namespace-scoped requests.
 
@@ -156,7 +174,7 @@ The `namespaceParam()` helper should be included in any endpoint that accepts na
 
 1. Import `useNamespaceQueryKey` in your query hook.
 2. Wrap your base key with it.
-3. That's it — header injection is automatic.
+3. That's it -- header injection is automatic.
 
 ```ts
 import { useQuery } from '@tanstack/react-query';
@@ -177,4 +195,5 @@ export function useMyFeature() {
 - `useNamespaceQueryKey` has a safe fallback that returns `['default']` when called outside React context.
 - `useNamespaceSafe()` returns `null` outside `NamespaceProvider` (no throw).
 - `setNamespaceResolver()` can be called in test setup to control namespace headers.
-- Backend: when `isAuthDisabled()` is true, namespace context is only created when explicitly requested via headers/params. This preserves test isolation.
+- Backend: when `isAuthDisabled()` is true, namespace context is only created when explicitly requested via the singular `X-Namespace` header or `?namespace=` param. Plural `X-Namespaces` is not honored in auth-disabled mode.
+- When no namespace header is sent for a user token, read endpoints operate across **all** granted namespaces, not just the home namespace.

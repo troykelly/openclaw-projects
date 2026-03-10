@@ -5,36 +5,29 @@ Namespaces are workspaces that separate your data — tasks, projects, memories,
 ## Overview
 
 - Each user has at least one namespace (their **home** namespace).
-- Users with access to multiple namespaces see a **namespace selector** in the app header.
-- Users with only one namespace see no selector (it just works).
+- Users with access to multiple namespaces see a **namespace selector** dropdown in the app header.
+- Users with only one namespace see a subtle namespace label (no dropdown).
 
 ## Selecting a Namespace
 
-### Single Namespace Mode
-
-When you click a namespace in the header dropdown, you switch to that namespace:
+When you click a namespace in the header dropdown, you switch your active namespace:
 
 - All data views (projects, tasks, contacts, etc.) reload to show data from the selected namespace.
 - New items you create go into this namespace.
-- Your selection persists across page refreshes and browser sessions.
-
-### Multi-Namespace Mode
-
-You can enable multi-namespace mode to see data from multiple namespaces at once:
-
-- Toggle additional namespaces on/off using the namespace selector.
-- Your **primary** namespace (the first selected) is used for write operations — new tasks, projects, etc.
-- Read views combine data from all selected namespaces.
-- Items from different namespaces show a **namespace badge** for disambiguation.
+- Your selection persists across page refreshes and browser sessions (stored in your browser's local storage).
 
 ### What Happens When You Switch
 
 When you change your active namespace:
 
 1. All in-progress data loads are cancelled.
-2. The data cache is cleared to prevent stale data.
+2. The data cache is cleared to prevent stale data from the previous namespace.
 3. All views refresh with data from the new namespace.
 4. There may be a brief loading state while fresh data loads.
+
+### When No Namespace Is Selected
+
+If you haven't explicitly chosen a namespace (e.g., first visit or cleared browser data), the system uses your **home** namespace. If no home namespace is set, it uses your first namespace alphabetically.
 
 ## Namespace Management
 
@@ -83,20 +76,11 @@ In the namespace detail view, use the access dropdown next to each member to cha
 2. Confirm the removal in the dialog.
 3. The member immediately loses all access to the namespace.
 
-### Leaving a Namespace
-
-To leave a namespace, an admin must remove your grant from the namespace detail view. Self-removal is handled through the same grant deletion mechanism.
-
 ## How It Works (Technical)
 
 ### Data Scoping
 
-Every API request includes namespace information:
-
-- **Single namespace:** An `X-Namespace` header with the active namespace name.
-- **Multiple namespaces:** An `X-Namespaces` header with a comma-separated list.
-
-The backend uses these headers to filter data queries and route write operations.
+Every API request from the UI includes an `X-Namespace` header with the active namespace name. The backend uses this header to filter data queries and route write operations to the correct namespace.
 
 ### Persistence
 
@@ -104,6 +88,10 @@ Your namespace selection is saved in your browser's local storage. If you clear 
 
 ### Access Enforcement
 
-- The backend validates your namespace access on every request.
-- If a namespace grant is revoked while you're using it, subsequent requests will fail and you'll be redirected to your home namespace.
-- Namespace names are validated against a strict pattern (`^[a-z0-9][a-z0-9._-]*$`) to prevent injection attacks.
+- The backend validates your namespace access on every request against your `namespace_grant` entries.
+- If you request a namespace you don't have a grant for, the request is rejected.
+- Namespace names are validated against a strict pattern (`^[a-z0-9][a-z0-9._-]*$`) to prevent injection attacks. Invalid names are silently filtered.
+
+### Namespace Badges
+
+When viewing data, items from a different namespace than your primary display a small namespace badge for disambiguation. These badges are only shown to users who have access to multiple namespaces.

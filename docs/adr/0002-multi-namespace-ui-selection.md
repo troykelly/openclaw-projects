@@ -8,7 +8,6 @@
   - Issue #2350: useNamespaceQueryKey hook
   - Issue #2351: Multi-namespace context
   - Issue #2353: Namespace management settings page
-  - Issue #2354: Backend — Settings API active_namespaces field
   - Issue #2360: Race prevention on namespace switch
 
 ## Context
@@ -18,10 +17,10 @@ Users can belong to multiple namespaces (workspaces). Before this epic, the UI h
 We needed to decide:
 
 1. How the frontend communicates the active namespace to the backend
-2. How to handle multi-namespace reads vs single-namespace writes
-3. How to segment the client-side cache when namespaces change
-4. How to persist the user's namespace selection across sessions
-5. How to prevent stale data from a previous namespace leaking into the new one
+2. How to segment the client-side cache when namespaces change
+3. How to persist the user's namespace selection across sessions
+4. How to prevent stale data from a previous namespace leaking into the new one
+5. How to lay groundwork for future multi-namespace reads
 
 ## Decision
 
@@ -31,19 +30,20 @@ Namespace context is injected globally into all API requests via the `api-client
 
 **Rationale:** Avoids threading namespace parameters through every query hook and mutation. The resolver pattern decouples the API client from React context (no circular dependency).
 
-### Dual Header Strategy: X-Namespace vs X-Namespaces
+### Header Strategy: X-Namespace and X-Namespaces
 
-- **Single namespace selected:** `X-Namespace: my-workspace` header (backward compatible).
+The API client sends headers based on the active selection:
+
+- **Single namespace selected:** `X-Namespace: my-workspace` header.
 - **Multiple namespaces selected:** `X-Namespaces: ws-a,ws-b` header (comma-separated).
 
-The backend `extractRequestedNamespaces()` in `middleware.ts` checks `X-Namespaces` first, then falls back to `X-Namespace`. This maintains backward compatibility with M2M tokens and existing API consumers.
+**Current backend behavior (important):**
 
-### Write-Namespace vs Read-Namespaces Split
+- **User tokens:** The backend uses `extractRequestedNamespace()` (singular) for user tokens. It resolves to one `storeNamespace` and one `queryNamespace`. Multi-namespace via `X-Namespaces` is **not honored for user tokens today**.
+- **M2M tokens:** The backend calls `extractRequestedNamespaces()` (plural) and supports multi-namespace queries. This is an M2M-only feature (Issue #1534).
+- **No header sent:** For user tokens without a namespace header, the backend uses the home grant as `storeNamespace` and returns data from **all** granted namespaces in `queryNamespaces`.
 
-- **Writes** always target the primary namespace (first element of `activeNamespaces`). The backend resolves `storeNamespace` from the first requested namespace.
-- **Reads** can span multiple namespaces. The backend populates `queryNamespaces` with all requested namespaces and uses `ANY(queryNamespaces)` filters in SQL queries.
-
-This split is enforced in the `NamespaceContext`: `activeNamespace` (singular) is always `activeNamespaces[0]`, used for write operations. The full `activeNamespaces` array is used for read queries.
+The frontend context supports multi-namespace selection (`activeNamespaces` array, `toggleNamespace`) to prepare for future backend support, but the backend does not currently act on `X-Namespaces` for user tokens. The header is sent optimistically.
 
 ### Query Key Segmentation via useNamespaceQueryKey
 
@@ -71,12 +71,13 @@ On initialization, the context:
 
 When the user switches namespaces:
 
-1. `namespaceVersion` counter increments (monotonic).
-2. All inflight TanStack Query requests are cancelled via `queryClient.cancelQueries()`.
-3. The entire query cache is reset via `queryClient.resetQueries()`.
-4. New requests use the updated namespace headers from the resolver.
+1. All inflight TanStack Query requests are cancelled via `queryClient.cancelQueries()`.
+2. The entire query cache is reset via `queryClient.resetQueries()`.
+3. New requests use the updated namespace headers from the resolver.
 
 On 401 retry (token refresh), namespace headers are kept from the original request snapshot to prevent a mid-flight namespace change from mixing data.
+
+The context also exposes a `namespaceVersion` counter that increments on each switch. This is available for components that may need to detect namespace transitions, though it is not currently consumed outside the context itself.
 
 ## Consequences
 
@@ -84,7 +85,7 @@ On 401 retry (token refresh), namespace headers are kept from the original reque
 
 - Zero changes needed to individual query/mutation hooks — header injection is automatic.
 - Cache segmentation prevents cross-namespace data leaks without manual cache key management.
-- Multi-namespace reads enable combined views (e.g., seeing tasks from all workspaces).
+- Frontend context is pre-built for multi-namespace support when the backend adds it for user tokens.
 - Backward compatible with existing M2M and single-namespace flows.
 
 ### Negative
@@ -92,10 +93,13 @@ On 401 retry (token refresh), namespace headers are kept from the original reque
 - Full cache reset on namespace switch means brief loading states. Acceptable tradeoff for data correctness.
 - Module-level resolver pattern is harder to test than explicit parameter passing. Mitigated by `setNamespaceResolver()` being callable in test setup.
 - localStorage persistence means shared browser profiles could have namespace selection conflicts. Acceptable for current user base.
+- The frontend sends `X-Namespaces` for user tokens but the backend ignores it. This is intentional forward-compatibility, not a bug.
 
 ## Implementation Notes
 
 - `NamespaceProvider` wraps the app at the root level (inside `QueryClientProvider`).
 - The namespace resolver is set via `setNamespaceResolver()` in an effect, cleaned up on unmount.
-- Backend validation: namespace names must match `^[a-z0-9][a-z0-9._-]*$`, max 63 chars, max 20 per request.
-- Single-namespace users see no selector UI (hidden via `hasMultipleNamespaces` flag).
+- Backend validation: namespace names must match `^[a-z0-9][a-z0-9._-]*$`, max 63 chars. Invalid names are silently filtered (not rejected with 400). Max 20 namespaces per multi-namespace request.
+- Single-namespace users see a subtle passive indicator (not a dropdown).
+- Multi-namespace users see an interactive dropdown in the header bar.
+- The `NamespaceIndicator` component renders in both modes: passive label for single-namespace, dropdown for multi-namespace.
