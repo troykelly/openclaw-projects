@@ -305,7 +305,7 @@ export async function terminalRoutesPlugin(
       `SELECT id, namespace, name, host, port, username, auth_method,
               credential_id, proxy_jump_id, is_local, env, connect_timeout_s,
               keepalive_interval, idle_timeout_s, max_sessions, host_key_policy,
-              tags, notes, last_connected_at, last_error, created_at, updated_at
+              tags, notes, tmux_path, last_connected_at, last_error, created_at, updated_at
        FROM terminal_connection
        ${where}
        ORDER BY name ASC
@@ -335,6 +335,7 @@ export async function terminalRoutesPlugin(
       host_key_policy?: string;
       tags?: string[];
       notes?: string | null;
+      tmux_path?: string | null;
     };
 
     if (!body?.name?.trim()) {
@@ -397,9 +398,9 @@ export async function terminalRoutesPlugin(
         id, namespace, name, host, port, username, auth_method,
         credential_id, proxy_jump_id, is_local, env, connect_timeout_s,
         keepalive_interval, idle_timeout_s, max_sessions, host_key_policy,
-        tags, notes
+        tags, notes, tmux_path
       ) VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19
       )`,
       [
         id,
@@ -420,6 +421,7 @@ export async function terminalRoutesPlugin(
         body.host_key_policy ?? 'strict',
         body.tags ?? [],
         body.notes ?? null,
+        body.tmux_path ?? null,
       ],
     );
 
@@ -427,7 +429,7 @@ export async function terminalRoutesPlugin(
       `SELECT id, namespace, name, host, port, username, auth_method,
               credential_id, proxy_jump_id, is_local, env, connect_timeout_s,
               keepalive_interval, idle_timeout_s, max_sessions, host_key_policy,
-              tags, notes, last_connected_at, last_error, created_at, updated_at
+              tags, notes, tmux_path, last_connected_at, last_error, created_at, updated_at
        FROM terminal_connection WHERE id = $1`,
       [id],
     );
@@ -459,7 +461,7 @@ export async function terminalRoutesPlugin(
       `SELECT id, namespace, name, host, port, username, auth_method,
               credential_id, proxy_jump_id, is_local, env, connect_timeout_s,
               keepalive_interval, idle_timeout_s, max_sessions, host_key_policy,
-              tags, notes, last_connected_at, last_error, created_at, updated_at
+              tags, notes, tmux_path, last_connected_at, last_error, created_at, updated_at
        FROM terminal_connection WHERE id = $1 AND deleted_at IS NULL`,
       [params.id],
     );
@@ -486,7 +488,7 @@ export async function terminalRoutesPlugin(
     const allowedFields = [
       'name', 'host', 'port', 'username', 'auth_method', 'credential_id',
       'proxy_jump_id', 'is_local', 'env', 'connect_timeout_s', 'keepalive_interval',
-      'idle_timeout_s', 'max_sessions', 'host_key_policy', 'tags', 'notes',
+      'idle_timeout_s', 'max_sessions', 'host_key_policy', 'tags', 'notes', 'tmux_path',
     ];
 
     // Issue #2114: Validate port and timeout ranges on PATCH
@@ -563,7 +565,7 @@ export async function terminalRoutesPlugin(
       `SELECT id, namespace, name, host, port, username, auth_method,
               credential_id, proxy_jump_id, is_local, env, connect_timeout_s,
               keepalive_interval, idle_timeout_s, max_sessions, host_key_policy,
-              tags, notes, last_connected_at, last_error, created_at, updated_at
+              tags, notes, tmux_path, last_connected_at, last_error, created_at, updated_at
        FROM terminal_connection WHERE id = $1`,
       [params.id],
     );
@@ -1130,7 +1132,12 @@ export async function terminalRoutesPlugin(
     // Issue #2191, Sub-item 7: Enforce max_sessions with advisory lock.
     // The advisory lock serializes concurrent session creation for the same
     // connection, preventing races where two requests both pass the check.
-    // The lock is held for the duration of check + gRPC session creation.
+    //
+    // Issue #2325: The lock MUST be released BEFORE calling gRPC CreateSession.
+    // Previously the lock was held across the gRPC call, which caused a deadlock:
+    // the worker's handleCreateSession tries to UPDATE terminal_connection
+    // (last_connected_at) while the API held a conflicting advisory lock on the
+    // same connection_id → 30s DEADLINE_EXCEEDED.
     const advisoryClient = await pool.connect();
     try {
       await advisoryClient.query('BEGIN');
@@ -1140,16 +1147,27 @@ export async function terminalRoutesPlugin(
       );
 
       const maxCheck = await checkMaxSessions(advisoryClient, body.connection_id);
+
+      // Release the advisory lock BEFORE gRPC call (#2325)
+      await advisoryClient.query('COMMIT');
+
       if (!maxCheck.allowed) {
-        await advisoryClient.query('COMMIT');
         return reply.code(409).send({
           error: maxCheck.error ?? 'Maximum sessions reached',
           current: maxCheck.current,
           max: maxCheck.max,
         });
       }
+    } catch (err) {
+      try { await advisoryClient.query('ROLLBACK'); } catch { /* best-effort */ }
+      const message = err instanceof Error ? err.message : 'Unknown error during session limit check';
+      return reply.code(500).send({ error: 'Failed to check session limits', details: message });
+    } finally {
+      advisoryClient.release();
+    }
 
-      // Create session while holding the advisory lock
+    // gRPC CreateSession now runs WITHOUT holding the advisory lock (#2325)
+    try {
       const session = await grpcClient.createSession({
         connection_id: body.connection_id,
         namespace,
@@ -1164,8 +1182,6 @@ export async function terminalRoutesPlugin(
         notes: body.notes ?? '',
       }, traceId);
 
-      await advisoryClient.query('COMMIT');
-
       recordActivity(pool, {
         namespace,
         session_id: session.id,
@@ -1177,11 +1193,9 @@ export async function terminalRoutesPlugin(
 
       return reply.code(201).send(session);
     } catch (err) {
-      try { await advisoryClient.query('ROLLBACK'); } catch { /* best-effort */ }
       const message = err instanceof Error ? err.message : 'Unknown gRPC error';
+      app.log.error({ err, connectionId: body.connection_id, traceId }, 'gRPC CreateSession failed: %s', message);
       return reply.code(500).send({ error: 'Failed to create session', details: message });
-    } finally {
-      advisoryClient.release();
     }
   });
 
