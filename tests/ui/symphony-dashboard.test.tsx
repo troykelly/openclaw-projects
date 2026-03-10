@@ -165,6 +165,24 @@ function renderWithProviders(routes: Array<{ path: string; element: React.ReactN
   );
 }
 
+/** Render a component inside both QueryClient and Router providers. */
+function renderComponent(element: React.ReactNode) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+
+  const router = createMemoryRouter(
+    [{ path: '*', element }],
+    { initialEntries: ['/symphony'] },
+  );
+
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  );
+}
+
 // ---------------------------------------------------------------------------
 // RunCard tests
 // ---------------------------------------------------------------------------
@@ -177,13 +195,8 @@ describe('RunCard', () => {
   it('renders run stage and status', async () => {
     const { RunCard } = await import('@/ui/components/symphony/run-card');
     const run = makeRun();
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
-    render(
-      <QueryClientProvider client={queryClient}>
-        <RunCard run={run} index={0} />
-      </QueryClientProvider>,
-    );
+    renderComponent(<RunCard run={run} index={0} />);
 
     expect(screen.getByTestId('run-stage')).toHaveTextContent('Coding');
     expect(screen.getByTestId('run-status')).toHaveTextContent('running');
@@ -192,13 +205,8 @@ describe('RunCard', () => {
   it('shows GitHub issue link with correct URL', async () => {
     const { RunCard } = await import('@/ui/components/symphony/run-card');
     const run = makeRun();
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
-    render(
-      <QueryClientProvider client={queryClient}>
-        <RunCard run={run} index={0} />
-      </QueryClientProvider>,
-    );
+    renderComponent(<RunCard run={run} index={0} />);
 
     const link = screen.getByTestId('github-issue-link');
     expect(link).toHaveAttribute('href', 'https://github.com/my-org/my-repo/issues/42');
@@ -209,13 +217,8 @@ describe('RunCard', () => {
   it('shows token count and cost', async () => {
     const { RunCard } = await import('@/ui/components/symphony/run-card');
     const run = makeRun();
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
-    render(
-      <QueryClientProvider client={queryClient}>
-        <RunCard run={run} index={0} />
-      </QueryClientProvider>,
-    );
+    renderComponent(<RunCard run={run} index={0} />);
 
     expect(screen.getByTestId('run-tokens')).toHaveTextContent('15,000 tokens');
     expect(screen.getByTestId('run-cost')).toHaveTextContent('$0.45');
@@ -224,23 +227,14 @@ describe('RunCard', () => {
   it('lazy-loads terminal preview only for first 5 runs', async () => {
     const { RunCard } = await import('@/ui/components/symphony/run-card');
     const run = makeRun();
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
     // Index 0 — should show terminal toggle
-    const { unmount } = render(
-      <QueryClientProvider client={queryClient}>
-        <RunCard run={run} index={0} />
-      </QueryClientProvider>,
-    );
+    const { unmount } = renderComponent(<RunCard run={run} index={0} />);
     expect(screen.getByTestId('terminal-toggle')).toBeInTheDocument();
     unmount();
 
     // Index 5 — should show "View terminal" text instead
-    render(
-      <QueryClientProvider client={queryClient}>
-        <RunCard run={run} index={5} />
-      </QueryClientProvider>,
-    );
+    renderComponent(<RunCard run={run} index={5} />);
     expect(screen.queryByTestId('terminal-toggle')).not.toBeInTheDocument();
     expect(screen.getByTestId('view-terminal-link')).toBeInTheDocument();
   });
@@ -248,13 +242,8 @@ describe('RunCard', () => {
   it('expands terminal preview on click', async () => {
     const { RunCard } = await import('@/ui/components/symphony/run-card');
     const run = makeRun();
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
-    render(
-      <QueryClientProvider client={queryClient}>
-        <RunCard run={run} index={0} />
-      </QueryClientProvider>,
-    );
+    renderComponent(<RunCard run={run} index={0} />);
 
     expect(screen.queryByTestId('terminal-preview')).not.toBeInTheDocument();
 
@@ -273,13 +262,8 @@ describe('QueueItem', () => {
   it('renders issue title and priority', async () => {
     const { QueueItem } = await import('@/ui/components/symphony/queue-item');
     const run = makeRun({ status: 'unclaimed' });
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
-    render(
-      <QueryClientProvider client={queryClient}>
-        <QueueItem run={run} />
-      </QueryClientProvider>,
-    );
+    renderComponent(<QueueItem run={run} />);
 
     expect(screen.getByTestId('queue-item-title')).toHaveTextContent('Fix auth bug');
     expect(screen.getByText('P5')).toBeInTheDocument();
@@ -288,13 +272,8 @@ describe('QueueItem', () => {
   it('shows drag handle by default', async () => {
     const { QueueItem } = await import('@/ui/components/symphony/queue-item');
     const run = makeRun({ status: 'unclaimed' });
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
-    render(
-      <QueryClientProvider client={queryClient}>
-        <QueueItem run={run} />
-      </QueryClientProvider>,
-    );
+    renderComponent(<QueueItem run={run} />);
 
     expect(screen.getByTestId('drag-handle')).toBeInTheDocument();
   });

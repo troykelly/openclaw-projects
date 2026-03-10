@@ -7,6 +7,7 @@
  * Issue #2207
  */
 import React from 'react';
+import { Link } from 'react-router';
 import { GripVertical, ExternalLink } from 'lucide-react';
 import { Badge } from '@/ui/components/ui/badge';
 import type { SymphonyRun } from '@/ui/lib/api-types.ts';
@@ -73,6 +74,13 @@ export function QueueItem({ run, showDragHandle = true, dragHandleProps }: Queue
         </div>
       </div>
 
+      <Link
+        to={`/symphony/runs/${run.id}`}
+        className="text-xs text-muted-foreground hover:text-primary shrink-0"
+        data-testid="queue-run-detail-link"
+      >
+        Details
+      </Link>
       <Badge variant="secondary" className="shrink-0" data-testid="queue-item-status">
         {run.status}
       </Badge>
