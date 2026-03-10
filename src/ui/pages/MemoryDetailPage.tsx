@@ -44,6 +44,7 @@ import {
   useSimilarMemories,
 } from '@/ui/hooks/queries/use-memories';
 import type { Memory, MemoryAttachment } from '@/ui/lib/api-types';
+import { NamespaceBadge } from '@/ui/components/namespace';
 
 /** Get icon for a memory type. */
 function getTypeIcon(type: string | undefined): React.ReactNode {
@@ -199,7 +200,10 @@ export function MemoryDetailPage(): React.JSX.Element {
             </Badge>
           )}
         </div>
-        <h1 className="text-2xl font-semibold text-foreground">{memory.title}</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-semibold text-foreground">{memory.title}</h1>
+          <NamespaceBadge namespace={memory.namespace} />
+        </div>
         <p className="text-sm text-muted-foreground mt-1">
           Created {formatDate(memory.created_at)} &middot; Updated {formatDate(memory.updated_at)}
         </p>

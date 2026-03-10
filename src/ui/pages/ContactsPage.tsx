@@ -38,6 +38,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/ui/components/ui/checkbox';
 import { useContacts } from '@/ui/hooks/queries/use-contacts';
 import { useCreateContact, useUpdateContact, useMergeContacts, useImportContacts } from '@/ui/hooks/mutations/use-update-contact';
+import { NamespaceBadge } from '@/ui/components/namespace';
 
 /** Sort options for the contacts list. */
 type SortField = 'name' | 'recent' | 'endpoints';
@@ -430,6 +431,7 @@ export function ContactsPage(): React.JSX.Element {
                                 {CONTACT_KIND_LABELS[contact.contact_kind]}
                               </Badge>
                             )}
+                            <NamespaceBadge namespace={contact.namespace} />
                           </div>
                           {email && (
                             <p className="flex items-center gap-1 text-sm text-muted-foreground truncate mt-0.5">
@@ -506,6 +508,7 @@ export function ContactsPage(): React.JSX.Element {
                                   {CONTACT_KIND_LABELS[contact.contact_kind]}
                                 </Badge>
                               )}
+                              <NamespaceBadge namespace={contact.namespace} />
                             </div>
                             <div className="flex items-center gap-3 text-sm text-muted-foreground mt-0.5">
                               {email && (
