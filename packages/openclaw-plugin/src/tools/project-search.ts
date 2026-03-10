@@ -98,7 +98,7 @@ export function createProjectSearchTool(options: ProjectSearchToolOptions): Proj
     async execute(params: ProjectSearchParams): Promise<ProjectSearchResult> {
       const parseResult = ProjectSearchParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 

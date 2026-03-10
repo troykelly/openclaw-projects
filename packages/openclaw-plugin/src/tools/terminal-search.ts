@@ -134,7 +134,7 @@ export function createTerminalSearchTool(options: TerminalSearchToolOptions): Te
     async execute(params: TerminalSearchParams): Promise<TerminalSearchResult> {
       const parseResult = TerminalSearchParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 
@@ -286,7 +286,7 @@ export function createTerminalAnnotateTool(options: TerminalSearchToolOptions): 
     async execute(params: TerminalAnnotateParams): Promise<TerminalAnnotateResult> {
       const parseResult = TerminalAnnotateParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 

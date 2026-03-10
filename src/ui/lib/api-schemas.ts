@@ -164,7 +164,7 @@ export const chatSessionSchema = z.object({
   started_at: z.string(),
   ended_at: z.string().nullable(),
   last_activity_at: z.string(),
-  metadata: z.record(z.unknown()),
+  metadata: z.record(z.string(), z.unknown()),
 }).passthrough();
 
 export const chatSessionsResponseSchema = z.object({

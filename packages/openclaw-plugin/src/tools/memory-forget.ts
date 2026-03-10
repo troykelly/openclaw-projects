@@ -84,7 +84,7 @@ export function createMemoryForgetTool(options: MemoryForgetToolOptions): Memory
       // Validate parameters
       const parseResult = MemoryForgetParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => e.message).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => e.message).join(', ');
         return { success: false, error: errorMessage };
       }
 

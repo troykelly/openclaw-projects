@@ -63,7 +63,7 @@ export function createApiListTool(options: ApiListToolOptions): ApiListTool {
     async execute(params: ApiListParams): Promise<ApiListResult> {
       const parseResult = ApiListParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        return { success: false, error: parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ') };
+        return { success: false, error: parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ') };
       }
 
       try {

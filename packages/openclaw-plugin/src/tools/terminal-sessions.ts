@@ -136,7 +136,7 @@ export function createTerminalSessionStartTool(options: TerminalSessionToolOptio
     async execute(params: TerminalSessionStartParams): Promise<TerminalSessionStartResult> {
       const parseResult = TerminalSessionStartParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 
@@ -254,7 +254,7 @@ export function createTerminalSessionListTool(options: TerminalSessionToolOption
     async execute(params: TerminalSessionListParams): Promise<TerminalSessionListResult> {
       const parseResult = TerminalSessionListParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 
@@ -372,7 +372,7 @@ export function createTerminalSessionTerminateTool(options: TerminalSessionToolO
     async execute(params: TerminalSessionTerminateParams): Promise<TerminalSessionTerminateResult> {
       const parseResult = TerminalSessionTerminateParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 
@@ -463,7 +463,7 @@ export function createTerminalSessionInfoTool(options: TerminalSessionToolOption
     async execute(params: TerminalSessionInfoParams): Promise<TerminalSessionInfoResult> {
       const parseResult = TerminalSessionInfoParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 
@@ -591,7 +591,7 @@ export function createTerminalSendCommandTool(options: TerminalSessionToolOption
     async execute(params: TerminalSendCommandParams): Promise<TerminalSendCommandResult> {
       const parseResult = TerminalSendCommandParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 
@@ -730,7 +730,7 @@ export function createTerminalSendKeysTool(options: TerminalSessionToolOptions):
     async execute(params: TerminalSendKeysParams): Promise<TerminalSendKeysResult> {
       const parseResult = TerminalSendKeysParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 
@@ -849,7 +849,7 @@ export function createTerminalCapturePaneTool(options: TerminalSessionToolOption
     async execute(params: TerminalCapturePaneParams): Promise<TerminalCapturePaneResult> {
       const parseResult = TerminalCapturePaneParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 

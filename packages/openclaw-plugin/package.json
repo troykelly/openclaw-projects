@@ -50,7 +50,7 @@
   "author": "Troy Kelly",
   "license": "MIT",
   "dependencies": {
-    "zod": "^3.24.0"
+    "zod": "^4.3.6"
   },
   "peerDependencies": {
     "openclaw": ">=2026.2.0"
@@ -61,11 +61,11 @@
     }
   },
   "devDependencies": {
-    "@types/node": "^22.0.0",
+    "@types/node": "^25.4.0",
     "@vitest/coverage-v8": "^4.0.18",
-    "openclaw": "2026.3.2",
-    "typescript": "^5.0.0",
-    "vitest": "^4.0.0"
+    "openclaw": "2026.3.8",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
   },
   "engines": {
     "node": ">=20.0.0"

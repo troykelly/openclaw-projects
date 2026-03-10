@@ -85,9 +85,9 @@ describe('entity link tools', () => {
       it('should require source_type', async () => {
         const tool = createLinksSetTool(toolOptions);
         const result = await tool.execute({
-          source_id: '019c5ae8-0000-0000-0000-000000000001',
+          source_id: '019c5ae8-0000-7000-8000-000000000001',
           target_type: 'project',
-          target_ref: '019c5ae8-0000-0000-0000-000000000002',
+          target_ref: '019c5ae8-0000-7000-8000-000000000002',
         } as Record<string, unknown>);
         expect(result.success).toBe(false);
       });
@@ -97,7 +97,7 @@ describe('entity link tools', () => {
         const result = await tool.execute({
           source_type: 'todo',
           target_type: 'project',
-          target_ref: '019c5ae8-0000-0000-0000-000000000002',
+          target_ref: '019c5ae8-0000-7000-8000-000000000002',
         } as Record<string, unknown>);
         expect(result.success).toBe(false);
       });
@@ -106,8 +106,8 @@ describe('entity link tools', () => {
         const tool = createLinksSetTool(toolOptions);
         const result = await tool.execute({
           source_type: 'todo',
-          source_id: '019c5ae8-0000-0000-0000-000000000001',
-          target_ref: '019c5ae8-0000-0000-0000-000000000002',
+          source_id: '019c5ae8-0000-7000-8000-000000000001',
+          target_ref: '019c5ae8-0000-7000-8000-000000000002',
         } as Record<string, unknown>);
         expect(result.success).toBe(false);
       });
@@ -116,7 +116,7 @@ describe('entity link tools', () => {
         const tool = createLinksSetTool(toolOptions);
         const result = await tool.execute({
           source_type: 'todo',
-          source_id: '019c5ae8-0000-0000-0000-000000000001',
+          source_id: '019c5ae8-0000-7000-8000-000000000001',
           target_type: 'project',
         } as Record<string, unknown>);
         expect(result.success).toBe(false);
@@ -126,9 +126,9 @@ describe('entity link tools', () => {
         const tool = createLinksSetTool(toolOptions);
         const result = await tool.execute({
           source_type: 'invalid_type',
-          source_id: '019c5ae8-0000-0000-0000-000000000001',
+          source_id: '019c5ae8-0000-7000-8000-000000000001',
           target_type: 'project',
-          target_ref: '019c5ae8-0000-0000-0000-000000000002',
+          target_ref: '019c5ae8-0000-7000-8000-000000000002',
         });
         expect(result.success).toBe(false);
       });
@@ -137,9 +137,9 @@ describe('entity link tools', () => {
         const tool = createLinksSetTool(toolOptions);
         const result = await tool.execute({
           source_type: 'todo',
-          source_id: '019c5ae8-0000-0000-0000-000000000001',
+          source_id: '019c5ae8-0000-7000-8000-000000000001',
           target_type: 'invalid_type',
-          target_ref: '019c5ae8-0000-0000-0000-000000000002',
+          target_ref: '019c5ae8-0000-7000-8000-000000000002',
         });
         expect(result.success).toBe(false);
       });
@@ -150,7 +150,7 @@ describe('entity link tools', () => {
           source_type: 'todo',
           source_id: 'not-a-uuid',
           target_type: 'project',
-          target_ref: '019c5ae8-0000-0000-0000-000000000002',
+          target_ref: '019c5ae8-0000-7000-8000-000000000002',
         });
         expect(result.success).toBe(false);
       });
@@ -159,7 +159,7 @@ describe('entity link tools', () => {
         const tool = createLinksSetTool(toolOptions);
         const result = await tool.execute({
           source_type: 'todo',
-          source_id: '019c5ae8-0000-0000-0000-000000000001',
+          source_id: '019c5ae8-0000-7000-8000-000000000001',
           target_type: 'project',
           target_ref: '',
         });
@@ -171,7 +171,7 @@ describe('entity link tools', () => {
         for (const internalType of ['memory', 'todo', 'project', 'contact'] as const) {
           const result = await tool.execute({
             source_type: 'todo',
-            source_id: '019c5ae8-0000-0000-0000-000000000001',
+            source_id: '019c5ae8-0000-7000-8000-000000000001',
             target_type: internalType,
             target_ref: 'not-a-uuid',
           });
@@ -185,7 +185,7 @@ describe('entity link tools', () => {
       it('should allow non-UUID target_ref for github_issue target_type', async () => {
         const result = LinksSetParamsSchema.safeParse({
           source_type: 'todo',
-          source_id: '019c5ae8-0000-0000-0000-000000000001',
+          source_id: '019c5ae8-0000-7000-8000-000000000001',
           target_type: 'github_issue',
           target_ref: 'owner/repo#123',
         });
@@ -195,7 +195,7 @@ describe('entity link tools', () => {
       it('should allow non-UUID target_ref for url target_type', async () => {
         const result = LinksSetParamsSchema.safeParse({
           source_type: 'todo',
-          source_id: '019c5ae8-0000-0000-0000-000000000001',
+          source_id: '019c5ae8-0000-7000-8000-000000000001',
           target_type: 'url',
           target_ref: 'https://example.com/page',
         });
@@ -205,16 +205,16 @@ describe('entity link tools', () => {
       it('should accept optional label', async () => {
         const mockPost = vi.fn().mockResolvedValue({
           success: true,
-          data: { id: 'item-1', skill_id: 'entity-links', collection: 'entity_links', key: 'todo:019c5ae8-0000-0000-0000-000000000001:project:019c5ae8-0000-0000-0000-000000000002', data: {}, tags: [], status: 'active', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z', title: null, summary: null, content: null, media_url: null, media_type: null, source_url: null, priority: null, expires_at: null, pinned: false, user_email: null },
+          data: { id: 'item-1', skill_id: 'entity-links', collection: 'entity_links', key: 'todo:019c5ae8-0000-7000-8000-000000000001:project:019c5ae8-0000-7000-8000-000000000002', data: {}, tags: [], status: 'active', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z', title: null, summary: null, content: null, media_url: null, media_type: null, source_url: null, priority: null, expires_at: null, pinned: false, user_email: null },
         });
         const client = { ...mockApiClient, post: mockPost };
         const tool = createLinksSetTool({ ...toolOptions, client: client as unknown as ApiClient });
 
         const result = await tool.execute({
           source_type: 'todo',
-          source_id: '019c5ae8-0000-0000-0000-000000000001',
+          source_id: '019c5ae8-0000-7000-8000-000000000001',
           target_type: 'project',
-          target_ref: '019c5ae8-0000-0000-0000-000000000002',
+          target_ref: '019c5ae8-0000-7000-8000-000000000002',
           label: 'spawned from',
         });
         expect(result.success).toBe(true);
@@ -224,9 +224,9 @@ describe('entity link tools', () => {
         const tool = createLinksSetTool(toolOptions);
         const result = await tool.execute({
           source_type: 'todo',
-          source_id: '019c5ae8-0000-0000-0000-000000000001',
+          source_id: '019c5ae8-0000-7000-8000-000000000001',
           target_type: 'project',
-          target_ref: '019c5ae8-0000-0000-0000-000000000002',
+          target_ref: '019c5ae8-0000-7000-8000-000000000002',
           label: 'a'.repeat(101),
         });
         expect(result.success).toBe(false);
@@ -235,14 +235,14 @@ describe('entity link tools', () => {
       it('should accept github_issue as target_type with owner/repo#N ref', async () => {
         const mockPost = vi.fn().mockResolvedValue({
           success: true,
-          data: { id: 'item-1', skill_id: 'entity-links', collection: 'entity_links', key: 'todo:019c5ae8-0000-0000-0000-000000000001:github_issue:troykelly/openclaw-projects#1220', data: {}, tags: [], status: 'active', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z', title: null, summary: null, content: null, media_url: null, media_type: null, source_url: null, priority: null, expires_at: null, pinned: false, user_email: null },
+          data: { id: 'item-1', skill_id: 'entity-links', collection: 'entity_links', key: 'todo:019c5ae8-0000-7000-8000-000000000001:github_issue:troykelly/openclaw-projects#1220', data: {}, tags: [], status: 'active', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z', title: null, summary: null, content: null, media_url: null, media_type: null, source_url: null, priority: null, expires_at: null, pinned: false, user_email: null },
         });
         const client = { ...mockApiClient, post: mockPost };
         const tool = createLinksSetTool({ ...toolOptions, client: client as unknown as ApiClient });
 
         const result = await tool.execute({
           source_type: 'todo',
-          source_id: '019c5ae8-0000-0000-0000-000000000001',
+          source_id: '019c5ae8-0000-7000-8000-000000000001',
           target_type: 'github_issue',
           target_ref: 'troykelly/openclaw-projects#1220',
         });
@@ -252,14 +252,14 @@ describe('entity link tools', () => {
       it('should accept url as target_type', async () => {
         const mockPost = vi.fn().mockResolvedValue({
           success: true,
-          data: { id: 'item-1', skill_id: 'entity-links', collection: 'entity_links', key: 'todo:019c5ae8-0000-0000-0000-000000000001:url:https://example.com', data: {}, tags: [], status: 'active', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z', title: null, summary: null, content: null, media_url: null, media_type: null, source_url: null, priority: null, expires_at: null, pinned: false, user_email: null },
+          data: { id: 'item-1', skill_id: 'entity-links', collection: 'entity_links', key: 'todo:019c5ae8-0000-7000-8000-000000000001:url:https://example.com', data: {}, tags: [], status: 'active', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z', title: null, summary: null, content: null, media_url: null, media_type: null, source_url: null, priority: null, expires_at: null, pinned: false, user_email: null },
         });
         const client = { ...mockApiClient, post: mockPost };
         const tool = createLinksSetTool({ ...toolOptions, client: client as unknown as ApiClient });
 
         const result = await tool.execute({
           source_type: 'todo',
-          source_id: '019c5ae8-0000-0000-0000-000000000001',
+          source_id: '019c5ae8-0000-7000-8000-000000000001',
           target_type: 'url',
           target_ref: 'https://example.com',
         });
@@ -278,9 +278,9 @@ describe('entity link tools', () => {
 
         await tool.execute({
           source_type: 'todo',
-          source_id: '019c5ae8-0000-0000-0000-000000000001',
+          source_id: '019c5ae8-0000-7000-8000-000000000001',
           target_type: 'project',
-          target_ref: '019c5ae8-0000-0000-0000-000000000002',
+          target_ref: '019c5ae8-0000-7000-8000-000000000002',
         });
 
         // Should create forward link (A->B) and reverse link (B->A)
@@ -297,9 +297,9 @@ describe('entity link tools', () => {
 
         await tool.execute({
           source_type: 'todo',
-          source_id: '019c5ae8-0000-0000-0000-000000000001',
+          source_id: '019c5ae8-0000-7000-8000-000000000001',
           target_type: 'project',
-          target_ref: '019c5ae8-0000-0000-0000-000000000002',
+          target_ref: '019c5ae8-0000-7000-8000-000000000002',
         });
 
         expect(mockPost).toHaveBeenCalledWith(
@@ -319,9 +319,9 @@ describe('entity link tools', () => {
 
         await tool.execute({
           source_type: 'todo',
-          source_id: '019c5ae8-0000-0000-0000-000000000001',
+          source_id: '019c5ae8-0000-7000-8000-000000000001',
           target_type: 'project',
-          target_ref: '019c5ae8-0000-0000-0000-000000000002',
+          target_ref: '019c5ae8-0000-7000-8000-000000000002',
           label: 'tracks',
         });
 
@@ -329,7 +329,7 @@ describe('entity link tools', () => {
         expect(mockPost).toHaveBeenCalledWith(
           '/skill-store/items',
           expect.objectContaining({
-            key: 'todo:019c5ae8-0000-0000-0000-000000000001:project:019c5ae8-0000-0000-0000-000000000002',
+            key: 'todo:019c5ae8-0000-7000-8000-000000000001:project:019c5ae8-0000-7000-8000-000000000002',
           }),
           expect.any(Object),
         );
@@ -338,7 +338,7 @@ describe('entity link tools', () => {
         expect(mockPost).toHaveBeenCalledWith(
           '/skill-store/items',
           expect.objectContaining({
-            key: 'project:019c5ae8-0000-0000-0000-000000000002:todo:019c5ae8-0000-0000-0000-000000000001',
+            key: 'project:019c5ae8-0000-7000-8000-000000000002:todo:019c5ae8-0000-7000-8000-000000000001',
           }),
           expect.any(Object),
         );
@@ -354,9 +354,9 @@ describe('entity link tools', () => {
 
         await tool.execute({
           source_type: 'todo',
-          source_id: '019c5ae8-0000-0000-0000-000000000001',
+          source_id: '019c5ae8-0000-7000-8000-000000000001',
           target_type: 'project',
-          target_ref: '019c5ae8-0000-0000-0000-000000000002',
+          target_ref: '019c5ae8-0000-7000-8000-000000000002',
           label: 'tracks',
         });
 
@@ -366,9 +366,9 @@ describe('entity link tools', () => {
           expect.objectContaining({
             data: expect.objectContaining({
               source_type: 'todo',
-              source_id: '019c5ae8-0000-0000-0000-000000000001',
+              source_id: '019c5ae8-0000-7000-8000-000000000001',
               target_type: 'project',
-              target_ref: '019c5ae8-0000-0000-0000-000000000002',
+              target_ref: '019c5ae8-0000-7000-8000-000000000002',
               label: 'tracks',
               created_at: expect.any(String),
             }),
@@ -387,17 +387,17 @@ describe('entity link tools', () => {
 
         await tool.execute({
           source_type: 'todo',
-          source_id: '019c5ae8-0000-0000-0000-000000000001',
+          source_id: '019c5ae8-0000-7000-8000-000000000001',
           target_type: 'project',
-          target_ref: '019c5ae8-0000-0000-0000-000000000002',
+          target_ref: '019c5ae8-0000-7000-8000-000000000002',
         });
 
         // Forward link should have tag for source entity lookup
         expect(mockPost).toHaveBeenCalledWith(
           '/skill-store/items',
           expect.objectContaining({
-            key: 'todo:019c5ae8-0000-0000-0000-000000000001:project:019c5ae8-0000-0000-0000-000000000002',
-            tags: expect.arrayContaining(['src:todo:019c5ae8-0000-0000-0000-000000000001']),
+            key: 'todo:019c5ae8-0000-7000-8000-000000000001:project:019c5ae8-0000-7000-8000-000000000002',
+            tags: expect.arrayContaining(['src:todo:019c5ae8-0000-7000-8000-000000000001']),
           }),
           expect.any(Object),
         );
@@ -415,9 +415,9 @@ describe('entity link tools', () => {
 
         const result = await tool.execute({
           source_type: 'todo',
-          source_id: '019c5ae8-0000-0000-0000-000000000001',
+          source_id: '019c5ae8-0000-7000-8000-000000000001',
           target_type: 'project',
-          target_ref: '019c5ae8-0000-0000-0000-000000000002',
+          target_ref: '019c5ae8-0000-7000-8000-000000000002',
           label: 'tracks',
         });
 
@@ -442,9 +442,9 @@ describe('entity link tools', () => {
 
         const result = await tool.execute({
           source_type: 'todo',
-          source_id: '019c5ae8-0000-0000-0000-000000000001',
+          source_id: '019c5ae8-0000-7000-8000-000000000001',
           target_type: 'project',
-          target_ref: '019c5ae8-0000-0000-0000-000000000002',
+          target_ref: '019c5ae8-0000-7000-8000-000000000002',
         });
         expect(result.success).toBe(false);
       });
@@ -456,9 +456,9 @@ describe('entity link tools', () => {
 
         const result = await tool.execute({
           source_type: 'todo',
-          source_id: '019c5ae8-0000-0000-0000-000000000001',
+          source_id: '019c5ae8-0000-7000-8000-000000000001',
           target_type: 'project',
-          target_ref: '019c5ae8-0000-0000-0000-000000000002',
+          target_ref: '019c5ae8-0000-7000-8000-000000000002',
         });
         expect(result.success).toBe(false);
       });
@@ -470,9 +470,9 @@ describe('entity link tools', () => {
 
         const result = await tool.execute({
           source_type: 'todo',
-          source_id: '019c5ae8-0000-0000-0000-000000000001',
+          source_id: '019c5ae8-0000-7000-8000-000000000001',
           target_type: 'project',
-          target_ref: '019c5ae8-0000-0000-0000-000000000002',
+          target_ref: '019c5ae8-0000-7000-8000-000000000002',
         });
 
         expect(result.success).toBe(false);
@@ -498,9 +498,9 @@ describe('entity link tools', () => {
 
         const result = await tool.execute({
           source_type: 'todo',
-          source_id: '019c5ae8-0000-0000-0000-000000000001',
+          source_id: '019c5ae8-0000-7000-8000-000000000001',
           target_type: 'project',
-          target_ref: '019c5ae8-0000-0000-0000-000000000002',
+          target_ref: '019c5ae8-0000-7000-8000-000000000002',
         });
 
         expect(result.success).toBe(false);
@@ -527,9 +527,9 @@ describe('entity link tools', () => {
 
         const result = await tool.execute({
           source_type: 'todo',
-          source_id: '019c5ae8-0000-0000-0000-000000000001',
+          source_id: '019c5ae8-0000-7000-8000-000000000001',
           target_type: 'project',
-          target_ref: '019c5ae8-0000-0000-0000-000000000002',
+          target_ref: '019c5ae8-0000-7000-8000-000000000002',
         });
 
         expect(result.success).toBe(false);
@@ -550,9 +550,9 @@ describe('entity link tools', () => {
 
         await tool.execute({
           source_type: 'todo',
-          source_id: '019c5ae8-0000-0000-0000-000000000001',
+          source_id: '019c5ae8-0000-7000-8000-000000000001',
           target_type: 'project',
-          target_ref: '019c5ae8-0000-0000-0000-000000000002',
+          target_ref: '019c5ae8-0000-7000-8000-000000000002',
         });
 
         expect(mockPost).toHaveBeenCalledWith(
@@ -589,7 +589,7 @@ describe('entity link tools', () => {
       it('should require entity_type', async () => {
         const tool = createLinksQueryTool(toolOptions);
         const result = await tool.execute({
-          entity_id: '019c5ae8-0000-0000-0000-000000000001',
+          entity_id: '019c5ae8-0000-7000-8000-000000000001',
         } as Record<string, unknown>);
         expect(result.success).toBe(false);
       });
@@ -606,7 +606,7 @@ describe('entity link tools', () => {
         const tool = createLinksQueryTool(toolOptions);
         const result = await tool.execute({
           entity_type: 'invalid',
-          entity_id: '019c5ae8-0000-0000-0000-000000000001',
+          entity_id: '019c5ae8-0000-7000-8000-000000000001',
         });
         expect(result.success).toBe(false);
       });
@@ -623,7 +623,7 @@ describe('entity link tools', () => {
       it('should accept optional link_types filter', () => {
         const result = LinksQueryParamsSchema.safeParse({
           entity_type: 'todo',
-          entity_id: '019c5ae8-0000-0000-0000-000000000001',
+          entity_id: '019c5ae8-0000-7000-8000-000000000001',
           link_types: ['project', 'memory'],
         });
         expect(result.success).toBe(true);
@@ -641,7 +641,7 @@ describe('entity link tools', () => {
 
         await tool.execute({
           entity_type: 'todo',
-          entity_id: '019c5ae8-0000-0000-0000-000000000001',
+          entity_id: '019c5ae8-0000-7000-8000-000000000001',
         });
 
         expect(mockGet).toHaveBeenCalledWith(
@@ -649,7 +649,7 @@ describe('entity link tools', () => {
           expect.objectContaining({ user_id: 'agent-1' }),
         );
         expect(mockGet).toHaveBeenCalledWith(
-          expect.stringContaining('tags=src%3Atodo%3A019c5ae8-0000-0000-0000-000000000001'),
+          expect.stringContaining('tags=src%3Atodo%3A019c5ae8-0000-7000-8000-000000000001'),
           expect.any(Object),
         );
       });
@@ -666,7 +666,7 @@ describe('entity link tools', () => {
 
         const result = await tool.execute({
           entity_type: 'todo',
-          entity_id: '019c5ae8-0000-0000-0000-000000000001',
+          entity_id: '019c5ae8-0000-7000-8000-000000000001',
         });
 
         expect(result.success).toBe(true);
@@ -684,16 +684,16 @@ describe('entity link tools', () => {
                 id: 'item-1',
                 skill_id: 'entity-links',
                 collection: 'entity_links',
-                key: 'todo:019c5ae8-0000-0000-0000-000000000001:project:019c5ae8-0000-0000-0000-000000000002',
+                key: 'todo:019c5ae8-0000-7000-8000-000000000001:project:019c5ae8-0000-7000-8000-000000000002',
                 data: {
                   source_type: 'todo',
-                  source_id: '019c5ae8-0000-0000-0000-000000000001',
+                  source_id: '019c5ae8-0000-7000-8000-000000000001',
                   target_type: 'project',
-                  target_ref: '019c5ae8-0000-0000-0000-000000000002',
+                  target_ref: '019c5ae8-0000-7000-8000-000000000002',
                   label: 'tracks',
                   created_at: '2026-01-01T00:00:00Z',
                 },
-                tags: ['src:todo:019c5ae8-0000-0000-0000-000000000001'],
+                tags: ['src:todo:019c5ae8-0000-7000-8000-000000000001'],
                 status: 'active',
                 priority: null,
                 user_email: null,
@@ -718,7 +718,7 @@ describe('entity link tools', () => {
 
         const result = await tool.execute({
           entity_type: 'todo',
-          entity_id: '019c5ae8-0000-0000-0000-000000000001',
+          entity_id: '019c5ae8-0000-7000-8000-000000000001',
         });
 
         expect(result.success).toBe(true);
@@ -738,12 +738,12 @@ describe('entity link tools', () => {
               {
                 id: 'item-1',
                 collection: 'entity_links',
-                key: 'todo:019c5ae8-0000-0000-0000-000000000001:project:019c5ae8-0000-0000-0000-000000000002',
+                key: 'todo:019c5ae8-0000-7000-8000-000000000001:project:019c5ae8-0000-7000-8000-000000000002',
                 data: {
                   source_type: 'todo',
-                  source_id: '019c5ae8-0000-0000-0000-000000000001',
+                  source_id: '019c5ae8-0000-7000-8000-000000000001',
                   target_type: 'project',
-                  target_ref: '019c5ae8-0000-0000-0000-000000000002',
+                  target_ref: '019c5ae8-0000-7000-8000-000000000002',
                   label: null,
                   created_at: '2026-01-01T00:00:00Z',
                 },
@@ -753,12 +753,12 @@ describe('entity link tools', () => {
               {
                 id: 'item-2',
                 collection: 'entity_links',
-                key: 'todo:019c5ae8-0000-0000-0000-000000000001:memory:019c5ae8-0000-0000-0000-000000000003',
+                key: 'todo:019c5ae8-0000-7000-8000-000000000001:memory:019c5ae8-0000-7000-8000-000000000003',
                 data: {
                   source_type: 'todo',
-                  source_id: '019c5ae8-0000-0000-0000-000000000001',
+                  source_id: '019c5ae8-0000-7000-8000-000000000001',
                   target_type: 'memory',
-                  target_ref: '019c5ae8-0000-0000-0000-000000000003',
+                  target_ref: '019c5ae8-0000-7000-8000-000000000003',
                   label: null,
                   created_at: '2026-01-01T00:00:00Z',
                 },
@@ -775,7 +775,7 @@ describe('entity link tools', () => {
 
         const result = await tool.execute({
           entity_type: 'todo',
-          entity_id: '019c5ae8-0000-0000-0000-000000000001',
+          entity_id: '019c5ae8-0000-7000-8000-000000000001',
           link_types: ['project'],
         });
 
@@ -799,7 +799,7 @@ describe('entity link tools', () => {
 
         const result = await tool.execute({
           entity_type: 'todo',
-          entity_id: '019c5ae8-0000-0000-0000-000000000001',
+          entity_id: '019c5ae8-0000-7000-8000-000000000001',
         });
         expect(result.success).toBe(false);
       });
@@ -811,7 +811,7 @@ describe('entity link tools', () => {
 
         const result = await tool.execute({
           entity_type: 'todo',
-          entity_id: '019c5ae8-0000-0000-0000-000000000001',
+          entity_id: '019c5ae8-0000-7000-8000-000000000001',
         });
         expect(result.success).toBe(false);
       });
@@ -823,7 +823,7 @@ describe('entity link tools', () => {
 
         const result = await tool.execute({
           entity_type: 'todo',
-          entity_id: '019c5ae8-0000-0000-0000-000000000001',
+          entity_id: '019c5ae8-0000-7000-8000-000000000001',
         });
 
         expect(result.success).toBe(false);
@@ -860,9 +860,9 @@ describe('entity link tools', () => {
       it('should require source_type', async () => {
         const tool = createLinksRemoveTool(toolOptions);
         const result = await tool.execute({
-          source_id: '019c5ae8-0000-0000-0000-000000000001',
+          source_id: '019c5ae8-0000-7000-8000-000000000001',
           target_type: 'project',
-          target_ref: '019c5ae8-0000-0000-0000-000000000002',
+          target_ref: '019c5ae8-0000-7000-8000-000000000002',
         } as Record<string, unknown>);
         expect(result.success).toBe(false);
       });
@@ -872,7 +872,7 @@ describe('entity link tools', () => {
         const result = await tool.execute({
           source_type: 'todo',
           target_type: 'project',
-          target_ref: '019c5ae8-0000-0000-0000-000000000002',
+          target_ref: '019c5ae8-0000-7000-8000-000000000002',
         } as Record<string, unknown>);
         expect(result.success).toBe(false);
       });
@@ -881,8 +881,8 @@ describe('entity link tools', () => {
         const tool = createLinksRemoveTool(toolOptions);
         const result = await tool.execute({
           source_type: 'todo',
-          source_id: '019c5ae8-0000-0000-0000-000000000001',
-          target_ref: '019c5ae8-0000-0000-0000-000000000002',
+          source_id: '019c5ae8-0000-7000-8000-000000000001',
+          target_ref: '019c5ae8-0000-7000-8000-000000000002',
         } as Record<string, unknown>);
         expect(result.success).toBe(false);
       });
@@ -891,7 +891,7 @@ describe('entity link tools', () => {
         const tool = createLinksRemoveTool(toolOptions);
         const result = await tool.execute({
           source_type: 'todo',
-          source_id: '019c5ae8-0000-0000-0000-000000000001',
+          source_id: '019c5ae8-0000-7000-8000-000000000001',
           target_type: 'project',
         } as Record<string, unknown>);
         expect(result.success).toBe(false);
@@ -903,7 +903,7 @@ describe('entity link tools', () => {
           source_type: 'todo',
           source_id: 'not-a-uuid',
           target_type: 'project',
-          target_ref: '019c5ae8-0000-0000-0000-000000000002',
+          target_ref: '019c5ae8-0000-7000-8000-000000000002',
         });
         expect(result.success).toBe(false);
       });
@@ -914,11 +914,11 @@ describe('entity link tools', () => {
         const mockGet = vi.fn()
           .mockResolvedValueOnce({
             success: true,
-            data: { id: 'fwd-1', key: 'todo:019c5ae8-0000-0000-0000-000000000001:project:019c5ae8-0000-0000-0000-000000000002' },
+            data: { id: 'fwd-1', key: 'todo:019c5ae8-0000-7000-8000-000000000001:project:019c5ae8-0000-7000-8000-000000000002' },
           })
           .mockResolvedValueOnce({
             success: true,
-            data: { id: 'rev-1', key: 'project:019c5ae8-0000-0000-0000-000000000002:todo:019c5ae8-0000-0000-0000-000000000001' },
+            data: { id: 'rev-1', key: 'project:019c5ae8-0000-7000-8000-000000000002:todo:019c5ae8-0000-7000-8000-000000000001' },
           });
         const mockDelete = vi.fn().mockResolvedValue({ success: true, data: {} });
         const client = { ...mockApiClient, get: mockGet, delete: mockDelete };
@@ -926,9 +926,9 @@ describe('entity link tools', () => {
 
         await tool.execute({
           source_type: 'todo',
-          source_id: '019c5ae8-0000-0000-0000-000000000001',
+          source_id: '019c5ae8-0000-7000-8000-000000000001',
           target_type: 'project',
-          target_ref: '019c5ae8-0000-0000-0000-000000000002',
+          target_ref: '019c5ae8-0000-7000-8000-000000000002',
         });
 
         // Should look up both forward and reverse items
@@ -953,9 +953,9 @@ describe('entity link tools', () => {
 
         await tool.execute({
           source_type: 'todo',
-          source_id: '019c5ae8-0000-0000-0000-000000000001',
+          source_id: '019c5ae8-0000-7000-8000-000000000001',
           target_type: 'project',
-          target_ref: '019c5ae8-0000-0000-0000-000000000002',
+          target_ref: '019c5ae8-0000-7000-8000-000000000002',
         });
 
         expect(mockDelete).toHaveBeenCalledWith('/skill-store/items/fwd-1', expect.any(Object));
@@ -974,9 +974,9 @@ describe('entity link tools', () => {
 
         const result = await tool.execute({
           source_type: 'todo',
-          source_id: '019c5ae8-0000-0000-0000-000000000001',
+          source_id: '019c5ae8-0000-7000-8000-000000000001',
           target_type: 'project',
-          target_ref: '019c5ae8-0000-0000-0000-000000000002',
+          target_ref: '019c5ae8-0000-7000-8000-000000000002',
         });
 
         expect(result.success).toBe(true);
@@ -994,9 +994,9 @@ describe('entity link tools', () => {
 
         const result = await tool.execute({
           source_type: 'todo',
-          source_id: '019c5ae8-0000-0000-0000-000000000001',
+          source_id: '019c5ae8-0000-7000-8000-000000000001',
           target_type: 'project',
-          target_ref: '019c5ae8-0000-0000-0000-000000000002',
+          target_ref: '019c5ae8-0000-7000-8000-000000000002',
         });
 
         expect(result.success).toBe(false);
@@ -1014,9 +1014,9 @@ describe('entity link tools', () => {
 
         const result = await tool.execute({
           source_type: 'todo',
-          source_id: '019c5ae8-0000-0000-0000-000000000001',
+          source_id: '019c5ae8-0000-7000-8000-000000000001',
           target_type: 'project',
-          target_ref: '019c5ae8-0000-0000-0000-000000000002',
+          target_ref: '019c5ae8-0000-7000-8000-000000000002',
         });
         expect(result.success).toBe(false);
       });
@@ -1028,9 +1028,9 @@ describe('entity link tools', () => {
 
         const result = await tool.execute({
           source_type: 'todo',
-          source_id: '019c5ae8-0000-0000-0000-000000000001',
+          source_id: '019c5ae8-0000-7000-8000-000000000001',
           target_type: 'project',
-          target_ref: '019c5ae8-0000-0000-0000-000000000002',
+          target_ref: '019c5ae8-0000-7000-8000-000000000002',
         });
 
         expect(result.success).toBe(false);
@@ -1052,9 +1052,9 @@ describe('entity link tools', () => {
 
         const result = await tool.execute({
           source_type: 'todo',
-          source_id: '019c5ae8-0000-0000-0000-000000000001',
+          source_id: '019c5ae8-0000-7000-8000-000000000001',
           target_type: 'project',
-          target_ref: '019c5ae8-0000-0000-0000-000000000002',
+          target_ref: '019c5ae8-0000-7000-8000-000000000002',
         });
 
         expect(result.success).toBe(false);
@@ -1073,9 +1073,9 @@ describe('entity link tools', () => {
 
         const result = await tool.execute({
           source_type: 'todo',
-          source_id: '019c5ae8-0000-0000-0000-000000000001',
+          source_id: '019c5ae8-0000-7000-8000-000000000001',
           target_type: 'project',
-          target_ref: '019c5ae8-0000-0000-0000-000000000002',
+          target_ref: '019c5ae8-0000-7000-8000-000000000002',
         });
 
         expect(result.success).toBe(false);
@@ -1095,9 +1095,9 @@ describe('entity link tools', () => {
 
         const result = await tool.execute({
           source_type: 'todo',
-          source_id: '019c5ae8-0000-0000-0000-000000000001',
+          source_id: '019c5ae8-0000-7000-8000-000000000001',
           target_type: 'project',
-          target_ref: '019c5ae8-0000-0000-0000-000000000002',
+          target_ref: '019c5ae8-0000-7000-8000-000000000002',
         });
 
         expect(result.success).toBe(false);
@@ -1112,7 +1112,7 @@ describe('entity link tools', () => {
         const tool = createLinksRemoveTool(toolOptions);
         const result = await tool.execute({
           source_type: 'todo',
-          source_id: '019c5ae8-0000-0000-0000-000000000001',
+          source_id: '019c5ae8-0000-7000-8000-000000000001',
           target_type: 'contact',
           target_ref: 'not-a-uuid',
         });
@@ -1132,7 +1132,7 @@ describe('entity link tools', () => {
 
         const result = await tool.execute({
           source_type: 'todo',
-          source_id: '019c5ae8-0000-0000-0000-000000000001',
+          source_id: '019c5ae8-0000-7000-8000-000000000001',
           target_type: 'github_issue',
           target_ref: 'owner/repo#42',
         });
@@ -1147,9 +1147,9 @@ describe('entity link tools', () => {
     it('LinksSetParamsSchema should validate correct input', () => {
       const result = LinksSetParamsSchema.safeParse({
         source_type: 'todo',
-        source_id: '019c5ae8-0000-0000-0000-000000000001',
+        source_id: '019c5ae8-0000-7000-8000-000000000001',
         target_type: 'project',
-        target_ref: '019c5ae8-0000-0000-0000-000000000002',
+        target_ref: '019c5ae8-0000-7000-8000-000000000002',
       });
       expect(result.success).toBe(true);
     });
@@ -1157,9 +1157,9 @@ describe('entity link tools', () => {
     it('LinksSetParamsSchema should accept optional label', () => {
       const result = LinksSetParamsSchema.safeParse({
         source_type: 'memory',
-        source_id: '019c5ae8-0000-0000-0000-000000000001',
+        source_id: '019c5ae8-0000-7000-8000-000000000001',
         target_type: 'contact',
-        target_ref: '019c5ae8-0000-0000-0000-000000000002',
+        target_ref: '019c5ae8-0000-7000-8000-000000000002',
         label: 'related to',
       });
       expect(result.success).toBe(true);
@@ -1175,7 +1175,7 @@ describe('entity link tools', () => {
     it('LinksQueryParamsSchema should validate correct input', () => {
       const result = LinksQueryParamsSchema.safeParse({
         entity_type: 'todo',
-        entity_id: '019c5ae8-0000-0000-0000-000000000001',
+        entity_id: '019c5ae8-0000-7000-8000-000000000001',
       });
       expect(result.success).toBe(true);
     });
@@ -1183,7 +1183,7 @@ describe('entity link tools', () => {
     it('LinksQueryParamsSchema should accept optional link_types', () => {
       const result = LinksQueryParamsSchema.safeParse({
         entity_type: 'project',
-        entity_id: '019c5ae8-0000-0000-0000-000000000001',
+        entity_id: '019c5ae8-0000-7000-8000-000000000001',
         link_types: ['todo', 'memory', 'github_issue'],
       });
       expect(result.success).toBe(true);
@@ -1191,7 +1191,7 @@ describe('entity link tools', () => {
 
     it('LinksQueryParamsSchema should reject missing entity_type', () => {
       const result = LinksQueryParamsSchema.safeParse({
-        entity_id: '019c5ae8-0000-0000-0000-000000000001',
+        entity_id: '019c5ae8-0000-7000-8000-000000000001',
       });
       expect(result.success).toBe(false);
     });
@@ -1199,9 +1199,9 @@ describe('entity link tools', () => {
     it('LinksRemoveParamsSchema should validate correct input', () => {
       const result = LinksRemoveParamsSchema.safeParse({
         source_type: 'todo',
-        source_id: '019c5ae8-0000-0000-0000-000000000001',
+        source_id: '019c5ae8-0000-7000-8000-000000000001',
         target_type: 'project',
-        target_ref: '019c5ae8-0000-0000-0000-000000000002',
+        target_ref: '019c5ae8-0000-7000-8000-000000000002',
       });
       expect(result.success).toBe(true);
     });
@@ -1209,9 +1209,9 @@ describe('entity link tools', () => {
     it('LinksRemoveParamsSchema should reject invalid source_type', () => {
       const result = LinksRemoveParamsSchema.safeParse({
         source_type: 'invalid',
-        source_id: '019c5ae8-0000-0000-0000-000000000001',
+        source_id: '019c5ae8-0000-7000-8000-000000000001',
         target_type: 'project',
-        target_ref: '019c5ae8-0000-0000-0000-000000000002',
+        target_ref: '019c5ae8-0000-7000-8000-000000000002',
       });
       expect(result.success).toBe(false);
     });

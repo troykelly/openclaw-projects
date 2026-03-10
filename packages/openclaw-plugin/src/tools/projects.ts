@@ -108,7 +108,7 @@ export function createProjectListTool(options: ProjectToolOptions): ProjectListT
     async execute(params: ProjectListParams): Promise<ProjectListResult> {
       const parseResult = ProjectListParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 
@@ -224,7 +224,7 @@ export function createProjectGetTool(options: ProjectToolOptions): ProjectGetToo
     async execute(params: ProjectGetParams): Promise<ProjectGetResult> {
       const parseResult = ProjectGetParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 
@@ -325,7 +325,7 @@ export function createProjectCreateTool(options: ProjectToolOptions): ProjectCre
     async execute(params: ProjectCreateParams): Promise<ProjectCreateResult> {
       const parseResult = ProjectCreateParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 

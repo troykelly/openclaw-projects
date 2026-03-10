@@ -143,7 +143,7 @@ export function createDevSessionCreateTool(options: DevSessionToolOptions): DevS
     async execute(params: DevSessionCreateParams): Promise<DevSessionCreateResult> {
       const parseResult = DevSessionCreateParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 
@@ -319,7 +319,7 @@ export function createDevSessionListTool(options: DevSessionToolOptions): DevSes
     async execute(params: DevSessionListParams): Promise<DevSessionListResult> {
       const parseResult = DevSessionListParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 
@@ -438,7 +438,7 @@ export function createDevSessionGetTool(options: DevSessionToolOptions): DevSess
     async execute(params: DevSessionGetParams): Promise<DevSessionGetResult> {
       const parseResult = DevSessionGetParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 
@@ -567,7 +567,7 @@ export function createDevSessionUpdateTool(options: DevSessionToolOptions): DevS
     async execute(params: DevSessionUpdateParams): Promise<DevSessionUpdateResult> {
       const parseResult = DevSessionUpdateParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 
@@ -695,7 +695,7 @@ export function createDevSessionCompleteTool(options: DevSessionToolOptions): De
     async execute(params: DevSessionCompleteParams): Promise<DevSessionCompleteResult> {
       const parseResult = DevSessionCompleteParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 

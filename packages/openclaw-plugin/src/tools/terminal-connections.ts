@@ -122,7 +122,7 @@ export function createTerminalConnectionListTool(options: TerminalConnectionTool
     async execute(params: TerminalConnectionListParams): Promise<TerminalConnectionListResult> {
       const parseResult = TerminalConnectionListParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 
@@ -247,7 +247,7 @@ export function createTerminalConnectionCreateTool(options: TerminalConnectionTo
     async execute(params: TerminalConnectionCreateParams): Promise<TerminalConnectionCreateResult> {
       const parseResult = TerminalConnectionCreateParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 
@@ -362,7 +362,7 @@ export function createTerminalConnectionUpdateTool(options: TerminalConnectionTo
     async execute(params: TerminalConnectionUpdateParams): Promise<TerminalConnectionUpdateResult> {
       const parseResult = TerminalConnectionUpdateParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 
@@ -467,7 +467,7 @@ export function createTerminalConnectionDeleteTool(options: TerminalConnectionTo
     async execute(params: TerminalConnectionDeleteParams): Promise<TerminalConnectionDeleteResult> {
       const parseResult = TerminalConnectionDeleteParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 
@@ -570,7 +570,7 @@ export function createTerminalConnectionTestTool(options: TerminalConnectionTool
     async execute(params: TerminalConnectionTestParams): Promise<TerminalConnectionTestResult> {
       const parseResult = TerminalConnectionTestParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 
@@ -689,7 +689,7 @@ export function createTerminalCredentialCreateTool(options: TerminalConnectionTo
     async execute(params: TerminalCredentialCreateParams): Promise<TerminalCredentialCreateResult> {
       const parseResult = TerminalCredentialCreateParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 
@@ -798,7 +798,7 @@ export function createTerminalCredentialListTool(options: TerminalConnectionTool
     async execute(params: TerminalCredentialListParams): Promise<TerminalCredentialListResult> {
       const parseResult = TerminalCredentialListParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 
@@ -907,7 +907,7 @@ export function createTerminalCredentialDeleteTool(options: TerminalConnectionTo
     async execute(params: TerminalCredentialDeleteParams): Promise<TerminalCredentialDeleteResult> {
       const parseResult = TerminalCredentialDeleteParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 

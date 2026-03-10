@@ -106,7 +106,7 @@ export function createRelationshipSetTool(options: RelationshipToolOptions): Rel
       // Validate parameters
       const parseResult = RelationshipSetParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 
@@ -270,7 +270,7 @@ export function createRelationshipQueryTool(options: RelationshipToolOptions): R
       // Validate parameters
       const parseResult = RelationshipQueryParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 

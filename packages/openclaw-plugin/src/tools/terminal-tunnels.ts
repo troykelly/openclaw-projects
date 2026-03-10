@@ -108,7 +108,7 @@ export function createTerminalTunnelCreateTool(options: TerminalTunnelToolOption
     async execute(params: TerminalTunnelCreateParams): Promise<TerminalTunnelCreateResult> {
       const parseResult = TerminalTunnelCreateParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 
@@ -244,7 +244,7 @@ export function createTerminalTunnelListTool(options: TerminalTunnelToolOptions)
     async execute(params: TerminalTunnelListParams): Promise<TerminalTunnelListResult> {
       const parseResult = TerminalTunnelListParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 
@@ -362,7 +362,7 @@ export function createTerminalTunnelCloseTool(options: TerminalTunnelToolOptions
     async execute(params: TerminalTunnelCloseParams): Promise<TerminalTunnelCloseResult> {
       const parseResult = TerminalTunnelCloseParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 
