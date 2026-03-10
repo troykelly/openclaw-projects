@@ -65,6 +65,7 @@ export function registerCors(app: FastifyInstance): void {
     // (frontend → backend trace propagation). See Epic #1998, Issue #2000.
     // X-Namespace and X-Namespaces are required for namespace-scoped API
     // requests (Issue #2369, Epic #2345).
+    // X-User-Email is used by note presence (Issue #2371).
     allowedHeaders: [
       'Authorization',
       'Content-Type',
@@ -73,6 +74,7 @@ export function registerCors(app: FastifyInstance): void {
       'baggage',
       'X-Namespace',
       'X-Namespaces',
+      'X-User-Email',
     ],
     credentials: true,
     maxAge: 86400,
