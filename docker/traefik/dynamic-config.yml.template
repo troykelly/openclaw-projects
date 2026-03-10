@@ -80,6 +80,7 @@ http:
           - baggage
           - X-Namespace
           - X-Namespaces
+          - X-User-Email
         accessControlAllowCredentials: true
         accessControlMaxAge: 86400
         addVaryHeader: true

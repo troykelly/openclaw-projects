@@ -264,6 +264,29 @@ describe('CORS configuration (Issue #1327)', () => {
     });
   });
 
+  describe('X-User-Email header in allowlist (Issue #2371)', () => {
+    it('includes X-User-Email in preflight Access-Control-Allow-Headers', async () => {
+      process.env.PUBLIC_BASE_URL = 'https://app.example.com';
+      const app = await buildCorsApp();
+
+      const res = await app.inject({
+        method: 'OPTIONS',
+        url: '/test',
+        headers: {
+          origin: 'https://app.example.com',
+          'access-control-request-method': 'GET',
+          'access-control-request-headers': 'X-User-Email',
+        },
+      });
+
+      expect(res.statusCode).toBe(204);
+      const allowedHeaders = res.headers['access-control-allow-headers'];
+      expect(allowedHeaders).toContain('X-User-Email');
+
+      await app.close();
+    });
+  });
+
   describe('Vary header', () => {
     it('includes Vary: Origin for requests with origin header', async () => {
       process.env.PUBLIC_BASE_URL = 'https://app.example.com';

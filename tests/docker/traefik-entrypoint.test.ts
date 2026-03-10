@@ -560,6 +560,15 @@ describe('Traefik dynamic config: api-cors namespace headers (Issue #2369)', () 
     expect(allowedHeaders).toContain('X-Namespace');
     expect(allowedHeaders).toContain('X-Namespaces');
   });
+
+  it('api-cors middleware includes X-User-Email in accessControlAllowHeaders (Issue #2371)', () => {
+    const config = getParsedConfig();
+    const apiCors = config.http.middlewares['api-cors'];
+    expect(apiCors).toBeDefined();
+    const allowedHeaders = apiCors.headers?.accessControlAllowHeaders;
+    expect(allowedHeaders).toBeDefined();
+    expect(allowedHeaders).toContain('X-User-Email');
+  });
 });
 
 describe('ModSecurity ALLOWED_METHODS in compose files (Issue #1917)', () => {
