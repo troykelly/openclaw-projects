@@ -371,31 +371,21 @@ configure_mcp() {
         return 1
     fi
 
-    # Codex MCP wrapper
-    if command -v codex &>/dev/null; then
-        sudo tee /usr/local/bin/codex-mcp-wrapper >/dev/null <<'CODEX_WRAPPER'
-#!/bin/sh
-exec codex --dangerously-bypass-approvals-and-sandbox --full-auto mcp
-CODEX_WRAPPER
-        sudo chmod +x /usr/local/bin/codex-mcp-wrapper
-        claude mcp add codex -s user -- /usr/local/bin/codex-mcp-wrapper 2>/dev/null || true
-        echo "Codex MCP server registered"
+    # MCP servers are registered in the user's ~/.claude.json via jq
+    # (claude mcp add -s user writes to the calling user's HOME, which may
+    # be root during post-create — so we manipulate the JSON directly)
+    local user_claude_json="${DEV_HOME}/.claude.json"
+    if [ ! -f "$user_claude_json" ]; then
+        echo '{}' > "$user_claude_json"
     fi
 
-    # Playwright MCP — configure to use system chromium
-    local pw_config_dir="${DEV_HOME}/.claude/plugin-settings"
-    if [ -d "$pw_config_dir" ] || command -v pnpm &>/dev/null; then
-        # Find the playwright plugin config and patch it
-        local pw_config=""
-        pw_config="$(find "${DEV_HOME}/.claude" -path '*/playwright/config.json' -type f 2>/dev/null | head -1)"
-        if [ -n "$pw_config" ]; then
-            local tmp_pw=""
-            tmp_pw="$(mktemp)"
-            jq '.mcpServers.playwright.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH = "/usr/bin/chromium"
-                | .mcpServers.playwright.env.PLAYWRIGHT_LAUNCH_OPTIONS = "{\"args\":[\"--no-sandbox\"]}"' \
-                "$pw_config" > "$tmp_pw" 2>/dev/null && mv "$tmp_pw" "$pw_config"
-            echo "Playwright MCP configured for system chromium"
-        fi
+    # Codex MCP — runs codex as an MCP server via stdio
+    if command -v codex &>/dev/null; then
+        local tmp_mcp=""
+        tmp_mcp="$(mktemp)"
+        jq '.mcpServers.codex = {"type":"stdio","command":"codex","args":["mcp-server"],"env":{}}' \
+            "$user_claude_json" > "$tmp_mcp" && mv "$tmp_mcp" "$user_claude_json"
+        echo "Codex MCP server registered"
     fi
 
     # GlitchTip MCP — error tracking with project filtering (CleverMobi/glitchtip-mcp)
@@ -404,17 +394,23 @@ CODEX_WRAPPER
         local glitchtip_org="${GLITCHTIP_ORGANIZATION:-aperim}"
         local glitchtip_url="${GLITCHTIP_API_URL:-https://glitchtip.sy3.aperim.net}"
 
-        claude mcp add-json glitchtip "{
-            \"type\": \"stdio\",
-            \"command\": \"npx\",
-            \"args\": [\"-y\", \"github:CleverMobi/glitchtip-mcp\"],
-            \"env\": {
-                \"GLITCHTIP_API_TOKEN\": \"${GLITCHTIP_AUTH_TOKEN}\",
-                \"GLITCHTIP_API_ENDPOINT\": \"${glitchtip_url}\",
-                \"GLITCHTIP_ORGANIZATION_SLUG\": \"${glitchtip_org}\"
-            }
-        }" --scope user || true
+        local tmp_mcp=""
+        tmp_mcp="$(mktemp)"
+        jq --arg token "$GLITCHTIP_AUTH_TOKEN" \
+           --arg url "$glitchtip_url" \
+           --arg org "$glitchtip_org" \
+           '.mcpServers.glitchtip = {
+                "type":"stdio",
+                "command":"npx",
+                "args":["-y","github:CleverMobi/glitchtip-mcp"],
+                "env":{
+                    "GLITCHTIP_API_TOKEN":$token,
+                    "GLITCHTIP_API_ENDPOINT":$url,
+                    "GLITCHTIP_ORGANIZATION_SLUG":$org
+                }
+            }' "$user_claude_json" > "$tmp_mcp" && mv "$tmp_mcp" "$user_claude_json"
 
+        # Also register with Codex if available
         if command -v codex &>/dev/null; then
             codex mcp add glitchtip \
                 --env "GLITCHTIP_API_TOKEN=${GLITCHTIP_AUTH_TOKEN}" \
@@ -427,6 +423,9 @@ CODEX_WRAPPER
     else
         echo "GLITCHTIP_AUTH_TOKEN not set — skipping GlitchTip MCP"
     fi
+
+    # Ensure correct ownership
+    chown "$DEV_USER" "$user_claude_json" 2>/dev/null || true
 }
 
 ###############################################################################
