@@ -2,9 +2,9 @@
 set -euo pipefail
 
 # ---------------------------------------------------------------------------
-# test-postCreate.sh — Integration test for postCreate.sh
+# test-postCreate.sh — Integration test for post-create.sh
 #
-# Runs postCreate.sh in a clean container and verifies installation results.
+# Runs post-create.sh in a clean container and verifies installation results.
 # Part of Epic #967, Issue #977
 #
 # USAGE:
@@ -14,14 +14,13 @@ set -euo pipefail
 #   TEST_IMAGE - Docker image to use for testing (default: mcr.microsoft.com/devcontainers/base:ubuntu)
 #
 # WHAT IT TESTS:
-#   - postCreate.sh executes without errors
-#   - Summary output is produced with OK/FAIL indicators
+#   - post-create.sh executes without errors
+#   - Summary output is produced with status indicators
 #   - Script handles failures gracefully (continues after errors)
 #   - Basic prerequisites (curl, jq) are available
 #   - Optional: Claude Code and Codex installation (if dependencies available)
 #
 # LIMITATIONS:
-#   - Does not test GitHub token-dependent features (OpenClaw gateway clone)
 #   - Does not test cloud credential restoration (requires secrets)
 #   - Does not test plugin installation (requires external services)
 #
@@ -57,14 +56,14 @@ test_basic_prerequisites() {
 }
 
 test_postCreate_execution() {
-  log "Testing: postCreate.sh execution"
+  log "Testing: post-create.sh execution"
 
-  # Run postCreate.sh without GitHub token (some steps will fail gracefully)
+  # Run post-create.sh without GitHub token (some steps will fail gracefully)
   docker run --rm --name "${TEST_CONTAINER_NAME}" \
     -v "$REPO_ROOT:/workspace" -w /workspace \
     -e HOME=/tmp/test-home \
     "$TEST_IMAGE" \
-    bash .devcontainer/postCreate.sh
+    bash .devcontainer/post-create.sh
 }
 
 test_claude_installation() {
@@ -96,7 +95,7 @@ test_codex_installation() {
 }
 
 test_summary_output() {
-  log "Testing: postCreate.sh summary output format"
+  log "Testing: post-create.sh summary output format"
 
   # Verify the script produces a summary
   local output
@@ -104,15 +103,15 @@ test_summary_output() {
     -v "$REPO_ROOT:/workspace" -w /workspace \
     -e HOME=/tmp/test-home \
     "$TEST_IMAGE" \
-    bash .devcontainer/postCreate.sh 2>&1)
+    bash .devcontainer/post-create.sh 2>&1)
 
-  if ! echo "$output" | grep -q "Setup Summary"; then
-    error "postCreate.sh did not produce expected summary output"
+  if ! echo "$output" | grep -q "Post-create complete"; then
+    error "post-create.sh did not produce expected summary output"
     return 1
   fi
 
-  if ! echo "$output" | grep -qE "(OK|FAIL)"; then
-    error "postCreate.sh summary missing OK/FAIL status indicators"
+  if ! echo "$output" | grep -qE "(✅|❌)"; then
+    error "post-create.sh summary missing status indicators"
     return 1
   fi
 
@@ -122,23 +121,23 @@ test_summary_output() {
 test_failure_handling() {
   log "Testing: Graceful failure handling"
 
-  # Run without GITHUB_TOKEN - OpenClaw gateway step should fail but script continues
+  # Run without external dependencies - some steps will fail but script continues
   local output
   output=$(docker run --rm --name "${TEST_CONTAINER_NAME}" \
     -v "$REPO_ROOT:/workspace" -w /workspace \
     -e HOME=/tmp/test-home \
     "$TEST_IMAGE" \
-    bash .devcontainer/postCreate.sh 2>&1)
+    bash .devcontainer/post-create.sh 2>&1)
 
   # Script should complete even with failures
-  if ! echo "$output" | grep -q "postCreate setup complete"; then
-    error "postCreate.sh did not complete with failures"
+  if ! echo "$output" | grep -q "Post-create complete"; then
+    error "post-create.sh did not complete with failures"
     return 1
   fi
 
-  # Should have at least one FAIL entry (OpenClaw gateway without token)
-  if ! echo "$output" | grep -q "FAIL"; then
-    error "Expected at least one FAIL entry for missing GITHUB_TOKEN"
+  # Should have at least one failure indicator (some steps will fail in bare container)
+  if ! echo "$output" | grep -q "❌"; then
+    error "Expected at least one failure indicator in bare container run"
     return 1
   fi
 
@@ -150,7 +149,7 @@ test_failure_handling() {
 # ---------------------------------------------------------------------------
 
 main() {
-  log "Starting postCreate.sh integration tests"
+  log "Starting post-create.sh integration tests"
   log "Test image: $TEST_IMAGE"
   log "Repository: $REPO_ROOT"
   log ""
