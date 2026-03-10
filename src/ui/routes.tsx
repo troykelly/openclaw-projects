@@ -47,6 +47,7 @@ const SymphonyDashboardPage = React.lazy(() => import('@/ui/pages/SymphonyDashbo
 const SymphonyConfigPage = React.lazy(() => import('@/ui/pages/SymphonyConfigPage.js').then((m) => ({ default: m.SymphonyConfigPage })));
 const OAuthCallbackPage = React.lazy(() => import('@/ui/pages/OAuthCallbackPage.js').then((m) => ({ default: m.OAuthCallbackPage })));
 const AuthConsumePage = React.lazy(() => import('@/ui/pages/AuthConsumePage.js').then((m) => ({ default: m.AuthConsumePage })));
+const NamespaceSettingsPage = React.lazy(() => import('@/ui/pages/NamespaceSettingsPage.js').then((m) => ({ default: m.NamespaceSettingsPage })));
 
 // Symphony pages (Epic #2186)
 const SymphonyRunDetailPage = React.lazy(() => import('@/ui/pages/symphony/RunDetailPage.js').then((m) => ({ default: m.RunDetailPage })));
@@ -262,6 +263,14 @@ export const routes: RouteObject[] = [
       {
         path: 'settings',
         element: lazy(SettingsPage),
+      },
+      {
+        path: 'settings/namespaces',
+        element: lazy(NamespaceSettingsPage),
+      },
+      {
+        path: 'settings/namespaces/:ns',
+        element: lazy(NamespaceSettingsPage),
       },
       {
         path: 'settings/oauth/callback',
