@@ -4,10 +4,11 @@
  * Creates a memory attached to a specific work item and invalidates
  * the related memory queries.
  */
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { apiClient } from '@/ui/lib/api-client.ts';
 import type { CreateMemoryBody, Memory } from '@/ui/lib/api-types.ts';
 import { memoryKeys } from '@/ui/hooks/queries/use-memories.ts';
+import { useNamespaceInvalidate } from '@/ui/hooks/use-namespace-invalidate.ts';
 
 /** Variables for the create memory mutation. */
 export interface CreateMemoryVariables {
@@ -29,15 +30,15 @@ export interface CreateMemoryVariables {
  * ```
  */
 export function useCreateMemory() {
-  const queryClient = useQueryClient();
+  const nsInvalidate = useNamespaceInvalidate();
 
   return useMutation({
     mutationFn: ({ work_item_id, body }: CreateMemoryVariables) => apiClient.post<Memory>(`/work-items/${work_item_id}/memories`, body),
 
     onSuccess: (_data, { work_item_id }) => {
-      // Invalidate the work item's memories list and global memories
-      queryClient.invalidateQueries({ queryKey: memoryKeys.forWorkItem(work_item_id) });
-      queryClient.invalidateQueries({ queryKey: memoryKeys.lists() });
+      // Invalidate the work item's memories list and global memories (#2363: namespace-aware)
+      nsInvalidate(memoryKeys.forWorkItem(work_item_id));
+      nsInvalidate(memoryKeys.lists());
     },
   });
 }

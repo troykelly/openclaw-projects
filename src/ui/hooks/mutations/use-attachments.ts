@@ -3,19 +3,20 @@
  *
  * Issue #1708: File attachments integration.
  */
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { apiClient } from '@/ui/lib/api-client.ts';
 import { attachmentKeys } from '@/ui/hooks/queries/use-attachments.ts';
+import { useNamespaceInvalidate } from '@/ui/hooks/use-namespace-invalidate.ts';
 
 /** Delete a file attachment. */
 export function useDeleteAttachment(workItemId: string) {
-  const queryClient = useQueryClient();
+  const nsInvalidate = useNamespaceInvalidate();
 
   return useMutation({
     mutationFn: (attachmentId: string) =>
       apiClient.delete(`/work-items/${workItemId}/attachments/${attachmentId}`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: attachmentKeys.forWorkItem(workItemId) });
+      nsInvalidate(attachmentKeys.forWorkItem(workItemId));
     },
   });
 }

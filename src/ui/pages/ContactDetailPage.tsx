@@ -56,6 +56,7 @@ import { useContactWorkItems } from '@/ui/hooks/queries/use-work-item-contacts';
 import { apiClient } from '@/ui/lib/api-client';
 import type { CommChannel, Contact, ContactAddress, ContactBody, ContactDate, ContactEndpoint, CreateContactBody, CustomField, EndpointType, Memory } from '@/ui/lib/api-types';
 import { formatContactName, getContactInitials } from '@/ui/lib/format-contact-name';
+import { NamespaceBadge } from '@/ui/components/namespace';
 import type { ContactRelationship as RelComponentRelationship, Contact as RelComponentContact, NewRelationshipData } from '@/ui/components/relationships/types';
 import type { ContactGroup } from '@/ui/components/organizations/types';
 import type { Activity } from '@/ui/components/activity/types';
@@ -404,6 +405,7 @@ export function ContactDetailPage(): React.JSX.Element {
               {contact.contact_kind && contact.contact_kind !== 'person' && (
                 <Badge variant="outline">{contact.contact_kind}</Badge>
               )}
+              <NamespaceBadge namespace={contact.namespace} />
             </div>
             <div className="mt-1 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
               {email && (

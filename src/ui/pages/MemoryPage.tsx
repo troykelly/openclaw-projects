@@ -76,6 +76,7 @@ import { useMemories, useMemorySearch } from '@/ui/hooks/queries/use-memories';
 import { useProjects } from '@/ui/hooks/queries/use-projects';
 import { apiClient } from '@/ui/lib/api-client';
 import type { CreateMemoryBody, Memory, UpdateMemoryBody } from '@/ui/lib/api-types';
+import { NamespaceBadge } from '@/ui/components/namespace';
 
 /** Memory type for filtering. */
 type MemoryTypeFilter = 'preference' | 'fact' | 'decision' | 'context' | 'note' | 'reference';
@@ -653,6 +654,7 @@ export function MemoryPage(): React.JSX.Element {
                               Superseded
                             </Badge>
                           )}
+                          <NamespaceBadge namespace={memory.namespace} />
                           {/* Geolocation badge (#1728) */}
                           {memory.place_label && (
                             <Badge variant="outline" className="text-xs gap-1">

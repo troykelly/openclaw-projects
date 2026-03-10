@@ -4,9 +4,10 @@
  * Provides mutations for creating sessions, sending messages,
  * ending sessions, and updating session titles.
  */
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { apiClient } from '@/ui/lib/api-client.ts';
 import { chatKeys } from '@/ui/hooks/queries/use-chat.ts';
+import { useNamespaceInvalidate } from '@/ui/hooks/use-namespace-invalidate.ts';
 import type {
   ChatSession,
   ChatMessage,
@@ -17,20 +18,20 @@ import type {
 
 /** Create a new chat session. */
 export function useCreateChatSession() {
-  const queryClient = useQueryClient();
+  const nsInvalidate = useNamespaceInvalidate();
 
   return useMutation({
     mutationFn: (body: CreateChatSessionBody) =>
       apiClient.post<ChatSession>('/chat/sessions', body),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: chatKeys.sessions() });
+      nsInvalidate(chatKeys.sessions());
     },
   });
 }
 
 /** Send a message in a chat session. */
 export function useSendChatMessage(sessionId: string) {
-  const queryClient = useQueryClient();
+  const nsInvalidate = useNamespaceInvalidate();
 
   return useMutation({
     mutationFn: (body: SendChatMessageBody) =>
@@ -39,28 +40,28 @@ export function useSendChatMessage(sessionId: string) {
         body,
       ),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: chatKeys.messages(sessionId) });
-      queryClient.invalidateQueries({ queryKey: chatKeys.sessions() });
+      nsInvalidate(chatKeys.messages(sessionId));
+      nsInvalidate(chatKeys.sessions());
     },
   });
 }
 
 /** End a chat session. */
 export function useEndChatSession() {
-  const queryClient = useQueryClient();
+  const nsInvalidate = useNamespaceInvalidate();
 
   return useMutation({
     mutationFn: (sessionId: string) =>
       apiClient.post(`/chat/sessions/${encodeURIComponent(sessionId)}/end`, {}),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: chatKeys.sessions() });
+      nsInvalidate(chatKeys.sessions());
     },
   });
 }
 
 /** Update a chat session title. */
 export function useUpdateChatSession(sessionId: string) {
-  const queryClient = useQueryClient();
+  const nsInvalidate = useNamespaceInvalidate();
 
   return useMutation({
     mutationFn: (body: UpdateChatSessionBody) =>
@@ -69,8 +70,8 @@ export function useUpdateChatSession(sessionId: string) {
         body,
       ),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: chatKeys.sessions() });
-      queryClient.invalidateQueries({ queryKey: chatKeys.session(sessionId) });
+      nsInvalidate(chatKeys.sessions());
+      nsInvalidate(chatKeys.session(sessionId));
     },
   });
 }

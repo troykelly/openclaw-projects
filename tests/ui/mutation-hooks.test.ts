@@ -216,7 +216,22 @@ describe('useDeleteWorkItem', () => {
     });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(invalidateSpy).toHaveBeenCalledWith(expect.objectContaining({ queryKey: workItemKeys.all }));
+
+    // #2363: invalidation now uses a predicate function for namespace-aware matching
+    // instead of a bare queryKey filter
+    expect(invalidateSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ predicate: expect.any(Function) }),
+    );
+
+    // Verify the predicate correctly matches work-item queries (bare and namespace-prefixed)
+    const { predicate } = invalidateSpy.mock.calls[0][0] as { predicate: (query: { queryKey: readonly unknown[] }) => boolean };
+    // Bare key should match
+    expect(predicate({ queryKey: ['work-items'] } as never)).toBe(true);
+    expect(predicate({ queryKey: ['work-items', 'list'] } as never)).toBe(true);
+    // Namespace-prefixed key should match
+    expect(predicate({ queryKey: [{ namespaces: ['ns1'] }, 'work-items', 'list'] } as never)).toBe(true);
+    // Unrelated key should NOT match
+    expect(predicate({ queryKey: ['contacts'] } as never)).toBe(false);
   });
 });
 

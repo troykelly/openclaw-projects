@@ -3,9 +3,10 @@
  *
  * Issue #1712: Dependency creation/deletion (was read-only).
  */
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { apiClient } from '@/ui/lib/api-client.ts';
 import { workItemKeys } from '@/ui/hooks/queries/use-work-items.ts';
+import { useNamespaceInvalidate } from '@/ui/hooks/use-namespace-invalidate.ts';
 
 /** Body for creating a dependency. */
 export interface CreateDependencyBody {
@@ -15,28 +16,28 @@ export interface CreateDependencyBody {
 
 /** Add a dependency to a work item. */
 export function useAddDependency(workItemId: string) {
-  const queryClient = useQueryClient();
+  const nsInvalidate = useNamespaceInvalidate();
 
   return useMutation({
     mutationFn: (body: CreateDependencyBody) =>
       apiClient.post(`/work-items/${workItemId}/dependencies`, body),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: workItemKeys.detail(workItemId) });
-      queryClient.invalidateQueries({ queryKey: workItemKeys.lists() });
+      nsInvalidate(workItemKeys.detail(workItemId));
+      nsInvalidate(workItemKeys.lists());
     },
   });
 }
 
 /** Remove a dependency from a work item. */
 export function useRemoveDependency(workItemId: string) {
-  const queryClient = useQueryClient();
+  const nsInvalidate = useNamespaceInvalidate();
 
   return useMutation({
     mutationFn: (depId: string) =>
       apiClient.delete(`/work-items/${workItemId}/dependencies/${depId}`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: workItemKeys.detail(workItemId) });
-      queryClient.invalidateQueries({ queryKey: workItemKeys.lists() });
+      nsInvalidate(workItemKeys.detail(workItemId));
+      nsInvalidate(workItemKeys.lists());
     },
   });
 }

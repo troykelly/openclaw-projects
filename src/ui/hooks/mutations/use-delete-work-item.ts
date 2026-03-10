@@ -3,9 +3,10 @@
  *
  * Soft-deletes a work item and invalidates related queries.
  */
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { apiClient } from '@/ui/lib/api-client.ts';
 import { workItemKeys } from '@/ui/hooks/queries/use-work-items.ts';
+import { useNamespaceInvalidate } from '@/ui/hooks/use-namespace-invalidate.ts';
 
 /** Variables for the delete mutation. */
 export interface DeleteWorkItemVariables {
@@ -27,14 +28,14 @@ export interface DeleteWorkItemVariables {
  * ```
  */
 export function useDeleteWorkItem() {
-  const queryClient = useQueryClient();
+  const nsInvalidate = useNamespaceInvalidate();
 
   return useMutation({
     mutationFn: ({ id }: DeleteWorkItemVariables) => apiClient.delete(`/work-items/${id}`),
 
     onSuccess: () => {
-      // Invalidate all work item queries so lists/trees reflect the deletion
-      queryClient.invalidateQueries({ queryKey: workItemKeys.all });
+      // Invalidate all work item queries so lists/trees reflect the deletion (#2363: namespace-aware)
+      nsInvalidate(workItemKeys.all);
     },
   });
 }

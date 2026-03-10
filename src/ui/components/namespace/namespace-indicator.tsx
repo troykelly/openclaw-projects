@@ -1,5 +1,5 @@
 /**
- * Namespace indicator for the header bar (Issue #1482).
+ * Namespace indicator for the header bar (Issue #1482, #2352).
  *
  * Shows the current active namespace in the header. For multi-namespace users,
  * this provides a quick-switch dropdown. For single-namespace users, it shows
@@ -10,6 +10,7 @@ import { Globe } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/components/ui/select';
 import { useNamespaceSafe } from '@/ui/contexts/namespace-context';
 import { cn } from '@/ui/lib/utils';
+import { NAMESPACE_STRINGS } from '@/ui/constants/namespace-strings';
 
 export interface NamespaceIndicatorProps {
   className?: string;
@@ -44,7 +45,7 @@ export function NamespaceIndicator({ className }: NamespaceIndicatorProps): Reac
         <SelectTrigger
           size="sm"
           className="h-8 gap-1.5 border-none bg-transparent px-2 text-xs shadow-none hover:bg-muted"
-          aria-label="Switch namespace"
+          aria-label={NAMESPACE_STRINGS.selector.switchAriaLabel}
         >
           <Globe className="size-3 text-muted-foreground" />
           <SelectValue />

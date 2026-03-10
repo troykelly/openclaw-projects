@@ -3,9 +3,10 @@
  *
  * Issue #1722: Bulk operations.
  */
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { apiClient } from '@/ui/lib/api-client.ts';
 import { workItemKeys } from '@/ui/hooks/queries/use-work-items.ts';
+import { useNamespaceInvalidate } from '@/ui/hooks/use-namespace-invalidate.ts';
 
 /** Body for bulk status/priority update. */
 export interface BulkUpdateBody {
@@ -21,26 +22,26 @@ export interface BulkDeleteBody {
 
 /** Bulk update work items (status/priority). */
 export function useBulkUpdateWorkItems() {
-  const queryClient = useQueryClient();
+  const nsInvalidate = useNamespaceInvalidate();
 
   return useMutation({
     mutationFn: (body: BulkUpdateBody) =>
       apiClient.patch('/work-items/bulk', body),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: workItemKeys.all });
+      nsInvalidate(workItemKeys.all);
     },
   });
 }
 
 /** Bulk delete work items. */
 export function useBulkDeleteWorkItems() {
-  const queryClient = useQueryClient();
+  const nsInvalidate = useNamespaceInvalidate();
 
   return useMutation({
     mutationFn: (body: BulkDeleteBody) =>
       apiClient.delete('/work-items/bulk', body),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: workItemKeys.all });
+      nsInvalidate(workItemKeys.all);
     },
   });
 }

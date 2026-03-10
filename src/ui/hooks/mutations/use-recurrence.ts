@@ -3,9 +3,10 @@
  *
  * Issue #1710: Recurring tasks.
  */
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { apiClient } from '@/ui/lib/api-client.ts';
 import { recurrenceKeys } from '@/ui/hooks/queries/use-recurrence.ts';
+import { useNamespaceInvalidate } from '@/ui/hooks/use-namespace-invalidate.ts';
 
 /** Body for setting recurrence. */
 export interface SetRecurrenceBody {
@@ -14,28 +15,28 @@ export interface SetRecurrenceBody {
 
 /** Set or update recurrence for a work item. */
 export function useSetRecurrence(workItemId: string) {
-  const queryClient = useQueryClient();
+  const nsInvalidate = useNamespaceInvalidate();
 
   return useMutation({
     mutationFn: (body: SetRecurrenceBody) =>
       apiClient.put(`/work-items/${workItemId}/recurrence`, body),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: recurrenceKeys.rule(workItemId) });
-      queryClient.invalidateQueries({ queryKey: recurrenceKeys.instances(workItemId) });
+      nsInvalidate(recurrenceKeys.rule(workItemId));
+      nsInvalidate(recurrenceKeys.instances(workItemId));
     },
   });
 }
 
 /** Remove recurrence from a work item. */
 export function useDeleteRecurrence(workItemId: string) {
-  const queryClient = useQueryClient();
+  const nsInvalidate = useNamespaceInvalidate();
 
   return useMutation({
     mutationFn: () =>
       apiClient.delete(`/work-items/${workItemId}/recurrence`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: recurrenceKeys.rule(workItemId) });
-      queryClient.invalidateQueries({ queryKey: recurrenceKeys.instances(workItemId) });
+      nsInvalidate(recurrenceKeys.rule(workItemId));
+      nsInvalidate(recurrenceKeys.instances(workItemId));
     },
   });
 }

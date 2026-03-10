@@ -53,6 +53,7 @@ import type {
   NoteShare,
 } from '@/ui/lib/api-types.ts';
 import { noteKeys } from '@/ui/hooks/queries/use-notes.ts';
+import { useNamespaceInvalidate } from '@/ui/hooks/use-namespace-invalidate.ts';
 
 /**
  * Variables for the shareNoteWithUser mutation.
@@ -162,14 +163,15 @@ export interface RevokeNoteShareVariables {
  */
 export function useShareNoteWithUser(): UseMutationResult<NoteUserShare, ApiRequestError, ShareNoteWithUserVariables> {
   const queryClient = useQueryClient();
+  const nsInvalidate = useNamespaceInvalidate();
 
   return useMutation({
     mutationFn: ({ noteId, body }: ShareNoteWithUserVariables) => apiClient.post<NoteUserShare>(`/notes/${encodeURIComponent(noteId)}/share`, body),
 
     onSuccess: (_, { noteId }) => {
       // Invalidate shares and note detail for this note
-      queryClient.invalidateQueries({ queryKey: noteKeys.shares(noteId) });
-      queryClient.invalidateQueries({ queryKey: noteKeys.detail(noteId) });
+      nsInvalidate(noteKeys.shares(noteId));
+      nsInvalidate(noteKeys.detail(noteId));
     },
 
     onError: (error) => {
@@ -237,6 +239,7 @@ export function useShareNoteWithUser(): UseMutationResult<NoteUserShare, ApiRequ
  */
 export function useCreateNoteShareLink(): UseMutationResult<CreateLinkShareResponse, ApiRequestError, CreateNoteShareLinkVariables> {
   const queryClient = useQueryClient();
+  const nsInvalidate = useNamespaceInvalidate();
 
   return useMutation({
     mutationFn: ({ noteId, body }: CreateNoteShareLinkVariables) =>
@@ -244,8 +247,8 @@ export function useCreateNoteShareLink(): UseMutationResult<CreateLinkShareRespo
 
     onSuccess: (_, { noteId }) => {
       // Invalidate shares and note detail for this note
-      queryClient.invalidateQueries({ queryKey: noteKeys.shares(noteId) });
-      queryClient.invalidateQueries({ queryKey: noteKeys.detail(noteId) });
+      nsInvalidate(noteKeys.shares(noteId));
+      nsInvalidate(noteKeys.detail(noteId));
     },
 
     onError: (error) => {
@@ -313,6 +316,7 @@ export function useCreateNoteShareLink(): UseMutationResult<CreateLinkShareRespo
  */
 export function useUpdateNoteShare(): UseMutationResult<NoteShare, ApiRequestError, UpdateNoteShareVariables> {
   const queryClient = useQueryClient();
+  const nsInvalidate = useNamespaceInvalidate();
 
   return useMutation({
     mutationFn: ({ noteId, shareId, body }: UpdateNoteShareVariables) =>
@@ -346,7 +350,7 @@ export function useUpdateNoteShare(): UseMutationResult<NoteShare, ApiRequestErr
 
     onSettled: (_, _error, { noteId }) => {
       // Always refetch to ensure consistency
-      queryClient.invalidateQueries({ queryKey: noteKeys.shares(noteId) });
+      nsInvalidate(noteKeys.shares(noteId));
     },
   });
 }
@@ -414,6 +418,7 @@ export function useUpdateNoteShare(): UseMutationResult<NoteShare, ApiRequestErr
  */
 export function useRevokeNoteShare(): UseMutationResult<void, ApiRequestError, RevokeNoteShareVariables> {
   const queryClient = useQueryClient();
+  const nsInvalidate = useNamespaceInvalidate();
 
   return useMutation({
     mutationFn: ({ noteId, shareId }: RevokeNoteShareVariables) =>
@@ -447,9 +452,9 @@ export function useRevokeNoteShare(): UseMutationResult<void, ApiRequestError, R
 
     onSettled: (_, _error, { noteId }) => {
       // Always refetch to ensure consistency
-      queryClient.invalidateQueries({ queryKey: noteKeys.shares(noteId) });
-      queryClient.invalidateQueries({ queryKey: noteKeys.detail(noteId) });
-      queryClient.invalidateQueries({ queryKey: noteKeys.sharedWithMe() });
+      nsInvalidate(noteKeys.shares(noteId));
+      nsInvalidate(noteKeys.detail(noteId));
+      nsInvalidate(noteKeys.sharedWithMe());
     },
   });
 }

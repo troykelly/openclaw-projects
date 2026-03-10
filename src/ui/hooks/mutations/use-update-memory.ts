@@ -3,10 +3,11 @@
  *
  * Updates a memory by ID and invalidates related queries.
  */
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { apiClient } from '@/ui/lib/api-client.ts';
 import type { UpdateMemoryBody, Memory } from '@/ui/lib/api-types.ts';
 import { memoryKeys } from '@/ui/hooks/queries/use-memories.ts';
+import { useNamespaceInvalidate } from '@/ui/hooks/use-namespace-invalidate.ts';
 
 /** Variables for the update memory mutation. */
 export interface UpdateMemoryVariables {
@@ -30,17 +31,17 @@ export interface UpdateMemoryVariables {
  * ```
  */
 export function useUpdateMemory() {
-  const queryClient = useQueryClient();
+  const nsInvalidate = useNamespaceInvalidate();
 
   return useMutation({
     mutationFn: ({ id, body }: UpdateMemoryVariables) => apiClient.patch<Memory>(`/memories/${id}`, body),
 
     onSuccess: (_data, { work_item_id }) => {
-      // Invalidate global memories list
-      queryClient.invalidateQueries({ queryKey: memoryKeys.lists() });
+      // Invalidate global memories list (#2363: namespace-aware)
+      nsInvalidate(memoryKeys.lists());
       // If we know the work item, invalidate its specific memory list
       if (work_item_id) {
-        queryClient.invalidateQueries({ queryKey: memoryKeys.forWorkItem(work_item_id) });
+        nsInvalidate(memoryKeys.forWorkItem(work_item_id));
       }
     },
   });
