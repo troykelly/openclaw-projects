@@ -685,7 +685,11 @@ jobs:
         run: |
           set -euo pipefail
           pnpm exec sentry-cli releases new "${RELEASE_VERSION}"
-          pnpm exec sentry-cli releases set-commits "${RELEASE_VERSION}" --auto
+          # GlitchTip may not support set-commits — treat as informational only.
+          # sentry-cli v3 changed the API; self-hosted instances return HTTP 500.
+          if ! pnpm exec sentry-cli releases set-commits "${RELEASE_VERSION}" --auto; then
+            echo "::warning::set-commits failed (GlitchTip may not support this endpoint) — continuing"
+          fi
           pnpm exec sentry-cli releases finalize "${RELEASE_VERSION}"
 
   # ──────────────────────────────────────────────────────────────
