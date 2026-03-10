@@ -138,7 +138,7 @@ export function workItemsPaths(): OpenApiDomainModule {
         properties: {
           title: { type: 'string', description: 'Title of the work item (required)', example: 'Implement user authentication' },
           description: { type: 'string', nullable: true, description: 'Detailed description in markdown', example: 'Add JWT-based auth flow with refresh tokens' },
-          kind: { $ref: '#/components/schemas/WorkItemKind', description: 'Hierarchy level (defaults to task if omitted)' },
+          kind: { $ref: '#/components/schemas/WorkItemKind', description: 'Hierarchy level (defaults to issue if omitted)' },
           type: { type: 'string', description: 'Alias for kind (client compatibility)', example: 'task' },
           item_type: { type: 'string', description: 'Alias for kind (OpenClaw plugin compatibility)', example: 'task' },
           parent_id: { type: 'string', format: 'uuid', nullable: true, description: 'UUID of the parent work item', example: 'a1b2c3d4-5678-90ab-cdef-1234567890ab' },
@@ -551,7 +551,7 @@ export function workItemsPaths(): OpenApiDomainModule {
         get: {
           operationId: 'listWorkItems',
           summary: 'List work items',
-          description: 'Returns work items ordered by creation date descending. Soft-deleted items are excluded by default.',
+          description: 'Returns work items ordered by creation date descending. Soft-deleted items are excluded by default.\n\n**Agent happy paths:**\n- HP-A2: `GET /work-items?kind=project` to find existing projects.\n- HP-A4: `GET /work-items?scope=triage` to list unparented issues.\n- `GET /work-items?kind=list` to find all lists.',
           tags: ['Work Items'],
           parameters: [
             namespaceParam(),
@@ -624,7 +624,7 @@ export function workItemsPaths(): OpenApiDomainModule {
         post: {
           operationId: 'createWorkItem',
           summary: 'Create a work item',
-          description: 'Creates a new work item. Validates hierarchy constraints (e.g. epic must have initiative parent). Generates embedding for semantic search.',
+          description: 'Creates a new work item. Validates hierarchy constraints (e.g. epic must have initiative parent). Generates embedding for semantic search.\n\n**Agent happy paths:**\n- HP-A1: Create hierarchy: project → initiative (parent_id=project) → epic (parent_id=initiative) → issue (parent_id=epic).\n- HP-A3: Create list: `{ "kind": "list", "title": "Groceries" }`. Add items via POST /work-items/{id}/todos.\n- HP-A4: Quick issue for triage: `{ "kind": "issue", "title": "Call dentist" }` (no parent_id).',
           tags: ['Work Items'],
           parameters: [namespaceParam()],
           requestBody: jsonBody(ref('WorkItemCreate')),
@@ -639,7 +639,7 @@ export function workItemsPaths(): OpenApiDomainModule {
         get: {
           operationId: 'getWorkItemTree',
           summary: 'Get hierarchical work item tree',
-          description: 'Returns work items in a hierarchical tree structure using a recursive CTE. Optionally starts from a specific root item.',
+          description: 'Returns work items in a hierarchical tree structure using a recursive CTE. Optionally starts from a specific root item.\n\n**Agent happy paths:**\n- HP-A2: `GET /work-items/tree?root_id={project_id}` to browse a project hierarchy.\n- HP-A7: Get full project overview with nested children for progress tracking.',
           tags: ['Work Items'],
           parameters: [
             namespaceParam(),
@@ -854,7 +854,7 @@ export function workItemsPaths(): OpenApiDomainModule {
         patch: {
           operationId: 'reparentWorkItem',
           summary: 'Move work item to a new parent',
-          description: 'Reparents a work item under a new parent, optionally positioning it after a specific sibling. Validates hierarchy constraints and prevents self-reparenting.',
+          description: 'Reparents a work item under a new parent, optionally positioning it after a specific sibling. Validates hierarchy constraints and prevents self-reparenting.\n\n**Agent happy path:**\n- HP-A5: Move triage issue into a project: `PATCH /work-items/{id}/reparent` with `{ "new_parent_id": "{epic_id}" }`.',
           tags: ['Work Items'],
           requestBody: jsonBody({
             type: 'object',
@@ -958,7 +958,7 @@ export function workItemsPaths(): OpenApiDomainModule {
         get: {
           operationId: 'getWorkItemRollup',
           summary: 'Get rollup metrics for a work item',
-          description: 'Returns aggregated estimate and actual minutes from the appropriate rollup view based on the work item kind.',
+          description: 'Returns aggregated estimate and actual minutes from the appropriate rollup view based on the work item kind.\n\n**Agent happy path:**\n- HP-A7: `GET /work-items/{project_id}/rollup` for aggregated progress across all child issues.',
           tags: ['Work Items'],
           responses: {
             '200': jsonResponse('Rollup metrics', ref('WorkItemRollup')),
@@ -1023,7 +1023,7 @@ export function workItemsPaths(): OpenApiDomainModule {
         post: {
           operationId: 'createWorkItemTodo',
           summary: 'Create a todo',
-          description: 'Adds a new checklist item to a work item.',
+          description: 'Adds a new checklist item to a work item. Supports sort_order, not_before (reminder), not_after (deadline), and priority fields.\n\n**Agent happy path:**\n- HP-A3: After creating a list, add items: `POST /work-items/{list_id}/todos` with `{ "text": "Asparagus" }`.',
           tags: ['Work Item Todos'],
           requestBody: jsonBody(ref('TodoCreate')),
           responses: {
@@ -1041,7 +1041,7 @@ export function workItemsPaths(): OpenApiDomainModule {
         patch: {
           operationId: 'updateWorkItemTodo',
           summary: 'Update a todo',
-          description: 'Updates the text and/or completion status of a todo. Setting completed to true sets completed_at; false clears it.',
+          description: 'Updates the text and/or completion status of a todo. Setting completed to true sets completed_at; false clears it. Also accepts not_before, not_after, and priority.\n\n**Agent happy path:**\n- HP-A6: Set a reminder: `PATCH /work-items/{list_id}/todos/{todo_id}` with `{ "not_before": "2026-03-10T09:00:00Z" }`. pgcron fires a hook when the time is reached.',
           tags: ['Work Item Todos'],
           requestBody: jsonBody(ref('TodoUpdate')),
           responses: {
