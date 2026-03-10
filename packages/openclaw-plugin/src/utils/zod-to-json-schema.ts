@@ -27,7 +27,7 @@ export function zodToJsonSchema(schema: ZodTypeAny): JSONSchema {
 function convertZodType(schema: ZodTypeAny): JSONSchemaProperty | JSONSchema {
   // Unwrap optional/nullable
   if (schema instanceof z.ZodOptional || schema instanceof z.ZodNullable) {
-    return convertZodType(schema.unwrap());
+    return convertZodType(schema.unwrap() as ZodTypeAny);
   }
 
   // Unwrap default
