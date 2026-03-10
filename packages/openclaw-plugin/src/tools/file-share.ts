@@ -111,7 +111,7 @@ export function createFileShareTool(options: FileShareToolOptions): FileShareToo
       // Validate parameters
       const parseResult = FileShareParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 

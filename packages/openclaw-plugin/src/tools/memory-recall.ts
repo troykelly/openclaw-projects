@@ -127,7 +127,7 @@ export function createMemoryRecallTool(options: MemoryRecallToolOptions): Memory
       // Validate parameters
       const parseResult = MemoryRecallParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 

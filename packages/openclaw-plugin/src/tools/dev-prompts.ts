@@ -110,7 +110,7 @@ export function createDevPromptListTool(options: DevPromptToolOptions): DevPromp
     async execute(params: DevPromptListParams): Promise<DevPromptListResult> {
       const parseResult = DevPromptListParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 
@@ -198,7 +198,7 @@ export const DevPromptGetParamsSchema = z.object({
   namespace: z.string().optional().describe('Namespace to search in (defaults to your namespace)'),
   key: z.string().min(1, 'Prompt key is required').describe('The prompt_key to look up'),
   repo: z.string().optional().describe('Repository in "org/name" format — splits into repo_org and repo_name template variables'),
-  variables: z.record(z.string()).optional().describe('Extra variables to pass to the template renderer'),
+  variables: z.record(z.string(), z.string()).optional().describe('Extra variables to pass to the template renderer'),
   render: z.boolean().optional().default(true).describe('Whether to render the template (default: true). Set false to get raw Handlebars template.'),
 });
 export type DevPromptGetParams = z.infer<typeof DevPromptGetParamsSchema>;
@@ -237,7 +237,7 @@ export function createDevPromptGetTool(options: DevPromptToolOptions): DevPrompt
     async execute(params: DevPromptGetParams): Promise<DevPromptGetResult> {
       const parseResult = DevPromptGetParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 
@@ -390,7 +390,7 @@ export function createDevPromptCreateTool(options: DevPromptToolOptions): DevPro
     async execute(params: DevPromptCreateParams): Promise<DevPromptCreateResult> {
       const parseResult = DevPromptCreateParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 
@@ -495,7 +495,7 @@ export function createDevPromptUpdateTool(options: DevPromptToolOptions): DevPro
     async execute(params: DevPromptUpdateParams): Promise<DevPromptUpdateResult> {
       const parseResult = DevPromptUpdateParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 
@@ -598,7 +598,7 @@ export function createDevPromptResetTool(options: DevPromptToolOptions): DevProm
     async execute(params: DevPromptResetParams): Promise<DevPromptResetResult> {
       const parseResult = DevPromptResetParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 

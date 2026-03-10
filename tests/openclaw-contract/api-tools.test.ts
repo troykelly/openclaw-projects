@@ -56,7 +56,8 @@ function createMockClient(overrides?: {
   } as unknown as ApiClient;
 }
 
-const TEST_UUID = '01234567-89ab-cdef-0123-456789abcdef';
+// Use a valid RFC 4122 UUID v4 (zod v4 enforces strict UUID format validation)
+const TEST_UUID = '01234567-89ab-4def-8123-456789abcdef';
 const TEST_USER = 'test-agent';
 
 // ── Tests ───────────────────────────────────────────────────────────────────

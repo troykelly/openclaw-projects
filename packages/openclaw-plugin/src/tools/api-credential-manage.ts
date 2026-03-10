@@ -78,7 +78,7 @@ export function createApiCredentialManageTool(options: ApiCredentialManageToolOp
     async execute(params: ApiCredentialManageParams): Promise<ApiCredentialManageResult> {
       const parseResult = ApiCredentialManageParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        return { success: false, error: parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ') };
+        return { success: false, error: parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ') };
       }
 
       const { api_source_id, action, credential_id, header_name, header_prefix, resolve_strategy, resolve_reference, purpose } = parseResult.data;

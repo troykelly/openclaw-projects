@@ -61,7 +61,7 @@ export const SkillStorePutParamsSchema = z.object({
   title: z.string().max(500).optional(),
   summary: z.string().max(2000).optional(),
   content: z.string().max(50000).optional(),
-  data: z.record(z.unknown()).optional(),
+  data: z.record(z.string(), z.unknown()).optional(),
   media_url: z.string().url().optional(),
   media_type: z.string().max(100).optional(),
   source_url: z.string().url().optional(),
@@ -182,7 +182,7 @@ export function createSkillStorePutTool(options: SkillStoreToolOptions): SkillSt
     async execute(params: Record<string, unknown>): Promise<SkillStoreToolResult> {
       const parseResult = SkillStorePutParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 
@@ -301,7 +301,7 @@ export function createSkillStoreGetTool(options: SkillStoreToolOptions): SkillSt
     async execute(params: Record<string, unknown>): Promise<SkillStoreToolResult> {
       const parseResult = SkillStoreGetParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 
@@ -397,7 +397,7 @@ export function createSkillStoreListTool(options: SkillStoreToolOptions): SkillS
     async execute(params: Record<string, unknown>): Promise<SkillStoreToolResult> {
       const parseResult = SkillStoreListParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 
@@ -484,7 +484,7 @@ export function createSkillStoreDeleteTool(options: SkillStoreToolOptions): Skil
     async execute(params: Record<string, unknown>): Promise<SkillStoreToolResult> {
       const parseResult = SkillStoreDeleteParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 
@@ -752,7 +752,7 @@ export function createSkillStoreSearchTool(options: SkillStoreToolOptions): Skil
     async execute(params: Record<string, unknown>): Promise<SkillStoreToolResult> {
       const parseResult = SkillStoreSearchParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 
@@ -866,7 +866,7 @@ export function createSkillStoreCollectionsTool(options: SkillStoreToolOptions):
     async execute(params: Record<string, unknown>): Promise<SkillStoreToolResult> {
       const parseResult = SkillStoreCollectionsParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 
@@ -950,7 +950,7 @@ export function createSkillStoreAggregateTool(options: SkillStoreToolOptions): S
     async execute(params: Record<string, unknown>): Promise<SkillStoreToolResult> {
       const parseResult = SkillStoreAggregateParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 

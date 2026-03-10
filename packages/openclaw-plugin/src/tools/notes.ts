@@ -99,7 +99,7 @@ export function createNoteCreateTool(options: NoteToolOptions): NoteCreateTool {
     async execute(params: NoteCreateParams): Promise<NoteCreateResult> {
       const parseResult = NoteCreateParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 
@@ -234,7 +234,7 @@ export function createNoteGetTool(options: NoteToolOptions): NoteGetTool {
     async execute(params: NoteGetParams): Promise<NoteGetResult> {
       const parseResult = NoteGetParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 
@@ -363,7 +363,7 @@ export function createNoteUpdateTool(options: NoteToolOptions): NoteUpdateTool {
     async execute(params: NoteUpdateParams): Promise<NoteUpdateResult> {
       const parseResult = NoteUpdateParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 
@@ -523,7 +523,7 @@ export function createNoteDeleteTool(options: NoteToolOptions): NoteDeleteTool {
     async execute(params: NoteDeleteParams): Promise<NoteDeleteResult> {
       const parseResult = NoteDeleteParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 
@@ -653,7 +653,7 @@ export function createNoteSearchTool(options: NoteToolOptions): NoteSearchTool {
     async execute(params: NoteSearchParams): Promise<NoteSearchToolResult> {
       const parseResult = NoteSearchParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 

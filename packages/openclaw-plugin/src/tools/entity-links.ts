@@ -156,7 +156,7 @@ export function createLinksSetTool(options: EntityLinkToolOptions): EntityLinkTo
     async execute(params: Record<string, unknown>): Promise<EntityLinkToolResult> {
       const parseResult = LinksSetParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 
@@ -333,7 +333,7 @@ export function createLinksQueryTool(options: EntityLinkToolOptions): EntityLink
     async execute(params: Record<string, unknown>): Promise<EntityLinkToolResult> {
       const parseResult = LinksQueryParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 
@@ -457,7 +457,7 @@ export function createLinksRemoveTool(options: EntityLinkToolOptions): EntityLin
     async execute(params: Record<string, unknown>): Promise<EntityLinkToolResult> {
       const parseResult = LinksRemoveParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 

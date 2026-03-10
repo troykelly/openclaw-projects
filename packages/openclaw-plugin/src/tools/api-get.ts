@@ -60,7 +60,7 @@ export function createApiGetTool(options: ApiGetToolOptions): ApiGetTool {
     async execute(params: ApiGetParams): Promise<ApiGetResult> {
       const parseResult = ApiGetParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        return { success: false, error: parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ') };
+        return { success: false, error: parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ') };
       }
 
       try {

@@ -130,7 +130,7 @@ export function createTodoListTool(options: TodoToolOptions): TodoListTool {
     async execute(params: TodoListParams): Promise<TodoListResult> {
       const parseResult = TodoListParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 
@@ -269,7 +269,7 @@ export function createTodoCreateTool(options: TodoToolOptions): TodoCreateTool {
     async execute(params: TodoCreateParams): Promise<TodoCreateResult> {
       const parseResult = TodoCreateParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 
@@ -397,7 +397,7 @@ export function createTodoCompleteTool(options: TodoToolOptions): TodoCompleteTo
     async execute(params: TodoCompleteParams): Promise<TodoCompleteResult> {
       const parseResult = TodoCompleteParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 

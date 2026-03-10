@@ -133,7 +133,7 @@ export function createContactSearchTool(options: ContactToolOptions): ContactSea
     async execute(params: ContactSearchParams): Promise<ContactSearchResult> {
       const parseResult = ContactSearchParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 
@@ -255,7 +255,7 @@ export function createContactGetTool(options: ContactToolOptions): ContactGetToo
     async execute(params: ContactGetParams): Promise<ContactGetResult> {
       const parseResult = ContactGetParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 
@@ -361,7 +361,7 @@ export function createContactCreateTool(options: ContactToolOptions): ContactCre
     async execute(params: ContactCreateParams): Promise<ContactCreateResult> {
       const parseResult = ContactCreateParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 

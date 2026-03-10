@@ -58,7 +58,7 @@ export function createApiRestoreTool(options: ApiRestoreToolOptions): ApiRestore
     async execute(params: ApiRestoreParams): Promise<ApiRestoreResult> {
       const parseResult = ApiRestoreParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        return { success: false, error: parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ') };
+        return { success: false, error: parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ') };
       }
 
       try {

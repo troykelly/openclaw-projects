@@ -2,6 +2,13 @@
  * Zod to JSON Schema conversion utilities.
  *
  * Converts Zod schemas to JSON Schema format for OpenClaw tool registration.
+ *
+ * Updated for zod v4 API compatibility:
+ * - Check metadata is accessed via check._zod.def instead of check.kind/check.value
+ * - ZodEnum values accessed via schema.options (public API)
+ * - ZodArray element accessed via schema._def.element (was schema._def.type in v3)
+ * - ZodObject shape is now a plain object (was a function in v3)
+ * - ZodDefault defaultValue is the value directly (was a function in v3)
  */
 
 import { z, type ZodTypeAny } from 'zod';
@@ -25,21 +32,40 @@ function convertZodType(schema: ZodTypeAny): JSONSchemaProperty | JSONSchema {
 
   // Unwrap default
   if (schema instanceof z.ZodDefault) {
-    const inner = convertZodType(schema._def.innerType);
-    return { ...inner, default: schema._def.defaultValue() };
+    const inner = convertZodType(schema._def.innerType as ZodTypeAny);
+    // In zod v4, defaultValue is the value directly (not a function as in v3)
+    return { ...inner, default: schema._def.defaultValue as unknown };
   }
 
   // String
   if (schema instanceof z.ZodString) {
     const result: JSONSchemaProperty = { type: 'string' };
-    const checks = schema._def.checks ?? [];
+    const checks = (schema._def.checks as unknown[]) ?? [];
     for (const check of checks) {
-      if (check.kind === 'min') result.minLength = check.value;
-      if (check.kind === 'max') result.maxLength = check.value;
-      if (check.kind === 'regex') result.pattern = check.regex.source;
-      if (check.kind === 'email') result.format = 'email';
-      if (check.kind === 'uuid') result.format = 'uuid';
-      if (check.kind === 'url') result.format = 'uri';
+      // In zod v4, check metadata lives on check._zod.def
+      const def = (check as { _zod?: { def?: Record<string, unknown> } })?._zod?.def;
+      if (!def) continue;
+
+      const checkKind = def['check'] as string | undefined;
+      if (checkKind === 'min_length') {
+        result.minLength = def['minimum'] as number;
+      } else if (checkKind === 'max_length') {
+        result.maxLength = def['maximum'] as number;
+      } else if (checkKind === 'string_format') {
+        const format = def['format'] as string | undefined;
+        if (format === 'regex') {
+          const pattern = def['pattern'];
+          if (pattern instanceof RegExp) {
+            result.pattern = pattern.source;
+          }
+        } else if (format === 'email') {
+          result.format = 'email';
+        } else if (format === 'uuid') {
+          result.format = 'uuid';
+        } else if (format === 'url') {
+          result.format = 'uri';
+        }
+      }
     }
     if (schema.description) result.description = schema.description;
     return result;
@@ -47,13 +73,26 @@ function convertZodType(schema: ZodTypeAny): JSONSchemaProperty | JSONSchema {
 
   // Number
   if (schema instanceof z.ZodNumber) {
-    const checks = schema._def.checks ?? [];
-    const isInt = checks.some((c) => c.kind === 'int');
-    const result: JSONSchemaProperty = { type: isInt ? 'integer' : 'number' };
+    const checks = (schema._def.checks as unknown[]) ?? [];
+    let isInt = false;
+    const result: JSONSchemaProperty = { type: 'number' };
     for (const check of checks) {
-      if (check.kind === 'min') result.minimum = check.value;
-      if (check.kind === 'max') result.maximum = check.value;
+      const def = (check as { _zod?: { def?: Record<string, unknown> } })?._zod?.def;
+      if (!def) continue;
+
+      const checkKind = def['check'] as string | undefined;
+      if (checkKind === 'number_format') {
+        const format = def['format'] as string | undefined;
+        if (format === 'safeint' || format === 'int') {
+          isInt = true;
+        }
+      } else if (checkKind === 'greater_than') {
+        result.minimum = def['value'] as number;
+      } else if (checkKind === 'less_than') {
+        result.maximum = def['value'] as number;
+      }
     }
+    if (isInt) result.type = 'integer';
     if (schema.description) result.description = schema.description;
     return result;
   }
@@ -65,29 +104,30 @@ function convertZodType(schema: ZodTypeAny): JSONSchemaProperty | JSONSchema {
     return result;
   }
 
-  // Enum
+  // Enum — use public .options API (array of values); v3 used schema._def.values
   if (schema instanceof z.ZodEnum) {
     const result: JSONSchemaProperty = {
       type: 'string',
-      enum: schema._def.values,
+      enum: schema.options as string[],
     };
     if (schema.description) result.description = schema.description;
     return result;
   }
 
-  // Array
+  // Array — element is at schema._def.element in zod v4 (was schema._def.type in v3)
   if (schema instanceof z.ZodArray) {
+    const element = (schema._def as unknown as { element: ZodTypeAny }).element;
     const result: JSONSchemaProperty = {
       type: 'array',
-      items: convertZodType(schema._def.type),
+      items: convertZodType(element),
     };
     if (schema.description) result.description = schema.description;
     return result;
   }
 
-  // Object
+  // Object — shape is a plain object in zod v4 (was a function in v3)
   if (schema instanceof z.ZodObject) {
-    const shape = schema._def.shape() as Record<string, ZodTypeAny>;
+    const shape = schema._def.shape as Record<string, ZodTypeAny>;
     const properties: Record<string, JSONSchemaProperty> = {};
     const required: string[] = [];
 

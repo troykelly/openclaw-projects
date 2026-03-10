@@ -202,7 +202,7 @@ export function createToolGuideTool(): ToolGuideTool {
     async execute(params: ToolGuideParams): Promise<ToolGuideResult> {
       const parseResult = ToolGuideParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 

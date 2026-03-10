@@ -64,7 +64,7 @@ export function createApiRefreshTool(options: ApiRefreshToolOptions): ApiRefresh
     async execute(params: ApiRefreshParams): Promise<ApiRefreshResult> {
       const parseResult = ApiRefreshParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        return { success: false, error: parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ') };
+        return { success: false, error: parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ') };
       }
 
       try {

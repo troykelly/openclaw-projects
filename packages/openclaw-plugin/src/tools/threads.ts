@@ -120,7 +120,7 @@ export function createThreadListTool(options: ThreadToolOptions): ThreadListTool
       // Validate parameters
       const parseResult = ThreadListParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 
@@ -316,7 +316,7 @@ export function createThreadGetTool(options: ThreadToolOptions): ThreadGetTool {
       // Validate parameters
       const parseResult = ThreadGetParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 

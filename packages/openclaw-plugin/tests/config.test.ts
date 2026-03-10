@@ -1160,7 +1160,7 @@ describe('Config Schema', () => {
         // Should mention apiUrl is required
         const apiUrlError = result.errors.find((e) => e.path.includes('apiUrl'));
         expect(apiUrlError).toBeDefined();
-        expect(apiUrlError?.message).toContain('Required');
+        expect(apiUrlError?.message).toMatch(/Required|Invalid input|expected string/i);
       }
     });
   });

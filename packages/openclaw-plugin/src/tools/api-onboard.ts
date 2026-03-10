@@ -25,7 +25,7 @@ export const ApiOnboardParamsSchema = z.object({
     resolve_reference: z.string().min(1),
     purpose: z.enum(['api_call', 'spec_fetch']).optional(),
   })).optional(),
-  spec_auth_headers: z.record(z.string()).optional(),
+  spec_auth_headers: z.record(z.string(), z.string()).optional(),
 }).refine((data) => data.spec_url || data.spec_content, {
   message: 'Either spec_url or spec_content is required',
 });
@@ -89,7 +89,7 @@ export function createApiOnboardTool(options: ApiOnboardToolOptions): ApiOnboard
     async execute(params: ApiOnboardParams): Promise<ApiOnboardResult> {
       const parseResult = ApiOnboardParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 

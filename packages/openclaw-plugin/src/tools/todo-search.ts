@@ -99,7 +99,7 @@ export function createTodoSearchTool(options: TodoSearchToolOptions): TodoSearch
     async execute(params: TodoSearchParams): Promise<TodoSearchResult> {
       const parseResult = TodoSearchParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 

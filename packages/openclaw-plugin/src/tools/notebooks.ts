@@ -91,7 +91,7 @@ export function createNotebookListTool(options: NotebookToolOptions): NotebookLi
     async execute(params: NotebookListParams): Promise<NotebookListResult> {
       const parseResult = NotebookListParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 
@@ -215,7 +215,7 @@ export function createNotebookCreateTool(options: NotebookToolOptions): Notebook
     async execute(params: NotebookCreateParams): Promise<NotebookCreateResult> {
       const parseResult = NotebookCreateParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 
@@ -346,7 +346,7 @@ export function createNotebookGetTool(options: NotebookToolOptions): NotebookGet
     async execute(params: NotebookGetParams): Promise<NotebookGetResult> {
       const parseResult = NotebookGetParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
         return { success: false, error: errorMessage };
       }
 

@@ -749,6 +749,15 @@ exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > 
 
 exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > memory_forget parameter schema should match snapshot 1`] = `
 {
+  "properties": {
+    "memory_id": {
+      "type": "string",
+    },
+    "query": {
+      "maxLength": 1000,
+      "type": "string",
+    },
+  },
   "type": "object",
 }
 `;
@@ -828,6 +837,73 @@ exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > 
 
 exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > memory_store parameter schema should match snapshot 1`] = `
 {
+  "properties": {
+    "category": {
+      "enum": [
+        "preference",
+        "fact",
+        "decision",
+        "context",
+        "entity",
+        "other",
+      ],
+      "type": "string",
+    },
+    "content": {
+      "maxLength": 10000,
+      "minLength": 1,
+      "type": "string",
+    },
+    "importance": {
+      "maximum": 1,
+      "minimum": 0,
+      "type": "number",
+    },
+    "location": {
+      "properties": {
+        "address": {
+          "maxLength": 500,
+          "type": "string",
+        },
+        "lat": {
+          "maximum": 90,
+          "minimum": -90,
+          "type": "number",
+        },
+        "lng": {
+          "maximum": 180,
+          "minimum": -180,
+          "type": "number",
+        },
+        "place_label": {
+          "maxLength": 200,
+          "type": "string",
+        },
+      },
+      "required": [
+        "lat",
+        "lng",
+      ],
+      "type": "object",
+    },
+    "relationship_id": {
+      "format": "uuid",
+      "type": "string",
+    },
+    "tags": {
+      "items": {
+        "maxLength": 100,
+        "minLength": 1,
+        "type": "string",
+      },
+      "type": "array",
+    },
+    "text": {
+      "maxLength": 10000,
+      "minLength": 1,
+      "type": "string",
+    },
+  },
   "type": "object",
 }
 `;
