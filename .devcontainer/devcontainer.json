@@ -45,7 +45,7 @@
     "PLAYWRIGHT_CHROMIUM_PATH": "/usr/bin/chromium",
     "ENABLE_YJS_COLLAB": "true"
   },
-  "postCreateCommand": "bash .devcontainer/post-create.sh"
+  "postCreateCommand": "bash .devcontainer/postCreate.sh"
   // Features to add to the dev container. More info: https://containers.dev/features.
   // "features": {},
   // Use 'forwardPorts' to make a list of ports inside the container available locally.

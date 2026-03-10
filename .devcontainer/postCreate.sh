@@ -666,6 +666,34 @@ $end_marker
 }
 
 ###############################################################################
+# OpenClaw Gateway — clone from source and install
+###############################################################################
+install_openclaw_gateway() {
+    local gateway_dir="${WORKSPACE_DIR}/.local/openclaw-gateway"
+
+    if [ -d "$gateway_dir/.git" ]; then
+        echo "OpenClaw gateway already cloned at $gateway_dir — pulling latest"
+        git -C "$gateway_dir" pull --ff-only || echo "Pull failed — using existing checkout"
+    else
+        echo "Cloning OpenClaw gateway into $gateway_dir"
+        mkdir -p "$(dirname "$gateway_dir")"
+        if [ -n "${GITHUB_TOKEN:-}" ]; then
+            git clone "https://x-access-token:${GITHUB_TOKEN}@github.com/openclaw/openclaw.git" "$gateway_dir"
+        else
+            echo "WARNING: GITHUB_TOKEN not set — attempting unauthenticated clone"
+            git clone "https://github.com/openclaw/openclaw.git" "$gateway_dir"
+        fi
+    fi
+
+    if [ -d "$gateway_dir" ]; then
+        echo "Installing gateway dependencies with pnpm install"
+        (cd "$gateway_dir" && pnpm install --frozen-lockfile) || \
+            (cd "$gateway_dir" && pnpm install) || \
+            echo "pnpm install failed for gateway"
+    fi
+}
+
+###############################################################################
 # Run all steps
 ###############################################################################
 cd "$WORKSPACE_DIR" || true
@@ -686,6 +714,7 @@ run_step "Signing keys"          generate_keys
 run_step ".env setup"            setup_env
 run_step "Git config"            setup_git
 run_step "Shell customizations"  setup_shell
+run_step "OpenClaw gateway"      install_openclaw_gateway
 
 ###############################################################################
 # Invoke post-start if it exists (for first-run convenience)
