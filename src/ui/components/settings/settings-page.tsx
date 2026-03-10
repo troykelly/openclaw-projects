@@ -6,10 +6,30 @@
  * vertical list. Changes save immediately with visual confirmation.
  */
 
-import { AlertTriangle, Bell, CheckCircle, Clock, Eye, Info, Keyboard, Layout, Link2, MapPin, MessageSquare, Monitor, Moon, Radio, Smartphone, Sun, User, Webhook } from 'lucide-react';
+import {
+  AlertTriangle,
+  Bell,
+  CheckCircle,
+  Clock,
+  Eye,
+  Info,
+  Keyboard,
+  Layout,
+  Link2,
+  MapPin,
+  MessageSquare,
+  Monitor,
+  Moon,
+  Radio,
+  Smartphone,
+  Sun,
+  User,
+  Users,
+  Webhook,
+} from 'lucide-react';
 import * as React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
 import { Skeleton } from '@/ui/components/feedback';
 import { Badge } from '@/ui/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/ui/components/ui/card';
@@ -18,16 +38,16 @@ import { Separator } from '@/ui/components/ui/separator';
 import { Switch } from '@/ui/components/ui/switch';
 import { cn } from '@/ui/lib/utils';
 import { APP_VERSION } from '@/ui/lib/version';
+import { ChatNotificationPrefsSection } from './chat-notification-prefs-section';
+import { ChatSettingsSection } from './chat-settings-section';
 import { ConnectedAccountsSection } from './connected-accounts-section';
 import { EmbeddingSettingsSection } from './embedding-settings-section';
 import { InboundRoutingSection } from './inbound-routing-section';
 import { LocationSection } from './location-section';
 import { NotificationPreferencesSection } from './notification-preferences-section';
-import { WebhookManagementSection } from './webhook-management-section';
-import { ChatSettingsSection } from './chat-settings-section';
-import { ChatNotificationPrefsSection } from './chat-notification-prefs-section';
 import type { DefaultView, EmailDigestFrequency, Theme } from './types';
 import { useSettings } from './use-settings';
+import { WebhookManagementSection } from './webhook-management-section';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -477,7 +497,12 @@ function AboutSection() {
             <Separator />
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">Documentation</span>
-              <a href="https://github.com/troykelly/openclaw-projects" target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline">
+              <a
+                href="https://github.com/troykelly/openclaw-projects"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-primary hover:underline"
+              >
                 github.com/troykelly/openclaw-projects
               </a>
             </div>
@@ -497,6 +522,7 @@ function AboutSection() {
 
 export function SettingsPage() {
   const { state, isSaving, updateSettings } = useSettings();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeSection, setActiveSection] = useState<SectionId>('profile');
   const [showSaveConfirmation, setShowSaveConfirmation] = useState(false);
@@ -597,11 +623,14 @@ export function SettingsPage() {
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
     // Remove the query param to keep URL clean
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev);
-      next.delete('ha_connected');
-      return next;
-    }, { replace: true });
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('ha_connected');
+        return next;
+      },
+      { replace: true },
+    );
 
     // Auto-dismiss after 6 seconds
     const timer = setTimeout(() => setHaConnectedBanner(false), 6000);
@@ -618,12 +647,15 @@ export function SettingsPage() {
     const el = sectionRefs.current.location;
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev);
-      next.delete('ha_error');
-      next.delete('ha_provider');
-      return next;
-    }, { replace: true });
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('ha_error');
+        next.delete('ha_provider');
+        return next;
+      },
+      { replace: true },
+    );
 
     const timer = setTimeout(() => setHaErrorBanner(false), 10000);
     return () => clearTimeout(timer);
@@ -714,6 +746,17 @@ export function SettingsPage() {
                   </button>
                 </li>
               ))}
+              <li>
+                <button
+                  type="button"
+                  onClick={() => navigate('/settings/namespaces')}
+                  data-testid="settings-nav-namespaces"
+                  className="flex w-full items-center gap-2 whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium transition-colors text-muted-foreground hover:bg-muted hover:text-foreground"
+                >
+                  <Users className="size-4 shrink-0" />
+                  Namespaces
+                </button>
+              </li>
             </ul>
           </nav>
 
