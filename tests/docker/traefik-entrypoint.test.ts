@@ -406,6 +406,127 @@ describe('Traefik dynamic config: api-webhook-router (Issue #2167)', () => {
   });
 });
 
+describe('Traefik entrypoint: copy_custom_configs (Issue #2338)', () => {
+  const ENTRYPOINT = resolve(ROOT_DIR, 'docker/traefik/entrypoint.sh');
+  const TEMPLATE = resolve(ROOT_DIR, 'docker/traefik/dynamic-config.yml.template');
+
+  function runEntrypointWithCustomSource(opts: {
+    sourceFiles?: Record<string, string>;
+    sourceExists?: boolean;
+  }): { exitCode: number; customDir: string; stdout: string } {
+    const testTmpDir = mkdtempSync(join(tmpdir(), 'traefik-custom-test-'));
+    const testDir = join(testTmpDir, 'etc/traefik');
+
+    // Create required directories
+    const systemDir = join(testDir, 'dynamic/system');
+    const customDir = join(testDir, 'dynamic/custom');
+    const acmeDir = join(testDir, 'acme');
+    const templateDir = join(testDir, 'templates');
+
+    execFileSync('mkdir', ['-p', systemDir, customDir, acmeDir, templateDir]);
+
+    // Copy template
+    execFileSync('cp', [TEMPLATE, join(templateDir, 'dynamic-config.yml.template')]);
+
+    // Create test entrypoint with patched paths
+    const testEntrypoint = join(testTmpDir, 'entrypoint-test.sh');
+    let script = readFileSync(ENTRYPOINT, 'utf-8');
+    script = script.replace(/exec traefik/, 'echo "Would exec traefik"');
+    script = script.replace(/\/etc\/traefik/g, testDir);
+    writeFileSync(testEntrypoint, script, { mode: 0o755 });
+
+    // Set up custom source
+    let customSourceDir = join(testTmpDir, 'custom-source');
+    if (opts.sourceExists !== false) {
+      execFileSync('mkdir', ['-p', customSourceDir]);
+      if (opts.sourceFiles) {
+        for (const [name, content] of Object.entries(opts.sourceFiles)) {
+          writeFileSync(join(customSourceDir, name), content);
+        }
+      }
+    } else {
+      customSourceDir = join(testTmpDir, 'nonexistent-source');
+    }
+
+    let stdout = '';
+    let exitCode = 0;
+    try {
+      stdout = execFileSync('/bin/sh', [testEntrypoint], {
+        encoding: 'utf-8',
+        timeout: 10_000,
+        env: {
+          ...process.env,
+          DOMAIN: 'example.com',
+          ACME_EMAIL: 'test@example.com',
+          CUSTOM_CONFIG_SOURCE_DIR: customSourceDir,
+        },
+      });
+    } catch (err: unknown) {
+      exitCode = (err as { status?: number }).status ?? 1;
+    }
+
+    return { exitCode, customDir, stdout };
+  }
+
+  it('copies .yml files from source dir to dynamic/custom', () => {
+    const { exitCode, customDir } = runEntrypointWithCustomSource({
+      sourceFiles: {
+        'abs-proxy.yml': 'http: {}',
+        'moltbot-gateway.yml': 'http: {}',
+        'voice-call.yml': 'http: {}',
+      },
+    });
+
+    expect(exitCode).toBe(0);
+    expect(readFileSync(join(customDir, 'abs-proxy.yml'), 'utf-8')).toBe('http: {}');
+    expect(readFileSync(join(customDir, 'moltbot-gateway.yml'), 'utf-8')).toBe('http: {}');
+    expect(readFileSync(join(customDir, 'voice-call.yml'), 'utf-8')).toBe('http: {}');
+  });
+
+  it('does not fail when source dir is absent', () => {
+    const { exitCode } = runEntrypointWithCustomSource({
+      sourceExists: false,
+    });
+
+    expect(exitCode).toBe(0);
+  });
+
+  it('does not copy non-.yml files', () => {
+    const { exitCode, customDir } = runEntrypointWithCustomSource({
+      sourceFiles: {
+        'valid-route.yml': 'http: {}',
+        'readme.txt': 'not a config',
+        'notes.md': 'some notes',
+      },
+    });
+
+    expect(exitCode).toBe(0);
+    expect(readFileSync(join(customDir, 'valid-route.yml'), 'utf-8')).toBe('http: {}');
+
+    // Non-.yml files should not exist
+    expect(() => readFileSync(join(customDir, 'readme.txt'))).toThrow();
+    expect(() => readFileSync(join(customDir, 'notes.md'))).toThrow();
+  });
+
+  it('logs copied file names', () => {
+    const { stdout } = runEntrypointWithCustomSource({
+      sourceFiles: {
+        'abs-proxy.yml': 'http: {}',
+      },
+    });
+
+    expect(stdout).toContain('abs-proxy.yml');
+  });
+
+  it('logs message when no custom configs found', () => {
+    const { stdout } = runEntrypointWithCustomSource({
+      sourceFiles: {},
+    });
+
+    expect(stdout.toLowerCase()).toMatch(/no custom config/);
+  });
+});
+
 describe('ModSecurity ALLOWED_METHODS in compose files (Issue #1917)', () => {
   const COMPOSE_FILES = ['docker-compose.traefik.yml', 'docker-compose.full.yml'];
 

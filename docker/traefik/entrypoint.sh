@@ -231,16 +231,49 @@ generate_config() {
     echo "Generated dynamic config at ${OUTPUT_FILE}"
 }
 
+# Copy custom config files from a staging directory into the named volume.
+# Docker silently ignores bind-mounts into named volume subdirectories,
+# so we mount custom configs at a staging path (CUSTOM_CONFIG_SOURCE_DIR)
+# and copy .yml files into the writable named volume at startup.
+# See: https://github.com/troykelly/openclaw-projects/issues/2338
+copy_custom_configs() {
+    local source_dir="${CUSTOM_CONFIG_SOURCE_DIR:-/etc/traefik/custom-source}"
+
+    if [ ! -d "${source_dir}" ]; then
+        echo "  No custom config source directory at ${source_dir} — skipping"
+        return 0
+    fi
+
+    # Copy only .yml files from source into CUSTOM_CONFIG_DIR
+    local copied=0
+    for f in "${source_dir}"/*.yml; do
+        # Guard against the glob matching nothing (literal *.yml)
+        [ -f "${f}" ] || continue
+        cp "${f}" "${CUSTOM_CONFIG_DIR}/"
+        echo "  Copied custom config: $(basename "${f}")"
+        copied=$((copied + 1))
+    done
+
+    if [ "${copied}" -eq 0 ]; then
+        echo "  No custom config .yml files found in ${source_dir}"
+    else
+        echo "  Copied ${copied} custom config file(s) to ${CUSTOM_CONFIG_DIR}"
+    fi
+}
+
 # Main execution
 main() {
     echo "Traefik entrypoint: Validating environment..."
     validate_env
-    
+
     echo "Traefik entrypoint: Initializing ACME certificate storage..."
     init_acme_storage
 
     echo "Traefik entrypoint: Generating dynamic configuration..."
     generate_config
+
+    echo "Traefik entrypoint: Copying custom configs..."
+    copy_custom_configs
 
     echo "Traefik entrypoint: Sanitizing DNS credentials..."
     sanitize_dns_credentials
