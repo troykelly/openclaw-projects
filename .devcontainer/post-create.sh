@@ -348,13 +348,12 @@ install_codex() {
 
     tar -xzf "${_tmpdir}/codex.tar.gz" -C "$_tmpdir"
 
-    # The archive contains a single binary named codex-{arch}, not "codex"
-    local codex_bin=""
-    codex_bin="$(find "$_tmpdir" -maxdepth 1 -name 'codex*' -type f 2>/dev/null | head -1)"
+    # The archive contains a single binary named codex-{arch}
+    local codex_bin="${_tmpdir}/codex-${codex_arch}"
 
-    if [ -z "$codex_bin" ]; then
+    if [ ! -f "$codex_bin" ]; then
         rm -rf "$_tmpdir"
-        echo "Codex binary not found in archive"
+        echo "Codex binary not found in archive (expected codex-${codex_arch})"
         return 1
     fi
 
