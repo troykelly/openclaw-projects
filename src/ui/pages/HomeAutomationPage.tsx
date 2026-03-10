@@ -6,24 +6,20 @@
  *
  * @see Issue #1752
  */
-import React, { useState, useCallback } from 'react';
-import { Home, CheckCircle, XCircle, AlertTriangle, Pencil } from 'lucide-react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiClient } from '@/ui/lib/api-client';
+
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { AlertTriangle, CheckCircle, Home, Pencil, XCircle } from 'lucide-react';
+import type React from 'react';
+import { useCallback, useState } from 'react';
 import { Badge } from '@/ui/components/ui/badge';
 import { Button } from '@/ui/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/ui/components/ui/card';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/ui/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/ui/components/ui/dialog';
 import { Input } from '@/ui/components/ui/input';
 import { Label } from '@/ui/components/ui/label';
 import { Textarea } from '@/ui/components/ui/textarea';
+import { useNamespaceQueryKey } from '@/ui/hooks/use-namespace-query-key';
+import { apiClient } from '@/ui/lib/api-client';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -87,8 +83,9 @@ export function HomeAutomationPage(): React.JSX.Element {
   const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined);
 
   // Fetch routines
+  const routinesQueryKey = useNamespaceQueryKey(['ha-routines', statusFilter] as const);
   const routinesQuery = useQuery({
-    queryKey: ['ha-routines', statusFilter],
+    queryKey: routinesQueryKey,
     queryFn: () => {
       const params = new URLSearchParams();
       if (statusFilter) params.set('status', statusFilter);
@@ -98,15 +95,15 @@ export function HomeAutomationPage(): React.JSX.Element {
   });
 
   // Fetch anomalies (unresolved)
+  const anomaliesQueryKey = useNamespaceQueryKey(['ha-anomalies'] as const);
   const anomaliesQuery = useQuery({
-    queryKey: ['ha-anomalies'],
+    queryKey: anomaliesQueryKey,
     queryFn: () => apiClient.get<AnomalyListResponse>('/ha/anomalies?resolved=false'),
   });
 
   // Confirm routine
   const confirmMutation = useMutation({
-    mutationFn: (id: string) =>
-      apiClient.post<{ data: Routine }>(`/ha/routines/${id}/confirm`, {}),
+    mutationFn: (id: string) => apiClient.post<{ data: Routine }>(`/ha/routines/${id}/confirm`, {}),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['ha-routines'] });
     },
@@ -114,8 +111,7 @@ export function HomeAutomationPage(): React.JSX.Element {
 
   // Reject routine
   const rejectMutation = useMutation({
-    mutationFn: (id: string) =>
-      apiClient.post<{ data: Routine }>(`/ha/routines/${id}/reject`, {}),
+    mutationFn: (id: string) => apiClient.post<{ data: Routine }>(`/ha/routines/${id}/reject`, {}),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['ha-routines'] });
     },
@@ -141,8 +137,7 @@ export function HomeAutomationPage(): React.JSX.Element {
 
   // Resolve anomaly
   const resolveAnomalyMutation = useMutation({
-    mutationFn: (id: string) =>
-      apiClient.patch(`/ha/anomalies/${id}`, { resolved: true }),
+    mutationFn: (id: string) => apiClient.patch(`/ha/anomalies/${id}`, { resolved: true }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['ha-anomalies'] });
     },
@@ -204,31 +199,16 @@ export function HomeAutomationPage(): React.JSX.Element {
                 <div className="size-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
               </div>
             )}
-            {!routinesQuery.isLoading && routines.length === 0 && (
-              <p className="text-sm text-muted-foreground text-center py-8">
-                No routines detected yet.
-              </p>
-            )}
+            {!routinesQuery.isLoading && routines.length === 0 && <p className="text-sm text-muted-foreground text-center py-8">No routines detected yet.</p>}
             <div className="space-y-3">
               {routines.map((routine) => (
-                <div
-                  key={routine.id}
-                  className="flex items-start justify-between gap-3 rounded-lg border border-border p-4"
-                >
+                <div key={routine.id} className="flex items-start justify-between gap-3 rounded-lg border border-border p-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="font-medium text-foreground truncate">
-                        {routine.title}
-                      </span>
-                      <Badge variant={STATUS_VARIANT[routine.status] ?? 'secondary'}>
-                        {routine.status}
-                      </Badge>
+                      <span className="font-medium text-foreground truncate">{routine.title}</span>
+                      <Badge variant={STATUS_VARIANT[routine.status] ?? 'secondary'}>{routine.status}</Badge>
                     </div>
-                    {routine.description && (
-                      <p className="text-sm text-muted-foreground line-clamp-2">
-                        {routine.description}
-                      </p>
-                    )}
+                    {routine.description && <p className="text-sm text-muted-foreground line-clamp-2">{routine.description}</p>}
                     <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
                       <span>Confidence: {Math.round(routine.confidence * 100)}%</span>
                       <span>{routine.sequence.length} step(s)</span>
@@ -257,12 +237,7 @@ export function HomeAutomationPage(): React.JSX.Element {
                         </Button>
                       </>
                     )}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      title="Edit"
-                      onClick={() => handleEdit(routine)}
-                    >
+                    <Button variant="ghost" size="icon" title="Edit" onClick={() => handleEdit(routine)}>
                       <Pencil className="size-4" />
                     </Button>
                   </div>
@@ -286,35 +261,17 @@ export function HomeAutomationPage(): React.JSX.Element {
                 <div className="size-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
               </div>
             )}
-            {!anomaliesQuery.isLoading && anomalies.length === 0 && (
-              <p className="text-sm text-muted-foreground text-center py-4">
-                No unresolved anomalies.
-              </p>
-            )}
+            {!anomaliesQuery.isLoading && anomalies.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">No unresolved anomalies.</p>}
             <div className="space-y-3">
               {anomalies.map((anomaly) => (
-                <div
-                  key={anomaly.id}
-                  className="rounded-lg border border-border p-3"
-                >
+                <div key={anomaly.id} className="rounded-lg border border-border p-3">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">
-                        {anomaly.entity_id}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {anomaly.description}
-                      </p>
-                      <span className="text-xs text-muted-foreground">
-                        Score: {anomaly.score}/10
-                      </span>
+                      <p className="text-sm font-medium text-foreground truncate">{anomaly.entity_id}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{anomaly.description}</p>
+                      <span className="text-xs text-muted-foreground">Score: {anomaly.score}/10</span>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => resolveAnomalyMutation.mutate(anomaly.id)}
-                      disabled={resolveAnomalyMutation.isPending}
-                    >
+                    <Button variant="ghost" size="sm" onClick={() => resolveAnomalyMutation.mutate(anomaly.id)} disabled={resolveAnomalyMutation.isPending}>
                       Resolve
                     </Button>
                   </div>
@@ -335,30 +292,18 @@ export function HomeAutomationPage(): React.JSX.Element {
           <div className="space-y-4 py-2">
             <div>
               <Label htmlFor="edit-title">Title</Label>
-              <Input
-                id="edit-title"
-                value={editTitle}
-                onChange={(e) => setEditTitle(e.target.value)}
-              />
+              <Input id="edit-title" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
             </div>
             <div>
               <Label htmlFor="edit-description">Description</Label>
-              <Textarea
-                id="edit-description"
-                value={editDescription}
-                onChange={(e) => setEditDescription(e.target.value)}
-                rows={3}
-              />
+              <Textarea id="edit-description" value={editDescription} onChange={(e) => setEditDescription(e.target.value)} rows={3} />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditingRoutine(null)}>
               Cancel
             </Button>
-            <Button
-              onClick={handleSaveEdit}
-              disabled={editMutation.isPending || !editTitle.trim()}
-            >
+            <Button onClick={handleSaveEdit} disabled={editMutation.isPending || !editTitle.trim()}>
               Save
             </Button>
           </DialogFooter>

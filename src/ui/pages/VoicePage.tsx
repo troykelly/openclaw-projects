@@ -6,23 +6,19 @@
  *
  * @see Issue #1754
  */
-import React, { useState, useCallback } from 'react';
-import { Mic, Trash2, Eye, Settings2 } from 'lucide-react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiClient } from '@/ui/lib/api-client';
+
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Eye, Mic, Settings2, Trash2 } from 'lucide-react';
+import type React from 'react';
+import { useCallback, useState } from 'react';
 import { Badge } from '@/ui/components/ui/badge';
 import { Button } from '@/ui/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/ui/components/ui/card';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/ui/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/ui/components/ui/dialog';
 import { Input } from '@/ui/components/ui/input';
 import { Label } from '@/ui/components/ui/label';
+import { useNamespaceQueryKey } from '@/ui/hooks/use-namespace-query-key';
+import { apiClient } from '@/ui/lib/api-client';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -89,33 +85,31 @@ export function VoicePage(): React.JSX.Element {
   const [viewingConversation, setViewingConversation] = useState<string | null>(null);
 
   // Fetch voice config
+  const configQueryKey = useNamespaceQueryKey(['voice-config'] as const);
   const configQuery = useQuery({
-    queryKey: ['voice-config'],
+    queryKey: configQueryKey,
     queryFn: () => apiClient.get<{ data: VoiceConfig | null }>('/voice/config'),
   });
 
   // Fetch conversations
+  const conversationsQueryKey = useNamespaceQueryKey(['voice-conversations'] as const);
   const conversationsQuery = useQuery({
-    queryKey: ['voice-conversations'],
+    queryKey: conversationsQueryKey,
     queryFn: () => apiClient.get<ConversationsResponse>('/voice/conversations'),
   });
 
   // Fetch single conversation detail
+  const conversationDetailQueryKey = useNamespaceQueryKey(['voice-conversation', viewingConversation] as const);
   const conversationDetailQuery = useQuery({
-    queryKey: ['voice-conversation', viewingConversation],
-    queryFn: () =>
-      apiClient.get<{ data: ConversationDetail }>(`/voice/conversations/${viewingConversation}`),
+    queryKey: conversationDetailQueryKey,
+    queryFn: () => apiClient.get<{ data: ConversationDetail }>(`/voice/conversations/${viewingConversation}`),
     enabled: viewingConversation !== null,
   });
 
   // Update config
   const configMutation = useMutation({
-    mutationFn: (body: {
-      timeout_ms: number;
-      idle_timeout_s: number;
-      retention_days: number;
-      service_allowlist: string[];
-    }) => apiClient.put<{ data: VoiceConfig }>('/voice/config', body),
+    mutationFn: (body: { timeout_ms: number; idle_timeout_s: number; retention_days: number; service_allowlist: string[] }) =>
+      apiClient.put<{ data: VoiceConfig }>('/voice/config', body),
     onSuccess: () => {
       setConfigEditing(false);
       void queryClient.invalidateQueries({ queryKey: ['voice-config'] });
@@ -154,9 +148,7 @@ export function VoicePage(): React.JSX.Element {
   }, [configForm, configMutation]);
 
   const config = configQuery.data?.data ?? null;
-  const conversations = Array.isArray(conversationsQuery.data?.data)
-    ? conversationsQuery.data.data
-    : [];
+  const conversations = Array.isArray(conversationsQuery.data?.data) ? conversationsQuery.data.data : [];
   const conversationDetail = conversationDetailQuery.data?.data ?? null;
 
   return (
@@ -186,24 +178,17 @@ export function VoicePage(): React.JSX.Element {
                 <div className="size-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
               </div>
             )}
-            {!configQuery.isLoading && !config && (
-              <p className="text-sm text-muted-foreground">No configuration set. Click Edit to configure.</p>
-            )}
+            {!configQuery.isLoading && !config && <p className="text-sm text-muted-foreground">No configuration set. Click Edit to configure.</p>}
             {config && (
               <div className="space-y-3">
                 <ConfigRow label="Timeout" value={`${config.timeout_ms}ms`} />
                 <ConfigRow label="Idle Timeout" value={`${config.idle_timeout_s}s`} />
                 <ConfigRow label="Retention" value={`${config.retention_days} days`} />
-                <ConfigRow
-                  label="Default Agent"
-                  value={config.default_agent_id ?? 'None'}
-                />
+                <ConfigRow label="Default Agent" value={config.default_agent_id ?? 'None'} />
                 <div>
                   <span className="text-sm text-muted-foreground">Service Allowlist:</span>
                   <div className="flex flex-wrap gap-1 mt-1">
-                    {config.service_allowlist.length === 0 && (
-                      <span className="text-xs text-muted-foreground">Default domains</span>
-                    )}
+                    {config.service_allowlist.length === 0 && <span className="text-xs text-muted-foreground">Default domains</span>}
                     {config.service_allowlist.map((s) => (
                       <Badge key={s} variant="outline">
                         {s}
@@ -228,40 +213,20 @@ export function VoicePage(): React.JSX.Element {
               </div>
             )}
             {!conversationsQuery.isLoading && conversations.length === 0 && (
-              <p className="text-sm text-muted-foreground text-center py-4">
-                No conversations yet.
-              </p>
+              <p className="text-sm text-muted-foreground text-center py-4">No conversations yet.</p>
             )}
             <div className="space-y-2">
               {conversations.map((conv) => (
-                <div
-                  key={conv.id}
-                  className="flex items-center justify-between gap-3 rounded-lg border border-border p-3"
-                >
+                <div key={conv.id} className="flex items-center justify-between gap-3 rounded-lg border border-border p-3">
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">
-                      {conv.user_email ?? conv.device_id ?? 'Unknown'}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Last active: {new Date(conv.last_active_at).toLocaleString()}
-                    </p>
+                    <p className="text-sm font-medium text-foreground truncate">{conv.user_email ?? conv.device_id ?? 'Unknown'}</p>
+                    <p className="text-xs text-muted-foreground">Last active: {new Date(conv.last_active_at).toLocaleString()}</p>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      title="View"
-                      onClick={() => setViewingConversation(conv.id)}
-                    >
+                    <Button variant="ghost" size="icon" title="View" onClick={() => setViewingConversation(conv.id)}>
                       <Eye className="size-4" />
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      title="Delete"
-                      onClick={() => deleteMutation.mutate(conv.id)}
-                      disabled={deleteMutation.isPending}
-                    >
+                    <Button variant="ghost" size="icon" title="Delete" onClick={() => deleteMutation.mutate(conv.id)} disabled={deleteMutation.isPending}>
                       <Trash2 className="size-4 text-red-500" />
                     </Button>
                   </div>
@@ -286,9 +251,7 @@ export function VoicePage(): React.JSX.Element {
                 id="voice-timeout"
                 type="number"
                 value={configForm.timeout_ms}
-                onChange={(e) =>
-                  setConfigForm((f) => ({ ...f, timeout_ms: parseInt(e.target.value, 10) || 0 }))
-                }
+                onChange={(e) => setConfigForm((f) => ({ ...f, timeout_ms: Number.parseInt(e.target.value, 10) || 0 }))}
               />
             </div>
             <div>
@@ -300,7 +263,7 @@ export function VoicePage(): React.JSX.Element {
                 onChange={(e) =>
                   setConfigForm((f) => ({
                     ...f,
-                    idle_timeout_s: parseInt(e.target.value, 10) || 0,
+                    idle_timeout_s: Number.parseInt(e.target.value, 10) || 0,
                   }))
                 }
               />
@@ -314,7 +277,7 @@ export function VoicePage(): React.JSX.Element {
                 onChange={(e) =>
                   setConfigForm((f) => ({
                     ...f,
-                    retention_days: parseInt(e.target.value, 10) || 0,
+                    retention_days: Number.parseInt(e.target.value, 10) || 0,
                   }))
                 }
               />
@@ -324,9 +287,7 @@ export function VoicePage(): React.JSX.Element {
               <Input
                 id="voice-allowlist"
                 value={configForm.service_allowlist}
-                onChange={(e) =>
-                  setConfigForm((f) => ({ ...f, service_allowlist: e.target.value }))
-                }
+                onChange={(e) => setConfigForm((f) => ({ ...f, service_allowlist: e.target.value }))}
                 placeholder="light, switch, cover"
               />
             </div>
@@ -343,10 +304,7 @@ export function VoicePage(): React.JSX.Element {
       </Dialog>
 
       {/* Conversation Detail Dialog */}
-      <Dialog
-        open={viewingConversation !== null}
-        onOpenChange={(open) => !open && setViewingConversation(null)}
-      >
+      <Dialog open={viewingConversation !== null} onOpenChange={(open) => !open && setViewingConversation(null)}>
         <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Conversation</DialogTitle>
@@ -363,25 +321,12 @@ export function VoicePage(): React.JSX.Element {
           )}
           {conversationDetail && (
             <div className="space-y-3 py-2">
-              {conversationDetail.messages.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center">No messages.</p>
-              )}
+              {conversationDetail.messages.length === 0 && <p className="text-sm text-muted-foreground text-center">No messages.</p>}
               {conversationDetail.messages.map((msg) => (
-                <div
-                  key={msg.id}
-                  className={`rounded-lg p-3 ${
-                    msg.role === 'user'
-                      ? 'bg-muted ml-8'
-                      : 'bg-primary/10 mr-8'
-                  }`}
-                >
-                  <p className="text-xs font-medium text-muted-foreground mb-1">
-                    {msg.role === 'user' ? 'You' : 'Assistant'}
-                  </p>
+                <div key={msg.id} className={`rounded-lg p-3 ${msg.role === 'user' ? 'bg-muted ml-8' : 'bg-primary/10 mr-8'}`}>
+                  <p className="text-xs font-medium text-muted-foreground mb-1">{msg.role === 'user' ? 'You' : 'Assistant'}</p>
                   <p className="text-sm text-foreground">{msg.text}</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {new Date(msg.timestamp).toLocaleTimeString()}
-                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">{new Date(msg.timestamp).toLocaleTimeString()}</p>
                 </div>
               ))}
             </div>

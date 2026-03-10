@@ -151,18 +151,26 @@ export function NamespaceProvider({ children }: { children: React.ReactNode }): 
     [queryClient],
   );
 
-  const toggleNamespace = React.useCallback((namespace: string) => {
-    setActiveNamespacesState((prev) => {
-      const isActive = prev.includes(namespace);
-      if (isActive) {
-        // Cannot remove the primary namespace (first element)
-        if (prev[0] === namespace) return prev;
-        return prev.filter((ns) => ns !== namespace);
+  const toggleNamespace = React.useCallback(
+    (namespace: string) => {
+      setActiveNamespacesState((prev) => {
+        const isActive = prev.includes(namespace);
+        if (isActive) {
+          // Cannot remove the primary namespace (first element)
+          if (prev[0] === namespace) return prev;
+          return prev.filter((ns) => ns !== namespace);
+        }
+        return [...prev, namespace];
+      });
+      setNamespaceVersion((v) => v + 1);
+      // Cancel inflight queries and reset cache on namespace change (#2360)
+      if (queryClient) {
+        void queryClient.cancelQueries();
+        void queryClient.resetQueries();
       }
-      return [...prev, namespace];
-    });
-    setNamespaceVersion((v) => v + 1);
-  }, []);
+    },
+    [queryClient],
+  );
 
   const activeNamespace = activeNamespaces[0] ?? 'default';
 
