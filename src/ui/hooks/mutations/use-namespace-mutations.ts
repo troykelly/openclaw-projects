@@ -14,7 +14,7 @@ import { apiClient } from '@/ui/lib/api-client';
 export function useCreateNamespace() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (body: { name: string }) => apiClient.post<{ data: { namespace: string } }>('/namespaces', body),
+    mutationFn: (body: { name: string }) => apiClient.post<{ namespace: string; created: boolean }>('/namespaces', body),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: namespaceKeys.all });
     },

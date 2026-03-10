@@ -227,7 +227,7 @@ function NamespaceListView() {
     );
   }
 
-  const namespaces = data?.data ?? [];
+  const namespaces = data ?? [];
 
   return (
     <>
@@ -272,9 +272,7 @@ function NamespaceListView() {
                         </Badge>
                       )}
                     </div>
-                    <p className="text-sm text-muted-foreground">
-                      {ns.member_count} {ns.member_count === 1 ? 'member' : 'members'}
-                    </p>
+                    <p className="text-sm text-muted-foreground">Access: {ns.access}</p>
                   </div>
                 </div>
                 <Badge variant={ns.access === 'readwrite' ? 'default' : 'outline'}>
@@ -320,7 +318,7 @@ function NamespaceDetailView({ ns }: { ns: string }) {
     );
   }
 
-  if (isError || !data?.data) {
+  if (isError || !data) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
         <p className="text-sm text-destructive">Error loading namespace details</p>
@@ -328,7 +326,7 @@ function NamespaceDetailView({ ns }: { ns: string }) {
     );
   }
 
-  const detail = data.data;
+  const detail = data;
 
   return (
     <>
@@ -340,7 +338,9 @@ function NamespaceDetailView({ ns }: { ns: string }) {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold">{detail.namespace}</h1>
-            <p className="text-sm text-muted-foreground mt-1">Created {new Date(detail.created_at).toLocaleDateString()}</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              {detail.member_count} {detail.member_count === 1 ? 'member' : 'members'}
+            </p>
           </div>
           <Button onClick={() => setInviteOpen(true)} aria-label="Invite Member">
             <Plus className="mr-2 size-4" />
@@ -351,35 +351,35 @@ function NamespaceDetailView({ ns }: { ns: string }) {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Members ({detail.grants.length})</CardTitle>
+          <CardTitle className="text-lg">Members ({detail.members.length})</CardTitle>
           <CardDescription>Manage who has access to this namespace.</CardDescription>
         </CardHeader>
         <CardContent>
-          {detail.grants.length === 0 ? (
+          {detail.members.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-4">No members.</p>
           ) : (
             <div className="divide-y">
-              {detail.grants.map((grant) => (
-                <div key={grant.id} data-testid={`grant-row-${grant.id}`} className="flex items-center justify-between py-3">
+              {detail.members.map((member) => (
+                <div key={member.id} data-testid={`grant-row-${member.id}`} className="flex items-center justify-between py-3">
                   <div className="flex items-center gap-3">
                     <div className="flex size-8 items-center justify-center rounded-full bg-muted text-sm font-medium">
-                      {grant.user_email[0]?.toUpperCase() ?? '?'}
+                      {member.email[0]?.toUpperCase() ?? '?'}
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium">{grant.user_email}</span>
-                        {grant.is_home && (
+                        <span className="text-sm font-medium">{member.email}</span>
+                        {member.is_home && (
                           <Badge variant="secondary" className="text-xs">
                             Home
                           </Badge>
                         )}
                       </div>
-                      <p className="text-xs text-muted-foreground">Joined {new Date(grant.created_at).toLocaleDateString()}</p>
+                      <p className="text-xs text-muted-foreground">Joined {new Date(member.created_at).toLocaleDateString()}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Select value={grant.access} onValueChange={(access) => updateGrant.mutate({ ns, grantId: grant.id, access })}>
-                      <SelectTrigger className="w-[130px]" aria-label={`Access level for ${grant.user_email}`}>
+                    <Select value={member.access} onValueChange={(access) => updateGrant.mutate({ ns, grantId: member.id, access })}>
+                      <SelectTrigger className="w-[130px]" aria-label={`Access level for ${member.email}`}>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -393,11 +393,11 @@ function NamespaceDetailView({ ns }: { ns: string }) {
                       data-testid="remove-grant-btn"
                       onClick={() =>
                         setRemoveTarget({
-                          grantId: grant.id,
-                          userEmail: grant.user_email,
+                          grantId: member.id,
+                          userEmail: member.email,
                         })
                       }
-                      aria-label={`Remove ${grant.user_email}`}
+                      aria-label={`Remove ${member.email}`}
                     >
                       <Trash2 className="size-4 text-destructive" />
                     </Button>

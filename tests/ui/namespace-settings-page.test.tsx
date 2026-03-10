@@ -1,11 +1,11 @@
 /**
  * @vitest-environment jsdom
  */
-import * as React from 'react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock apiClient
 vi.mock('@/ui/lib/api-client', () => ({
@@ -57,23 +57,45 @@ const mockedDelete = vi.mocked(apiClient.delete);
 // Import the page component after mocks
 import { NamespaceSettingsPage } from '@/ui/pages/NamespaceSettingsPage';
 
-const NAMESPACE_LIST = {
-  data: [
-    { namespace: 'acme', access: 'readwrite', is_home: true, member_count: 3, created_at: '2026-01-01T00:00:00Z' },
-    { namespace: 'beta', access: 'read', is_home: false, member_count: 1, created_at: '2026-02-01T00:00:00Z' },
-  ],
-};
+/** GET /namespaces returns a plain array (no wrapper). */
+const NAMESPACE_LIST = [
+  { namespace: 'acme', access: 'readwrite', is_home: true, priority: 0, created_at: '2026-01-01T00:00:00Z' },
+  { namespace: 'beta', access: 'read', is_home: false, priority: 1, created_at: '2026-02-01T00:00:00Z' },
+];
 
+/** GET /namespaces/:ns returns { namespace, members, member_count }. */
 const NAMESPACE_DETAIL = {
-  data: {
-    namespace: 'acme',
-    created_at: '2026-01-01T00:00:00Z',
-    grants: [
-      { id: 'g1', user_email: 'alice@example.com', access: 'readwrite', is_home: true, created_at: '2026-01-01T00:00:00Z' },
-      { id: 'g2', user_email: 'bob@example.com', access: 'read', is_home: false, created_at: '2026-01-15T00:00:00Z' },
-      { id: 'g3', user_email: 'carol@example.com', access: 'readwrite', is_home: false, created_at: '2026-02-01T00:00:00Z' },
-    ],
-  },
+  namespace: 'acme',
+  member_count: 3,
+  members: [
+    {
+      id: 'g1',
+      email: 'alice@example.com',
+      namespace: 'acme',
+      access: 'readwrite',
+      is_home: true,
+      created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-01T00:00:00Z',
+    },
+    {
+      id: 'g2',
+      email: 'bob@example.com',
+      namespace: 'acme',
+      access: 'read',
+      is_home: false,
+      created_at: '2026-01-15T00:00:00Z',
+      updated_at: '2026-01-15T00:00:00Z',
+    },
+    {
+      id: 'g3',
+      email: 'carol@example.com',
+      namespace: 'acme',
+      access: 'readwrite',
+      is_home: false,
+      created_at: '2026-02-01T00:00:00Z',
+      updated_at: '2026-02-01T00:00:00Z',
+    },
+  ],
 };
 
 function renderPage(initialPath = '/settings/namespaces') {
@@ -134,12 +156,12 @@ describe('NamespaceSettingsPage', () => {
     });
   });
 
-  // Test 3: Shows member count
-  it('shows member count for each namespace', async () => {
+  // Test 3: Shows access info for each namespace
+  it('shows access info for each namespace', async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText('3 members')).toBeInTheDocument();
-      expect(screen.getByText('1 member')).toBeInTheDocument();
+      expect(screen.getByText('Access: readwrite')).toBeInTheDocument();
+      expect(screen.getByText('Access: read')).toBeInTheDocument();
     });
   });
 
@@ -195,7 +217,7 @@ describe('NamespaceSettingsPage', () => {
 
   // Test 6: Create dialog sends correct API payload
   it('creates namespace with correct API call', async () => {
-    mockedPost.mockResolvedValue({ data: { namespace: 'new-ns' } });
+    mockedPost.mockResolvedValue({ namespace: 'new-ns', created: true });
     renderPage();
     await waitFor(() => {
       expect(screen.getByText('acme')).toBeInTheDocument();
@@ -302,7 +324,8 @@ describe('NamespaceSettingsPage', () => {
     fireEvent.click(backBtn);
 
     await waitFor(() => {
-      expect(screen.getByText('3 members')).toBeInTheDocument();
+      expect(screen.getByText('Namespaces')).toBeInTheDocument();
+      expect(screen.getByText('acme')).toBeInTheDocument();
     });
   });
 });
