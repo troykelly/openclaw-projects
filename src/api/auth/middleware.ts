@@ -449,7 +449,23 @@ export async function resolveNamespaces(
     roles[row.namespace] = row.access as NamespaceAccess;
   }
 
-  // If a specific namespace was requested, verify user has access
+  // Issue #2359: Support multi-namespace queries for user tokens
+  const requestedMulti = extractRequestedNamespaces(req);
+  if (requestedMulti.length > 0) {
+    // Validate each requested namespace against user's grants
+    const validated = requestedMulti.filter((ns) => allNamespaces.includes(ns));
+    if (validated.length === 0) {
+      return null; // No valid grants for any requested namespace
+    }
+    return {
+      storeNamespace: validated[0],
+      queryNamespaces: validated,
+      isM2M: false,
+      roles,
+    };
+  }
+
+  // Backward compat: single X-Namespace / ?namespace= header
   if (requested) {
     if (!allNamespaces.includes(requested)) {
       return null; // No grant for requested namespace
@@ -462,11 +478,34 @@ export async function resolveNamespaces(
     };
   }
 
-  // No specific namespace requested: use default or first alphabetical
-  const storeNamespace = defaultGrant?.namespace ?? allNamespaces[0];
+  // Issue #2359: No namespace header — use persisted active_namespaces preference,
+  // falling back to home namespace (NOT all grants).
+  const homeNamespace = defaultGrant?.namespace ?? allNamespaces[0];
+
+  const prefResult = await pool.query<{ active_namespaces: string[] }>(
+    `SELECT active_namespaces FROM user_setting WHERE email = $1`,
+    [identity.email],
+  );
+
+  if (prefResult.rows.length > 0 && prefResult.rows[0].active_namespaces?.length > 0) {
+    // Sanitize active_namespaces against current grants
+    const sanitized = prefResult.rows[0].active_namespaces.filter(
+      (ns) => allNamespaces.includes(ns),
+    );
+    if (sanitized.length > 0) {
+      return {
+        storeNamespace: sanitized[0],
+        queryNamespaces: sanitized,
+        isM2M: false,
+        roles,
+      };
+    }
+  }
+
+  // Final fallback: home namespace only
   return {
-    storeNamespace,
-    queryNamespaces: allNamespaces,
+    storeNamespace: homeNamespace,
+    queryNamespaces: [homeNamespace],
     isM2M: false,
     roles,
   };

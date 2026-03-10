@@ -50,7 +50,8 @@ async function fetchUser(pool: Pool, user_email: string): Promise<BootstrapUser 
   const result = await pool.query(
     `SELECT theme, default_view, default_project_id::text,
             sidebar_collapsed, show_completed_items, items_per_page,
-            email_notifications, email_digest_frequency, timezone
+            email_notifications, email_digest_frequency, timezone,
+            active_namespaces
      FROM user_setting
      WHERE email = $1`,
     [user_email],

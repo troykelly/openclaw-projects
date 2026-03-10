@@ -12,7 +12,7 @@
 import type { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createTestPool, truncateAllTables } from './helpers/db.ts';
-import { runMigrate } from './helpers/migrate.ts';
+import { runMigrate, stepsToRollbackTo } from './helpers/migrate.ts';
 import { SyncService, type RepositoryConfig } from '../src/api/symphony/tracker/sync-service.ts';
 import { computeSyncHash } from '../src/api/symphony/tracker/sync-hash.ts';
 import type {
@@ -609,8 +609,8 @@ describe('GitHub Issue Sync (#2202)', () => {
 
   describe('Migration 149 down', () => {
     it('cleanly rolls back migration 149', async () => {
-      // Roll back to migration 148: 159..149 = 11 steps
-      await runMigrate('down', 11);
+      // Roll back from latest down to (and including) migration 149
+      await runMigrate('down', stepsToRollbackTo(149));
 
       // Verify table dropped
       const tableCheck = await pool.query(

@@ -163,6 +163,17 @@ export function usersPaths(): OpenApiDomainModule {
             description: 'IANA timezone string for date/time display',
             example: 'Australia/Sydney',
           },
+          active_namespaces: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'User\'s active namespace selection (sanitized against current grants)',
+            example: ['troy', 'household'],
+          },
+          active_namespaces_sanitized: {
+            type: 'boolean',
+            description: 'True if active_namespaces was modified due to revoked grants',
+            example: false,
+          },
           created_at: {
             type: 'string',
             format: 'date-time',
@@ -248,6 +259,18 @@ export function usersPaths(): OpenApiDomainModule {
             description: 'Whether completed items are shown in list views',
             example: true,
           },
+          active_namespaces: {
+            type: 'array',
+            items: {
+              type: 'string',
+              pattern: '^[a-z0-9][a-z0-9._-]*$',
+              maxLength: 63,
+            },
+            minItems: 1,
+            maxItems: 20,
+            description: 'User\'s active namespace selection for UI filtering. All entries must exist in the user\'s namespace grants.',
+            example: ['troy', 'household'],
+          },
         },
       },
       UpdateUserResponse: {
@@ -289,6 +312,12 @@ export function usersPaths(): OpenApiDomainModule {
             nullable: true,
             description: 'Whether completed items are shown',
             example: true,
+          },
+          active_namespaces: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'User\'s active namespace selection (sanitized against current grants)',
+            example: ['troy', 'household'],
           },
           created_at: {
             type: 'string',

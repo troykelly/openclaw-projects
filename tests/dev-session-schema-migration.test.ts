@@ -11,7 +11,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Pool } from 'pg';
 import { createTestPool, truncateAllTables, ensureTestNamespace } from './helpers/db.ts';
-import { runMigrate } from './helpers/migrate.ts';
+import { runMigrate, stepsToRollbackTo } from './helpers/migrate.ts';
 
 describe('Dev Session Schema Migration (#2193)', () => {
   let pool: Pool;
@@ -226,8 +226,8 @@ describe('Dev Session Schema Migration (#2193)', () => {
     it('migration 147 down removes purpose column', async () => {
       await truncateAllTables(pool);
 
-      // Roll back to migration 146: 159..147 = 13 steps
-      await runMigrate('down', 13);
+      // Roll back from latest down to (and including) migration 147
+      await runMigrate('down', stepsToRollbackTo(147));
 
       const result = await pool.query(`
         SELECT column_name
@@ -243,8 +243,8 @@ describe('Dev Session Schema Migration (#2193)', () => {
     it('migration 146 down reverts status CHECK to original', async () => {
       await truncateAllTables(pool);
 
-      // Roll back to migration 145: 159..146 = 14 steps
-      await runMigrate('down', 14);
+      // Roll back from latest down to (and including) migration 146
+      await runMigrate('down', stepsToRollbackTo(146));
 
       // stalled should now be rejected
       await ensureTestNamespace(pool, 'rollback-test@example.com', 'default');
@@ -260,8 +260,8 @@ describe('Dev Session Schema Migration (#2193)', () => {
     it('migration 145 down removes symphony columns and trigger', async () => {
       await truncateAllTables(pool);
 
-      // Roll back to migration 144: 159..145 = 15 steps
-      await runMigrate('down', 15);
+      // Roll back from latest down to (and including) migration 145
+      await runMigrate('down', stepsToRollbackTo(145));
 
       // symphony_run_id should not exist
       const cols = await pool.query(`
