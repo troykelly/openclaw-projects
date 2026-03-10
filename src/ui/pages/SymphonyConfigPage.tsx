@@ -13,7 +13,7 @@
  * Issue #2208
  */
 import React, { useState } from 'react';
-import { useParams } from 'react-router';
+import { Link, useParams } from 'react-router';
 import {
   Settings2,
   GitBranch,
@@ -27,6 +27,7 @@ import {
   RefreshCw,
   Power,
   PowerOff,
+  ChevronRight,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/ui/components/ui/card';
 import { Button } from '@/ui/components/ui/button';
@@ -113,6 +114,19 @@ export function SymphonyConfigPage(): React.JSX.Element {
 
   return (
     <div data-testid="page-symphony-config" className="h-full flex flex-col p-6 space-y-6">
+      {/* Breadcrumb */}
+      <nav data-testid="symphony-config-breadcrumb" className="flex items-center gap-1.5 text-sm">
+        <Link to="/work-items" className="text-muted-foreground hover:text-foreground transition-colors">
+          Projects
+        </Link>
+        <ChevronRight className="size-3 text-muted-foreground" />
+        <Link to={`/projects/${safeProjectId}`} className="text-muted-foreground hover:text-foreground transition-colors">
+          Project
+        </Link>
+        <ChevronRight className="size-3 text-muted-foreground" />
+        <span className="font-medium">Symphony Config</span>
+      </nav>
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">

@@ -8,7 +8,8 @@
  * Issue #2207
  */
 import React, { useState } from 'react';
-import { Clock, ExternalLink, Cpu, Terminal, ChevronDown, ChevronUp } from 'lucide-react';
+import { Link } from 'react-router';
+import { Clock, ExternalLink, Cpu, Terminal, ChevronDown, ChevronUp, Settings2 } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/ui/components/ui/card';
 import { Badge } from '@/ui/components/ui/badge';
 import { Button } from '@/ui/components/ui/button';
@@ -133,6 +134,25 @@ export function RunCard({ run, index }: RunCardProps): React.JSX.Element {
           {run.estimated_cost_usd != null && (
             <span data-testid="run-cost">${run.estimated_cost_usd.toFixed(2)}</span>
           )}
+        </div>
+
+        {/* Project config link */}
+        <div className="flex items-center gap-3 text-xs">
+          <Link
+            to={`/projects/${run.project_id}/symphony`}
+            className="inline-flex items-center gap-1 text-muted-foreground hover:text-primary"
+            data-testid="project-config-link"
+          >
+            <Settings2 className="size-3" />
+            Config
+          </Link>
+          <Link
+            to={`/symphony/runs/${run.id}`}
+            className="inline-flex items-center gap-1 text-muted-foreground hover:text-primary"
+            data-testid="run-detail-link"
+          >
+            Details
+          </Link>
         </div>
 
         {/* Dispatch reasoning */}

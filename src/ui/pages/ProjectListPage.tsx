@@ -272,9 +272,19 @@ export function ProjectListPage(): React.JSX.Element {
                       <tr key={item.id} className="hover:bg-muted/50 transition-colors">
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
-                            <Link to={`/work-items/${encodeURIComponent(item.id)}`} className="font-medium text-foreground hover:text-primary transition-colors">
-                              {item.title}
-                            </Link>
+                            {item.kind === 'project' ? (
+                              <Link
+                                to={`/projects/${encodeURIComponent(item.id)}`}
+                                data-testid={`project-link-${item.id}`}
+                                className="font-medium text-foreground hover:text-primary transition-colors"
+                              >
+                                {item.title}
+                              </Link>
+                            ) : (
+                              <Link to={`/work-items/${encodeURIComponent(item.id)}`} className="font-medium text-foreground hover:text-primary transition-colors">
+                                {item.title}
+                              </Link>
+                            )}
                             <NamespaceBadge namespace={item.namespace} />
                           </div>
                         </td>

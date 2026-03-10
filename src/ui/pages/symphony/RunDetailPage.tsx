@@ -580,18 +580,27 @@ export function RunDetailPage(): React.JSX.Element {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <div className="flex items-center gap-3 mb-1">
+          <nav data-testid="run-detail-breadcrumb" className="flex items-center gap-3 mb-1">
             <Link
-              to="/dashboard"
+              to="/symphony"
+              data-testid="breadcrumb-symphony-dashboard"
               className="text-sm text-muted-foreground hover:text-foreground"
             >
               Symphony
             </Link>
             <ChevronDown className="size-3 -rotate-90 text-muted-foreground" />
+            <Link
+              to={`/projects/${run.project_id}`}
+              data-testid="breadcrumb-project"
+              className="text-sm text-muted-foreground hover:text-foreground"
+            >
+              Project
+            </Link>
+            <ChevronDown className="size-3 -rotate-90 text-muted-foreground" />
             <span className="text-sm text-muted-foreground">Runs</span>
             <ChevronDown className="size-3 -rotate-90 text-muted-foreground" />
             <span className="text-sm font-medium">{run.id.slice(0, 8)}</span>
-          </div>
+          </nav>
           <h1 className="text-2xl font-semibold text-foreground">
             {run.work_item_title ?? `Run ${run.id.slice(0, 8)}`}
           </h1>
