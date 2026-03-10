@@ -37,13 +37,14 @@ The API client sends headers based on the active selection:
 - **Single namespace selected:** `X-Namespace: my-workspace` header.
 - **Multiple namespaces selected:** `X-Namespaces: ws-a,ws-b` header (comma-separated).
 
-**Current backend behavior (important):**
+**Backend behavior:**
 
-- **User tokens:** The backend uses `extractRequestedNamespace()` (singular) for user tokens. It resolves to one `storeNamespace` and one `queryNamespace`. Multi-namespace via `X-Namespaces` is **not honored for user tokens today**.
-- **M2M tokens:** The backend calls `extractRequestedNamespaces()` (plural) and supports multi-namespace queries. This is an M2M-only feature (Issue #1534).
-- **No header sent:** For user tokens without a namespace header, the backend uses the home grant as `storeNamespace` and returns data from **all** granted namespaces in `queryNamespaces`.
+- **User tokens (with X-Namespaces):** The backend calls `extractRequestedNamespaces()` (plural) and validates each namespace against the user's grants. The first valid namespace becomes `storeNamespace`; all valid namespaces become `queryNamespaces`. Added in Issue #2359.
+- **User tokens (with X-Namespace):** The backend uses `extractRequestedNamespace()` (singular). Resolves to one `storeNamespace` and one `queryNamespace`. Must have a grant for the requested namespace.
+- **User tokens (no header):** Uses persisted `active_namespaces` from `user_setting` (sanitized against current grants), falling back to the home namespace.
+- **M2M tokens:** The backend calls `extractRequestedNamespaces()` (plural) without grant checks. Defaults to `'default'` if no header is sent.
 
-The frontend context supports multi-namespace selection (`activeNamespaces` array, `toggleNamespace`) to prepare for future backend support, but the backend does not currently act on `X-Namespaces` for user tokens. The header is sent optimistically.
+Both user and M2M tokens support multi-namespace queries. User tokens additionally validate each requested namespace against grants.
 
 ### Query Key Segmentation via useNamespaceQueryKey
 
@@ -85,7 +86,7 @@ The context also exposes a `namespaceVersion` counter that increments on each sw
 
 - Zero changes needed to individual query/mutation hooks — header injection is automatic.
 - Cache segmentation prevents cross-namespace data leaks without manual cache key management.
-- Frontend context is pre-built for multi-namespace support when the backend adds it for user tokens.
+- Both frontend and backend support multi-namespace selection end-to-end.
 - Backward compatible with existing M2M and single-namespace flows.
 
 ### Negative
@@ -93,7 +94,7 @@ The context also exposes a `namespaceVersion` counter that increments on each sw
 - Full cache reset on namespace switch means brief loading states. Acceptable tradeoff for data correctness.
 - Module-level resolver pattern is harder to test than explicit parameter passing. Mitigated by `setNamespaceResolver()` being callable in test setup.
 - localStorage persistence means shared browser profiles could have namespace selection conflicts. Acceptable for current user base.
-- The frontend sends `X-Namespaces` for user tokens but the backend ignores it. This is intentional forward-compatibility, not a bug.
+- Invalid namespace names in `X-Namespaces` are silently filtered. If all names are invalid, the resolver falls back to persisted/home namespace rather than rejecting with 400. This can cause the request to target a different valid namespace than the caller intended.
 
 ## Implementation Notes
 

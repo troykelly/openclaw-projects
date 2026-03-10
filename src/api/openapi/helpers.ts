@@ -54,14 +54,14 @@ export function namespaceParam(): ParameterObject {
 
 /**
  * Multi-namespace header parameter (X-Namespaces) for cross-namespace read queries.
- * Currently only supported for M2M tokens. User tokens use X-Namespace (singular).
+ * Supported for both user tokens (grant-validated) and M2M tokens (trusted).
  */
 export function namespacesParam(): ParameterObject {
   return {
     name: 'X-Namespaces',
     in: 'header',
     description:
-      'Comma-separated list of namespaces for cross-namespace read queries (M2M tokens only). The first namespace is used as the store namespace. Maximum 20 namespaces per request. Each name must match ^[a-z0-9][a-z0-9._-]*$ (max 63 chars). Invalid names are silently filtered. Takes precedence over X-Namespace when both are present.',
+      'Comma-separated list of namespaces for cross-namespace read queries. For user tokens, each namespace is validated against grants (unauthorized namespaces are filtered). For M2M tokens, all requested namespaces are accepted. The first namespace is used as the store namespace. Maximum 20 namespaces per request. Each name must match ^[a-z0-9][a-z0-9._-]*$ (max 63 chars). Invalid names are silently filtered. Takes precedence over X-Namespace when both are present.',
     schema: { type: 'string' },
     example: 'workspace-a,workspace-b',
   };

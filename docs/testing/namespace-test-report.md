@@ -24,7 +24,8 @@ Full test suite run on 2026-03-10 after all namespace PRs merged to main:
 
 | Test File | Issue | Tests | Status |
 |-----------|-------|-------|--------|
-| `tests/namespace_middleware.test.ts` | #1475, #2359 | User token resolution, M2M token resolution, X-Namespace header, query param, edge cases | PASS |
+| `tests/namespace_middleware.test.ts` | #1475 | User token resolution, M2M token resolution, X-Namespace header, query param, edge cases | PASS |
+| `src/api/auth/middleware-user-namespace.test.ts` | #2359 | User token multi-namespace, active_namespaces persistence, PATCH validation | PASS |
 | `tests/docker/traefik-entrypoint.test.ts` | #2369 | CORS allows X-Namespace, X-Namespaces headers | PASS |
 | `tests/webhook_namespace_auth.test.ts` | - | Webhook namespace auth context | PASS |
 
@@ -47,7 +48,7 @@ Full test suite run on 2026-03-10 after all namespace PRs merged to main:
 
 ### Notes on Checklist Items Not Applicable
 
-- **`PATCH /settings` with `active_namespaces`**: The backend stores `active_namespaces` in `user_setting` but updates it internally through namespace resolution, not through a user-facing PATCH endpoint. No test needed.
+- **`PATCH /users/:email` with `active_namespaces`**: The backend exposes `PATCH /users/:email` which accepts `active_namespaces` with validation (array type, non-empty, max 20, pattern check, grant verification). This endpoint is tested in `src/api/auth/middleware-user-namespace.test.ts`. The original #2358 checklist referred to `PATCH /settings` which does not exist -- the actual endpoint is on the users route.
 - **`NamespaceTransitionOverlay`**: Multi-namespace toggle mode is not currently wired in the UI. The `toggleNamespace` function exists but has no call sites. Overlay component is not implemented.
 - **Standalone dialog tests**: `NamespaceCreateDialog` and `NamespaceInviteDialog` are tested as part of `namespace-settings-page.test.tsx` (tests 5-7), not as isolated components.
 

@@ -45,7 +45,7 @@ Root-level React context provider that manages namespace state. Must wrap the en
 | `isNamespaceReady` | `boolean` | Whether context is initialized |
 | `namespaceVersion` | `number` | Monotonic counter, increments on switch |
 
-**Note on multi-namespace:** The context supports multi-namespace selection (`activeNamespaces`, `toggleNamespace`, `isMultiNamespaceMode`), but the backend does not currently honor `X-Namespaces` for user tokens. These fields prepare for future backend support. Currently, `toggleNamespace` has no call sites in the UI.
+**Note on multi-namespace:** The context supports multi-namespace selection (`activeNamespaces`, `toggleNamespace`, `isMultiNamespaceMode`), and the backend honors `X-Namespaces` for both user and M2M tokens (Issue #2359). However, the UI does not currently expose a multi-namespace toggle -- `toggleNamespace` has no call sites. The `PATCH /users/:email` endpoint accepts `active_namespaces` to persist the selection server-side.
 
 ### useNamespaceQueryKey (`src/ui/hooks/use-namespace-query-key.ts`)
 
@@ -89,15 +89,16 @@ interface NamespaceContext {
 
 | Token Type | Namespace Header Used | Store Namespace | Query Namespaces | Grant Check |
 |------------|----------------------|----------------|-----------------|-------------|
+| User (with X-Namespaces) | `extractRequestedNamespaces` (plural) | First valid | All valid (grant-checked) | Yes -- each validated |
 | User (with X-Namespace) | `extractRequestedNamespace` (singular) | Requested | `[requested]` | Yes -- must have grant |
-| User (no header) | N/A | Home or first alphabetical | **All** granted namespaces | Yes |
+| User (no header) | N/A | From `active_namespaces` pref or home | From `active_namespaces` pref or `[home]` | Yes |
 | M2M (with X-Namespaces) | `extractRequestedNamespaces` (plural) | First requested | All requested | No -- trusted |
 | M2M (with X-Namespace) | `extractRequestedNamespace` (singular) | Requested | `[requested]` | No -- trusted |
 | M2M (no header) | N/A | `'default'` | `['default']` | No |
 | Auth disabled (with header) | `extractRequestedNamespace` (singular) | Requested | `[requested]` | No |
 | Auth disabled (no header) | N/A | Returns `null` | N/A | No |
 
-**Important:** User tokens do **not** support multi-namespace queries via `X-Namespaces`. The backend only calls `extractRequestedNamespaces()` for M2M tokens.
+Both user and M2M tokens support multi-namespace queries via `X-Namespaces` (Issue #2359). The difference is that user tokens validate each namespace against grants and filter out unauthorized ones, while M2M tokens accept all requested namespaces without grant checks.
 
 ### Header Extraction Priority
 
@@ -106,7 +107,7 @@ For singular extraction (`extractRequestedNamespace`):
 2. `?namespace=` query param
 3. `body.namespace` string
 
-For plural extraction (`extractRequestedNamespaces`, M2M only):
+For plural extraction (`extractRequestedNamespaces`, user and M2M tokens):
 1. `X-Namespaces` header (comma-separated)
 2. `X-Namespace` header (single)
 3. `?namespaces=` query param (comma-separated)
@@ -158,7 +159,7 @@ if (namespaces.length === 1) {
 
 On 401 retry (token refresh), namespace headers are preserved from the original request snapshot to prevent race conditions.
 
-**Note:** The client sends `x-namespaces` when multiple are selected, but the backend currently ignores this for user tokens. This is forward-compatible.
+**Note:** The client sends `x-namespaces` when multiple are selected, and the backend honors this for both user tokens (grant-validated) and M2M tokens (trusted).
 
 ## OpenAPI Specification
 
@@ -196,4 +197,4 @@ export function useMyFeature() {
 - `useNamespaceSafe()` returns `null` outside `NamespaceProvider` (no throw).
 - `setNamespaceResolver()` can be called in test setup to control namespace headers.
 - Backend: when `isAuthDisabled()` is true, namespace context is only created when explicitly requested via the singular `X-Namespace` header or `?namespace=` param. Plural `X-Namespaces` is not honored in auth-disabled mode.
-- When no namespace header is sent for a user token, read endpoints operate across **all** granted namespaces, not just the home namespace.
+- When no namespace header is sent for a user token, the backend uses the persisted `active_namespaces` preference from `user_setting`, falling back to the home namespace. The preference is sanitized against current grants on every request.

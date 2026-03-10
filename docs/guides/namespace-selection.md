@@ -80,7 +80,7 @@ In the namespace detail view, use the access dropdown next to each member to cha
 
 ### Data Scoping
 
-Every API request from the UI includes an `X-Namespace` header with the active namespace name. The backend uses this header to filter data queries and route write operations to the correct namespace.
+Every API request from the UI includes a namespace header. When a single namespace is selected, the `X-Namespace` header is sent. When multiple namespaces are selected, the `X-Namespaces` header is sent with comma-separated names. The backend uses these headers to filter data queries and route write operations to the correct namespace(s).
 
 ### Persistence
 
