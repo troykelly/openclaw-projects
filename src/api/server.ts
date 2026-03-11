@@ -1871,12 +1871,25 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         const noteId = (req.params as { noteId: string }).noteId;
         const client_id = `yjs-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
+        // Resolve user's namespaces for authorization (Issue #2404).
+        // WebSocket handlers bypass the preHandler hook that normally populates
+        // req.namespaceContext, so we query namespace_grant directly.
+        let namespaces: string[] = [];
+        if (user_email && yjsPool) {
+          const nsResult = await yjsPool.query<{ namespace: string }>(
+            `SELECT namespace FROM namespace_grant WHERE email = $1`,
+            [user_email],
+          );
+          namespaces = nsResult.rows.map((r: { namespace: string }) => r.namespace);
+        }
+
         try {
           await yjsWsHandler.handleConnection(
             socket as Parameters<typeof yjsWsHandler.handleConnection>[0],
             client_id,
             user_email ?? '',
             noteId,
+            namespaces,
           );
         } catch (err) {
           const msg = err instanceof Error ? err.message : 'Connection failed';
