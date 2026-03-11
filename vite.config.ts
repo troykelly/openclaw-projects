@@ -37,7 +37,7 @@ export default defineConfig({
     tailwindcss(),
     // Sentry source map upload — only active in CI when SENTRY_AUTH_TOKEN is set.
     // Uses @sentry/vite-plugin with debug IDs for reliable source map association.
-    // GlitchTip compatibility: pin to @sentry/vite-plugin@^2.
+    // Source map upload via @sentry/vite-plugin. The errorHandler ensures build failures are non-fatal if the Sentry/GlitchTip API is unreachable.
     ...(process.env.SENTRY_AUTH_TOKEN
       ? [
           sentryVitePlugin({
