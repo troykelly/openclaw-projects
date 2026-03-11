@@ -387,7 +387,7 @@ describe('Array.isArray guards warn on unexpected shape (#2382)', () => {
 
     expect(consoleWarnSpy).toHaveBeenCalledWith(
       expect.stringContaining('channel defaults'),
-      expect.anything(),
+      expect.stringContaining('object'),
     );
   });
 
@@ -413,7 +413,7 @@ describe('Array.isArray guards warn on unexpected shape (#2382)', () => {
 
     expect(consoleWarnSpy).toHaveBeenCalledWith(
       expect.stringContaining('inbound destinations'),
-      expect.anything(),
+      expect.stringContaining('string'),
     );
   });
 
@@ -439,7 +439,7 @@ describe('Array.isArray guards warn on unexpected shape (#2382)', () => {
 
     expect(consoleWarnSpy).toHaveBeenCalledWith(
       expect.stringContaining('prompt templates'),
-      expect.anything(),
+      expect.stringContaining('object'),
     );
   });
 });

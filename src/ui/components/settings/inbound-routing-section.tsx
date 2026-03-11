@@ -226,7 +226,7 @@ function ChannelDefaultsSection() {
     try {
       const data = await apiClient.get<ChannelDefault[]>('/channel-defaults');
       if (!Array.isArray(data)) {
-        console.warn('Unexpected response shape for channel defaults:', data);
+        console.warn('Unexpected response shape for channel defaults: expected array, got', typeof data);
       }
       const items = Array.isArray(data) ? data : [];
       setDefaults(items);
@@ -378,7 +378,7 @@ function InboundDestinationsSection() {
         '/inbound-destinations?limit=100&include_inactive=true',
       );
       if (!Array.isArray(data.items)) {
-        console.warn('Unexpected response shape for inbound destinations:', data);
+        console.warn('Unexpected response shape for inbound destinations: expected items array, got', typeof data.items);
       }
       setDestinations(Array.isArray(data.items) ? data.items : []);
       setError(null);
@@ -565,7 +565,7 @@ function PromptTemplatesSection() {
         '/prompt-templates?limit=100&include_inactive=true',
       );
       if (!Array.isArray(data.items)) {
-        console.warn('Unexpected response shape for prompt templates:', data);
+        console.warn('Unexpected response shape for prompt templates: expected items array, got', typeof data.items);
       }
       setTemplates(Array.isArray(data.items) ? data.items : []);
       setError(null);
