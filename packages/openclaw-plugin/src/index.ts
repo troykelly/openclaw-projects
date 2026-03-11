@@ -53,6 +53,8 @@ import {
   createMemoryRecallTool,
   createMemoryStoreTool,
   createMemoryForgetTool,
+  createMemoryListTool,
+  createMemoryUpdateTool,
   createProjectListTool,
   createProjectGetTool,
   createProjectCreateTool,
@@ -65,6 +67,8 @@ import {
   type MemoryRecallTool,
   type MemoryStoreTool,
   type MemoryForgetTool,
+  type MemoryListTool,
+  type MemoryUpdateTool,
   type ProjectListTool,
   type ProjectGetTool,
   type ProjectCreateTool,
@@ -88,6 +92,8 @@ export interface PluginTools {
   memoryRecall: MemoryRecallTool;
   memoryStore: MemoryStoreTool;
   memoryForget: MemoryForgetTool;
+  memoryList: MemoryListTool;
+  memoryUpdate: MemoryUpdateTool;
   projectList: ProjectListTool;
   projectGet: ProjectGetTool;
   projectCreate: ProjectCreateTool;
@@ -154,6 +160,18 @@ function createPluginInstance(config: PluginConfig, logger: Logger, runtime: unk
       user_id,
     }),
     memoryForget: createMemoryForgetTool({
+      client: apiClient,
+      logger,
+      config,
+      user_id,
+    }),
+    memoryList: createMemoryListTool({
+      client: apiClient,
+      logger,
+      config,
+      user_id,
+    }),
+    memoryUpdate: createMemoryUpdateTool({
       client: apiClient,
       logger,
       config,
@@ -384,6 +402,8 @@ export {
   createMemoryRecallTool,
   createMemoryStoreTool,
   createMemoryForgetTool,
+  createMemoryListTool,
+  createMemoryUpdateTool,
   createProjectListTool,
   createProjectGetTool,
   createProjectCreateTool,
@@ -396,6 +416,8 @@ export {
   MemoryRecallParamsSchema,
   MemoryStoreParamsSchema,
   MemoryForgetParamsSchema,
+  MemoryListParamsSchema,
+  MemoryUpdateParamsSchema,
   MemoryCategory,
   ProjectListParamsSchema,
   ProjectGetParamsSchema,

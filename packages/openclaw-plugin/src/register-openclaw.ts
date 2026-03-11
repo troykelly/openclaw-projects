@@ -294,6 +294,21 @@ const memoryRecallSchema: JSONSchema = {
       description: 'Scope search to a specific relationship between contacts',
       format: 'uuid',
     },
+    since: {
+      type: 'string',
+      description: 'Filter memories created after this time. Relative duration ("48h", "7d", "2w", "1m") or ISO date.',
+      maxLength: 100,
+    },
+    before: {
+      type: 'string',
+      description: 'Filter memories created before this time. Relative duration ("48h", "7d", "2w", "1m") or ISO date.',
+      maxLength: 100,
+    },
+    period: {
+      type: 'string',
+      description: 'Shorthand time period filter. Mutually exclusive with since/before.',
+      enum: ['today', 'yesterday', 'this_week', 'last_week', 'this_month', 'last_month'],
+    },
     location: {
       type: 'object',
       description: 'Current location for geo-aware recall ranking',
@@ -413,6 +428,103 @@ const memoryForgetSchema: JSONSchema = {
       description: 'Search query to find memories to forget',
     },
   },
+};
+
+/**
+ * Memory list tool JSON Schema (Issue #2377)
+ */
+const memoryListSchema: JSONSchema = {
+  type: 'object',
+  properties: {
+    limit: {
+      type: 'integer',
+      description: 'Maximum number of memories to return (1-100)',
+      minimum: 1,
+      maximum: 100,
+      default: 20,
+    },
+    offset: {
+      type: 'integer',
+      description: 'Number of memories to skip for pagination',
+      minimum: 0,
+      default: 0,
+    },
+    category: {
+      type: 'string',
+      description: 'Filter by memory category',
+      enum: ['preference', 'fact', 'decision', 'context', 'entity', 'other'],
+    },
+    tags: {
+      type: 'array',
+      description: 'Filter by tags',
+      items: { type: 'string', minLength: 1, maxLength: 100 },
+    },
+    since: {
+      type: 'string',
+      description: 'Filter memories created after this time. Relative duration or ISO date.',
+      maxLength: 100,
+    },
+    before: {
+      type: 'string',
+      description: 'Filter memories created before this time. Relative duration or ISO date.',
+      maxLength: 100,
+    },
+    period: {
+      type: 'string',
+      description: 'Shorthand time period filter. Mutually exclusive with since/before.',
+      enum: ['today', 'yesterday', 'this_week', 'last_week', 'this_month', 'last_month'],
+    },
+    sort: {
+      type: 'string',
+      description: 'Sort field',
+      enum: ['created_at', 'updated_at'],
+    },
+    sort_direction: {
+      type: 'string',
+      description: 'Sort direction',
+      enum: ['asc', 'desc'],
+    },
+  },
+};
+
+/**
+ * Memory update tool JSON Schema (Issue #2378)
+ */
+const memoryUpdateSchema: JSONSchema = {
+  type: 'object',
+  properties: {
+    memory_id: {
+      type: 'string',
+      description: 'ID of the memory to update (UUID)',
+    },
+    text: {
+      type: 'string',
+      description: 'New content for the memory',
+      minLength: 1,
+      maxLength: 10000,
+    },
+    category: {
+      type: 'string',
+      description: 'New category for the memory',
+      enum: ['preference', 'fact', 'decision', 'context', 'entity', 'other'],
+    },
+    importance: {
+      type: 'number',
+      description: 'New importance score (0-1)',
+      minimum: 0,
+      maximum: 1,
+    },
+    tags: {
+      type: 'array',
+      description: 'New tags (replaces all existing tags)',
+      items: { type: 'string', minLength: 1, maxLength: 100 },
+    },
+    expires_at: {
+      type: 'string',
+      description: 'Set or clear expiry (ISO date string, or omit to leave unchanged)',
+    },
+  },
+  required: ['memory_id'],
 };
 
 /**
@@ -1903,6 +2015,9 @@ function createToolHandlers(state: PluginState) {
         category,
         tags,
         relationship_id,
+        since,
+        before,
+        period,
         location,
         location_radius_km,
         location_weight,
@@ -1912,6 +2027,9 @@ function createToolHandlers(state: PluginState) {
         category?: string;
         tags?: string[];
         relationship_id?: string;
+        since?: string;
+        before?: string;
+        period?: string;
         location?: { lat: number; lng: number };
         location_radius_km?: number;
         location_weight?: number;
@@ -1925,6 +2043,9 @@ function createToolHandlers(state: PluginState) {
         if (category) queryParams.set('memory_type', category);
         if (tags && tags.length > 0) queryParams.set('tags', tags.join(','));
         if (relationship_id) queryParams.set('relationship_id', relationship_id);
+        if (since) queryParams.set('since', since);
+        if (before) queryParams.set('before', before);
+        if (period) queryParams.set('period', period);
         // Namespace scoping (Issue #1428)
         const ns = getRecallNamespaces(params);
         if (ns.length > 0) queryParams.set('namespaces', ns.join(','));
@@ -2136,6 +2257,158 @@ function createToolHandlers(state: PluginState) {
       } catch (error) {
         logger.error('memory_forget failed', { error });
         return { success: false, error: 'Failed to forget memory' };
+      }
+    },
+
+    async memory_list(params: Record<string, unknown>): Promise<ToolResult> {
+      const {
+        limit = 20,
+        offset = 0,
+        category,
+        tags,
+        since,
+        before,
+        period,
+        sort,
+        sort_direction,
+      } = params as {
+        limit?: number;
+        offset?: number;
+        category?: string;
+        tags?: string[];
+        since?: string;
+        before?: string;
+        period?: string;
+        sort?: string;
+        sort_direction?: string;
+      };
+
+      try {
+        const queryParams = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+        if (category) {
+          const memory_type = category === 'other' ? 'note' : category;
+          queryParams.set('memory_type', memory_type);
+        }
+        if (tags && tags.length > 0) queryParams.set('tags', tags.join(','));
+        if (since) queryParams.set('since', since);
+        if (before) queryParams.set('before', before);
+        if (period) queryParams.set('period', period);
+        if (sort) queryParams.set('sort', sort);
+        if (sort_direction) queryParams.set('sort_direction', sort_direction);
+        // Namespace scoping (consistent with memory_recall)
+        const listNs = getRecallNamespaces(params);
+        if (listNs.length > 0) queryParams.set('namespaces', listNs.join(','));
+
+        const response = await apiClient.get<{
+          memories: Array<{
+            id: string;
+            content: string;
+            type: string;
+            tags?: string[];
+            importance?: number;
+            created_at?: string;
+            updated_at?: string;
+          }>;
+          total: number;
+        }>(`/memories/unified?${queryParams}`, reqOpts());
+
+        if (!response.success) {
+          return { success: false, error: response.error.message };
+        }
+
+        const rawMemories = response.data.memories ?? [];
+        const total = response.data.total ?? rawMemories.length;
+        const memories = rawMemories.map((m) => ({
+          ...m,
+          category: m.type === 'note' ? 'other' : m.type,
+        }));
+
+        const content = memories.length > 0
+          ? `Showing ${offset + 1}-${offset + memories.length} of ${total} memories:\n` +
+            memories.map((m) => {
+              const tagSuffix = m.tags && m.tags.length > 0 ? ` {${m.tags.join(', ')}}` : '';
+              const timestamp = m.created_at ? ` (${m.created_at})` : '';
+              return `- [${m.category}]${tagSuffix} ${m.content}${timestamp}`;
+            }).join('\n')
+          : 'No memories found.';
+
+        return {
+          success: true,
+          data: {
+            content,
+            details: { count: memories.length, total, offset, memories, user_id: state.agentId },
+          },
+        };
+      } catch (error) {
+        logger.error('memory_list failed', { error });
+        return { success: false, error: 'Failed to list memories' };
+      }
+    },
+
+    async memory_update(params: Record<string, unknown>): Promise<ToolResult> {
+      const {
+        memory_id,
+        text,
+        category,
+        importance,
+        tags,
+        expires_at,
+      } = params as {
+        memory_id: string;
+        text?: string;
+        category?: string;
+        importance?: number;
+        tags?: string[];
+        expires_at?: string | null;
+      };
+
+      if (!memory_id) {
+        return { success: false, error: 'memory_id is required' };
+      }
+
+      try {
+        const payload: Record<string, unknown> = {};
+        if (text !== undefined) payload.content = text;
+        if (category !== undefined) payload.memory_type = category === 'other' ? 'note' : category;
+        if (importance !== undefined) payload.importance = importance;
+        if (tags !== undefined) payload.tags = tags;
+        if (expires_at !== undefined) payload.expires_at = expires_at;
+
+        if (Object.keys(payload).length === 0) {
+          return { success: false, error: 'At least one field besides memory_id must be provided' };
+        }
+
+        const response = await apiClient.patch<{
+          id: string;
+          content: string;
+          type?: string;
+          importance?: number;
+          tags?: string[];
+        }>(`/memories/${memory_id}`, payload, reqOptsScoped());
+
+        if (!response.success) {
+          return { success: false, error: response.error.message };
+        }
+
+        const updated = response.data;
+        const preview = (updated.content ?? text ?? '').slice(0, 100);
+
+        return {
+          success: true,
+          data: {
+            content: `Updated memory ${memory_id}: "${preview}"`,
+            details: {
+              id: memory_id,
+              category: updated.type === 'note' ? 'other' : (updated.type ?? category),
+              importance: updated.importance ?? importance,
+              tags: updated.tags ?? tags,
+              user_id: state.agentId,
+            },
+          },
+        };
+      } catch (error) {
+        logger.error('memory_update failed', { error });
+        return { success: false, error: 'Failed to update memory' };
       }
     },
 
@@ -4261,7 +4534,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
   // Create tool handlers
   const handlers = createToolHandlers(state);
 
-  // Register all 30 tools with correct OpenClaw Gateway execute signature
+  // Register all 32 tools with correct OpenClaw Gateway execute signature
   // Signature: (toolCallId: string, params: T, signal?: AbortSignal, onUpdate?: (partial: any) => void) => AgentToolResult
   const tools: ToolDefinition[] = [
     {
@@ -4288,6 +4561,24 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
       parameters: withNamespaces(memoryForgetSchema),
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.memory_forget(params);
+        return toAgentToolResult(result);
+      },
+    },
+    {
+      name: 'memory_list',
+      description: 'Browse and paginate through stored memories. Use when you need to enumerate, audit, or inventory memories without a search query. Supports filtering by category, tags, and time range. Read-only.',
+      parameters: withNamespaces(memoryListSchema),
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.memory_list(params);
+        return toAgentToolResult(result);
+      },
+    },
+    {
+      name: 'memory_update',
+      description: 'Update an existing memory in-place. Use to modify content, category, tags, importance, or expiry without deleting and recreating. Preserves original creation timestamp and memory ID.',
+      parameters: withNamespace(memoryUpdateSchema),
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.memory_update(params);
         return toAgentToolResult(result);
       },
     },
@@ -5896,6 +6187,8 @@ export const schemas = {
   memoryRecall: withNamespaces(memoryRecallSchema),
   memoryStore: withNamespace(memoryStoreSchema),
   memoryForget: withNamespaces(memoryForgetSchema),
+  memoryList: withNamespaces(memoryListSchema),
+  memoryUpdate: withNamespace(memoryUpdateSchema),
   projectList: withNamespaces(projectListSchema),
   projectGet: withNamespaces(projectGetSchema),
   projectCreate: withNamespace(projectCreateSchema),

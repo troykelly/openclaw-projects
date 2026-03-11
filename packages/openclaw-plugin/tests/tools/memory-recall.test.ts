@@ -959,4 +959,151 @@ describe('memory_recall tool', () => {
       }
     });
   });
+
+  describe('temporal filtering (Issue #2376)', () => {
+    it('should pass since param to API', async () => {
+      const mockGet = vi.fn().mockResolvedValue({
+        success: true,
+        data: { results: [], search_type: 'text' },
+      });
+      const client = { ...mockApiClient, get: mockGet };
+
+      const tool = createMemoryRecallTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        user_id: 'agent-1',
+      });
+
+      await tool.execute({ query: 'test', since: '48h' });
+
+      const calledUrl = mockGet.mock.calls[0][0] as string;
+      expect(calledUrl).toContain('since=48h');
+    });
+
+    it('should pass before param to API', async () => {
+      const mockGet = vi.fn().mockResolvedValue({
+        success: true,
+        data: { results: [], search_type: 'text' },
+      });
+      const client = { ...mockApiClient, get: mockGet };
+
+      const tool = createMemoryRecallTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        user_id: 'agent-1',
+      });
+
+      await tool.execute({ query: 'test', before: '2026-01-01T00:00:00Z' });
+
+      const calledUrl = mockGet.mock.calls[0][0] as string;
+      expect(calledUrl).toContain('before=2026-01-01T00');
+    });
+
+    it('should pass period param to API', async () => {
+      const mockGet = vi.fn().mockResolvedValue({
+        success: true,
+        data: { results: [], search_type: 'text' },
+      });
+      const client = { ...mockApiClient, get: mockGet };
+
+      const tool = createMemoryRecallTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        user_id: 'agent-1',
+      });
+
+      await tool.execute({ query: 'test', period: 'this_week' });
+
+      const calledUrl = mockGet.mock.calls[0][0] as string;
+      expect(calledUrl).toContain('period=this_week');
+    });
+
+    it('should pass since and before together', async () => {
+      const mockGet = vi.fn().mockResolvedValue({
+        success: true,
+        data: { results: [], search_type: 'text' },
+      });
+      const client = { ...mockApiClient, get: mockGet };
+
+      const tool = createMemoryRecallTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        user_id: 'agent-1',
+      });
+
+      await tool.execute({ query: 'test', since: '7d', before: '1d' });
+
+      const calledUrl = mockGet.mock.calls[0][0] as string;
+      expect(calledUrl).toContain('since=7d');
+      expect(calledUrl).toContain('before=1d');
+    });
+
+    it('should reject period combined with since', async () => {
+      const tool = createMemoryRecallTool({
+        client: mockApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        user_id: 'agent-1',
+      });
+
+      const result = await tool.execute({ query: 'test', period: 'today', since: '7d' });
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toContain('mutually exclusive');
+      }
+    });
+
+    it('should reject period combined with before', async () => {
+      const tool = createMemoryRecallTool({
+        client: mockApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        user_id: 'agent-1',
+      });
+
+      const result = await tool.execute({ query: 'test', period: 'today', before: '1d' });
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toContain('mutually exclusive');
+      }
+    });
+
+    it('should reject invalid period value', async () => {
+      const tool = createMemoryRecallTool({
+        client: mockApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        user_id: 'agent-1',
+      });
+
+      const result = await tool.execute({ query: 'test', period: 'invalid' as MemoryRecallParams['period'] });
+      expect(result.success).toBe(false);
+    });
+
+    it('should not include temporal params when not provided', async () => {
+      const mockGet = vi.fn().mockResolvedValue({
+        success: true,
+        data: { results: [], search_type: 'text' },
+      });
+      const client = { ...mockApiClient, get: mockGet };
+
+      const tool = createMemoryRecallTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        user_id: 'agent-1',
+      });
+
+      await tool.execute({ query: 'test' });
+
+      const calledUrl = mockGet.mock.calls[0][0] as string;
+      expect(calledUrl).not.toContain('since');
+      expect(calledUrl).not.toContain('before');
+      expect(calledUrl).not.toContain('period');
+    });
+  });
 });

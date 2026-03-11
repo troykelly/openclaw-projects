@@ -14,6 +14,7 @@ export const MemoryForgetParamsSchema = z
   .object({
     memory_id: z.string().optional(),
     query: z.string().max(1000, 'Query must be 1000 characters or less').optional(),
+    namespaces: z.array(z.string().min(1).max(100)).max(10, 'Maximum 10 namespaces').optional(),
   })
   .refine((data) => data.memory_id || data.query, {
     message: 'Either memory_id or query is required',
@@ -88,13 +89,14 @@ export function createMemoryForgetTool(options: MemoryForgetToolOptions): Memory
         return { success: false, error: errorMessage };
       }
 
-      const { memory_id, query } = parseResult.data;
+      const { memory_id, query, namespaces } = parseResult.data;
 
       // Log invocation
       logger.info('memory_forget invoked', {
         user_id,
         memory_id: memory_id ?? undefined,
         hasQuery: !!query,
+        namespaces: namespaces ?? [],
       });
 
       try {
@@ -105,7 +107,7 @@ export function createMemoryForgetTool(options: MemoryForgetToolOptions): Memory
 
         // Delete by query (OpenClaw two-phase: search → candidates or auto-delete)
         if (query) {
-          return await deleteByQuery(client, logger, user_id, query);
+          return await deleteByQuery(client, logger, user_id, query, namespaces);
         }
 
         // Should not reach here due to validation
@@ -190,7 +192,7 @@ async function deleteById(client: ApiClient, logger: Logger, user_id: string, me
  * - Single high-confidence match (>0.9) → auto-delete
  * - Multiple matches → return candidates for agent to specify memory_id
  */
-async function deleteByQuery(client: ApiClient, logger: Logger, user_id: string, query: string): Promise<MemoryForgetResult> {
+async function deleteByQuery(client: ApiClient, logger: Logger, user_id: string, query: string, namespaces?: string[]): Promise<MemoryForgetResult> {
   const sanitizedQuery = sanitizeQuery(query);
   if (sanitizedQuery.length === 0) {
     return { success: false, error: 'Query cannot be empty' };
@@ -200,6 +202,9 @@ async function deleteByQuery(client: ApiClient, logger: Logger, user_id: string,
     q: sanitizedQuery,
     limit: '5',
   });
+  if (namespaces && namespaces.length > 0) {
+    queryParams.set('namespaces', namespaces.join(','));
+  }
 
   const searchResponse = await client.get<{ results: Array<{ id: string; content: string; similarity?: number }> }>(
     `/memories/search?${queryParams.toString()}`,
