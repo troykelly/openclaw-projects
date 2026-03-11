@@ -310,6 +310,10 @@ describe('Webhook Verification', () => {
   describe('verifyCloudflareEmailSecret', () => {
     const secret = 'cloudflare-email-secret-123';
 
+    function calculateHmacSha256(body: string, key: string): string {
+      return createHmac('sha256', key).update(Buffer.from(body, 'utf-8')).digest('hex');
+    }
+
     it('returns false in production when secret not configured', () => {
       process.env.NODE_ENV = 'production';
       delete process.env.CLOUDFLARE_EMAIL_SECRET;
@@ -330,7 +334,7 @@ describe('Webhook Verification', () => {
       expect(verifyCloudflareEmailSecret(request)).toBe(true);
     });
 
-    it('returns false when secret header is missing', () => {
+    it('returns false when neither signature nor secret header is present', () => {
       process.env.CLOUDFLARE_EMAIL_SECRET = secret;
 
       const request = createMockRequest({
@@ -340,7 +344,77 @@ describe('Webhook Verification', () => {
       expect(verifyCloudflareEmailSecret(request)).toBe(false);
     });
 
-    it('returns true for valid secret', () => {
+    // HMAC-SHA256 signature verification (preferred, Issue #2408)
+    it('returns true for valid HMAC-SHA256 signature', () => {
+      process.env.CLOUDFLARE_EMAIL_SECRET = secret;
+
+      const body = '{"from":"test@example.com","subject":"Test"}';
+      const signature = calculateHmacSha256(body, secret);
+
+      const request = createMockRequest({
+        headers: { 'x-cloudflare-email-signature': signature },
+        body,
+      });
+
+      expect(verifyCloudflareEmailSecret(request)).toBe(true);
+    });
+
+    it('returns true for HMAC signature with sha256= prefix', () => {
+      process.env.CLOUDFLARE_EMAIL_SECRET = secret;
+
+      const body = '{"from":"test@example.com"}';
+      const signature = `sha256=${calculateHmacSha256(body, secret)}`;
+
+      const request = createMockRequest({
+        headers: { 'x-cloudflare-email-signature': signature },
+        body,
+      });
+
+      expect(verifyCloudflareEmailSecret(request)).toBe(true);
+    });
+
+    it('returns false for invalid HMAC signature', () => {
+      process.env.CLOUDFLARE_EMAIL_SECRET = secret;
+
+      const request = createMockRequest({
+        headers: { 'x-cloudflare-email-signature': 'deadbeef' },
+        body: '{"from":"test@example.com"}',
+      });
+
+      expect(verifyCloudflareEmailSecret(request)).toBe(false);
+    });
+
+    it('returns false for HMAC signature with tampered body', () => {
+      process.env.CLOUDFLARE_EMAIL_SECRET = secret;
+
+      const originalBody = '{"from":"test@example.com"}';
+      const signature = calculateHmacSha256(originalBody, secret);
+
+      const request = createMockRequest({
+        headers: { 'x-cloudflare-email-signature': signature },
+        body: '{"from":"evil@example.com"}',
+      });
+
+      expect(verifyCloudflareEmailSecret(request)).toBe(false);
+    });
+
+    it('handles HMAC with object body (JSON.stringify)', () => {
+      process.env.CLOUDFLARE_EMAIL_SECRET = secret;
+
+      const body = { from: 'test@example.com', subject: 'Test' };
+      const bodyString = JSON.stringify(body);
+      const signature = calculateHmacSha256(bodyString, secret);
+
+      const request = createMockRequest({
+        headers: { 'x-cloudflare-email-signature': signature },
+        body,
+      });
+
+      expect(verifyCloudflareEmailSecret(request)).toBe(true);
+    });
+
+    // Backward compat: static shared-secret header (deprecated)
+    it('returns true for valid legacy shared-secret header (backward compat)', () => {
       process.env.CLOUDFLARE_EMAIL_SECRET = secret;
 
       const request = createMockRequest({
@@ -350,7 +424,7 @@ describe('Webhook Verification', () => {
       expect(verifyCloudflareEmailSecret(request)).toBe(true);
     });
 
-    it('returns false for invalid secret', () => {
+    it('returns false for invalid legacy shared-secret', () => {
       process.env.CLOUDFLARE_EMAIL_SECRET = secret;
 
       const request = createMockRequest({
@@ -369,6 +443,24 @@ describe('Webhook Verification', () => {
 
       // Should return false without throwing
       expect(verifyCloudflareEmailSecret(request)).toBe(false);
+    });
+
+    it('prefers HMAC signature over legacy shared-secret when both present', () => {
+      process.env.CLOUDFLARE_EMAIL_SECRET = secret;
+
+      const body = '{"from":"test@example.com"}';
+      const signature = calculateHmacSha256(body, secret);
+
+      const request = createMockRequest({
+        headers: {
+          'x-cloudflare-email-signature': signature,
+          'x-cloudflare-email-secret': 'wrong-secret',  // would fail if checked
+        },
+        body,
+      });
+
+      // Should pass because HMAC is checked first
+      expect(verifyCloudflareEmailSecret(request)).toBe(true);
     });
   });
 

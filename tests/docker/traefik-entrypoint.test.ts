@@ -345,11 +345,12 @@ describe('Traefik dynamic config: api-webhook-router (Issue #2167)', () => {
     };
   }
 
-  // Per-provider webhook routers (Issue #2170 — split from single api-webhook-router)
+  // All webhook routers use Cloudflare IP allowlist at the edge (Issue #2408)
+  // Per-provider auth happens at the app layer (signature verification)
   const webhookRouters = [
     { name: 'api-webhook-cloudflare-router', path: '/cloudflare/email', ipMiddleware: 'webhook-cloudflare-ipallowlist' },
-    { name: 'api-webhook-postmark-router', path: '/postmark/inbound', ipMiddleware: 'webhook-postmark-ipallowlist' },
-    { name: 'api-webhook-twilio-router', path: '/twilio/sms', ipMiddleware: 'webhook-twilio-ipallowlist' },
+    { name: 'api-webhook-postmark-router', path: '/postmark/inbound', ipMiddleware: 'webhook-cloudflare-ipallowlist' },
+    { name: 'api-webhook-twilio-router', path: '/twilio/sms', ipMiddleware: 'webhook-cloudflare-ipallowlist' },
   ];
 
   it.each(webhookRouters)('$name bypasses ModSecurity and routes to api-service', ({ name }) => {
@@ -398,11 +399,12 @@ describe('Traefik dynamic config: api-webhook-router (Issue #2167)', () => {
     }
   });
 
-  it('ipAllowList middlewares are defined for all providers', () => {
+  it('only Cloudflare ipAllowList middleware is defined (Issue #2408)', () => {
     const config = getParsedConfig() as { http: { middlewares: Record<string, unknown>; routers: Record<string, unknown> } };
     expect(config.http.middlewares['webhook-cloudflare-ipallowlist']).toBeDefined();
-    expect(config.http.middlewares['webhook-postmark-ipallowlist']).toBeDefined();
-    expect(config.http.middlewares['webhook-twilio-ipallowlist']).toBeDefined();
+    // Per-provider allowlists removed — they don't work behind Cloudflare proxy
+    expect(config.http.middlewares['webhook-postmark-ipallowlist']).toBeUndefined();
+    expect(config.http.middlewares['webhook-twilio-ipallowlist']).toBeUndefined();
   });
 });
 
@@ -568,6 +570,46 @@ describe('Traefik dynamic config: api-cors namespace headers (Issue #2369)', () 
     const allowedHeaders = apiCors.headers?.accessControlAllowHeaders;
     expect(allowedHeaders).toBeDefined();
     expect(allowedHeaders).toContain('X-User-Email');
+  });
+});
+
+describe('Cloudflare CIDR sync between Traefik config and compose forwardedHeaders (Issue #2408)', () => {
+  function getParsedConfig() {
+    const output = runSedSubstitution({
+      DOMAIN: 'test.example.com',
+      ACME_EMAIL: 'test@example.com',
+      TRUSTED_IPS: '',
+      DISABLE_HTTP: 'false',
+      SERVICE_HOST: '[::1]',
+      MODSEC_HOST_PORT: '8080',
+      API_HOST_PORT: '3001',
+      APP_HOST_PORT: '8081',
+      GATEWAY_HOST_PORT: '18789',
+      SEAWEEDFS_HOST_PORT: '8333',
+    });
+    return parseYaml(output) as {
+      http: {
+        middlewares: Record<string, { ipAllowList?: { sourceRange?: string[] } }>;
+        routers: Record<string, unknown>;
+      };
+    };
+  }
+
+  it('forwardedHeaders.trustedIPs in compose matches webhook-cloudflare-ipallowlist CIDRs in dynamic config', () => {
+    // Extract CIDRs from dynamic config template
+    const config = getParsedConfig();
+    const allowlist = config.http.middlewares['webhook-cloudflare-ipallowlist'];
+    expect(allowlist).toBeDefined();
+    const templateCIDRs = (allowlist.ipAllowList?.sourceRange ?? []).map(s => s.trim()).sort();
+    expect(templateCIDRs.length).toBeGreaterThan(0);
+
+    // Extract CIDRs from compose forwardedHeaders.trustedIPs
+    const composeContent = readFileSync(resolve(ROOT_DIR, 'docker-compose.traefik.yml'), 'utf-8');
+    const match = composeContent.match(/forwardedHeaders\.trustedIPs=([^\s]+)/);
+    expect(match).not.toBeNull();
+    const composeCIDRs = match![1].split(',').map(s => s.trim()).sort();
+
+    expect(composeCIDRs).toEqual(templateCIDRs);
   });
 });
 
