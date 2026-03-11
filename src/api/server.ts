@@ -1071,8 +1071,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         return reply.code(409).send({ error: `namespace '${name}' already exists` });
       }
 
-      // Create readwrite grant for the namespace creator
+      // Create readwrite grant for the namespace creator.
+      // Auto-upsert user_setting to satisfy the FK constraint (Issue #2413).
       if (identity.type === 'user') {
+        await pool.query(
+          `INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT (email) DO NOTHING`,
+          [identity.email],
+        );
         await pool.query(
           `INSERT INTO namespace_grant (email, namespace, access, is_home)
            VALUES ($1, $2, 'readwrite', false)`,
@@ -1083,30 +1088,22 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         // Prefer X-User-Email (the user's actual email) over X-Agent-Id (which
         // may be a short agent name like "troy" that doesn't match user_setting.email).
         // Security note: both headers are caller-controlled. M2M tokens are trusted
-        // infrastructure (require server-side JWT secret). The user_setting FK check
-        // below prevents grants for non-existent users. If the M2M token is compromised,
+        // infrastructure (require server-side JWT secret). If the M2M token is compromised,
         // all API operations are exposed — not just namespace grants.
         const userEmail = req.headers['x-user-email'] as string | undefined;
         const agentId = req.headers['x-agent-id'] as string | undefined;
         const grantEmail = userEmail ?? agentId ?? identity.email;
-        const userExists = await pool.query(
-          `SELECT 1 FROM user_setting WHERE email = $1 LIMIT 1`,
+        // Auto-upsert user_setting so the FK constraint on namespace_grant is satisfied.
+        // This replaces the previous 422 guard (Issue #2402 → #2413).
+        await pool.query(
+          `INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT (email) DO NOTHING`,
           [grantEmail],
         );
-        if (userExists.rows.length > 0) {
-          await pool.query(
-            `INSERT INTO namespace_grant (email, namespace, access, is_home)
-             VALUES ($1, $2, 'readwrite', false)`,
-            [grantEmail, name],
-          );
-        } else {
-          // Issue #2402: Return error instead of silently succeeding without a grant.
-          // A namespace with no grants is invisible in namespace_list, creating confusion.
-          req.log.warn({ grantEmail, userEmail, agentId }, 'M2M namespace_create: target user not found in user_setting — aborting');
-          return reply.code(422).send({
-            error: `Cannot create namespace: user '${grantEmail}' not found in user_setting. Provision the user first via POST /users.`,
-          });
-        }
+        await pool.query(
+          `INSERT INTO namespace_grant (email, namespace, access, is_home)
+           VALUES ($1, $2, 'readwrite', false)`,
+          [grantEmail, name],
+        );
       }
 
       return reply.code(201).send({ namespace: name, created: true });
