@@ -204,6 +204,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // Support URL-encoded form bodies (used by Twilio webhooks)
   app.register(formbody);
 
+  // Raw body capture for webhook HMAC verification (Issue #2412).
+  // Not global — enabled per-route via config.rawBody = true.
+  app.register(import('fastify-raw-body'), { global: false, runFirst: true });
+
   // Multipart support for file uploads (Issue #215)
   const maxFileSize = Number.parseInt(process.env.MAX_FILE_SIZE_BYTES || String(DEFAULT_MAX_FILE_SIZE_BYTES), 10);
   app.register(multipart, {
@@ -12778,6 +12782,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     '/cloudflare/email',
     {
       config: {
+        rawBody: true, // Capture raw bytes for HMAC verification (Issue #2412)
         rateLimit: {
           max: 60, // 60 requests per minute for webhooks
           timeWindow: '1 minute',

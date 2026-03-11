@@ -13,12 +13,14 @@
  *   2. Parses MIME using postal-mime (zero-dependency, RFC 5322 compliant)
  *   3. Extracts headers, body (plain + HTML), and envelope addresses
  *   4. Constructs a CloudflareEmailPayload matching the API contract
- *   5. Authenticates via X-Cloudflare-Email-Secret header (shared secret)
+ *   5. Authenticates via X-Cloudflare-Email-Signature HMAC-SHA256 header (preferred)
+ *      and X-Cloudflare-Email-Secret header (deprecated, backward compat)
  *   6. POSTs to the webhook endpoint with retry on transient failures
  *   7. Optionally forwards original email to a fallback address
  *
  * Security:
- *   - Shared secret authenticates the Worker to the API (timing-safe comparison on server)
+ *   - HMAC-SHA256 signature over request body authenticates the Worker to the API
+ *   - Deprecated shared-secret header kept for backward compat during migration
  *   - Timestamp field enables replay protection (server rejects payloads >5 min old)
  *   - Size limits prevent abuse (configurable MAX_RAW_BYTES)
  *   - No secrets are logged; only structured metadata for observability
@@ -117,6 +119,30 @@ export const DEFAULT_MAX_RAW_BYTES = 26_214_400; // 25 MiB
 export const WEBHOOK_PATH = "/cloudflare/email";
 export const MAX_RETRIES = 2;
 export const RETRY_DELAYS_MS = [500, 1500] as const;
+
+// ---------------------------------------------------------------------------
+// HMAC-SHA256 signing (Web Crypto API for Cloudflare Workers)
+// ---------------------------------------------------------------------------
+
+/**
+ * Compute an HMAC-SHA256 hex digest over the given body using the Web Crypto API.
+ * Returns "sha256=<hex>" format matching the X-Cloudflare-Email-Signature header contract.
+ */
+export async function computeHmacSignature(secret: string, body: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(body));
+  const hex = Array.from(new Uint8Array(signature))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+  return `sha256=${hex}`;
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -232,13 +258,17 @@ export async function postWebhook(
     }
 
     try {
+      const jsonBody = JSON.stringify(payload);
+      const hmacSignature = await computeHmacSignature(secret, jsonBody);
+
       const response = await fetch(url, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-Cloudflare-Email-Secret": secret,
+          "X-Cloudflare-Email-Signature": hmacSignature,
+          "X-Cloudflare-Email-Secret": secret, // Deprecated: kept for backward compat
         },
-        body: JSON.stringify(payload),
+        body: jsonBody,
       });
 
       // 2xx — success
