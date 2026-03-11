@@ -380,6 +380,10 @@ const memoryStoreSchema: JSONSchema = {
       description: 'Scope memory to a specific relationship between contacts',
       format: 'uuid',
     },
+    pinned: {
+      type: 'boolean',
+      description: 'When true, this memory is always included in context injection regardless of semantic similarity (Issue #2380)',
+    },
     location: {
       type: 'object',
       description: 'Geographic location to associate with this memory',
@@ -522,6 +526,10 @@ const memoryUpdateSchema: JSONSchema = {
     expires_at: {
       type: 'string',
       description: 'Set or clear expiry (ISO date string, or omit to leave unchanged)',
+    },
+    pinned: {
+      type: 'boolean',
+      description: 'When true, this memory is always included in context injection regardless of semantic similarity (Issue #2380)',
     },
   },
   required: ['memory_id'],
@@ -2125,6 +2133,7 @@ function createToolHandlers(state: PluginState) {
         tags,
         relationship_id,
         location,
+        pinned,
       } = params as {
         text?: string;
         content?: string;
@@ -2133,6 +2142,7 @@ function createToolHandlers(state: PluginState) {
         tags?: string[];
         relationship_id?: string;
         location?: { lat: number; lng: number; address?: string; place_label?: string };
+        pinned?: boolean;
       };
 
       const memoryText = text || contentAlias;
@@ -2151,6 +2161,7 @@ function createToolHandlers(state: PluginState) {
         };
         if (tags && tags.length > 0) payload.tags = tags;
         if (relationship_id) payload.relationship_id = relationship_id;
+        if (pinned !== undefined) payload.pinned = pinned;
         if (location) {
           payload.lat = location.lat;
           payload.lng = location.lng;
@@ -2353,6 +2364,7 @@ function createToolHandlers(state: PluginState) {
         importance,
         tags,
         expires_at,
+        pinned,
       } = params as {
         memory_id: string;
         text?: string;
@@ -2360,6 +2372,7 @@ function createToolHandlers(state: PluginState) {
         importance?: number;
         tags?: string[];
         expires_at?: string | null;
+        pinned?: boolean;
       };
 
       if (!memory_id) {
@@ -2373,6 +2386,7 @@ function createToolHandlers(state: PluginState) {
         if (importance !== undefined) payload.importance = importance;
         if (tags !== undefined) payload.tags = tags;
         if (expires_at !== undefined) payload.expires_at = expires_at;
+        if (pinned !== undefined) payload.pinned = pinned;
 
         if (Object.keys(payload).length === 0) {
           return { success: false, error: 'At least one field besides memory_id must be provided' };

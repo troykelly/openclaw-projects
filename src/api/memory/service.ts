@@ -201,10 +201,13 @@ export async function createMemory(pool: Pool, input: CreateMemoryInput): Promis
   );
 
   if (duplicateCheck.rows.length > 0) {
-    // Duplicate found - update timestamp and return existing memory
+    // Duplicate found - update timestamp (and pinned if requested) and return existing memory
     const existingId = duplicateCheck.rows[0].id;
+    const pinnedClause = input.pinned !== undefined ? `, pinned = $2` : '';
+    const updateParams: unknown[] = [existingId];
+    if (input.pinned !== undefined) updateParams.push(input.pinned);
     const updateResult = await pool.query(
-      `UPDATE memory SET updated_at = NOW()
+      `UPDATE memory SET updated_at = NOW()${pinnedClause}
       WHERE id = $1
       RETURNING
         id::text, work_item_id::text, contact_id::text, relationship_id::text, project_id::text,
@@ -212,7 +215,7 @@ export async function createMemory(pool: Pool, input: CreateMemoryInput): Promis
         created_by_agent, created_by_human, source_url,
         importance, confidence, expires_at, superseded_by::text,
         embedding_status, (superseded_by IS NULL) as is_active, pinned, lat, lng, address, place_label, created_at, updated_at`,
-      [existingId],
+      updateParams,
     );
 
     return mapRowToMemory(updateResult.rows[0] as Record<string, unknown>);
