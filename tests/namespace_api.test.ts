@@ -45,6 +45,9 @@ describe('Namespace & User Provisioning API', () => {
     await pool.query(`DELETE FROM user_setting WHERE email LIKE 'ns-api-test%'`);
     // Clean up namespaces created by tests (grants without test emails)
     await pool.query(`DELETE FROM namespace_grant WHERE namespace LIKE 'test-ns-%'`);
+    // Clean up auto-created user_setting rows for M2M identities (Issue #2413)
+    await pool.query(`DELETE FROM namespace_grant WHERE email IN ('test-service', 'test-service-limited', 'agent-no-user-setting-row', 'agent-no-user-row')`);
+    await pool.query(`DELETE FROM user_setting WHERE email IN ('test-service', 'test-service-limited', 'agent-no-user-setting-row', 'agent-no-user-row')`);
   });
 
   // ============================================================
@@ -208,9 +211,9 @@ describe('Namespace & User Provisioning API', () => {
         expect(grant.rows[0].access).toBe('readwrite');
       });
 
-      it('returns 422 when M2M identity has no matching user_setting row (#1567, #2402)', async () => {
-        // Use an M2M identity that is NOT in user_setting
-        // Issue #2402: Changed from silent success (201) to explicit error (422)
+      it('auto-upserts user_setting when M2M identity has no matching row (#2413)', async () => {
+        // Issue #2413: Changed from 422 error to auto-upsert so namespace_create
+        // works for new users without requiring separate user provisioning.
         const token = await signM2MToken('agent-no-user-setting-row', ['api:full']);
         const headers = { authorization: `Bearer ${token}` };
         const res = await app.inject({
@@ -218,8 +221,14 @@ describe('Namespace & User Provisioning API', () => {
           headers: { ...headers, 'content-type': 'application/json' },
           payload: { name: 'test-ns-no-grant' },
         });
-        expect(res.statusCode).toBe(422);
-        expect(res.json().error).toContain('not found in user_setting');
+        expect(res.statusCode).toBe(201);
+        expect(res.json()).toMatchObject({ namespace: 'test-ns-no-grant', created: true });
+
+        // Verify user_setting was auto-created
+        const userRow = await pool.query(
+          `SELECT 1 FROM user_setting WHERE email = 'agent-no-user-setting-row'`,
+        );
+        expect(userRow.rows).toHaveLength(1);
       });
 
       it('creates namespace with user token and grants readwrite access', async () => {
@@ -537,22 +546,82 @@ describe('Namespace & User Provisioning API', () => {
   });
 
   // ============================================================
-  // Issue #2402: namespace_create returns error for unknown M2M user
+  // Issue #2413: namespace_create auto-upserts user_setting row
   // ============================================================
-  describe('namespace_create M2M user validation (Issue #2402)', () => {
-    it('returns 422 when M2M user has no user_setting row', async () => {
-      const token = await signM2MToken('agent-no-user-row', ['api:full']);
-      const headers = { authorization: `Bearer ${token}` };
+  describe('namespace_create auto-upsert user_setting (Issue #2413)', () => {
+    it('auto-creates user_setting for M2M identity without pre-existing row', async () => {
+      // The M2M identity "test-service" has no user_setting row.
+      // namespace_create should auto-upsert it so the FK constraint is satisfied.
+      const headers = await getM2MHeaders();
       const res = await app.inject({
         method: 'POST', url: '/namespaces',
         headers: { ...headers, 'content-type': 'application/json' },
-        payload: { name: 'test-ns-no-user-422' },
+        payload: { name: 'test-ns-auto-upsert' },
       });
-      expect(res.statusCode).toBe(422);
-      expect(res.json().error).toContain('not found in user_setting');
+      expect(res.statusCode).toBe(201);
+
+      // Verify user_setting was auto-created
+      const userRow = await pool.query(
+        `SELECT 1 FROM user_setting WHERE email = 'test-service'`,
+      );
+      expect(userRow.rows).toHaveLength(1);
+
+      // Verify the grant was created
+      const grant = await pool.query(
+        `SELECT email, access FROM namespace_grant WHERE namespace = 'test-ns-auto-upsert'`,
+      );
+      expect(grant.rows).toHaveLength(1);
+      expect(grant.rows[0].email).toBe('test-service');
     });
 
-    it('succeeds when M2M user has user_setting row', async () => {
+    it('auto-creates user_setting for X-User-Email header target', async () => {
+      // X-User-Email points to a user that has no user_setting row.
+      const headers = await getM2MHeaders();
+      const res = await app.inject({
+        method: 'POST', url: '/namespaces',
+        headers: {
+          ...headers,
+          'content-type': 'application/json',
+          'x-user-email': TEST_EMAIL,
+        },
+        payload: { name: 'test-ns-auto-upsert-email' },
+      });
+      expect(res.statusCode).toBe(201);
+
+      // Verify user_setting was auto-created for the target email
+      const userRow = await pool.query(
+        `SELECT 1 FROM user_setting WHERE email = $1`,
+        [TEST_EMAIL],
+      );
+      expect(userRow.rows).toHaveLength(1);
+
+      // Verify grant was created for the target email
+      const grant = await pool.query(
+        `SELECT email, access FROM namespace_grant WHERE namespace = 'test-ns-auto-upsert-email'`,
+      );
+      expect(grant.rows).toHaveLength(1);
+      expect(grant.rows[0].email).toBe(TEST_EMAIL);
+    });
+
+    it('auto-creates user_setting for user token without pre-existing row', async () => {
+      // User token path: user has no user_setting row yet.
+      const headers = await getAuthHeaders(TEST_EMAIL);
+      const res = await app.inject({
+        method: 'POST', url: '/namespaces',
+        headers: { ...headers, 'content-type': 'application/json' },
+        payload: { name: 'test-ns-user-auto-upsert' },
+      });
+      expect(res.statusCode).toBe(201);
+
+      // Verify user_setting was auto-created
+      const userRow = await pool.query(
+        `SELECT 1 FROM user_setting WHERE email = $1`,
+        [TEST_EMAIL],
+      );
+      expect(userRow.rows).toHaveLength(1);
+    });
+
+    it('succeeds when M2M user already has user_setting row (idempotent)', async () => {
       await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, [TEST_EMAIL]);
       const headers = await getM2MHeaders();
       const res = await app.inject({
