@@ -885,7 +885,7 @@ describe('GatewayConnectionService', () => {
       await svc.shutdown();
     });
 
-    it('reconnection restores connected state after disconnect (Issue #2392)', async () => {
+    it('reconnection restores connected state with updated timestamp (Issue #2392)', async () => {
       const svc = makeService();
       const initPromise = svc.initialize();
       await vi.advanceTimersByTimeAsync(0);
@@ -893,9 +893,13 @@ describe('GatewayConnectionService', () => {
       await vi.advanceTimersByTimeAsync(0);
       await initPromise;
 
-      // Verify connected
+      // Verify connected and record timestamp
       expect(svc.getStatus().connected).toBe(true);
       const connectedAt1 = svc.getStatus().connected_at;
+      expect(connectedAt1).toBeTruthy();
+
+      // Advance time so reconnect timestamp is visibly different
+      await vi.advanceTimersByTimeAsync(5000);
 
       // Simulate disconnect
       getMockInstances()[0]._emitClose(1006);
@@ -908,14 +912,18 @@ describe('GatewayConnectionService', () => {
       completeHandshake(newWs);
       await vi.advanceTimersByTimeAsync(0);
 
-      // Verify re-connected with fresh connected_at
-      expect(svc.getStatus().connected).toBe(true);
-      expect(svc.getStatus().connected_at).toBeTruthy();
+      // Verify re-connected with updated connected_at timestamp
+      const status = svc.getStatus();
+      expect(status.connected).toBe(true);
+      expect(status.connected_at).toBeTruthy();
+      expect(new Date(status.connected_at!).getTime()).toBeGreaterThan(
+        new Date(connectedAt1!).getTime(),
+      );
 
       await svc.shutdown();
     });
 
-    it('status reflects disconnected then reconnected state (Issue #2392)', async () => {
+    it('reconnects after server-initiated restart code 1012 (Issue #2392)', async () => {
       const svc = makeService();
       const initPromise = svc.initialize();
       await vi.advanceTimersByTimeAsync(0);
@@ -923,7 +931,7 @@ describe('GatewayConnectionService', () => {
       await vi.advanceTimersByTimeAsync(0);
       await initPromise;
 
-      // Simulate server-initiated restart (code 1012) like production scenario
+      // Simulate server-initiated restart (code 1012) — observed in production logs
       getMockInstances()[0]._emitClose(1012);
       expect(svc.getStatus().connected).toBe(false);
 
