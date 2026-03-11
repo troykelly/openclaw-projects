@@ -2505,11 +2505,20 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const ctaLabel = email ? 'Dashboard' : 'Sign in';
     // HA IndieAuth discovery: when OAUTH_REDIRECT_URI is set, inject a <link rel="redirect_uri">
     // so HA can validate cross-domain redirect URIs (client_id host ≠ redirect_uri host).
-    // Ref: https://developers.home-assistant.io/docs/auth_api/ — Issue #2383.
-    const oauthRedirectUri = process.env.OAUTH_REDIRECT_URI?.trim();
-    const indieAuthLinkTag = oauthRedirectUri
-      ? `\n  <link rel="redirect_uri" href="${oauthRedirectUri}" />`
-      : '';
+    // The value is validated as an http(s) URL; an invalid value is silently omitted
+    // to avoid injecting malformed HTML. Ref: https://developers.home-assistant.io/docs/auth_api/
+    // Issue #2383.
+    const indieAuthLinkTag = (() => {
+      const raw = process.env.OAUTH_REDIRECT_URI?.trim();
+      if (!raw) return '';
+      try {
+        const parsed = new URL(raw);
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return '';
+        return `\n  <link rel="redirect_uri" href="${parsed.href}" />`;
+      } catch {
+        return '';
+      }
+    })();
     return `<!doctype html>
 <html lang="en">
 <head>

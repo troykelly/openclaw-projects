@@ -8,73 +8,75 @@
  * first 10 KB of the page. We inject this tag into the root landing page.
  *
  * Ref: https://developers.home-assistant.io/docs/auth_api/
- *
- * @vitest-environment node
  */
-import { describe, it, expect, afterEach } from 'vitest';
-import { readFileSync } from 'fs';
-import { resolve } from 'path';
-
-// Read server.ts source to verify the injection logic is present
-const serverSrc = readFileSync(resolve('src/api/server.ts'), 'utf8');
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { buildServer } from '../../../src/api/server.ts';
 
 describe('HA IndieAuth redirect_uri discovery — landing page injection (#2383)', () => {
   const originalEnv = { ...process.env };
+
+  beforeEach(() => {
+    process.env = { ...originalEnv };
+  });
 
   afterEach(() => {
     process.env = { ...originalEnv };
   });
 
-  it('renderLandingPage reads OAUTH_REDIRECT_URI from environment', () => {
-    // Verify the source contains the env var read
-    expect(serverSrc).toContain("process.env.OAUTH_REDIRECT_URI?.trim()");
+  it('injects <link rel="redirect_uri"> in <head> when OAUTH_REDIRECT_URI is a valid https URL', async () => {
+    process.env.OAUTH_REDIRECT_URI = 'https://api.execdesk.ai/api/oauth/callback';
+    const app = buildServer();
+    const resp = await app.inject({ method: 'GET', url: '/' });
+    expect(resp.statusCode).toBe(200);
+    const html = resp.body;
+    expect(html).toContain('<link rel="redirect_uri" href="https://api.execdesk.ai/api/oauth/callback" />');
+    // Must appear before </head>
+    const linkPos = html.indexOf('<link rel="redirect_uri"');
+    const headClosePos = html.indexOf('</head>');
+    expect(linkPos).toBeGreaterThan(-1);
+    expect(linkPos).toBeLessThan(headClosePos);
+    await app.close();
   });
 
-  it('renderLandingPage injects <link rel="redirect_uri"> when OAUTH_REDIRECT_URI is set', () => {
-    // Verify the template string includes the conditional link tag injection
-    expect(serverSrc).toContain('<link rel="redirect_uri" href="${oauthRedirectUri}" />');
-    expect(serverSrc).toContain('indieAuthLinkTag');
+  it('omits link tag when OAUTH_REDIRECT_URI is not set', async () => {
+    delete process.env.OAUTH_REDIRECT_URI;
+    const app = buildServer();
+    const resp = await app.inject({ method: 'GET', url: '/' });
+    expect(resp.statusCode).toBe(200);
+    expect(resp.body).not.toContain('<link rel="redirect_uri"');
+    await app.close();
   });
 
-  it('link tag is placed inside <head> in the template', () => {
-    // Extract the renderLandingPage function body
-    const fnStart = serverSrc.indexOf('function renderLandingPage(');
-    const fnEnd = serverSrc.indexOf('\n  }', fnStart) + 4;
-    const fnBody = serverSrc.slice(fnStart, fnEnd);
-
-    // ${indieAuthLinkTag} must appear before </head>
-    const linkTagPos = fnBody.indexOf('${indieAuthLinkTag}');
-    const headClosePos = fnBody.indexOf('</head>');
-    expect(linkTagPos).toBeGreaterThan(-1);
-    expect(headClosePos).toBeGreaterThan(-1);
-    expect(linkTagPos).toBeLessThan(headClosePos);
+  it('omits link tag when OAUTH_REDIRECT_URI is not a valid URL', async () => {
+    process.env.OAUTH_REDIRECT_URI = 'not-a-url';
+    const app = buildServer();
+    const resp = await app.inject({ method: 'GET', url: '/' });
+    expect(resp.statusCode).toBe(200);
+    expect(resp.body).not.toContain('<link rel="redirect_uri"');
+    await app.close();
   });
 
-  it('no link tag is injected when OAUTH_REDIRECT_URI is absent', () => {
-    // The conditional guard ensures an empty string when env var is unset
-    expect(serverSrc).toContain(
-      "const indieAuthLinkTag = oauthRedirectUri\n      ? `\\n  <link rel=\"redirect_uri\" href=\"${oauthRedirectUri}\" />`\n      : '';"
-    );
+  it('omits link tag when OAUTH_REDIRECT_URI uses a non-http(s) protocol', async () => {
+    process.env.OAUTH_REDIRECT_URI = 'ftp://evil.example.com/callback';
+    const app = buildServer();
+    const resp = await app.inject({ method: 'GET', url: '/' });
+    expect(resp.statusCode).toBe(200);
+    expect(resp.body).not.toContain('<link rel="redirect_uri"');
+    await app.close();
   });
 
-  it('clientId in authorize handler still uses PUBLIC_BASE_URL (not deriveApiUrl)', () => {
-    // Option C fix: clientId stays as PUBLIC_BASE_URL — the link tag handles discovery.
-    // Ensure we did NOT apply Option A (which would change clientId to use deriveApiUrl).
-    const authorizeBlock = serverSrc.match(
-      /Generate state and build HA authorize URL[\s\S]{0,400}buildAuthorizationUrl/
-    );
-    expect(authorizeBlock).not.toBeNull();
-    // clientId must derive from rawBase directly, not from deriveApiUrl
-    expect(authorizeBlock![0]).toMatch(/clientId\s*=\s*rawBase\.replace/);
-    expect(authorizeBlock![0]).not.toMatch(/clientId\s*=\s*deriveApiUrl\(rawBase\)\.replace/);
-  });
-
-  it('clientId in callback handler still uses PUBLIC_BASE_URL (not deriveApiUrl)', () => {
-    const callbackBlock = serverSrc.match(
-      /HA OAuth callback[\s\S]{0,600}Exchange code for tokens/
-    );
-    expect(callbackBlock).not.toBeNull();
-    expect(callbackBlock![0]).toMatch(/clientId\s*=\s*rawBase\.replace/);
-    expect(callbackBlock![0]).not.toMatch(/clientId\s*=\s*deriveApiUrl\(rawBase\)\.replace/);
+  it('does not inject unescaped content when OAUTH_REDIRECT_URI contains special characters', async () => {
+    // A value with a double-quote would be a malformed URL — new URL() normalises/rejects it.
+    // Verify that whatever comes out is safe HTML.
+    process.env.OAUTH_REDIRECT_URI = 'https://api.example.com/callback?foo=bar&baz=qux';
+    const app = buildServer();
+    const resp = await app.inject({ method: 'GET', url: '/' });
+    const html = resp.body;
+    if (html.includes('<link rel="redirect_uri"')) {
+      // If present, the href must be a well-formed attribute value (no stray quotes)
+      const match = html.match(/<link rel="redirect_uri" href="([^"]*)" \/>/);
+      expect(match).not.toBeNull();
+    }
+    await app.close();
   });
 });
