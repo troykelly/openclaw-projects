@@ -520,8 +520,8 @@ const memoryUpdateSchema: JSONSchema = {
       items: { type: 'string', minLength: 1, maxLength: 100 },
     },
     expires_at: {
-      type: ['string', 'null'],
-      description: 'Set or clear expiry (ISO date or null)',
+      type: 'string',
+      description: 'Set or clear expiry (ISO date string, or omit to leave unchanged)',
     },
   },
   required: ['memory_id'],
