@@ -63,6 +63,8 @@ export interface CreateMemoryInput extends MemoryScope, MemoryAttribution, Memor
   place_label?: string;
   /** Epic #1418: namespace for data scoping */
   namespace?: string;
+  /** Issue #2380: when true, always included in context injection */
+  pinned?: boolean;
 }
 
 /** Input for updating a memory */
@@ -78,6 +80,8 @@ export interface UpdateMemoryInput {
   tags?: string[];
   /** Source URL for external references */
   source_url?: string | null;
+  /** Issue #2380: when true, always included in context injection */
+  pinned?: boolean;
 }
 
 /** A memory entry from the database */
@@ -104,6 +108,8 @@ export interface MemoryEntry {
   embedding_status: 'pending' | 'complete' | 'failed';
   /** Whether this memory is currently active */
   is_active: boolean;
+  /** Issue #2380: when true, always included in context injection */
+  pinned: boolean;
   /** WGS84 latitude */
   lat: number | null;
   /** WGS84 longitude */
@@ -134,6 +140,8 @@ export interface ListMemoriesOptions extends MemoryScope {
   offset?: number;
   /** Epic #1418: namespace scoping */
   queryNamespaces?: string[];
+  /** Issue #2380: filter to only pinned memories */
+  pinned?: boolean;
 }
 
 /** Result of listing memories */

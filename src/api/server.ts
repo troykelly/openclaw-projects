@@ -9707,6 +9707,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       lng?: number;
       address?: string;
       place_label?: string;
+      pinned?: boolean;
     };
 
     if (!body?.content?.trim()) {
@@ -9758,6 +9759,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         address: body.address,
         place_label: body.place_label,
         namespace: getStoreNamespace(req),
+        pinned: body.pinned,
       });
 
       // Generate content embedding asynchronously
@@ -10081,6 +10083,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       since?: string;
       before?: string;
       period?: string;
+      pinned?: string;
       limit?: string;
       offset?: string;
     };
@@ -10123,6 +10126,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         memory_type: query.memory_type as any,
         include_expired: query.include_expired === 'true',
         include_superseded: query.include_superseded === 'true',
+        pinned: query.pinned !== undefined ? query.pinned === 'true' : undefined,
         created_after,
         created_before,
         limit: parseInt(query.limit || '50', 10),
@@ -10594,6 +10598,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       superseded_by?: string | null;
       tags?: string[];
       source_url?: string | null;
+      pinned?: boolean;
     };
 
     const pool = createPool();
@@ -10616,6 +10621,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         superseded_by: body.superseded_by,
         tags: body.tags,
         source_url: body.source_url,
+        pinned: body.pinned,
       });
 
       if (!updated) {

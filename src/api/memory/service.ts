@@ -45,6 +45,7 @@ function mapRowToMemory(row: Record<string, unknown>): MemoryEntry {
     superseded_by: row.superseded_by as string | null,
     embedding_status: row.embedding_status as 'pending' | 'complete' | 'failed',
     is_active: (row.is_active as boolean) ?? true,
+    pinned: (row.pinned as boolean) ?? false,
     lat: (row.lat as number) ?? null,
     lng: (row.lng as number) ?? null,
     address: (row.address as string) ?? null,
@@ -192,7 +193,7 @@ export async function createMemory(pool: Pool, input: CreateMemoryInput): Promis
       title, content, memory_type::text, tags,
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at, superseded_by::text,
-      embedding_status, (superseded_by IS NULL) as is_active, lat, lng, address, place_label, created_at, updated_at
+      embedding_status, (superseded_by IS NULL) as is_active, pinned, lat, lng, address, place_label, created_at, updated_at
     FROM memory
     WHERE TRIM(content) = $1 AND ${scopeWhere}
     LIMIT 1`,
@@ -210,7 +211,7 @@ export async function createMemory(pool: Pool, input: CreateMemoryInput): Promis
         title, content, memory_type::text, tags,
         created_by_agent, created_by_human, source_url,
         importance, confidence, expires_at, superseded_by::text,
-        embedding_status, (superseded_by IS NULL) as is_active, lat, lng, address, place_label, created_at, updated_at`,
+        embedding_status, (superseded_by IS NULL) as is_active, pinned, lat, lng, address, place_label, created_at, updated_at`,
       [existingId],
     );
 
@@ -225,14 +226,14 @@ export async function createMemory(pool: Pool, input: CreateMemoryInput): Promis
       tags,
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at,
-      lat, lng, address, place_label, namespace
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7::memory_type, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+      lat, lng, address, place_label, namespace, pinned
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7::memory_type, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
     RETURNING
       id::text, work_item_id::text, contact_id::text, relationship_id::text, project_id::text,
       title, content, memory_type::text, tags,
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at, superseded_by::text,
-      embedding_status, (superseded_by IS NULL) as is_active, lat, lng, address, place_label, created_at, updated_at`,
+      embedding_status, (superseded_by IS NULL) as is_active, pinned, lat, lng, address, place_label, created_at, updated_at`,
     [
       input.work_item_id ?? null,
       input.contact_id ?? null,
@@ -253,6 +254,7 @@ export async function createMemory(pool: Pool, input: CreateMemoryInput): Promis
       input.address ?? null,
       input.place_label ?? null,
       input.namespace ?? 'default',
+      input.pinned ?? false,
     ],
   );
 
@@ -269,7 +271,7 @@ export async function getMemory(pool: Pool, id: string): Promise<MemoryEntry | n
       m.title, m.content, m.memory_type::text, m.tags,
       m.created_by_agent, m.created_by_human, m.source_url,
       m.importance, m.confidence, m.expires_at, m.superseded_by::text,
-      m.embedding_status, (m.superseded_by IS NULL) as is_active, m.lat, m.lng, m.address, m.place_label, m.created_at, m.updated_at,
+      m.embedding_status, (m.superseded_by IS NULL) as is_active, m.pinned, m.lat, m.lng, m.address, m.place_label, m.created_at, m.updated_at,
       COALESCE(fa.cnt, 0)::int as attachment_count
     FROM memory m
     LEFT JOIN LATERAL (
@@ -359,6 +361,12 @@ export async function updateMemory(pool: Pool, id: string, input: UpdateMemoryIn
     paramIndex++;
   }
 
+  if (input.pinned !== undefined) {
+    updates.push(`pinned = $${paramIndex}`);
+    params.push(input.pinned);
+    paramIndex++;
+  }
+
   if (updates.length === 0) {
     return getMemory(pool, id);
   }
@@ -373,7 +381,7 @@ export async function updateMemory(pool: Pool, id: string, input: UpdateMemoryIn
       title, content, memory_type::text, tags,
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at, superseded_by::text,
-      embedding_status, (superseded_by IS NULL) as is_active, lat, lng, address, place_label, created_at, updated_at`,
+      embedding_status, (superseded_by IS NULL) as is_active, pinned, lat, lng, address, place_label, created_at, updated_at`,
     params,
   );
 
@@ -445,6 +453,13 @@ export async function listMemories(pool: Pool, options: ListMemoriesOptions = {}
     paramIndex++;
   }
 
+  // Issue #2380: pinned filter
+  if (options.pinned !== undefined) {
+    conditions.push(`pinned = $${paramIndex}`);
+    params.push(options.pinned);
+    paramIndex++;
+  }
+
   // Exclude expired unless requested
   if (!options.include_expired) {
     conditions.push('(expires_at IS NULL OR expires_at > NOW())');
@@ -485,7 +500,7 @@ export async function listMemories(pool: Pool, options: ListMemoriesOptions = {}
       title, content, memory_type::text, tags,
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at, superseded_by::text,
-      embedding_status, (superseded_by IS NULL) as is_active, lat, lng, address, place_label, created_at, updated_at
+      embedding_status, (superseded_by IS NULL) as is_active, pinned, lat, lng, address, place_label, created_at, updated_at
     FROM memory
     ${whereClause}
     ORDER BY importance DESC, created_at DESC
@@ -549,7 +564,7 @@ export async function getGlobalMemories(
       title, content, memory_type::text, tags,
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at, superseded_by::text,
-      embedding_status, (superseded_by IS NULL) as is_active, lat, lng, address, place_label, created_at, updated_at
+      embedding_status, (superseded_by IS NULL) as is_active, pinned, lat, lng, address, place_label, created_at, updated_at
     FROM memory
     ${whereClause}
     ORDER BY importance DESC, created_at DESC
@@ -782,7 +797,7 @@ export async function searchMemories(pool: Pool, query: string, options: SearchM
             title, content, memory_type::text, tags,
             created_by_agent, created_by_human, source_url,
             importance, confidence, expires_at, superseded_by::text,
-            embedding_status, (superseded_by IS NULL) as is_active, lat, lng, address, place_label, namespace, created_at, updated_at,
+            embedding_status, (superseded_by IS NULL) as is_active, pinned, lat, lng, address, place_label, namespace, created_at, updated_at,
             1 - (embedding <=> $1::vector) as similarity
           FROM memory
           WHERE embedding IS NOT NULL
@@ -883,7 +898,7 @@ export async function searchMemories(pool: Pool, query: string, options: SearchM
       title, content, memory_type::text, tags,
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at, superseded_by::text,
-      embedding_status, (superseded_by IS NULL) as is_active, lat, lng, address, place_label, namespace, created_at, updated_at,
+      embedding_status, (superseded_by IS NULL) as is_active, pinned, lat, lng, address, place_label, namespace, created_at, updated_at,
       ts_rank(search_vector, websearch_to_tsquery('english', $1)) as similarity
     FROM memory
     WHERE search_vector @@ websearch_to_tsquery('english', $1)

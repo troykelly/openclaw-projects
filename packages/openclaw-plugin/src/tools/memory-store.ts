@@ -30,6 +30,7 @@ export const MemoryStoreParamsSchema = z.object({
   tags: z.array(z.string().min(1).max(100)).max(20, 'Maximum 20 tags per memory').optional(),
   relationship_id: z.string().uuid('relationship_id must be a valid UUID').optional(),
   location: MemoryLocationSchema.optional(),
+  pinned: z.boolean().optional().describe('When true, this memory is always included in context injection regardless of semantic similarity'),
 }).refine((data) => data.text || data.content, {
   message: 'Either text or content is required',
 });
@@ -121,7 +122,7 @@ export function createMemoryStoreTool(options: MemoryStoreToolOptions): MemorySt
         return { success: false, error: errorMessage };
       }
 
-      const { text, content: contentAlias, category = 'other', importance = 0.7, tags = [], relationship_id, location } = parseResult.data;
+      const { text, content: contentAlias, category = 'other', importance = 0.7, tags = [], relationship_id, location, pinned } = parseResult.data;
 
       // Accept 'text' (OpenClaw native) or 'content' (backwards compat)
       const rawText = text || contentAlias;
@@ -165,6 +166,9 @@ export function createMemoryStoreTool(options: MemoryStoreToolOptions): MemorySt
         };
         if (relationship_id) {
           payload.relationship_id = relationship_id;
+        }
+        if (pinned !== undefined) {
+          payload.pinned = pinned;
         }
         if (location) {
           payload.lat = location.lat;
