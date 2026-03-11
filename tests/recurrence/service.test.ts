@@ -382,6 +382,39 @@ describe('Recurrence Service', () => {
 
       expect(secondCount).toBe(firstCount);
     });
+
+    it('called N times never produces more instances than the first call', async () => {
+      // Regression test for #2420: now() drift in dedup query caused duplicates
+      // when generateUpcomingInstances was called multiple times in succession.
+      const template = await createRecurrenceTemplate(pool, {
+        title: 'Idempotency Stress Test',
+        recurrenceRule: 'RRULE:FREQ=DAILY',
+      });
+
+      // Verify the template was persisted correctly
+      const check = await pool.query(
+        `SELECT id::text, is_recurrence_template, recurrence_rule
+         FROM work_item WHERE id = $1`,
+        [template.id],
+      );
+      expect(check.rows).toHaveLength(1);
+      expect(check.rows[0].is_recurrence_template).toBe(true);
+
+      // First call establishes baseline
+      const firstResult = await generateUpcomingInstances(pool, 7);
+      expect(firstResult.errors).toHaveLength(0);
+      expect(firstResult.generated).toBeGreaterThan(0);
+      const baselineCount = (await getInstances(pool, template.id)).length;
+      expect(baselineCount).toBe(firstResult.generated);
+
+      // Call N more times in rapid succession — count must never grow
+      const additionalCalls = 5;
+      for (let i = 0; i < additionalCalls; i++) {
+        const result = await generateUpcomingInstances(pool, 7);
+        const currentCount = (await getInstances(pool, template.id)).length;
+        expect(currentCount).toBe(baselineCount);
+      }
+    });
   });
 
   describe('getTemplates', () => {
