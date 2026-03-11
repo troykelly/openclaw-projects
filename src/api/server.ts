@@ -1099,7 +1099,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
             [grantEmail, name],
           );
         } else {
-          req.log.warn({ grantEmail, userEmail, agentId }, 'M2M namespace_create: target user not found in user_setting — no owner grant created');
+          // Issue #2402: Return error instead of silently succeeding without a grant.
+          // A namespace with no grants is invisible in namespace_list, creating confusion.
+          req.log.warn({ grantEmail, userEmail, agentId }, 'M2M namespace_create: target user not found in user_setting — aborting');
+          return reply.code(422).send({
+            error: `Cannot create namespace: user '${grantEmail}' not found in user_setting. Provision the user first via POST /users.`,
+          });
         }
       }
 
@@ -1192,15 +1197,17 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     const params = req.params as { ns: string };
-    const body = req.body as { email?: string; access?: string; is_home?: boolean } | null;
+    const body = req.body as { email?: string; access?: string; role?: string; is_home?: boolean; is_default?: boolean } | null;
 
     if (!body?.email) {
       return reply.code(400).send({ error: 'email is required' });
     }
 
     const email = body.email.trim().toLowerCase();
-    const access = body.access || 'readwrite';
-    const isHome = body.is_home ?? false;
+    // Accept 'role' as alias for 'access' (plugin sends 'role', Issue #2403)
+    const access = body.access || body.role || 'readwrite';
+    // Accept 'is_default' as alias for 'is_home' (plugin sends 'is_default', Issue #2403)
+    const isHome = body.is_home ?? body.is_default ?? false;
 
     if (!['read', 'readwrite'].includes(access)) {
       return reply.code(400).send({ error: 'access must be one of: read, readwrite' });
@@ -3159,6 +3166,47 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const email = await getSessionEmail(req);
     if (!email) return reply.code(401).send({ error: 'unauthorized' });
     return reply.send({ email });
+  });
+
+  // Issue #2405: Client-side grant fetching for production (static nginx serves /app/*,
+  // bypassing server-side bootstrap injection). NamespaceProvider fetches this on mount.
+  app.get('/me/grants', async (req, reply) => {
+    const email = await getSessionEmail(req);
+    if (!email) return reply.code(401).send({ error: 'unauthorized' });
+
+    const pool = createPool();
+    try {
+      const [grants, settings] = await Promise.all([
+        pool.query(
+          `SELECT namespace, access, is_home FROM namespace_grant WHERE email = $1 ORDER BY is_home DESC, namespace`,
+          [email],
+        ),
+        pool.query(
+          `SELECT active_namespaces FROM user_setting WHERE email = $1`,
+          [email],
+        ),
+      ]);
+
+      const grantRows = grants.rows as Array<{ namespace: string; access: string; is_home: boolean }>;
+      const grantedNs = new Set(grantRows.map((r) => r.namespace));
+      const rawActiveNs: string[] = (settings.rows[0]?.active_namespaces as string[] | undefined) ?? [];
+      let activeNamespaces = rawActiveNs.filter((ns: string) => grantedNs.has(ns));
+      if (activeNamespaces.length === 0) {
+        const homeGrant = grantRows.find((r) => r.is_home);
+        activeNamespaces = homeGrant
+          ? [homeGrant.namespace]
+          : grantedNs.size > 0
+            ? [grantRows[0].namespace]
+            : ['default'];
+      }
+
+      return reply.send({
+        namespace_grants: grantRows,
+        active_namespaces: activeNamespaces,
+      });
+    } finally {
+      await pool.end();
+    }
   });
 
   // User Settings API (issue #179 - Platform Completeness)

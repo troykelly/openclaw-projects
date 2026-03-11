@@ -208,8 +208,9 @@ describe('Namespace & User Provisioning API', () => {
         expect(grant.rows[0].access).toBe('readwrite');
       });
 
-      it('skips grant when identity has no matching user_setting row (#1567)', async () => {
+      it('returns 422 when M2M identity has no matching user_setting row (#1567, #2402)', async () => {
         // Use an M2M identity that is NOT in user_setting
+        // Issue #2402: Changed from silent success (201) to explicit error (422)
         const token = await signM2MToken('agent-no-user-setting-row', ['api:full']);
         const headers = { authorization: `Bearer ${token}` };
         const res = await app.inject({
@@ -217,13 +218,8 @@ describe('Namespace & User Provisioning API', () => {
           headers: { ...headers, 'content-type': 'application/json' },
           payload: { name: 'test-ns-no-grant' },
         });
-        expect(res.statusCode).toBe(201);
-
-        // No grant should be created (identity doesn't match user_setting)
-        const grant = await pool.query(
-          `SELECT email FROM namespace_grant WHERE namespace = 'test-ns-no-grant'`,
-        );
-        expect(grant.rows).toHaveLength(0);
+        expect(res.statusCode).toBe(422);
+        expect(res.json().error).toContain('not found in user_setting');
       });
 
       it('creates namespace with user token and grants readwrite access', async () => {
@@ -537,6 +533,150 @@ describe('Namespace & User Provisioning API', () => {
         });
         expect(res.statusCode).toBe(403);
       });
+    });
+  });
+
+  // ============================================================
+  // Issue #2402: namespace_create returns error for unknown M2M user
+  // ============================================================
+  describe('namespace_create M2M user validation (Issue #2402)', () => {
+    it('returns 422 when M2M user has no user_setting row', async () => {
+      const token = await signM2MToken('agent-no-user-row', ['api:full']);
+      const headers = { authorization: `Bearer ${token}` };
+      const res = await app.inject({
+        method: 'POST', url: '/namespaces',
+        headers: { ...headers, 'content-type': 'application/json' },
+        payload: { name: 'test-ns-no-user-422' },
+      });
+      expect(res.statusCode).toBe(422);
+      expect(res.json().error).toContain('not found in user_setting');
+    });
+
+    it('succeeds when M2M user has user_setting row', async () => {
+      await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, [TEST_EMAIL]);
+      const headers = await getM2MHeaders();
+      const res = await app.inject({
+        method: 'POST', url: '/namespaces',
+        headers: {
+          ...headers,
+          'content-type': 'application/json',
+          'x-user-email': TEST_EMAIL,
+        },
+        payload: { name: 'test-ns-m2m-user-ok' },
+      });
+      expect(res.statusCode).toBe(201);
+
+      // Verify the grant was created
+      const grant = await pool.query(
+        `SELECT email, access FROM namespace_grant WHERE namespace = 'test-ns-m2m-user-ok'`,
+      );
+      expect(grant.rows).toHaveLength(1);
+      expect(grant.rows[0].email).toBe(TEST_EMAIL);
+    });
+  });
+
+  // ============================================================
+  // Issue #2403: namespace_grant accepts 'role' as alias for 'access'
+  // ============================================================
+  describe('namespace_grant role alias (Issue #2403)', () => {
+    it('accepts role param as alias for access', async () => {
+      await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, [TEST_EMAIL]);
+      await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, [TEST_EMAIL_2]);
+      await pool.query(
+        `INSERT INTO namespace_grant (email, namespace, access) VALUES ($1, 'test-ns-role-alias', 'readwrite')`,
+        [TEST_EMAIL],
+      );
+
+      const headers = await getAuthHeaders(TEST_EMAIL);
+      const res = await app.inject({
+        method: 'POST', url: '/namespaces/test-ns-role-alias/grants',
+        headers: { ...headers, 'content-type': 'application/json' },
+        payload: { email: TEST_EMAIL_2, role: 'read' },
+      });
+      expect(res.statusCode).toBe(201);
+      const body = res.json();
+      expect(body.access).toBe('read');
+      expect(body.email).toBe(TEST_EMAIL_2);
+    });
+
+    it('accepts is_default as alias for is_home', async () => {
+      await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, [TEST_EMAIL]);
+      await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, [TEST_EMAIL_2]);
+      await pool.query(
+        `INSERT INTO namespace_grant (email, namespace, access) VALUES ($1, 'test-ns-default-alias', 'readwrite')`,
+        [TEST_EMAIL],
+      );
+
+      const headers = await getAuthHeaders(TEST_EMAIL);
+      const res = await app.inject({
+        method: 'POST', url: '/namespaces/test-ns-default-alias/grants',
+        headers: { ...headers, 'content-type': 'application/json' },
+        payload: { email: TEST_EMAIL_2, access: 'read', is_default: true },
+      });
+      expect(res.statusCode).toBe(201);
+      expect(res.json().is_home).toBe(true);
+    });
+
+    it('prefers access over role when both provided', async () => {
+      await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, [TEST_EMAIL]);
+      await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, [TEST_EMAIL_2]);
+      await pool.query(
+        `INSERT INTO namespace_grant (email, namespace, access) VALUES ($1, 'test-ns-access-pref', 'readwrite')`,
+        [TEST_EMAIL],
+      );
+
+      const headers = await getAuthHeaders(TEST_EMAIL);
+      const res = await app.inject({
+        method: 'POST', url: '/namespaces/test-ns-access-pref/grants',
+        headers: { ...headers, 'content-type': 'application/json' },
+        payload: { email: TEST_EMAIL_2, access: 'readwrite', role: 'read' },
+      });
+      expect(res.statusCode).toBe(201);
+      expect(res.json().access).toBe('readwrite');
+    });
+  });
+
+  // ============================================================
+  // Issue #2405: GET /me/grants endpoint
+  // ============================================================
+  describe('GET /me/grants (Issue #2405)', () => {
+    it('returns 401 without auth', async () => {
+      const res = await app.inject({ method: 'GET', url: '/me/grants' });
+      expect(res.statusCode).toBe(401);
+    });
+
+    it('returns namespace grants for authenticated user', async () => {
+      await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, [TEST_EMAIL]);
+      await pool.query(
+        `INSERT INTO namespace_grant (email, namespace, access, is_home) VALUES ($1, 'test-ns-me-home', 'readwrite', true)`,
+        [TEST_EMAIL],
+      );
+      await pool.query(
+        `INSERT INTO namespace_grant (email, namespace, access, is_home) VALUES ($1, 'test-ns-me-other', 'read', false)`,
+        [TEST_EMAIL],
+      );
+
+      const headers = await getAuthHeaders(TEST_EMAIL);
+      const res = await app.inject({ method: 'GET', url: '/me/grants', headers });
+      expect(res.statusCode).toBe(200);
+
+      const body = res.json();
+      expect(body.namespace_grants).toHaveLength(2);
+      expect(body.namespace_grants[0].namespace).toBe('test-ns-me-home');
+      expect(body.namespace_grants[0].is_home).toBe(true);
+      expect(body.active_namespaces).toContain('test-ns-me-home');
+    });
+
+    it('returns empty grants for user with no namespace access', async () => {
+      await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, [TEST_EMAIL]);
+
+      const headers = await getAuthHeaders(TEST_EMAIL);
+      const res = await app.inject({ method: 'GET', url: '/me/grants', headers });
+      expect(res.statusCode).toBe(200);
+
+      const body = res.json();
+      expect(body.namespace_grants).toHaveLength(0);
+      expect(body.active_namespaces).toEqual(['default']);
     });
   });
 
