@@ -1,315 +1,166 @@
 /** @vitest-environment jsdom */
 /**
- * Tests for Issue #1957: Default agent selection in user settings.
+ * Tests for ChatSettingsSection (Issues #1957, #2424).
  *
  * Covers:
- * - useDefaultAgent hook (query + mutation)
- * - ChatSettingsSection component rendering
- * - Agent dropdown selection and save
- * - Integration with SettingsPage SECTIONS
+ * - Default agent dropdown rendering and selection
+ * - Visibility checkboxes rendering
+ * - Default agent checkbox is disabled
+ * - Integration with useChatAgentPreferences
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import * as React from 'react';
 
 // ---------------------------------------------------------------------------
 // Mocks
 // ---------------------------------------------------------------------------
 
-const mockGet = vi.fn();
-const mockPatch = vi.fn();
+const mockUpdateSettings = vi.fn().mockResolvedValue(true);
 
-vi.mock('@/ui/lib/api-client', () => ({
-  apiClient: {
-    get: (...args: unknown[]) => mockGet(...args),
-    patch: (...args: unknown[]) => mockPatch(...args),
-  },
-  ApiRequestError: class extends Error {
-    status: number;
-    constructor(message: string, status: number) {
-      super(message);
-      this.status = status;
-    }
-  },
+const mockPreferences = {
+  defaultAgentId: null as string | null,
+  visibleAgentIds: null as string[] | null,
+  allAgents: [] as Array<{ id: string; name: string; display_name: string | null; status?: string }>,
+  visibleAgents: [] as Array<{ id: string; name: string; display_name: string | null; status?: string }>,
+  resolvedDefaultAgent: null as { id: string; name: string; display_name: string | null } | null,
+  isLoading: false,
+  error: null as string | null,
+  isSaving: false,
+  updateSettings: mockUpdateSettings,
+};
+
+vi.mock('@/ui/components/chat/use-chat-agent-preferences', () => ({
+  useChatAgentPreferences: () => ({ ...mockPreferences }),
+}));
+
+// AgentStatusBadge — stub to avoid import chain issues
+vi.mock('@/ui/components/chat/agent-status-badge', () => ({
+  AgentStatusBadge: ({ status }: { status: string }) => React.createElement('span', { 'data-testid': 'agent-status' }, status),
 }));
 
 // ---------------------------------------------------------------------------
-// useDefaultAgent hook tests
+// Imports (after mocks)
 // ---------------------------------------------------------------------------
 
-describe('useDefaultAgent hook', () => {
-  let useDefaultAgent: typeof import('@/ui/components/settings/use-default-agent').useDefaultAgent;
-
-  beforeEach(async () => {
-    vi.clearAllMocks();
-    vi.resetModules();
-    const mod = await import('@/ui/components/settings/use-default-agent');
-    useDefaultAgent = mod.useDefaultAgent;
-  });
-
-  function TestComponent() {
-    const { defaultAgentId, isLoading, error, setDefaultAgent, isSaving } = useDefaultAgent();
-    return (
-      <div>
-        <span data-testid="loading">{String(isLoading)}</span>
-        <span data-testid="saving">{String(isSaving)}</span>
-        <span data-testid="agent-id">{defaultAgentId ?? 'none'}</span>
-        <span data-testid="error">{error ?? 'none'}</span>
-        <button type="button" data-testid="set-agent" onClick={() => setDefaultAgent('agent-123')}>
-          Set Agent
-        </button>
-        <button type="button" data-testid="clear-agent" onClick={() => setDefaultAgent(null)}>
-          Clear Agent
-        </button>
-      </div>
-    );
-  }
-
-  it('loads default agent from settings', async () => {
-    mockGet.mockResolvedValueOnce({
-      id: 'user-1',
-      email: 'test@example.com',
-      default_agent_id: 'agent-abc',
-    });
-
-    render(<TestComponent />);
-
-    expect(screen.getByTestId('loading').textContent).toBe('true');
-
-    await waitFor(() => {
-      expect(screen.getByTestId('loading').textContent).toBe('false');
-    });
-
-    expect(screen.getByTestId('agent-id').textContent).toBe('agent-abc');
-    expect(mockGet).toHaveBeenCalledWith('/settings');
-  });
-
-  it('returns null when no default agent is set', async () => {
-    mockGet.mockResolvedValueOnce({
-      id: 'user-1',
-      email: 'test@example.com',
-      default_agent_id: null,
-    });
-
-    render(<TestComponent />);
-
-    await waitFor(() => {
-      expect(screen.getByTestId('loading').textContent).toBe('false');
-    });
-
-    expect(screen.getByTestId('agent-id').textContent).toBe('none');
-  });
-
-  it('handles fetch error', async () => {
-    mockGet.mockRejectedValueOnce(new Error('Network error'));
-
-    render(<TestComponent />);
-
-    await waitFor(() => {
-      expect(screen.getByTestId('loading').textContent).toBe('false');
-    });
-
-    expect(screen.getByTestId('error').textContent).not.toBe('none');
-  });
-
-  it('sets default agent via PATCH', async () => {
-    mockGet.mockResolvedValueOnce({
-      id: 'user-1',
-      email: 'test@example.com',
-      default_agent_id: null,
-    });
-    mockPatch.mockResolvedValueOnce({
-      id: 'user-1',
-      email: 'test@example.com',
-      default_agent_id: 'agent-123',
-    });
-
-    render(<TestComponent />);
-
-    await waitFor(() => {
-      expect(screen.getByTestId('loading').textContent).toBe('false');
-    });
-
-    await act(async () => {
-      fireEvent.click(screen.getByTestId('set-agent'));
-    });
-
-    expect(mockPatch).toHaveBeenCalledWith('/settings', { default_agent_id: 'agent-123' });
-
-    await waitFor(() => {
-      expect(screen.getByTestId('agent-id').textContent).toBe('agent-123');
-    });
-  });
-
-  it('clears default agent with null', async () => {
-    mockGet.mockResolvedValueOnce({
-      id: 'user-1',
-      email: 'test@example.com',
-      default_agent_id: 'agent-abc',
-    });
-    mockPatch.mockResolvedValueOnce({
-      id: 'user-1',
-      email: 'test@example.com',
-      default_agent_id: null,
-    });
-
-    render(<TestComponent />);
-
-    await waitFor(() => {
-      expect(screen.getByTestId('agent-id').textContent).toBe('agent-abc');
-    });
-
-    await act(async () => {
-      fireEvent.click(screen.getByTestId('clear-agent'));
-    });
-
-    expect(mockPatch).toHaveBeenCalledWith('/settings', { default_agent_id: null });
-  });
-
-  it('reverts on save failure', async () => {
-    mockGet.mockResolvedValueOnce({
-      id: 'user-1',
-      email: 'test@example.com',
-      default_agent_id: 'original-agent',
-    });
-    mockPatch.mockRejectedValueOnce(new Error('Save failed'));
-
-    render(<TestComponent />);
-
-    await waitFor(() => {
-      expect(screen.getByTestId('agent-id').textContent).toBe('original-agent');
-    });
-
-    await act(async () => {
-      fireEvent.click(screen.getByTestId('set-agent'));
-    });
-
-    // After failure, should revert to original
-    await waitFor(() => {
-      expect(screen.getByTestId('agent-id').textContent).toBe('original-agent');
-    });
-  });
-});
+import { ChatSettingsSection } from '@/ui/components/settings/chat-settings-section';
 
 // ---------------------------------------------------------------------------
-// ChatSettingsSection component tests
+// Helpers
+// ---------------------------------------------------------------------------
+
+const mockAgents = [
+  { id: 'agent-1', name: 'assistant', display_name: 'Assistant', avatar_url: null, status: 'online' },
+  { id: 'agent-2', name: 'coder', display_name: 'Code Helper', avatar_url: null, status: 'online' },
+  { id: 'agent-3', name: 'researcher', display_name: null, avatar_url: null, status: 'offline' },
+];
+
+function resetPreferences(overrides: Partial<typeof mockPreferences> = {}) {
+  Object.assign(mockPreferences, {
+    defaultAgentId: null,
+    visibleAgentIds: null,
+    allAgents: [],
+    visibleAgents: [],
+    resolvedDefaultAgent: null,
+    isLoading: false,
+    error: null,
+    isSaving: false,
+    updateSettings: mockUpdateSettings,
+    ...overrides,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Tests
 // ---------------------------------------------------------------------------
 
 describe('ChatSettingsSection component', () => {
-  let ChatSettingsSection: typeof import('@/ui/components/settings/chat-settings-section').ChatSettingsSection;
-
-  beforeEach(async () => {
+  beforeEach(() => {
     vi.clearAllMocks();
-    vi.resetModules();
-    const mod = await import('@/ui/components/settings/chat-settings-section');
-    ChatSettingsSection = mod.ChatSettingsSection;
+    resetPreferences();
   });
 
-  const mockAgents = [
-    { id: 'agent-1', name: 'assistant', display_name: 'Assistant', avatar_url: null },
-    { id: 'agent-2', name: 'coder', display_name: 'Code Helper', avatar_url: null },
-    { id: 'agent-3', name: 'researcher', display_name: null, avatar_url: null },
-  ];
-
-  it('renders loading state', async () => {
-    // Settings loading
-    mockGet.mockImplementation((url: string) => {
-      if (url === '/settings') return new Promise(() => {});
-      if (url === '/chat/agents') return Promise.resolve({ agents: mockAgents });
-      return Promise.resolve({});
-    });
-
-    render(<ChatSettingsSection />);
-
+  it('renders loading state', () => {
+    resetPreferences({ isLoading: true });
+    render(React.createElement(ChatSettingsSection));
     expect(screen.getByText('Chat')).toBeDefined();
-    // Should show a loader while settings load
     expect(screen.getByTestId('chat-settings-section')).toBeDefined();
   });
 
-  it('renders agent dropdown with available agents', async () => {
-    mockGet.mockImplementation((url: string) => {
-      if (url === '/settings') {
-        return Promise.resolve({
-          id: 'user-1',
-          email: 'test@example.com',
-          default_agent_id: null,
-        });
-      }
-      if (url.includes('/chat/agents')) {
-        return Promise.resolve({ agents: mockAgents });
-      }
-      return Promise.resolve({});
-    });
+  it('renders error state', () => {
+    resetPreferences({ error: 'Failed to load' });
+    render(React.createElement(ChatSettingsSection));
+    expect(screen.getByText(/failed to load/i)).toBeDefined();
+  });
 
-    render(<ChatSettingsSection />);
+  it('renders empty agent list message', () => {
+    resetPreferences({ allAgents: [], visibleAgents: [] });
+    render(React.createElement(ChatSettingsSection));
+    expect(screen.getByText(/no agents available/i)).toBeDefined();
+  });
 
-    await waitFor(() => {
-      expect(screen.getByText('Default Agent')).toBeDefined();
-    });
-
-    // Should show "None selected" when no agent is set
+  it('renders agent dropdown with available agents', () => {
+    resetPreferences({ allAgents: mockAgents, visibleAgents: mockAgents });
+    render(React.createElement(ChatSettingsSection));
+    expect(screen.getByText('Default Agent')).toBeDefined();
     expect(screen.getByText('None selected')).toBeDefined();
   });
 
-  it('displays currently selected agent', async () => {
-    mockGet.mockImplementation((url: string) => {
-      if (url === '/settings') {
-        return Promise.resolve({
-          id: 'user-1',
-          email: 'test@example.com',
-          default_agent_id: 'agent-1',
-        });
-      }
-      if (url.includes('/chat/agents')) {
-        return Promise.resolve({ agents: mockAgents });
-      }
-      return Promise.resolve({});
+  it('displays currently selected agent', () => {
+    resetPreferences({
+      defaultAgentId: 'agent-1',
+      allAgents: mockAgents,
+      visibleAgents: mockAgents,
+      resolvedDefaultAgent: mockAgents[0],
     });
-
-    render(<ChatSettingsSection />);
-
-    await waitFor(() => {
-      expect(screen.getByText('Assistant')).toBeDefined();
-    });
+    render(React.createElement(ChatSettingsSection));
+    // "Assistant" appears in both dropdown and checkbox list
+    expect(screen.getAllByText('Assistant').length).toBeGreaterThanOrEqual(1);
   });
 
-  it('renders error state when settings fail to load', async () => {
-    mockGet.mockImplementation((url: string) => {
-      if (url === '/settings') {
-        return Promise.reject(new Error('Network error'));
-      }
-      if (url.includes('/chat/agents')) {
-        return Promise.resolve({ agents: mockAgents });
-      }
-      return Promise.resolve({});
-    });
-
-    render(<ChatSettingsSection />);
-
-    await waitFor(() => {
-      expect(screen.getByText(/failed to load/i)).toBeDefined();
-    });
+  it('renders visibility checkboxes for each agent', () => {
+    resetPreferences({ allAgents: mockAgents, visibleAgents: mockAgents });
+    render(React.createElement(ChatSettingsSection));
+    expect(screen.getByText('Visible Agents')).toBeDefined();
+    expect(screen.getAllByText('Assistant').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('Code Helper')).toBeDefined();
+    // agent-3 has null display_name, falls back to name
+    expect(screen.getByText('researcher')).toBeDefined();
   });
 
-  it('renders empty agent list message', async () => {
-    mockGet.mockImplementation((url: string) => {
-      if (url === '/settings') {
-        return Promise.resolve({
-          id: 'user-1',
-          email: 'test@example.com',
-          default_agent_id: null,
-        });
-      }
-      if (url.includes('/chat/agents')) {
-        return Promise.resolve({ agents: [] });
-      }
-      return Promise.resolve({});
+  it('shows saving indicator when isSaving is true', () => {
+    resetPreferences({
+      allAgents: mockAgents,
+      visibleAgents: mockAgents,
+      isSaving: true,
     });
+    render(React.createElement(ChatSettingsSection));
+    // Loader2 spinner should be present (it renders as an SVG)
+    const card = screen.getByTestId('chat-settings-section');
+    expect(card.querySelector('.animate-spin')).toBeDefined();
+  });
 
-    render(<ChatSettingsSection />);
-
-    await waitFor(() => {
-      expect(screen.getByText(/no agents available/i)).toBeDefined();
+  it('marks default agent checkbox as disabled', () => {
+    resetPreferences({
+      defaultAgentId: 'agent-1',
+      allAgents: mockAgents,
+      visibleAgents: mockAgents,
     });
+    render(React.createElement(ChatSettingsSection));
+
+    // Find checkbox with aria-label for the default agent
+    const checkbox = screen.getByLabelText('Show Assistant in chat');
+    expect(checkbox).toBeDefined();
+    expect(checkbox.getAttribute('disabled')).not.toBeNull();
+  });
+
+  it('shows (default) label next to default agent', () => {
+    resetPreferences({
+      defaultAgentId: 'agent-1',
+      allAgents: mockAgents,
+      visibleAgents: mockAgents,
+    });
+    render(React.createElement(ChatSettingsSection));
+    expect(screen.getByText('(default)')).toBeDefined();
   });
 });

@@ -27,6 +27,7 @@ import { render, cleanup, waitFor } from '@testing-library/react';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as React from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // ---------------------------------------------------------------------------
 // Mocks — same as settings-api-response-guards.test.tsx
@@ -101,7 +102,7 @@ const REGISTERED_API_FILES = new Set([
   'use-embedding-settings.ts',
   'use-connected-accounts.ts',
   'use-settings.ts',
-  'use-default-agent.ts',
+  // use-default-agent.ts was deleted — replaced by use-chat-agent-preferences.ts in chat/
   'connected-accounts-section.tsx',
   'connection-manage-panel.tsx',
   'inbound-routing-section.tsx',
@@ -243,18 +244,19 @@ describe('Settings hooks survive empty API responses ({})', () => {
     );
   });
 
-  it('useDefaultAgent does not crash', async () => {
+  it('useChatAgentPreferences does not crash', async () => {
     mockedApiClient.get.mockResolvedValue({});
-    const { useDefaultAgent } = await import(
-      '@/ui/components/settings/use-default-agent'
+    const { useChatAgentPreferences } = await import(
+      '@/ui/components/chat/use-chat-agent-preferences'
     );
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
     function Test() {
-      const { defaultAgentId, isLoading } = useDefaultAgent();
+      const { defaultAgentId, isLoading } = useChatAgentPreferences();
       return <div>{isLoading ? 'loading' : `agent:${defaultAgentId ?? 'none'}`}</div>;
     }
 
-    expect(() => render(<Test />)).not.toThrow();
+    expect(() => render(<QueryClientProvider client={qc}><Test /></QueryClientProvider>)).not.toThrow();
     await waitFor(() => expect(document.body.textContent).toContain('agent:'));
   });
 
@@ -294,9 +296,10 @@ describe('Settings hooks survive empty API responses ({})', () => {
     const { ChatSettingsSection } = await import(
       '@/ui/components/settings/chat-settings-section'
     );
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
     function Test() {
-      return <ChatSettingsSection />;
+      return <QueryClientProvider client={qc}><ChatSettingsSection /></QueryClientProvider>;
     }
 
     expect(() => render(<Test />)).not.toThrow();
