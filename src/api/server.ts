@@ -109,6 +109,7 @@ import { MessageRouter } from './realtime/message-router.ts';
 import { YjsHandler } from './realtime/yjs-handler.ts';
 import { YjsDocManager } from './realtime/yjs-doc-manager.ts';
 import { YjsWsHandler } from './realtime/yjs-ws-handler.ts';
+import { extractWsQueryToken } from './realtime/ws-query-token.ts';
 import {
   enqueueSmsMessage,
   getPhoneNumberDetails,
@@ -1759,11 +1760,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     if (identity) {
       user_id = identity.email;
     } else if (!isAuthDisabled()) {
-      // Try JWT from query string (for WebSocket clients that can't set headers)
-      const query = req.query as { token?: string };
-      if (query.token) {
+      // Try JWT from query string (for WebSocket clients that can't set headers).
+      // Parse from req.url because req.query may be undefined in @fastify/websocket
+      // handlers (Issue #2404).
+      const token = extractWsQueryToken(req);
+      if (token) {
         try {
-          const payload = await verifyAccessToken(query.token);
+          const payload = await verifyAccessToken(token);
           user_id = payload.sub;
         } catch {
           socket.close(4001, 'Unauthorized');
@@ -1825,10 +1828,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       if (identity) {
         user_email = identity.email;
       } else if (!isAuthDisabled()) {
-        const query = req.query as { token?: string };
-        if (query.token) {
+        // Parse token from req.url because req.query may be undefined in
+        // @fastify/websocket handlers (Issue #2404).
+        const token = extractWsQueryToken(req);
+        if (token) {
           try {
-            const payload = await verifyAccessToken(query.token);
+            const payload = await verifyAccessToken(token);
             user_email = payload.sub;
           } catch (err) {
             console.debug(`[Yjs] JWT verification failed:`, err instanceof Error ? err.message : err);
