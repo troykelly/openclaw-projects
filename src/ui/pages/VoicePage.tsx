@@ -10,15 +10,17 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Eye, Mic, Settings2, Trash2 } from 'lucide-react';
 import type React from 'react';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Badge } from '@/ui/components/ui/badge';
 import { Button } from '@/ui/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/ui/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/ui/components/ui/dialog';
 import { Input } from '@/ui/components/ui/input';
 import { Label } from '@/ui/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/components/ui/select';
 import { useNamespaceQueryKey } from '@/ui/hooks/use-namespace-query-key';
 import { apiClient } from '@/ui/lib/api-client';
+import type { ChatAgent, ChatAgentsResponse } from '@/ui/lib/api-types';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -81,8 +83,26 @@ export function VoicePage(): React.JSX.Element {
     idle_timeout_s: 300,
     retention_days: 30,
     service_allowlist: '',
+    default_agent_id: '' as string,
   });
+  const [agents, setAgents] = useState<ChatAgent[]>([]);
   const [viewingConversation, setViewingConversation] = useState<string | null>(null);
+
+  // Fetch available agents from /chat/agents
+  useEffect(() => {
+    let alive = true;
+    async function fetchAgents() {
+      try {
+        const data = await apiClient.get<ChatAgentsResponse>('/chat/agents');
+        if (!alive) return;
+        setAgents(Array.isArray(data.agents) ? data.agents : []);
+      } catch {
+        if (alive) setAgents([]);
+      }
+    }
+    fetchAgents();
+    return () => { alive = false; };
+  }, []);
 
   // Fetch voice config
   const configQueryKey = useNamespaceQueryKey(['voice-config'] as const);
@@ -108,7 +128,7 @@ export function VoicePage(): React.JSX.Element {
 
   // Update config
   const configMutation = useMutation({
-    mutationFn: (body: { timeout_ms: number; idle_timeout_s: number; retention_days: number; service_allowlist: string[] }) =>
+    mutationFn: (body: { timeout_ms: number; idle_timeout_s: number; retention_days: number; service_allowlist: string[]; default_agent_id: string | null }) =>
       apiClient.put<{ data: VoiceConfig }>('/voice/config', body),
     onSuccess: () => {
       setConfigEditing(false);
@@ -131,6 +151,7 @@ export function VoicePage(): React.JSX.Element {
       idle_timeout_s: config?.idle_timeout_s ?? 300,
       retention_days: config?.retention_days ?? 30,
       service_allowlist: config?.service_allowlist?.join(', ') ?? '',
+      default_agent_id: config?.default_agent_id ?? '',
     });
     setConfigEditing(true);
   }, [configQuery.data]);
@@ -144,8 +165,18 @@ export function VoicePage(): React.JSX.Element {
         .split(',')
         .map((s) => s.trim())
         .filter(Boolean),
+      default_agent_id: configForm.default_agent_id || null,
     });
   }, [configForm, configMutation]);
+
+  /** Resolve display label for a given agent ID. */
+  const resolveAgentLabel = useCallback(
+    (agentId: string): string => {
+      const agent = agents.find((a) => a.id === agentId);
+      return agent ? (agent.display_name ?? agent.name) : agentId;
+    },
+    [agents],
+  );
 
   const config = configQuery.data?.data ?? null;
   const conversations = Array.isArray(conversationsQuery.data?.data) ? conversationsQuery.data.data : [];
@@ -184,7 +215,7 @@ export function VoicePage(): React.JSX.Element {
                 <ConfigRow label="Timeout" value={`${config.timeout_ms}ms`} />
                 <ConfigRow label="Idle Timeout" value={`${config.idle_timeout_s}s`} />
                 <ConfigRow label="Retention" value={`${config.retention_days} days`} />
-                <ConfigRow label="Default Agent" value={config.default_agent_id ?? 'None'} />
+                <ConfigRow label="Default Agent" value={config.default_agent_id ? resolveAgentLabel(config.default_agent_id) : 'None'} />
                 <div>
                   <span className="text-sm text-muted-foreground">Service Allowlist:</span>
                   <div className="flex flex-wrap gap-1 mt-1">
@@ -290,6 +321,27 @@ export function VoicePage(): React.JSX.Element {
                 onChange={(e) => setConfigForm((f) => ({ ...f, service_allowlist: e.target.value }))}
                 placeholder="light, switch, cover"
               />
+            </div>
+            <div>
+              <Label htmlFor="voice-default-agent">Default Agent</Label>
+              <Select
+                value={configForm.default_agent_id || 'none'}
+                onValueChange={(v) => setConfigForm((f) => ({ ...f, default_agent_id: v === 'none' ? '' : v }))}
+              >
+                <SelectTrigger id="voice-default-agent" data-testid="voice-default-agent-select">
+                  <SelectValue>
+                    {configForm.default_agent_id ? resolveAgentLabel(configForm.default_agent_id) : 'None'}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  {agents.map((agent) => (
+                    <SelectItem key={agent.id} value={agent.id}>
+                      {agent.display_name ?? agent.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <DialogFooter>
