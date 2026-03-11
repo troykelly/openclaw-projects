@@ -14,7 +14,7 @@
 
 import { type QueryClient, useQueryClient } from '@tanstack/react-query';
 import * as React from 'react';
-import { setNamespaceResolver } from '@/ui/lib/api-client';
+import { apiClient, setNamespaceResolver } from '@/ui/lib/api-client';
 import type { AppBootstrap, NamespaceGrant } from '@/ui/lib/api-types';
 import { readBootstrap } from '@/ui/lib/work-item-utils';
 
@@ -95,14 +95,50 @@ function getInitialNamespaces(grants: NamespaceGrant[]): string[] {
   return [grants[0]?.namespace ?? 'default'];
 }
 
+/** Response shape from GET /api/me/grants (Issue #2405). */
+interface MeGrantsResponse {
+  namespace_grants: NamespaceGrant[];
+  active_namespaces: string[];
+}
+
 export function NamespaceProvider({ children }: { children: React.ReactNode }): React.JSX.Element {
   const bootstrap = React.useMemo(() => readBootstrap<AppBootstrap>(), []);
-  const grants = React.useMemo(() => bootstrap?.namespace_grants ?? [], [bootstrap]);
+  const bootstrapGrants = React.useMemo(() => bootstrap?.namespace_grants ?? [], [bootstrap]);
   const queryClient = useQueryClientSafe();
+
+  // Issue #2405: In production, static nginx serves /app/* without bootstrap injection.
+  // When bootstrap grants are empty, fetch from the API on mount.
+  const [fetchedGrants, setFetchedGrants] = React.useState<NamespaceGrant[] | null>(null);
+  const [isNamespaceReady, setIsNamespaceReady] = React.useState(bootstrapGrants.length > 0);
+  const grants = fetchedGrants ?? bootstrapGrants;
+
+  React.useEffect(() => {
+    if (bootstrapGrants.length > 0) return; // Bootstrap data available, no fetch needed
+
+    let cancelled = false;
+    apiClient.get<MeGrantsResponse>('/me/grants')
+      .then((data) => {
+        if (cancelled) return;
+        setFetchedGrants(data.namespace_grants ?? []);
+        setIsNamespaceReady(true);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        // On failure, mark ready with empty grants (graceful degradation)
+        setIsNamespaceReady(true);
+      });
+    return () => { cancelled = true; };
+  }, [bootstrapGrants.length]);
 
   const [activeNamespaces, setActiveNamespacesState] = React.useState(() => getInitialNamespaces(grants));
   const [namespaceVersion, setNamespaceVersion] = React.useState(0);
-  const isNamespaceReady = true; // Synchronously initialized from bootstrap
+
+  // Issue #2405: Re-initialize activeNamespaces when API-fetched grants arrive
+  React.useEffect(() => {
+    if (fetchedGrants && fetchedGrants.length > 0) {
+      setActiveNamespacesState(getInitialNamespaces(fetchedGrants));
+    }
+  }, [fetchedGrants]);
 
   // Persist to localStorage whenever activeNamespaces changes
   React.useEffect(() => {
@@ -187,7 +223,7 @@ export function NamespaceProvider({ children }: { children: React.ReactNode }): 
       isNamespaceReady,
       namespaceVersion,
     }),
-    [grants, activeNamespace, setActiveNamespace, activeNamespaces, setActiveNamespaces, toggleNamespace, namespaceVersion],
+    [grants, activeNamespace, setActiveNamespace, activeNamespaces, setActiveNamespaces, toggleNamespace, isNamespaceReady, namespaceVersion],
   );
 
   return <NamespaceContext.Provider value={value}>{children}</NamespaceContext.Provider>;

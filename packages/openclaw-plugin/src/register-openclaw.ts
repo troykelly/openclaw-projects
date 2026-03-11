@@ -4338,7 +4338,7 @@ function createToolHandlers(state: PluginState) {
         is_default?: boolean;
       };
       try {
-        const response = await apiClient.post<{ id: string; email: string; namespace: string; role: string; is_default: boolean }>(
+        const response = await apiClient.post<{ id: string; email: string; namespace: string; access: string; is_home: boolean }>(
           `/namespaces/${encodeURIComponent(namespace)}/grants`,
           { email, role: role || 'member', is_default: is_default ?? false },
           reqOpts(),
@@ -4347,7 +4347,7 @@ function createToolHandlers(state: PluginState) {
           return { success: false, error: response.error.message || 'Failed to grant namespace access' };
         }
         const d = response.data;
-        return { success: true, data: { content: `Granted **${d.role}** access to **${d.namespace}** for ${d.email}.`, details: d } };
+        return { success: true, data: { content: `Granted **${d.access}** access to **${d.namespace}** for ${d.email}.`, details: d } };
       } catch (error) {
         logger.error('namespace_grant failed', { error });
         return { success: false, error: 'Failed to grant namespace access' };

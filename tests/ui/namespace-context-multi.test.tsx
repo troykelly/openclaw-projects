@@ -11,10 +11,22 @@
  */
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import React from 'react';
-import { render, screen, act } from '@testing-library/react';
+import { act } from '@testing-library/react';
 import { renderHook } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import '@testing-library/jest-dom';
+
+// Partial mock for api-client: only mock apiClient.get, keep real setNamespaceResolver
+vi.mock('@/ui/lib/api-client', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/ui/lib/api-client')>();
+  return {
+    ...actual,
+    apiClient: { ...actual.apiClient, get: vi.fn() },
+  };
+});
+// Re-import after mock to get the mocked function reference
+import { apiClient as mockedApiClient } from '@/ui/lib/api-client';
+const mockApiGet = mockedApiClient.get as ReturnType<typeof vi.fn>;
 
 import {
   NamespaceProvider,
@@ -66,6 +78,7 @@ describe('Multi-namespace context (#2351)', () => {
   beforeEach(() => {
     clearBootstrapData();
     localStorage.clear();
+    mockApiGet.mockReset();
   });
 
   afterEach(() => {
@@ -270,5 +283,116 @@ describe('Namespace race prevention (#2360)', () => {
     });
 
     expect(result.current.namespaceVersion).toBeGreaterThan(initialVersion);
+  });
+});
+
+describe('API-fetch fallback when bootstrap is empty (Issue #2405)', () => {
+  beforeEach(() => {
+    clearBootstrapData();
+    localStorage.clear();
+    mockApiGet.mockReset();
+  });
+
+  afterEach(() => {
+    clearBootstrapData();
+  });
+
+  it('fetches grants from /me/grants when bootstrap has no namespace_grants', async () => {
+    // Do NOT set bootstrap data — simulates production static serving
+    const apiGrants = [
+      { namespace: 'fetched-ns', access: 'readwrite', is_home: true },
+    ];
+
+    let resolveFn: (value: unknown) => void;
+    const fetchPromise = new Promise((resolve) => { resolveFn = resolve; });
+    mockApiGet.mockReturnValue(fetchPromise);
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: 0 } },
+    });
+    const Wrapper = ({ children }: { children: React.ReactNode }) => (
+      <QueryClientProvider client={queryClient}>
+        <NamespaceProvider>{children}</NamespaceProvider>
+      </QueryClientProvider>
+    );
+
+    const { result } = renderHook(() => useNamespace(), { wrapper: Wrapper });
+
+    // Initially not ready (no bootstrap)
+    expect(result.current.isNamespaceReady).toBe(false);
+
+    // Resolve the fetch and flush React state
+    await act(async () => {
+      resolveFn!({
+        namespace_grants: apiGrants,
+        active_namespaces: ['fetched-ns'],
+      });
+      // Flush microtasks
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(result.current.isNamespaceReady).toBe(true);
+    expect(result.current.grants).toHaveLength(1);
+    expect(result.current.grants[0].namespace).toBe('fetched-ns');
+    expect(result.current.activeNamespace).toBe('fetched-ns');
+  });
+
+  it('uses bootstrap grants when available (no API fetch)', () => {
+    setBootstrapData({
+      namespace_grants: [
+        { namespace: 'bootstrap-ns', access: 'readwrite', is_home: true },
+      ],
+    });
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: 0 } },
+    });
+    const Wrapper = ({ children }: { children: React.ReactNode }) => (
+      <QueryClientProvider client={queryClient}>
+        <NamespaceProvider>{children}</NamespaceProvider>
+      </QueryClientProvider>
+    );
+
+    const { result } = renderHook(() => useNamespace(), { wrapper: Wrapper });
+
+    // Immediately ready from bootstrap
+    expect(result.current.isNamespaceReady).toBe(true);
+    expect(result.current.grants).toHaveLength(1);
+    expect(result.current.grants[0].namespace).toBe('bootstrap-ns');
+  });
+
+  it('degrades gracefully when API fetch fails', async () => {
+    // No bootstrap data — simulates production with static nginx.
+    // Use a controlled promise so rejection happens inside act().
+    let rejectFn: (err: Error) => void;
+    const fetchPromise = new Promise((_resolve, reject) => { rejectFn = reject; });
+    fetchPromise.catch(() => {}); // Prevent Node unhandled-rejection warning
+    mockApiGet.mockReturnValue(fetchPromise);
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: 0 } },
+    });
+    const Wrapper = ({ children }: { children: React.ReactNode }) => (
+      <QueryClientProvider client={queryClient}>
+        <NamespaceProvider>{children}</NamespaceProvider>
+      </QueryClientProvider>
+    );
+
+    const { result } = renderHook(() => useNamespace(), { wrapper: Wrapper });
+
+    expect(mockApiGet).toHaveBeenCalledWith('/me/grants');
+    expect(result.current.isNamespaceReady).toBe(false);
+
+    // Reject inside act to trigger .catch() → setIsNamespaceReady(true)
+    await act(async () => {
+      rejectFn!(new Error('Network error'));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(result.current.isNamespaceReady).toBe(true);
+    expect(result.current.grants).toHaveLength(0);
+    expect(result.current.activeNamespace).toBe('default');
   });
 });
