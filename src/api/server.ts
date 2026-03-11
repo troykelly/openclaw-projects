@@ -1755,8 +1755,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // @fastify/websocket plugin's onRoute hook is active. Without this, the
   // plugin's handler override never fires and the route receives
   // (FastifyRequest, Reply) instead of (WebSocket, FastifyRequest). Issue #2404.
+  //
+  // We use { wsHandler } instead of { websocket: true } so that @fastify/otel
+  // (Sentry) doesn't wrap the WebSocket handler. The OTel wrapper expects
+  // (FastifyRequest, Reply) but @fastify/websocket calls wsHandler with
+  // (WebSocket, FastifyRequest), crashing on socket.routeOptions.config.
+  // With { wsHandler }, OTel only wraps the HTTP fallback handler, not wsHandler.
   app.after(() => {
-    app.get('/ws', { websocket: true }, async (socket, req) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- @fastify/websocket wsHandler type not exported
+    app.get('/ws', { wsHandler: async (socket: any, req: FastifyRequest) => {
       // Authenticate via JWT in Authorization header or query string
       let user_id: string | undefined;
 
@@ -1819,13 +1826,16 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           });
         }
       });
+    } } as Record<string, unknown>, async (_req, reply) => {
+      reply.code(404).send();
     });
 
     // Yjs collaborative editing WebSocket endpoint (Issue #2256)
     // Uses standard y-protocols for full compatibility with y-websocket WebsocketProvider.
     // y-websocket connects to /yjs/{noteId}?token=JWT
     if (yjsWsHandler && yjsEnabled) {
-      app.get('/yjs/:noteId', { websocket: true }, async (socket, req) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- @fastify/websocket wsHandler type not exported
+      app.get('/yjs/:noteId', { wsHandler: async (socket: any, req: FastifyRequest) => {
         // Authenticate via JWT from query string
         let user_email: string | undefined;
 
@@ -1856,7 +1866,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
         try {
           await yjsWsHandler.handleConnection(
-            socket as unknown as Parameters<typeof yjsWsHandler.handleConnection>[0],
+            socket as Parameters<typeof yjsWsHandler.handleConnection>[0],
             client_id,
             user_email ?? '',
             noteId,
@@ -1885,6 +1895,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
             console.debug(`[Yjs] Disconnect cleanup failed for ${client_id}:`, disconnectErr instanceof Error ? disconnectErr.message : disconnectErr);
           });
         });
+      } } as Record<string, unknown>, async (_req, reply) => {
+        reply.code(404).send();
       });
     }
   });
