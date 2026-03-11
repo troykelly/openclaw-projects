@@ -302,7 +302,7 @@ describe('Memory Service', () => {
         content: 'Test',
       });
 
-      await expect(updateMemory(pool, created.id, { importance: 11 })).rejects.toThrow('Importance must be between 1 and 10');
+      await expect(updateMemory(pool, created.id, { importance: 11 })).rejects.toThrow('Importance must be between 0 and 10');
     });
 
     it('throws on invalid confidence', async () => {

@@ -254,7 +254,7 @@ describe('memory_recall tool', () => {
   });
 
   describe('response formatting', () => {
-    it('should format memories as bullet list', async () => {
+    it('should format memories as bullet list with IDs', async () => {
       const mockGet = vi.fn().mockResolvedValue({
         success: true,
         data: {
@@ -279,8 +279,10 @@ describe('memory_recall tool', () => {
       expect(result.success).toBe(true);
       if (result.success) {
         expect(result.data.content).toContain('[preference]');
+        expect(result.data.content).toContain('(id: 1)');
         expect(result.data.content).toContain('User prefers oat milk');
         expect(result.data.content).toContain('[fact]');
+        expect(result.data.content).toContain('(id: 2)');
         expect(result.data.content).toContain('User birthday is March 15');
       }
     });
@@ -1104,6 +1106,91 @@ describe('memory_recall tool', () => {
       expect(calledUrl).not.toContain('since');
       expect(calledUrl).not.toContain('before');
       expect(calledUrl).not.toContain('period');
+    });
+  });
+
+  describe('Issue #2400 - memory UUID in results', () => {
+    it('should include memory ID in result details', async () => {
+      const mockGet = vi.fn().mockResolvedValue({
+        success: true,
+        data: {
+          results: [
+            { id: 'abc-123', content: 'User prefers dark mode', type: 'preference', similarity: 0.95 },
+          ],
+          search_type: 'semantic',
+        },
+      });
+      const client = { ...mockApiClient, get: mockGet };
+
+      const tool = createMemoryRecallTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        user_id: 'agent-1',
+      });
+
+      const result = await tool.execute({ query: 'dark mode' });
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.details.memories[0].id).toBe('abc-123');
+      }
+    });
+
+    it('should fall back to memory_type when type is missing (Issue #2400)', async () => {
+      const mockGet = vi.fn().mockResolvedValue({
+        success: true,
+        data: {
+          results: [
+            { id: 'abc-123', content: 'A fact', memory_type: 'fact', similarity: 0.9 },
+          ],
+          search_type: 'semantic',
+        },
+      });
+      const client = { ...mockApiClient, get: mockGet };
+
+      const tool = createMemoryRecallTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        user_id: 'agent-1',
+      });
+
+      const result = await tool.execute({ query: 'fact' });
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.details.memories[0].category).toBe('fact');
+        expect(result.data.content).toContain('[fact]');
+      }
+    });
+
+    it('should not show [undefined] when API returns memory_type instead of type (Issue #2401)', async () => {
+      const mockGet = vi.fn().mockResolvedValue({
+        success: true,
+        data: {
+          results: [
+            { id: 'abc-123', content: 'A decision', memory_type: 'decision', similarity: 0.8 },
+          ],
+          search_type: 'semantic',
+        },
+      });
+      const client = { ...mockApiClient, get: mockGet };
+
+      const tool = createMemoryRecallTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        user_id: 'agent-1',
+      });
+
+      const result = await tool.execute({ query: 'decision' });
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.content).not.toContain('[undefined]');
+        expect(result.data.details.memories[0].category).toBe('decision');
+      }
     });
   });
 });

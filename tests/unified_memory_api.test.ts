@@ -349,4 +349,229 @@ describe('Unified Memory API (Issue #209)', () => {
       expect(parseInt((remaining.rows[0] as { count: string }).count, 10)).toBe(1);
     });
   });
+
+  describe('PATCH /memories/:id - Issue #2398 (importance update)', () => {
+    it('accepts 0-1 float importance and normalizes it', async () => {
+      // Create a memory
+      const createRes = await app.inject({
+        method: 'POST',
+        url: '/memories/unified',
+        payload: {
+          title: 'Test',
+          content: 'Test content',
+          memory_type: 'fact',
+        },
+      });
+      const memoryId = createRes.json().id;
+
+      // Update with 0-1 float importance
+      const res = await app.inject({
+        method: 'PATCH',
+        url: `/memories/${memoryId}`,
+        payload: { importance: 0.5 },
+      });
+
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      // 0.5 * 9 + 1 = 5.5, rounded = 6
+      expect(body.importance).toBe(6);
+    });
+
+    it('accepts 1-10 integer importance', async () => {
+      const createRes = await app.inject({
+        method: 'POST',
+        url: '/memories/unified',
+        payload: {
+          title: 'Test',
+          content: 'Test content',
+          memory_type: 'fact',
+        },
+      });
+      const memoryId = createRes.json().id;
+
+      const res = await app.inject({
+        method: 'PATCH',
+        url: `/memories/${memoryId}`,
+        payload: { importance: 8 },
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.json().importance).toBe(8);
+    });
+
+    it('rejects importance out of range with 400', async () => {
+      const createRes = await app.inject({
+        method: 'POST',
+        url: '/memories/unified',
+        payload: {
+          title: 'Test',
+          content: 'Test content',
+          memory_type: 'fact',
+        },
+      });
+      const memoryId = createRes.json().id;
+
+      const res = await app.inject({
+        method: 'PATCH',
+        url: `/memories/${memoryId}`,
+        payload: { importance: 15 },
+      });
+
+      expect(res.statusCode).toBe(400);
+    });
+
+    it('updates importance combined with other fields', async () => {
+      const createRes = await app.inject({
+        method: 'POST',
+        url: '/memories/unified',
+        payload: {
+          title: 'Test',
+          content: 'Test content',
+          memory_type: 'fact',
+        },
+      });
+      const memoryId = createRes.json().id;
+
+      const res = await app.inject({
+        method: 'PATCH',
+        url: `/memories/${memoryId}`,
+        payload: {
+          content: 'Updated content',
+          tags: ['a', 'b'],
+          importance: 0.3,
+        },
+      });
+
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      expect(body.content).toBe('Updated content');
+      expect(body.tags).toEqual(['a', 'b']);
+      // 0.3 * 9 + 1 = 3.7, rounded = 4
+      expect(body.importance).toBe(4);
+    });
+  });
+
+  describe('GET /memories/unified - Issue #2399 (tag filter)', () => {
+    it('filters memories by tags (at least one match)', async () => {
+      // Create memories with different tags
+      await app.inject({
+        method: 'POST',
+        url: '/memories/unified',
+        payload: {
+          title: 'Tagged memory',
+          content: 'Has test and pinned tags',
+          memory_type: 'fact',
+          tags: ['test', 'pinned'],
+        },
+      });
+      await app.inject({
+        method: 'POST',
+        url: '/memories/unified',
+        payload: {
+          title: 'Other memory',
+          content: 'Has different tags',
+          memory_type: 'fact',
+          tags: ['unrelated', 'other'],
+        },
+      });
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/memories/unified?tags=test,pinned',
+      });
+
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      expect(body.total).toBe(1);
+      expect(body.memories).toHaveLength(1);
+      expect(body.memories[0].tags).toContain('test');
+      expect(body.memories[0].tags).toContain('pinned');
+    });
+
+    it('returns memories matching at least one tag (overlap, not containment)', async () => {
+      // Memory with only 'test' tag
+      await app.inject({
+        method: 'POST',
+        url: '/memories/unified',
+        payload: {
+          title: 'Test-only memory',
+          content: 'Has only the test tag',
+          memory_type: 'fact',
+          tags: ['test'],
+        },
+      });
+      // Memory with completely different tags
+      await app.inject({
+        method: 'POST',
+        url: '/memories/unified',
+        payload: {
+          title: 'Unrelated memory',
+          content: 'Has no matching tags',
+          memory_type: 'fact',
+          tags: ['unrelated'],
+        },
+      });
+
+      // Search for 'test,pinned' should still find the memory with only 'test'
+      const res = await app.inject({
+        method: 'GET',
+        url: '/memories/unified?tags=test,pinned',
+      });
+
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      expect(body.total).toBe(1);
+      expect(body.memories).toHaveLength(1);
+      expect(body.memories[0].content).toBe('Has only the test tag');
+    });
+
+    it('excludes memories with no matching tags', async () => {
+      await app.inject({
+        method: 'POST',
+        url: '/memories/unified',
+        payload: {
+          title: 'Unmatched memory',
+          content: 'No matching tags at all',
+          memory_type: 'fact',
+          tags: ['completely', 'different'],
+        },
+      });
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/memories/unified?tags=test,pinned',
+      });
+
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      expect(body.total).toBe(0);
+      expect(body.memories).toHaveLength(0);
+    });
+  });
+
+  describe('GET /memories/unified - Issue #2400 & #2401 (type alias and ID)', () => {
+    it('returns type alias alongside memory_type', async () => {
+      await app.inject({
+        method: 'POST',
+        url: '/memories/unified',
+        payload: {
+          title: 'A fact',
+          content: 'The earth is round',
+          memory_type: 'fact',
+        },
+      });
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/memories/unified',
+      });
+
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      expect(body.memories).toHaveLength(1);
+      expect(body.memories[0].type).toBe('fact');
+      expect(body.memories[0].memory_type).toBe('fact');
+      expect(body.memories[0].id).toBeDefined();
+    });
+  });
 });

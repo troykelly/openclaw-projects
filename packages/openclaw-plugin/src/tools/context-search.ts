@@ -173,7 +173,7 @@ function formatResultsAsText(results: ContextSearchResultItem[]): string {
         if (r.metadata.received_at) parts.push(r.metadata.received_at);
         if (parts.length > 0) metaStr = ` [${parts.join(', ')}]`;
       }
-      return `- [${r.entity_type}] ${r.title}${snippetStr}${metaStr} (score: ${scoreStr})`;
+      return `- [${r.entity_type}] (id: ${r.id}) ${r.title}${snippetStr}${metaStr} (score: ${scoreStr})`;
     })
     .join('\n');
 }

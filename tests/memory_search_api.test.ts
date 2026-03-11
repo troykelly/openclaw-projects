@@ -230,4 +230,28 @@ describe('Memory Search API', () => {
       expect(body.stats.failed).toBeDefined();
     });
   });
+
+  describe('Issue #2400 - search results include type alias', () => {
+    it('returns type field alongside memory_type in search results', async () => {
+      // Create a memory with searchable content
+      await pool.query(
+        `INSERT INTO memory (title, content, memory_type, search_vector)
+         VALUES ('Dark mode preference', 'User prefers dark mode in all applications', 'preference',
+                 to_tsvector('english', 'User prefers dark mode in all applications'))`,
+      );
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/memories/search?q=dark+mode',
+      });
+
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      if (body.results.length > 0) {
+        expect(body.results[0].type).toBe('preference');
+        expect(body.results[0].memory_type).toBe('preference');
+        expect(body.results[0].id).toBeDefined();
+      }
+    });
+  });
 });

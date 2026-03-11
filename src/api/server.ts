@@ -9228,7 +9228,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     if (tagsFilter && tagsFilter.length > 0) {
-      conditions.push(`m.tags @> $${paramIndex}`);
+      conditions.push(`m.tags && $${paramIndex}`);
       params.push(tagsFilter);
       paramIndex++;
     }
@@ -9553,9 +9553,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           namespaces: searchNamespaces,
         });
 
-        // Map results to include score (Issue #1145)
+        // Map results to include score and type alias (Issue #1145, #2400)
         const mappedResults = result.results.map((r: any) => ({
           ...r,
+          type: r.memory_type,
           score: r.similarity || null,
         }));
 
@@ -10124,6 +10125,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       relationship_id?: string;
       project_id?: string;
       memory_type?: string;
+      tags?: string;
       include_expired?: string;
       include_superseded?: string;
       since?: string;
@@ -10133,6 +10135,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       limit?: string;
       offset?: string;
     };
+
+    // Parse tags filter (comma-separated)
+    const tagsFilter = query.tags
+      ? query.tags
+          .split(',')
+          .map((t: string) => t.trim())
+          .filter(Boolean)
+      : undefined;
 
     // Resolve temporal parameters (issue #1272)
     let created_after: Date | undefined;
@@ -10170,6 +10180,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         relationship_id: query.relationship_id,
         project_id: query.project_id,
         memory_type: query.memory_type as any,
+        tags: tagsFilter,
         include_expired: query.include_expired === 'true',
         include_superseded: query.include_superseded === 'true',
         pinned: query.pinned !== undefined ? query.pinned === 'true' : undefined,
@@ -10181,7 +10192,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       });
 
       return reply.send({
-        memories: result.memories,
+        memories: result.memories.map((m) => ({ ...m, type: m.memory_type })),
         total: result.total,
       });
     } finally {
@@ -10676,7 +10687,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
       return reply.send({ ...updated, type: updated.memory_type });
     } catch (err) {
-      if (err instanceof Error && (err.message.startsWith('Invalid memory type') || err.message.startsWith('expires_at'))) {
+      if (err instanceof Error && (err.message.startsWith('Invalid memory type') || err.message.startsWith('expires_at') || err.message.startsWith('Importance'))) {
         return reply.code(400).send({ error: err.message });
       }
       throw err;
@@ -19202,7 +19213,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     if (tags) {
-      conditions.push(`tags @> $${paramIdx}`);
+      conditions.push(`tags && $${paramIdx}`);
       params.push(tags);
       paramIdx++;
     }
@@ -19335,7 +19346,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     if (tagsFilter && tagsFilter.length > 0) {
-      conditions.push(`tags @> $${paramIdx}`);
+      conditions.push(`tags && $${paramIdx}`);
       params.push(tagsFilter);
       paramIdx++;
     }

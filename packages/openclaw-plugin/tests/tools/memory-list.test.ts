@@ -271,7 +271,7 @@ describe('memory_list tool', () => {
   });
 
   describe('response formatting', () => {
-    it('should format memories as bullet list with timestamps', async () => {
+    it('should format memories as bullet list with timestamps and IDs', async () => {
       const mockGet = vi.fn().mockResolvedValue({
         success: true,
         data: {
@@ -297,6 +297,8 @@ describe('memory_list tool', () => {
       if (result.success) {
         expect(result.data.content).toContain('Showing 1-2 of 5 memories');
         expect(result.data.content).toContain('[preference]');
+        expect(result.data.content).toContain('(id: 1)');
+        expect(result.data.content).toContain('(id: 2)');
         expect(result.data.content).toContain('User prefers oat milk');
         expect(result.data.content).toContain('{deployment}');
         expect(result.data.details.count).toBe(2);
@@ -437,6 +439,118 @@ describe('memory_list tool', () => {
       if (!result.success) {
         expect(result.error).not.toContain('5432');
         expect(result.error).not.toContain('internal-host');
+      }
+    });
+  });
+
+  describe('Issue #2399 - tag filtering', () => {
+    it('should pass tags as comma-separated query param', async () => {
+      const mockGet = vi.fn().mockResolvedValue({
+        success: true,
+        data: { memories: [], total: 0 },
+      });
+      const client = { ...mockApiClient, get: mockGet };
+
+      const tool = createMemoryListTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        user_id: 'agent-1',
+      });
+
+      await tool.execute({ tags: ['test', 'pinned'] } as MemoryListParams);
+
+      const calledUrl = mockGet.mock.calls[0][0] as string;
+      expect(calledUrl).toContain('tags=test%2Cpinned');
+    });
+  });
+
+  describe('Issue #2400 - memory UUID in results', () => {
+    it('should include memory ID in result details', async () => {
+      const mockGet = vi.fn().mockResolvedValue({
+        success: true,
+        data: {
+          memories: [
+            { id: 'abc-123', content: 'Test memory', type: 'fact', created_at: '2026-03-10T12:00:00Z' },
+          ],
+          total: 1,
+        },
+      });
+      const client = { ...mockApiClient, get: mockGet };
+
+      const tool = createMemoryListTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        user_id: 'agent-1',
+      });
+
+      const result = await tool.execute({} as MemoryListParams);
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.details.memories[0].id).toBe('abc-123');
+      }
+    });
+  });
+
+  describe('Issue #2401 - category display', () => {
+    it('should fall back to memory_type when type is missing', async () => {
+      const mockGet = vi.fn().mockResolvedValue({
+        success: true,
+        data: {
+          memories: [
+            { id: '1', content: 'A preference', memory_type: 'preference' },
+          ],
+          total: 1,
+        },
+      });
+      const client = { ...mockApiClient, get: mockGet };
+
+      const tool = createMemoryListTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        user_id: 'agent-1',
+      });
+
+      const result = await tool.execute({} as MemoryListParams);
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.details.memories[0].category).toBe('preference');
+        expect(result.data.content).toContain('[preference]');
+        expect(result.data.content).not.toContain('[undefined]');
+      }
+    });
+
+    it('should not show [undefined] when API returns memory_type instead of type', async () => {
+      const mockGet = vi.fn().mockResolvedValue({
+        success: true,
+        data: {
+          memories: [
+            { id: '1', content: 'A fact', memory_type: 'fact' },
+            { id: '2', content: 'A note', memory_type: 'note' },
+          ],
+          total: 2,
+        },
+      });
+      const client = { ...mockApiClient, get: mockGet };
+
+      const tool = createMemoryListTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        user_id: 'agent-1',
+      });
+
+      const result = await tool.execute({} as MemoryListParams);
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.content).not.toContain('[undefined]');
+        expect(result.data.content).toContain('[fact]');
+        expect(result.data.content).toContain('[other]');
       }
     });
   });

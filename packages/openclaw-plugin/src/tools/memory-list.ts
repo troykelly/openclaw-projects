@@ -99,7 +99,7 @@ function formatMemoriesAsText(memories: MemoryListItem[], total: number, offset:
   const lines = memories.map((m) => {
     const tagSuffix = m.tags && m.tags.length > 0 ? ` {${m.tags.join(', ')}}` : '';
     const timestamp = m.created_at ? ` (${m.created_at})` : '';
-    return `- [${m.category}]${tagSuffix} ${m.content}${timestamp}`;
+    return `- [${m.category}] (id: ${m.id})${tagSuffix} ${m.content}${timestamp}`;
   });
 
   return header + lines.join('\n');
@@ -172,7 +172,8 @@ export function createMemoryListTool(options: MemoryListToolOptions): MemoryList
           memories: Array<{
             id: string;
             content: string;
-            type: string;
+            type?: string;
+            memory_type?: string;
             tags?: string[];
             importance?: number;
             created_at?: string;
@@ -197,15 +198,19 @@ export function createMemoryListTool(options: MemoryListToolOptions): MemoryList
         const total = response.data.total ?? rawMemories.length;
 
         // Map API field names to plugin interface
-        const memories: MemoryListItem[] = rawMemories.map((m) => ({
-          id: m.id,
-          content: m.content,
-          category: m.type === 'note' ? 'other' : m.type,
-          tags: m.tags,
-          importance: m.importance,
-          created_at: m.created_at,
-          updated_at: m.updated_at,
-        }));
+        // API returns both `type` and `memory_type`; prefer `type` but fall back to `memory_type`
+        const memories: MemoryListItem[] = rawMemories.map((m) => {
+          const apiType = m.type ?? m.memory_type ?? 'note';
+          return {
+            id: m.id,
+            content: m.content,
+            category: apiType === 'note' ? 'other' : apiType,
+            tags: m.tags,
+            importance: m.importance,
+            created_at: m.created_at,
+            updated_at: m.updated_at,
+          };
+        });
 
         // Format response
         const content = formatMemoriesAsText(memories, total, offset);

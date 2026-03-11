@@ -128,7 +128,7 @@ export interface MemoryEntry {
 export interface ListMemoriesOptions extends MemoryScope {
   status?: 'pending' | 'dispatched' | 'failed';
   memory_type?: MemoryType;
-  /** Filter to memories containing all of these tags */
+  /** Filter to memories matching at least one of these tags */
   tags?: string[];
   include_expired?: boolean;
   include_superseded?: boolean;
