@@ -362,7 +362,7 @@ Authorization: Bearer your-api-token
 Webhook endpoints verify signatures:
 - **Twilio**: X-Twilio-Signature header validation
 - **Postmark**: Basic auth or API token validation
-- **Cloudflare Email**: X-Cloudflare-Email-Secret shared secret (see below)
+- **Cloudflare Email**: X-Cloudflare-Email-Signature HMAC-SHA256 (preferred) or X-Cloudflare-Email-Secret shared secret (deprecated)
 
 ---
 
@@ -387,13 +387,25 @@ Receives a parsed email from the Cloudflare Worker, creates or matches the sende
 
 **Authentication:**
 
-This endpoint does NOT use Bearer token auth. Instead, the Worker authenticates via a shared secret header:
+This endpoint does NOT use Bearer token auth. The Worker authenticates using HMAC-SHA256 signature verification:
 
+**Preferred (HMAC-SHA256):**
+```bash
+X-Cloudflare-Email-Signature: sha256=<hex-digest>
+```
+
+The signature is an HMAC-SHA256 hex digest computed over the raw request body, using the `CLOUDFLARE_EMAIL_SECRET` as the key. The server verifies against the original request bytes (not re-serialized JSON) for robustness.
+
+**Deprecated (static shared secret):**
 ```bash
 X-Cloudflare-Email-Secret: your-shared-secret
 ```
 
-The secret must match the `CLOUDFLARE_EMAIL_SECRET` environment variable. Comparison is timing-safe.
+The legacy static secret header is still accepted for backward compatibility but will be removed in a future release. Migrate to `X-Cloudflare-Email-Signature` by upgrading your Cloudflare Email Worker.
+
+Both headers are verified using timing-safe comparison.
+
+> **Migration:** Update your Cloudflare Email Worker to the latest version in `examples/cloudflare-email-worker/`. The updated Worker sends both headers, so the transition is seamless. Once all workers are upgraded, the deprecated header support will be removed.
 
 **Request Body:**
 ```json
@@ -481,19 +493,14 @@ When `auto_reply` is present, the Worker constructs a MIME reply and sends it ba
 
 **Example:**
 ```bash
+# Using HMAC-SHA256 signature (preferred):
+BODY='{"from":"sender@example.com","to":"support@myapp.com","subject":"Hello","text_body":"This is a test email.","headers":{"message-id":"<test-123@example.com>"},"timestamp":"2026-03-03T12:00:00.000Z"}'
+SIG="sha256=$(echo -n "$BODY" | openssl dgst -sha256 -hmac "$CLOUDFLARE_EMAIL_SECRET" | awk '{print $2}')"
+
 curl -X POST https://api.example.com/cloudflare/email \
-  -H "X-Cloudflare-Email-Secret: $CLOUDFLARE_EMAIL_SECRET" \
+  -H "X-Cloudflare-Email-Signature: $SIG" \
   -H "Content-Type: application/json" \
-  -d '{
-    "from": "sender@example.com",
-    "to": "support@myapp.com",
-    "subject": "Hello",
-    "text_body": "This is a test email.",
-    "headers": {
-      "message-id": "<test-123@example.com>"
-    },
-    "timestamp": "2026-03-03T12:00:00.000Z"
-  }'
+  -d "$BODY"
 ```
 
 ### Triage and Route Resolution

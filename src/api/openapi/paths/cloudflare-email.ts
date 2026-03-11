@@ -3,10 +3,11 @@
  * Route: POST /cloudflare/email
  *
  * This endpoint receives parsed email payloads from a Cloudflare Email Worker.
- * It is NOT authenticated via Bearer token — it uses a shared secret header
- * (X-Cloudflare-Email-Secret) for verification.
+ * It is NOT authenticated via Bearer token — it uses HMAC-SHA256 signature
+ * verification via X-Cloudflare-Email-Signature (preferred) or the deprecated
+ * X-Cloudflare-Email-Secret shared-secret header (backward compat).
  *
- * Part of Issue #210, #2061, #2062.
+ * Part of Issue #210, #2061, #2062, #2411, #2412.
  */
 import type { OpenApiDomainModule } from '../types.ts';
 import { errorResponses, jsonBody, jsonResponse } from '../helpers.ts';
@@ -199,8 +200,10 @@ export function cloudflareEmailPaths(): OpenApiDomainModule {
             'Webhook endpoint for Cloudflare Email Workers. Receives a parsed email payload, ' +
             'creates or matches the sender contact, threads the email using Message-ID/In-Reply-To/References, ' +
             'stores the message, and returns a triage decision.\n\n' +
-            '**Authentication:** Uses `X-Cloudflare-Email-Secret` shared secret header (NOT Bearer token). ' +
-            'The secret is compared using timing-safe comparison.\n\n' +
+            '**Authentication:** Preferred: HMAC-SHA256 via `X-Cloudflare-Email-Signature` header ' +
+            '(`sha256=<hex>` computed over the raw request body). ' +
+            'Deprecated fallback: static `X-Cloudflare-Email-Secret` shared secret header. ' +
+            'Both are verified using timing-safe comparison.\n\n' +
             '**Triage flow:**\n' +
             '1. Email is always stored (contact, thread, message created)\n' +
             '2. Route resolver checks `inbound_destination` for the recipient address\n' +
@@ -216,12 +219,25 @@ export function cloudflareEmailPaths(): OpenApiDomainModule {
           security: [], // Not using Bearer auth
           parameters: [
             {
+              name: 'X-Cloudflare-Email-Signature',
+              in: 'header',
+              required: false,
+              description:
+                'HMAC-SHA256 signature over the raw request body, formatted as `sha256=<hex>`. ' +
+                'Computed using the CLOUDFLARE_EMAIL_SECRET as the HMAC key. ' +
+                'This is the preferred authentication method (Issue #2411).',
+              schema: { type: 'string' },
+              example: 'sha256=a1b2c3d4e5f6...',
+            },
+            {
               name: 'X-Cloudflare-Email-Secret',
               in: 'header',
-              required: true,
+              required: false,
+              deprecated: true,
               description:
-                'Shared secret for authenticating the Cloudflare Worker. ' +
-                'Must match the CLOUDFLARE_EMAIL_SECRET environment variable.',
+                'Deprecated: Static shared secret for authenticating the Cloudflare Worker. ' +
+                'Must match the CLOUDFLARE_EMAIL_SECRET environment variable. ' +
+                'Migrate to X-Cloudflare-Email-Signature for HMAC-based verification.',
               schema: { type: 'string' },
               example: 'your-shared-secret-here',
             },

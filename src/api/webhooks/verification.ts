@@ -124,10 +124,15 @@ export function verifyCloudflareEmailSecret(request: FastifyRequest): boolean {
     return false;
   }
 
-  // Preferred: HMAC-SHA256 signature over the request body
+  // Preferred: HMAC-SHA256 signature over the raw request body (Issue #2412).
+  // Uses rawBody (original bytes) when available to avoid JSON re-serialization
+  // fragility (key order, whitespace). Falls back to re-serialized JSON.
   const hmacSignature = request.headers['x-cloudflare-email-signature'] as string | undefined;
   if (hmacSignature) {
-    const body = typeof request.body === 'string' ? request.body : JSON.stringify(request.body);
+    const rawBody = (request as FastifyRequest & { rawBody?: string | Buffer }).rawBody;
+    const body = rawBody !== undefined
+      ? (typeof rawBody === 'string' ? rawBody : rawBody.toString('utf-8'))
+      : (typeof request.body === 'string' ? request.body : JSON.stringify(request.body));
     const expectedSignature = createHmac('sha256', secret).update(Buffer.from(body, 'utf-8')).digest('hex');
     const cleanSignature = hmacSignature.startsWith('sha256=') ? hmacSignature.slice(7) : hmacSignature;
     try {
@@ -167,7 +172,11 @@ export function verifyHmacSha256(request: FastifyRequest, secretEnvVar: string, 
     return false;
   }
 
-  const body = typeof request.body === 'string' ? request.body : JSON.stringify(request.body);
+  // Prefer rawBody (original bytes) over re-serialized JSON (Issue #2412)
+  const rawBody = (request as FastifyRequest & { rawBody?: string | Buffer }).rawBody;
+  const body = rawBody !== undefined
+    ? (typeof rawBody === 'string' ? rawBody : rawBody.toString('utf-8'))
+    : (typeof request.body === 'string' ? request.body : JSON.stringify(request.body));
 
   const expectedSignature = createHmac('sha256', secret).update(Buffer.from(body, 'utf-8')).digest('hex');
 

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import PostalMime from "postal-mime";
 import type { Email } from "postal-mime";
+import { createHmac } from "crypto";
 import {
   streamToUint8Array,
   extractHeaders,
@@ -10,6 +11,7 @@ import {
   isAutomatedSender,
   hasAutoSubmittedHeader,
   postWebhook,
+  computeHmacSignature,
   DEFAULT_MAX_RAW_BYTES,
   WEBHOOK_PATH,
 } from "../index.js";
@@ -312,6 +314,39 @@ describe("buildPayload", () => {
 });
 
 // ---------------------------------------------------------------------------
+// computeHmacSignature (#2411)
+// ---------------------------------------------------------------------------
+
+describe("computeHmacSignature", () => {
+  it("produces sha256=<hex> format", async () => {
+    const sig = await computeHmacSignature("test-secret", '{"hello":"world"}');
+    expect(sig).toMatch(/^sha256=[0-9a-f]{64}$/);
+  });
+
+  it("matches Node crypto HMAC-SHA256", async () => {
+    const secret = "my-shared-secret";
+    const body = '{"from":"alice@example.com","to":"support@myapp.com"}';
+    const sig = await computeHmacSignature(secret, body);
+
+    const expected = createHmac("sha256", secret).update(body).digest("hex");
+    expect(sig).toBe(`sha256=${expected}`);
+  });
+
+  it("produces different signatures for different bodies", async () => {
+    const sig1 = await computeHmacSignature("secret", '{"a":1}');
+    const sig2 = await computeHmacSignature("secret", '{"a":2}');
+    expect(sig1).not.toBe(sig2);
+  });
+
+  it("produces different signatures for different secrets", async () => {
+    const body = '{"data":"same"}';
+    const sig1 = await computeHmacSignature("secret1", body);
+    const sig2 = await computeHmacSignature("secret2", body);
+    expect(sig1).not.toBe(sig2);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // postWebhook — retry behaviour
 // ---------------------------------------------------------------------------
 
@@ -351,7 +386,7 @@ describe("postWebhook", () => {
     expect(globalThis.fetch).toHaveBeenCalledTimes(1);
   });
 
-  it("sends correct headers", async () => {
+  it("sends correct headers including HMAC signature", async () => {
     const mockResponse = new Response("{}", { status: 200 });
     globalThis.fetch = vi.fn().mockResolvedValue(mockResponse);
 
@@ -365,7 +400,15 @@ describe("postWebhook", () => {
       .calls[0] as [string, RequestInit];
     const headers = callArgs[1].headers as Record<string, string>;
     expect(headers["Content-Type"]).toBe("application/json");
+    // New HMAC header (preferred)
+    expect(headers["X-Cloudflare-Email-Signature"]).toMatch(/^sha256=[0-9a-f]{64}$/);
+    // Deprecated shared-secret header (backward compat)
     expect(headers["X-Cloudflare-Email-Secret"]).toBe("my-secret-123");
+
+    // Verify HMAC is computed correctly over the JSON body
+    const body = callArgs[1].body as string;
+    const expectedSig = await computeHmacSignature("my-secret-123", body);
+    expect(headers["X-Cloudflare-Email-Signature"]).toBe(expectedSig);
   });
 
   it("does not retry on 4xx errors", async () => {

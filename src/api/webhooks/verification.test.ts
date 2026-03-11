@@ -179,6 +179,169 @@ describe('webhook verification behind proxy', () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// Cloudflare email HMAC verification with rawBody (#2411, #2412)
+// ---------------------------------------------------------------------------
+
+describe('Cloudflare email HMAC verification', () => {
+  let app: FastifyInstance;
+  const CF_SECRET = 'test-cloudflare-hmac-secret';
+
+  beforeEach(() => {
+    vi.stubEnv('CLOUDFLARE_EMAIL_SECRET', CF_SECRET);
+  });
+
+  afterEach(async () => {
+    vi.unstubAllEnvs();
+    if (app) await app.close();
+  });
+
+  async function buildCfApp(useRawBody: boolean): Promise<FastifyInstance> {
+    app = Fastify({ logger: false });
+
+    if (useRawBody) {
+      await app.register(import('fastify-raw-body'), { global: false, runFirst: true });
+    }
+
+    const { verifyCloudflareEmailSecret } = await import('./verification.js');
+
+    app.post('/cloudflare/email', {
+      config: useRawBody ? { rawBody: true } : {},
+    }, async (request, reply) => {
+      const valid = verifyCloudflareEmailSecret(request);
+      if (!valid) return reply.status(401).send({ error: 'Invalid signature' });
+      return reply.send({ ok: true });
+    });
+
+    await app.ready();
+    return app;
+  }
+
+  function computeHmacHex(secret: string, body: string): string {
+    return createHmac('sha256', secret).update(body).digest('hex');
+  }
+
+  it('accepts valid HMAC signature with rawBody', async () => {
+    await buildCfApp(true);
+
+    const body = JSON.stringify({ from: 'alice@example.com', to: 'support@myapp.com', timestamp: new Date().toISOString() });
+    const hmac = `sha256=${computeHmacHex(CF_SECRET, body)}`;
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/cloudflare/email',
+      headers: {
+        'content-type': 'application/json',
+        'x-cloudflare-email-signature': hmac,
+      },
+      payload: body,
+    });
+    expect(response.statusCode).toBe(200);
+  });
+
+  it('accepts HMAC signature without sha256= prefix', async () => {
+    await buildCfApp(true);
+
+    const body = JSON.stringify({ data: 'test' });
+    const hmac = computeHmacHex(CF_SECRET, body);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/cloudflare/email',
+      headers: {
+        'content-type': 'application/json',
+        'x-cloudflare-email-signature': hmac,
+      },
+      payload: body,
+    });
+    expect(response.statusCode).toBe(200);
+  });
+
+  it('rejects invalid HMAC signature', async () => {
+    await buildCfApp(true);
+
+    const body = JSON.stringify({ from: 'alice@example.com' });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/cloudflare/email',
+      headers: {
+        'content-type': 'application/json',
+        'x-cloudflare-email-signature': 'sha256=0000000000000000000000000000000000000000000000000000000000000000',
+      },
+      payload: body,
+    });
+    expect(response.statusCode).toBe(401);
+  });
+
+  it('rawBody preserves exact bytes including whitespace differences', async () => {
+    await buildCfApp(true);
+
+    // Body with trailing whitespace and specific key order
+    const body = '{"b":2,"a":1}  ';
+    const hmac = `sha256=${computeHmacHex(CF_SECRET, body)}`;
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/cloudflare/email',
+      headers: {
+        'content-type': 'application/json',
+        'x-cloudflare-email-signature': hmac,
+      },
+      payload: body,
+    });
+    // Fastify's JSON parser may reject trailing whitespace in strict mode,
+    // but rawBody captures the original. The HMAC should match the original bytes.
+    // If Fastify parses the body, rawBody still has the original, so HMAC matches.
+    expect(response.statusCode).toBe(200);
+  });
+
+  it('falls back to deprecated X-Cloudflare-Email-Secret header', async () => {
+    await buildCfApp(true);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/cloudflare/email',
+      headers: {
+        'content-type': 'application/json',
+        'x-cloudflare-email-secret': CF_SECRET,
+      },
+      payload: JSON.stringify({ data: 'test' }),
+    });
+    expect(response.statusCode).toBe(200);
+  });
+
+  it('rejects requests with no auth headers', async () => {
+    await buildCfApp(true);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/cloudflare/email',
+      headers: { 'content-type': 'application/json' },
+      payload: JSON.stringify({ data: 'test' }),
+    });
+    expect(response.statusCode).toBe(401);
+  });
+
+  it('works without rawBody plugin (fallback to re-serialized JSON)', async () => {
+    await buildCfApp(false);
+
+    const body = JSON.stringify({ from: 'bob@example.com' });
+    const hmac = `sha256=${computeHmacHex(CF_SECRET, body)}`;
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/cloudflare/email',
+      headers: {
+        'content-type': 'application/json',
+        'x-cloudflare-email-signature': hmac,
+      },
+      payload: body,
+    });
+    expect(response.statusCode).toBe(200);
+  });
+});
+
 describe('buildServer trustProxy configuration', () => {
   it('should have trustProxy enabled', async () => {
     // Dynamic import the buildServer to check its configuration
