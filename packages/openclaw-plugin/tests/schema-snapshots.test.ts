@@ -38,7 +38,7 @@ import { NoteCreateParamsSchema, NoteGetParamsSchema, NoteUpdateParamsSchema, No
 import { RelationshipSetParamsSchema, RelationshipQueryParamsSchema } from '../src/tools/index.js';
 
 // Notebook tool schemas
-import { NotebookListParamsSchema, NotebookCreateParamsSchema, NotebookGetParamsSchema } from '../src/tools/index.js';
+import { NotebookListParamsSchema, NotebookCreateParamsSchema, NotebookGetParamsSchema, NotebookDeleteParamsSchema } from '../src/tools/index.js';
 
 // File share tool schemas
 import { FileShareParamsSchema } from '../src/tools/index.js';
@@ -110,6 +110,7 @@ const zodParamSchemas = {
   notebook_list: NotebookListParamsSchema,
   notebook_create: NotebookCreateParamsSchema,
   notebook_get: NotebookGetParamsSchema,
+  notebook_delete: NotebookDeleteParamsSchema,
 
   // File share tools
   file_share: FileShareParamsSchema,
