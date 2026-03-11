@@ -66,6 +66,15 @@ const CHANNEL_TYPES: { value: ChannelType; label: string; icon: React.ElementTyp
 
 const CHANNEL_TYPE_OPTIONS = ['sms', 'email', 'ha_observation', 'general'] as const;
 
+/** Extract safe-to-log fields from an error (avoids leaking PII in details). */
+function sanitiseError(err: unknown): string {
+  if (err instanceof Error) {
+    const status = (err as { status?: number }).status;
+    return status != null ? `${err.message} (status ${status})` : err.message;
+  }
+  return String(err);
+}
+
 function channelIcon(type: string) {
   switch (type) {
     case 'sms': return Phone;
@@ -237,7 +246,7 @@ function ChannelDefaultsSection() {
       setEditValues(values);
       setError(null);
     } catch (err) {
-      console.error('Failed to load channel defaults:', err);
+      console.error('Failed to load channel defaults:', sanitiseError(err));
       setError('Failed to load channel defaults');
     } finally {
       setLoading(false);
@@ -274,7 +283,7 @@ function ChannelDefaultsSection() {
       });
       await fetchDefaults();
     } catch (err) {
-      console.error('Failed to save channel default:', err);
+      console.error('Failed to save channel default:', sanitiseError(err));
       setError('Failed to save channel default');
     } finally {
       setSaving(null);
@@ -377,13 +386,14 @@ function InboundDestinationsSection() {
       const data = await apiClient.get<{ items: InboundDestination[]; total: number }>(
         '/inbound-destinations?limit=100&include_inactive=true',
       );
-      if (!Array.isArray(data.items)) {
-        console.warn('Unexpected response shape for inbound destinations: expected items array, got', typeof data.items);
+      const hasItems = data != null && typeof data === 'object' && Array.isArray(data.items);
+      if (!hasItems) {
+        console.warn('Unexpected response shape for inbound destinations: expected { items: [] }, got', typeof data);
       }
-      setDestinations(Array.isArray(data.items) ? data.items : []);
+      setDestinations(hasItems ? data.items : []);
       setError(null);
     } catch (err) {
-      console.error('Failed to load inbound destinations:', err);
+      console.error('Failed to load inbound destinations:', sanitiseError(err));
       setError('Failed to load inbound destinations');
     } finally {
       setLoading(false);
@@ -432,7 +442,7 @@ function InboundDestinationsSection() {
       setEditingId(null);
       await fetchDestinations();
     } catch (err) {
-      console.error('Failed to save destination override:', err);
+      console.error('Failed to save destination override:', sanitiseError(err));
       setError('Failed to save destination override');
     } finally {
       setSaving(false);
@@ -564,13 +574,14 @@ function PromptTemplatesSection() {
       const data = await apiClient.get<{ items: PromptTemplate[]; total: number }>(
         '/prompt-templates?limit=100&include_inactive=true',
       );
-      if (!Array.isArray(data.items)) {
-        console.warn('Unexpected response shape for prompt templates: expected items array, got', typeof data.items);
+      const hasItems = data != null && typeof data === 'object' && Array.isArray(data.items);
+      if (!hasItems) {
+        console.warn('Unexpected response shape for prompt templates: expected { items: [] }, got', typeof data);
       }
-      setTemplates(Array.isArray(data.items) ? data.items : []);
+      setTemplates(hasItems ? data.items : []);
       setError(null);
     } catch (err) {
-      console.error('Failed to load prompt templates:', err);
+      console.error('Failed to load prompt templates:', sanitiseError(err));
       setError('Failed to load prompt templates');
     } finally {
       setLoading(false);
@@ -625,7 +636,7 @@ function PromptTemplatesSection() {
       resetForm();
       await fetchTemplates();
     } catch (err) {
-      console.error('Failed to save prompt template:', err);
+      console.error('Failed to save prompt template:', sanitiseError(err));
       setError('Failed to save prompt template');
     } finally {
       setSaving(false);
@@ -638,7 +649,7 @@ function PromptTemplatesSection() {
       await apiClient.delete(`/prompt-templates/${id}`);
       await fetchTemplates();
     } catch (err) {
-      console.error('Failed to delete prompt template:', err);
+      console.error('Failed to delete prompt template:', sanitiseError(err));
       setError('Failed to delete prompt template');
     }
   }, [fetchTemplates]);

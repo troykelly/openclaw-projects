@@ -82,10 +82,9 @@ function setupSuccessfulMocks() {
 // ---------------------------------------------------------------------------
 
 describe('ChannelDefaultsSection error logging (#2382)', () => {
-  it('logs error via console.error when fetchDefaults fails', async () => {
-    const fetchError = new Error('Network error');
+  it('logs sanitised error via console.error when fetchDefaults fails', async () => {
     mockedApiClient.get.mockImplementation((path: string) => {
-      if (path === '/channel-defaults') return Promise.reject(fetchError);
+      if (path === '/channel-defaults') return Promise.reject(new Error('Network error'));
       if (path === '/chat/agents') return Promise.resolve(emptyAgentsResponse);
       if (path.startsWith('/inbound-destinations')) return Promise.resolve({ items: [], total: 0 });
       if (path.startsWith('/prompt-templates')) return Promise.resolve({ items: [], total: 0 });
@@ -101,15 +100,39 @@ describe('ChannelDefaultsSection error logging (#2382)', () => {
       expect(screen.getByTestId('channel-defaults-error')).toBeInTheDocument();
     });
 
-    // Must have logged the error with context
+    // Must log the error message string (sanitised), not the raw error object
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       expect.stringContaining('channel defaults'),
-      fetchError,
+      'Network error',
     );
   });
 
-  it('logs error via console.error when handleSave (channel default) fails', async () => {
-    const saveError = new Error('Server error');
+  it('logs sanitised error with status when ApiRequestError is thrown', async () => {
+    const { ApiRequestError } = await import('@/ui/lib/api-client');
+    mockedApiClient.get.mockImplementation((path: string) => {
+      if (path === '/channel-defaults') return Promise.reject(new ApiRequestError(403, 'Forbidden'));
+      if (path === '/chat/agents') return Promise.resolve(emptyAgentsResponse);
+      if (path.startsWith('/inbound-destinations')) return Promise.resolve({ items: [], total: 0 });
+      if (path.startsWith('/prompt-templates')) return Promise.resolve({ items: [], total: 0 });
+      return Promise.reject(new Error('Not found'));
+    });
+
+    const { InboundRoutingSection } = await import(
+      '@/ui/components/settings/inbound-routing-section'
+    );
+    render(<InboundRoutingSection />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('channel-defaults-error')).toBeInTheDocument();
+    });
+
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      expect.stringContaining('channel defaults'),
+      expect.stringContaining('status 403'),
+    );
+  });
+
+  it('logs sanitised error via console.error when handleSave (channel default) fails', async () => {
     mockedApiClient.get.mockImplementation((path: string) => {
       if (path === '/channel-defaults') {
         return Promise.resolve([
@@ -121,7 +144,7 @@ describe('ChannelDefaultsSection error logging (#2382)', () => {
       if (path.startsWith('/prompt-templates')) return Promise.resolve({ items: [], total: 0 });
       return Promise.reject(new Error('Not found'));
     });
-    mockedApiClient.put.mockRejectedValue(saveError);
+    mockedApiClient.put.mockRejectedValue(new Error('Server error'));
 
     const { InboundRoutingSection } = await import(
       '@/ui/components/settings/inbound-routing-section'
@@ -154,7 +177,7 @@ describe('ChannelDefaultsSection error logging (#2382)', () => {
 
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       expect.stringContaining('channel default'),
-      saveError,
+      'Server error',
     );
   });
 });
@@ -164,12 +187,11 @@ describe('ChannelDefaultsSection error logging (#2382)', () => {
 // ---------------------------------------------------------------------------
 
 describe('InboundDestinationsSection error logging (#2382)', () => {
-  it('logs error via console.error when fetchDestinations fails', async () => {
-    const fetchError = new Error('Network error');
+  it('logs sanitised error via console.error when fetchDestinations fails', async () => {
     mockedApiClient.get.mockImplementation((path: string) => {
       if (path === '/channel-defaults') return Promise.resolve([]);
       if (path === '/chat/agents') return Promise.resolve(emptyAgentsResponse);
-      if (path.startsWith('/inbound-destinations')) return Promise.reject(fetchError);
+      if (path.startsWith('/inbound-destinations')) return Promise.reject(new Error('Network error'));
       if (path.startsWith('/prompt-templates')) return Promise.resolve({ items: [], total: 0 });
       return Promise.reject(new Error('Not found'));
     });
@@ -185,12 +207,11 @@ describe('InboundDestinationsSection error logging (#2382)', () => {
 
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       expect.stringContaining('inbound destinations'),
-      fetchError,
+      'Network error',
     );
   });
 
-  it('logs error via console.error when handleSave (destination) fails', async () => {
-    const saveError = new Error('Save failed');
+  it('logs sanitised error via console.error when handleSave (destination) fails', async () => {
     mockedApiClient.get.mockImplementation((path: string) => {
       if (path === '/channel-defaults') return Promise.resolve([]);
       if (path === '/chat/agents') return Promise.resolve(emptyAgentsResponse);
@@ -205,7 +226,7 @@ describe('InboundDestinationsSection error logging (#2382)', () => {
       if (path.startsWith('/prompt-templates')) return Promise.resolve({ items: [], total: 0 });
       return Promise.reject(new Error('Not found'));
     });
-    mockedApiClient.put.mockRejectedValue(saveError);
+    mockedApiClient.put.mockRejectedValue(new Error('Save failed'));
 
     const { InboundRoutingSection } = await import(
       '@/ui/components/settings/inbound-routing-section'
@@ -249,7 +270,7 @@ describe('InboundDestinationsSection error logging (#2382)', () => {
 
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       expect.stringContaining('destination'),
-      saveError,
+      'Save failed',
     );
   });
 });
@@ -259,13 +280,12 @@ describe('InboundDestinationsSection error logging (#2382)', () => {
 // ---------------------------------------------------------------------------
 
 describe('PromptTemplatesSection error logging (#2382)', () => {
-  it('logs error via console.error when fetchTemplates fails', async () => {
-    const fetchError = new Error('Network error');
+  it('logs sanitised error via console.error when fetchTemplates fails', async () => {
     mockedApiClient.get.mockImplementation((path: string) => {
       if (path === '/channel-defaults') return Promise.resolve([]);
       if (path === '/chat/agents') return Promise.resolve(emptyAgentsResponse);
       if (path.startsWith('/inbound-destinations')) return Promise.resolve({ items: [], total: 0 });
-      if (path.startsWith('/prompt-templates')) return Promise.reject(fetchError);
+      if (path.startsWith('/prompt-templates')) return Promise.reject(new Error('Network error'));
       return Promise.reject(new Error('Not found'));
     });
 
@@ -280,14 +300,13 @@ describe('PromptTemplatesSection error logging (#2382)', () => {
 
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       expect.stringContaining('prompt templates'),
-      fetchError,
+      'Network error',
     );
   });
 
-  it('logs error via console.error when handleSave (template) fails', async () => {
-    const saveError = new Error('Create failed');
+  it('logs sanitised error via console.error when handleSave (template) fails', async () => {
     setupSuccessfulMocks();
-    mockedApiClient.post.mockRejectedValue(saveError);
+    mockedApiClient.post.mockRejectedValue(new Error('Create failed'));
 
     const { InboundRoutingSection } = await import(
       '@/ui/components/settings/inbound-routing-section'
@@ -315,12 +334,11 @@ describe('PromptTemplatesSection error logging (#2382)', () => {
 
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       expect.stringContaining('prompt template'),
-      saveError,
+      'Create failed',
     );
   });
 
-  it('logs error via console.error when handleDelete fails', async () => {
-    const deleteError = new Error('Delete failed');
+  it('logs sanitised error via console.error when handleDelete fails', async () => {
     mockedApiClient.get.mockImplementation((path: string) => {
       if (path === '/channel-defaults') return Promise.resolve([]);
       if (path === '/chat/agents') return Promise.resolve(emptyAgentsResponse);
@@ -335,7 +353,7 @@ describe('PromptTemplatesSection error logging (#2382)', () => {
       }
       return Promise.reject(new Error('Not found'));
     });
-    mockedApiClient.delete.mockRejectedValue(deleteError);
+    mockedApiClient.delete.mockRejectedValue(new Error('Delete failed'));
 
     const { InboundRoutingSection } = await import(
       '@/ui/components/settings/inbound-routing-section'
@@ -357,7 +375,7 @@ describe('PromptTemplatesSection error logging (#2382)', () => {
 
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       expect.stringContaining('prompt template'),
-      deleteError,
+      'Delete failed',
     );
   });
 });
@@ -413,7 +431,7 @@ describe('Array.isArray guards warn on unexpected shape (#2382)', () => {
 
     expect(consoleWarnSpy).toHaveBeenCalledWith(
       expect.stringContaining('inbound destinations'),
-      expect.stringContaining('string'),
+      expect.stringContaining('object'),
     );
   });
 
@@ -440,6 +458,80 @@ describe('Array.isArray guards warn on unexpected shape (#2382)', () => {
     expect(consoleWarnSpy).toHaveBeenCalledWith(
       expect.stringContaining('prompt templates'),
       expect.stringContaining('object'),
+    );
+  });
+
+  // Issue 2 fix: null/undefined responses should not throw before warn/fallback
+  it('handles null response from /inbound-destinations without throwing', async () => {
+    mockedApiClient.get.mockImplementation((path: string) => {
+      if (path === '/channel-defaults') return Promise.resolve([]);
+      if (path === '/chat/agents') return Promise.resolve(emptyAgentsResponse);
+      if (path.startsWith('/inbound-destinations')) return Promise.resolve(null);
+      if (path.startsWith('/prompt-templates')) return Promise.resolve({ items: [], total: 0 });
+      return Promise.reject(new Error('Not found'));
+    });
+
+    const { InboundRoutingSection } = await import(
+      '@/ui/components/settings/inbound-routing-section'
+    );
+    render(<InboundRoutingSection />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('inbound-destinations-section')).toBeInTheDocument();
+    });
+
+    // Should warn (not crash) with typeof 'object' for null
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('inbound destinations'),
+      expect.stringContaining('object'),
+    );
+  });
+
+  it('handles undefined response from /prompt-templates without throwing', async () => {
+    mockedApiClient.get.mockImplementation((path: string) => {
+      if (path === '/channel-defaults') return Promise.resolve([]);
+      if (path === '/chat/agents') return Promise.resolve(emptyAgentsResponse);
+      if (path.startsWith('/inbound-destinations')) return Promise.resolve({ items: [], total: 0 });
+      if (path.startsWith('/prompt-templates')) return Promise.resolve(undefined);
+      return Promise.reject(new Error('Not found'));
+    });
+
+    const { InboundRoutingSection } = await import(
+      '@/ui/components/settings/inbound-routing-section'
+    );
+    render(<InboundRoutingSection />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('prompt-templates-section')).toBeInTheDocument();
+    });
+
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('prompt templates'),
+      expect.stringContaining('undefined'),
+    );
+  });
+
+  it('handles primitive response from /inbound-destinations without throwing', async () => {
+    mockedApiClient.get.mockImplementation((path: string) => {
+      if (path === '/channel-defaults') return Promise.resolve([]);
+      if (path === '/chat/agents') return Promise.resolve(emptyAgentsResponse);
+      if (path.startsWith('/inbound-destinations')) return Promise.resolve(42);
+      if (path.startsWith('/prompt-templates')) return Promise.resolve({ items: [], total: 0 });
+      return Promise.reject(new Error('Not found'));
+    });
+
+    const { InboundRoutingSection } = await import(
+      '@/ui/components/settings/inbound-routing-section'
+    );
+    render(<InboundRoutingSection />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('inbound-destinations-section')).toBeInTheDocument();
+    });
+
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('inbound destinations'),
+      expect.stringContaining('number'),
     );
   });
 });
