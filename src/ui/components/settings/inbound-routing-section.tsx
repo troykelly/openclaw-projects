@@ -399,6 +399,15 @@ function InboundDestinationsSection() {
 
   useEffect(() => { fetchDestinations(); }, [fetchDestinations]);
 
+  /** Resolve display label for a given agent ID. */
+  const resolveAgentLabel = useCallback(
+    (agentId: string): string => {
+      const agent = agents.find((a) => a.id === agentId);
+      return agent ? (agent.display_name ?? agent.name) : agentId;
+    },
+    [agents],
+  );
+
   const handleEdit = useCallback((dest: InboundDestination) => {
     setEditingId(dest.id);
     setEditAgent(dest.agent_id ?? '');
@@ -486,7 +495,7 @@ function InboundDestinationsSection() {
                       {!dest.is_active && <Badge variant="outline" className="text-xs">Inactive</Badge>}
                     </div>
                     {dest.agent_id ? (
-                      <span className="text-xs text-muted-foreground">Override: {agents.find((a) => a.id === dest.agent_id)?.display_name ?? agents.find((a) => a.id === dest.agent_id)?.name ?? dest.agent_id}</span>
+                      <span className="text-xs text-muted-foreground">Override: {resolveAgentLabel(dest.agent_id)}</span>
                     ) : (
                       <span className="text-xs text-muted-foreground">Using channel default</span>
                     )}

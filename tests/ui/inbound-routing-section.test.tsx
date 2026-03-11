@@ -175,6 +175,70 @@ describe('InboundRoutingSection — InboundDestinationsSection', () => {
     vi.restoreAllMocks();
   });
 
+  it('fetches agents from /chat/agents on mount', async () => {
+    vi.mocked(apiClient.get).mockImplementation((path: string) => {
+      if (path === '/channel-defaults') {
+        return Promise.resolve([]);
+      }
+      if (path === '/chat/agents') {
+        return Promise.resolve(mockAgents);
+      }
+      if (path.startsWith('/inbound-destinations')) {
+        return Promise.resolve({ items: [], total: 0 });
+      }
+      if (path.startsWith('/prompt-templates')) {
+        return Promise.resolve({ items: [], total: 0 });
+      }
+      return Promise.reject(new Error('Not found'));
+    });
+
+    render(<InboundRoutingSection />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('inbound-destinations-section')).toBeInTheDocument();
+    });
+
+    // Both ChannelDefaultsSection and InboundDestinationsSection fetch /chat/agents
+    const agentCalls = vi.mocked(apiClient.get).mock.calls.filter(
+      ([p]) => p === '/chat/agents',
+    );
+    expect(agentCalls.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('shows agent display name instead of raw ID for destination overrides', async () => {
+    vi.mocked(apiClient.get).mockImplementation((path: string) => {
+      if (path === '/channel-defaults') {
+        return Promise.resolve([]);
+      }
+      if (path === '/chat/agents') {
+        return Promise.resolve(mockAgents);
+      }
+      if (path.startsWith('/inbound-destinations')) {
+        return Promise.resolve({
+          items: [
+            { id: 'd1', address: '+1234567890', channel_type: 'sms', display_name: null, agent_id: 'agent-sms-triage', prompt_template_id: null, context_id: null, is_active: true },
+          ],
+          total: 1,
+        });
+      }
+      if (path.startsWith('/prompt-templates')) {
+        return Promise.resolve({ items: [], total: 0 });
+      }
+      return Promise.reject(new Error('Not found'));
+    });
+
+    render(<InboundRoutingSection />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('inbound-destinations-section')).toBeInTheDocument();
+    });
+
+    // The destination list should display "SMS Triage Agent" (display_name), not "agent-sms-triage"
+    const destSection = screen.getByTestId('inbound-destinations-section');
+    expect(within(destSection).getByText(/SMS Triage Agent/)).toBeInTheDocument();
+    expect(within(destSection).queryByText('agent-sms-triage')).not.toBeInTheDocument();
+  });
+
   it('uses agent combobox for editing destination agent override', async () => {
     vi.mocked(apiClient.get).mockImplementation((path: string) => {
       if (path === '/channel-defaults') {
