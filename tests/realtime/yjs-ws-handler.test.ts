@@ -79,7 +79,7 @@ describe('YjsWsHandler', () => {
         'note-uuid-1',
       );
 
-      expect(mockManager.manager.joinRoom).toHaveBeenCalledWith('client-1', 'user@test.com', 'note-uuid-1');
+      expect(mockManager.manager.joinRoom).toHaveBeenCalledWith('client-1', 'user@test.com', 'note-uuid-1', []);
       // Should send at least sync step 1 and sync step 2
       expect(socket.send.mock.calls.length).toBeGreaterThanOrEqual(2);
     });
