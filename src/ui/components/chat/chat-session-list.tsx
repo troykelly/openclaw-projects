@@ -10,10 +10,12 @@ import * as React from 'react';
 import { Plus } from 'lucide-react';
 import { cn } from '@/ui/lib/utils';
 import { useChat } from '@/ui/contexts/chat-context';
-import { useChatSessions, useAvailableAgents } from '@/ui/hooks/queries/use-chat';
+import { useChatSessions } from '@/ui/hooks/queries/use-chat';
 import { useCreateChatSession } from '@/ui/hooks/mutations/use-chat';
 import { Button } from '@/ui/components/ui/button';
 import { ChatSkeletonLoader } from './chat-skeleton-loader';
+import { useChatAgentPreferences } from './use-chat-agent-preferences';
+import { AgentPickerPopover } from './agent-picker-popover';
 import type { ChatSession, ChatAgent } from '@/ui/lib/api-types';
 
 /** Format a timestamp to relative time. */
@@ -35,18 +37,16 @@ function formatRelativeTime(dateStr: string): string {
 export function ChatSessionList(): React.JSX.Element {
   const { setActiveSessionId } = useChat();
   const { data, isLoading } = useChatSessions('active');
-  const { data: agentsData } = useAvailableAgents();
+  const { visibleAgents, resolvedDefaultAgent } = useChatAgentPreferences();
   const createSession = useCreateChatSession();
 
   const agentMap = React.useMemo(() => {
     const map = new Map<string, ChatAgent>();
-    if (Array.isArray(agentsData?.agents)) {
-      for (const agent of agentsData.agents) {
-        map.set(agent.id, agent);
-      }
+    for (const agent of visibleAgents) {
+      map.set(agent.id, agent);
     }
     return map;
-  }, [agentsData?.agents]);
+  }, [visibleAgents]);
 
   const sessions = React.useMemo(() => {
     if (!Array.isArray(data?.sessions)) return [];
@@ -55,19 +55,15 @@ export function ChatSessionList(): React.JSX.Element {
     );
   }, [data?.sessions]);
 
-  const handleNewConversation = React.useCallback(() => {
-    const defaultAgent = Array.isArray(agentsData?.agents)
-      ? (agentsData.agents.find((a) => a.is_default) ?? agentsData.agents.find((a) => a.id) ?? null)
-      : null;
-    createSession.mutate(
-      { agent_id: defaultAgent?.id },
-      {
-        onSuccess: (session) => {
-          setActiveSessionId(session.id);
-        },
-      },
-    );
-  }, [createSession, setActiveSessionId, agentsData?.agents]);
+  const handleSelectAgent = React.useCallback(
+    (agentId: string) => {
+      createSession.mutate(
+        { agent_id: agentId },
+        { onSuccess: (session) => setActiveSessionId(session.id) },
+      );
+    },
+    [createSession, setActiveSessionId],
+  );
 
   const handleSelectSession = React.useCallback(
     (session: ChatSession) => {
@@ -84,17 +80,24 @@ export function ChatSessionList(): React.JSX.Element {
     <div className="flex flex-1 flex-col overflow-hidden" data-testid="chat-session-list">
       {/* New Conversation button */}
       <div className="border-b border-border p-2">
-        <Button
-          variant="outline"
-          size="sm"
-          className="w-full justify-start gap-2"
-          onClick={handleNewConversation}
+        <AgentPickerPopover
+          agents={visibleAgents}
+          defaultAgentId={resolvedDefaultAgent?.id ?? null}
+          onSelect={handleSelectAgent}
           disabled={createSession.isPending}
-          data-testid="chat-new-conversation"
-        >
-          <Plus className="size-4" aria-hidden="true" />
-          New Conversation
-        </Button>
+          trigger={
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full justify-start gap-2"
+              disabled={createSession.isPending}
+              data-testid="chat-new-conversation"
+            >
+              <Plus className="size-4" aria-hidden="true" />
+              New Conversation
+            </Button>
+          }
+        />
       </div>
 
       {/* Session list */}

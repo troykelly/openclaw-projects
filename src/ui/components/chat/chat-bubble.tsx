@@ -3,7 +3,7 @@
  *
  * Positioned bottom-right on all authenticated pages. Shows unread badge.
  * Click toggles the chat panel. Position-aware above mobile nav.
- * Hidden when no agents are available. Animated entrance respects
+ * Hidden when no visible agents. Animated entrance respects
  * prefers-reduced-motion.
  */
 
@@ -11,23 +11,24 @@ import * as React from 'react';
 import { MessageCircle } from 'lucide-react';
 import { cn } from '@/ui/lib/utils';
 import { useChat } from '@/ui/contexts/chat-context';
-import { useAvailableAgents, useChatUnreadCount, useRealtimeChatInvalidation } from '@/ui/hooks/queries/use-chat';
+import { useChatUnreadCount, useRealtimeChatInvalidation, useRealtimeAgentInvalidation } from '@/ui/hooks/queries/use-chat';
+import { useChatAgentPreferences } from './use-chat-agent-preferences';
 import { useMediaQuery, MEDIA_QUERIES } from '@/ui/hooks/use-media-query';
 
 export function ChatBubble(): React.JSX.Element | null {
   const { togglePanel, isPanelOpen } = useChat();
-  const { data: agentsData } = useAvailableAgents();
+  const { visibleAgents } = useChatAgentPreferences();
   const { data: unreadData } = useChatUnreadCount();
   // Issue #2080: Invalidate chat cache on WebSocket push events
   useRealtimeChatInvalidation();
+  // AD-9: Consolidated agent status invalidation
+  useRealtimeAgentInvalidation();
   const prefersReducedMotion = useMediaQuery(MEDIA_QUERIES.reducedMotion);
 
-  const agents = React.useMemo(
-    () => (Array.isArray(agentsData?.agents) ? agentsData.agents : []),
-    [agentsData?.agents],
-  );
-
   const unreadCount = unreadData?.count ?? 0;
+
+  // Hide bubble when no visible agents
+  if (visibleAgents.length === 0) return null;
 
   return (
     <button

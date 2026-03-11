@@ -3,34 +3,31 @@
  *
  * Shown when the current session has ended or expired.
  * Disabled input appearance, "Session ended" message,
- * "Start new conversation" button.
+ * "Start new conversation" button with agent picker.
  */
 
 import * as React from 'react';
 import { MessageCircle } from 'lucide-react';
 import { useChat } from '@/ui/contexts/chat-context';
-import { useAvailableAgents } from '@/ui/hooks/queries/use-chat';
 import { useCreateChatSession } from '@/ui/hooks/mutations/use-chat';
 import { Button } from '@/ui/components/ui/button';
+import { useChatAgentPreferences } from './use-chat-agent-preferences';
+import { AgentPickerPopover } from './agent-picker-popover';
 
 export function ChatSessionEndedState(): React.JSX.Element {
   const { setActiveSessionId } = useChat();
-  const { data: agentsData } = useAvailableAgents();
+  const { visibleAgents, resolvedDefaultAgent } = useChatAgentPreferences();
   const createSession = useCreateChatSession();
 
-  const handleNewConversation = React.useCallback(() => {
-    const defaultAgent = Array.isArray(agentsData?.agents)
-      ? (agentsData.agents.find((a) => a.is_default) ?? agentsData.agents.find((a) => a.id) ?? null)
-      : null;
-    createSession.mutate(
-      { agent_id: defaultAgent?.id },
-      {
-        onSuccess: (session) => {
-          setActiveSessionId(session.id);
-        },
-      },
-    );
-  }, [createSession, setActiveSessionId, agentsData?.agents]);
+  const handleSelectAgent = React.useCallback(
+    (agentId: string) => {
+      createSession.mutate(
+        { agent_id: agentId },
+        { onSuccess: (session) => setActiveSessionId(session.id) },
+      );
+    },
+    [createSession, setActiveSessionId],
+  );
 
   return (
     <div
@@ -38,16 +35,18 @@ export function ChatSessionEndedState(): React.JSX.Element {
       data-testid="chat-session-ended"
     >
       <p className="text-xs text-muted-foreground">This session has ended.</p>
-      <Button
-        variant="outline"
-        size="sm"
-        className="gap-1.5"
-        onClick={handleNewConversation}
+      <AgentPickerPopover
+        agents={visibleAgents}
+        defaultAgentId={resolvedDefaultAgent?.id ?? null}
+        onSelect={handleSelectAgent}
         disabled={createSession.isPending}
-      >
-        <MessageCircle className="size-3.5" aria-hidden="true" />
-        Start new conversation
-      </Button>
+        trigger={
+          <Button variant="outline" size="sm" className="gap-1.5" disabled={createSession.isPending}>
+            <MessageCircle className="size-3.5" aria-hidden="true" />
+            Start new conversation
+          </Button>
+        }
+      />
     </div>
   );
 }
