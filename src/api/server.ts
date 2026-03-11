@@ -1092,7 +1092,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         // all API operations are exposed — not just namespace grants.
         const userEmail = req.headers['x-user-email'] as string | undefined;
         const agentId = req.headers['x-agent-id'] as string | undefined;
-        const grantEmail = userEmail ?? agentId ?? identity.email;
+        const grantEmail = (userEmail ?? agentId ?? identity.email).trim().toLowerCase();
         // Auto-upsert user_setting so the FK constraint on namespace_grant is satisfied.
         // This replaces the previous 422 guard (Issue #2402 → #2413).
         await pool.query(
