@@ -818,6 +818,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return;
     }
 
+    // Skip CORS preflight requests — they carry no Bearer token and are
+    // handled upstream (Traefik when CORS_HANDLED_BY_PROXY=true, or
+    // @fastify/cors when Fastify handles CORS directly). (#2387)
+    if (req.method === 'OPTIONS') return;
+
     // Skip auth if disabled (development mode)
     if (isAuthDisabled()) {
       return;

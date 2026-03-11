@@ -70,6 +70,9 @@ afterEach(() => {
 // ChannelDefaultsSection — fetch error
 // ---------------------------------------------------------------------------
 
+/** Empty agents response for mocking /chat/agents. */
+const emptyAgentsResponse = { agents: [] };
+
 describe('ChannelDefaultsSection error handling (#1737)', () => {
   it('shows error message when initial fetch fails', async () => {
     mockedApiClient.get.mockRejectedValue(new Error('Network error'));
@@ -88,15 +91,18 @@ describe('ChannelDefaultsSection error handling (#1737)', () => {
   });
 
   it('shows error message when saving a channel default fails', async () => {
-    // First call: fetch succeeds with configured defaults
-    mockedApiClient.get
-      .mockResolvedValueOnce([
-        { id: '1', channel_type: 'sms', agent_id: 'agent-1', prompt_template_id: null, context_id: null },
-      ])
-      // InboundDestinationsSection fetch
-      .mockResolvedValueOnce({ items: [], total: 0 })
-      // PromptTemplatesSection fetch
-      .mockResolvedValueOnce({ items: [], total: 0 });
+    // Use implementation-based mock to handle all GET requests properly
+    mockedApiClient.get.mockImplementation((path: string) => {
+      if (path === '/channel-defaults') {
+        return Promise.resolve([
+          { id: '1', channel_type: 'sms', agent_id: 'agent-1', prompt_template_id: null, context_id: null },
+        ]);
+      }
+      if (path === '/chat/agents') return Promise.resolve(emptyAgentsResponse);
+      if (path.startsWith('/inbound-destinations')) return Promise.resolve({ items: [], total: 0 });
+      if (path.startsWith('/prompt-templates')) return Promise.resolve({ items: [], total: 0 });
+      return Promise.reject(new Error('Not found'));
+    });
 
     // PUT fails
     mockedApiClient.put.mockRejectedValue(new Error('Server error'));
@@ -148,13 +154,13 @@ describe('ChannelDefaultsSection error handling (#1737)', () => {
 
 describe('InboundDestinationsSection error handling (#1737)', () => {
   it('shows error message when initial fetch fails', async () => {
-    // ChannelDefaultsSection fetch succeeds
-    mockedApiClient.get
-      .mockResolvedValueOnce([])
-      // InboundDestinationsSection fetch fails
-      .mockRejectedValueOnce(new Error('Network error'))
-      // PromptTemplatesSection fetch succeeds
-      .mockResolvedValueOnce({ items: [], total: 0 });
+    mockedApiClient.get.mockImplementation((path: string) => {
+      if (path === '/channel-defaults') return Promise.resolve([]);
+      if (path === '/chat/agents') return Promise.resolve(emptyAgentsResponse);
+      if (path.startsWith('/inbound-destinations')) return Promise.reject(new Error('Network error'));
+      if (path.startsWith('/prompt-templates')) return Promise.resolve({ items: [], total: 0 });
+      return Promise.reject(new Error('Not found'));
+    });
 
     const { InboundRoutingSection } = await import(
       '@/ui/components/settings/inbound-routing-section'
@@ -170,18 +176,20 @@ describe('InboundDestinationsSection error handling (#1737)', () => {
   });
 
   it('shows error message when saving a destination override fails', async () => {
-    mockedApiClient.get
-      // ChannelDefaultsSection fetch
-      .mockResolvedValueOnce([])
-      // InboundDestinationsSection fetch
-      .mockResolvedValueOnce({
-        items: [
-          { id: 'd1', address: '+1234567890', channel_type: 'sms', display_name: null, agent_id: null, prompt_template_id: null, context_id: null, is_active: true },
-        ],
-        total: 1,
-      })
-      // PromptTemplatesSection fetch
-      .mockResolvedValueOnce({ items: [], total: 0 });
+    mockedApiClient.get.mockImplementation((path: string) => {
+      if (path === '/channel-defaults') return Promise.resolve([]);
+      if (path === '/chat/agents') return Promise.resolve(emptyAgentsResponse);
+      if (path.startsWith('/inbound-destinations')) {
+        return Promise.resolve({
+          items: [
+            { id: 'd1', address: '+1234567890', channel_type: 'sms', display_name: null, agent_id: null, prompt_template_id: null, context_id: null, is_active: true },
+          ],
+          total: 1,
+        });
+      }
+      if (path.startsWith('/prompt-templates')) return Promise.resolve({ items: [], total: 0 });
+      return Promise.reject(new Error('Not found'));
+    });
 
     mockedApiClient.put.mockRejectedValue(new Error('Save failed'));
 
@@ -197,26 +205,34 @@ describe('InboundDestinationsSection error handling (#1737)', () => {
     });
 
     // The destination row has a single ghost button (pencil icon) for editing.
-    // Find the row containing our address and click its button.
     const destSection = screen.getByTestId('inbound-destinations-section');
-    // Get all buttons inside CardContent (excluding filter selects)
-    const allButtons = Array.from(destSection.querySelectorAll('button'));
-    // The filter trigger is a button too. Find the pencil button in the destination row.
-    // The destination row is a div with class containing "rounded-lg border p-3"
     const destRow = destSection.querySelector('.space-y-2 > div');
     expect(destRow).toBeTruthy();
     const editBtn = destRow!.querySelector('button');
     expect(editBtn).toBeTruthy();
     fireEvent.click(editBtn!);
 
-    // Wait for edit mode — the input should appear
+    // Wait for edit mode — the agent combobox trigger should appear
     await waitFor(() => {
-      expect(screen.getByPlaceholderText(/agent id/i)).toBeInTheDocument();
+      expect(screen.getByTestId('agent-combobox-trigger-destination-d1')).toBeInTheDocument();
     });
 
-    // Type an agent ID
-    const agentInput = screen.getByPlaceholderText(/agent id/i);
-    fireEvent.change(agentInput, { target: { value: 'my-agent' } });
+    // Open the combobox and type a custom agent ID
+    const comboboxTrigger = screen.getByTestId('agent-combobox-trigger-destination-d1');
+    fireEvent.click(comboboxTrigger);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('agent-combobox-input-destination-d1')).toBeInTheDocument();
+    });
+
+    const comboboxInput = screen.getByTestId('agent-combobox-input-destination-d1');
+    fireEvent.change(comboboxInput, { target: { value: 'my-agent' } });
+
+    // Select the custom option
+    await waitFor(() => {
+      expect(screen.getByText(/Use/)).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText(/Use/));
 
     // Click Save — scoped to the destinations section to avoid ambiguity with channel defaults
     const saveBtn = within(destSection).getByText('Save');
@@ -237,13 +253,13 @@ describe('InboundDestinationsSection error handling (#1737)', () => {
 
 describe('PromptTemplatesSection error handling (#1737)', () => {
   it('shows error message when initial fetch fails', async () => {
-    mockedApiClient.get
-      // ChannelDefaultsSection fetch succeeds
-      .mockResolvedValueOnce([])
-      // InboundDestinationsSection fetch succeeds
-      .mockResolvedValueOnce({ items: [], total: 0 })
-      // PromptTemplatesSection fetch fails
-      .mockRejectedValueOnce(new Error('Network error'));
+    mockedApiClient.get.mockImplementation((path: string) => {
+      if (path === '/channel-defaults') return Promise.resolve([]);
+      if (path === '/chat/agents') return Promise.resolve(emptyAgentsResponse);
+      if (path.startsWith('/inbound-destinations')) return Promise.resolve({ items: [], total: 0 });
+      if (path.startsWith('/prompt-templates')) return Promise.reject(new Error('Network error'));
+      return Promise.reject(new Error('Not found'));
+    });
 
     const { InboundRoutingSection } = await import(
       '@/ui/components/settings/inbound-routing-section'
@@ -259,10 +275,13 @@ describe('PromptTemplatesSection error handling (#1737)', () => {
   });
 
   it('shows error message when creating a template fails', async () => {
-    mockedApiClient.get
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce({ items: [], total: 0 })
-      .mockResolvedValueOnce({ items: [], total: 0 });
+    mockedApiClient.get.mockImplementation((path: string) => {
+      if (path === '/channel-defaults') return Promise.resolve([]);
+      if (path === '/chat/agents') return Promise.resolve(emptyAgentsResponse);
+      if (path.startsWith('/inbound-destinations')) return Promise.resolve({ items: [], total: 0 });
+      if (path.startsWith('/prompt-templates')) return Promise.resolve({ items: [], total: 0 });
+      return Promise.reject(new Error('Not found'));
+    });
 
     mockedApiClient.post.mockRejectedValue(new Error('Create failed'));
 
@@ -299,15 +318,20 @@ describe('PromptTemplatesSection error handling (#1737)', () => {
   });
 
   it('shows error message when deleting a template fails', async () => {
-    mockedApiClient.get
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce({ items: [], total: 0 })
-      .mockResolvedValueOnce({
-        items: [
-          { id: 'pt1', label: 'My Template', content: 'Prompt here', channel_type: 'sms', is_default: false, is_active: true },
-        ],
-        total: 1,
-      });
+    mockedApiClient.get.mockImplementation((path: string) => {
+      if (path === '/channel-defaults') return Promise.resolve([]);
+      if (path === '/chat/agents') return Promise.resolve(emptyAgentsResponse);
+      if (path.startsWith('/inbound-destinations')) return Promise.resolve({ items: [], total: 0 });
+      if (path.startsWith('/prompt-templates')) {
+        return Promise.resolve({
+          items: [
+            { id: 'pt1', label: 'My Template', content: 'Prompt here', channel_type: 'sms', is_default: false, is_active: true },
+          ],
+          total: 1,
+        });
+      }
+      return Promise.reject(new Error('Not found'));
+    });
 
     mockedApiClient.delete.mockRejectedValue(new Error('Delete failed'));
 

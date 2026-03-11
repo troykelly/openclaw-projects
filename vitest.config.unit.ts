@@ -73,6 +73,7 @@ export default defineProject({
       'src/api/geolocation/registry.test.ts',
       'src/api/geolocation/bootstrap.test.ts',
       'src/api/geolocation/crypto.test.ts',
+      'src/api/chat/session-creation.test.ts',
       'src/api/cors.test.ts',
       'src/api/sse-cors.test.ts',
       'src/api/gateway/connection.test.ts',
