@@ -372,13 +372,13 @@ export async function generateUpcomingInstances(pool: Pool, daysAhead: number = 
 
   for (const template of templates.rows) {
     try {
-      // Get existing instances in the time window
+      // Get existing instances in the time window (no lower bound — avoids now() drift
+      // causing missed dedup when instances are created at the boundary).
       const existingInstances = await pool.query(
         `SELECT not_before
         FROM work_item
         WHERE recurrence_parent_id = $1
           AND not_before IS NOT NULL
-          AND not_before >= now()
           AND not_before <= $2`,
         [template.id, endDate],
       );
