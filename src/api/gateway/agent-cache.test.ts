@@ -391,9 +391,9 @@ describe('AgentCache', () => {
     expect(Array.isArray(result)).toBe(true);
   });
 
-  // ── Issue #2242: DB fallback accepts multiple namespaces ─────────
+  // ── Issue #2388: DB fallback returns all agents (no namespace filter) ──────
 
-  it('DB fallback accepts namespace array and uses ANY($1::text[])', async () => {
+  it('DB fallback uses DISTINCT ON and does not filter by namespace', async () => {
     const conn = createMockConnection(); // connected: false
     const tracker = createMockPresenceTracker();
     const pool = createMockPool([
@@ -401,28 +401,34 @@ describe('AgentCache', () => {
     ]);
     cache = new AgentCache(conn, tracker);
 
-    await cache.getAgents(pool, ['ns1', 'ns2']);
+    await cache.getAgents(pool);
 
     const queryCall = (pool.query as ReturnType<typeof vi.fn>).mock.calls[0];
     const sql = queryCall[0] as string;
-    const params = queryCall[1] as unknown[];
-    expect(sql).toContain('ANY($1::text[])');
-    expect(params[0]).toEqual(['ns1', 'ns2']);
+    // Must NOT filter by namespace — gateway agents.list is global
+    expect(sql).not.toContain('namespace');
+    expect(sql).not.toContain('ANY($1');
+    // Must use DISTINCT ON to deduplicate agent_id across namespaces
+    expect(sql).toContain('DISTINCT ON (agent_id)');
+    // Called with no parameters (no $1 binding)
+    expect(queryCall[1]).toBeUndefined();
   });
 
-  it('DB fallback returns agents from any of the provided namespaces', async () => {
+  it('DB fallback returns agents from all namespaces (global, not namespace-scoped)', async () => {
     const conn = createMockConnection(); // connected: false
     const tracker = createMockPresenceTracker();
+    // Simulate two agents registered under different namespaces — both must be returned
     const pool = createMockPool([
-      { agent_id: 'agent-1', display_name: 'Agent 1', avatar_url: null, is_default: true },
+      { agent_id: 'troy', display_name: 'Troy', avatar_url: null, is_default: true },
       { agent_id: 'agent-2', display_name: 'Agent 2', avatar_url: null, is_default: false },
     ]);
     cache = new AgentCache(conn, tracker);
 
-    const result = await cache.getAgents(pool, ['troy', 'default']);
+    // Namespace arg is accepted but ignored — both agents returned regardless
+    const result = await cache.getAgents(pool, ['default']);
     expect(result).toHaveLength(2);
-    expect(result[0].id).toBe('agent-1');
-    expect(result[1].id).toBe('agent-2');
+    expect(result.map((a) => a.id)).toContain('troy');
+    expect(result.map((a) => a.id)).toContain('agent-2');
   });
 
   // ── Issue #2242: Gateway enrichment preserves extra fields ───────

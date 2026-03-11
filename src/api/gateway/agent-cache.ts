@@ -53,11 +53,16 @@ export class AgentCache {
 
   /**
    * Get the list of agents. Prefers live gateway data, falls back to DB.
+   *
    * Issue #2242: Accepts namespace array for multi-namespace read access.
+   * Issue #2388: DB fallback no longer filters by namespace — the gateway
+   * `agents.list` response is not namespace-scoped, so the DB fallback must
+   * be consistent and return all known agents regardless of which namespace
+   * they were first registered under.
+   *
    * @param pool - Database connection pool for fallback query
-   * @param namespaces - Namespace(s) to filter DB results
    */
-  async getAgents(pool: Pool, namespaces: string[] | string): Promise<CachedAgent[]> {
+  async getAgents(pool: Pool, _namespaces?: string[] | string): Promise<CachedAgent[]> {
     const status = this.connection.getStatus();
 
     if (status.connected) {
@@ -69,9 +74,7 @@ export class AgentCache {
       }
     }
 
-    // Normalize to array for DB query
-    const nsArray = Array.isArray(namespaces) ? namespaces : [namespaces];
-    return this._getFromDb(pool, nsArray);
+    return this._getFromDb(pool);
   }
 
   /** Eagerly refresh cache from gateway. Safe to call; errors are logged and ignored. */
@@ -114,14 +117,17 @@ export class AgentCache {
     return this._enrichWithPresence(agents);
   }
 
-  private async _getFromDb(pool: Pool, namespaces: string[]): Promise<CachedAgent[]> {
+  private async _getFromDb(pool: Pool): Promise<CachedAgent[]> {
     try {
+      // Issue #2388: Return all distinct agents, not filtered by namespace.
+      // The gateway agents.list response is global (not namespace-scoped), so the
+      // DB fallback must mirror that. An agent registered under any namespace is
+      // still a valid agent for all callers. DISTINCT ON deduplicates by agent_id,
+      // preferring rows where is_default is true.
       const result = await pool.query(
-        `SELECT agent_id, display_name, avatar_url, is_default
+        `SELECT DISTINCT ON (agent_id) agent_id, display_name, avatar_url, is_default
          FROM gateway_agent_cache
-         WHERE namespace = ANY($1::text[])
-         ORDER BY is_default DESC, agent_id`,
-        [namespaces],
+         ORDER BY agent_id, is_default DESC`,
       );
 
       return result.rows.map((row: { agent_id: string; display_name: string | null; avatar_url: string | null; is_default: boolean }) => ({
