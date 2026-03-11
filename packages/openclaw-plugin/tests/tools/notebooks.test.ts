@@ -8,8 +8,10 @@ import {
   createNotebookListTool,
   createNotebookCreateTool,
   createNotebookGetTool,
+  createNotebookDeleteTool,
   type NotebookCreateParams,
   type NotebookGetParams,
+  type NotebookDeleteParams,
 } from '../../src/tools/notebooks.js';
 import type { ApiClient } from '../../src/api-client.js';
 import type { Logger } from '../../src/logger.js';
@@ -549,6 +551,214 @@ describe('notebook tools', () => {
         }
 
         expect(mockApiClient.get).toHaveBeenCalledWith(expect.stringContaining('expand=notes'), expect.anything());
+      });
+    });
+  });
+
+  describe('notebook_delete tool (Issue #2342)', () => {
+    describe('tool metadata', () => {
+      it('should have correct name', () => {
+        const tool = createNotebookDeleteTool({
+          client: mockApiClient,
+          logger: mockLogger,
+          config: mockConfig,
+          user_id: 'user@example.com',
+        });
+        expect(tool.name).toBe('notebook_delete');
+      });
+
+      it('should have description mentioning soft-delete', () => {
+        const tool = createNotebookDeleteTool({
+          client: mockApiClient,
+          logger: mockLogger,
+          config: mockConfig,
+          user_id: 'user@example.com',
+        });
+        expect(tool.description).toContain('Soft-deletes');
+      });
+
+      it('should have parameter schema', () => {
+        const tool = createNotebookDeleteTool({
+          client: mockApiClient,
+          logger: mockLogger,
+          config: mockConfig,
+          user_id: 'user@example.com',
+        });
+        expect(tool.parameters).toBeDefined();
+      });
+    });
+
+    describe('parameter validation', () => {
+      it('should require valid UUID for notebook_id', async () => {
+        const tool = createNotebookDeleteTool({
+          client: mockApiClient,
+          logger: mockLogger,
+          config: mockConfig,
+          user_id: 'user@example.com',
+        });
+
+        const result = await tool.execute({ notebook_id: 'invalid' } as NotebookDeleteParams);
+        expect(result.success).toBe(false);
+        if (!result.success) {
+          expect(result.error).toContain('UUID');
+        }
+      });
+
+      it('should reject missing notebook_id', async () => {
+        const tool = createNotebookDeleteTool({
+          client: mockApiClient,
+          logger: mockLogger,
+          config: mockConfig,
+          user_id: 'user@example.com',
+        });
+
+        const result = await tool.execute({} as NotebookDeleteParams);
+        expect(result.success).toBe(false);
+      });
+    });
+
+    describe('execution', () => {
+      it('should delete notebook successfully', async () => {
+        (mockApiClient.delete as ReturnType<typeof vi.fn>).mockResolvedValue({
+          success: true,
+          data: undefined,
+        });
+
+        const tool = createNotebookDeleteTool({
+          client: mockApiClient,
+          logger: mockLogger,
+          config: mockConfig,
+          user_id: 'user@example.com',
+        });
+
+        const result = await tool.execute({
+          notebook_id: '123e4567-e89b-12d3-a456-426614174000',
+        });
+
+        expect(result.success).toBe(true);
+        if (result.success) {
+          expect(result.data.id).toBe('123e4567-e89b-12d3-a456-426614174000');
+          expect(result.data.message).toContain('notes moved to root');
+        }
+
+        expect(mockApiClient.delete).toHaveBeenCalledWith(
+          '/notebooks/123e4567-e89b-12d3-a456-426614174000',
+          expect.anything(),
+        );
+      });
+
+      it('should pass delete_notes=true query parameter', async () => {
+        (mockApiClient.delete as ReturnType<typeof vi.fn>).mockResolvedValue({
+          success: true,
+          data: undefined,
+        });
+
+        const tool = createNotebookDeleteTool({
+          client: mockApiClient,
+          logger: mockLogger,
+          config: mockConfig,
+          user_id: 'user@example.com',
+        });
+
+        const result = await tool.execute({
+          notebook_id: '123e4567-e89b-12d3-a456-426614174000',
+          delete_notes: true,
+        });
+
+        expect(result.success).toBe(true);
+        if (result.success) {
+          expect(result.data.message).toContain('notes deleted');
+        }
+
+        expect(mockApiClient.delete).toHaveBeenCalledWith(
+          expect.stringContaining('delete_notes=true'),
+          expect.anything(),
+        );
+      });
+
+      it('should handle 404 not found', async () => {
+        (mockApiClient.delete as ReturnType<typeof vi.fn>).mockResolvedValue({
+          success: false,
+          error: { status: 404, message: 'Not found' },
+        });
+
+        const tool = createNotebookDeleteTool({
+          client: mockApiClient,
+          logger: mockLogger,
+          config: mockConfig,
+          user_id: 'user@example.com',
+        });
+
+        const result = await tool.execute({
+          notebook_id: '123e4567-e89b-12d3-a456-426614174000',
+        });
+
+        expect(result.success).toBe(false);
+        if (!result.success) {
+          expect(result.error).toContain('not found');
+        }
+      });
+
+      it('should handle 403 forbidden', async () => {
+        (mockApiClient.delete as ReturnType<typeof vi.fn>).mockResolvedValue({
+          success: false,
+          error: { status: 403, message: 'Forbidden' },
+        });
+
+        const tool = createNotebookDeleteTool({
+          client: mockApiClient,
+          logger: mockLogger,
+          config: mockConfig,
+          user_id: 'user@example.com',
+        });
+
+        const result = await tool.execute({
+          notebook_id: '123e4567-e89b-12d3-a456-426614174000',
+        });
+
+        expect(result.success).toBe(false);
+        if (!result.success) {
+          expect(result.error).toContain('owner');
+        }
+      });
+
+      it('should handle generic API errors', async () => {
+        (mockApiClient.delete as ReturnType<typeof vi.fn>).mockResolvedValue({
+          success: false,
+          error: { status: 500, message: 'Server error' },
+        });
+
+        const tool = createNotebookDeleteTool({
+          client: mockApiClient,
+          logger: mockLogger,
+          config: mockConfig,
+          user_id: 'user@example.com',
+        });
+
+        const result = await tool.execute({
+          notebook_id: '123e4567-e89b-12d3-a456-426614174000',
+        });
+
+        expect(result.success).toBe(false);
+      });
+
+      it('should handle thrown exceptions', async () => {
+        (mockApiClient.delete as ReturnType<typeof vi.fn>).mockRejectedValue(
+          new Error('Network error'),
+        );
+
+        const tool = createNotebookDeleteTool({
+          client: mockApiClient,
+          logger: mockLogger,
+          config: mockConfig,
+          user_id: 'user@example.com',
+        });
+
+        const result = await tool.execute({
+          notebook_id: '123e4567-e89b-12d3-a456-426614174000',
+        });
+
+        expect(result.success).toBe(false);
       });
     });
   });
