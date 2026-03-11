@@ -2,10 +2,10 @@
  * Tests verifying the HA IndieAuth redirect_uri discovery link tag is injected
  * into the landing page when OAUTH_REDIRECT_URI is configured.
  *
- * Issue #2383: HA's IndieAuth validates that client_id and redirect_uri share
- * the same host. When they differ (e.g. execdesk.ai vs api.execdesk.ai), HA
- * fetches the client_id URL and looks for <link rel="redirect_uri"> tags in the
- * first 10 KB of the page. We inject this tag into the root landing page.
+ * Issue #2383: HA validates that client_id and redirect_uri share the same
+ * host. When they differ (e.g. example.com vs api.example.com), HA fetches the
+ * client_id URL and looks for <link rel="redirect_uri"> tags in the first
+ * 10 KB of the page. We inject this tag into the root landing page.
  *
  * Ref: https://developers.home-assistant.io/docs/auth_api/
  */
@@ -77,6 +77,15 @@ describe('HA IndieAuth redirect_uri discovery — landing page injection (#2383)
       const match = html.match(/<link rel="redirect_uri" href="([^"]*)" \/>/);
       expect(match).not.toBeNull();
     }
+    await app.close();
+  });
+
+  it('injects <link rel="redirect_uri"> within the first 10 kB (HA scan limit)', async () => {
+    process.env.OAUTH_REDIRECT_URI = 'https://api.example.com/api/oauth/callback';
+    const app = buildServer();
+    const resp = await app.inject({ method: 'GET', url: '/' });
+    const first10kB = Buffer.from(resp.body, 'utf-8').subarray(0, 10240).toString('utf-8');
+    expect(first10kB).toContain('<link rel="redirect_uri"');
     await app.close();
   });
 });
