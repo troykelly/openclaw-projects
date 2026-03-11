@@ -2485,8 +2485,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   function renderLandingPage(email: string | null, nonce: string): string {
     const ctaHref = '/app';
     const ctaLabel = email ? 'Dashboard' : 'Sign in';
-    // HA cross-domain redirect_uri discovery: when client_id host differs from
-    // redirect_uri host, HA fetches the client_id URL and looks for
+    // HA cross-domain redirect_uri discovery: when client_id origin differs from
+    // redirect_uri origin, HA fetches the client_id URL and looks for
     // <link rel="redirect_uri"> tags in the first 10 kB of the page.
     // Ref: https://developers.home-assistant.io/docs/auth_api/ — Issue #2383.
     // NOTE: HA only scans the first 10 kB — keep this tag early in <head>.

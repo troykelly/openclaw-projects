@@ -84,7 +84,8 @@ describe('HA IndieAuth redirect_uri discovery — landing page injection (#2383)
     process.env.OAUTH_REDIRECT_URI = 'https://api.example.com/api/oauth/callback';
     const app = buildServer();
     const resp = await app.inject({ method: 'GET', url: '/' });
-    expect(resp.body.slice(0, 10240)).toContain('<link rel="redirect_uri"');
+    const first10kB = Buffer.from(resp.body, 'utf-8').subarray(0, 10240).toString('utf-8');
+    expect(first10kB).toContain('<link rel="redirect_uri"');
     await app.close();
   });
 });
