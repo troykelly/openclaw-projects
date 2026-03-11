@@ -2508,6 +2508,22 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   function renderLandingPage(email: string | null, nonce: string): string {
     const ctaHref = '/app';
     const ctaLabel = email ? 'Dashboard' : 'Sign in';
+    // HA IndieAuth discovery: when OAUTH_REDIRECT_URI is set, inject a <link rel="redirect_uri">
+    // so HA can validate cross-domain redirect URIs (client_id host ≠ redirect_uri host).
+    // The value is validated as an http(s) URL; an invalid value is silently omitted
+    // to avoid injecting malformed HTML. Ref: https://developers.home-assistant.io/docs/auth_api/
+    // Issue #2383.
+    const indieAuthLinkTag = (() => {
+      const raw = process.env.OAUTH_REDIRECT_URI?.trim();
+      if (!raw) return '';
+      try {
+        const parsed = new URL(raw);
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return '';
+        return `\n  <link rel="redirect_uri" href="${parsed.href}" />`;
+      } catch {
+        return '';
+      }
+    })();
     return `<!doctype html>
 <html lang="en">
 <head>
@@ -2516,7 +2532,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   <title>OpenClaw Projects \u2014 Human-Agent Collaboration</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />${indieAuthLinkTag}
   <style nonce="${nonce}">
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
