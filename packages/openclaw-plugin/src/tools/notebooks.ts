@@ -427,3 +427,113 @@ export function createNotebookGetTool(options: NotebookToolOptions): NotebookGet
     },
   };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// notebook_delete Tool (Issue #2342)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const NotebookDeleteParamsSchema = z.object({
+  notebook_id: z.string().uuid('Notebook ID must be a valid UUID'),
+  delete_notes: z.boolean().optional().default(false),
+});
+export type NotebookDeleteParams = z.infer<typeof NotebookDeleteParamsSchema>;
+
+export interface NotebookDeleteSuccess {
+  success: true;
+  data: {
+    id: string;
+    message: string;
+  };
+}
+
+export interface NotebookDeleteFailure {
+  success: false;
+  error: string;
+}
+
+export type NotebookDeleteResult = NotebookDeleteSuccess | NotebookDeleteFailure;
+
+export interface NotebookDeleteTool {
+  name: string;
+  description: string;
+  parameters: typeof NotebookDeleteParamsSchema;
+  execute: (params: NotebookDeleteParams) => Promise<NotebookDeleteResult>;
+}
+
+export function createNotebookDeleteTool(options: NotebookToolOptions): NotebookDeleteTool {
+  const { client, logger, user_id } = options;
+
+  return {
+    name: 'notebook_delete',
+    description:
+      'Soft-deletes a notebook. Notes inside are moved to the root level by default, or soft-deleted if delete_notes is true. The notebook can be restored later. Only the notebook owner can delete. Use notebook_list or notebook_get to find the notebook ID first.',
+    parameters: NotebookDeleteParamsSchema,
+
+    async execute(params: NotebookDeleteParams): Promise<NotebookDeleteResult> {
+      const parseResult = NotebookDeleteParamsSchema.safeParse(params);
+      if (!parseResult.success) {
+        const errorMessage = parseResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        return { success: false, error: errorMessage };
+      }
+
+      const { notebook_id, delete_notes } = parseResult.data;
+
+      logger.info('notebook_delete invoked', {
+        user_id,
+        notebook_id,
+        delete_notes,
+      });
+
+      try {
+        const queryParams = new URLSearchParams();
+        if (delete_notes) {
+          queryParams.set('delete_notes', 'true');
+        }
+        const qs = queryParams.toString();
+
+        const response = await client.delete<void>(`/notebooks/${notebook_id}${qs ? `?${qs}` : ''}`, { user_id });
+
+        if (!response.success) {
+          if (response.error.status === 404) {
+            return { success: false, error: 'Notebook not found' };
+          }
+          if (response.error.status === 403) {
+            return { success: false, error: 'Only the notebook owner can delete this notebook' };
+          }
+          logger.error('notebook_delete API error', {
+            user_id,
+            notebook_id,
+            status: response.error.status,
+          });
+          return {
+            success: false,
+            error: response.error.message || 'Failed to delete notebook',
+          };
+        }
+
+        logger.debug('notebook_delete completed', {
+          user_id,
+          notebook_id,
+        });
+
+        return {
+          success: true,
+          data: {
+            id: notebook_id,
+            message: delete_notes ? 'Notebook and its notes deleted successfully' : 'Notebook deleted successfully (notes moved to root)',
+          },
+        };
+      } catch (error) {
+        logger.error('notebook_delete failed', {
+          user_id,
+          notebook_id,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        return {
+          success: false,
+          error: sanitizeErrorMessage(error),
+        };
+      }
+    },
+  };
+}

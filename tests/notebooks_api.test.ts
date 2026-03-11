@@ -615,6 +615,22 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       expect(res.statusCode).toBe(403);
     });
 
+    it('returns 404 for already-deleted notebook', async () => {
+      const nbResult = await pool.query(`INSERT INTO notebook (namespace, name, deleted_at) VALUES ($1, 'Deleted', NOW()) RETURNING id::text as id`, [
+        'default',
+      ]);
+      const nbId = (nbResult.rows[0] as { id: string }).id;
+
+      const res = await app.inject({
+        method: 'DELETE',
+        url: `/notebooks/${nbId}`,
+        headers: NS_HEADERS,
+        query: { user_email: testUserEmail },
+      });
+
+      expect(res.statusCode).toBe(404);
+    });
+
     it('moves child notebooks to parent when deleted', async () => {
       // Create parent -> child structure
       const parentResult = await pool.query(`INSERT INTO notebook (namespace, name) VALUES ($1, 'Parent') RETURNING id::text as id`, ['default']);

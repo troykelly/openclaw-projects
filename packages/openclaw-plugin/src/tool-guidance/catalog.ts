@@ -413,6 +413,18 @@ export const TOOL_CATALOG: Record<string, ToolGuidance> = {
       { description: 'Get notebook details', params: { notebook_id: '550e8400-e29b-41d4-a716-446655440000' } },
     ],
   },
+  notebook_delete: {
+    group: 'notebooks',
+    when_to_use: 'When permanently removing a notebook the user no longer needs.',
+    when_not_to_use: 'When deleting individual notes (use note_delete). When you only need to reorganize notes (use notebook_list to find target notebook).',
+    alternatives: ['note_delete'],
+    side_effects: ['Soft-deletes the notebook.', 'Notes inside are moved to root or soft-deleted based on delete_notes parameter.'],
+    prerequisites: ['Need a valid notebook ID. Only the notebook owner can delete.'],
+    example_calls: [
+      { description: 'Delete a notebook, keep notes', params: { notebook_id: '550e8400-e29b-41d4-a716-446655440000' } },
+      { description: 'Delete a notebook and its notes', params: { notebook_id: '550e8400-e29b-41d4-a716-446655440000', delete_notes: true } },
+    ],
+  },
 
   // ── Relationship tools ────────────────────────────────────────
   relationship_set: {
@@ -1219,8 +1231,8 @@ export const GROUP_CATALOG: Record<string, GroupGuidance> = {
   },
   notebooks: {
     description: 'Notebook management for organizing related notes.',
-    tools: ['notebook_list', 'notebook_create', 'notebook_get'],
-    workflow_tips: 'Create notebooks to group related notes. List notebooks to see available collections before creating notes.',
+    tools: ['notebook_list', 'notebook_create', 'notebook_get', 'notebook_delete'],
+    workflow_tips: 'Create notebooks to group related notes. List notebooks to see available collections before creating notes. Delete notebooks to clean up unused collections.',
     related_skills: ['note_create', 'note_search'],
   },
   relationships: {

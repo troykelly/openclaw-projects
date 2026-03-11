@@ -76,10 +76,11 @@ import {
   createNoteUpdateTool,
   createNoteDeleteTool,
   createNoteSearchTool,
-  // Notebook tools (Issue #1921)
+  // Notebook tools (Issue #1921, #2342)
   createNotebookListTool,
   createNotebookCreateTool,
   createNotebookGetTool,
+  createNotebookDeleteTool,
   // Tool guide meta-tool (Issue #1923)
   createToolGuideTool,
   // Dev prompt tools (Epic #2011, Issue #2015)
@@ -5292,6 +5293,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     createNotebookListTool,
     createNotebookCreateTool,
     createNotebookGetTool,
+    createNotebookDeleteTool,
   ] as const;
 
   for (const factory of notebookToolFactories) {
@@ -5414,6 +5416,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     notebook_list: 'notebooks',
     notebook_create: 'notebooks',
     notebook_get: 'notebooks',
+    notebook_delete: 'notebooks',
     // File share (1)
     file_share: 'file_share',
     // Dev prompts (5)
