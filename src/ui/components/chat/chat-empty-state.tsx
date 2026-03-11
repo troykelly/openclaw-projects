@@ -22,6 +22,17 @@ export function ChatEmptyState(): React.JSX.Element | null {
   const { setActiveSessionId } = useChat();
   const createSession = useCreateChatSession();
 
+  // Must be declared before any early returns (Rules of Hooks)
+  const handleSelectAgent = React.useCallback(
+    (agentId: string) => {
+      createSession.mutate(
+        { agent_id: agentId },
+        { onSuccess: (session) => setActiveSessionId(session.id) },
+      );
+    },
+    [createSession, setActiveSessionId],
+  );
+
   if (sessionsLoading || agentsLoading) return null;
 
   const sessions = Array.isArray(sessionsData?.sessions) ? sessionsData.sessions : [];
@@ -66,16 +77,6 @@ export function ChatEmptyState(): React.JSX.Element | null {
   }
 
   // Branch 3: Agents visible, no sessions yet
-  const handleSelectAgent = React.useCallback(
-    (agentId: string) => {
-      createSession.mutate(
-        { agent_id: agentId },
-        { onSuccess: (session) => setActiveSessionId(session.id) },
-      );
-    },
-    [createSession, setActiveSessionId],
-  );
-
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center" data-testid="chat-empty-no-sessions">
       <div className="rounded-full bg-muted p-3">
