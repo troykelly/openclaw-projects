@@ -1,6 +1,6 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`Schema Snapshots > Full tool list > tool count should be tracked 1`] = `39`;
+exports[`Schema Snapshots > Full tool list > tool count should be tracked 1`] = `40`;
 
 exports[`Schema Snapshots > Full tool list > tool names should match snapshot 1`] = `
 [
@@ -23,6 +23,7 @@ exports[`Schema Snapshots > Full tool list > tool names should match snapshot 1`
   "note_search",
   "note_update",
   "notebook_create",
+  "notebook_delete",
   "notebook_get",
   "notebook_list",
   "project_create",
@@ -1171,6 +1172,25 @@ exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > 
   },
   "required": [
     "name",
+  ],
+  "type": "object",
+}
+`;
+
+exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > notebook_delete parameter schema should match snapshot 1`] = `
+{
+  "properties": {
+    "delete_notes": {
+      "default": false,
+      "type": "boolean",
+    },
+    "notebook_id": {
+      "format": "uuid",
+      "type": "string",
+    },
+  },
+  "required": [
+    "notebook_id",
   ],
   "type": "object",
 }

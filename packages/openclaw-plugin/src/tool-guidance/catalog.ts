@@ -416,7 +416,7 @@ export const TOOL_CATALOG: Record<string, ToolGuidance> = {
   notebook_delete: {
     group: 'notebooks',
     when_to_use: 'When permanently removing a notebook the user no longer needs.',
-    when_not_to_use: 'When temporarily hiding a notebook (use archive instead). When deleting individual notes (use note_delete).',
+    when_not_to_use: 'When deleting individual notes (use note_delete). When you only need to reorganize notes (use notebook_list to find target notebook).',
     alternatives: ['note_delete'],
     side_effects: ['Soft-deletes the notebook.', 'Notes inside are moved to root or soft-deleted based on delete_notes parameter.'],
     prerequisites: ['Need a valid notebook ID. Only the notebook owner can delete.'],
