@@ -22,6 +22,7 @@ import { Separator } from '@/ui/components/ui/separator';
 import { Switch } from '@/ui/components/ui/switch';
 import { Textarea } from '@/ui/components/ui/textarea';
 import { apiClient } from '@/ui/lib/api-client';
+import type { ChatAgent, ChatAgentsResponse } from '@/ui/lib/api-types';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -93,34 +94,43 @@ interface AgentComboboxProps {
   value: string;
   /** Called when the user selects or types an agent ID. */
   onChange: (value: string) => void;
-  /** Known agent IDs from existing channel defaults. */
-  knownAgents: string[];
+  /** Available agents fetched from /chat/agents. */
+  agents: ChatAgent[];
   /** HTML id for label association. */
   id?: string;
-  /** Channel type key used for test IDs. */
+  /** Key used for test IDs (e.g. channel type or destination ID). */
   channelType: string;
 }
 
-/** Combobox that shows known agents as suggestions and allows free text entry. */
-function AgentCombobox({ value, onChange, knownAgents, id, channelType }: AgentComboboxProps) {
+/** Combobox that shows available agents with display names and allows free text entry. */
+function AgentCombobox({ value, onChange, agents, id, channelType }: AgentComboboxProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // When the popover opens, sync the search field with the current value
+  /** Resolve display label for a given agent ID. */
+  const displayLabel = useCallback(
+    (agentId: string): string => {
+      const agent = agents.find((a) => a.id === agentId);
+      return agent ? (agent.display_name ?? agent.name) : agentId;
+    },
+    [agents],
+  );
+
+  // When the popover opens, sync the search field with the current display label
   const handleOpenChange = useCallback((nextOpen: boolean) => {
     if (nextOpen) {
-      setSearch(value);
+      setSearch(value ? displayLabel(value) : '');
     }
     setOpen(nextOpen);
-  }, [value]);
+  }, [value, displayLabel]);
 
   const handleSelect = useCallback((agentId: string) => {
     onChange(agentId);
     setOpen(false);
   }, [onChange]);
 
-  // Allow using the typed text directly (free text entry)
+  // Allow using the typed text directly (free text entry for custom agent IDs)
   const handleUseCustom = useCallback(() => {
     if (search.trim()) {
       onChange(search.trim());
@@ -128,13 +138,21 @@ function AgentCombobox({ value, onChange, knownAgents, id, channelType }: AgentC
     }
   }, [search, onChange]);
 
-  // Filter known agents by search term
+  // Filter agents by search term (match against ID, name, or display_name)
   const filtered = useMemo(
-    () => knownAgents.filter((a) => a.toLowerCase().includes(search.toLowerCase())),
-    [knownAgents, search],
+    () => agents.filter((a) => {
+      const term = search.toLowerCase();
+      return (
+        a.id.toLowerCase().includes(term) ||
+        a.name.toLowerCase().includes(term) ||
+        (a.display_name?.toLowerCase().includes(term) ?? false)
+      );
+    }),
+    [agents, search],
   );
 
-  const showCustomOption = search.trim() !== '' && !knownAgents.includes(search.trim());
+  const agentIds = useMemo(() => new Set(agents.map((a) => a.id)), [agents]);
+  const showCustomOption = search.trim() !== '' && !agentIds.has(search.trim());
 
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
@@ -147,7 +165,7 @@ function AgentCombobox({ value, onChange, knownAgents, id, channelType }: AgentC
           data-testid={`agent-combobox-trigger-${channelType}`}
           className="mt-1 w-full justify-between font-normal"
         >
-          <span className="truncate">{value || 'Select agent...'}</span>
+          <span className="truncate">{value ? displayLabel(value) : 'Select agent...'}</span>
           <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
@@ -156,21 +174,21 @@ function AgentCombobox({ value, onChange, knownAgents, id, channelType }: AgentC
           <CommandInput
             ref={inputRef}
             data-testid={`agent-combobox-input-${channelType}`}
-            placeholder="Type or select agent ID..."
+            placeholder="Type or select agent..."
             value={search}
             onValueChange={setSearch}
           />
           <CommandList>
-            <CommandEmpty>No known agents found.</CommandEmpty>
+            <CommandEmpty>No agents found.</CommandEmpty>
             {filtered.length > 0 && (
-              <CommandGroup heading="Known Agents">
-                {filtered.map((agentId) => (
+              <CommandGroup heading="Agents">
+                {filtered.map((agent) => (
                   <CommandItem
-                    key={agentId}
-                    value={agentId}
-                    onSelect={() => handleSelect(agentId)}
+                    key={agent.id}
+                    value={agent.id}
+                    onSelect={() => handleSelect(agent.id)}
                   >
-                    {agentId}
+                    {agent.display_name ?? agent.name}
                   </CommandItem>
                 ))}
               </CommandGroup>
@@ -198,6 +216,7 @@ function AgentCombobox({ value, onChange, knownAgents, id, channelType }: AgentC
 
 function ChannelDefaultsSection() {
   const [defaults, setDefaults] = useState<ChannelDefault[]>([]);
+  const [agents, setAgents] = useState<ChatAgent[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<Record<string, { agent_id: string }>>({});
@@ -221,6 +240,23 @@ function ChannelDefaultsSection() {
     }
   }, []);
 
+  // Fetch available agents from /chat/agents (same pattern as ChatSettingsSection)
+  useEffect(() => {
+    let alive = true;
+    async function fetchAgents() {
+      try {
+        const data = await apiClient.get<ChatAgentsResponse>('/chat/agents');
+        if (!alive) return;
+        setAgents(Array.isArray(data.agents) ? data.agents : []);
+      } catch {
+        // Non-fatal: combobox will still allow free text entry
+        if (alive) setAgents([]);
+      }
+    }
+    fetchAgents();
+    return () => { alive = false; };
+  }, []);
+
   useEffect(() => { fetchDefaults(); }, [fetchDefaults]);
 
   const handleSave = useCallback(async (channelType: string) => {
@@ -239,12 +275,6 @@ function ChannelDefaultsSection() {
       setSaving(null);
     }
   }, [editValues, fetchDefaults]);
-
-  // Collect unique agent IDs from existing defaults for combobox suggestions
-  const knownAgents = useMemo(
-    () => [...new Set(defaults.map((d) => d.agent_id).filter(Boolean))],
-    [defaults],
-  );
 
   if (loading) {
     return (
@@ -298,7 +328,7 @@ function ChannelDefaultsSection() {
                       ...prev,
                       [value]: { agent_id: agentId },
                     }))}
-                    knownAgents={knownAgents}
+                    agents={agents}
                     channelType={value}
                   />
                 </div>
@@ -329,6 +359,7 @@ function ChannelDefaultsSection() {
 
 function InboundDestinationsSection() {
   const [destinations, setDestinations] = useState<InboundDestination[]>([]);
+  const [agents, setAgents] = useState<ChatAgent[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('all');
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -348,6 +379,22 @@ function InboundDestinationsSection() {
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  // Fetch available agents from /chat/agents
+  useEffect(() => {
+    let alive = true;
+    async function fetchAgents() {
+      try {
+        const data = await apiClient.get<ChatAgentsResponse>('/chat/agents');
+        if (!alive) return;
+        setAgents(Array.isArray(data.agents) ? data.agents : []);
+      } catch {
+        if (alive) setAgents([]);
+      }
+    }
+    fetchAgents();
+    return () => { alive = false; };
   }, []);
 
   useEffect(() => { fetchDestinations(); }, [fetchDestinations]);
@@ -439,7 +486,7 @@ function InboundDestinationsSection() {
                       {!dest.is_active && <Badge variant="outline" className="text-xs">Inactive</Badge>}
                     </div>
                     {dest.agent_id ? (
-                      <span className="text-xs text-muted-foreground">Override: {dest.agent_id}</span>
+                      <span className="text-xs text-muted-foreground">Override: {agents.find((a) => a.id === dest.agent_id)?.display_name ?? agents.find((a) => a.id === dest.agent_id)?.name ?? dest.agent_id}</span>
                     ) : (
                       <span className="text-xs text-muted-foreground">Using channel default</span>
                     )}
@@ -447,12 +494,14 @@ function InboundDestinationsSection() {
 
                   {isEditing ? (
                     <div className="flex items-center gap-2">
-                      <Input
-                        value={editAgent}
-                        onChange={(e) => setEditAgent(e.target.value)}
-                        placeholder="Agent ID (empty = use default)"
-                        className="h-8 w-48 text-xs"
-                      />
+                      <div className="w-48">
+                        <AgentCombobox
+                          value={editAgent}
+                          onChange={setEditAgent}
+                          agents={agents}
+                          channelType={`destination-${dest.id}`}
+                        />
+                      </div>
                       <Button size="sm" variant="ghost" onClick={() => handleSave(dest.id)} disabled={saving}>
                         {saving ? <Loader2 className="size-3 animate-spin" /> : 'Save'}
                       </Button>
