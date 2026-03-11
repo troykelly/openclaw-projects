@@ -3276,6 +3276,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       default_view?: 'activity' | 'projects' | 'timeline' | 'contacts';
       default_project_id?: string | null;
       default_agent_id?: string | null;
+      visible_agent_ids?: string[] | null;
       sidebar_collapsed?: boolean;
       show_completed_items?: boolean;
       items_per_page?: number;
@@ -3284,9 +3285,72 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       timezone?: string;
     };
 
+    // Validate and normalize visible_agent_ids before SQL building
+    let normalizedVisibleIds: string[] | null | undefined;
+    if ('visible_agent_ids' in body) {
+      const raw = body.visible_agent_ids;
+      if (raw === null) {
+        normalizedVisibleIds = null;
+      } else if (!Array.isArray(raw)) {
+        return reply.code(400).send({ error: 'visible_agent_ids must be an array or null' });
+      } else {
+        if (raw.length > 50) {
+          return reply.code(400).send({ error: 'visible_agent_ids must not exceed 50 entries' });
+        }
+        const cleaned: string[] = [];
+        const seen = new Set<string>();
+        for (const entry of raw) {
+          if (typeof entry !== 'string') {
+            return reply.code(400).send({ error: 'visible_agent_ids entries must be strings' });
+          }
+          const trimmed = entry.trim();
+          if (trimmed.length === 0) continue;
+          if (trimmed.length > 255) {
+            return reply.code(400).send({ error: 'Each visible_agent_ids entry must not exceed 255 characters' });
+          }
+          if (!seen.has(trimmed)) {
+            seen.add(trimmed);
+            cleaned.push(trimmed);
+          }
+        }
+
+        // Auto-include default_agent_id if being set simultaneously
+        const effectiveDefault = ('default_agent_id' in body)
+          ? (body.default_agent_id?.trim() || null)
+          : null;
+        if (effectiveDefault && !cleaned.includes(effectiveDefault)) {
+          cleaned.push(effectiveDefault);
+        }
+
+        normalizedVisibleIds = cleaned;
+      }
+    }
+
+    // Cross-validate: if setting default_agent_id alone, check against existing visible list
+    if ('default_agent_id' in body && !('visible_agent_ids' in body)) {
+      const newDefault = body.default_agent_id?.trim() || null;
+      if (newDefault) {
+        const checkPool = createPool();
+        try {
+          const existing = await checkPool.query(
+            `SELECT visible_agent_ids FROM user_setting WHERE email = $1`,
+            [email],
+          );
+          const existingVis: string[] | null = existing.rows[0]?.visible_agent_ids ?? null;
+          if (existingVis !== null && !existingVis.includes(newDefault)) {
+            return reply.code(400).send({
+              error: 'default_agent_id must be in visible_agent_ids. Update visible_agent_ids first.',
+            });
+          }
+        } finally {
+          await checkPool.end();
+        }
+      }
+    }
+
     // Build dynamic update
     const updates: string[] = [];
-    const params: (string | boolean | number | null)[] = [email];
+    const params: unknown[] = [email];
     let paramIndex = 2;
 
     const allowedFields = [
@@ -3312,6 +3376,18 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         params.push((body as Record<string, unknown>)[field] as string | boolean | number | null);
         paramIndex++;
       }
+    }
+
+    // Handle visible_agent_ids (array field — separate from scalar allowedFields)
+    if (normalizedVisibleIds !== undefined) {
+      if (normalizedVisibleIds === null) {
+        updates.push(`visible_agent_ids = $${paramIndex}`);
+        params.push(null);
+      } else {
+        updates.push(`visible_agent_ids = $${paramIndex}::text[]`);
+        params.push(normalizedVisibleIds);
+      }
+      paramIndex++;
     }
 
     if (updates.length === 0) {
