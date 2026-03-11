@@ -885,6 +885,70 @@ describe('GatewayConnectionService', () => {
       await svc.shutdown();
     });
 
+    it('reconnection restores connected state with updated timestamp (Issue #2392)', async () => {
+      const svc = makeService();
+      const initPromise = svc.initialize();
+      await vi.advanceTimersByTimeAsync(0);
+      completeHandshake(getMockInstances()[0]);
+      await vi.advanceTimersByTimeAsync(0);
+      await initPromise;
+
+      // Verify connected and record timestamp
+      expect(svc.getStatus().connected).toBe(true);
+      const connectedAt1 = svc.getStatus().connected_at;
+      expect(connectedAt1).toBeTruthy();
+
+      // Advance time so reconnect timestamp is visibly different
+      await vi.advanceTimersByTimeAsync(5000);
+
+      // Simulate disconnect
+      getMockInstances()[0]._emitClose(1006);
+      expect(svc.getStatus().connected).toBe(false);
+
+      // Wait for reconnect backoff and complete handshake on new WS
+      await vi.advanceTimersByTimeAsync(1600);
+      const newWs = getMockInstances()[getMockInstances().length - 1];
+      expect(newWs).not.toBe(getMockInstances()[0]);
+      completeHandshake(newWs);
+      await vi.advanceTimersByTimeAsync(0);
+
+      // Verify re-connected with updated connected_at timestamp
+      const status = svc.getStatus();
+      expect(status.connected).toBe(true);
+      expect(status.connected_at).toBeTruthy();
+      expect(new Date(status.connected_at!).getTime()).toBeGreaterThan(
+        new Date(connectedAt1!).getTime(),
+      );
+
+      await svc.shutdown();
+    });
+
+    it('reconnects after server-initiated restart code 1012 (Issue #2392)', async () => {
+      const svc = makeService();
+      const initPromise = svc.initialize();
+      await vi.advanceTimersByTimeAsync(0);
+      completeHandshake(getMockInstances()[0]);
+      await vi.advanceTimersByTimeAsync(0);
+      await initPromise;
+
+      // Simulate server-initiated restart (code 1012) — observed in production logs
+      getMockInstances()[0]._emitClose(1012);
+      expect(svc.getStatus().connected).toBe(false);
+
+      // Wait for reconnect backoff
+      await vi.advanceTimersByTimeAsync(2000);
+
+      // A new WS should have been created
+      const newWs = getMockInstances()[getMockInstances().length - 1];
+      completeHandshake(newWs);
+      await vi.advanceTimersByTimeAsync(0);
+
+      // Should be connected again
+      expect(svc.getStatus().connected).toBe(true);
+
+      await svc.shutdown();
+    });
+
     it('WS handshake timeout configurable via env', async () => {
       // Set a custom handshake timeout of 2 seconds
       const svc = makeService({
