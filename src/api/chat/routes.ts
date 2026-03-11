@@ -260,23 +260,37 @@ export async function chatRoutesPlugin(
     try {
       await client.query('BEGIN');
 
-      // Create a system contact for this chat agent (reuse if exists)
-      const contactResult = await client.query(
-        `INSERT INTO contact (display_name, namespace)
-         VALUES ($1, $2)
-         RETURNING id`,
-        [`Agent: ${agentId}`, namespace],
+      // Reuse existing agent_chat endpoint if present (prevents duplicate key
+      // violation when the same user creates a second session with the same
+      // agent — Issue #2386).
+      const endpointKey = `agent:${agentId}:${userEmail}`;
+      const existingEndpoint = await client.query<{ id: string }>(
+        `SELECT id FROM contact_endpoint
+         WHERE endpoint_type = 'agent_chat' AND endpoint_value = $1`,
+        [endpointKey],
       );
-      const contactId = (contactResult.rows[0] as { id: string }).id;
 
-      // Create an endpoint for the agent_chat channel
-      const endpointResult = await client.query(
-        `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value)
-         VALUES ($1, 'agent_chat', $2)
-         RETURNING id`,
-        [contactId, `agent:${agentId}:${userEmail}`],
-      );
-      const endpointId = (endpointResult.rows[0] as { id: string }).id;
+      let endpointId: string;
+      if (existingEndpoint.rows.length > 0) {
+        endpointId = existingEndpoint.rows[0].id;
+      } else {
+        // Create contact + endpoint for the first session with this agent.
+        const contactResult = await client.query<{ id: string }>(
+          `INSERT INTO contact (display_name, namespace)
+           VALUES ($1, $2)
+           RETURNING id`,
+          [`Agent: ${agentId}`, namespace],
+        );
+        const contactId = contactResult.rows[0].id;
+
+        const endpointResult = await client.query<{ id: string }>(
+          `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value)
+           VALUES ($1, 'agent_chat', $2)
+           RETURNING id`,
+          [contactId, endpointKey],
+        );
+        endpointId = endpointResult.rows[0].id;
+      }
 
       // Create the external_thread
       const threadKey = `chat:${agentId}:${userEmail}:${Date.now()}`;
