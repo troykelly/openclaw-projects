@@ -345,11 +345,12 @@ describe('Traefik dynamic config: api-webhook-router (Issue #2167)', () => {
     };
   }
 
-  // Per-provider webhook routers (Issue #2170 — split from single api-webhook-router)
+  // All webhook routers use Cloudflare IP allowlist at the edge (Issue #2408)
+  // Per-provider auth happens at the app layer (signature verification)
   const webhookRouters = [
     { name: 'api-webhook-cloudflare-router', path: '/cloudflare/email', ipMiddleware: 'webhook-cloudflare-ipallowlist' },
-    { name: 'api-webhook-postmark-router', path: '/postmark/inbound', ipMiddleware: 'webhook-postmark-ipallowlist' },
-    { name: 'api-webhook-twilio-router', path: '/twilio/sms', ipMiddleware: 'webhook-twilio-ipallowlist' },
+    { name: 'api-webhook-postmark-router', path: '/postmark/inbound', ipMiddleware: 'webhook-cloudflare-ipallowlist' },
+    { name: 'api-webhook-twilio-router', path: '/twilio/sms', ipMiddleware: 'webhook-cloudflare-ipallowlist' },
   ];
 
   it.each(webhookRouters)('$name bypasses ModSecurity and routes to api-service', ({ name }) => {
@@ -398,11 +399,12 @@ describe('Traefik dynamic config: api-webhook-router (Issue #2167)', () => {
     }
   });
 
-  it('ipAllowList middlewares are defined for all providers', () => {
+  it('only Cloudflare ipAllowList middleware is defined (Issue #2408)', () => {
     const config = getParsedConfig() as { http: { middlewares: Record<string, unknown>; routers: Record<string, unknown> } };
     expect(config.http.middlewares['webhook-cloudflare-ipallowlist']).toBeDefined();
-    expect(config.http.middlewares['webhook-postmark-ipallowlist']).toBeDefined();
-    expect(config.http.middlewares['webhook-twilio-ipallowlist']).toBeDefined();
+    // Per-provider allowlists removed — they don't work behind Cloudflare proxy
+    expect(config.http.middlewares['webhook-postmark-ipallowlist']).toBeUndefined();
+    expect(config.http.middlewares['webhook-twilio-ipallowlist']).toBeUndefined();
   });
 });
 

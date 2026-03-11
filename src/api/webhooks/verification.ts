@@ -106,12 +106,17 @@ export function verifyPostmarkAuth(request: FastifyRequest): boolean {
 }
 
 /**
- * Cloudflare Email Workers webhook verification.
- * Uses a shared secret in X-Cloudflare-Email-Secret header.
+ * Cloudflare Email Workers webhook verification (Issue #2408).
+ *
+ * Preferred: HMAC-SHA256 over the raw request body, sent in
+ * `X-Cloudflare-Email-Signature` header (hex-encoded).
+ *
+ * Backward compat: Falls back to static shared-secret comparison
+ * via `X-Cloudflare-Email-Secret` header with a deprecation warning.
  */
 export function verifyCloudflareEmailSecret(request: FastifyRequest): boolean {
-  const expectedSecret = getSecretFromEnvSync('CLOUDFLARE_EMAIL_SECRET');
-  if (!expectedSecret) {
+  const secret = getSecretFromEnvSync('CLOUDFLARE_EMAIL_SECRET');
+  if (!secret) {
     console.warn('[Webhook] CLOUDFLARE_EMAIL_SECRET not configured');
     if (process.env.NODE_ENV === 'development' || process.env.OPENCLAW_PROJECTS_AUTH_DISABLED === 'true') {
       return true;
@@ -119,13 +124,29 @@ export function verifyCloudflareEmailSecret(request: FastifyRequest): boolean {
     return false;
   }
 
+  // Preferred: HMAC-SHA256 signature over the request body
+  const hmacSignature = request.headers['x-cloudflare-email-signature'] as string | undefined;
+  if (hmacSignature) {
+    const body = typeof request.body === 'string' ? request.body : JSON.stringify(request.body);
+    const expectedSignature = createHmac('sha256', secret).update(Buffer.from(body, 'utf-8')).digest('hex');
+    const cleanSignature = hmacSignature.startsWith('sha256=') ? hmacSignature.slice(7) : hmacSignature;
+    try {
+      return timingSafeEqual(Buffer.from(cleanSignature, 'hex'), Buffer.from(expectedSignature, 'hex'));
+    } catch {
+      return false;
+    }
+  }
+
+  // Backward compat: static shared-secret header (deprecated)
   const providedSecret = request.headers['x-cloudflare-email-secret'] as string | undefined;
   if (!providedSecret) {
     return false;
   }
 
+  console.warn('[Webhook] Cloudflare email using deprecated X-Cloudflare-Email-Secret header — migrate to HMAC X-Cloudflare-Email-Signature');
+
   try {
-    return timingSafeEqual(Buffer.from(providedSecret), Buffer.from(expectedSecret));
+    return timingSafeEqual(Buffer.from(providedSecret), Buffer.from(secret));
   } catch {
     return false;
   }
