@@ -88,6 +88,8 @@ export default defineProject({
       'src/api/gateway/connection.test.ts',
       // Memory unit tests
       'src/api/memory/namespace-priority.test.ts',
+      'src/api/memory/temporal.test.ts',
+      'src/api/memory/validation.test.ts',
       // File-storage unit tests
       'tests/file-storage/s3-presigned-external-endpoint.test.ts',
       'tests/file-storage/sharing-presigned-url.test.ts',

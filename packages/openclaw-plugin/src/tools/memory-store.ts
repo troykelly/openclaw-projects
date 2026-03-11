@@ -155,12 +155,10 @@ export function createMemoryStoreTool(options: MemoryStoreToolOptions): MemorySt
 
       try {
         // Store memory via API
-        // Map plugin category to API memory_type ('other' has no API equivalent, use 'note')
-        const memory_type = category === 'other' ? 'note' : category;
-
+        // Categories now aligned across all layers (#2446, #2450)
         const payload: Record<string, unknown> = {
           content: sanitizedText,
-          memory_type: memory_type,
+          memory_type: category,
           importance,
           tags,
         };

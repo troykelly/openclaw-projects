@@ -36,7 +36,7 @@ export function memoriesPaths(): OpenApiDomainModule {
           type: { type: 'string', description: 'Alias for memory_type, provided for backwards compatibility', example: 'preference' },
           memory_type: {
             type: 'string',
-            enum: ['preference', 'fact', 'note', 'decision', 'context', 'reference'],
+            enum: ['preference', 'fact', 'note', 'decision', 'context', 'reference', 'entity', 'other'],
             description: 'Semantic type of the memory indicating its purpose',
             example: 'preference',
           },
@@ -71,7 +71,7 @@ export function memoriesPaths(): OpenApiDomainModule {
           id: { type: 'string', format: 'uuid', description: 'Unique identifier for the memory', example: 'd290f1ee-6c54-4b01-90e6-d701748f0851' },
           title: { type: 'string', description: 'Short title summarizing the memory', example: 'Sprint planning decisions' },
           content: { type: 'string', description: 'Full text content of the memory', example: 'Team decided to focus on authentication module first' },
-          type: { type: 'string', enum: ['note', 'decision', 'context', 'reference'], description: 'Semantic type of the memory', example: 'decision' },
+          type: { type: 'string', enum: ['preference', 'fact', 'note', 'decision', 'context', 'reference', 'entity', 'other'], description: 'Semantic type of the memory', example: 'decision' },
           tags: { type: 'array', items: { type: 'string' }, description: 'Tags for categorizing the memory', example: ['sprint', 'planning'] },
           linked_item_id: { type: 'string', format: 'uuid', description: 'UUID of the linked work item', example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890' },
           linked_item_title: { type: 'string', description: 'Title of the linked work item', example: 'Q1 Sprint Planning' },
@@ -90,7 +90,7 @@ export function memoriesPaths(): OpenApiDomainModule {
           content: { type: 'string', description: 'Full text content of the memory', example: 'User prefers dark mode and metric units' },
           memory_type: {
             type: 'string',
-            enum: ['preference', 'fact', 'note', 'decision', 'context', 'reference'],
+            enum: ['preference', 'fact', 'note', 'decision', 'context', 'reference', 'entity', 'other'],
             default: 'note',
             description: 'Semantic type of the memory indicating its purpose',
             example: 'preference',
@@ -279,7 +279,7 @@ export function memoriesPaths(): OpenApiDomainModule {
               name: 'type',
               in: 'query',
               description: 'Filter by memory type',
-              schema: { type: 'string', enum: ['note', 'decision', 'context', 'reference'] },
+              schema: { type: 'string', enum: ['preference', 'fact', 'note', 'decision', 'context', 'reference', 'entity', 'other'] },
               example: 'note',
             },
             {
@@ -323,7 +323,7 @@ export function memoriesPaths(): OpenApiDomainModule {
               title: { type: 'string', description: 'Short title for the memory', example: 'Sprint planning decisions' },
               content: { type: 'string', description: 'Full text content of the memory', example: 'Team decided to focus on authentication module first' },
               linked_item_id: { type: 'string', format: 'uuid', description: 'UUID of the work item to link this memory to', example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890' },
-              type: { type: 'string', enum: ['note', 'decision', 'context', 'reference'], default: 'note', description: 'Semantic type of the memory', example: 'decision' },
+              type: { type: 'string', enum: ['preference', 'fact', 'note', 'decision', 'context', 'reference', 'entity', 'other'], default: 'note', description: 'Semantic type of the memory', example: 'decision' },
               tags: { type: 'array', items: { type: 'string' }, description: 'Tags for categorizing the memory', example: ['sprint', 'planning'] },
             },
           }),
@@ -346,7 +346,7 @@ export function memoriesPaths(): OpenApiDomainModule {
             properties: {
               title: { type: 'string', description: 'Updated title for the memory', example: 'Updated sprint decisions' },
               content: { type: 'string', description: 'Updated content for the memory', example: 'Revised: focus on API module instead of auth' },
-              type: { type: 'string', enum: ['note', 'decision', 'context', 'reference'], default: 'note', description: 'Updated semantic type', example: 'decision' },
+              type: { type: 'string', enum: ['preference', 'fact', 'note', 'decision', 'context', 'reference', 'entity', 'other'], default: 'note', description: 'Updated semantic type', example: 'decision' },
               tags: { type: 'array', items: { type: 'string' }, description: 'Updated tags', example: ['sprint', 'revised'] },
             },
           }),
@@ -401,7 +401,7 @@ export function memoriesPaths(): OpenApiDomainModule {
               name: 'memory_type',
               in: 'query',
               description: 'Filter by memory type',
-              schema: { type: 'string', enum: ['preference', 'fact', 'note', 'decision', 'context', 'reference'] },
+              schema: { type: 'string', enum: ['preference', 'fact', 'note', 'decision', 'context', 'reference', 'entity', 'other'] },
               example: 'preference',
             },
           ],
@@ -636,7 +636,7 @@ export function memoriesPaths(): OpenApiDomainModule {
             properties: {
               title: { type: 'string', description: 'Updated title', example: 'Updated preference title' },
               content: { type: 'string', description: 'Updated content', example: 'User now prefers system theme' },
-              type: { type: 'string', enum: ['note', 'decision', 'context', 'reference'], description: 'Updated memory type', example: 'note' },
+              type: { type: 'string', enum: ['preference', 'fact', 'note', 'decision', 'context', 'reference', 'entity', 'other'], description: 'Updated memory type', example: 'note' },
             },
           }),
           responses: {
@@ -961,16 +961,29 @@ export function memoriesPaths(): OpenApiDomainModule {
 
       // -- Cleanup --------------------------------------------------------------
       '/memories/cleanup-expired': {
-        delete: {
+        post: {
           operationId: 'cleanupExpiredMemories',
-          summary: 'Delete all expired memories',
+          summary: 'Cleanup expired memories (soft-delete by default)',
+          description: 'State-changing operation — uses POST per HTTP semantics. Soft-deletes expired memories by setting is_active=false. Pass hard_delete=true in the request body for permanent deletion.',
           tags: ['Memories'],
+          requestBody: {
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    hard_delete: { type: 'boolean', default: false, description: 'When true, permanently deletes expired memories instead of soft-deleting' },
+                  },
+                },
+              },
+            },
+          },
           responses: {
             '200': jsonResponse('Cleanup result', {
               type: 'object',
               required: ['deleted'],
               properties: {
-                deleted: { type: 'integer', description: 'Number of expired memories that were deleted', example: 7 },
+                deleted: { type: 'integer', description: 'Number of expired memories that were cleaned up', example: 7 },
               },
             }),
             ...errorResponses(401, 500),

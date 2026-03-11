@@ -12,8 +12,8 @@ import type { PluginConfig } from '../config.js';
 import { sanitizeErrorMessage } from '../utils/sanitize.js';
 import { haversineDistanceKm, computeGeoScore, blendScores } from '../utils/geo.js';
 
-/** Memory categories for filtering */
-export const MemoryCategory = z.enum(['preference', 'fact', 'decision', 'context', 'entity', 'other']);
+/** Memory categories for filtering — aligned with canonical DB enum (Issue #2446, #2450) */
+export const MemoryCategory = z.enum(['preference', 'fact', 'note', 'decision', 'context', 'reference', 'entity', 'other']);
 export type MemoryCategory = z.infer<typeof MemoryCategory>;
 
 /** Temporal period shorthand values */
@@ -207,14 +207,14 @@ export function createMemoryRecallTool(options: MemoryRecallToolOptions): Memory
         const rawResults = response.data.results ?? [];
 
         // Map API field names to plugin Memory interface
-        // Reverse the category mapping: 'note' (API) → 'other' (plugin)
         // API returns both `type` and `memory_type`; prefer `type` but fall back to `memory_type`
+        // Categories now aligned across all layers (#2446, #2450)
         let memories: Memory[] = rawResults.map((m) => {
           const apiType = m.type ?? m.memory_type ?? 'note';
           return {
             id: m.id,
             content: m.content,
-            category: apiType === 'note' ? 'other' : apiType,
+            category: apiType,
             tags: m.tags,
             score: m.similarity,
             created_at: m.created_at,

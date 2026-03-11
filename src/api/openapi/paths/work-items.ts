@@ -361,7 +361,7 @@ export function workItemsPaths(): OpenApiDomainModule {
           id: { type: 'string', format: 'uuid', description: 'Unique identifier for the memory', example: 'c8d9e0f1-2345-67ab-cdef-890123456789' },
           title: { type: 'string', description: 'Title of the memory entry', example: 'Auth design decision' },
           content: { type: 'string', description: 'Full content of the memory in markdown', example: 'Decided to use JWT with 15-minute access tokens and 7-day refresh tokens.' },
-          type: { type: 'string', enum: ['note', 'decision', 'context', 'reference'], description: 'Category of the memory', example: 'note' },
+          type: { type: 'string', enum: ['preference', 'fact', 'note', 'decision', 'context', 'reference', 'entity', 'other'], description: 'Category of the memory', example: 'note' },
           created_at: { type: 'string', format: 'date-time', description: 'When the memory was created', example: '2026-02-21T14:30:00Z' },
           updated_at: { type: 'string', format: 'date-time', description: 'When the memory was last updated', example: '2026-02-21T15:00:00Z' },
         },
@@ -372,7 +372,7 @@ export function workItemsPaths(): OpenApiDomainModule {
         properties: {
           title: { type: 'string', description: 'Title for the new memory entry', example: 'Auth design decision' },
           content: { type: 'string', description: 'Full content of the memory in markdown', example: 'Decided to use JWT with 15-minute access tokens and 7-day refresh tokens.' },
-          type: { type: 'string', enum: ['note', 'decision', 'context', 'reference'], default: 'note', description: 'Category of the memory (defaults to note)', example: 'note' },
+          type: { type: 'string', enum: ['preference', 'fact', 'note', 'decision', 'context', 'reference', 'entity', 'other'], default: 'note', description: 'Category of the memory (defaults to note)', example: 'note' },
         },
       },
       WorkItemAttachment: {

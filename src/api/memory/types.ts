@@ -9,8 +9,8 @@
  * All property names use snake_case to match the project-wide convention (Issue #1412).
  */
 
-/** Valid memory types */
-export type MemoryType = 'preference' | 'fact' | 'note' | 'decision' | 'context' | 'reference';
+/** Valid memory types — canonical source of truth, matches DB enum */
+export type MemoryType = 'preference' | 'fact' | 'note' | 'decision' | 'context' | 'reference' | 'entity' | 'other';
 
 /** Memory scoping options */
 export interface MemoryScope {

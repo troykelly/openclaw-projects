@@ -143,8 +143,7 @@ export function createMemoryListTool(options: MemoryListToolOptions): MemoryList
           offset: String(offset),
         });
         if (category) {
-          const memory_type = category === 'other' ? 'note' : category;
-          queryParams.set('memory_type', memory_type);
+          queryParams.set('memory_type', category);
         }
         if (tags && tags.length > 0) {
           queryParams.set('tags', tags.join(','));
@@ -197,14 +196,13 @@ export function createMemoryListTool(options: MemoryListToolOptions): MemoryList
         const rawMemories = response.data.memories ?? [];
         const total = response.data.total ?? rawMemories.length;
 
-        // Map API field names to plugin interface
-        // API returns both `type` and `memory_type`; prefer `type` but fall back to `memory_type`
+        // Map API field names to plugin interface (#2446, #2450 — categories aligned)
         const memories: MemoryListItem[] = rawMemories.map((m) => {
           const apiType = m.type ?? m.memory_type ?? 'note';
           return {
             id: m.id,
             content: m.content,
-            category: apiType === 'note' ? 'other' : apiType,
+            category: apiType,
             tags: m.tags,
             importance: m.importance,
             created_at: m.created_at,

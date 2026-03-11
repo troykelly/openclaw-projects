@@ -9558,20 +9558,24 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     });
   });
 
-  // DELETE /api/memory/:id - Delete a memory
+  // DELETE /api/memory/:id - Delete a memory (#2436 namespace isolation)
   app.delete('/memory/:id', async (req, reply) => {
+    const { deleteMemory } = await import('./memory/index.ts');
     const params = req.params as { id: string };
     const pool = createPool();
+    const queryNamespaces = getEffectiveNamespaces(req);
 
-    const result = await pool.query('DELETE FROM memory WHERE id = $1 RETURNING id::text as id', [params.id]);
+    try {
+      const deleted = await deleteMemory(pool, params.id, queryNamespaces.length > 0 ? queryNamespaces : undefined);
 
-    await pool.end();
+      if (!deleted) {
+        return reply.code(404).send({ error: 'not found' });
+      }
 
-    if (result.rows.length === 0) {
-      return reply.code(404).send({ error: 'not found' });
+      return reply.code(204).send();
+    } finally {
+      await pool.end();
     }
-
-    return reply.code(204).send();
   });
 
   // GET /api/memories/search - Semantic search for memories (issue #200)
@@ -10313,7 +10317,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
-  // POST /api/memories/:id/supersede - Supersede a memory with a new one (issue #209)
+  // POST /api/memories/:id/supersede - Supersede a memory with a new one (issue #209, #2436 namespace isolation)
   app.post('/memories/:id/supersede', async (req, reply) => {
     const { supersedeMemory, getMemory, isValidMemoryType } = await import('./memory/index.ts');
 
@@ -10335,10 +10339,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     const pool = createPool();
+    const queryNamespaces = getEffectiveNamespaces(req);
+    const nsFilter = queryNamespaces.length > 0 ? queryNamespaces : undefined;
 
     try {
-      // Get the old memory to inherit its scope
-      const oldMemory = await getMemory(pool, params.id);
+      // Get the old memory to inherit its scope (with namespace isolation)
+      const oldMemory = await getMemory(pool, params.id, nsFilter);
       if (!oldMemory) {
         return reply.code(404).send({ error: 'Memory not found' });
       }
@@ -10346,21 +10352,25 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const memory_type = body.memory_type ?? oldMemory.memory_type;
       if (!isValidMemoryType(memory_type)) {
         return reply.code(400).send({
-          error: 'Invalid memory_type. Valid types: preference, fact, note, decision, context, reference',
+          error: `Invalid memory_type. Valid types: ${['preference', 'fact', 'note', 'decision', 'context', 'reference', 'entity', 'other'].join(', ')}`,
         });
       }
 
       const newMemory = await supersedeMemory(pool, params.id, {
         title: body.title.trim(),
         content: body.content.trim(),
-        memory_type: memory_type as any,
+        memory_type: memory_type as import('./memory/types.ts').MemoryType,
         work_item_id: oldMemory.work_item_id ?? undefined,
         contact_id: oldMemory.contact_id ?? undefined,
         relationship_id: oldMemory.relationship_id ?? undefined,
         project_id: oldMemory.project_id ?? undefined,
         importance: body.importance ?? oldMemory.importance,
         confidence: body.confidence ?? oldMemory.confidence,
-      });
+      }, nsFilter);
+
+      if (!newMemory) {
+        return reply.code(404).send({ error: 'Memory not found' });
+      }
 
       // Generate embedding for new memory
       const memoryContent = `${newMemory.title}\n\n${newMemory.content}`;
@@ -10479,14 +10489,20 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
-  // DELETE /api/memories/cleanup-expired - Cleanup expired memories (issue #209)
-  app.delete('/memories/cleanup-expired', async (_req, reply) => {
+  // POST /api/memories/cleanup-expired - Cleanup expired memories (issue #209, #2458)
+  // Changed from DELETE to POST: state-changing operation must not use GET/DELETE
+  app.post('/memories/cleanup-expired', async (req, reply) => {
     const { cleanupExpiredMemories } = await import('./memory/index.ts');
 
     const pool = createPool();
+    const queryNamespaces = getEffectiveNamespaces(req);
 
     try {
-      const deleted = await cleanupExpiredMemories(pool);
+      const body = (req.body ?? {}) as { hard_delete?: boolean };
+      const deleted = await cleanupExpiredMemories(pool, {
+        namespaces: queryNamespaces.length > 0 ? queryNamespaces : undefined,
+        hardDelete: body.hard_delete === true,
+      });
       return reply.send({ deleted });
     } finally {
       await pool.end();
@@ -10736,14 +10752,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     return reply.code(201).send(result.rows[0]);
   });
 
-  // GET /api/memories/:id - Get a single memory by ID (Issue #1841)
+  // GET /api/memories/:id - Get a single memory by ID (Issue #1841, #2436 namespace isolation)
   app.get('/memories/:id', async (req, reply) => {
     const { getMemory } = await import('./memory/index.ts');
     const params = req.params as { id: string };
     const pool = createPool();
+    const queryNamespaces = getEffectiveNamespaces(req);
 
     try {
-      const memory = await getMemory(pool, params.id);
+      const memory = await getMemory(pool, params.id, queryNamespaces.length > 0 ? queryNamespaces : undefined);
       if (!memory) {
         return reply.code(404).send({ error: 'not found' });
       }
@@ -10753,7 +10770,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
-  // PATCH /api/memories/:id - Update a memory
+  // PATCH /api/memories/:id - Update a memory (#2436 namespace isolation)
   app.patch('/memories/:id', async (req, reply) => {
     const { updateMemory } = await import('./memory/index.ts');
     const params = req.params as { id: string };
@@ -10772,6 +10789,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     };
 
     const pool = createPool();
+    const queryNamespaces = getEffectiveNamespaces(req);
 
     try {
       // Accept memory_type as alias for type (frontend sends memory_type)
@@ -10792,7 +10810,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         tags: body.tags,
         source_url: body.source_url,
         pinned: body.pinned,
-      });
+      }, queryNamespaces.length > 0 ? queryNamespaces : undefined);
 
       if (!updated) {
         return reply.code(404).send({ error: 'not found' });
@@ -10800,7 +10818,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
       return reply.send({ ...updated, type: updated.memory_type });
     } catch (err) {
-      if (err instanceof Error && (err.message.startsWith('Invalid memory type') || err.message.startsWith('expires_at') || err.message.startsWith('Importance'))) {
+      if (err instanceof Error && (err.message.startsWith('Invalid memory type') || err.message.startsWith('expires_at') || err.message.startsWith('Importance') || err.message.startsWith('Confidence') || err.message.startsWith('Content exceeds') || err.message.startsWith('Too many tags') || err.message.startsWith('Tag "'))) {
         return reply.code(400).send({ error: err.message });
       }
       throw err;
@@ -10809,20 +10827,24 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
-  // DELETE /api/memories/:id - Delete a memory
+  // DELETE /api/memories/:id - Delete a memory (#2436 namespace isolation)
   app.delete('/memories/:id', async (req, reply) => {
+    const { deleteMemory } = await import('./memory/index.ts');
     const params = req.params as { id: string };
     const pool = createPool();
+    const queryNamespaces = getEffectiveNamespaces(req);
 
-    const result = await pool.query('DELETE FROM memory WHERE id = $1 RETURNING id::text as id', [params.id]);
+    try {
+      const deleted = await deleteMemory(pool, params.id, queryNamespaces.length > 0 ? queryNamespaces : undefined);
 
-    await pool.end();
+      if (!deleted) {
+        return reply.code(404).send({ error: 'not found' });
+      }
 
-    if (result.rows.length === 0) {
-      return reply.code(404).send({ error: 'not found' });
+      return reply.code(204).send();
+    } finally {
+      await pool.end();
     }
-
-    return reply.code(204).send();
   });
 
   // Memory Relationships API (issue #205)

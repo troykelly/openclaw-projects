@@ -19,8 +19,46 @@ import type {
   UpdateMemoryInput,
 } from './types.ts';
 
-/** Valid memory types for validation */
-const VALID_MEMORY_TYPES: MemoryType[] = ['preference', 'fact', 'note', 'decision', 'context', 'reference'];
+/** Valid memory types for validation — matches DB enum */
+const VALID_MEMORY_TYPES: MemoryType[] = ['preference', 'fact', 'note', 'decision', 'context', 'reference', 'entity', 'other'];
+
+/** Maximum content length in bytes (100KB) */
+const MAX_CONTENT_LENGTH = 102400;
+/** Maximum number of tags per memory */
+const MAX_TAG_COUNT = 50;
+/** Maximum length of a single tag */
+const MAX_TAG_LENGTH = 100;
+
+/**
+ * Validates memory input fields shared between create and update.
+ * Throws Error with descriptive message on validation failure.
+ */
+export function validateMemoryFields(input: {
+  confidence?: number;
+  tags?: string[];
+  content?: string;
+}): void {
+  if (input.confidence !== undefined) {
+    if (input.confidence < 0 || input.confidence > 1) {
+      throw new Error('Confidence must be between 0 and 1');
+    }
+  }
+  if (input.content !== undefined) {
+    if (new TextEncoder().encode(input.content).length > MAX_CONTENT_LENGTH) {
+      throw new Error(`Content exceeds maximum length of ${MAX_CONTENT_LENGTH} bytes`);
+    }
+  }
+  if (input.tags !== undefined) {
+    if (input.tags.length > MAX_TAG_COUNT) {
+      throw new Error(`Too many tags: ${input.tags.length} exceeds maximum of ${MAX_TAG_COUNT}`);
+    }
+    for (const tag of input.tags) {
+      if (tag.length > MAX_TAG_LENGTH) {
+        throw new Error(`Tag "${tag.slice(0, 20)}..." exceeds maximum length of ${MAX_TAG_LENGTH} characters`);
+      }
+    }
+  }
+}
 
 /**
  * Maps database row to MemoryEntry
@@ -128,6 +166,9 @@ export async function createMemory(pool: Pool, input: CreateMemoryInput): Promis
     throw new Error(`Invalid memory type: ${memory_type}. Valid types are: ${VALID_MEMORY_TYPES.join(', ')}`);
   }
 
+  // Validate confidence, content length, and tags (#2442)
+  validateMemoryFields({ confidence: input.confidence, tags: input.tags, content: input.content });
+
   // At least one scope should be set
   if (!input.work_item_id && !input.contact_id && !input.relationship_id && !input.project_id && !input.namespace) {
     // Default to requiring at least some scope for organization
@@ -193,7 +234,7 @@ export async function createMemory(pool: Pool, input: CreateMemoryInput): Promis
       title, content, memory_type::text, tags,
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at, superseded_by::text,
-      embedding_status, (superseded_by IS NULL) as is_active, pinned, lat, lng, address, place_label, created_at, updated_at
+      embedding_status, is_active, pinned, lat, lng, address, place_label, created_at, updated_at
     FROM memory
     WHERE TRIM(content) = $1 AND ${scopeWhere}
     LIMIT 1`,
@@ -214,7 +255,7 @@ export async function createMemory(pool: Pool, input: CreateMemoryInput): Promis
         title, content, memory_type::text, tags,
         created_by_agent, created_by_human, source_url,
         importance, confidence, expires_at, superseded_by::text,
-        embedding_status, (superseded_by IS NULL) as is_active, pinned, lat, lng, address, place_label, created_at, updated_at`,
+        embedding_status, is_active, pinned, lat, lng, address, place_label, created_at, updated_at`,
       updateParams,
     );
 
@@ -236,7 +277,7 @@ export async function createMemory(pool: Pool, input: CreateMemoryInput): Promis
       title, content, memory_type::text, tags,
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at, superseded_by::text,
-      embedding_status, (superseded_by IS NULL) as is_active, pinned, lat, lng, address, place_label, created_at, updated_at`,
+      embedding_status, is_active, pinned, lat, lng, address, place_label, created_at, updated_at`,
     [
       input.work_item_id ?? null,
       input.contact_id ?? null,
@@ -266,22 +307,30 @@ export async function createMemory(pool: Pool, input: CreateMemoryInput): Promis
 
 /**
  * Gets a memory by ID.
+ * When namespaces is provided, enforces namespace isolation (returns null if not in scope).
  */
-export async function getMemory(pool: Pool, id: string): Promise<MemoryEntry | null> {
+export async function getMemory(pool: Pool, id: string, namespaces?: string[]): Promise<MemoryEntry | null> {
+  const params: unknown[] = [id];
+  let nsClause = '';
+  if (namespaces && namespaces.length > 0) {
+    nsClause = ' AND m.namespace = ANY($2::text[])';
+    params.push(namespaces);
+  }
+
   const result = await pool.query(
     `SELECT
       m.id::text, m.work_item_id::text, m.contact_id::text, m.relationship_id::text, m.project_id::text,
       m.title, m.content, m.memory_type::text, m.tags,
       m.created_by_agent, m.created_by_human, m.source_url,
       m.importance, m.confidence, m.expires_at, m.superseded_by::text,
-      m.embedding_status, (m.superseded_by IS NULL) as is_active, m.pinned, m.lat, m.lng, m.address, m.place_label, m.created_at, m.updated_at,
+      m.embedding_status, m.is_active, m.pinned, m.lat, m.lng, m.address, m.place_label, m.created_at, m.updated_at,
       COALESCE(fa.cnt, 0)::int as attachment_count
     FROM memory m
     LEFT JOIN LATERAL (
       SELECT COUNT(*) as cnt FROM unified_memory_attachment WHERE memory_id = m.id
     ) fa ON true
-    WHERE m.id = $1`,
-    [id],
+    WHERE m.id = $1${nsClause}`,
+    params,
   );
 
   if (result.rows.length === 0) {
@@ -294,7 +343,15 @@ export async function getMemory(pool: Pool, id: string): Promise<MemoryEntry | n
 /**
  * Updates a memory.
  */
-export async function updateMemory(pool: Pool, id: string, input: UpdateMemoryInput): Promise<MemoryEntry | null> {
+export async function updateMemory(
+  pool: Pool,
+  id: string,
+  input: UpdateMemoryInput,
+  namespaces?: string[],
+): Promise<MemoryEntry | null> {
+  // Validate shared fields (#2442)
+  validateMemoryFields({ confidence: input.confidence, tags: input.tags, content: input.content });
+
   const updates: string[] = [];
   const params: unknown[] = [];
   let paramIndex = 1;
@@ -335,9 +392,6 @@ export async function updateMemory(pool: Pool, id: string, input: UpdateMemoryIn
   }
 
   if (input.confidence !== undefined) {
-    if (input.confidence < 0 || input.confidence > 1) {
-      throw new Error('Confidence must be between 0 and 1');
-    }
     updates.push(`confidence = $${paramIndex}`);
     params.push(input.confidence);
     paramIndex++;
@@ -368,20 +422,29 @@ export async function updateMemory(pool: Pool, id: string, input: UpdateMemoryIn
   }
 
   if (updates.length === 0) {
-    return getMemory(pool, id);
+    return getMemory(pool, id, namespaces);
   }
 
   params.push(id);
+  const idIdx = paramIndex;
+  paramIndex++;
+
+  let nsClause = '';
+  if (namespaces && namespaces.length > 0) {
+    nsClause = ` AND namespace = ANY($${paramIndex}::text[])`;
+    params.push(namespaces);
+    paramIndex++;
+  }
 
   const result = await pool.query(
     `UPDATE memory SET ${updates.join(', ')}, updated_at = NOW()
-    WHERE id = $${paramIndex}
+    WHERE id = $${idIdx}${nsClause}
     RETURNING
       id::text, work_item_id::text, contact_id::text, relationship_id::text, project_id::text,
       title, content, memory_type::text, tags,
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at, superseded_by::text,
-      embedding_status, (superseded_by IS NULL) as is_active, pinned, lat, lng, address, place_label, created_at, updated_at`,
+      embedding_status, is_active, pinned, lat, lng, address, place_label, created_at, updated_at`,
     params,
   );
 
@@ -394,9 +457,16 @@ export async function updateMemory(pool: Pool, id: string, input: UpdateMemoryIn
 
 /**
  * Deletes a memory.
+ * When namespaces is provided, enforces namespace isolation.
  */
-export async function deleteMemory(pool: Pool, id: string): Promise<boolean> {
-  const result = await pool.query('DELETE FROM memory WHERE id = $1 RETURNING id', [id]);
+export async function deleteMemory(pool: Pool, id: string, namespaces?: string[]): Promise<boolean> {
+  const params: unknown[] = [id];
+  let nsClause = '';
+  if (namespaces && namespaces.length > 0) {
+    nsClause = ' AND namespace = ANY($2::text[])';
+    params.push(namespaces);
+  }
+  const result = await pool.query(`DELETE FROM memory WHERE id = $1${nsClause} RETURNING id`, params);
   return result.rows.length > 0;
 }
 
@@ -500,7 +570,7 @@ export async function listMemories(pool: Pool, options: ListMemoriesOptions = {}
       title, content, memory_type::text, tags,
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at, superseded_by::text,
-      embedding_status, (superseded_by IS NULL) as is_active, pinned, lat, lng, address, place_label, created_at, updated_at
+      embedding_status, is_active, pinned, lat, lng, address, place_label, created_at, updated_at
     FROM memory
     ${whereClause}
     ORDER BY importance DESC, created_at DESC
@@ -564,7 +634,7 @@ export async function getGlobalMemories(
       title, content, memory_type::text, tags,
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at, superseded_by::text,
-      embedding_status, (superseded_by IS NULL) as is_active, pinned, lat, lng, address, place_label, created_at, updated_at
+      embedding_status, is_active, pinned, lat, lng, address, place_label, created_at, updated_at
     FROM memory
     ${whereClause}
     ORDER BY importance DESC, created_at DESC
@@ -580,25 +650,64 @@ export async function getGlobalMemories(
 
 /**
  * Supersedes a memory with a new one.
+ * When namespaces is provided, enforces namespace isolation on the old memory.
  */
-export async function supersedeMemory(pool: Pool, oldMemoryId: string, newMemoryInput: CreateMemoryInput): Promise<MemoryEntry> {
+export async function supersedeMemory(
+  pool: Pool,
+  oldMemoryId: string,
+  newMemoryInput: CreateMemoryInput,
+  namespaces?: string[],
+): Promise<MemoryEntry | null> {
+  // Verify the old memory exists and belongs to the caller's namespaces
+  const oldMemory = await getMemory(pool, oldMemoryId, namespaces);
+  if (!oldMemory) {
+    return null;
+  }
+
   // Create the new memory
   const newMemory = await createMemory(pool, newMemoryInput);
 
-  // Mark the old memory as superseded
-  await pool.query('UPDATE memory SET superseded_by = $1, updated_at = NOW() WHERE id = $2', [newMemory.id, oldMemoryId]);
+  // Mark the old memory as superseded and inactive
+  await pool.query(
+    'UPDATE memory SET superseded_by = $1, is_active = false, updated_at = NOW() WHERE id = $2',
+    [newMemory.id, oldMemoryId],
+  );
 
   return newMemory;
 }
 
 /**
- * Cleans up expired memories.
+ * Cleans up expired memories by soft-deleting (setting is_active = false).
+ * Optionally hard-deletes if hardDelete is true.
+ * Respects namespace isolation when namespaces are provided.
  */
-export async function cleanupExpiredMemories(pool: Pool): Promise<number> {
+export async function cleanupExpiredMemories(
+  pool: Pool,
+  options?: { namespaces?: string[]; hardDelete?: boolean },
+): Promise<number> {
+  const params: unknown[] = [];
+  let nsClause = '';
+  if (options?.namespaces && options.namespaces.length > 0) {
+    nsClause = ' AND namespace = ANY($1::text[])';
+    params.push(options.namespaces);
+  }
+
+  if (options?.hardDelete) {
+    const result = await pool.query(
+      `DELETE FROM memory
+       WHERE expires_at IS NOT NULL AND expires_at < NOW()${nsClause}
+       RETURNING id`,
+      params,
+    );
+    return result.rows.length;
+  }
+
+  // Soft-delete: set is_active = false
   const result = await pool.query(
-    `DELETE FROM memory
-     WHERE expires_at IS NOT NULL AND expires_at < NOW()
+    `UPDATE memory SET is_active = false, updated_at = NOW()
+     WHERE expires_at IS NOT NULL AND expires_at < NOW() AND is_active = true${nsClause}
      RETURNING id`,
+    params,
   );
   return result.rows.length;
 }
@@ -797,7 +906,7 @@ export async function searchMemories(pool: Pool, query: string, options: SearchM
             title, content, memory_type::text, tags,
             created_by_agent, created_by_human, source_url,
             importance, confidence, expires_at, superseded_by::text,
-            embedding_status, (superseded_by IS NULL) as is_active, pinned, lat, lng, address, place_label, namespace, created_at, updated_at,
+            embedding_status, is_active, pinned, lat, lng, address, place_label, namespace, created_at, updated_at,
             1 - (embedding <=> $1::vector) as similarity
           FROM memory
           WHERE embedding IS NOT NULL
@@ -898,7 +1007,7 @@ export async function searchMemories(pool: Pool, query: string, options: SearchM
       title, content, memory_type::text, tags,
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at, superseded_by::text,
-      embedding_status, (superseded_by IS NULL) as is_active, pinned, lat, lng, address, place_label, namespace, created_at, updated_at,
+      embedding_status, is_active, pinned, lat, lng, address, place_label, namespace, created_at, updated_at,
       ts_rank(search_vector, websearch_to_tsquery('english', $1)) as similarity
     FROM memory
     WHERE search_vector @@ websearch_to_tsquery('english', $1)

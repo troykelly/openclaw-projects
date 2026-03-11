@@ -68,6 +68,8 @@ export default defineProject({
       'src/api/oauth/**/*.test.ts',
       'src/api/memory/keyword-boost-unit.test.ts',
       'src/api/memory/namespace-priority.test.ts',
+      'src/api/memory/temporal.test.ts',
+      'src/api/memory/validation.test.ts',
       'src/api/webhooks/payloads.test.ts',
       'src/api/geolocation/network-guard.test.ts',
       'src/api/geolocation/registry.test.ts',

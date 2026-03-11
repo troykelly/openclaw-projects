@@ -122,7 +122,7 @@ export function createMemoryUpdateTool(options: MemoryUpdateToolOptions): Memory
           payload.content = sanitized;
         }
         if (category !== undefined) {
-          payload.memory_type = category === 'other' ? 'note' : category;
+          payload.memory_type = category;
         }
         if (importance !== undefined) {
           payload.importance = importance;
