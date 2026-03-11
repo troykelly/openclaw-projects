@@ -311,6 +311,22 @@ describe('Cloudflare email HMAC verification', () => {
     expect(response.statusCode).toBe(200);
   });
 
+  it('returns 401 (not 500) for empty body with HMAC header', async () => {
+    await buildCfApp(true);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/cloudflare/email',
+      headers: {
+        'content-type': 'application/json',
+        'x-cloudflare-email-signature': 'sha256=0000000000000000000000000000000000000000000000000000000000000000',
+      },
+      payload: '',
+    });
+    // Should return 401 (invalid signature) or 400, not 500
+    expect(response.statusCode).not.toBe(500);
+  });
+
   it('rejects requests with no auth headers', async () => {
     await buildCfApp(true);
 

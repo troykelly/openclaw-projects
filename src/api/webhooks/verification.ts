@@ -129,13 +129,14 @@ export function verifyCloudflareEmailSecret(request: FastifyRequest): boolean {
   // fragility (key order, whitespace). Falls back to re-serialized JSON.
   const hmacSignature = request.headers['x-cloudflare-email-signature'] as string | undefined;
   if (hmacSignature) {
-    const rawBody = (request as FastifyRequest & { rawBody?: string | Buffer }).rawBody;
-    const body = rawBody !== undefined
-      ? (typeof rawBody === 'string' ? rawBody : rawBody.toString('utf-8'))
-      : (typeof request.body === 'string' ? request.body : JSON.stringify(request.body));
-    const expectedSignature = createHmac('sha256', secret).update(Buffer.from(body, 'utf-8')).digest('hex');
-    const cleanSignature = hmacSignature.startsWith('sha256=') ? hmacSignature.slice(7) : hmacSignature;
     try {
+      const rawBody = (request as FastifyRequest & { rawBody?: string | Buffer }).rawBody;
+      const body = rawBody !== undefined
+        ? (typeof rawBody === 'string' ? rawBody : rawBody.toString('utf-8'))
+        : (typeof request.body === 'string' ? request.body : JSON.stringify(request.body));
+      if (body === undefined) return false;
+      const expectedSignature = createHmac('sha256', secret).update(Buffer.from(body, 'utf-8')).digest('hex');
+      const cleanSignature = hmacSignature.startsWith('sha256=') ? hmacSignature.slice(7) : hmacSignature;
       return timingSafeEqual(Buffer.from(cleanSignature, 'hex'), Buffer.from(expectedSignature, 'hex'));
     } catch {
       return false;
@@ -172,18 +173,19 @@ export function verifyHmacSha256(request: FastifyRequest, secretEnvVar: string, 
     return false;
   }
 
-  // Prefer rawBody (original bytes) over re-serialized JSON (Issue #2412)
-  const rawBody = (request as FastifyRequest & { rawBody?: string | Buffer }).rawBody;
-  const body = rawBody !== undefined
-    ? (typeof rawBody === 'string' ? rawBody : rawBody.toString('utf-8'))
-    : (typeof request.body === 'string' ? request.body : JSON.stringify(request.body));
-
-  const expectedSignature = createHmac('sha256', secret).update(Buffer.from(body, 'utf-8')).digest('hex');
-
-  // Handle signatures with or without prefix (sha256=...)
-  const cleanSignature = signature.startsWith('sha256=') ? signature.slice(7) : signature;
-
   try {
+    // Prefer rawBody (original bytes) over re-serialized JSON (Issue #2412)
+    const rawBody = (request as FastifyRequest & { rawBody?: string | Buffer }).rawBody;
+    const body = rawBody !== undefined
+      ? (typeof rawBody === 'string' ? rawBody : rawBody.toString('utf-8'))
+      : (typeof request.body === 'string' ? request.body : JSON.stringify(request.body));
+    if (body === undefined) return false;
+
+    const expectedSignature = createHmac('sha256', secret).update(Buffer.from(body, 'utf-8')).digest('hex');
+
+    // Handle signatures with or without prefix (sha256=...)
+    const cleanSignature = signature.startsWith('sha256=') ? signature.slice(7) : signature;
+
     return timingSafeEqual(Buffer.from(cleanSignature, 'hex'), Buffer.from(expectedSignature, 'hex'));
   } catch {
     return false;
