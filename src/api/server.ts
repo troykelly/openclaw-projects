@@ -109,6 +109,7 @@ import { MessageRouter } from './realtime/message-router.ts';
 import { YjsHandler } from './realtime/yjs-handler.ts';
 import { YjsDocManager } from './realtime/yjs-doc-manager.ts';
 import { YjsWsHandler } from './realtime/yjs-ws-handler.ts';
+import { extractWsQueryToken } from './realtime/ws-query-token.ts';
 import {
   enqueueSmsMessage,
   getPhoneNumberDetails,
@@ -1757,88 +1758,36 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     });
   }
 
-  app.get('/ws', { websocket: true }, async (socket, req) => {
-    // Authenticate via JWT in Authorization header or query string
-    let user_id: string | undefined;
+  // WebSocket routes MUST be registered inside app.after() so that the
+  // @fastify/websocket plugin's onRoute hook is active. Without this, the
+  // plugin's handler override never fires and the route receives
+  // (FastifyRequest, Reply) instead of (WebSocket, FastifyRequest). Issue #2404.
+  //
+  // We use { wsHandler } instead of { websocket: true } so that @fastify/otel
+  // (Sentry) doesn't wrap the WebSocket handler. The OTel wrapper expects
+  // (FastifyRequest, Reply) but @fastify/websocket calls wsHandler with
+  // (WebSocket, FastifyRequest), crashing on socket.routeOptions.config.
+  // With { wsHandler }, OTel only wraps the HTTP fallback handler, not wsHandler.
+  app.after(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- @fastify/websocket wsHandler type not exported
+    app.get('/ws', { wsHandler: async (socket: any, req: FastifyRequest) => {
+      // Authenticate via JWT in Authorization header or query string
+      let user_id: string | undefined;
 
-    // Try JWT from Authorization header first (via getAuthIdentity)
-    const identity = await getAuthIdentity(req);
-    if (identity) {
-      user_id = identity.email;
-    } else if (!isAuthDisabled()) {
-      // Try JWT from query string (for WebSocket clients that can't set headers)
-      const query = req.query as { token?: string };
-      if (query.token) {
-        try {
-          const payload = await verifyAccessToken(query.token);
-          user_id = payload.sub;
-        } catch {
-          socket.close(4001, 'Unauthorized');
-          return;
-        }
-      } else {
-        socket.close(4001, 'Unauthorized');
-        return;
-      }
-    }
-
-    // Add client to the hub
-    const client_id = realtimeHub.addClient(socket, user_id);
-
-    // Get the WebSocketClient for the router
-    const wsClient = {
-      client_id,
-      user_id,
-      socket,
-      connected_at: new Date(),
-      last_ping: new Date(),
-    };
-
-    // Handle incoming messages via MessageRouter
-    socket.on('message', (data: Buffer, isBinary: boolean) => {
-      messageRouter.dispatch(wsClient, data, isBinary);
-    });
-
-    // Handle client disconnect
-    socket.on('close', () => {
-      realtimeHub.removeClient(client_id);
-      if (yjsHandler) {
-        yjsHandler.handleDisconnect(client_id).catch((err) => {
-          console.error(`[WebSocket] Yjs disconnect cleanup error for ${client_id}:`, err);
-        });
-      }
-    });
-
-    socket.on('error', (err: Error) => {
-      console.error(`[WebSocket] Client ${client_id} error:`, err);
-      realtimeHub.removeClient(client_id);
-      if (yjsHandler) {
-        yjsHandler.handleDisconnect(client_id).catch((disconnectErr) => {
-          console.debug(`[WebSocket] Yjs disconnect cleanup failed for ${client_id}:`, disconnectErr instanceof Error ? disconnectErr.message : disconnectErr);
-        });
-      }
-    });
-  });
-
-  // Yjs collaborative editing WebSocket endpoint (Issue #2256)
-  // Uses standard y-protocols for full compatibility with y-websocket WebsocketProvider.
-  // y-websocket connects to /yjs/{noteId}?token=JWT
-  if (yjsWsHandler && yjsEnabled) {
-    app.get('/yjs/:noteId', { websocket: true }, async (socket, req) => {
-      // Authenticate via JWT from query string
-      let user_email: string | undefined;
-
+      // Try JWT from Authorization header first (via getAuthIdentity)
       const identity = await getAuthIdentity(req);
       if (identity) {
-        user_email = identity.email;
+        user_id = identity.email;
       } else if (!isAuthDisabled()) {
-        const query = req.query as { token?: string };
-        if (query.token) {
+        // Try JWT from query string (for WebSocket clients that can't set headers).
+        // Parse from req.url because req.query may be undefined in @fastify/websocket
+        // handlers (Issue #2404).
+        const token = extractWsQueryToken(req);
+        if (token) {
           try {
-            const payload = await verifyAccessToken(query.token);
-            user_email = payload.sub;
-          } catch (err) {
-            console.debug(`[Yjs] JWT verification failed:`, err instanceof Error ? err.message : err);
+            const payload = await verifyAccessToken(token);
+            user_id = payload.sub;
+          } catch {
             socket.close(4001, 'Unauthorized');
             return;
           }
@@ -1848,42 +1797,116 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         }
       }
 
-      const noteId = (req.params as { noteId: string }).noteId;
-      const client_id = `yjs-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      // Add client to the hub
+      const client_id = realtimeHub.addClient(socket, user_id);
 
-      try {
-        await yjsWsHandler.handleConnection(
-          socket as unknown as Parameters<typeof yjsWsHandler.handleConnection>[0],
-          client_id,
-          user_email ?? '',
-          noteId,
-        );
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Connection failed';
-        console.error(`[Yjs] Connection error for ${noteId}:`, msg);
-        socket.close(4003, msg);
-        return;
-      }
+      // Get the WebSocketClient for the router
+      const wsClient = {
+        client_id,
+        user_id,
+        socket,
+        connected_at: new Date(),
+        last_ping: new Date(),
+      };
 
-      // Handle binary Yjs protocol messages
-      socket.on('message', (data: Buffer) => {
-        yjsWsHandler.handleMessage(client_id, data);
+      // Handle incoming messages via MessageRouter
+      socket.on('message', (data: Buffer, isBinary: boolean) => {
+        messageRouter.dispatch(wsClient, data, isBinary);
       });
 
+      // Handle client disconnect
       socket.on('close', () => {
-        yjsWsHandler.handleDisconnect(client_id).catch((err) => {
-          console.error(`[Yjs] Disconnect cleanup error for ${client_id}:`, err);
-        });
+        realtimeHub.removeClient(client_id);
+        if (yjsHandler) {
+          yjsHandler.handleDisconnect(client_id).catch((err) => {
+            console.error(`[WebSocket] Yjs disconnect cleanup error for ${client_id}:`, err);
+          });
+        }
       });
 
       socket.on('error', (err: Error) => {
-        console.error(`[Yjs] Client ${client_id} error:`, err);
-        yjsWsHandler.handleDisconnect(client_id).catch((disconnectErr) => {
-          console.debug(`[Yjs] Disconnect cleanup failed for ${client_id}:`, disconnectErr instanceof Error ? disconnectErr.message : disconnectErr);
-        });
+        console.error(`[WebSocket] Client ${client_id} error:`, err);
+        realtimeHub.removeClient(client_id);
+        if (yjsHandler) {
+          yjsHandler.handleDisconnect(client_id).catch((disconnectErr) => {
+            console.debug(`[WebSocket] Yjs disconnect cleanup failed for ${client_id}:`, disconnectErr instanceof Error ? disconnectErr.message : disconnectErr);
+          });
+        }
       });
+    } } as Record<string, unknown>, async (_req, reply) => {
+      reply.code(404).send();
     });
-  }
+
+    // Yjs collaborative editing WebSocket endpoint (Issue #2256)
+    // Uses standard y-protocols for full compatibility with y-websocket WebsocketProvider.
+    // y-websocket connects to /yjs/{noteId}?token=JWT
+    if (yjsWsHandler && yjsEnabled) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- @fastify/websocket wsHandler type not exported
+      app.get('/yjs/:noteId', { wsHandler: async (socket: any, req: FastifyRequest) => {
+        // Authenticate via JWT from query string
+        let user_email: string | undefined;
+
+        const identity = await getAuthIdentity(req);
+        if (identity) {
+          user_email = identity.email;
+        } else if (!isAuthDisabled()) {
+          // Parse token from req.url because req.query may be undefined in
+          // @fastify/websocket handlers (Issue #2404).
+          const token = extractWsQueryToken(req);
+          if (token) {
+            try {
+              const payload = await verifyAccessToken(token);
+              user_email = payload.sub;
+            } catch (err) {
+              console.debug(`[Yjs] JWT verification failed:`, err instanceof Error ? err.message : err);
+              socket.close(4001, 'Unauthorized');
+              return;
+            }
+          } else {
+            socket.close(4001, 'Unauthorized');
+            return;
+          }
+        }
+
+        const noteId = (req.params as { noteId: string }).noteId;
+        const client_id = `yjs-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+        try {
+          await yjsWsHandler.handleConnection(
+            socket as Parameters<typeof yjsWsHandler.handleConnection>[0],
+            client_id,
+            user_email ?? '',
+            noteId,
+          );
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : 'Connection failed';
+          console.error(`[Yjs] Connection error for ${noteId}:`, msg);
+          socket.close(4003, msg);
+          return;
+        }
+
+        // Handle binary Yjs protocol messages
+        socket.on('message', (data: Buffer) => {
+          yjsWsHandler.handleMessage(client_id, data);
+        });
+
+        socket.on('close', () => {
+          yjsWsHandler.handleDisconnect(client_id).catch((err) => {
+            console.error(`[Yjs] Disconnect cleanup error for ${client_id}:`, err);
+          });
+        });
+
+        socket.on('error', (err: Error) => {
+          console.error(`[Yjs] Client ${client_id} error:`, err);
+          yjsWsHandler.handleDisconnect(client_id).catch((disconnectErr) => {
+            console.debug(`[Yjs] Disconnect cleanup failed for ${client_id}:`, disconnectErr instanceof Error ? disconnectErr.message : disconnectErr);
+          });
+        });
+      } } as Record<string, unknown>, async (_req, reply) => {
+        reply.code(404).send();
+      });
+    }
+  });
 
   // Realtime stats endpoint (for monitoring)
   app.get('/ws/stats', async () => ({

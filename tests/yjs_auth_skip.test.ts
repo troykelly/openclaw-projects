@@ -1,7 +1,12 @@
 /**
- * Tests that the /yjs/:noteId WebSocket endpoint skips the global JWT auth hook.
+ * Tests that the /yjs/:noteId WebSocket endpoint skips the global JWT auth hook
+ * and that query-string token extraction works without crashing.
+ *
  * Issue #2341: The onRequest hook was rejecting Yjs WebSocket connections with 401
  * before the WS handler could check the ?token=JWT query param.
+ *
+ * Issue #2404: req.query is undefined in @fastify/websocket handlers, causing
+ * TypeError and HTTP 500 when extracting the JWT token.
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
@@ -38,7 +43,7 @@ describe('Yjs WebSocket auth skip (Issue #2341)', () => {
     expect(res.statusCode).not.toBe(401);
   });
 
-  it('GET /yjs/:noteId with query params does NOT return 401', async () => {
+  it('GET /yjs/:noteId with query params does NOT return 401 or 500', async () => {
     const res = await app.inject({
       method: 'GET',
       url: '/yjs/00000000-0000-0000-0000-000000000002?token=some-jwt-token',
@@ -46,6 +51,19 @@ describe('Yjs WebSocket auth skip (Issue #2341)', () => {
     });
 
     expect(res.statusCode).not.toBe(401);
+    // Issue #2404: previously crashed with TypeError because req.query was undefined
+    expect(res.statusCode).not.toBe(500);
+  });
+
+  it('GET /ws with query token does NOT return 500 (Issue #2404)', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/ws?token=some-jwt-token',
+      // No Authorization header
+    });
+
+    // Must not crash with TypeError from undefined req.query
+    expect(res.statusCode).not.toBe(500);
   });
 
   it('GET /notes (authenticated endpoint) still returns 401 without auth', async () => {
