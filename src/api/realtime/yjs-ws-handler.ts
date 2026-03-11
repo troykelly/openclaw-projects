@@ -55,9 +55,10 @@ export class YjsWsHandler {
     clientId: string,
     userEmail: string,
     noteId: string,
+    namespaces: string[] = [],
   ): Promise<void> {
     // Join the room (auth check happens inside docManager.joinRoom)
-    const doc = await this.docManager.joinRoom(clientId, userEmail, noteId);
+    const doc = await this.docManager.joinRoom(clientId, userEmail, noteId, namespaces);
 
     const client: YjsClient = { clientId, userEmail, noteId, socket };
 
