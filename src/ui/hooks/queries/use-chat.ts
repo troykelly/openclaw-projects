@@ -68,6 +68,25 @@ export function useRealtimeChatInvalidation(): void {
 }
 
 /**
+ * Invalidate agent cache on status changes (Issue #2424 — AD-9).
+ *
+ * Consolidates agent:status_changed handling so all consumers of
+ * chatKeys.agents() get invalidated. Call from ChatBubble (always mounted).
+ */
+export function useRealtimeAgentInvalidation(): void {
+  const realtime = useRealtimeOptional();
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!realtime) return;
+    const cleanup = realtime.addEventHandler('agent:status_changed', () => {
+      void queryClient.invalidateQueries({ queryKey: chatKeys.agents() });
+    });
+    return cleanup;
+  }, [realtime, queryClient]);
+}
+
+/**
  * Fetch chat sessions list.
  *
  * @param status - Optional filter by session status (active, ended, expired)

@@ -217,12 +217,15 @@ export async function chatRoutesPlugin(
     const title = (body?.title as string | undefined)?.trim() || null;
 
     // #2151: Server-side agent_id fallback
+    // Fetch both default_agent_id and visible_agent_ids in one query
+    const settingResult = await pool.query(
+      `SELECT default_agent_id, visible_agent_ids FROM user_setting WHERE email = $1`,
+      [userEmail],
+    );
+    const visibleIds: string[] | null = settingResult.rows[0]?.visible_agent_ids ?? null;
+
     if (!agentId) {
       // 1. Check user_setting.default_agent_id
-      const settingResult = await pool.query(
-        `SELECT default_agent_id FROM user_setting WHERE email = $1`,
-        [userEmail],
-      );
       agentId = (settingResult.rows[0]?.default_agent_id as string | undefined)?.trim() || null;
 
       // 2. Check gateway_agent_cache for default agent
@@ -241,6 +244,11 @@ export async function chatRoutesPlugin(
       if (!agentId) {
         return reply.code(400).send({ error: 'agent_id is required' });
       }
+    }
+
+    // Validate agent_id against user's visible_agent_ids (AD-1)
+    if (visibleIds !== null && !visibleIds.includes(agentId)) {
+      return reply.code(400).send({ error: 'Selected agent is not in your visible agents list' });
     }
 
     if (title !== null && title.length > 200) {

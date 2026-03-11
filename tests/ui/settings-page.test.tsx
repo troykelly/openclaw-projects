@@ -26,6 +26,22 @@ vi.mock('@/ui/lib/api-client', () => ({
   },
 }));
 
+// Mock useChatAgentPreferences to avoid QueryClient dependency in ChatSettingsSection
+const mockUpdateSettings = vi.fn().mockResolvedValue(true);
+vi.mock('@/ui/components/chat/use-chat-agent-preferences', () => ({
+  useChatAgentPreferences: () => ({
+    defaultAgentId: null,
+    visibleAgentIds: null,
+    allAgents: [],
+    visibleAgents: [],
+    resolvedDefaultAgent: null,
+    isLoading: false,
+    error: null,
+    isSaving: false,
+    updateSettings: mockUpdateSettings,
+  }),
+}));
+
 import { apiClient } from '@/ui/lib/api-client';
 
 // Mock fetch globally for any remaining direct fetch calls
@@ -38,12 +54,18 @@ const defaultSettings: UserSettings = {
   theme: 'system',
   default_view: 'activity',
   default_project_id: null,
+  default_agent_id: null,
+  visible_agent_ids: null,
   sidebar_collapsed: false,
   show_completed_items: true,
   items_per_page: 50,
   email_notifications: true,
   email_digest_frequency: 'daily',
   timezone: 'UTC',
+  geo_auto_inject: false,
+  geo_high_res_retention_hours: 24,
+  geo_general_retention_days: 30,
+  geo_high_res_threshold_m: 100,
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
 };

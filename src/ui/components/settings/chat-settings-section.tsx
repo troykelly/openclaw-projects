@@ -1,58 +1,89 @@
 /**
- * Chat settings section for the Settings page (Issue #1957).
+ * Chat settings section for the Settings page (Issues #1957, #2424).
  *
- * Provides a "Chat" section where users can select their default agent
- * from the available agents list. Saves immediately on change.
+ * Provides a "Chat" section where users can:
+ * - Select their default agent from visible agents
+ * - Toggle which agents are visible in the chat UI
  *
- * Follows the same Card/CardHeader/CardContent pattern used by other
- * settings sections (NotificationPreferencesSection, LocationSection, etc.).
+ * Uses useChatAgentPreferences as single source of truth.
+ * Visibility checkboxes use 400ms debounced save to prevent race conditions.
+ * Local optimistic state ensures rapid checkbox toggling works correctly.
  */
 import * as React from 'react';
-import { useCallback, useEffect, useState } from 'react';
 import { Loader2, MessageSquare } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/ui/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/components/ui/select';
-import { apiClient } from '@/ui/lib/api-client';
-import type { ChatAgent, ChatAgentsResponse } from '@/ui/lib/api-types';
-import { useDefaultAgent } from './use-default-agent';
+import { Checkbox } from '@/ui/components/ui/checkbox';
+import { AgentStatusBadge } from '@/ui/components/chat/agent-status-badge';
+import type { AgentStatus } from '@/ui/components/chat/agent-status-badge';
+import { useChatAgentPreferences } from '@/ui/components/chat/use-chat-agent-preferences';
 
 export function ChatSettingsSection(): React.JSX.Element {
-  const { defaultAgentId, isLoading: settingsLoading, error: settingsError, isSaving, setDefaultAgent } = useDefaultAgent();
-  const [agents, setAgents] = useState<ChatAgent[]>([]);
-  const [agentsLoading, setAgentsLoading] = useState(true);
-  const [agentsError, setAgentsError] = useState<string | null>(null);
+  const { defaultAgentId, visibleAgentIds, allAgents, visibleAgents, isLoading, error, isSaving, updateSettings } = useChatAgentPreferences();
 
-  useEffect(() => {
-    let alive = true;
+  // Local optimistic state for visibility checkboxes.
+  // Tracks pending changes so rapid toggles compose correctly.
+  const [localVisibleIds, setLocalVisibleIds] = React.useState<string[] | null>(null);
+  // Sync local state when server state updates (after save completes)
+  React.useEffect(() => {
+    setLocalVisibleIds(null);
+  }, [visibleAgentIds]);
 
-    async function fetchAgents() {
-      try {
-        const data = await apiClient.get<ChatAgentsResponse>('/chat/agents');
-        if (!alive) return;
-        setAgents(Array.isArray(data.agents) ? data.agents : []);
-      } catch (err) {
-        if (!alive) return;
-        setAgentsError(err instanceof Error ? err.message : 'Failed to load agents');
-      } finally {
-        if (alive) setAgentsLoading(false);
+  // The effective visibility: local optimistic state or server state
+  const effectiveVisibleIds = localVisibleIds ?? visibleAgentIds;
+
+  // Debounced visibility save (400ms, one inflight at a time)
+  const pendingVisRef = React.useRef<string[] | null>(null);
+  const debounceTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inflightRef = React.useRef(false);
+
+  const flushVisibility = React.useCallback(async () => {
+    if (pendingVisRef.current === null) return;
+    if (inflightRef.current) return;
+    inflightRef.current = true;
+    const ids = pendingVisRef.current;
+    pendingVisRef.current = null;
+    try {
+      // Empty array = no agents visible (distinct from null = all visible)
+      await updateSettings({ visible_agent_ids: ids.length > 0 ? ids : [] });
+    } finally {
+      inflightRef.current = false;
+      // If more changes accumulated while inflight, flush via microtask (not recursion)
+      if (pendingVisRef.current !== null) {
+        void Promise.resolve().then(() => flushVisibility());
       }
     }
+  }, [updateSettings]);
 
-    fetchAgents();
+  const handleVisibilityToggle = React.useCallback(
+    (agentId: string, checked: boolean) => {
+      // Use pending ref if it exists (for rapid toggles), otherwise local state, otherwise server state
+      const current = pendingVisRef.current ?? localVisibleIds ?? visibleAgentIds ?? allAgents.map((a) => a.id);
+      const next = checked
+        ? [...new Set([...current, agentId])]
+        : current.filter((id) => id !== agentId);
+      pendingVisRef.current = next;
+      setLocalVisibleIds(next); // Optimistic UI update
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = setTimeout(() => {
+        flushVisibility();
+      }, 400);
+    },
+    [visibleAgentIds, localVisibleIds, allAgents, flushVisibility],
+  );
+
+  React.useEffect(() => {
     return () => {
-      alive = false;
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
     };
   }, []);
 
-  const handleAgentChange = useCallback(
+  const handleAgentChange = React.useCallback(
     (value: string) => {
-      setDefaultAgent(value === 'none' ? null : value);
+      updateSettings({ default_agent_id: value === 'none' ? null : value });
     },
-    [setDefaultAgent],
+    [updateSettings],
   );
-
-  const isLoading = settingsLoading || agentsLoading;
-  const error = settingsError ?? agentsError;
 
   if (isLoading) {
     return (
@@ -89,7 +120,7 @@ export function ChatSettingsSection(): React.JSX.Element {
     );
   }
 
-  if (agents.length === 0) {
+  if (allAgents.length === 0) {
     return (
       <Card data-testid="chat-settings-section">
         <CardHeader>
@@ -106,7 +137,9 @@ export function ChatSettingsSection(): React.JSX.Element {
     );
   }
 
-  const selectedAgent = agents.find((a) => a.id === defaultAgentId);
+  // Default agent dropdown only shows visible agents (+ "None")
+  const selectableAgents = visibleAgents.length > 0 ? visibleAgents : allAgents;
+  const selectedAgent = selectableAgents.find((a) => a.id === defaultAgentId);
 
   return (
     <Card data-testid="chat-settings-section">
@@ -119,6 +152,7 @@ export function ChatSettingsSection(): React.JSX.Element {
         <CardDescription>Configure chat agent preferences</CardDescription>
       </CardHeader>
       <CardContent className="space-y-1 divide-y">
+        {/* Default Agent selector — only visible agents */}
         <div className="flex items-center justify-between gap-4 py-3">
           <div className="flex-1">
             <label htmlFor="default-agent" className="text-sm font-medium">
@@ -137,13 +171,49 @@ export function ChatSettingsSection(): React.JSX.Element {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">None selected</SelectItem>
-                {agents.map((agent) => (
+                {selectableAgents.map((agent) => (
                   <SelectItem key={agent.id} value={agent.id}>
                     {agent.display_name ?? agent.name}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+          </div>
+        </div>
+
+        {/* Visible Agents checkboxes */}
+        <div className="space-y-3 py-3">
+          <div>
+            <p className="text-sm font-medium">Visible Agents</p>
+            <p className="text-sm text-muted-foreground">
+              Choose which agents appear in your chat
+            </p>
+          </div>
+          <div className="space-y-2">
+            {allAgents.map((agent) => {
+              const isDefault = agent.id === defaultAgentId;
+              const isVisible = effectiveVisibleIds === null || effectiveVisibleIds.includes(agent.id);
+              return (
+                <label
+                  key={agent.id}
+                  className="flex items-center gap-3 rounded-sm px-2 py-1.5 hover:bg-accent"
+                >
+                  <Checkbox
+                    checked={isVisible}
+                    onCheckedChange={(checked) => handleVisibilityToggle(agent.id, checked === true)}
+                    disabled={isDefault}
+                    aria-label={`Show ${agent.display_name ?? agent.name} in chat`}
+                  />
+                  <span className="flex-1 text-sm">
+                    {agent.display_name ?? agent.name}
+                  </span>
+                  <AgentStatusBadge status={(agent.status ?? 'unknown') as AgentStatus} />
+                  {isDefault && (
+                    <span className="text-xs text-muted-foreground">(default)</span>
+                  )}
+                </label>
+              );
+            })}
           </div>
         </div>
       </CardContent>

@@ -31,6 +31,10 @@ vi.mock('@/ui/hooks/queries/use-chat', () => ({
   useChatMessages: vi.fn(),
 }));
 
+vi.mock('@/ui/components/settings/use-settings', () => ({
+  useSettings: vi.fn(),
+}));
+
 vi.mock('@/ui/hooks/mutations/use-chat', () => ({
   useCreateChatSession: vi.fn(),
   useSendChatMessage: vi.fn(),
@@ -52,6 +56,7 @@ import { ChatSessionList } from '@/ui/components/chat/chat-session-list';
 import { ChatProvider, useChat } from '@/ui/contexts/chat-context';
 import { useChatSessions, useAvailableAgents, useChatUnreadCount, useChatMessages } from '@/ui/hooks/queries/use-chat';
 import { useCreateChatSession, useSendChatMessage, useUpdateChatSession } from '@/ui/hooks/mutations/use-chat';
+import { useSettings } from '@/ui/components/settings/use-settings';
 
 function createWrapper() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -74,6 +79,22 @@ function PanelOpener({ children }: { children: React.ReactNode }) {
 }
 
 function setupDefaultMocks() {
+  vi.mocked(useSettings).mockReturnValue({
+    state: {
+      kind: 'loaded',
+      data: {
+        id: '1', email: 'test@test.com', default_agent_id: null, visible_agent_ids: null,
+        theme: 'system', default_view: 'activity', default_project_id: null,
+        sidebar_collapsed: false, show_completed_items: false, items_per_page: 20,
+        email_notifications: true, email_digest_frequency: 'never', timezone: 'UTC',
+        geo_auto_inject: false, geo_high_res_retention_hours: 24,
+        geo_general_retention_days: 30, geo_high_res_threshold_m: 100,
+        created_at: '', updated_at: '',
+      },
+    },
+    isSaving: false,
+    updateSettings: vi.fn().mockResolvedValue(true),
+  } as unknown as ReturnType<typeof useSettings>);
   vi.mocked(useChatSessions).mockReturnValue({
     data: { sessions: [] },
     isLoading: false,
