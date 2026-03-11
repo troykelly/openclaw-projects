@@ -61,8 +61,11 @@ export function useYjsProvider(noteId: string | null): UseYjsProviderResult {
     const wsBase = getWsBaseUrl();
     const wsUrl = wsBase ? `${wsBase}/yjs` : '/yjs';
 
+    // connect: false — CollaborationPlugin owns the connect/disconnect lifecycle.
+    // If we connect here, CollaborationPlugin's useProvider effect cleanup will
+    // call disconnect() on re-render, killing the WebSocket within milliseconds.
     const provider = new WebsocketProvider(wsUrl, noteId, doc, {
-      connect: true,
+      connect: false,
       params: { token: token ?? '' },
     });
 
@@ -79,7 +82,9 @@ export function useYjsProvider(noteId: string | null): UseYjsProviderResult {
       }
     });
 
-    setState({ doc, provider, status: 'connecting' });
+    // Status starts as 'disconnected' since connect: false — CollaborationPlugin
+    // will call connect() and provider events will update status from there.
+    setState({ doc, provider, status: 'disconnected' });
 
     return () => {
       provider.destroy();

@@ -24,7 +24,7 @@
  *   markdownContent in sync for char/word count and mode switching.
  */
 
-import React, { useCallback, useState, useRef } from 'react';
+import React, { useCallback, useMemo, useState, useRef } from 'react';
 import { LexicalComposer } from '@lexical/react/LexicalComposer';
 import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin';
 import { ContentEditable } from '@lexical/react/LexicalContentEditable';
@@ -163,6 +163,29 @@ export function LexicalNoteEditor({
   // Character and word count
   const charCount = markdownContent.length;
   const wordCount = markdownContent.split(/\s+/).filter(Boolean).length;
+
+  // Memoize CollaborationPlugin callbacks to prevent React effect re-runs (#2416).
+  // Inline functions create new references every render, causing the plugin's
+  // useEffect cleanup to call provider.disconnect() and kill the WebSocket.
+  const providerFactory = useCallback(
+    (_id: string, yjsDocMap: Map<string, Doc>) => {
+      if (yjsDoc) yjsDocMap.set(_id, yjsDoc);
+      return yjsProvider as unknown as Provider;
+    },
+    [yjsDoc, yjsProvider],
+  );
+
+  const initialEditorStateFn = useMemo(
+    () =>
+      initialContent
+        ? (editor: LexicalEditor) => {
+            editor.update(() => {
+              $convertFromMarkdownString(initialContent, TRANSFORMERS);
+            });
+          }
+        : undefined,
+    [initialContent],
+  );
 
   // Lexical editor config
   const initialConfig = {
@@ -305,24 +328,12 @@ export function LexicalNoteEditor({
               <>
                 <CollaborationPlugin
                   id={yjsDoc.clientID.toString()}
-                  providerFactory={(_id: string, yjsDocMap: Map<string, Doc>) => {
-                    // Store the doc in the map as expected by CollaborationPlugin
-                    yjsDocMap.set(_id, yjsDoc);
-                    return yjsProvider as unknown as Provider;
-                  }}
+                  providerFactory={providerFactory}
                   shouldBootstrap={false}
                   username={currentUser?.name ?? 'Anonymous'}
                   cursorColor={currentUser?.color ?? '#3b82f6'}
                   cursorsContainerRef={cursorsContainerRef}
-                  initialEditorState={
-                    initialContent
-                      ? (editor) => {
-                          editor.update(() => {
-                            $convertFromMarkdownString(initialContent, TRANSFORMERS);
-                          });
-                        }
-                      : undefined
-                  }
+                  initialEditorState={initialEditorStateFn}
                 />
                 <ContentSyncPlugin onChange={handleLexicalChange} />
               </>
