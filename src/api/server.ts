@@ -1752,6 +1752,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   }
 
   app.get('/ws', { websocket: true }, async (socket, req) => {
+    // Guard: if this isn't a real WebSocket upgrade, socket won't have .close()
+    if (typeof socket.close !== 'function') {
+      return;
+    }
+
     // Authenticate via JWT in Authorization header or query string
     let user_id: string | undefined;
 
@@ -1821,6 +1826,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // y-websocket connects to /yjs/{noteId}?token=JWT
   if (yjsWsHandler && yjsEnabled) {
     app.get('/yjs/:noteId', { websocket: true }, async (socket, req) => {
+      // Guard: if this isn't a real WebSocket upgrade, socket won't have .close()
+      if (typeof socket.close !== 'function') {
+        return;
+      }
+
       // Authenticate via JWT from query string
       let user_email: string | undefined;
 
