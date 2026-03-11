@@ -100,7 +100,7 @@ export function AgentPickerPopover({
                   </span>
                   <AgentStatusBadge status={(agent.status ?? 'unknown') as AgentStatus} />
                   {agent.id === defaultAgentId && (
-                    <Check className="size-4 text-primary" aria-label="Default agent" />
+                      <Check className="size-4 text-primary" aria-hidden="true" />
                   )}
                 </CommandItem>
               ))}

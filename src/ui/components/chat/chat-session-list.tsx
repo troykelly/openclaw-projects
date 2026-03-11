@@ -37,16 +37,17 @@ function formatRelativeTime(dateStr: string): string {
 export function ChatSessionList(): React.JSX.Element {
   const { setActiveSessionId } = useChat();
   const { data, isLoading } = useChatSessions('active');
-  const { visibleAgents, resolvedDefaultAgent } = useChatAgentPreferences();
+  const { allAgents, visibleAgents, resolvedDefaultAgent } = useChatAgentPreferences();
   const createSession = useCreateChatSession();
 
+  // Use allAgents for the map so existing sessions with hidden agents still show proper names
   const agentMap = React.useMemo(() => {
     const map = new Map<string, ChatAgent>();
-    for (const agent of visibleAgents) {
+    for (const agent of allAgents) {
       map.set(agent.id, agent);
     }
     return map;
-  }, [visibleAgents]);
+  }, [allAgents]);
 
   const sessions = React.useMemo(() => {
     if (!Array.isArray(data?.sessions)) return [];

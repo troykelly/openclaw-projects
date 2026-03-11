@@ -19,7 +19,7 @@ import type { ChatSession, ChatAgent } from '@/ui/lib/api-types';
 export function ChatHeader(): React.JSX.Element {
   const { activeSessionId, setActiveSessionId, closePanel } = useChat();
   const { data: sessionsData } = useChatSessions();
-  const { visibleAgents, resolvedDefaultAgent } = useChatAgentPreferences();
+  const { allAgents, visibleAgents, resolvedDefaultAgent } = useChatAgentPreferences();
   const createSession = useCreateChatSession();
 
   const activeSession: ChatSession | null = React.useMemo(() => {
@@ -27,13 +27,14 @@ export function ChatHeader(): React.JSX.Element {
     return sessionsData.sessions.find((s) => s.id === activeSessionId) ?? null;
   }, [activeSessionId, sessionsData?.sessions]);
 
+  // Use allAgents for the map so existing sessions with hidden agents still show proper names
   const agentMap = React.useMemo(() => {
     const map = new Map<string, ChatAgent>();
-    for (const agent of visibleAgents) {
+    for (const agent of allAgents) {
       map.set(agent.id, agent);
     }
     return map;
-  }, [visibleAgents]);
+  }, [allAgents]);
 
   const agent = activeSession ? agentMap.get(activeSession.agent_id) : null;
   const updateSession = useUpdateChatSession(activeSessionId ?? '');

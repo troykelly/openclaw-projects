@@ -66,12 +66,15 @@ export function ChatEmptyState(): React.JSX.Element | null {
   }
 
   // Branch 3: Agents visible, no sessions yet
-  const handleSelectAgent = (agentId: string) => {
-    createSession.mutate(
-      { agent_id: agentId },
-      { onSuccess: (session) => setActiveSessionId(session.id) },
-    );
-  };
+  const handleSelectAgent = React.useCallback(
+    (agentId: string) => {
+      createSession.mutate(
+        { agent_id: agentId },
+        { onSuccess: (session) => setActiveSessionId(session.id) },
+      );
+    },
+    [createSession, setActiveSessionId],
+  );
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center" data-testid="chat-empty-no-sessions">
