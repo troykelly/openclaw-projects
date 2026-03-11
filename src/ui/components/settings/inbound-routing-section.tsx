@@ -225,6 +225,9 @@ function ChannelDefaultsSection() {
   const fetchDefaults = useCallback(async () => {
     try {
       const data = await apiClient.get<ChannelDefault[]>('/channel-defaults');
+      if (!Array.isArray(data)) {
+        console.warn('Unexpected response shape for channel defaults:', data);
+      }
       const items = Array.isArray(data) ? data : [];
       setDefaults(items);
       const values: Record<string, { agent_id: string }> = {};
@@ -233,7 +236,8 @@ function ChannelDefaultsSection() {
       }
       setEditValues(values);
       setError(null);
-    } catch {
+    } catch (err) {
+      console.error('Failed to load channel defaults:', err);
       setError('Failed to load channel defaults');
     } finally {
       setLoading(false);
@@ -269,7 +273,8 @@ function ChannelDefaultsSection() {
         agent_id: val.agent_id.trim(),
       });
       await fetchDefaults();
-    } catch {
+    } catch (err) {
+      console.error('Failed to save channel default:', err);
       setError('Failed to save channel default');
     } finally {
       setSaving(null);
@@ -372,9 +377,13 @@ function InboundDestinationsSection() {
       const data = await apiClient.get<{ items: InboundDestination[]; total: number }>(
         '/inbound-destinations?limit=100&include_inactive=true',
       );
+      if (!Array.isArray(data.items)) {
+        console.warn('Unexpected response shape for inbound destinations:', data);
+      }
       setDestinations(Array.isArray(data.items) ? data.items : []);
       setError(null);
-    } catch {
+    } catch (err) {
+      console.error('Failed to load inbound destinations:', err);
       setError('Failed to load inbound destinations');
     } finally {
       setLoading(false);
@@ -422,7 +431,8 @@ function InboundDestinationsSection() {
       });
       setEditingId(null);
       await fetchDestinations();
-    } catch {
+    } catch (err) {
+      console.error('Failed to save destination override:', err);
       setError('Failed to save destination override');
     } finally {
       setSaving(false);
@@ -554,9 +564,13 @@ function PromptTemplatesSection() {
       const data = await apiClient.get<{ items: PromptTemplate[]; total: number }>(
         '/prompt-templates?limit=100&include_inactive=true',
       );
+      if (!Array.isArray(data.items)) {
+        console.warn('Unexpected response shape for prompt templates:', data);
+      }
       setTemplates(Array.isArray(data.items) ? data.items : []);
       setError(null);
-    } catch {
+    } catch (err) {
+      console.error('Failed to load prompt templates:', err);
       setError('Failed to load prompt templates');
     } finally {
       setLoading(false);
@@ -610,7 +624,8 @@ function PromptTemplatesSection() {
       }
       resetForm();
       await fetchTemplates();
-    } catch {
+    } catch (err) {
+      console.error('Failed to save prompt template:', err);
       setError('Failed to save prompt template');
     } finally {
       setSaving(false);
@@ -622,7 +637,8 @@ function PromptTemplatesSection() {
     try {
       await apiClient.delete(`/prompt-templates/${id}`);
       await fetchTemplates();
-    } catch {
+    } catch (err) {
+      console.error('Failed to delete prompt template:', err);
       setError('Failed to delete prompt template');
     }
   }, [fetchTemplates]);
