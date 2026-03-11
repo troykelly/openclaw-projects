@@ -101,4 +101,87 @@ describe('OPTIONS preflight bypass in auth hook (Issue #2387)', () => {
 
     await app.close();
   });
+
+  it('OPTIONS preflight with Origin header bypasses auth (Issue #2392)', async () => {
+    // This is the exact scenario that caused the gateway WS offline symptom:
+    // browser sends OPTIONS preflight with Origin but no Authorization header,
+    // CORS_HANDLED_BY_PROXY=true means @fastify/cors is NOT registered,
+    // so OPTIONS must be explicitly allowed through the auth hook.
+    const app = await buildMinimalAuthApp();
+
+    const res = await app.inject({
+      method: 'OPTIONS',
+      url: '/gateway/status',
+      headers: {
+        origin: 'https://app.example.com',
+        'access-control-request-method': 'GET',
+        'access-control-request-headers': 'Authorization',
+      },
+    });
+
+    // Must not be 401 — the browser preflight must succeed
+    expect(res.statusCode).not.toBe(401);
+
+    await app.close();
+  });
+
+  it('all HTTP methods except OPTIONS still require auth (Issue #2392)', async () => {
+    const app = await buildMinimalAuthApp();
+
+    // GET without auth should be rejected by the auth hook
+    const res = await app.inject({
+      method: 'GET',
+      url: '/gateway/status',
+      // No Authorization header
+    });
+
+    expect(res.statusCode).toBe(401);
+
+    await app.close();
+  });
+});
+
+describe('OPTIONS preflight with CORS_HANDLED_BY_PROXY=false (Issue #2392)', () => {
+  beforeEach(() => {
+    vi.unstubAllEnvs();
+    vi.resetModules();
+    vi.stubEnv('OPENCLAW_PROJECTS_AUTH_DISABLED', '');
+    vi.stubEnv('JWT_SECRET', 'a]Uf9$Lx2!Qm7Kp@Wz4Rn8Yb6Hd3Jt0Vs');
+    // When CORS is handled by Fastify (not proxy), OPTIONS still bypasses auth
+    vi.stubEnv('CORS_HANDLED_BY_PROXY', 'false');
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.resetModules();
+  });
+
+  it('OPTIONS bypasses auth regardless of CORS_HANDLED_BY_PROXY value', async () => {
+    const { isAuthDisabled } = await import('./jwt.ts');
+    const { getAuthIdentity } = await import('./middleware.ts');
+
+    const app = Fastify();
+
+    app.addHook('onRequest', async (req, reply) => {
+      if (req.method === 'OPTIONS') return;
+      if (isAuthDisabled()) return;
+      const identity = await getAuthIdentity(req);
+      if (identity) return;
+      return reply.code(401).send({ error: 'unauthorized' });
+    });
+
+    app.get('/gateway/status', async () => ({ status: 'ok' }));
+    app.options('/gateway/status', async (_req, reply) => reply.code(204).send());
+    await app.ready();
+
+    const res = await app.inject({
+      method: 'OPTIONS',
+      url: '/gateway/status',
+    });
+
+    expect(res.statusCode).toBe(204);
+    expect(res.statusCode).not.toBe(401);
+
+    await app.close();
+  });
 });
