@@ -231,6 +231,47 @@ describe('memory_store tool', () => {
       const result = await tool.execute({ content: 'test', importance: -0.1 });
       expect(result.success).toBe(false);
     });
+
+    it('should pass pinned=true to the API (Issue #2380)', async () => {
+      const mockPost = vi.fn().mockResolvedValue({
+        success: true,
+        data: { id: 'mem-1', content: 'test' },
+      });
+      const client = { ...mockApiClient, post: mockPost };
+
+      const tool = createMemoryStoreTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        user_id: 'agent-1',
+      });
+
+      await tool.execute({ text: 'Always remember this', pinned: true });
+      expect(mockPost).toHaveBeenCalledWith(
+        '/memories/unified',
+        expect.objectContaining({ pinned: true }),
+        expect.any(Object),
+      );
+    });
+
+    it('should not include pinned when not specified (Issue #2380)', async () => {
+      const mockPost = vi.fn().mockResolvedValue({
+        success: true,
+        data: { id: 'mem-1', content: 'test' },
+      });
+      const client = { ...mockApiClient, post: mockPost };
+
+      const tool = createMemoryStoreTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        user_id: 'agent-1',
+      });
+
+      await tool.execute({ text: 'Regular memory' });
+      const payload = mockPost.mock.calls[0][1] as Record<string, unknown>;
+      expect(payload.pinned).toBeUndefined();
+    });
   });
 
   describe('input sanitization', () => {

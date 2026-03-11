@@ -111,6 +111,7 @@ function mapRowToMemory(row: Record<string, unknown>): MemoryEntry {
     superseded_by: row.superseded_by as string | null,
     embedding_status: row.embedding_status as 'pending' | 'complete' | 'failed',
     is_active: row.superseded_by === null,
+    pinned: (row.pinned as boolean) ?? false,
     lat: (row.lat as number) ?? null,
     lng: (row.lng as number) ?? null,
     address: (row.address as string) ?? null,

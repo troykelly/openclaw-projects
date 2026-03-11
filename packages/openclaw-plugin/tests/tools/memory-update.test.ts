@@ -162,6 +162,52 @@ describe('memory_update tool', () => {
       } as unknown as MemoryUpdateParams);
       expect(result.success).toBe(false);
     });
+
+    it('should accept pinned=true as sole update field (Issue #2380)', async () => {
+      const mockPatch = vi.fn().mockResolvedValue({
+        success: true,
+        data: { id: 'mem-123', content: 'test', type: 'note' },
+      });
+      const client = { ...mockApiClient, patch: mockPatch };
+
+      const tool = createMemoryUpdateTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        user_id: 'agent-1',
+      });
+
+      const result = await tool.execute({ memory_id: 'mem-123', pinned: true });
+      expect(result.success).toBe(true);
+      expect(mockPatch).toHaveBeenCalledWith(
+        '/memories/mem-123',
+        expect.objectContaining({ pinned: true }),
+        expect.any(Object),
+      );
+    });
+
+    it('should accept pinned=false to unpin (Issue #2380)', async () => {
+      const mockPatch = vi.fn().mockResolvedValue({
+        success: true,
+        data: { id: 'mem-123', content: 'test', type: 'note' },
+      });
+      const client = { ...mockApiClient, patch: mockPatch };
+
+      const tool = createMemoryUpdateTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        user_id: 'agent-1',
+      });
+
+      const result = await tool.execute({ memory_id: 'mem-123', pinned: false });
+      expect(result.success).toBe(true);
+      expect(mockPatch).toHaveBeenCalledWith(
+        '/memories/mem-123',
+        expect.objectContaining({ pinned: false }),
+        expect.any(Object),
+      );
+    });
   });
 
   describe('API interaction', () => {

@@ -913,6 +913,9 @@ exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > 
       ],
       "type": "object",
     },
+    "pinned": {
+      "type": "boolean",
+    },
     "relationship_id": {
       "format": "uuid",
       "type": "string",

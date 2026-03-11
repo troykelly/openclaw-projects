@@ -19,8 +19,9 @@ export const MemoryUpdateParamsSchema = z.object({
   importance: z.number().min(0).max(1).optional(),
   tags: z.array(z.string().min(1).max(100)).max(20, 'Maximum 20 tags per memory').optional(),
   expires_at: z.string().nullable().optional(),
+  pinned: z.boolean().optional().describe('When true, this memory is always included in context injection regardless of semantic similarity'),
 }).refine(
-  (data) => data.text !== undefined || data.category !== undefined || data.importance !== undefined || data.tags !== undefined || data.expires_at !== undefined,
+  (data) => data.text !== undefined || data.category !== undefined || data.importance !== undefined || data.tags !== undefined || data.expires_at !== undefined || data.pinned !== undefined,
   { message: 'At least one field besides memory_id must be provided' },
 );
 export type MemoryUpdateParams = z.infer<typeof MemoryUpdateParamsSchema>;
@@ -95,7 +96,7 @@ export function createMemoryUpdateTool(options: MemoryUpdateToolOptions): Memory
         return { success: false, error: errorMessage };
       }
 
-      const { memory_id, text, category, importance, tags, expires_at } = parseResult.data;
+      const { memory_id, text, category, importance, tags, expires_at, pinned } = parseResult.data;
 
       // Log invocation (without content for privacy)
       logger.info('memory_update invoked', {
@@ -106,6 +107,7 @@ export function createMemoryUpdateTool(options: MemoryUpdateToolOptions): Memory
         hasImportance: importance !== undefined,
         hasTags: tags !== undefined,
         hasExpiresAt: expires_at !== undefined,
+        hasPinned: pinned !== undefined,
       });
 
       try {
@@ -130,6 +132,9 @@ export function createMemoryUpdateTool(options: MemoryUpdateToolOptions): Memory
         }
         if (expires_at !== undefined) {
           payload.expires_at = expires_at;
+        }
+        if (pinned !== undefined) {
+          payload.pinned = pinned;
         }
 
         // Call API
