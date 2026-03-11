@@ -348,12 +348,29 @@ export async function getInstances(
 }
 
 /**
+ * Truncate a Date to the start of its UTC day (YYYY-MM-DD).
+ *
+ * RRule without a persisted DTSTART anchors occurrences to the parse-time,
+ * so two calls seconds (or even minutes) apart generate slightly different
+ * timestamps for the same logical slot.  Because all recurrence rules in
+ * this system are daily or coarser (DAILY, WEEKLY, MONTHLY, YEARLY), we
+ * compare at day granularity, which is immune to sub-day drift.
+ */
+function truncateToDay(d: Date): string {
+  return d.toISOString().slice(0, 10); // "YYYY-MM-DD"
+}
+
+/**
  * Generate upcoming instances for all templates
  * This is typically called by a scheduled job
  */
 export async function generateUpcomingInstances(pool: Pool, daysAhead: number = 14): Promise<{ generated: number; errors: string[] }> {
   const errors: string[] = [];
   let generated = 0;
+
+  // Capture a single reference time for the entire run so that the RRule
+  // generator and the lookahead window use a consistent "now".
+  const now = new Date();
 
   // Get all active templates
   const templates = await pool.query(
@@ -364,16 +381,19 @@ export async function generateUpcomingInstances(pool: Pool, daysAhead: number = 
     FROM work_item
     WHERE is_recurrence_template = true
       AND recurrence_rule IS NOT NULL
-      AND (recurrence_end IS NULL OR recurrence_end > now())`,
+      AND (recurrence_end IS NULL OR recurrence_end > $1)`,
+    [now],
   );
 
-  const endDate = new Date();
+  const endDate = new Date(now);
   endDate.setDate(endDate.getDate() + daysAhead);
 
   for (const template of templates.rows) {
     try {
-      // Get existing instances in the time window (no lower bound — avoids now() drift
-      // causing missed dedup when instances are created at the boundary).
+      // Get existing instances — no lower bound so we never miss an instance
+      // that was created at the boundary of a previous run (fixes #2420 now()
+      // drift). Dates are truncated to the day for comparison so that
+      // occurrences generated at different times still deduplicate correctly.
       const existingInstances = await pool.query(
         `SELECT not_before
         FROM work_item
@@ -383,18 +403,19 @@ export async function generateUpcomingInstances(pool: Pool, daysAhead: number = 
         [template.id, endDate],
       );
 
-      const existingDates = new Set(existingInstances.rows.map((r) => r.not_before.toISOString()));
+      const existingDates = new Set(existingInstances.rows.map((r) => truncateToDay(r.not_before)));
 
-      // Get occurrences that should exist
+      // Get occurrences that should exist — use the same `now` reference for
+      // consistency within a single run.
       const occurrences = getNextOccurrences(
         template.recurrence_rule,
         100, // Max instances to generate
-        new Date(),
+        now,
       ).filter((d) => d <= endDate);
 
       // Create missing instances
       for (const occurrence of occurrences) {
-        if (!existingDates.has(occurrence.toISOString())) {
+        if (!existingDates.has(truncateToDay(occurrence))) {
           const instanceId = await createInstance(pool, template.id, occurrence);
           if (instanceId) {
             generated++;
