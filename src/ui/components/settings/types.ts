@@ -9,6 +9,7 @@ export interface UserSettings {
   default_view: DefaultView;
   default_project_id: string | null;
   default_agent_id: string | null;
+  visible_agent_ids: string[] | null;
   sidebar_collapsed: boolean;
   show_completed_items: boolean;
   items_per_page: number;
@@ -30,6 +31,7 @@ export type SettingsUpdatePayload = Partial<
     | 'default_view'
     | 'default_project_id'
     | 'default_agent_id'
+    | 'visible_agent_ids'
     | 'sidebar_collapsed'
     | 'show_completed_items'
     | 'items_per_page'
