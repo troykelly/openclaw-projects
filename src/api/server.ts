@@ -2485,11 +2485,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   function renderLandingPage(email: string | null, nonce: string): string {
     const ctaHref = '/app';
     const ctaLabel = email ? 'Dashboard' : 'Sign in';
-    // HA IndieAuth discovery: when OAUTH_REDIRECT_URI is set, inject a <link rel="redirect_uri">
-    // so HA can validate cross-domain redirect URIs (client_id host ≠ redirect_uri host).
-    // The value is validated as an http(s) URL; an invalid value is silently omitted
-    // to avoid injecting malformed HTML. Ref: https://developers.home-assistant.io/docs/auth_api/
-    // Issue #2383.
+    // HA cross-domain redirect_uri discovery: when client_id host differs from
+    // redirect_uri host, HA fetches the client_id URL and looks for
+    // <link rel="redirect_uri"> tags in the first 10 kB of the page.
+    // Ref: https://developers.home-assistant.io/docs/auth_api/ — Issue #2383.
+    // NOTE: HA only scans the first 10 kB — keep this tag early in <head>.
     const indieAuthLinkTag = (() => {
       const raw = process.env.OAUTH_REDIRECT_URI?.trim();
       if (!raw) return '';
