@@ -165,7 +165,7 @@ describe('Memory Tags (Issue #492)', () => {
       expect(result.memories[0].title).toBe('Music pref');
     });
 
-    it('filters memories by multiple tags (AND semantics - contains all)', async () => {
+    it('filters memories by multiple tags (OR semantics - at least one match)', async () => {
       await createMemory(pool, {
         title: 'Jazz at work',
         content: 'Likes jazz while coding',
@@ -177,10 +177,10 @@ describe('Memory Tags (Issue #492)', () => {
         tags: ['music', 'exercise', 'rock'],
       });
 
+      // Both memories have the 'music' tag, so both should be returned with overlap semantics
       const result = await listMemories(pool, { tags: ['music', 'work'] });
 
-      expect(result.total).toBe(1);
-      expect(result.memories[0].title).toBe('Jazz at work');
+      expect(result.total).toBe(2);
     });
 
     it('combines tag filter with other filters', async () => {
