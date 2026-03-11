@@ -452,7 +452,7 @@ describe('Unified Memory API (Issue #209)', () => {
   });
 
   describe('GET /memories/unified - Issue #2399 (tag filter)', () => {
-    it('filters memories by tags', async () => {
+    it('filters memories by tags (at least one match)', async () => {
       // Create memories with different tags
       await app.inject({
         method: 'POST',
@@ -486,6 +486,66 @@ describe('Unified Memory API (Issue #209)', () => {
       expect(body.memories).toHaveLength(1);
       expect(body.memories[0].tags).toContain('test');
       expect(body.memories[0].tags).toContain('pinned');
+    });
+
+    it('returns memories matching at least one tag (overlap, not containment)', async () => {
+      // Memory with only 'test' tag
+      await app.inject({
+        method: 'POST',
+        url: '/memories/unified',
+        payload: {
+          title: 'Test-only memory',
+          content: 'Has only the test tag',
+          memory_type: 'fact',
+          tags: ['test'],
+        },
+      });
+      // Memory with completely different tags
+      await app.inject({
+        method: 'POST',
+        url: '/memories/unified',
+        payload: {
+          title: 'Unrelated memory',
+          content: 'Has no matching tags',
+          memory_type: 'fact',
+          tags: ['unrelated'],
+        },
+      });
+
+      // Search for 'test,pinned' should still find the memory with only 'test'
+      const res = await app.inject({
+        method: 'GET',
+        url: '/memories/unified?tags=test,pinned',
+      });
+
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      expect(body.total).toBe(1);
+      expect(body.memories).toHaveLength(1);
+      expect(body.memories[0].content).toBe('Has only the test tag');
+    });
+
+    it('excludes memories with no matching tags', async () => {
+      await app.inject({
+        method: 'POST',
+        url: '/memories/unified',
+        payload: {
+          title: 'Unmatched memory',
+          content: 'No matching tags at all',
+          memory_type: 'fact',
+          tags: ['completely', 'different'],
+        },
+      });
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/memories/unified?tags=test,pinned',
+      });
+
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      expect(body.total).toBe(0);
+      expect(body.memories).toHaveLength(0);
     });
   });
 

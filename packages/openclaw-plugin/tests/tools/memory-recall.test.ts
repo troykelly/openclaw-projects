@@ -254,7 +254,7 @@ describe('memory_recall tool', () => {
   });
 
   describe('response formatting', () => {
-    it('should format memories as bullet list', async () => {
+    it('should format memories as bullet list with IDs', async () => {
       const mockGet = vi.fn().mockResolvedValue({
         success: true,
         data: {
@@ -279,8 +279,10 @@ describe('memory_recall tool', () => {
       expect(result.success).toBe(true);
       if (result.success) {
         expect(result.data.content).toContain('[preference]');
+        expect(result.data.content).toContain('(id: 1)');
         expect(result.data.content).toContain('User prefers oat milk');
         expect(result.data.content).toContain('[fact]');
+        expect(result.data.content).toContain('(id: 2)');
         expect(result.data.content).toContain('User birthday is March 15');
       }
     });

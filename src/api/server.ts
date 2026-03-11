@@ -9180,7 +9180,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     if (tagsFilter && tagsFilter.length > 0) {
-      conditions.push(`m.tags @> $${paramIndex}`);
+      conditions.push(`m.tags && $${paramIndex}`);
       params.push(tagsFilter);
       paramIndex++;
     }
@@ -19165,7 +19165,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     if (tags) {
-      conditions.push(`tags @> $${paramIdx}`);
+      conditions.push(`tags && $${paramIdx}`);
       params.push(tags);
       paramIdx++;
     }
@@ -19298,7 +19298,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     if (tagsFilter && tagsFilter.length > 0) {
-      conditions.push(`tags @> $${paramIdx}`);
+      conditions.push(`tags && $${paramIdx}`);
       params.push(tagsFilter);
       paramIdx++;
     }

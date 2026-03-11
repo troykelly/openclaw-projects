@@ -116,7 +116,7 @@ function formatMemoriesAsText(memories: Memory[]): string {
   return memories
     .map((m) => {
       const tagSuffix = m.tags && m.tags.length > 0 ? ` {${m.tags.join(', ')}}` : '';
-      return `- [${m.category}]${tagSuffix} ${m.content}`;
+      return `- [${m.category}] (id: ${m.id})${tagSuffix} ${m.content}`;
     })
     .join('\n');
 }

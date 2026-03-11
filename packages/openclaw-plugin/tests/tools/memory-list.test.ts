@@ -271,7 +271,7 @@ describe('memory_list tool', () => {
   });
 
   describe('response formatting', () => {
-    it('should format memories as bullet list with timestamps', async () => {
+    it('should format memories as bullet list with timestamps and IDs', async () => {
       const mockGet = vi.fn().mockResolvedValue({
         success: true,
         data: {
@@ -297,6 +297,8 @@ describe('memory_list tool', () => {
       if (result.success) {
         expect(result.data.content).toContain('Showing 1-2 of 5 memories');
         expect(result.data.content).toContain('[preference]');
+        expect(result.data.content).toContain('(id: 1)');
+        expect(result.data.content).toContain('(id: 2)');
         expect(result.data.content).toContain('User prefers oat milk');
         expect(result.data.content).toContain('{deployment}');
         expect(result.data.details.count).toBe(2);

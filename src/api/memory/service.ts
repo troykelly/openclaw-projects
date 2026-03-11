@@ -446,9 +446,9 @@ export async function listMemories(pool: Pool, options: ListMemoriesOptions = {}
     paramIndex++;
   }
 
-  // Tag filter (array containment: memory must have ALL specified tags)
+  // Tag filter (array overlap: memory must have at least one of the specified tags)
   if (options.tags !== undefined && options.tags.length > 0) {
-    conditions.push(`tags @> $${paramIndex}`);
+    conditions.push(`tags && $${paramIndex}`);
     params.push(options.tags);
     paramIndex++;
   }
@@ -771,7 +771,7 @@ export async function searchMemories(pool: Pool, query: string, options: SearchM
           semanticIdx++;
         }
         if (options.tags !== undefined && options.tags.length > 0) {
-          semanticConditions.push(`tags @> $${semanticIdx}`);
+          semanticConditions.push(`tags && $${semanticIdx}`);
           semanticParams.push(options.tags);
           semanticIdx++;
         }
@@ -873,7 +873,7 @@ export async function searchMemories(pool: Pool, query: string, options: SearchM
     textIdx++;
   }
   if (options.tags !== undefined && options.tags.length > 0) {
-    textConditions.push(`tags @> $${textIdx}`);
+    textConditions.push(`tags && $${textIdx}`);
     textParams.push(options.tags);
     textIdx++;
   }

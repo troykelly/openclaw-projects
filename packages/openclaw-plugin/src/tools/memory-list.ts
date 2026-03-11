@@ -99,7 +99,7 @@ function formatMemoriesAsText(memories: MemoryListItem[], total: number, offset:
   const lines = memories.map((m) => {
     const tagSuffix = m.tags && m.tags.length > 0 ? ` {${m.tags.join(', ')}}` : '';
     const timestamp = m.created_at ? ` (${m.created_at})` : '';
-    return `- [${m.category}]${tagSuffix} ${m.content}${timestamp}`;
+    return `- [${m.category}] (id: ${m.id})${tagSuffix} ${m.content}${timestamp}`;
   });
 
   return header + lines.join('\n');
