@@ -16,6 +16,10 @@ import { haversineDistanceKm, computeGeoScore, blendScores } from '../utils/geo.
 export const MemoryCategory = z.enum(['preference', 'fact', 'decision', 'context', 'entity', 'other']);
 export type MemoryCategory = z.infer<typeof MemoryCategory>;
 
+/** Temporal period shorthand values */
+export const TemporalPeriod = z.enum(['today', 'yesterday', 'this_week', 'last_week', 'this_month', 'last_month']);
+export type TemporalPeriod = z.infer<typeof TemporalPeriod>;
+
 /** Parameters for memory_recall tool */
 export const MemoryRecallParamsSchema = z.object({
   query: z.string().min(1, 'Query cannot be empty').max(1000, 'Query must be 1000 characters or less'),
@@ -23,13 +27,19 @@ export const MemoryRecallParamsSchema = z.object({
   category: MemoryCategory.optional(),
   tags: z.array(z.string().min(1).max(100)).max(20, 'Maximum 20 tags per filter').optional(),
   relationship_id: z.string().uuid('relationship_id must be a valid UUID').optional(),
+  since: z.string().max(100, 'since must be 100 characters or less').optional(),
+  before: z.string().max(100, 'before must be 100 characters or less').optional(),
+  period: TemporalPeriod.optional(),
   location: z.object({
     lat: z.number().min(-90).max(90),
     lng: z.number().min(-180).max(180),
   }).optional(),
   location_radius_km: z.number().min(0.1).max(100).optional(),
   location_weight: z.number().min(0).max(1).optional(),
-});
+}).refine(
+  (data) => !(data.period && (data.since || data.before)),
+  { message: 'period is mutually exclusive with since/before' },
+);
 export type MemoryRecallParams = z.infer<typeof MemoryRecallParamsSchema>;
 
 /** Memory item returned from API */
@@ -120,7 +130,7 @@ export function createMemoryRecallTool(options: MemoryRecallToolOptions): Memory
   return {
     name: 'memory_recall',
     description:
-      'Search through long-term memories. Use when you need context about user preferences, past decisions, or previously discussed topics. Optionally filter by tags for categorical queries (e.g., ["music", "food"]). Use relationship_id to scope search to a specific relationship between contacts.',
+      'Search through long-term memories. Use when you need context about user preferences, past decisions, or previously discussed topics. Optionally filter by tags for categorical queries (e.g., ["music", "food"]). Use relationship_id to scope search to a specific relationship between contacts. Supports temporal filtering: use since/before with relative durations ("48h", "7d", "2w") or ISO dates, or use period shorthand ("today", "this_week", "last_month").',
     parameters: MemoryRecallParamsSchema,
 
     async execute(params: MemoryRecallParams): Promise<MemoryRecallResult> {
@@ -131,7 +141,7 @@ export function createMemoryRecallTool(options: MemoryRecallToolOptions): Memory
         return { success: false, error: errorMessage };
       }
 
-      const { query, limit = config.maxRecallMemories, category, tags, relationship_id, location, location_radius_km, location_weight } = parseResult.data;
+      const { query, limit = config.maxRecallMemories, category, tags, relationship_id, since, before, period, location, location_radius_km, location_weight } = parseResult.data;
 
       // Sanitize query
       const sanitizedQuery = sanitizeQuery(query);
@@ -166,6 +176,15 @@ export function createMemoryRecallTool(options: MemoryRecallToolOptions): Memory
         }
         if (relationship_id) {
           queryParams.set('relationship_id', relationship_id);
+        }
+        if (since) {
+          queryParams.set('since', since);
+        }
+        if (before) {
+          queryParams.set('before', before);
+        }
+        if (period) {
+          queryParams.set('period', period);
         }
 
         const path = `/memories/search?${queryParams.toString()}`;

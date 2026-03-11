@@ -753,6 +753,14 @@ exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > 
     "memory_id": {
       "type": "string",
     },
+    "namespaces": {
+      "items": {
+        "maxLength": 100,
+        "minLength": 1,
+        "type": "string",
+      },
+      "type": "array",
+    },
     "query": {
       "maxLength": 1000,
       "type": "string",
@@ -765,6 +773,10 @@ exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > 
 exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > memory_recall parameter schema should match snapshot 1`] = `
 {
   "properties": {
+    "before": {
+      "maxLength": 100,
+      "type": "string",
+    },
     "category": {
       "enum": [
         "preference",
@@ -810,6 +822,17 @@ exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > 
       "minimum": 0,
       "type": "number",
     },
+    "period": {
+      "enum": [
+        "today",
+        "yesterday",
+        "this_week",
+        "last_week",
+        "this_month",
+        "last_month",
+      ],
+      "type": "string",
+    },
     "query": {
       "maxLength": 1000,
       "minLength": 1,
@@ -817,6 +840,10 @@ exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > 
     },
     "relationship_id": {
       "format": "uuid",
+      "type": "string",
+    },
+    "since": {
+      "maxLength": 100,
       "type": "string",
     },
     "tags": {

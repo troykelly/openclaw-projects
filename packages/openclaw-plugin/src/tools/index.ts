@@ -8,6 +8,7 @@ export {
   createMemoryRecallTool,
   MemoryRecallParamsSchema,
   MemoryCategory,
+  TemporalPeriod,
   type MemoryRecallParams,
   type MemoryRecallTool,
   type MemoryRecallResult,
@@ -32,6 +33,28 @@ export {
   type MemoryForgetTool,
   type MemoryForgetResult,
 } from './memory-forget.js';
+
+// memory_list tool (Issue #2377)
+export {
+  createMemoryListTool,
+  MemoryListParamsSchema,
+  type MemoryListParams,
+  type MemoryListTool,
+  type MemoryListResult,
+  type MemoryListItem,
+  type MemoryListToolOptions,
+} from './memory-list.js';
+
+// memory_update tool (Issue #2378)
+export {
+  createMemoryUpdateTool,
+  MemoryUpdateParamsSchema,
+  type MemoryUpdateParams,
+  type MemoryUpdateTool,
+  type MemoryUpdateResult,
+  type UpdatedMemory,
+  type MemoryUpdateToolOptions,
+} from './memory-update.js';
 
 // Project tools
 export {

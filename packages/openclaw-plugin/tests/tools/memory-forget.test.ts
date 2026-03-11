@@ -579,4 +579,91 @@ describe('memory_forget tool', () => {
       }
     });
   });
+
+  describe('namespace filtering (Issue #2379)', () => {
+    it('should pass namespaces to search API when deleting by query', async () => {
+      const mockGet = vi.fn().mockResolvedValue({
+        success: true,
+        data: { results: [{ id: 'mem-1', content: 'test memory', similarity: 0.95 }] },
+      });
+      const mockDelete = vi.fn().mockResolvedValue({ success: true, data: {} });
+      const client = { ...mockApiClient, get: mockGet, delete: mockDelete };
+
+      const tool = createMemoryForgetTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        user_id: 'agent-1',
+      });
+
+      await tool.execute({ query: 'test', namespaces: ['default', 'troy'] });
+
+      const calledUrl = mockGet.mock.calls[0][0] as string;
+      expect(calledUrl).toContain('namespaces=default%2Ctroy');
+    });
+
+    it('should not include namespaces when not provided', async () => {
+      const mockGet = vi.fn().mockResolvedValue({
+        success: true,
+        data: { results: [] },
+      });
+      const client = { ...mockApiClient, get: mockGet };
+
+      const tool = createMemoryForgetTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        user_id: 'agent-1',
+      });
+
+      await tool.execute({ query: 'test' });
+
+      const calledUrl = mockGet.mock.calls[0][0] as string;
+      expect(calledUrl).not.toContain('namespaces');
+    });
+
+    it('should not pass namespaces when deleting by ID', async () => {
+      const mockDelete = vi.fn().mockResolvedValue({
+        success: true,
+        data: { deleted: true },
+      });
+      const client = { ...mockApiClient, delete: mockDelete };
+
+      const tool = createMemoryForgetTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        user_id: 'agent-1',
+      });
+
+      // namespaces should be ignored for ID-based deletion
+      await tool.execute({ memory_id: 'mem-123', namespaces: ['default'] });
+
+      expect(mockDelete).toHaveBeenCalledWith('/memories/mem-123', expect.objectContaining({ user_id: 'agent-1' }));
+    });
+
+    it('should log namespaces in invocation', async () => {
+      const mockGet = vi.fn().mockResolvedValue({
+        success: true,
+        data: { results: [] },
+      });
+      const client = { ...mockApiClient, get: mockGet };
+
+      const tool = createMemoryForgetTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        user_id: 'agent-1',
+      });
+
+      await tool.execute({ query: 'test', namespaces: ['ns1'] });
+
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'memory_forget invoked',
+        expect.objectContaining({
+          namespaces: ['ns1'],
+        }),
+      );
+    });
+  });
 });
