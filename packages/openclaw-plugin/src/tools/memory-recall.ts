@@ -190,7 +190,7 @@ export function createMemoryRecallTool(options: MemoryRecallToolOptions): Memory
         const path = `/memories/search?${queryParams.toString()}`;
 
         // Call API
-        const response = await client.get<{ results: Array<{ id: string; content: string; type: string; tags?: string[]; similarity?: number; created_at?: string; updated_at?: string; lat?: number | null; lng?: number | null; address?: string | null; place_label?: string | null }>; search_type: string }>(path, { user_id });
+        const response = await client.get<{ results: Array<{ id: string; content: string; type?: string; memory_type?: string; tags?: string[]; similarity?: number; created_at?: string; updated_at?: string; lat?: number | null; lng?: number | null; address?: string | null; place_label?: string | null }>; search_type: string }>(path, { user_id });
 
         if (!response.success) {
           logger.error('memory_recall API error', {
@@ -208,19 +208,23 @@ export function createMemoryRecallTool(options: MemoryRecallToolOptions): Memory
 
         // Map API field names to plugin Memory interface
         // Reverse the category mapping: 'note' (API) → 'other' (plugin)
-        let memories: Memory[] = rawResults.map((m) => ({
-          id: m.id,
-          content: m.content,
-          category: m.type === 'note' ? 'other' : m.type,
-          tags: m.tags,
-          score: m.similarity,
-          created_at: m.created_at,
-          updated_at: m.updated_at,
-          lat: m.lat,
-          lng: m.lng,
-          address: m.address,
-          place_label: m.place_label,
-        }));
+        // API returns both `type` and `memory_type`; prefer `type` but fall back to `memory_type`
+        let memories: Memory[] = rawResults.map((m) => {
+          const apiType = m.type ?? m.memory_type ?? 'note';
+          return {
+            id: m.id,
+            content: m.content,
+            category: apiType === 'note' ? 'other' : apiType,
+            tags: m.tags,
+            score: m.similarity,
+            created_at: m.created_at,
+            updated_at: m.updated_at,
+            lat: m.lat,
+            lng: m.lng,
+            address: m.address,
+            place_label: m.place_label,
+          };
+        });
 
         // Apply geo re-ranking if location is provided
         if (location) {

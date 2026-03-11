@@ -329,11 +329,8 @@ export async function updateMemory(pool: Pool, id: string, input: UpdateMemoryIn
   }
 
   if (input.importance !== undefined) {
-    if (input.importance < 1 || input.importance > 10) {
-      throw new Error('Importance must be between 1 and 10');
-    }
     updates.push(`importance = $${paramIndex}`);
-    params.push(input.importance);
+    params.push(normalizeImportance(input.importance));
     paramIndex++;
   }
 
