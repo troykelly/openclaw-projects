@@ -2295,6 +2295,9 @@ function createToolHandlers(state: PluginState) {
         if (period) queryParams.set('period', period);
         if (sort) queryParams.set('sort', sort);
         if (sort_direction) queryParams.set('sort_direction', sort_direction);
+        // Namespace scoping (consistent with memory_recall)
+        const listNs = getRecallNamespaces(params);
+        if (listNs.length > 0) queryParams.set('namespaces', listNs.join(','));
 
         const response = await apiClient.get<{
           memories: Array<{
