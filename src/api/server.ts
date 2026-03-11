@@ -18,6 +18,7 @@ import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify';
 import { createPool } from '../db.ts';
 import { sendMagicLinkEmail } from '../email/magicLink.ts';
 import { type AuthIdentity, getAuthIdentity, getSessionEmail, resolveUserEmail, resolveNamespaces, requireMinRole, RoleError } from './auth/middleware.ts';
+import { requireNamespaceAdmin } from './auth/namespace-admin.ts';
 import { isAuthDisabled, verifyAccessToken, signAccessToken } from './auth/jwt.ts';
 import { createRefreshToken, consumeRefreshToken, revokeTokenFamily } from './auth/refresh-tokens.ts';
 import { logAuthEvent } from './auth/audit.ts';
@@ -1180,32 +1181,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
-  /**
-   * Verify the caller has readwrite access in the given namespace.
-   * Applies to both user tokens and M2M tokens (Issue #1533 review fix).
-   * For M2M tokens without any grant, the check is skipped only for
-   * read operations — admin mutations always require a grant.
-   * Returns null if authorized, or an error response string if denied.
-   */
-  async function requireNamespaceAdmin(
-    identity: AuthIdentity,
-    namespace: string,
-    pool: ReturnType<typeof createPool>,
-  ): Promise<string | null> {
-    const email = identity.email;
-    const accessResult = await pool.query(
-      `SELECT access FROM namespace_grant WHERE email = $1 AND namespace = $2`,
-      [email, namespace],
-    );
-    if (accessResult.rows.length === 0) {
-      return 'No access to namespace';
-    }
-    const callerAccess = accessResult.rows[0].access as string;
-    if (callerAccess !== 'readwrite') {
-      return 'Requires readwrite access to manage grants';
-    }
-    return null;
-  }
+  // requireNamespaceAdmin() is now imported from ./auth/namespace-admin.ts
+  // Issue #2364: M2M tokens with api:full scope bypass the DB grant check.
 
   // POST /api/namespaces/:ns/grants — grant access to a user
   app.post('/namespaces/:ns/grants', async (req, reply) => {

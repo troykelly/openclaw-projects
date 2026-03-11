@@ -407,16 +407,11 @@ describe('Namespace & User Provisioning API', () => {
 
       it('upserts on duplicate grant', async () => {
         await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, [TEST_EMAIL]);
-        await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, ['test-service']);
         await pool.query(
           `INSERT INTO namespace_grant (email, namespace, access) VALUES ($1, 'test-ns-upsert', 'readwrite')`,
           [TEST_EMAIL],
         );
-        // M2M needs readwrite grant to mutate
-        await pool.query(
-          `INSERT INTO namespace_grant (email, namespace, access) VALUES ($1, 'test-ns-upsert', 'readwrite')`,
-          ['test-service'],
-        );
+        // Issue #2364: M2M with api:full bypasses requireNamespaceAdmin — no grant row needed
 
         const headers = await getM2MHeaders();
         const res = await app.inject({
@@ -439,17 +434,12 @@ describe('Namespace & User Provisioning API', () => {
     describe('PATCH /namespaces/:ns/grants/:id', () => {
       it('updates grant access level', async () => {
         await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, [TEST_EMAIL]);
-        await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, ['test-service']);
         const grant = await pool.query(
           `INSERT INTO namespace_grant (email, namespace, access) VALUES ($1, 'test-ns-patch', 'readwrite') RETURNING id::text`,
           [TEST_EMAIL],
         );
         const grantId = grant.rows[0].id;
-        // M2M needs readwrite grant to mutate
-        await pool.query(
-          `INSERT INTO namespace_grant (email, namespace, access) VALUES ($1, 'test-ns-patch', 'readwrite')`,
-          ['test-service'],
-        );
+        // Issue #2364: M2M with api:full bypasses requireNamespaceAdmin — no grant row needed
 
         const headers = await getM2MHeaders();
         const res = await app.inject({
@@ -462,13 +452,7 @@ describe('Namespace & User Provisioning API', () => {
       });
 
       it('returns 404 for nonexistent grant', async () => {
-        await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, ['test-service']);
-        // M2M needs readwrite grant to reach the 404 path (not 403)
-        await pool.query(
-          `INSERT INTO namespace_grant (email, namespace, access) VALUES ($1, 'test-ns-patch', 'readwrite')`,
-          ['test-service'],
-        );
-
+        // Issue #2364: M2M with api:full bypasses requireNamespaceAdmin — no grant row needed
         const headers = await getM2MHeaders();
         const res = await app.inject({
           method: 'PATCH', url: '/namespaces/test-ns-patch/grants/00000000-0000-0000-0000-000000000000',
@@ -482,17 +466,12 @@ describe('Namespace & User Provisioning API', () => {
     describe('DELETE /namespaces/:ns/grants/:id', () => {
       it('deletes grant', async () => {
         await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, [TEST_EMAIL]);
-        await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, ['test-service']);
         const grant = await pool.query(
           `INSERT INTO namespace_grant (email, namespace, access) VALUES ($1, 'test-ns-del', 'readwrite') RETURNING id::text`,
           [TEST_EMAIL],
         );
         const grantId = grant.rows[0].id;
-        // M2M needs readwrite grant to mutate
-        await pool.query(
-          `INSERT INTO namespace_grant (email, namespace, access) VALUES ($1, 'test-ns-del', 'readwrite')`,
-          ['test-service'],
-        );
+        // Issue #2364: M2M with api:full bypasses requireNamespaceAdmin — no grant row needed
 
         const headers = await getM2MHeaders();
         const res = await app.inject({
@@ -511,19 +490,52 @@ describe('Namespace & User Provisioning API', () => {
       });
 
       it('returns 404 for nonexistent grant', async () => {
-        await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, ['test-service']);
-        // M2M needs readwrite grant to reach the 404 path (not 403)
-        await pool.query(
-          `INSERT INTO namespace_grant (email, namespace, access) VALUES ($1, 'test-ns-del', 'readwrite')`,
-          ['test-service'],
-        );
-
+        // Issue #2364: M2M with api:full bypasses requireNamespaceAdmin — no grant row needed
         const headers = await getM2MHeaders();
         const res = await app.inject({
           method: 'DELETE', url: '/namespaces/test-ns-del/grants/00000000-0000-0000-0000-000000000000',
           headers,
         });
         expect(res.statusCode).toBe(404);
+      });
+    });
+
+    // Issue #2364: M2M api:full bypass for requireNamespaceAdmin
+    describe('M2M api:full bypass (Issue #2364)', () => {
+      it('M2M + api:full can grant access WITHOUT a pre-existing grant row', async () => {
+        await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, [TEST_EMAIL]);
+        // NOTE: no grant row for 'test-service' in 'test-ns-m2m-bypass'
+        const headers = await getM2MHeaders();
+        const res = await app.inject({
+          method: 'POST', url: '/namespaces/test-ns-m2m-bypass/grants',
+          headers: { ...headers, 'content-type': 'application/json' },
+          payload: { email: TEST_EMAIL, access: 'readwrite' },
+        });
+        expect(res.statusCode).toBe(201);
+        expect(res.json().email).toBe(TEST_EMAIL);
+      });
+
+      it('M2M without api:full gets 403 on grant creation', async () => {
+        await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, [TEST_EMAIL]);
+        await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, ['test-service-limited']);
+        const headers = await getM2MHeadersLimited();
+        const res = await app.inject({
+          method: 'POST', url: '/namespaces/test-ns-m2m-noscope/grants',
+          headers: { ...headers, 'content-type': 'application/json' },
+          payload: { email: TEST_EMAIL, access: 'readwrite' },
+        });
+        expect(res.statusCode).toBe(403);
+      });
+
+      it('user token without grant gets 403 on grant creation', async () => {
+        await pool.query(`INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT DO NOTHING`, [TEST_EMAIL]);
+        const headers = await getAuthHeaders(TEST_EMAIL);
+        const res = await app.inject({
+          method: 'POST', url: '/namespaces/test-ns-user-noaccess/grants',
+          headers: { ...headers, 'content-type': 'application/json' },
+          payload: { email: TEST_EMAIL, access: 'readwrite' },
+        });
+        expect(res.statusCode).toBe(403);
       });
     });
   });
