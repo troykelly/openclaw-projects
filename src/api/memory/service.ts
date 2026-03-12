@@ -28,6 +28,15 @@ const MAX_CONTENT_LENGTH = 102400;
 const MAX_TAG_COUNT = 50;
 /** Maximum length of a single tag */
 const MAX_TAG_LENGTH = 100;
+/**
+ * Maximum allowed TTL in milliseconds (365 days).
+ * Configurable via MEMORY_MAX_TTL_DAYS env var.
+ * Issue #2444
+ */
+const MAX_EXPIRES_MS = (): number => {
+  const days = process.env.MEMORY_MAX_TTL_DAYS ? parseInt(process.env.MEMORY_MAX_TTL_DAYS, 10) : 365;
+  return days * 24 * 60 * 60 * 1000;
+};
 
 /**
  * Validates memory input fields shared between create and update.
@@ -57,6 +66,30 @@ export function validateMemoryFields(input: {
         throw new Error(`Tag "${tag.slice(0, 20)}..." exceeds maximum length of ${MAX_TAG_LENGTH} characters`);
       }
     }
+  }
+}
+
+/**
+ * Validates that an expires_at timestamp is in the future and within the allowed max TTL.
+ * This is an API-layer validation — the service layer allows any timestamp to support
+ * internal operations (e.g., test setup, reaper queries on past-expired records).
+ *
+ * Issue #2444: negative/zero TTL creates already-expired records
+ */
+export function validateExpiresAt(expiresAt: Date): void {
+  const expiresMs = expiresAt.getTime();
+  // Reject invalid Date objects (NaN timestamps from e.g. new Date('not-a-date'))
+  if (!Number.isFinite(expiresMs)) {
+    throw new Error('expires_at must be a valid date');
+  }
+  const now = Date.now();
+  if (expiresMs <= now) {
+    throw new Error('expires_at must be in the future (TTL must be a positive duration, e.g. "24h", "7d")');
+  }
+  const maxMs = MAX_EXPIRES_MS();
+  if (expiresMs - now > maxMs) {
+    const maxDays = Math.round(maxMs / (24 * 60 * 60 * 1000));
+    throw new Error(`expires_at cannot be more than ${maxDays} days in the future`);
   }
 }
 
@@ -274,7 +307,7 @@ export async function createMemory(pool: Pool, input: CreateMemoryInput): Promis
       lat, lng, address, place_label, namespace, pinned
     ) VALUES ($1, $2, $3, $4, $5, $6, $7::memory_type, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
     RETURNING
-      id::text, work_item_id::text, contact_id::text, relationship_id::text, project_id::text,
+      id::text, namespace, work_item_id::text, contact_id::text, relationship_id::text, project_id::text,
       title, content, memory_type::text, tags,
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at, superseded_by::text,

@@ -14,7 +14,7 @@ import multipart from '@fastify/multipart';
 import rateLimit from '@fastify/rate-limit';
 import fastifyStatic from '@fastify/static';
 import websocket from '@fastify/websocket';
-import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify';
+import Fastify, { type FastifyInstance, type FastifyRequest, type FastifyReply } from 'fastify';
 import { createPool } from '../db.ts';
 import { sendMagicLinkEmail } from '../email/magicLink.ts';
 import { type AuthIdentity, getAuthIdentity, getSessionEmail, resolveUserEmail, resolveNamespaces, requireMinRole, RoleError } from './auth/middleware.ts';
@@ -413,6 +413,42 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     if (ns && ns.length > 0) return ns;
     if (isAuthDisabled()) return ['default'];
     return [];
+  }
+
+  /**
+   * Validate an explicit namespace_id from the request body against the caller's
+   * effective namespace grants. Returns the validated single-namespace array,
+   * or throws a 403-style Error if the caller doesn't have access.
+   *
+   * When auth is disabled (dev mode), any namespace_id is accepted.
+   * When queryNamespaces is non-empty, namespace_id must be in that list.
+   * When queryNamespaces is empty and auth is enabled, namespace_id is rejected
+   * (caller has no grants).
+   *
+   * Issue #2439/#2440/#2441: prevent body namespace_id from escaping caller's grants.
+   */
+  function resolveAndValidateNamespaceId(
+    namespaceId: string | undefined,
+    queryNamespaces: string[],
+    reply: FastifyReply,
+  ): { namespaces: string[] | undefined } | null {
+    // When auth is enabled and the caller has zero namespace grants, always reject —
+    // even when no namespace_id is specified, to prevent unscoped reap/digest/upsert
+    // from operating across all namespaces for an unauthorised caller.
+    if (queryNamespaces.length === 0 && !isAuthDisabled()) {
+      reply.code(403).send({ error: 'No namespace grants available' });
+      return null;
+    }
+    if (!namespaceId) {
+      // No explicit namespace_id — use effective namespaces (or undefined for all if unscoped/auth-disabled)
+      return { namespaces: queryNamespaces.length > 0 ? queryNamespaces : undefined };
+    }
+    // Explicit namespace_id: validate against grants
+    if (queryNamespaces.length > 0 && !queryNamespaces.includes(namespaceId)) {
+      reply.code(403).send({ error: `Not authorized for namespace '${namespaceId}'` });
+      return null;
+    }
+    return { namespaces: [namespaceId] };
   }
 
   /**
@@ -9395,7 +9431,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // Memory CRUD API (issue #121)
   // POST /api/memory - Create a new memory (linked_item_id optional)
   app.post('/memory', async (req, reply) => {
-    const { createMemory, generateTitleFromContent } = await import('./memory/index.ts');
+    const { createMemory, generateTitleFromContent, validateExpiresAt } = await import('./memory/index.ts');
 
     const body = req.body as {
       title?: string;
@@ -9434,13 +9470,20 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       linkedItemTitle = (linkedItem.rows[0] as { title: string }).title;
     }
 
-    // Validate expires_at if provided
+    // Validate expires_at if provided (issue #2444: must be future, max 365 days)
     let expiresAt: Date | undefined;
     if (body.expires_at) {
       expiresAt = new Date(body.expires_at);
       if (Number.isNaN(expiresAt.getTime())) {
         await pool.end();
         return reply.code(400).send({ error: 'expires_at must be a valid ISO date string' });
+      }
+      try {
+        validateExpiresAt(expiresAt);
+      } catch (err) {
+        await pool.end();
+        const message = err instanceof Error ? err.message : 'Invalid expires_at';
+        return reply.code(400).send({ error: message });
       }
     }
 
@@ -9850,7 +9893,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // POST /api/memories/unified - Create memory with flexible scoping (issue #209)
   app.post('/memories/unified', { preHandler: [geoAutoInjectHook(createPool)] }, async (req, reply) => {
-    const { createMemory, isValidMemoryType, generateTitleFromContent } = await import('./memory/index.ts');
+    const { createMemory, isValidMemoryType, generateTitleFromContent, validateExpiresAt } = await import('./memory/index.ts');
 
     const body = req.body as {
       title?: string;
@@ -9900,6 +9943,21 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       });
     }
 
+    // Issue #2444: validate expires_at is in the future and within max TTL
+    let expiresAtDate: Date | undefined;
+    if (body.expires_at) {
+      expiresAtDate = new Date(body.expires_at);
+      if (Number.isNaN(expiresAtDate.getTime())) {
+        return reply.code(400).send({ error: 'expires_at must be a valid ISO date string' });
+      }
+      try {
+        validateExpiresAt(expiresAtDate);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Invalid expires_at';
+        return reply.code(400).send({ error: message });
+      }
+    }
+
     const pool = createPool();
 
     try {
@@ -9916,7 +9974,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         source_url: body.source_url,
         importance: body.importance,
         confidence: body.confidence,
-        expires_at: body.expires_at ? new Date(body.expires_at) : undefined,
+        expires_at: expiresAtDate,
         tags: body.tags,
         lat: body.lat,
         lng: body.lng,
@@ -10505,6 +10563,297 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         hardDelete: body.hard_delete === true,
       });
       return reply.send({ deleted });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/memories/reap - Hard-delete expired memories with namespace isolation
+  // Issues #2428, #2440: Expired Memory Reaper with namespace-scope cascade
+  app.post('/memories/reap', async (req, reply) => {
+    const { reaperHardDelete } = await import('./memory/core-api.ts');
+
+    const pool = createPool();
+    const queryNamespaces = getEffectiveNamespaces(req);
+
+    try {
+      const body = (req.body ?? {}) as {
+        namespace_id?: string;
+        dry_run?: boolean;
+        batch_size?: number;
+      };
+
+      // Validate and resolve namespace (#2440: namespace_id must be within caller's grants)
+      const nsResolution = resolveAndValidateNamespaceId(body.namespace_id, queryNamespaces, reply);
+      if (!nsResolution) return; // 403 already sent
+      const namespaces = nsResolution.namespaces;
+
+      const envBatchSize = process.env.MEMORY_REAPER_BATCH_SIZE
+        ? parseInt(process.env.MEMORY_REAPER_BATCH_SIZE, 10)
+        : 1000;
+      // Validate batch_size is a finite positive integer to prevent NaN/Infinity injection
+      const rawBatchSize = body.batch_size;
+      const batchSize = (typeof rawBatchSize === 'number' && Number.isFinite(rawBatchSize) && rawBatchSize > 0)
+        ? Math.min(Math.floor(rawBatchSize), envBatchSize)
+        : envBatchSize;
+
+      if (body.dry_run === true) {
+        // Dry-run: count what would be reaped without deleting
+        const params: unknown[] = [];
+        let nsClause = '';
+        if (namespaces && namespaces.length > 0) {
+          nsClause = ' AND namespace = ANY($1::text[])';
+          params.push(namespaces);
+        }
+        const countResult = await pool.query<{ cnt: string }>(
+          `SELECT COUNT(*)::text as cnt FROM memory
+           WHERE expires_at IS NOT NULL AND expires_at < NOW() AND is_active = true${nsClause}`,
+          params,
+        );
+        const wouldReap = parseInt(countResult.rows[0].cnt, 10);
+        return reply.send({ reaped: 0, would_reap: wouldReap, dry_run: true });
+      }
+
+      const reaped = await reaperHardDelete(pool, { namespaces, batchSize });
+      return reply.send({ reaped });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Reaper failed';
+      return reply.code(500).send({ error: message });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/memories/digest - Vector clustering for rehearsal detection
+  // Issues #2427, #2439: Memory Digest with server-side cap and namespace scoping
+  app.post('/memories/digest', async (req, reply) => {
+    const { digestMemories } = await import('./memory/core-api.ts');
+
+    const pool = createPool();
+    const queryNamespaces = getEffectiveNamespaces(req);
+
+    try {
+      const body = (req.body ?? {}) as {
+        since?: string;
+        before?: string;
+        namespace_id?: string;
+        similarity_threshold?: number;
+        min_cluster_size?: number;
+        include_content?: boolean;
+        max_memories?: number;
+      };
+
+      if (!body.since || !body.before) {
+        return reply.code(400).send({ error: 'since and before are required' });
+      }
+
+      const since = new Date(body.since);
+      const before = new Date(body.before);
+      if (Number.isNaN(since.getTime()) || Number.isNaN(before.getTime())) {
+        return reply.code(400).send({ error: 'Invalid date format for since or before' });
+      }
+      if (since >= before) {
+        return reply.code(400).send({ error: 'since must be before before' });
+      }
+
+      // Validate and resolve namespace (#2439: namespace_id must be within caller's grants)
+      const nsResolution = resolveAndValidateNamespaceId(body.namespace_id, queryNamespaces, reply);
+      if (!nsResolution) return; // 403 already sent
+      // Digest requires a single namespace — use provided/first effective, or 'default' in dev
+      const namespace =
+        body.namespace_id ??
+        (queryNamespaces.length > 0 ? queryNamespaces[0] : 'default');
+
+      // Server-side cap (#2439): clamp to env-configured maximum, reject non-finite values
+      const envCap = process.env.MEMORY_DIGEST_MAX
+        ? parseInt(process.env.MEMORY_DIGEST_MAX, 10)
+        : 500;
+      const rawMax = body.max_memories;
+      const maxMemories = (typeof rawMax === 'number' && Number.isFinite(rawMax) && rawMax > 0)
+        ? Math.min(Math.floor(rawMax), envCap)
+        : envCap;
+
+      try {
+        const result = await digestMemories(pool, {
+          namespace,
+          since,
+          before,
+          similarity_threshold: body.similarity_threshold,
+          min_cluster_size: body.min_cluster_size,
+          include_content: body.include_content,
+          max_memories: maxMemories,
+        });
+        return reply.send(result);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Digest failed';
+        if (message.startsWith('Too many memories')) {
+          return reply.code(400).send({ error: message });
+        }
+        throw err;
+      }
+    } catch (err) {
+      if (reply.sent) return;
+      const message = err instanceof Error ? err.message : 'Digest failed';
+      return reply.code(500).send({ error: message });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/memories/bulk-supersede - Atomic bulk supersession
+  // Issues #2429, #2441: Bulk supersession with FOR UPDATE locking and namespace isolation
+  app.post('/memories/bulk-supersede', async (req, reply) => {
+    const { bulkSupersedeMemories } = await import('./memory/core-api.ts');
+
+    const pool = createPool();
+    const queryNamespaces = getEffectiveNamespaces(req);
+
+    try {
+      const body = (req.body ?? {}) as {
+        target_id?: string;
+        source_ids?: string[];
+        deactivate_sources?: boolean;
+      };
+
+      if (!body.target_id) {
+        return reply.code(400).send({ error: 'target_id is required' });
+      }
+      if (!Array.isArray(body.source_ids) || body.source_ids.length === 0) {
+        return reply.code(400).send({ error: 'source_ids must be a non-empty array' });
+      }
+
+      // Validate namespace access (#2441: caller must have access to the namespace)
+      // No explicit namespace_id in bulk-supersede — use effective namespaces
+      if (queryNamespaces.length === 0 && !isAuthDisabled()) {
+        return reply.code(403).send({ error: 'No namespace grants available' });
+      }
+
+      try {
+        const result = await bulkSupersedeMemories(pool, {
+          target_id: body.target_id,
+          source_ids: body.source_ids,
+          deactivate_sources: body.deactivate_sources ?? true,
+          namespaces: queryNamespaces.length > 0 ? queryNamespaces : undefined,
+        });
+        return reply.send(result);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Bulk supersede failed';
+        if (message.includes('not found')) return reply.code(404).send({ error: message });
+        if (message.includes('already superseded')) return reply.code(409).send({ error: message });
+        if (message.includes('Cross-namespace') || message.includes('not all source')) {
+          return reply.code(403).send({ error: message });
+        }
+        if (
+          message.includes('must not be empty') ||
+          message.includes('cannot exceed') ||
+          message.includes('self-reference') ||
+          message.includes('Not all source')
+        ) {
+          return reply.code(400).send({ error: message });
+        }
+        throw err;
+      }
+    } catch (err) {
+      if (reply.sent) return;
+      const message = err instanceof Error ? err.message : 'Bulk supersede failed';
+      return reply.code(500).send({ error: message });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // PUT /api/memories/upsert-by-tag - Atomic upsert by tag set (sliding window)
+  // Issue #2432: Upsert-by-Tag for temporal memory slot management
+  app.put('/memories/upsert-by-tag', async (req, reply) => {
+    const { upsertMemoryByTag } = await import('./memory/core-api.ts');
+
+    const pool = createPool();
+    const queryNamespaces = getEffectiveNamespaces(req);
+
+    try {
+      const body = (req.body ?? {}) as {
+        title?: string;
+        content?: string;
+        memory_type?: string;
+        tags?: string[];
+        upsert_tags?: string[];
+        namespace_id?: string;
+        importance?: number;
+        confidence?: number;
+        expires_at?: string;
+        source_url?: string;
+        pinned?: boolean;
+        work_item_id?: string;
+        contact_id?: string;
+        project_id?: string;
+      };
+
+      if (!body.content) {
+        return reply.code(400).send({ error: 'content is required' });
+      }
+      if (!Array.isArray(body.upsert_tags) || body.upsert_tags.length === 0) {
+        return reply.code(400).send({ error: 'upsert_tags must be a non-empty array' });
+      }
+
+      // Validate and resolve namespace (#2432: namespace_id must be within caller's grants)
+      const nsResolution = resolveAndValidateNamespaceId(body.namespace_id, queryNamespaces, reply);
+      if (!nsResolution) return; // 403 already sent
+      const namespace =
+        body.namespace_id ??
+        (queryNamespaces.length > 0 ? queryNamespaces[0] : 'default');
+
+      const { generateTitleFromContent, isValidMemoryType, validateExpiresAt } = await import('./memory/service.ts');
+
+      const memory_type = body.memory_type ?? 'note';
+      if (!isValidMemoryType(memory_type)) {
+        return reply.code(400).send({ error: `Invalid memory_type: ${memory_type}` });
+      }
+
+      let expiresAt: Date | undefined;
+      if (body.expires_at) {
+        expiresAt = new Date(body.expires_at);
+        try {
+          validateExpiresAt(expiresAt);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : 'Invalid expires_at';
+          return reply.code(400).send({ error: message });
+        }
+      }
+
+      try {
+        const result = await upsertMemoryByTag(pool, {
+          title: body.title ?? generateTitleFromContent(body.content),
+          content: body.content,
+          memory_type: memory_type as import('./memory/types.ts').MemoryType,
+          tags: body.tags ?? body.upsert_tags,
+          upsert_tags: body.upsert_tags,
+          namespace,
+          importance: body.importance,
+          confidence: body.confidence,
+          expires_at: expiresAt,
+          source_url: body.source_url,
+          pinned: body.pinned,
+          work_item_id: body.work_item_id,
+          contact_id: body.contact_id,
+          project_id: body.project_id,
+        });
+        return reply.code(result.upserted ? 200 : 201).send(result);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Upsert failed';
+        if (
+          message.includes('must not be empty') ||
+          message.includes('expires_at') ||
+          message.includes('Confidence') ||
+          message.includes('Too many tags')
+        ) {
+          return reply.code(400).send({ error: message });
+        }
+        throw err;
+      }
+    } catch (err) {
+      if (reply.sent) return;
+      const message = err instanceof Error ? err.message : 'Upsert failed';
+      return reply.code(500).send({ error: message });
     } finally {
       await pool.end();
     }

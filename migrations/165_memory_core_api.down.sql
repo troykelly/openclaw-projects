@@ -1,0 +1,2 @@
+-- Rollback for migrations/165_memory_core_api.up.sql
+-- No schema changes to undo — all changes are application-layer.
