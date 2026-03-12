@@ -10510,6 +10510,272 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
+  // POST /api/memories/reap - Hard-delete expired memories with namespace isolation
+  // Issues #2428, #2440: Expired Memory Reaper with namespace-scope cascade
+  app.post('/memories/reap', async (req, reply) => {
+    const { reaperHardDelete } = await import('./memory/core-api.ts');
+
+    const pool = createPool();
+    const queryNamespaces = getEffectiveNamespaces(req);
+
+    try {
+      const body = (req.body ?? {}) as {
+        namespace_id?: string;
+        dry_run?: boolean;
+        batch_size?: number;
+      };
+
+      // Namespace scoping: prefer explicit namespace_id, fall back to effective namespaces
+      const namespaces =
+        body.namespace_id
+          ? [body.namespace_id]
+          : queryNamespaces.length > 0
+          ? queryNamespaces
+          : undefined;
+
+      const envBatchSize = process.env.MEMORY_REAPER_BATCH_SIZE
+        ? parseInt(process.env.MEMORY_REAPER_BATCH_SIZE, 10)
+        : 1000;
+      const batchSize = Math.min(body.batch_size ?? envBatchSize, envBatchSize);
+
+      if (body.dry_run === true) {
+        // Dry-run: count what would be reaped without deleting
+        const params: unknown[] = [];
+        let nsClause = '';
+        if (namespaces && namespaces.length > 0) {
+          nsClause = ' AND namespace = ANY($1::text[])';
+          params.push(namespaces);
+        }
+        const countResult = await pool.query<{ cnt: string }>(
+          `SELECT COUNT(*)::text as cnt FROM memory
+           WHERE expires_at IS NOT NULL AND expires_at < NOW() AND is_active = true${nsClause}`,
+          params,
+        );
+        const wouldReap = parseInt(countResult.rows[0].cnt, 10);
+        return reply.send({ reaped: 0, would_reap: wouldReap, dry_run: true });
+      }
+
+      const reaped = await reaperHardDelete(pool, { namespaces, batchSize });
+      return reply.send({ reaped });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Reaper failed';
+      return reply.code(500).send({ error: message });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/memories/digest - Vector clustering for rehearsal detection
+  // Issues #2427, #2439: Memory Digest with server-side cap and namespace scoping
+  app.post('/memories/digest', async (req, reply) => {
+    const { digestMemories } = await import('./memory/core-api.ts');
+
+    const pool = createPool();
+    const queryNamespaces = getEffectiveNamespaces(req);
+
+    try {
+      const body = (req.body ?? {}) as {
+        since?: string;
+        before?: string;
+        namespace_id?: string;
+        similarity_threshold?: number;
+        min_cluster_size?: number;
+        include_content?: boolean;
+        max_memories?: number;
+      };
+
+      if (!body.since || !body.before) {
+        return reply.code(400).send({ error: 'since and before are required' });
+      }
+
+      const since = new Date(body.since);
+      const before = new Date(body.before);
+      if (Number.isNaN(since.getTime()) || Number.isNaN(before.getTime())) {
+        return reply.code(400).send({ error: 'Invalid date format for since or before' });
+      }
+      if (since >= before) {
+        return reply.code(400).send({ error: 'since must be before before' });
+      }
+
+      // Namespace: prefer explicit namespace_id, fall back to first effective namespace
+      const namespace =
+        body.namespace_id ??
+        (queryNamespaces.length > 0 ? queryNamespaces[0] : 'default');
+
+      // Server-side cap (#2439): clamp to env-configured maximum
+      const envCap = process.env.MEMORY_DIGEST_MAX
+        ? parseInt(process.env.MEMORY_DIGEST_MAX, 10)
+        : 500;
+      const maxMemories = Math.min(body.max_memories ?? envCap, envCap);
+
+      try {
+        const result = await digestMemories(pool, {
+          namespace,
+          since,
+          before,
+          similarity_threshold: body.similarity_threshold,
+          min_cluster_size: body.min_cluster_size,
+          include_content: body.include_content,
+          max_memories: maxMemories,
+        });
+        return reply.send(result);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Digest failed';
+        if (message.startsWith('Too many memories')) {
+          return reply.code(400).send({ error: message });
+        }
+        throw err;
+      }
+    } catch (err) {
+      if (reply.sent) return;
+      const message = err instanceof Error ? err.message : 'Digest failed';
+      return reply.code(500).send({ error: message });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/memories/bulk-supersede - Atomic bulk supersession
+  // Issues #2429, #2441: Bulk supersession with FOR UPDATE locking and namespace isolation
+  app.post('/memories/bulk-supersede', async (req, reply) => {
+    const { bulkSupersedeMemories } = await import('./memory/core-api.ts');
+
+    const pool = createPool();
+    const queryNamespaces = getEffectiveNamespaces(req);
+
+    try {
+      const body = (req.body ?? {}) as {
+        target_id?: string;
+        source_ids?: string[];
+        deactivate_sources?: boolean;
+      };
+
+      if (!body.target_id) {
+        return reply.code(400).send({ error: 'target_id is required' });
+      }
+      if (!Array.isArray(body.source_ids) || body.source_ids.length === 0) {
+        return reply.code(400).send({ error: 'source_ids must be a non-empty array' });
+      }
+
+      try {
+        const result = await bulkSupersedeMemories(pool, {
+          target_id: body.target_id,
+          source_ids: body.source_ids,
+          deactivate_sources: body.deactivate_sources ?? true,
+          namespaces: queryNamespaces.length > 0 ? queryNamespaces : undefined,
+        });
+        return reply.send(result);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Bulk supersede failed';
+        if (message.includes('not found')) return reply.code(404).send({ error: message });
+        if (message.includes('already superseded')) return reply.code(409).send({ error: message });
+        if (message.includes('Cross-namespace') || message.includes('not all source')) {
+          return reply.code(403).send({ error: message });
+        }
+        if (
+          message.includes('must not be empty') ||
+          message.includes('cannot exceed') ||
+          message.includes('self-reference') ||
+          message.includes('Not all source')
+        ) {
+          return reply.code(400).send({ error: message });
+        }
+        throw err;
+      }
+    } catch (err) {
+      if (reply.sent) return;
+      const message = err instanceof Error ? err.message : 'Bulk supersede failed';
+      return reply.code(500).send({ error: message });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // PUT /api/memories/upsert-by-tag - Atomic upsert by tag set (sliding window)
+  // Issue #2432: Upsert-by-Tag for temporal memory slot management
+  app.put('/memories/upsert-by-tag', async (req, reply) => {
+    const { upsertMemoryByTag } = await import('./memory/core-api.ts');
+
+    const pool = createPool();
+    const queryNamespaces = getEffectiveNamespaces(req);
+
+    try {
+      const body = (req.body ?? {}) as {
+        title?: string;
+        content?: string;
+        memory_type?: string;
+        tags?: string[];
+        upsert_tags?: string[];
+        namespace_id?: string;
+        importance?: number;
+        confidence?: number;
+        expires_at?: string;
+        source_url?: string;
+        pinned?: boolean;
+        work_item_id?: string;
+        contact_id?: string;
+        project_id?: string;
+      };
+
+      if (!body.content) {
+        return reply.code(400).send({ error: 'content is required' });
+      }
+      if (!Array.isArray(body.upsert_tags) || body.upsert_tags.length === 0) {
+        return reply.code(400).send({ error: 'upsert_tags must be a non-empty array' });
+      }
+
+      const namespace =
+        body.namespace_id ??
+        (queryNamespaces.length > 0 ? queryNamespaces[0] : 'default');
+
+      const { generateTitleFromContent, isValidMemoryType } = await import('./memory/service.ts');
+
+      const memory_type = body.memory_type ?? 'note';
+      if (!isValidMemoryType(memory_type)) {
+        return reply.code(400).send({ error: `Invalid memory_type: ${memory_type}` });
+      }
+
+      const expiresAt = body.expires_at ? new Date(body.expires_at) : undefined;
+
+      try {
+        const result = await upsertMemoryByTag(pool, {
+          title: body.title ?? generateTitleFromContent(body.content),
+          content: body.content,
+          memory_type: memory_type as import('./memory/types.ts').MemoryType,
+          tags: body.tags ?? body.upsert_tags,
+          upsert_tags: body.upsert_tags,
+          namespace,
+          importance: body.importance,
+          confidence: body.confidence,
+          expires_at: expiresAt,
+          source_url: body.source_url,
+          pinned: body.pinned,
+          work_item_id: body.work_item_id,
+          contact_id: body.contact_id,
+          project_id: body.project_id,
+        });
+        return reply.code(result.upserted ? 200 : 201).send(result);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Upsert failed';
+        if (
+          message.includes('must not be empty') ||
+          message.includes('expires_at') ||
+          message.includes('Confidence') ||
+          message.includes('Too many tags')
+        ) {
+          return reply.code(400).send({ error: message });
+        }
+        throw err;
+      }
+    } catch (err) {
+      if (reply.sent) return;
+      const message = err instanceof Error ? err.message : 'Upsert failed';
+      return reply.code(500).send({ error: message });
+    } finally {
+      await pool.end();
+    }
+  });
+
   // Webhook Admin API (issue #201)
 
   // GET /api/webhooks/outbox - List webhook outbox entries
