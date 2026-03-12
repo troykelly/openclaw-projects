@@ -219,9 +219,10 @@ export class YjsDocManager {
       // Encode full state as update (standard Yjs persistence format)
       const state = Y.encodeStateAsUpdate(managed.doc);
 
-      // Export content from the Yjs shared type key matching CollaborationPlugin id (noteId).
-      // CollaborationPlugin stores content at doc.get(id, Y.XmlText) where id = noteId (#2472).
-      const xmlText = managed.doc.get(managed.noteId, Y.XmlText);
+      // @lexical/yjs CollaborationPlugin always stores content at the 'root' key as Y.XmlText
+      // (see createBinding() in LexicalYjs.dev.js line 832). The `id` prop only affects docMap
+      // lookup, not the Yjs shared type key. (#2472)
+      const xmlText = managed.doc.get('root', Y.XmlText);
       const content = xmlText.toString();
 
       // Check state size and warn if too large

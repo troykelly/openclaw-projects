@@ -316,13 +316,13 @@ describe('YjsDocManager', () => {
   });
 
   describe('persistDoc content extraction', () => {
-    it('extracts content from the noteId key (matching CollaborationPlugin id)', async () => {
+    it('extracts content from the root key (matching @lexical/yjs createBinding)', async () => {
       const noteId = 'note-uuid-persist';
       await manager.joinRoom('client-1', 'user@test.com', noteId);
 
-      // Simulate what CollaborationPlugin does: store content at doc.get(noteId, Y.XmlText)
+      // Simulate what @lexical/yjs CollaborationPlugin does: store content at doc.get('root', Y.XmlText)
       const doc = manager.getDoc(noteId)!;
-      const xmlText = doc.get(noteId, Y.XmlText);
+      const xmlText = doc.get('root', Y.XmlText);
       xmlText.insert(0, 'Hello from Yjs');
 
       manager.markDirty(noteId);
@@ -344,11 +344,11 @@ describe('YjsDocManager', () => {
       expect(contentParam).toContain('Hello from Yjs');
     });
 
-    it('extracts empty content when noteId key has no content', async () => {
+    it('extracts empty content when root key has no content', async () => {
       const noteId = 'note-uuid-empty';
       await manager.joinRoom('client-1', 'user@test.com', noteId);
 
-      // Mark dirty but don't add content to the noteId key
+      // Mark dirty but don't add content to the root key
       manager.markDirty(noteId);
 
       mockPool._mockClient.query.mockClear();
