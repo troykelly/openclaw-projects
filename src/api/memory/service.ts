@@ -77,8 +77,12 @@ export function validateMemoryFields(input: {
  * Issue #2444: negative/zero TTL creates already-expired records
  */
 export function validateExpiresAt(expiresAt: Date): void {
-  const now = Date.now();
   const expiresMs = expiresAt.getTime();
+  // Reject invalid Date objects (NaN timestamps from e.g. new Date('not-a-date'))
+  if (!Number.isFinite(expiresMs)) {
+    throw new Error('expires_at must be a valid date');
+  }
+  const now = Date.now();
   if (expiresMs <= now) {
     throw new Error('expires_at must be in the future (TTL must be a positive duration, e.g. "24h", "7d")');
   }

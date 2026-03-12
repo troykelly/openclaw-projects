@@ -407,31 +407,25 @@ export async function bulkSupersedeMemories(
     const targetNamespace = targetResult.rows[0].namespace;
 
     // Lock all source rows with FOR UPDATE to prevent concurrent supersede (#2441)
+    // Include namespace predicate on lock query to prevent cross-namespace lock interference (#2441)
     const sourceResult = await client.query<{ id: string; namespace: string; superseded_by: string | null }>(
       `SELECT id::text, namespace, superseded_by::text
        FROM memory
        WHERE id = ANY($1::uuid[])
+         AND namespace = $2
        FOR UPDATE`,
-      [source_ids],
+      [source_ids, targetNamespace],
     );
 
-    // Verify all sources found
+    // Verify all sources found (in the target namespace)
     if (sourceResult.rows.length !== source_ids.length) {
       const foundIds = new Set(sourceResult.rows.map((r) => r.id));
       const missing = source_ids.filter((id) => !foundIds.has(id));
       await client.query('ROLLBACK');
-      throw new Error(`Not all source memories found. Missing: ${missing.join(', ')}`);
-    }
-
-    // Verify all sources are in the same namespace as target (#2441 cross-namespace)
-    for (const row of sourceResult.rows) {
-      if (row.namespace !== targetNamespace) {
-        await client.query('ROLLBACK');
-        throw new Error(
-          `Cross-namespace violation: source memory ${row.id} is in namespace '${row.namespace}', ` +
-          `but target is in namespace '${targetNamespace}'`,
-        );
-      }
+      throw new Error(
+        `Not all source memories found in namespace '${targetNamespace}'. ` +
+        `Missing or cross-namespace: ${missing.join(', ')}`,
+      );
     }
 
     // Check for already-superseded sources (return 409-style error)
@@ -502,45 +496,64 @@ export async function upsertMemoryByTag(
     validateExpiresAt(options.expires_at);
   }
 
-  // Find an existing active memory in the same namespace that has ALL upsert_tags
-  // Uses @> (contains) operator on GIN-indexed tags column
-  const existingResult = await pool.query<{ id: string }>(
-    `SELECT id::text
-     FROM memory
-     WHERE namespace = $1
-       AND is_active = true
-       AND superseded_by IS NULL
-       AND tags @> $2
-     LIMIT 1`,
-    [namespace, upsert_tags],
-  );
+  // Atomic upsert: use SELECT FOR UPDATE to prevent concurrent duplicates.
+  // If two concurrent requests arrive with the same upsert_tags, the first
+  // to acquire the lock will create or update; the second will see the locked
+  // row and update it rather than creating a duplicate.
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
 
-  if (existingResult.rows.length > 0) {
-    const existingId = existingResult.rows[0].id;
+    // Lock any existing active memory matching ALL upsert_tags in this namespace
+    const existingResult = await client.query<{ id: string }>(
+      `SELECT id::text
+       FROM memory
+       WHERE namespace = $1
+         AND is_active = true
+         AND superseded_by IS NULL
+         AND tags @> $2
+       LIMIT 1
+       FOR UPDATE`,
+      [namespace, upsert_tags],
+    );
 
-    // Update the existing memory
-    const updated = await updateMemory(pool, existingId, {
-      title: createInput.title,
-      content: createInput.content,
-      memory_type: createInput.memory_type,
-      tags: createInput.tags,
-      importance: createInput.importance,
-      confidence: createInput.confidence,
-      expires_at: createInput.expires_at,
-      source_url: createInput.source_url,
-      pinned: createInput.pinned,
-    });
+    let result: UpsertByTagResult;
 
-    if (!updated) {
-      // Race condition: memory was deleted between check and update — create new
-      const created = await createMemory(pool, { ...createInput, namespace });
-      return { memory: created, upserted: false };
+    if (existingResult.rows.length > 0) {
+      const existingId = existingResult.rows[0].id;
+
+      // Update the existing slot — pass namespace for isolation reassertion
+      const updated = await updateMemory(client as unknown as Pool, existingId, {
+        title: createInput.title,
+        content: createInput.content,
+        memory_type: createInput.memory_type,
+        tags: createInput.tags,
+        importance: createInput.importance,
+        confidence: createInput.confidence,
+        expires_at: createInput.expires_at,
+        source_url: createInput.source_url,
+        pinned: createInput.pinned,
+      }, [namespace]);
+
+      if (!updated) {
+        // Memory was deleted between SELECT FOR UPDATE and UPDATE — create new
+        const created = await createMemory(client as unknown as Pool, { ...createInput, namespace });
+        result = { memory: created, upserted: false };
+      } else {
+        result = { memory: updated, upserted: true };
+      }
+    } else {
+      // No existing slot — create new memory
+      const created = await createMemory(client as unknown as Pool, { ...createInput, namespace });
+      result = { memory: created, upserted: false };
     }
 
-    return { memory: updated, upserted: true };
+    await client.query('COMMIT');
+    return result;
+  } catch (err) {
+    try { await client.query('ROLLBACK'); } catch { /* ignore rollback error */ }
+    throw err;
+  } finally {
+    client.release();
   }
-
-  // No existing slot — create new memory
-  const created = await createMemory(pool, { ...createInput, namespace });
-  return { memory: created, upserted: false };
 }

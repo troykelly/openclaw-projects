@@ -14,7 +14,7 @@ import multipart from '@fastify/multipart';
 import rateLimit from '@fastify/rate-limit';
 import fastifyStatic from '@fastify/static';
 import websocket from '@fastify/websocket';
-import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify';
+import Fastify, { type FastifyInstance, type FastifyRequest, type FastifyReply } from 'fastify';
 import { createPool } from '../db.ts';
 import { sendMagicLinkEmail } from '../email/magicLink.ts';
 import { type AuthIdentity, getAuthIdentity, getSessionEmail, resolveUserEmail, resolveNamespaces, requireMinRole, RoleError } from './auth/middleware.ts';
@@ -413,6 +413,39 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     if (ns && ns.length > 0) return ns;
     if (isAuthDisabled()) return ['default'];
     return [];
+  }
+
+  /**
+   * Validate an explicit namespace_id from the request body against the caller's
+   * effective namespace grants. Returns the validated single-namespace array,
+   * or throws a 403-style Error if the caller doesn't have access.
+   *
+   * When auth is disabled (dev mode), any namespace_id is accepted.
+   * When queryNamespaces is non-empty, namespace_id must be in that list.
+   * When queryNamespaces is empty and auth is enabled, namespace_id is rejected
+   * (caller has no grants).
+   *
+   * Issue #2439/#2440/#2441: prevent body namespace_id from escaping caller's grants.
+   */
+  function resolveAndValidateNamespaceId(
+    namespaceId: string | undefined,
+    queryNamespaces: string[],
+    reply: FastifyReply,
+  ): { namespaces: string[] | undefined } | null {
+    if (!namespaceId) {
+      // No explicit namespace_id — use effective namespaces (or undefined for all if unscoped)
+      return { namespaces: queryNamespaces.length > 0 ? queryNamespaces : undefined };
+    }
+    // Explicit namespace_id: validate against grants
+    if (queryNamespaces.length > 0 && !queryNamespaces.includes(namespaceId)) {
+      reply.code(403).send({ error: `Not authorized for namespace '${namespaceId}'` });
+      return null;
+    }
+    if (queryNamespaces.length === 0 && !isAuthDisabled()) {
+      reply.code(403).send({ error: 'No namespace grants available' });
+      return null;
+    }
+    return { namespaces: [namespaceId] };
   }
 
   /**
@@ -10547,18 +10580,19 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         batch_size?: number;
       };
 
-      // Namespace scoping: prefer explicit namespace_id, fall back to effective namespaces
-      const namespaces =
-        body.namespace_id
-          ? [body.namespace_id]
-          : queryNamespaces.length > 0
-          ? queryNamespaces
-          : undefined;
+      // Validate and resolve namespace (#2440: namespace_id must be within caller's grants)
+      const nsResolution = resolveAndValidateNamespaceId(body.namespace_id, queryNamespaces, reply);
+      if (!nsResolution) return; // 403 already sent
+      const namespaces = nsResolution.namespaces;
 
       const envBatchSize = process.env.MEMORY_REAPER_BATCH_SIZE
         ? parseInt(process.env.MEMORY_REAPER_BATCH_SIZE, 10)
         : 1000;
-      const batchSize = Math.min(body.batch_size ?? envBatchSize, envBatchSize);
+      // Validate batch_size is a finite positive integer to prevent NaN/Infinity injection
+      const rawBatchSize = body.batch_size;
+      const batchSize = (typeof rawBatchSize === 'number' && Number.isFinite(rawBatchSize) && rawBatchSize > 0)
+        ? Math.min(Math.floor(rawBatchSize), envBatchSize)
+        : envBatchSize;
 
       if (body.dry_run === true) {
         // Dry-run: count what would be reaped without deleting
@@ -10619,16 +10653,22 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         return reply.code(400).send({ error: 'since must be before before' });
       }
 
-      // Namespace: prefer explicit namespace_id, fall back to first effective namespace
+      // Validate and resolve namespace (#2439: namespace_id must be within caller's grants)
+      const nsResolution = resolveAndValidateNamespaceId(body.namespace_id, queryNamespaces, reply);
+      if (!nsResolution) return; // 403 already sent
+      // Digest requires a single namespace — use provided/first effective, or 'default' in dev
       const namespace =
         body.namespace_id ??
         (queryNamespaces.length > 0 ? queryNamespaces[0] : 'default');
 
-      // Server-side cap (#2439): clamp to env-configured maximum
+      // Server-side cap (#2439): clamp to env-configured maximum, reject non-finite values
       const envCap = process.env.MEMORY_DIGEST_MAX
         ? parseInt(process.env.MEMORY_DIGEST_MAX, 10)
         : 500;
-      const maxMemories = Math.min(body.max_memories ?? envCap, envCap);
+      const rawMax = body.max_memories;
+      const maxMemories = (typeof rawMax === 'number' && Number.isFinite(rawMax) && rawMax > 0)
+        ? Math.min(Math.floor(rawMax), envCap)
+        : envCap;
 
       try {
         const result = await digestMemories(pool, {
@@ -10677,6 +10717,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }
       if (!Array.isArray(body.source_ids) || body.source_ids.length === 0) {
         return reply.code(400).send({ error: 'source_ids must be a non-empty array' });
+      }
+
+      // Validate namespace access (#2441: caller must have access to the namespace)
+      // No explicit namespace_id in bulk-supersede — use effective namespaces
+      if (queryNamespaces.length === 0 && !isAuthDisabled()) {
+        return reply.code(403).send({ error: 'No namespace grants available' });
       }
 
       try {
@@ -10746,6 +10792,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         return reply.code(400).send({ error: 'upsert_tags must be a non-empty array' });
       }
 
+      // Validate and resolve namespace (#2432: namespace_id must be within caller's grants)
+      const nsResolution = resolveAndValidateNamespaceId(body.namespace_id, queryNamespaces, reply);
+      if (!nsResolution) return; // 403 already sent
       const namespace =
         body.namespace_id ??
         (queryNamespaces.length > 0 ? queryNamespaces[0] : 'default');
