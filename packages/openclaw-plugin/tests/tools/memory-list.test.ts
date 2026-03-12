@@ -207,7 +207,7 @@ describe('memory_list tool', () => {
       expect(calledUrl).toContain('memory_type=preference');
     });
 
-    it('should map other category to note for API', async () => {
+    it('should pass other category directly to API', async () => {
       const mockGet = vi.fn().mockResolvedValue({
         success: true,
         data: { memories: [], total: 0 },
@@ -224,7 +224,7 @@ describe('memory_list tool', () => {
       await tool.execute({ category: 'other' } as MemoryListParams);
 
       const calledUrl = mockGet.mock.calls[0][0] as string;
-      expect(calledUrl).toContain('memory_type=note');
+      expect(calledUrl).toContain('memory_type=other');
     });
 
     it('should pass temporal params to API', async () => {
@@ -331,7 +331,7 @@ describe('memory_list tool', () => {
       }
     });
 
-    it('should map API note type to plugin other category', async () => {
+    it('should preserve API note type as note category', async () => {
       const mockGet = vi.fn().mockResolvedValue({
         success: true,
         data: {
@@ -352,7 +352,7 @@ describe('memory_list tool', () => {
 
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.data.details.memories[0].category).toBe('other');
+        expect(result.data.details.memories[0].category).toBe('note');
       }
     });
 
@@ -550,7 +550,7 @@ describe('memory_list tool', () => {
       if (result.success) {
         expect(result.data.content).not.toContain('[undefined]');
         expect(result.data.content).toContain('[fact]');
-        expect(result.data.content).toContain('[other]');
+        expect(result.data.content).toContain('[note]');
       }
     });
   });

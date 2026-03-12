@@ -462,7 +462,7 @@ describe('Memory Service', () => {
   });
 
   describe('cleanupExpiredMemories', () => {
-    it('deletes expired memories', async () => {
+    it('soft-deletes expired memories by setting is_active=false', async () => {
       // Create active memory
       await createMemory(pool, {
         title: 'Active',
@@ -473,16 +473,20 @@ describe('Memory Service', () => {
       await pool.query(
         `INSERT INTO memory (namespace, title, content, memory_type, expires_at)
          VALUES ($1, $2, $3, 'note', NOW() - INTERVAL '1 hour')`,
-        ['default', 'Expired', 'Should be deleted'],
+        ['default', 'Expired', 'Should be soft-deleted'],
       );
 
       const deleted = await cleanupExpiredMemories(pool);
 
       expect(deleted).toBe(1);
 
+      // Memory still exists but is_active = false (soft delete)
       const remaining = await listMemories(pool, { include_expired: true });
-      expect(remaining.total).toBe(1);
-      expect(remaining.memories[0].title).toBe('Active');
+      expect(remaining.total).toBe(2);
+
+      // Verify the expired memory is now inactive
+      const result = await pool.query("SELECT is_active FROM memory WHERE title = 'Expired'");
+      expect(result.rows[0].is_active).toBe(false);
     });
   });
 
