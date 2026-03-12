@@ -19,6 +19,7 @@ export {
 export {
   createMemoryStoreTool,
   MemoryStoreParamsSchema,
+  mayContainCredentials,
   type MemoryStoreParams,
   type MemoryStoreTool,
   type MemoryStoreResult,

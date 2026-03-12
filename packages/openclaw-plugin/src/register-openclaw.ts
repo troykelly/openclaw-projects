@@ -96,6 +96,8 @@ import {
   MemoryReapParamsSchema,
   createMemoryPromoteTool,
   MemoryPromoteParamsSchema,
+  // Credential check for gateway memory_store handler (Issue #2438)
+  mayContainCredentials,
 } from './tools/index.js';
 import { zodToJsonSchema } from './utils/zod-to-json-schema.js';
 import type {
@@ -131,6 +133,7 @@ import {
 } from './utils/injection-protection.js';
 import { injectionLogLimiter } from './utils/injection-log-rate-limiter.js';
 import { reverseGeocode } from './utils/nominatim.js';
+import { resolveTtl } from './utils/temporal.js';
 
 /** Plugin state stored during registration */
 interface PluginState {
@@ -421,8 +424,23 @@ const memoryStoreSchema: JSONSchema = {
       },
       required: ['lat', 'lng'],
     },
+    // Ephemeral TTL shorthand (Issue #2434): relative duration e.g. "24h", "7d", "2w", "1m".
+    // Mutually exclusive with expires_at. Auto-adds "ephemeral" tag.
+    ttl: {
+      type: 'string',
+      description: 'Relative TTL for ephemeral memories (e.g. "24h", "7d", "2w", "1m"). Mutually exclusive with expires_at. Auto-adds "ephemeral" tag.',
+    },
+    // Absolute expiry timestamp (ISO 8601 with timezone).
+    expires_at: {
+      type: 'string',
+      description: 'Absolute expiry timestamp (ISO 8601 with timezone, e.g. "2026-04-01T00:00:00Z"). Mutually exclusive with ttl.',
+    },
+    // Credential bypass opt-in (Issue #2438).
+    allow_sensitive: {
+      type: 'boolean',
+      description: 'When true, bypasses credential/secret detection and stores the content as-is. Use only when deliberately storing sensitive reference material.',
+    },
   },
-  required: ['text'],
 };
 
 /**
@@ -2142,6 +2160,9 @@ function createToolHandlers(state: PluginState) {
         relationship_id,
         location,
         pinned,
+        ttl,
+        expires_at,
+        allow_sensitive,
       } = params as {
         text?: string;
         content?: string;
@@ -2151,11 +2172,58 @@ function createToolHandlers(state: PluginState) {
         relationship_id?: string;
         location?: { lat: number; lng: number; address?: string; place_label?: string };
         pinned?: boolean;
+        ttl?: string;
+        expires_at?: string;
+        allow_sensitive?: boolean;
       };
 
       const memoryText = text || contentAlias;
       if (!memoryText) {
-        return { success: false, error: 'text is required' };
+        return { success: false, error: 'text or content is required' };
+      }
+
+      // Credential blocking (Issue #2438): block by default, opt-in via allow_sensitive
+      if (!allow_sensitive && mayContainCredentials(memoryText)) {
+        logger.warn('memory_store blocked: possible credential detected', {
+          user_id: state.agentId,
+          namespace: getStoreNamespace(params),
+        });
+        return {
+          success: false,
+          error:
+            'Content appears to contain credentials or secrets (API keys, passwords, tokens). ' +
+            'Use allow_sensitive=true to explicitly store sensitive content.',
+        };
+      }
+      if (allow_sensitive) {
+        logger.info('memory_store: allow_sensitive=true — storing without credential check', {
+          user_id: state.agentId,
+          namespace: getStoreNamespace(params),
+        });
+      }
+
+      // Validate TTL/expires_at mutual exclusivity (Issue #2434)
+      if (ttl && expires_at) {
+        return { success: false, error: 'ttl and expires_at are mutually exclusive' };
+      }
+
+      // Resolve TTL to expires_at (Issue #2434)
+      let resolvedExpiresAt: string | undefined;
+      const resolvedTags = tags ? [...tags] : [];
+      if (ttl) {
+        const ttlDate = resolveTtl(ttl);
+        if (!ttlDate) {
+          return {
+            success: false,
+            error: `Invalid ttl "${ttl}". Use a positive relative duration like "24h", "7d", "2w", or "1m" (max 365d).`,
+          };
+        }
+        resolvedExpiresAt = ttlDate.toISOString();
+        if (!resolvedTags.includes('ephemeral')) {
+          resolvedTags.push('ephemeral');
+        }
+      } else if (expires_at) {
+        resolvedExpiresAt = expires_at;
       }
 
       try {
@@ -2167,7 +2235,8 @@ function createToolHandlers(state: PluginState) {
           importance,
           namespace: getStoreNamespace(params), // Issue #1428
         };
-        if (tags && tags.length > 0) payload.tags = tags;
+        if (resolvedTags.length > 0) payload.tags = resolvedTags;
+        if (resolvedExpiresAt) payload.expires_at = resolvedExpiresAt;
         if (relationship_id) payload.relationship_id = relationship_id;
         if (pinned !== undefined) payload.pinned = pinned;
         if (location) {

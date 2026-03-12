@@ -157,8 +157,9 @@ const CREDENTIAL_PATTERNS: RegExp[] = [
 /**
  * Check if text may contain credentials or sensitive secrets.
  * Returns true if any pattern matches.
+ * Exported for use in the gateway entrypoint (register-openclaw.ts).
  */
-function mayContainCredentials(text: string): boolean {
+export function mayContainCredentials(text: string): boolean {
   return CREDENTIAL_PATTERNS.some((pattern) => pattern.test(text));
 }
 
