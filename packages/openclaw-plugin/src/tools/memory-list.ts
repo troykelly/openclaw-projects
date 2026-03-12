@@ -77,6 +77,8 @@ export interface MemoryListToolOptions {
   logger: Logger;
   config: PluginConfig;
   user_id: string;
+  /** Namespace to scope listing to (Issue #2437 — always send X-Namespace header) */
+  namespace?: string;
 }
 
 /** Tool definition */
@@ -109,7 +111,7 @@ function formatMemoriesAsText(memories: MemoryListItem[], total: number, offset:
  * Creates the memory_list tool.
  */
 export function createMemoryListTool(options: MemoryListToolOptions): MemoryListTool {
-  const { client, logger, user_id } = options;
+  const { client, logger, user_id, namespace } = options;
 
   return {
     name: 'memory_list',
@@ -166,7 +168,7 @@ export function createMemoryListTool(options: MemoryListToolOptions): MemoryList
 
         const path = `/memories/unified?${queryParams.toString()}`;
 
-        // Call API
+        // Call API — always include namespace header (Issue #2437)
         const response = await client.get<{
           memories: Array<{
             id: string;
@@ -179,7 +181,7 @@ export function createMemoryListTool(options: MemoryListToolOptions): MemoryList
             updated_at?: string;
           }>;
           total: number;
-        }>(path, { user_id });
+        }>(path, { user_id, namespace });
 
         if (!response.success) {
           logger.error('memory_list API error', {

@@ -49,6 +49,8 @@ export interface MemoryForgetToolOptions {
   logger: Logger;
   config: PluginConfig;
   user_id: string;
+  /** Namespace to scope operations to (Issue #2437 — always send X-Namespace header) */
+  namespace?: string;
 }
 
 /** Tool definition */
@@ -74,7 +76,7 @@ function sanitizeQuery(query: string): string {
  * Creates the memory_forget tool.
  */
 export function createMemoryForgetTool(options: MemoryForgetToolOptions): MemoryForgetTool {
-  const { client, logger, user_id } = options;
+  const { client, logger, user_id, namespace } = options;
 
   return {
     name: 'memory_forget',
@@ -102,12 +104,12 @@ export function createMemoryForgetTool(options: MemoryForgetToolOptions): Memory
       try {
         // Delete by ID
         if (memory_id) {
-          return await deleteById(client, logger, user_id, memory_id);
+          return await deleteById(client, logger, user_id, memory_id, namespace);
         }
 
         // Delete by query (OpenClaw two-phase: search → candidates or auto-delete)
         if (query) {
-          return await deleteByQuery(client, logger, user_id, query, namespaces);
+          return await deleteByQuery(client, logger, user_id, query, namespaces, namespace);
         }
 
         // Should not reach here due to validation
@@ -129,9 +131,10 @@ export function createMemoryForgetTool(options: MemoryForgetToolOptions): Memory
 
 /**
  * Delete a memory by ID.
+ * Sends namespace header for scoped deletion (Issue #2437).
  */
-async function deleteById(client: ApiClient, logger: Logger, user_id: string, memory_id: string): Promise<MemoryForgetResult> {
-  const response = await client.delete(`/memories/${memory_id}`, { user_id });
+async function deleteById(client: ApiClient, logger: Logger, user_id: string, memory_id: string, namespace?: string): Promise<MemoryForgetResult> {
+  const response = await client.delete(`/memories/${memory_id}`, { user_id, namespace });
 
   if (!response.success) {
     // Handle not found gracefully
@@ -192,7 +195,7 @@ async function deleteById(client: ApiClient, logger: Logger, user_id: string, me
  * - Single high-confidence match (>0.9) → auto-delete
  * - Multiple matches → return candidates for agent to specify memory_id
  */
-async function deleteByQuery(client: ApiClient, logger: Logger, user_id: string, query: string, namespaces?: string[]): Promise<MemoryForgetResult> {
+async function deleteByQuery(client: ApiClient, logger: Logger, user_id: string, query: string, namespaces?: string[], namespace?: string): Promise<MemoryForgetResult> {
   const sanitizedQuery = sanitizeQuery(query);
   if (sanitizedQuery.length === 0) {
     return { success: false, error: 'Query cannot be empty' };
@@ -206,9 +209,10 @@ async function deleteByQuery(client: ApiClient, logger: Logger, user_id: string,
     queryParams.set('namespaces', namespaces.join(','));
   }
 
+  // Always include namespace header for scoped search (Issue #2437)
   const searchResponse = await client.get<{ results: Array<{ id: string; content: string; similarity?: number }> }>(
     `/memories/search?${queryParams.toString()}`,
-    { user_id },
+    { user_id, namespace },
   );
 
   if (!searchResponse.success) {
@@ -238,7 +242,7 @@ async function deleteByQuery(client: ApiClient, logger: Logger, user_id: string,
 
   // Single match (any confidence) → auto-delete to avoid user having to copy/paste UUID
   if (memories.length === 1) {
-    const deleteResponse = await client.delete(`/memories/${memories[0].id}`, { user_id });
+    const deleteResponse = await client.delete(`/memories/${memories[0].id}`, { user_id, namespace });
     if (!deleteResponse.success) {
       return { success: false, error: deleteResponse.error.message || 'Failed to delete memory' };
     }
