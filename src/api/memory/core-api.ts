@@ -496,13 +496,35 @@ export async function upsertMemoryByTag(
     validateExpiresAt(options.expires_at);
   }
 
-  // Atomic upsert: use SELECT FOR UPDATE to prevent concurrent duplicates.
-  // If two concurrent requests arrive with the same upsert_tags, the first
-  // to acquire the lock will create or update; the second will see the locked
-  // row and update it rather than creating a duplicate.
+  // Atomic upsert: acquire a transaction-scoped advisory lock keyed to (namespace, sorted tags)
+  // before the SELECT FOR UPDATE. This closes the concurrent-create race: FOR UPDATE only
+  // locks rows that already exist; two concurrent requests with the same slot key and no
+  // existing row can both observe an empty set and both insert. The advisory lock serialises
+  // them so the second waiter sees the row created by the first.
+  //
+  // Lock key derivation: hash the canonical slot key (namespace + sorted tags joined with
+  // NUL) into two int32 values suitable for pg_advisory_xact_lock(int4, int4).
+  const slotKey = [namespace, ...[...upsert_tags].sort()].join('\0');
+  // FNV-1a 64-bit hash, split into two signed int32 values for pg advisory lock
+  let h = 14695981039346656037n;
+  const FNV_PRIME = 1099511628211n;
+  const MASK32 = 0xFFFFFFFFn;
+  for (let i = 0; i < slotKey.length; i++) {
+    h ^= BigInt(slotKey.charCodeAt(i));
+    h = (h * FNV_PRIME) & 0xFFFFFFFFFFFFFFFFn;
+  }
+  const lockHi = Number((h >> 32n) & MASK32);
+  const lockLo = Number(h & MASK32);
+  // Convert to signed int32
+  const lockHiSigned = lockHi > 0x7FFFFFFF ? lockHi - 0x100000000 : lockHi;
+  const lockLoSigned = lockLo > 0x7FFFFFFF ? lockLo - 0x100000000 : lockLo;
+
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+
+    // Acquire transaction-scoped advisory lock on the slot key (released automatically at COMMIT/ROLLBACK)
+    await client.query('SELECT pg_advisory_xact_lock($1, $2)', [lockHiSigned, lockLoSigned]);
 
     // Lock any existing active memory matching ALL upsert_tags in this namespace
     const existingResult = await client.query<{ id: string }>(
@@ -522,12 +544,18 @@ export async function upsertMemoryByTag(
     if (existingResult.rows.length > 0) {
       const existingId = existingResult.rows[0].id;
 
+      // Merge upsert_tags into the final tag set so the slot key is always preserved.
+      // A caller may supply body.tags without including upsert_tags; if we stored that
+      // verbatim the slot tags would be lost and the next upsert would create a duplicate.
+      const baseTags = createInput.tags ?? upsert_tags;
+      const mergedTags = Array.from(new Set([...baseTags, ...upsert_tags]));
+
       // Update the existing slot — pass namespace for isolation reassertion
       const updated = await updateMemory(client as unknown as Pool, existingId, {
         title: createInput.title,
         content: createInput.content,
         memory_type: createInput.memory_type,
-        tags: createInput.tags,
+        tags: mergedTags,
         importance: createInput.importance,
         confidence: createInput.confidence,
         expires_at: createInput.expires_at,

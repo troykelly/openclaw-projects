@@ -432,17 +432,20 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     queryNamespaces: string[],
     reply: FastifyReply,
   ): { namespaces: string[] | undefined } | null {
+    // When auth is enabled and the caller has zero namespace grants, always reject —
+    // even when no namespace_id is specified, to prevent unscoped reap/digest/upsert
+    // from operating across all namespaces for an unauthorised caller.
+    if (queryNamespaces.length === 0 && !isAuthDisabled()) {
+      reply.code(403).send({ error: 'No namespace grants available' });
+      return null;
+    }
     if (!namespaceId) {
-      // No explicit namespace_id — use effective namespaces (or undefined for all if unscoped)
+      // No explicit namespace_id — use effective namespaces (or undefined for all if unscoped/auth-disabled)
       return { namespaces: queryNamespaces.length > 0 ? queryNamespaces : undefined };
     }
     // Explicit namespace_id: validate against grants
     if (queryNamespaces.length > 0 && !queryNamespaces.includes(namespaceId)) {
       reply.code(403).send({ error: `Not authorized for namespace '${namespaceId}'` });
-      return null;
-    }
-    if (queryNamespaces.length === 0 && !isAuthDisabled()) {
-      reply.code(403).send({ error: 'No namespace grants available' });
       return null;
     }
     return { namespaces: [namespaceId] };
