@@ -1072,6 +1072,184 @@ export function memoriesPaths(): OpenApiDomainModule {
           },
         },
       },
+
+      // -- Core API: Memory Lifecycle (#2426 PR2) --------------------------------
+
+      '/memories/reap': {
+        post: {
+          operationId: 'reaperHardDelete',
+          summary: 'Hard-delete expired memories (synaptic pruning)',
+          description: 'Permanently deletes expired memories whose expires_at is in the past. Scoped to the caller\'s namespace grants. Issue #2428/#2440.',
+          tags: ['Memories'],
+          requestBody: jsonBody({
+            type: 'object',
+            properties: {
+              namespace_id: { type: 'string', description: 'Restrict reaping to a specific namespace (must be within caller\'s grants)', example: 'acme-corp' },
+              batch_size: { type: 'integer', default: 500, minimum: 1, maximum: 2000, description: 'Maximum number of memories to hard-delete per call', example: 500 },
+            },
+          }, false),
+          responses: {
+            '200': jsonResponse('Reaper result', {
+              type: 'object',
+              required: ['deleted', 'namespace'],
+              properties: {
+                deleted: { type: 'integer', description: 'Number of memories permanently deleted', example: 12 },
+                namespace: { type: 'string', nullable: true, description: 'Namespace scope applied (null = all accessible namespaces)', example: 'acme-corp' },
+              },
+            }),
+            ...errorResponses(400, 401, 403, 500),
+          },
+        },
+      },
+
+      '/memories/digest': {
+        post: {
+          operationId: 'digestMemories',
+          summary: 'Cluster memories for rehearsal detection',
+          description: 'Fetches recent active memories from the namespace and clusters them by semantic similarity. Returns clusters that exceed the minimum size, suitable for scheduling memory rehearsal or consolidation. Issue #2427/#2439.',
+          tags: ['Memories'],
+          requestBody: jsonBody({
+            type: 'object',
+            properties: {
+              namespace_id: { type: 'string', description: 'Restrict digest to a specific namespace (must be within caller\'s grants)', example: 'acme-corp' },
+              max_memories: { type: 'integer', default: 200, minimum: 1, maximum: 1000, description: 'Maximum number of recent memories to fetch and cluster', example: 200 },
+              min_cluster_size: { type: 'integer', default: 2, minimum: 2, description: 'Minimum number of memories per cluster to include in the result', example: 2 },
+              similarity_threshold: { type: 'number', default: 0.5, minimum: 0, maximum: 1, description: 'Jaccard overlap threshold for clustering (0 = any overlap, 1 = identical)', example: 0.5 },
+            },
+          }, false),
+          responses: {
+            '200': jsonResponse('Digest result', {
+              type: 'object',
+              required: ['clusters', 'total_memories', 'namespace'],
+              properties: {
+                clusters: {
+                  type: 'array',
+                  description: 'Clusters of related memories',
+                  items: {
+                    type: 'object',
+                    required: ['ids', 'size', 'sample_content'],
+                    properties: {
+                      ids: { type: 'array', items: { type: 'string', format: 'uuid' }, description: 'UUIDs of memories in this cluster', example: ['d290f1ee-6c54-4b01-90e6-d701748f0851'] },
+                      size: { type: 'integer', description: 'Number of memories in this cluster', example: 3 },
+                      sample_content: { type: 'string', description: 'Content snippet from a representative memory', example: 'User prefers dark mode' },
+                    },
+                  },
+                },
+                total_memories: { type: 'integer', description: 'Total number of memories fetched before clustering', example: 42 },
+                namespace: { type: 'string', nullable: true, description: 'Namespace scope applied (null = all accessible namespaces)', example: 'acme-corp' },
+              },
+            }),
+            ...errorResponses(400, 401, 403, 500),
+          },
+        },
+      },
+
+      '/memories/bulk-supersede': {
+        post: {
+          operationId: 'bulkSupersedeMemories',
+          summary: 'Atomically supersede multiple memories with a consolidation memory',
+          description: 'Creates a new consolidation memory, then atomically marks all source memories as superseded by it. All source memories must belong to the same namespace as the consolidation target. Issue #2429/#2441.',
+          tags: ['Memories'],
+          requestBody: jsonBody({
+            type: 'object',
+            required: ['source_ids', 'consolidation'],
+            properties: {
+              namespace_id: { type: 'string', description: 'Namespace for the consolidation memory (must be within caller\'s grants)', example: 'acme-corp' },
+              source_ids: {
+                type: 'array',
+                minItems: 1,
+                items: { type: 'string', format: 'uuid' },
+                description: 'UUIDs of memories to supersede',
+                example: ['d290f1ee-6c54-4b01-90e6-d701748f0851', 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'],
+              },
+              consolidation: {
+                type: 'object',
+                required: ['content'],
+                description: 'Fields for the new consolidation memory',
+                properties: {
+                  title: { type: 'string', description: 'Title for the consolidation memory', example: 'Consolidated preferences' },
+                  content: { type: 'string', description: 'Content for the consolidation memory', example: 'User prefers dark mode, metric units, and weekly digest emails' },
+                  memory_type: { type: 'string', description: 'Type for the consolidation memory', example: 'preference' },
+                  tags: { type: 'array', items: { type: 'string' }, description: 'Tags for the consolidation memory', example: ['preferences', 'consolidated'] },
+                  importance: { type: 'number', minimum: 0, maximum: 1, description: 'Importance score (0-1)', example: 0.8 },
+                  confidence: { type: 'number', minimum: 0, maximum: 1, description: 'Confidence score (0-1)', example: 0.9 },
+                },
+              },
+            },
+          }),
+          responses: {
+            '200': jsonResponse('Bulk supersede result', {
+              type: 'object',
+              required: ['consolidation_memory', 'superseded_ids', 'skipped_ids'],
+              properties: {
+                consolidation_memory: { ...ref('Memory'), description: 'The newly created consolidation memory' },
+                superseded_ids: { type: 'array', items: { type: 'string', format: 'uuid' }, description: 'UUIDs of memories that were successfully superseded', example: ['d290f1ee-6c54-4b01-90e6-d701748f0851'] },
+                skipped_ids: { type: 'array', items: { type: 'string', format: 'uuid' }, description: 'Source IDs that were not found or already superseded', example: [] },
+              },
+            }),
+            ...errorResponses(400, 401, 403, 404, 500),
+          },
+        },
+      },
+
+      '/memories/upsert-by-tag': {
+        put: {
+          operationId: 'upsertMemoryByTag',
+          summary: 'Atomic create-or-update memory by tag slot',
+          description: 'If an active memory in the namespace already has all of the upsert_tags, it is updated. Otherwise a new memory is created. Designed for temporal sliding-window slot management (day/week/month slots). Issue #2432.',
+          tags: ['Memories'],
+          requestBody: jsonBody({
+            type: 'object',
+            required: ['content', 'upsert_tags'],
+            properties: {
+              namespace_id: { type: 'string', description: 'Namespace for the upsert (must be within caller\'s grants)', example: 'acme-corp' },
+              content: { type: 'string', description: 'Content of the memory', example: 'Weekly summary: completed auth module' },
+              title: { type: 'string', description: 'Short title (auto-generated from content if omitted)', example: 'Week 2026-W11 summary' },
+              memory_type: { type: 'string', description: 'Memory type', example: 'context' },
+              upsert_tags: {
+                type: 'array',
+                minItems: 1,
+                items: { type: 'string' },
+                description: 'Tags that identify the slot. If any active memory already has ALL of these tags, it will be updated instead of creating a new record.',
+                example: ['week:2026-W11', 'summary'],
+              },
+              tags: {
+                type: 'array',
+                items: { type: 'string' },
+                description: 'Additional tags to store on the memory (upsert_tags are always included)',
+                example: ['week:2026-W11', 'summary', 'auth'],
+              },
+              importance: { type: 'number', minimum: 0, maximum: 1, description: 'Importance score (0-1)', example: 0.6 },
+              confidence: { type: 'number', minimum: 0, maximum: 1, description: 'Confidence score (0-1)', example: 0.9 },
+              expires_at: { type: 'string', format: 'date-time', description: 'Expiry date (must be in the future, max 365 days)', example: '2026-04-01T00:00:00Z' },
+              source_url: { type: 'string', format: 'uri', description: 'Source URL', example: 'https://example.com/context' },
+              pinned: { type: 'boolean', description: 'Whether to pin the memory', example: false },
+              work_item_id: { type: 'string', format: 'uuid', description: 'Link to a work item', example: null },
+              contact_id: { type: 'string', format: 'uuid', description: 'Link to a contact', example: null },
+              project_id: { type: 'string', format: 'uuid', description: 'Link to a project', example: null },
+            },
+          }),
+          responses: {
+            '200': jsonResponse('Memory updated (slot existed)', {
+              type: 'object',
+              required: ['memory', 'upserted'],
+              properties: {
+                memory: ref('Memory'),
+                upserted: { type: 'boolean', description: 'true = existing slot was updated; false = new memory was created', example: true },
+              },
+            }),
+            '201': jsonResponse('Memory created (new slot)', {
+              type: 'object',
+              required: ['memory', 'upserted'],
+              properties: {
+                memory: ref('Memory'),
+                upserted: { type: 'boolean', description: 'true = existing slot was updated; false = new memory was created', example: false },
+              },
+            }),
+            ...errorResponses(400, 401, 403, 500),
+          },
+        },
+      },
     },
   };
 }
