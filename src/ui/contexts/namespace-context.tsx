@@ -16,6 +16,7 @@ import { type QueryClient, useQueryClient } from '@tanstack/react-query';
 import * as React from 'react';
 import { apiClient, setNamespaceResolver } from '@/ui/lib/api-client';
 import type { AppBootstrap, NamespaceGrant } from '@/ui/lib/api-types';
+import { useUser } from '@/ui/contexts/user-context';
 import { readBootstrap } from '@/ui/lib/work-item-utils';
 
 /**
@@ -105,6 +106,7 @@ export function NamespaceProvider({ children }: { children: React.ReactNode }): 
   const bootstrap = React.useMemo(() => readBootstrap<AppBootstrap>(), []);
   const bootstrapGrants = React.useMemo(() => bootstrap?.namespace_grants ?? [], [bootstrap]);
   const queryClient = useQueryClientSafe();
+  const { isAuthenticated, isLoading: isAuthLoading } = useUser();
 
   // Issue #2405: In production, static nginx serves /app/* without bootstrap injection.
   // When bootstrap grants are empty, fetch from the API on mount.
@@ -112,8 +114,16 @@ export function NamespaceProvider({ children }: { children: React.ReactNode }): 
   const [isNamespaceReady, setIsNamespaceReady] = React.useState(bootstrapGrants.length > 0);
   const grants = fetchedGrants ?? bootstrapGrants;
 
+  // Issue #2469: Gate /me/grants on auth state to prevent 401 redirect loops
+  // on the login page. NamespaceProvider is inside UserProvider in the tree,
+  // so useUser() is safe to call here.
   React.useEffect(() => {
     if (bootstrapGrants.length > 0) return; // Bootstrap data available, no fetch needed
+    if (isAuthLoading) return; // Wait for auth bootstrap to complete
+    if (!isAuthenticated) {
+      setIsNamespaceReady(true); // Not authenticated — skip gracefully
+      return;
+    }
 
     let cancelled = false;
     apiClient.get<MeGrantsResponse>('/me/grants')
@@ -128,7 +138,7 @@ export function NamespaceProvider({ children }: { children: React.ReactNode }): 
         setIsNamespaceReady(true);
       });
     return () => { cancelled = true; };
-  }, [bootstrapGrants.length]);
+  }, [bootstrapGrants.length, isAuthenticated, isAuthLoading]);
 
   const [activeNamespaces, setActiveNamespacesState] = React.useState(() => getInitialNamespaces(grants));
   const [namespaceVersion, setNamespaceVersion] = React.useState(0);

@@ -16,6 +16,13 @@ import { renderHook } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import '@testing-library/jest-dom';
 
+// Mock user-context so useUser() doesn't throw inside NamespaceProvider (#2469)
+vi.mock('@/ui/contexts/user-context', () => ({
+  useUser: () => ({ email: 'test@test.com', isLoading: false, isAuthenticated: true, logout: vi.fn(), signalAuthenticated: vi.fn() }),
+  useUserEmail: () => 'test@test.com',
+  UserProvider: ({ children }: { children: React.ReactNode }) => children,
+}));
+
 // Partial mock for api-client: only mock apiClient.get, keep real setNamespaceResolver
 vi.mock('@/ui/lib/api-client', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/ui/lib/api-client')>();
