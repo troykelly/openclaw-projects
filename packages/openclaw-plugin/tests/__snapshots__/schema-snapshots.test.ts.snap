@@ -868,6 +868,9 @@ exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > 
 exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > memory_store parameter schema should match snapshot 1`] = `
 {
   "properties": {
+    "allow_sensitive": {
+      "type": "boolean",
+    },
     "category": {
       "enum": [
         "preference",
@@ -884,6 +887,9 @@ exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > 
     "content": {
       "maxLength": 10000,
       "minLength": 1,
+      "type": "string",
+    },
+    "expires_at": {
       "type": "string",
     },
     "importance": {
@@ -936,6 +942,9 @@ exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > 
     "text": {
       "maxLength": 10000,
       "minLength": 1,
+      "type": "string",
+    },
+    "ttl": {
       "type": "string",
     },
   },
