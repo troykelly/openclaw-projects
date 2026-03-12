@@ -16,7 +16,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { Pool } from 'pg';
 import { createTestPool, truncateAllTables } from '../../../tests/helpers/db.ts';
-import { createMemory, cleanupExpiredMemories, supersedeMemory, getMemory } from './service.ts';
+import { createMemory, cleanupExpiredMemories, supersedeMemory, getMemory, validateExpiresAt } from './service.ts';
 import {
   digestMemories,
   bulkSupersedeMemories,
@@ -79,76 +79,42 @@ describe('Issue #2462 — ON DELETE SET NULL for superseded_by FK', () => {
   });
 });
 
+/**
+ * Issue #2444 — Negative/zero TTL validation.
+ *
+ * The validateExpiresAt function is the API-layer guard. The service layer
+ * itself allows any timestamp (for internal/test use, reaper queries on
+ * already-expired records, etc.). API routes call validateExpiresAt before
+ * passing expires_at to the service.
+ */
 describe('Issue #2444 — Negative/zero TTL validation', () => {
-  let pool: Pool;
-
-  beforeEach(async () => {
-    pool = createTestPool();
-    await truncateAllTables(pool);
+  it('rejects expires_at in the past', () => {
+    expect(() => validateExpiresAt(new Date(Date.now() - 1000))).toThrow('expires_at must be in the future');
   });
 
-  afterEach(async () => {
-    await pool.end();
+  it('rejects expires_at clearly in the past (2020)', () => {
+    expect(() => validateExpiresAt(new Date('2020-01-01T00:00:00Z'))).toThrow('expires_at must be in the future');
   });
 
-  it('rejects expires_at in the past', async () => {
-    await expect(
-      createMemory(pool, {
-        title: 'Test',
-        content: 'Content',
-        expires_at: new Date(Date.now() - 1000), // 1 second in the past
-      }),
-    ).rejects.toThrow('expires_at must be in the future');
-  });
-
-  it('rejects expires_at equal to now (approximate)', async () => {
-    // Use a date clearly in the past
-    await expect(
-      createMemory(pool, {
-        title: 'Test',
-        content: 'Content',
-        expires_at: new Date('2020-01-01T00:00:00Z'),
-      }),
-    ).rejects.toThrow('expires_at must be in the future');
-  });
-
-  it('rejects expires_at more than 365 days in the future', async () => {
+  it('rejects expires_at more than 365 days in the future', () => {
     const farFuture = new Date(Date.now() + 366 * 24 * 60 * 60 * 1000);
-    await expect(
-      createMemory(pool, {
-        title: 'Test',
-        content: 'Content',
-        expires_at: farFuture,
-      }),
-    ).rejects.toThrow('expires_at cannot be more than 365 days in the future');
+    expect(() => validateExpiresAt(farFuture)).toThrow('expires_at cannot be more than 365 days in the future');
   });
 
-  it('accepts expires_at just 1 minute in the future', async () => {
+  it('accepts expires_at just 1 minute in the future', () => {
     const soon = new Date(Date.now() + 60 * 1000);
-    const mem = await createMemory(pool, {
-      title: 'Test',
-      content: 'Content',
-      expires_at: soon,
-    });
-    expect(mem.expires_at).not.toBeNull();
+    // Should not throw
+    expect(() => validateExpiresAt(soon)).not.toThrow();
   });
 
-  it('accepts expires_at 7 days in the future', async () => {
+  it('accepts expires_at 7 days in the future', () => {
     const future = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-    const mem = await createMemory(pool, {
-      title: 'Test',
-      content: 'Content',
-      expires_at: future,
-    });
-    expect(mem.expires_at).not.toBeNull();
+    expect(() => validateExpiresAt(future)).not.toThrow();
   });
 
-  it('accepts null expires_at (no expiry)', async () => {
-    const mem = await createMemory(pool, {
-      title: 'Test',
-      content: 'No expiry content',
-    });
-    expect(mem.expires_at).toBeNull();
+  it('accepts expires_at 364 days in the future', () => {
+    const future = new Date(Date.now() + 364 * 24 * 60 * 60 * 1000);
+    expect(() => validateExpiresAt(future)).not.toThrow();
   });
 });
 

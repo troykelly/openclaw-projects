@@ -9395,7 +9395,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // Memory CRUD API (issue #121)
   // POST /api/memory - Create a new memory (linked_item_id optional)
   app.post('/memory', async (req, reply) => {
-    const { createMemory, generateTitleFromContent } = await import('./memory/index.ts');
+    const { createMemory, generateTitleFromContent, validateExpiresAt } = await import('./memory/index.ts');
 
     const body = req.body as {
       title?: string;
@@ -9434,13 +9434,20 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       linkedItemTitle = (linkedItem.rows[0] as { title: string }).title;
     }
 
-    // Validate expires_at if provided
+    // Validate expires_at if provided (issue #2444: must be future, max 365 days)
     let expiresAt: Date | undefined;
     if (body.expires_at) {
       expiresAt = new Date(body.expires_at);
       if (Number.isNaN(expiresAt.getTime())) {
         await pool.end();
         return reply.code(400).send({ error: 'expires_at must be a valid ISO date string' });
+      }
+      try {
+        validateExpiresAt(expiresAt);
+      } catch (err) {
+        await pool.end();
+        const message = err instanceof Error ? err.message : 'Invalid expires_at';
+        return reply.code(400).send({ error: message });
       }
     }
 
@@ -9850,7 +9857,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // POST /api/memories/unified - Create memory with flexible scoping (issue #209)
   app.post('/memories/unified', { preHandler: [geoAutoInjectHook(createPool)] }, async (req, reply) => {
-    const { createMemory, isValidMemoryType, generateTitleFromContent } = await import('./memory/index.ts');
+    const { createMemory, isValidMemoryType, generateTitleFromContent, validateExpiresAt } = await import('./memory/index.ts');
 
     const body = req.body as {
       title?: string;
@@ -9900,6 +9907,21 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       });
     }
 
+    // Issue #2444: validate expires_at is in the future and within max TTL
+    let expiresAtDate: Date | undefined;
+    if (body.expires_at) {
+      expiresAtDate = new Date(body.expires_at);
+      if (Number.isNaN(expiresAtDate.getTime())) {
+        return reply.code(400).send({ error: 'expires_at must be a valid ISO date string' });
+      }
+      try {
+        validateExpiresAt(expiresAtDate);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Invalid expires_at';
+        return reply.code(400).send({ error: message });
+      }
+    }
+
     const pool = createPool();
 
     try {
@@ -9916,7 +9938,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         source_url: body.source_url,
         importance: body.importance,
         confidence: body.confidence,
-        expires_at: body.expires_at ? new Date(body.expires_at) : undefined,
+        expires_at: expiresAtDate,
         tags: body.tags,
         lat: body.lat,
         lng: body.lng,
@@ -10728,14 +10750,23 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         body.namespace_id ??
         (queryNamespaces.length > 0 ? queryNamespaces[0] : 'default');
 
-      const { generateTitleFromContent, isValidMemoryType } = await import('./memory/service.ts');
+      const { generateTitleFromContent, isValidMemoryType, validateExpiresAt } = await import('./memory/service.ts');
 
       const memory_type = body.memory_type ?? 'note';
       if (!isValidMemoryType(memory_type)) {
         return reply.code(400).send({ error: `Invalid memory_type: ${memory_type}` });
       }
 
-      const expiresAt = body.expires_at ? new Date(body.expires_at) : undefined;
+      let expiresAt: Date | undefined;
+      if (body.expires_at) {
+        expiresAt = new Date(body.expires_at);
+        try {
+          validateExpiresAt(expiresAt);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : 'Invalid expires_at';
+          return reply.code(400).send({ error: message });
+        }
+      }
 
       try {
         const result = await upsertMemoryByTag(pool, {

@@ -41,14 +41,11 @@ const MAX_EXPIRES_MS = (): number => {
 /**
  * Validates memory input fields shared between create and update.
  * Throws Error with descriptive message on validation failure.
- *
- * Issue #2444: validates expires_at is in the future and within bounds.
  */
 export function validateMemoryFields(input: {
   confidence?: number;
   tags?: string[];
   content?: string;
-  expires_at?: Date | null;
 }): void {
   if (input.confidence !== undefined) {
     if (input.confidence < 0 || input.confidence > 1) {
@@ -70,18 +67,25 @@ export function validateMemoryFields(input: {
       }
     }
   }
-  // Issue #2444: validate expires_at is in the future and within the configured max TTL
-  if (input.expires_at !== undefined && input.expires_at !== null) {
-    const now = Date.now();
-    const expiresMs = input.expires_at.getTime();
-    if (expiresMs <= now) {
-      throw new Error('expires_at must be in the future (TTL must be a positive duration, e.g. "24h", "7d")');
-    }
-    const maxMs = MAX_EXPIRES_MS();
-    if (expiresMs - now > maxMs) {
-      const maxDays = Math.round(maxMs / (24 * 60 * 60 * 1000));
-      throw new Error(`expires_at cannot be more than ${maxDays} days in the future`);
-    }
+}
+
+/**
+ * Validates that an expires_at timestamp is in the future and within the allowed max TTL.
+ * This is an API-layer validation — the service layer allows any timestamp to support
+ * internal operations (e.g., test setup, reaper queries on past-expired records).
+ *
+ * Issue #2444: negative/zero TTL creates already-expired records
+ */
+export function validateExpiresAt(expiresAt: Date): void {
+  const now = Date.now();
+  const expiresMs = expiresAt.getTime();
+  if (expiresMs <= now) {
+    throw new Error('expires_at must be in the future (TTL must be a positive duration, e.g. "24h", "7d")');
+  }
+  const maxMs = MAX_EXPIRES_MS();
+  if (expiresMs - now > maxMs) {
+    const maxDays = Math.round(maxMs / (24 * 60 * 60 * 1000));
+    throw new Error(`expires_at cannot be more than ${maxDays} days in the future`);
   }
 }
 
@@ -193,7 +197,7 @@ export async function createMemory(pool: Pool, input: CreateMemoryInput): Promis
   }
 
   // Validate confidence, content length, and tags (#2442)
-  validateMemoryFields({ confidence: input.confidence, tags: input.tags, content: input.content, expires_at: input.expires_at });
+  validateMemoryFields({ confidence: input.confidence, tags: input.tags, content: input.content });
 
   // At least one scope should be set
   if (!input.work_item_id && !input.contact_id && !input.relationship_id && !input.project_id && !input.namespace) {
@@ -375,8 +379,8 @@ export async function updateMemory(
   input: UpdateMemoryInput,
   namespaces?: string[],
 ): Promise<MemoryEntry | null> {
-  // Validate shared fields (#2442, #2444)
-  validateMemoryFields({ confidence: input.confidence, tags: input.tags, content: input.content, expires_at: input.expires_at ?? undefined });
+  // Validate shared fields (#2442)
+  validateMemoryFields({ confidence: input.confidence, tags: input.tags, content: input.content });
 
   const updates: string[] = [];
   const params: unknown[] = [];

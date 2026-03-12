@@ -15,7 +15,7 @@
 
 import type { Pool, PoolClient } from 'pg';
 import type { MemoryEntry, MemoryType, CreateMemoryInput } from './types.ts';
-import { createMemory, updateMemory } from './service.ts';
+import { createMemory, updateMemory, validateExpiresAt } from './service.ts';
 
 /** Maximum allowed cluster results for digest */
 const MAX_DIGEST_CLUSTERS = 100;
@@ -495,6 +495,11 @@ export async function upsertMemoryByTag(
 
   if (!upsert_tags || upsert_tags.length === 0) {
     throw new Error('upsert_tags must not be empty');
+  }
+
+  // Issue #2444: validate expires_at at the API boundary
+  if (options.expires_at) {
+    validateExpiresAt(options.expires_at);
   }
 
   // Find an existing active memory in the same namespace that has ALL upsert_tags
