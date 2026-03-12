@@ -39,6 +39,15 @@ vi.mock('@/ui/components/command-palette', () => ({
 
 // Mock api-client
 vi.mock('@/ui/lib/api-client', () => ({
+  // ApiRequestError is imported by use-settings.ts which is loaded in this test
+  ApiRequestError: class ApiRequestError extends Error {
+    status: number;
+    constructor(status: number, message: string) {
+      super(message);
+      this.name = 'ApiRequestError';
+      this.status = status;
+    }
+  },
   apiClient: {
     get: vi.fn().mockRejectedValue(new Error('Not implemented in test')),
     post: vi.fn().mockRejectedValue(new Error('Not implemented in test')),
