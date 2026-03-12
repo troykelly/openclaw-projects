@@ -307,7 +307,7 @@ export async function createMemory(pool: Pool, input: CreateMemoryInput): Promis
       lat, lng, address, place_label, namespace, pinned
     ) VALUES ($1, $2, $3, $4, $5, $6, $7::memory_type, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
     RETURNING
-      id::text, work_item_id::text, contact_id::text, relationship_id::text, project_id::text,
+      id::text, namespace, work_item_id::text, contact_id::text, relationship_id::text, project_id::text,
       title, content, memory_type::text, tags,
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at, superseded_by::text,

@@ -504,7 +504,9 @@ export async function upsertMemoryByTag(
   //
   // Lock key derivation: hash the canonical slot key (namespace + sorted tags joined with
   // NUL) into two int32 values suitable for pg_advisory_xact_lock(int4, int4).
-  const slotKey = [namespace, ...[...upsert_tags].sort()].join('\0');
+  // Canonicalise: deduplicate then sort, so ['slot', 'slot'] and ['slot'] produce the same lock key
+  const canonicalTags = Array.from(new Set(upsert_tags)).sort();
+  const slotKey = [namespace, ...canonicalTags].join('\0');
   // FNV-1a 64-bit hash, split into two signed int32 values for pg advisory lock
   let h = 14695981039346656037n;
   const FNV_PRIME = 1099511628211n;
@@ -539,40 +541,40 @@ export async function upsertMemoryByTag(
       [namespace, upsert_tags],
     );
 
+    // Always merge upsert_tags into the final tag set — on both create and update paths —
+    // so the slot key is preserved regardless of whether the caller included them in body.tags.
+    const baseTags = createInput.tags ?? upsert_tags;
+    const mergedTags = Array.from(new Set([...baseTags, ...upsert_tags]));
+    const mergedCreateInput = { ...createInput, tags: mergedTags };
+
     let result: UpsertByTagResult;
 
     if (existingResult.rows.length > 0) {
       const existingId = existingResult.rows[0].id;
 
-      // Merge upsert_tags into the final tag set so the slot key is always preserved.
-      // A caller may supply body.tags without including upsert_tags; if we stored that
-      // verbatim the slot tags would be lost and the next upsert would create a duplicate.
-      const baseTags = createInput.tags ?? upsert_tags;
-      const mergedTags = Array.from(new Set([...baseTags, ...upsert_tags]));
-
       // Update the existing slot — pass namespace for isolation reassertion
       const updated = await updateMemory(client as unknown as Pool, existingId, {
-        title: createInput.title,
-        content: createInput.content,
-        memory_type: createInput.memory_type,
+        title: mergedCreateInput.title,
+        content: mergedCreateInput.content,
+        memory_type: mergedCreateInput.memory_type,
         tags: mergedTags,
-        importance: createInput.importance,
-        confidence: createInput.confidence,
-        expires_at: createInput.expires_at,
-        source_url: createInput.source_url,
-        pinned: createInput.pinned,
+        importance: mergedCreateInput.importance,
+        confidence: mergedCreateInput.confidence,
+        expires_at: mergedCreateInput.expires_at,
+        source_url: mergedCreateInput.source_url,
+        pinned: mergedCreateInput.pinned,
       }, [namespace]);
 
       if (!updated) {
-        // Memory was deleted between SELECT FOR UPDATE and UPDATE — create new
-        const created = await createMemory(client as unknown as Pool, { ...createInput, namespace });
+        // Memory was deleted between SELECT FOR UPDATE and UPDATE — create new with merged tags
+        const created = await createMemory(client as unknown as Pool, { ...mergedCreateInput, namespace });
         result = { memory: created, upserted: false };
       } else {
         result = { memory: updated, upserted: true };
       }
     } else {
-      // No existing slot — create new memory
-      const created = await createMemory(client as unknown as Pool, { ...createInput, namespace });
+      // No existing slot — create new memory with slot tags guaranteed in tag set
+      const created = await createMemory(client as unknown as Pool, { ...mergedCreateInput, namespace });
       result = { memory: created, upserted: false };
     }
 
