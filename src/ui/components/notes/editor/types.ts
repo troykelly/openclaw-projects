@@ -30,6 +30,8 @@ export interface LexicalEditorProps {
   yjsProvider?: WebsocketProvider | null;
   /** Whether Yjs collaborative editing is active (Issue #2256) */
   yjsEnabled?: boolean;
+  /** Stable ID for CollaborationPlugin Yjs shared type key (Issue #2472) */
+  yjsId?: string;
   /** Current user info for cursor display (Issue #2256) */
   currentUser?: CollabUser;
 }

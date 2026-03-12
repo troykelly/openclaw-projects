@@ -219,9 +219,10 @@ export class YjsDocManager {
       // Encode full state as update (standard Yjs persistence format)
       const state = Y.encodeStateAsUpdate(managed.doc);
 
-      // Export content from Yjs doc
-      const xmlFragment = managed.doc.getXmlFragment('default');
-      const content = xmlFragment.toString();
+      // Export content from the Yjs shared type key matching CollaborationPlugin id (noteId).
+      // CollaborationPlugin stores content at doc.get(id, Y.XmlText) where id = noteId (#2472).
+      const xmlText = managed.doc.get(managed.noteId, Y.XmlText);
+      const content = xmlText.toString();
 
       // Check state size and warn if too large
       if (state.byteLength > 1024 * 1024) {

@@ -88,6 +88,7 @@ export function LexicalNoteEditor({
   yjsDoc,
   yjsProvider,
   yjsEnabled = false,
+  yjsId,
   currentUser,
 }: LexicalEditorProps): React.JSX.Element {
   const [mode, setMode] = useState<EditorMode>(initialMode);
@@ -327,7 +328,7 @@ export function LexicalNoteEditor({
             {yjsEnabled && yjsDoc && yjsProvider ? (
               <>
                 <CollaborationPlugin
-                  id={yjsDoc.clientID.toString()}
+                  id={yjsId ?? 'content'}
                   providerFactory={providerFactory}
                   shouldBootstrap={false}
                   username={currentUser?.name ?? 'Anonymous'}
