@@ -9,10 +9,17 @@
  * - Entity list pages show NamespaceBadge in multi-namespace mode (#2355)
  * - Namespace strings used from constants (#2357)
  */
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import type * as React from 'react';
+
+// Mock user-context so useUser() doesn't throw inside NamespaceProvider (#2469)
+vi.mock('@/ui/contexts/user-context', () => ({
+  useUser: () => ({ email: 'test@test.com', isLoading: false, isAuthenticated: true, logout: vi.fn(), signalAuthenticated: vi.fn() }),
+  useUserEmail: () => 'test@test.com',
+  UserProvider: ({ children }: { children: React.ReactNode }) => children,
+}));
 
 import { NamespaceProvider, useNamespace } from '@/ui/contexts/namespace-context';
 import { NamespaceBadge } from '@/ui/components/namespace/namespace-badge';

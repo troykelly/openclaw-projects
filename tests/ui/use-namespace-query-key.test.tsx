@@ -7,11 +7,18 @@
  * - Keys change when namespace changes
  * - Works with various base key shapes
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import React from 'react';
 import { renderHook, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import '@testing-library/jest-dom';
+
+// Mock user-context so useUser() doesn't throw inside NamespaceProvider (#2469)
+vi.mock('@/ui/contexts/user-context', () => ({
+  useUser: () => ({ email: 'test@test.com', isLoading: false, isAuthenticated: true, logout: vi.fn(), signalAuthenticated: vi.fn() }),
+  useUserEmail: () => 'test@test.com',
+  UserProvider: ({ children }: { children: React.ReactNode }) => children,
+}));
 
 import { NamespaceProvider, useNamespace } from '@/ui/contexts/namespace-context';
 import { useNamespaceQueryKey } from '@/ui/hooks/use-namespace-query-key';
