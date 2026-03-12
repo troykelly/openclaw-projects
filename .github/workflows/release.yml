@@ -607,10 +607,13 @@ jobs:
             ${{ matrix.image.name == 'app' && format('VITE_SENTRY_DSN={0}', secrets.VITE_SENTRY_DSN) || '' }}
             ${{ matrix.image.name == 'app' && format('VITE_SENTRY_ENVIRONMENT=production') || '' }}
             ${{ matrix.image.name == 'app' && format('VITE_SENTRY_RELEASE={0}', needs.validate.outputs.version) || '' }}
-            ${{ matrix.image.name == 'app' && format('SENTRY_AUTH_TOKEN={0}', secrets.SENTRY_AUTH_TOKEN) || '' }}
             ${{ matrix.image.name == 'app' && format('SENTRY_ORG={0}', secrets.SENTRY_ORG) || '' }}
             ${{ matrix.image.name == 'app' && format('SENTRY_PROJECT={0}', secrets.SENTRY_PROJECT) || '' }}
             ${{ matrix.image.name == 'app' && format('SENTRY_URL={0}', secrets.SENTRY_URL) || '' }}
+          # SENTRY_AUTH_TOKEN is passed as a BuildKit secret (not build-arg) to prevent
+          # exposure in image layers/history. Only needed for the 'app' image build.
+          secrets: |
+            ${{ matrix.image.name == 'app' && format('sentry_auth_token={0}', secrets.SENTRY_AUTH_TOKEN) || '' }}
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@e368e328979b113139d6f9068e03accaed98a518 # master
