@@ -782,8 +782,10 @@ exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > 
       "enum": [
         "preference",
         "fact",
+        "note",
         "decision",
         "context",
+        "reference",
         "entity",
         "other",
       ],
@@ -870,8 +872,10 @@ exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > 
       "enum": [
         "preference",
         "fact",
+        "note",
         "decision",
         "context",
+        "reference",
         "entity",
         "other",
       ],

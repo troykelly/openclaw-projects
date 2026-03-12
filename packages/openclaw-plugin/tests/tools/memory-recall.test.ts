@@ -314,7 +314,7 @@ describe('memory_recall tool', () => {
       }
     });
 
-    it('should map API note type to plugin other category', async () => {
+    it('should preserve API note type as note category', async () => {
       const mockGet = vi.fn().mockResolvedValue({
         success: true,
         data: {
@@ -335,8 +335,8 @@ describe('memory_recall tool', () => {
 
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.data.details.memories[0].category).toBe('other');
-        expect(result.data.content).toContain('[other]');
+        expect(result.data.details.memories[0].category).toBe('note');
+        expect(result.data.content).toContain('[note]');
       }
     });
 

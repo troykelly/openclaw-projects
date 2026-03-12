@@ -290,8 +290,8 @@ export interface MergeResult {
 // Memories
 // ---------------------------------------------------------------------------
 
-/** Valid memory types. */
-export type MemoryType = 'preference' | 'fact' | 'note' | 'decision' | 'context' | 'reference';
+/** Valid memory types — canonical source of truth matches DB enum */
+export type MemoryType = 'preference' | 'fact' | 'note' | 'decision' | 'context' | 'reference' | 'entity' | 'other';
 
 /** Embedding status for memories. */
 export type MemoryEmbeddingStatus = 'pending' | 'complete' | 'failed';

@@ -323,8 +323,8 @@ describe('Unified Memory API (Issue #209)', () => {
     });
   });
 
-  describe('DELETE /memories/cleanup-expired', () => {
-    it('deletes expired memories', async () => {
+  describe('POST /memories/cleanup-expired', () => {
+    it('soft-deletes expired memories by default', async () => {
       // Create active and expired memories
       await pool.query(
         `INSERT INTO memory (title, content, memory_type)
@@ -336,7 +336,7 @@ describe('Unified Memory API (Issue #209)', () => {
       );
 
       const res = await app.inject({
-        method: 'DELETE',
+        method: 'POST',
         url: '/memories/cleanup-expired',
       });
 
@@ -344,9 +344,11 @@ describe('Unified Memory API (Issue #209)', () => {
       const body = res.json();
       expect(body.deleted).toBe(1);
 
-      // Verify only active remains
+      // Soft delete: memory still exists but is_active = false
       const remaining = await pool.query('SELECT COUNT(*) as count FROM memory');
-      expect(parseInt((remaining.rows[0] as { count: string }).count, 10)).toBe(1);
+      expect(parseInt((remaining.rows[0] as { count: string }).count, 10)).toBe(2);
+      const inactive = await pool.query('SELECT COUNT(*) as count FROM memory WHERE is_active = false');
+      expect(parseInt((inactive.rows[0] as { count: string }).count, 10)).toBe(1);
     });
   });
 

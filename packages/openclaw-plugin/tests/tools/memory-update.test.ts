@@ -234,10 +234,10 @@ describe('memory_update tool', () => {
       );
     });
 
-    it('should map other category to note for API', async () => {
+    it('should pass other category directly to API', async () => {
       const mockPatch = vi.fn().mockResolvedValue({
         success: true,
-        data: { id: 'mem-123', content: 'test', type: 'note' },
+        data: { id: 'mem-123', content: 'test', type: 'other' },
       });
       const client = { ...mockApiClient, patch: mockPatch };
 
@@ -252,7 +252,7 @@ describe('memory_update tool', () => {
 
       expect(mockPatch).toHaveBeenCalledWith(
         '/memories/mem-123',
-        expect.objectContaining({ memory_type: 'note' }),
+        expect.objectContaining({ memory_type: 'other' }),
         expect.any(Object),
       );
     });

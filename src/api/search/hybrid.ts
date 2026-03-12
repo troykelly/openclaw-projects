@@ -94,6 +94,7 @@ export function combineScores(vectorScore: number, text_score: number, vectorWei
 function mapRowToMemory(row: Record<string, unknown>): MemoryEntry {
   return {
     id: row.id as string,
+    namespace: (row.namespace as string) ?? 'default',
     work_item_id: row.work_item_id as string | null,
     contact_id: row.contact_id as string | null,
     relationship_id: row.relationship_id as string | null,
@@ -110,7 +111,7 @@ function mapRowToMemory(row: Record<string, unknown>): MemoryEntry {
     expires_at: row.expires_at ? new Date(row.expires_at as string) : null,
     superseded_by: row.superseded_by as string | null,
     embedding_status: row.embedding_status as 'pending' | 'complete' | 'failed',
-    is_active: row.superseded_by === null,
+    is_active: (row.is_active as boolean) ?? true,
     pinned: (row.pinned as boolean) ?? false,
     lat: (row.lat as number) ?? null,
     lng: (row.lng as number) ?? null,

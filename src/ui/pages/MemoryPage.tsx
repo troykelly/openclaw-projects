@@ -78,11 +78,11 @@ import { apiClient } from '@/ui/lib/api-client';
 import type { CreateMemoryBody, Memory, UpdateMemoryBody } from '@/ui/lib/api-types';
 import { NamespaceBadge } from '@/ui/components/namespace';
 
-/** Memory type for filtering. */
-type MemoryTypeFilter = 'preference' | 'fact' | 'decision' | 'context' | 'note' | 'reference';
+/** Memory type for filtering — aligned with canonical DB enum (#2450). */
+type MemoryTypeFilter = 'preference' | 'fact' | 'decision' | 'context' | 'note' | 'reference' | 'entity' | 'other';
 
 /** All valid memory types. */
-const _MEMORY_TYPES: MemoryTypeFilter[] = ['preference', 'fact', 'decision', 'context', 'note', 'reference'];
+const _MEMORY_TYPES: MemoryTypeFilter[] = ['preference', 'fact', 'decision', 'context', 'note', 'reference', 'entity', 'other'];
 
 /** Date range presets for filtering (#1730). */
 const DATE_RANGE_PRESETS = [

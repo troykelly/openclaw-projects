@@ -378,7 +378,7 @@ describe('memory_store tool', () => {
       );
     });
 
-    it('should map default category "other" to memory_type "note"', async () => {
+    it('should pass default category "other" directly as memory_type', async () => {
       const mockPost = vi.fn().mockResolvedValue({
         success: true,
         data: { id: 'mem-123', content: 'Some info' },
@@ -397,7 +397,7 @@ describe('memory_store tool', () => {
       expect(mockPost).toHaveBeenCalledWith(
         '/memories/unified',
         expect.objectContaining({
-          memory_type: 'note',
+          memory_type: 'other',
         }),
         expect.any(Object),
       );
