@@ -81,6 +81,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+      start_period: 120s
 
   seaweedfs:
     image: chrislusf/seaweedfs:4.09
