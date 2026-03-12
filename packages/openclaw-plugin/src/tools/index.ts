@@ -56,6 +56,39 @@ export {
   type MemoryUpdateToolOptions,
 } from './memory-update.js';
 
+// memory_digest tool (Issue #2430)
+export {
+  createMemoryDigestTool,
+  MemoryDigestParamsSchema,
+  type MemoryDigestParams,
+  type MemoryDigestTool,
+  type MemoryDigestResult,
+  type MemoryDigestToolOptions,
+  type DigestCluster,
+  type DigestOrphan,
+  type DigestMemoryEntry,
+} from './memory-digest.js';
+
+// memory_reap tool (Issue #2431)
+export {
+  createMemoryReapTool,
+  MemoryReapParamsSchema,
+  type MemoryReapParams,
+  type MemoryReapTool,
+  type MemoryReapResult,
+  type MemoryReapToolOptions,
+} from './memory-reap.js';
+
+// memory_promote tool (Issue #2431)
+export {
+  createMemoryPromoteTool,
+  MemoryPromoteParamsSchema,
+  type MemoryPromoteParams,
+  type MemoryPromoteTool,
+  type MemoryPromoteResult,
+  type MemoryPromoteToolOptions,
+} from './memory-promote.js';
+
 // Project tools
 export {
   createProjectListTool,

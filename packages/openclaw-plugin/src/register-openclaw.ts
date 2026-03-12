@@ -89,6 +89,13 @@ import {
   createDevPromptCreateTool,
   createDevPromptUpdateTool,
   createDevPromptResetTool,
+  // Memory lifecycle tools (Epic #2426, Issues #2430, #2431)
+  createMemoryDigestTool,
+  MemoryDigestParamsSchema,
+  createMemoryReapTool,
+  MemoryReapParamsSchema,
+  createMemoryPromoteTool,
+  MemoryPromoteParamsSchema,
 } from './tools/index.js';
 import { zodToJsonSchema } from './utils/zod-to-json-schema.js';
 import type {
@@ -5162,6 +5169,33 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     },
   ];
 
+  // ── Memory lifecycle tools (Epic #2426, Issues #2430 #2431) ────────────────
+  // memory_digest, memory_reap, memory_promote — use factory pattern with
+  // dynamic user_id and namespace getters (Issue #2437).
+  {
+    const memLifecycleToolOpts = Object.defineProperties(
+      { client: apiClient, logger, config, user_id: '', namespace: '' },
+      {
+        user_id: { get: () => state.agentId, enumerable: true },
+        namespace: { get: () => state.resolvedNamespace.default, enumerable: true },
+      },
+    );
+
+    for (const factory of [createMemoryDigestTool, createMemoryReapTool, createMemoryPromoteTool] as const) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- factory functions have heterogeneous option types
+      const tool = (factory as (opts: typeof memLifecycleToolOpts) => { name: string; description: string; parameters: unknown; execute: (params: any) => Promise<any> })(memLifecycleToolOpts);
+      tools.push({
+        name: tool.name,
+        description: tool.description,
+        parameters: zodToJsonSchema(tool.parameters as import('zod').ZodTypeAny),
+        execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+          const result = await tool.execute(params);
+          return toAgentToolResult(result);
+        },
+      });
+    }
+  }
+
   // ── Terminal tools (Issue #1858) ──────────────────────────────
   // Register all 20 terminal plugin tools using factory pattern.
 
@@ -6206,6 +6240,10 @@ export const schemas = {
   memoryForget: withNamespaces(memoryForgetSchema),
   memoryList: withNamespaces(memoryListSchema),
   memoryUpdate: withNamespace(memoryUpdateSchema),
+  // Memory lifecycle schemas (Epic #2426 — Issues #2430, #2431)
+  memoryDigest: zodToJsonSchema(MemoryDigestParamsSchema),
+  memoryReap: zodToJsonSchema(MemoryReapParamsSchema),
+  memoryPromote: zodToJsonSchema(MemoryPromoteParamsSchema),
   projectList: withNamespaces(projectListSchema),
   projectGet: withNamespaces(projectGetSchema),
   projectCreate: withNamespace(projectCreateSchema),
