@@ -315,6 +315,56 @@ describe('YjsDocManager', () => {
     });
   });
 
+  describe('persistDoc content extraction', () => {
+    it('extracts content from the root key (matching @lexical/yjs createBinding)', async () => {
+      const noteId = 'note-uuid-persist';
+      await manager.joinRoom('client-1', 'user@test.com', noteId);
+
+      // Simulate what @lexical/yjs CollaborationPlugin does: store content at doc.get('root', Y.XmlText)
+      const doc = manager.getDoc(noteId)!;
+      const xmlText = doc.get('root', Y.XmlText);
+      xmlText.insert(0, 'Hello from Yjs');
+
+      manager.markDirty(noteId);
+
+      // Reset mock to track persist calls
+      mockPool._mockClient.query.mockClear();
+      mockPool._mockClient.query.mockResolvedValue({ rows: [], rowCount: 1 });
+
+      // Leave room triggers immediate persist
+      await manager.leaveRoom('client-1', noteId);
+
+      // Find the UPDATE call and check the content parameter
+      const updateCalls = mockPool._mockClient.query.mock.calls.filter(
+        (c: unknown[]) => typeof c[0] === 'string' && (c[0] as string).includes('UPDATE note SET'),
+      );
+      expect(updateCalls.length).toBe(1);
+      // The content parameter (second param, $2) should contain the text
+      const contentParam = (updateCalls[0][1] as unknown[])[1];
+      expect(contentParam).toContain('Hello from Yjs');
+    });
+
+    it('extracts empty content when root key has no content', async () => {
+      const noteId = 'note-uuid-empty';
+      await manager.joinRoom('client-1', 'user@test.com', noteId);
+
+      // Mark dirty but don't add content to the root key
+      manager.markDirty(noteId);
+
+      mockPool._mockClient.query.mockClear();
+      mockPool._mockClient.query.mockResolvedValue({ rows: [], rowCount: 1 });
+
+      await manager.leaveRoom('client-1', noteId);
+
+      const updateCalls = mockPool._mockClient.query.mock.calls.filter(
+        (c: unknown[]) => typeof c[0] === 'string' && (c[0] as string).includes('UPDATE note SET'),
+      );
+      expect(updateCalls.length).toBe(1);
+      const contentParam = (updateCalls[0][1] as unknown[])[1];
+      expect(contentParam).toBe('');
+    });
+  });
+
   describe('shutdown', () => {
     it('clears all docs and rooms', async () => {
       await manager.joinRoom('client-1', 'user@test.com', 'note-uuid-1');

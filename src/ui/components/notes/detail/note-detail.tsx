@@ -130,7 +130,7 @@ export function NoteDetail({
       : null,
   );
 
-  // Handle content change from editor (non-Yjs fallback only)
+  // Handle content change from editor (keeps localContent in sync for both Yjs and non-Yjs modes)
   const handleContentChange = useCallback((content: string) => {
     setLocalContent(content);
   }, []);
@@ -177,9 +177,8 @@ export function NoteDetail({
     const currentTitle = title.trim() || autoTitle;
     const data = {
       title: currentTitle,
-      // When Yjs is active, content is managed server-side (server strips it from REST PUTs).
-      // When Yjs is disabled, use the local content tracked via onChange.
-      content: yjsEnabled ? (note?.content ?? '') : localContent,
+      // localContent is kept in sync via ContentSyncPlugin onChange in both Yjs and non-Yjs modes.
+      content: localContent,
       notebook_id,
       visibility,
       hide_from_agents,
@@ -210,7 +209,7 @@ export function NoteDetail({
       setMetadataSaveError('Unable to save. Please try again.');
       setMetadataSaveStatus('error');
     }
-  }, [onSave, title, notebook_id, visibility, hide_from_agents, autoTitle, note?.content, yjsEnabled, localContent]);
+  }, [onSave, title, notebook_id, visibility, hide_from_agents, autoTitle, localContent]);
 
   // Cleanup timers on unmount
   useEffect(() => {
@@ -506,13 +505,14 @@ export function NoteDetail({
         <NoteEditor
           key={note?.id ?? 'new'}
           initialContent={note?.content ?? ''}
-          onChange={yjsEnabled ? undefined : handleContentChange}
+          onChange={handleContentChange}
           saving={metadataSaveStatus === 'saving'}
           autoFocus={isNew}
           className="h-full border-0 rounded-none"
           yjsDoc={yjsDoc}
           yjsProvider={yjsProvider}
           yjsEnabled={yjsEnabled}
+          yjsId={noteId ?? undefined}
           currentUser={{ name: 'User', color: '#3b82f6' }}
         />
       </div>
