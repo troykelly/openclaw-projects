@@ -66,6 +66,7 @@ export function validateMemoryFields(input: {
 function mapRowToMemory(row: Record<string, unknown>): MemoryEntry {
   return {
     id: row.id as string,
+    namespace: (row.namespace as string) ?? 'default',
     work_item_id: row.work_item_id as string | null,
     contact_id: row.contact_id as string | null,
     relationship_id: row.relationship_id as string | null,
@@ -251,7 +252,7 @@ export async function createMemory(pool: Pool, input: CreateMemoryInput): Promis
       `UPDATE memory SET updated_at = NOW()${pinnedClause}
       WHERE id = $1
       RETURNING
-        id::text, work_item_id::text, contact_id::text, relationship_id::text, project_id::text,
+        id::text, namespace, work_item_id::text, contact_id::text, relationship_id::text, project_id::text,
         title, content, memory_type::text, tags,
         created_by_agent, created_by_human, source_url,
         importance, confidence, expires_at, superseded_by::text,
@@ -319,7 +320,7 @@ export async function getMemory(pool: Pool, id: string, namespaces?: string[]): 
 
   const result = await pool.query(
     `SELECT
-      m.id::text, m.work_item_id::text, m.contact_id::text, m.relationship_id::text, m.project_id::text,
+      m.id::text, m.namespace, m.work_item_id::text, m.contact_id::text, m.relationship_id::text, m.project_id::text,
       m.title, m.content, m.memory_type::text, m.tags,
       m.created_by_agent, m.created_by_human, m.source_url,
       m.importance, m.confidence, m.expires_at, m.superseded_by::text,
@@ -440,7 +441,7 @@ export async function updateMemory(
     `UPDATE memory SET ${updates.join(', ')}, updated_at = NOW()
     WHERE id = $${idIdx}${nsClause}
     RETURNING
-      id::text, work_item_id::text, contact_id::text, relationship_id::text, project_id::text,
+      id::text, namespace, work_item_id::text, contact_id::text, relationship_id::text, project_id::text,
       title, content, memory_type::text, tags,
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at, superseded_by::text,
@@ -566,7 +567,7 @@ export async function listMemories(pool: Pool, options: ListMemoriesOptions = {}
 
   const result = await pool.query(
     `SELECT
-      id::text, work_item_id::text, contact_id::text, relationship_id::text, project_id::text,
+      id::text, namespace, work_item_id::text, contact_id::text, relationship_id::text, project_id::text,
       title, content, memory_type::text, tags,
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at, superseded_by::text,
@@ -630,7 +631,7 @@ export async function getGlobalMemories(
 
   const result = await pool.query(
     `SELECT
-      id::text, work_item_id::text, contact_id::text, relationship_id::text, project_id::text,
+      id::text, namespace, work_item_id::text, contact_id::text, relationship_id::text, project_id::text,
       title, content, memory_type::text, tags,
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at, superseded_by::text,

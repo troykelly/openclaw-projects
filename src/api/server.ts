@@ -9501,7 +9501,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     const memory_type = body.type ?? 'note';
-    const validTypes = ['preference', 'fact', 'note', 'decision', 'context', 'reference'];
+    const validTypes = ['preference', 'fact', 'note', 'decision', 'context', 'reference', 'entity', 'other'];
     if (!validTypes.includes(memory_type)) {
       return reply.code(400).send({ error: `type must be one of: ${validTypes.join(', ')}` });
     }
@@ -9896,7 +9896,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const memory_type = body.memory_type ?? 'note';
     if (!isValidMemoryType(memory_type)) {
       return reply.code(400).send({
-        error: 'Invalid memory_type. Valid types: preference, fact, note, decision, context, reference',
+        error: 'Invalid memory_type. Valid types: preference, fact, note, decision, context, reference, entity, other',
       });
     }
 
@@ -10147,7 +10147,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
         const memoryType = update.memory_type ?? update.type;
         if (memoryType !== undefined) {
-          const validTypes = ['preference', 'fact', 'note', 'decision', 'context', 'reference'];
+          const validTypes = ['preference', 'fact', 'note', 'decision', 'context', 'reference', 'entity', 'other'];
           if (!validTypes.includes(memoryType)) {
             results.push({ index: i, id: update.id, status: 'failed', error: `type must be one of: ${validTypes.join(', ')}` });
             failedCount++;
@@ -10360,6 +10360,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         title: body.title.trim(),
         content: body.content.trim(),
         memory_type: memory_type as import('./memory/types.ts').MemoryType,
+        namespace: oldMemory.namespace,
         work_item_id: oldMemory.work_item_id ?? undefined,
         contact_id: oldMemory.contact_id ?? undefined,
         relationship_id: oldMemory.relationship_id ?? undefined,
@@ -10717,7 +10718,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     const memory_type = body.type ?? 'note';
-    const validTypes = ['preference', 'fact', 'note', 'decision', 'context', 'reference'];
+    const validTypes = ['preference', 'fact', 'note', 'decision', 'context', 'reference', 'entity', 'other'];
     if (!validTypes.includes(memory_type)) {
       return reply.code(400).send({ error: `type must be one of: ${validTypes.join(', ')}` });
     }
