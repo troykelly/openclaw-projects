@@ -31,6 +31,7 @@ export function ClusterCard({ cluster, onPromote, onDismiss, className }: Cluste
           onClick={() => setExpanded(!expanded)}
           className="shrink-0 rounded p-1 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-label={expanded ? 'Collapse cluster' : 'Expand cluster'}
+          aria-expanded={expanded}
         >
           {expanded ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
         </button>

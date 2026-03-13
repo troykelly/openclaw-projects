@@ -122,6 +122,7 @@ export function MemoryList({ memories, onMemoryClick, onAddMemory, onEditMemory,
             value={filter.search ?? ''}
             onChange={(e) => setFilter((prev) => ({ ...prev, search: e.target.value }))}
             placeholder="Search memories..."
+            aria-label="Search memories"
             className="pl-9"
           />
         </div>
