@@ -129,8 +129,9 @@ describe('MemoryList', () => {
   it('filters by linked item type', () => {
     render(<MemoryList memories={mockMemories} />);
 
-    // Open the select
-    const selectTrigger = screen.getByRole('combobox');
+    // Open the type filter select (first combobox)
+    const selectTriggers = screen.getAllByRole('combobox');
+    const selectTrigger = selectTriggers[0]!;
     fireEvent.click(selectTrigger);
 
     // Select "Projects"

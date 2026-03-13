@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { Search, Plus, FileText } from 'lucide-react';
 import { cn } from '@/ui/lib/utils';
 import { Button } from '@/ui/components/ui/button';
@@ -7,7 +7,31 @@ import { Input } from '@/ui/components/ui/input';
 import { ScrollArea } from '@/ui/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/components/ui/select';
 import { MemoryCard } from './memory-card';
-import type { MemoryItem, MemoryFilter } from './types';
+import type { MemoryItem, MemoryFilter, MemoryLifecycleFilter, MemorySortOption } from './types';
+
+const LIFECYCLE_FILTERS: { value: MemoryLifecycleFilter; label: string }[] = [
+  { value: 'ephemeral', label: 'Ephemeral' },
+  { value: 'permanent', label: 'Permanent' },
+  { value: 'expired', label: 'Expired' },
+  { value: 'pinned', label: 'Pinned' },
+  { value: 'superseded', label: 'Superseded' },
+];
+
+/** Check if a memory matches a lifecycle filter. */
+function matchesLifecycleFilter(m: MemoryItem, f: MemoryLifecycleFilter): boolean {
+  switch (f) {
+    case 'ephemeral':
+      return m.expires_at != null && m.is_active !== false;
+    case 'permanent':
+      return m.expires_at == null && m.is_active !== false;
+    case 'expired':
+      return m.is_active === false;
+    case 'pinned':
+      return m.pinned === true;
+    case 'superseded':
+      return m.superseded_by != null;
+  }
+}
 
 export interface MemoryListProps {
   memories: MemoryItem[];
@@ -15,11 +39,21 @@ export interface MemoryListProps {
   onAddMemory?: () => void;
   onEditMemory?: (memory: MemoryItem) => void;
   onDeleteMemory?: (memory: MemoryItem) => void;
+  onBulkSupersede?: (memoryIds: string[], targetId: string) => void;
   className?: string;
 }
 
 export function MemoryList({ memories, onMemoryClick, onAddMemory, onEditMemory, onDeleteMemory, className }: MemoryListProps) {
   const [filter, setFilter] = useState<MemoryFilter>({});
+  const [sortBy, setSortBy] = useState<MemorySortOption>('updated_at');
+
+  const toggleLifecycleFilter = useCallback((value: MemoryLifecycleFilter) => {
+    setFilter((prev) => {
+      const current = prev.lifecycle ?? [];
+      const next = current.includes(value) ? current.filter((f) => f !== value) : [...current, value];
+      return { ...prev, lifecycle: next.length > 0 ? next : undefined };
+    });
+  }, []);
 
   const filteredMemories = useMemo(() => {
     let result = memories;
@@ -35,8 +69,37 @@ export function MemoryList({ memories, onMemoryClick, onAddMemory, onEditMemory,
       result = result.filter((m) => m.linked_item_kind === filter.linked_item_kind);
     }
 
+    // Lifecycle filters (union — match any active filter)
+    if (filter.lifecycle && filter.lifecycle.length > 0) {
+      result = result.filter((m) => filter.lifecycle!.some((f) => matchesLifecycleFilter(m, f)));
+    }
+
+    // Sort
+    result = [...result].sort((a, b) => {
+      switch (sortBy) {
+        case 'expiring_soonest': {
+          const aExp = a.expires_at ? new Date(a.expires_at).getTime() : Infinity;
+          const bExp = b.expires_at ? new Date(b.expires_at).getTime() : Infinity;
+          return aExp - bExp;
+        }
+        case 'recently_superseded': {
+          const aHas = a.superseded_by ? 1 : 0;
+          const bHas = b.superseded_by ? 1 : 0;
+          if (aHas !== bHas) return bHas - aHas;
+          return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+        }
+        case 'created_at':
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        case 'updated_at':
+        default:
+          return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+      }
+    });
+
     return result;
-  }, [memories, filter]);
+  }, [memories, filter, sortBy]);
+
+  const hasActiveFilters = !!(filter.search || filter.linked_item_kind || (filter.lifecycle && filter.lifecycle.length > 0));
 
   return (
     <div className={cn('flex h-full flex-col', className)}>
@@ -51,7 +114,7 @@ export function MemoryList({ memories, onMemoryClick, onAddMemory, onEditMemory,
         )}
       </div>
 
-      {/* Filters */}
+      {/* Search + type filter */}
       <div className="flex gap-2 border-b p-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -59,6 +122,7 @@ export function MemoryList({ memories, onMemoryClick, onAddMemory, onEditMemory,
             value={filter.search ?? ''}
             onChange={(e) => setFilter((prev) => ({ ...prev, search: e.target.value }))}
             placeholder="Search memories..."
+            aria-label="Search memories"
             className="pl-9"
           />
         </div>
@@ -82,6 +146,35 @@ export function MemoryList({ memories, onMemoryClick, onAddMemory, onEditMemory,
             <SelectItem value="issue">Issues</SelectItem>
           </SelectContent>
         </Select>
+        <Select value={sortBy} onValueChange={(v) => setSortBy(v as MemorySortOption)}>
+          <SelectTrigger className="w-[160px]" aria-label="Sort memories">
+            <SelectValue placeholder="Sort by" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="updated_at">Updated</SelectItem>
+            <SelectItem value="created_at">Created</SelectItem>
+            <SelectItem value="expiring_soonest">Expiring soonest</SelectItem>
+            <SelectItem value="recently_superseded">Recently superseded</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Lifecycle filter chips */}
+      <div className="flex flex-wrap gap-2 border-b px-4 py-2" role="group" aria-label="Memory lifecycle filters">
+        {LIFECYCLE_FILTERS.map(({ value, label }) => {
+          const active = filter.lifecycle?.includes(value) ?? false;
+          return (
+            <Button
+              key={value}
+              variant={active ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => toggleLifecycleFilter(value)}
+              aria-pressed={active}
+            >
+              {label}
+            </Button>
+          );
+        })}
       </div>
 
       {/* List */}
@@ -94,8 +187,8 @@ export function MemoryList({ memories, onMemoryClick, onAddMemory, onEditMemory,
           {filteredMemories.length === 0 && (
             <div className="col-span-full py-12 text-center">
               <FileText className="mx-auto size-12 text-muted-foreground/50" />
-              <p className="mt-4 text-muted-foreground">{filter.search || filter.linked_item_kind ? 'No memories found' : 'No memories yet'}</p>
-              {!filter.search && !filter.linked_item_kind && onAddMemory && (
+              <p className="mt-4 text-muted-foreground">{hasActiveFilters ? 'No memories found' : 'No memories yet'}</p>
+              {!hasActiveFilters && onAddMemory && (
                 <Button variant="outline" size="sm" className="mt-4" onClick={onAddMemory}>
                   Create your first memory
                 </Button>

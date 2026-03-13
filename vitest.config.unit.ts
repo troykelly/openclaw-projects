@@ -22,6 +22,8 @@ export default defineProject({
     include: [
       // ── React component tests (jsdom) ──────────────────────────────
       'tests/ui/**/*.test.{ts,tsx}',
+      // Co-located UI source tests
+      'src/ui/**/*.test.{ts,tsx}',
 
       // ── Docker / devcontainer / workflow config tests ──────────────
       'tests/devcontainer/**/*.test.ts',
