@@ -25,6 +25,11 @@ vi.mock('../webhooks/dispatcher.ts', () => ({
   enqueueWebhook: (...args: unknown[]) => mockEnqueueWebhook(...args),
 }));
 
+const mockValidateSsrf = vi.fn().mockReturnValue(null);
+vi.mock('../webhooks/ssrf.ts', () => ({
+  validateSsrf: (...args: unknown[]) => mockValidateSsrf(...args),
+}));
+
 // Import after mocks
 import {
   dispatchChatMessage,
@@ -159,8 +164,9 @@ describe('dispatchChatMessage', () => {
     expect(result.method).toBe('http');
   });
 
-  it('fallback payload includes stream_secret and streaming_callback_url', async () => {
+  it('fallback payload includes stream_secret and absolute streaming_callback_url', async () => {
     mockGetStatus.mockReturnValue({ connected: false, gateway_url: 'gateway.example.com' });
+    process.env.PUBLIC_BASE_URL = 'https://example.com';
 
     const session = makeSession({ id: 'sess-1', stream_secret: 'my-secret' });
     const message = makeMessage({ id: 'msg-1', body: 'Hello' });
@@ -172,7 +178,52 @@ describe('dispatchChatMessage', () => {
     const webhookBody = mockEnqueueWebhook.mock.calls[0][3] as Record<string, unknown>;
     const payload = webhookBody.payload as Record<string, unknown>;
     expect(payload.stream_secret).toBe('my-secret');
-    expect(payload.streaming_callback_url).toBe('/chat/sessions/sess-1/stream');
+    // Must be absolute so the gateway can call back (#2493)
+    expect(payload.streaming_callback_url).toBe('https://api.example.com/chat/sessions/sess-1/stream');
+  });
+
+  it('streaming_callback_url uses api.{hostname} subdomain for production domains', async () => {
+    mockGetStatus.mockReturnValue({ connected: false });
+    process.env.PUBLIC_BASE_URL = 'https://myapp.io';
+
+    await dispatchChatMessage(makeMockPool(), makeSession({ id: 'sess-2' }), makeMessage(), 'u@example.com');
+
+    const payload = (mockEnqueueWebhook.mock.calls[0][3] as Record<string, unknown>).payload as Record<string, unknown>;
+    expect(payload.streaming_callback_url).toBe('https://api.myapp.io/chat/sessions/sess-2/stream');
+  });
+
+  it('streaming_callback_url uses localhost base directly (no api. prefix)', async () => {
+    mockGetStatus.mockReturnValue({ connected: false });
+    process.env.PUBLIC_BASE_URL = 'http://localhost:3000';
+
+    await dispatchChatMessage(makeMockPool(), makeSession({ id: 'sess-3' }), makeMessage(), 'u@example.com');
+
+    const payload = (mockEnqueueWebhook.mock.calls[0][3] as Record<string, unknown>).payload as Record<string, unknown>;
+    expect(payload.streaming_callback_url).toBe('http://localhost:3000/chat/sessions/sess-3/stream');
+  });
+
+  it('streaming_callback_url falls back to localhost when PUBLIC_BASE_URL is malformed', async () => {
+    mockGetStatus.mockReturnValue({ connected: false });
+    process.env.PUBLIC_BASE_URL = 'not a valid url !!';
+
+    await dispatchChatMessage(makeMockPool(), makeSession({ id: 'sess-4' }), makeMessage(), 'u@example.com');
+
+    const payload = (mockEnqueueWebhook.mock.calls[0][3] as Record<string, unknown>).payload as Record<string, unknown>;
+    // Should use safe fallback, not forward the malformed string
+    expect(payload.streaming_callback_url).toBe('http://localhost:3000/chat/sessions/sess-4/stream');
+  });
+
+  it('logs SSRF warning when callback URL targets a private address', async () => {
+    mockGetStatus.mockReturnValue({ connected: false });
+    process.env.PUBLIC_BASE_URL = 'https://example.com';
+    mockValidateSsrf.mockReturnValue('SSRF protection: private range');
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    await dispatchChatMessage(makeMockPool(), makeSession({ id: 'sess-5' }), makeMessage(), 'u@example.com');
+
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('private/internal address'));
+    errorSpy.mockRestore();
+    mockValidateSsrf.mockReturnValue(null);
   });
 
   // ── Error handling ───────────────────────────────────────────
