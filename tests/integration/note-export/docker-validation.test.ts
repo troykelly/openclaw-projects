@@ -48,9 +48,11 @@ describe('Docker export dependencies', () => {
         return;
       }
 
+      // Run WITHOUT --no-sandbox to verify the Chromium sandbox works correctly
+      // in the production environment. If this fails, the Dockerfile or container
+      // runtime configuration needs fixing — do NOT add --no-sandbox as a workaround.
       const { stdout } = await execFileAsync('chromium', [
         '--headless',
-        '--no-sandbox',
         '--disable-gpu',
         '--dump-dom',
         'about:blank',

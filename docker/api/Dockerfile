@@ -88,6 +88,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgbm1 \
     libasound2 \
     libxshmfence1 \
+    fonts-liberation \
+    fonts-noto-core \
+    fonts-noto-cjk-extra \
+    fonts-noto-color-emoji \
     pandoc \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
