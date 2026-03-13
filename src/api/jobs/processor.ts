@@ -15,6 +15,7 @@ import { handleMessageEmbedJob } from '../embeddings/message-integration.ts';
 import { handleSkillStoreEmbedJob } from '../embeddings/skill-store-integration.ts';
 import { handleContactSyncJob } from './sync-handler.ts';
 import { computeNextRunAt } from '../skill-store/schedule-next-run.ts';
+import { handleExportJob } from '../note-export/job-handler.ts';
 
 const LOCK_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 const MAX_RETRIES = 5;
@@ -481,6 +482,8 @@ function getJobHandler(pool: Pool, kind: string): ((job: InternalJob) => Promise
       return (job) => handleScheduledProcessJob(pool, job);
     case 'oauth.sync.contacts':
       return (job) => handleContactSyncJob(pool, job);
+    case 'export.generate':
+      return (job) => handleExportJob(pool, job);
     default:
       return null;
   }
