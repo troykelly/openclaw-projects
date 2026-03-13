@@ -46,9 +46,14 @@ export function useRealtimeChatInvalidation(): void {
   useEffect(() => {
     if (!realtime) return;
 
-    const cleanupMsg = realtime.addEventHandler('chat:message_received', () => {
+    const cleanupMsg = realtime.addEventHandler('chat:message_received', (event) => {
       void queryClient.invalidateQueries({ queryKey: chatKeys.unreadCount() });
       void queryClient.invalidateQueries({ queryKey: chatKeys.sessions() });
+      // Invalidate messages for the specific session so agent replies appear (#2493)
+      const payload = event.payload as { session_id?: string } | null;
+      if (typeof payload?.session_id === 'string') {
+        void queryClient.invalidateQueries({ queryKey: chatKeys.messages(payload.session_id) });
+      }
     });
 
     const cleanupSession = realtime.addEventHandler('chat:session_created', () => {

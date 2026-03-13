@@ -64,6 +64,27 @@ function resolveTimeoutMs(): number {
   return Number.isFinite(parsed) && parsed > 0 ? parsed * 1000 : DEFAULT_TIMEOUT_MS;
 }
 
+/**
+ * Build an absolute streaming callback URL for the given session (#2493).
+ *
+ * Uses PUBLIC_BASE_URL to derive the API host. In production the API lives
+ * at api.{hostname}; in local dev the API is same-origin.
+ */
+function buildStreamCallbackUrl(sessionId: string): string {
+  const publicBase = process.env.PUBLIC_BASE_URL || 'http://localhost:3000';
+  let apiBase: string;
+  try {
+    const parsed = new URL(publicBase);
+    if (parsed.hostname !== 'localhost' && parsed.hostname !== '127.0.0.1') {
+      parsed.hostname = `api.${parsed.hostname}`;
+    }
+    apiBase = parsed.toString().replace(/\/$/, '');
+  } catch {
+    apiBase = publicBase;
+  }
+  return `${apiBase}/chat/sessions/${sessionId}/stream`;
+}
+
 // ── Public API ─────────────────────────────────────────────────────
 
 /**
@@ -126,7 +147,7 @@ export async function dispatchChatMessage(
         content: message.body,
         content_type: message.content_type,
         user_email: userEmail,
-        streaming_callback_url: `/chat/sessions/${session.id}/stream`,
+        streaming_callback_url: buildStreamCallbackUrl(session.id),
         stream_secret: session.stream_secret,
       },
     });

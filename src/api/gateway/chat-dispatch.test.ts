@@ -159,8 +159,9 @@ describe('dispatchChatMessage', () => {
     expect(result.method).toBe('http');
   });
 
-  it('fallback payload includes stream_secret and streaming_callback_url', async () => {
+  it('fallback payload includes stream_secret and absolute streaming_callback_url', async () => {
     mockGetStatus.mockReturnValue({ connected: false, gateway_url: 'gateway.example.com' });
+    process.env.PUBLIC_BASE_URL = 'https://example.com';
 
     const session = makeSession({ id: 'sess-1', stream_secret: 'my-secret' });
     const message = makeMessage({ id: 'msg-1', body: 'Hello' });
@@ -172,7 +173,28 @@ describe('dispatchChatMessage', () => {
     const webhookBody = mockEnqueueWebhook.mock.calls[0][3] as Record<string, unknown>;
     const payload = webhookBody.payload as Record<string, unknown>;
     expect(payload.stream_secret).toBe('my-secret');
-    expect(payload.streaming_callback_url).toBe('/chat/sessions/sess-1/stream');
+    // Must be absolute so the gateway can call back (#2493)
+    expect(payload.streaming_callback_url).toBe('https://api.example.com/chat/sessions/sess-1/stream');
+  });
+
+  it('streaming_callback_url uses api.{hostname} subdomain for production domains', async () => {
+    mockGetStatus.mockReturnValue({ connected: false });
+    process.env.PUBLIC_BASE_URL = 'https://myapp.io';
+
+    await dispatchChatMessage(makeMockPool(), makeSession({ id: 'sess-2' }), makeMessage(), 'u@example.com');
+
+    const payload = (mockEnqueueWebhook.mock.calls[0][3] as Record<string, unknown>).payload as Record<string, unknown>;
+    expect(payload.streaming_callback_url).toBe('https://api.myapp.io/chat/sessions/sess-2/stream');
+  });
+
+  it('streaming_callback_url uses localhost base directly (no api. prefix)', async () => {
+    mockGetStatus.mockReturnValue({ connected: false });
+    process.env.PUBLIC_BASE_URL = 'http://localhost:3000';
+
+    await dispatchChatMessage(makeMockPool(), makeSession({ id: 'sess-3' }), makeMessage(), 'u@example.com');
+
+    const payload = (mockEnqueueWebhook.mock.calls[0][3] as Record<string, unknown>).payload as Record<string, unknown>;
+    expect(payload.streaming_callback_url).toBe('http://localhost:3000/chat/sessions/sess-3/stream');
   });
 
   // ── Error handling ───────────────────────────────────────────
