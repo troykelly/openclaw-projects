@@ -267,32 +267,42 @@ export class GatewayConnectionService {
       return;
     }
 
-    // Validate URL scheme
+    // Mark as configured — the URL is set and we intend to connect.
+    // Even if validation fails below, the gateway IS configured (just blocked).
+    this.configured = true;
+    this.gatewayHost = this._extractHost(gatewayUrl);
+
+    // Validate URL scheme — permanent error, cannot be fixed by env var
     const wsUrl = this._deriveWsUrl(gatewayUrl);
 
-    // Validate SSRF
+    // Validate SSRF — recoverable: operator can set OPENCLAW_GATEWAY_ALLOW_PRIVATE=true
     const allowPrivate = this.env.OPENCLAW_GATEWAY_ALLOW_PRIVATE === 'true';
     const ssrfResult = validateSsrf(gatewayUrl);
     if (ssrfResult) {
       if (!allowPrivate) {
-        throw new Error(`SSRF validation failed for gateway URL: ${ssrfResult}`);
+        console.error(
+          `${LOG_PREFIX} SSRF validation failed for gateway URL: ${ssrfResult}` +
+          ` — set OPENCLAW_GATEWAY_ALLOW_PRIVATE=true to allow private/internal hosts. Retrying...`,
+        );
+        this._scheduleReconnect();
+        return;
       }
       console.warn(`${LOG_PREFIX} SSRF validation bypassed (OPENCLAW_GATEWAY_ALLOW_PRIVATE=true): ${ssrfResult}`);
     }
 
-    // Resolve token
+    // Resolve token — recoverable: operator can set the env var
     const token = this.env.OPENCLAW_GATEWAY_TOKEN || this.env.OPENCLAW_HOOK_TOKEN;
     if (!token) {
-      throw new Error(
-        'Gateway WS enabled but no authentication token configured. ' +
-        'Set OPENCLAW_GATEWAY_TOKEN or OPENCLAW_HOOK_TOKEN.',
+      console.error(
+        `${LOG_PREFIX} Gateway WS enabled but no authentication token configured.` +
+        ` Set OPENCLAW_GATEWAY_TOKEN or OPENCLAW_HOOK_TOKEN. Retrying...`,
       );
+      this._scheduleReconnect();
+      return;
     }
 
     this.wsUrl = wsUrl;
     this.token = token;
-    this.gatewayHost = this._extractHost(gatewayUrl);
-    this.configured = true;
 
     // Read configurable handshake timeout (#2188)
     const handshakeTimeoutEnv = this.env.OPENCLAW_GATEWAY_WS_HANDSHAKE_TIMEOUT_MS;
@@ -597,7 +607,9 @@ export class GatewayConnectionService {
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
       if (this.shutdownRequested) return;
-      this._connect().catch((err) => {
+      // Re-run full init to re-check env vars (SSRF bypass, token) on each retry
+      this.initializePromise = null;
+      this._doInitialize().catch((err) => {
         console.error(`${LOG_PREFIX} reconnect failed:`, err.message);
       });
     }, delay);
