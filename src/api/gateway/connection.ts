@@ -65,6 +65,7 @@ export type GatewayEventHandler = (frame: GatewayEventFrame) => void;
 
 export interface GatewayStatus {
   connected: boolean;
+  configured: boolean;
   gateway_url: string | null;
   connected_at: string | null;
   last_tick_at: string | null;
@@ -105,6 +106,7 @@ export class GatewayConnectionService {
   private gatewayHost: string | null = null;
   private token: string | null = null;
   private connected = false;
+  private configured = false;
   private shutdownRequested = false;
   private initializing = false;
   private initializePromise: Promise<void> | null = null;
@@ -242,6 +244,7 @@ export class GatewayConnectionService {
   getStatus(): GatewayStatus {
     return {
       connected: this.connected,
+      configured: this.configured,
       gateway_url: this.gatewayHost,
       connected_at: this.connectedAt?.toISOString() ?? null,
       last_tick_at: this.lastTickAt?.toISOString() ?? null,
@@ -289,6 +292,7 @@ export class GatewayConnectionService {
     this.wsUrl = wsUrl;
     this.token = token;
     this.gatewayHost = this._extractHost(gatewayUrl);
+    this.configured = true;
 
     // Read configurable handshake timeout (#2188)
     const handshakeTimeoutEnv = this.env.OPENCLAW_GATEWAY_WS_HANDSHAKE_TIMEOUT_MS;

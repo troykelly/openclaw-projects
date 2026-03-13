@@ -383,9 +383,38 @@ describe('GatewayConnectionService', () => {
       const svc = makeService();
       const status = svc.getStatus();
       expect(status.connected).toBe(false);
+      expect(status.configured).toBe(false);
       expect(status.gateway_url).toBeNull();
       expect(status.connected_at).toBeNull();
       expect(status.last_tick_at).toBeNull();
+    });
+
+    it('getStatus() returns configured=false when OPENCLAW_GATEWAY_URL is unset', async () => {
+      const svc = makeService({ OPENCLAW_GATEWAY_URL: undefined });
+      await svc.initialize();
+
+      const status = svc.getStatus();
+      expect(status.configured).toBe(false);
+      expect(status.connected).toBe(false);
+    });
+
+    it('getStatus() returns configured=true when OPENCLAW_GATEWAY_URL is set (even if connection fails)', async () => {
+      const svc = makeService();
+      const initPromise = svc.initialize();
+      await vi.advanceTimersByTimeAsync(0);
+
+      // Open but then close immediately (connection fails)
+      const ws = getMockInstances()[0];
+      ws._emitOpen();
+      ws._emitClose(1006);
+      await vi.advanceTimersByTimeAsync(0);
+      await initPromise;
+
+      const status = svc.getStatus();
+      expect(status.configured).toBe(true);
+      expect(status.connected).toBe(false);
+
+      await svc.shutdown();
     });
 
     it('getStatus() returns connected=true after successful handshake', async () => {
@@ -398,6 +427,7 @@ describe('GatewayConnectionService', () => {
 
       const status = svc.getStatus();
       expect(status.connected).toBe(true);
+      expect(status.configured).toBe(true);
       expect(status.gateway_url).toBe('gateway.example.com');
       expect(status.connected_at).toBeTruthy();
 

@@ -58,7 +58,11 @@ export function ChatPanel(): React.JSX.Element | null {
       <div className="flex h-full flex-col">
         <ChatConnectionBanner
           status="connected"
-          gatewayConnected={gatewayStatus.loading ? undefined : gatewayStatus.connected}
+          gatewayConnected={
+            gatewayStatus.loading || !gatewayStatus.configured
+              ? undefined
+              : gatewayStatus.connected
+          }
         />
         {activeSessionId ? (
           <>

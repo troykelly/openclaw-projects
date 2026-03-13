@@ -15,6 +15,7 @@ const POLL_INTERVAL_MS = 30_000;
 
 export interface GatewayStatus {
   connected: boolean;
+  configured: boolean;
   loading: boolean;
   error: boolean;
 }
@@ -22,6 +23,7 @@ export interface GatewayStatus {
 export function useGatewayStatus(): GatewayStatus {
   const [status, setStatus] = useState<GatewayStatus>({
     connected: false,
+    configured: false,
     loading: true,
     error: false,
   });
@@ -29,10 +31,11 @@ export function useGatewayStatus(): GatewayStatus {
 
   const fetchStatus = useCallback(async () => {
     try {
-      const data = await apiClient.get<{ connected?: boolean }>('/gateway/status');
+      const data = await apiClient.get<{ connected?: boolean; configured?: boolean }>('/gateway/status');
       if (!mountedRef.current) return;
       setStatus({
         connected: data.connected === true,
+        configured: data.configured === true,
         loading: false,
         error: false,
       });
@@ -41,7 +44,7 @@ export function useGatewayStatus(): GatewayStatus {
       // apiClient may throw ApiRequestError on 401/5xx; we treat all
       // failures as a transient connectivity issue and retry next poll.
       if (!mountedRef.current) return;
-      setStatus({ connected: false, loading: false, error: true });
+      setStatus({ connected: false, configured: false, loading: false, error: true });
     }
   }, []);
 
