@@ -255,6 +255,51 @@ When implementing memory features:
 - Support semantic search via cosine similarity
 - Enable relationship discovery between memories, contacts, work items
 
+#### Memory Lifecycle Tools
+
+| Tool | Purpose | When to Use |
+|------|---------|-------------|
+| `memory_store` | Create permanent or ephemeral memories | Always — primary memory creation tool. Use `ttl` param for ephemeral working memories (e.g. `ttl: "24h"`) |
+| `memory_digest` | Cluster ephemeral memories by topic | End-of-day consolidation — identifies repeated topics worth promoting |
+| `memory_promote` | Convert ephemeral cluster to permanent memory | After reviewing digest clusters — creates durable memory, supersedes sources |
+| `memory_reap` | Clean up expired/orphan memories (synaptic pruning) | Weekly or on-demand when memory count seems high. Default: `dry_run: true` |
+
+#### Ephemeral Memory Pattern
+
+Use TTL shorthand in `memory_store` for working memories that should auto-expire:
+
+```
+memory_store({ text: "Meeting notes: discussed auth refactor", ttl: "24h", category: "context" })
+```
+
+Supported TTL values: `1h`, `6h`, `24h`, `3d`, `7d`, `30d` (max `365d`). Ephemeral memories auto-receive the `ephemeral` tag.
+
+#### Sliding Window Model (8-slot)
+
+Maintain a rotating window of contextual summaries:
+
+- **7 day-slots**: Tagged `day-memory:monday` through `day-memory:sunday`
+- **1 week-summary**: Tagged `week-memory:current`
+
+Rules:
+- Pin today's `day-memory:{weekday}` for immediate context injection
+- Unpin yesterday's `day-memory:{weekday}` (it remains searchable but not auto-injected)
+- Overwrite each slot weekly via upsert-by-tag (the slot tag acts as a unique key)
+
+#### End-of-Day Consolidation Workflow
+
+1. **Digest**: Call `memory_digest({ since: "24h" })` to cluster today's ephemeral memories by topic
+2. **Review clusters**: Examine the returned clusters — which topics represent lasting knowledge?
+3. **Promote**: Call `memory_promote({ text: "<consolidated summary>", source_ids: [...], category: "fact" })` for important clusters
+4. **Write day-memory**: Store or update `day-memory:{weekday}` via upsert-by-tag with today's summary
+5. **Pin/unpin**: Pin today's day-memory, unpin yesterday's
+
+#### Weekly Semantic Compression
+
+1. **Digest the week**: Call `memory_digest({ since: "7d" })` to cluster this week's day-memories
+2. **Synthesize**: Write `week-memory:current` via upsert-by-tag with a weekly summary
+3. **Promote**: Move lasting insights from the weekly summary to permanent storage via `memory_promote`
+
 ### Hook Dispatch (pgcron)
 
 When implementing scheduled features:

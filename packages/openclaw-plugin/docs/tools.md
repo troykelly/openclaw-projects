@@ -1,6 +1,6 @@
 # Tool Reference
 
-This document describes all 27 tools provided by the OpenClaw Projects Plugin. Parameter names, types, constraints, and descriptions match the JSON Schema definitions in `register-openclaw.ts`.
+This document describes all 30 tools provided by the OpenClaw Projects Plugin. Parameter names, types, constraints, and descriptions match the JSON Schema definitions in `register-openclaw.ts`.
 
 ## Memory Tools
 
@@ -52,6 +52,44 @@ Remove a memory by ID or search query. Use when information is outdated or the u
 | query | string | No | Search query to find memories to forget |
 
 > At least one of `memoryId` or `query` should be provided.
+
+### memory_digest
+
+Cluster memories from a time period by semantic similarity. Use during end-of-day consolidation to identify ephemeral memories worth promoting to permanent storage.
+
+**Parameters:**
+
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| since | string | Yes | | Start of time period — relative (`24h`, `7d`) or ISO datetime |
+| before | string | No | now | End of time period — relative or ISO datetime |
+| threshold | number | No | 0.82 | Similarity threshold for clustering (0–1). Higher = tighter clusters |
+| min_cluster | integer | No | 2 | Minimum memories per cluster. Below this, memories are returned as orphans |
+| include_content | boolean | No | false | Include full memory content in output (vs. titles/previews only) |
+
+### memory_reap
+
+Trigger cleanup of expired memories (synaptic pruning). Defaults to dry-run mode for safety.
+
+**Parameters:**
+
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| dry_run | boolean | No | true | Preview without deleting. Set to `false` to actually delete expired memories |
+
+### memory_promote
+
+Promote a cluster of ephemeral memories into a single permanent memory. Creates a new durable memory and marks source memories as superseded.
+
+**Parameters:**
+
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| text | string | Yes | | Consolidated summary content for the new permanent memory (1–10000 chars) |
+| category | string | No | `fact` | Memory category: `preference`, `fact`, `decision`, `context`, `other` |
+| tags | array of string | No | | Tags for the new permanent memory (max 20) |
+| importance | number | No | 0.8 | Importance score (0–1). Defaults high since promoted memories are consolidated knowledge |
+| source_ids | array of string (uuid) | Yes | | IDs of ephemeral memories being consolidated. These will be superseded |
 
 ## Project Tools
 
