@@ -90,6 +90,7 @@ Promote a cluster of ephemeral memories into a single permanent memory. Creates 
 | tags | array of string | No | | Tags for the new permanent memory (max 20) |
 | importance | number | No | 0.8 | Importance score (0–1). Defaults high since promoted memories are consolidated knowledge |
 | source_ids | array of string (uuid) | Yes | | IDs of ephemeral memories being consolidated. These will be superseded |
+| deactivate_sources | boolean | No | true | Soft-delete source memories after promotion (sets `is_active=false`) |
 
 ## Project Tools
 
