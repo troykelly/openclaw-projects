@@ -36,8 +36,8 @@ describe('Legacy Memory Endpoint Deprecation (#2452)', () => {
   // Helper to create a memory for update/delete tests
   async function createMemory(_workItemId?: string): Promise<string> {
     const result = await pool.query(
-      `INSERT INTO memory (title, content, memory_type)
-       VALUES ('Test Memory', 'Test content for memory', 'note')
+      `INSERT INTO memory (title, content, memory_type, namespace)
+       VALUES ('Test Memory', 'Test content for memory', 'note', 'default')
        RETURNING id::text as id`,
     );
     return (result.rows[0] as { id: string }).id;

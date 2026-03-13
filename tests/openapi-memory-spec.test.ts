@@ -95,14 +95,14 @@ describe('OpenAPI Memory Spec Accuracy (#2456)', () => {
       expect(confidence.maximum).toBe(1);
     });
 
-    it('UnifiedMemoryCreateInput has importance bounds (0-1)', () => {
+    it('UnifiedMemoryCreateInput has importance bounds (0-10)', () => {
       const schemas = getSchemas();
       const schema = schemas.UnifiedMemoryCreateInput as Record<string, unknown>;
       const props = schema.properties as Record<string, unknown>;
       const importance = props.importance as Record<string, unknown>;
 
       expect(importance.minimum).toBe(0);
-      expect(importance.maximum).toBe(1);
+      expect(importance.maximum).toBe(10);
     });
 
     it('UnifiedMemoryCreateInput has content maxLength', () => {
@@ -306,6 +306,56 @@ describe('OpenAPI Memory Spec Accuracy (#2456)', () => {
 
       expect(props.superseded).toBeDefined();
       expect(props.target_id).toBeDefined();
+    });
+
+    it('GET /memories/search has correct limit default and max', () => {
+      const paths = getPaths();
+      const searchPath = paths['/memories/search'] as Record<string, unknown>;
+      const getOp = searchPath.get as Record<string, unknown>;
+      const params = getOp.parameters as Array<Record<string, unknown>>;
+
+      const limitParam = params.find((p) => p.name === 'limit');
+      expect(limitParam).toBeDefined();
+      const schema = limitParam!.schema as Record<string, unknown>;
+      expect(schema.default).toBe(20);
+      expect(schema.maximum).toBe(100);
+    });
+
+    it('GET /memories/search documents all supported query params', () => {
+      const paths = getPaths();
+      const searchPath = paths['/memories/search'] as Record<string, unknown>;
+      const getOp = searchPath.get as Record<string, unknown>;
+      const params = getOp.parameters as Array<Record<string, unknown>>;
+      const paramNames = params.map((p) => p.name);
+
+      // All params the handler actually supports
+      for (const name of ['q', 'limit', 'offset', 'memory_type', 'work_item_id', 'contact_id', 'relationship_id', 'project_id', 'tags', 'since', 'before', 'period', 'namespaces']) {
+        expect(paramNames).toContain(name);
+      }
+      // threshold is not used by the handler
+      expect(paramNames).not.toContain('threshold');
+    });
+
+    it('GET /memories/unified documents tags and pinned params', () => {
+      const paths = getPaths();
+      const unifiedPath = paths['/memories/unified'] as Record<string, unknown>;
+      const getOp = unifiedPath.get as Record<string, unknown>;
+      const params = getOp.parameters as Array<Record<string, unknown>>;
+      const paramNames = params.map((p) => p.name);
+
+      expect(paramNames).toContain('tags');
+      expect(paramNames).toContain('pinned');
+    });
+
+    it('LegacyMemory schema has nullable linked_item_id and linked_item_title', () => {
+      const schemas = getSchemas();
+      const legacy = schemas.LegacyMemory as Record<string, unknown>;
+      const props = legacy.properties as Record<string, unknown>;
+      const linkedId = props.linked_item_id as Record<string, unknown>;
+      const linkedTitle = props.linked_item_title as Record<string, unknown>;
+
+      expect(linkedId.nullable).toBe(true);
+      expect(linkedTitle.nullable).toBe(true);
     });
 
     it('POST /memory legacy spec only requires content', () => {
