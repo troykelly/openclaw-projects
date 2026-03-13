@@ -84,7 +84,7 @@ describe('MemoryList filter chips', () => {
     expect(screen.getByRole('button', { name: /Permanent/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Expired/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Pinned/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Superseded/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Superseded' })).toBeInTheDocument();
   });
 
   it('selecting Ephemeral filter shows only ephemeral memories', () => {
@@ -129,7 +129,7 @@ describe('MemoryList filter chips', () => {
   it('selecting Superseded filter shows only superseded memories', () => {
     render(<MemoryList memories={mockMemories} />);
 
-    fireEvent.click(screen.getByRole('button', { name: /Superseded/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Superseded' }));
 
     expect(screen.getByText('Superseded Memory')).toBeInTheDocument();
     expect(screen.queryByText('Permanent Memory')).not.toBeInTheDocument();
