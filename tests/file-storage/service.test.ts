@@ -24,6 +24,8 @@ import type { FileStorage } from '../../src/api/file-storage/index.ts';
 // Mock file storage for tests
 class MockFileStorage implements FileStorage {
   private files: Map<string, { data: Buffer; content_type: string }> = new Map();
+  /** Track calls to getExternalSignedUrl to verify it is used by getFileUrl (Issue #2483) */
+  getExternalSignedUrlCalls: Array<{ key: string; expiresIn: number }> = [];
 
   async upload(key: string, data: Buffer, content_type: string): Promise<string> {
     this.files.set(key, { data, content_type });
@@ -38,11 +40,21 @@ class MockFileStorage implements FileStorage {
     return file.data;
   }
 
+  /** Internal signed URL — should NOT be used for browser-facing URLs (Issue #2483) */
   async getSignedUrl(key: string, expiresIn: number): Promise<string> {
     if (!this.files.has(key)) {
       throw new Error(`File not found: ${key}`);
     }
-    return `https://mock-storage.example.com/${key}?expires=${expiresIn}`;
+    return `https://mock-internal.example.com/${key}?expires=${expiresIn}`;
+  }
+
+  /** External signed URL — used for all browser/agent-facing presigned URLs (Issue #2483) */
+  async getExternalSignedUrl(key: string, expiresIn: number): Promise<string> {
+    this.getExternalSignedUrlCalls.push({ key, expiresIn });
+    if (!this.files.has(key)) {
+      throw new Error(`File not found: ${key}`);
+    }
+    return `https://mock-external.example.com/${key}?expires=${expiresIn}`;
   }
 
   async delete(key: string): Promise<void> {
@@ -55,6 +67,7 @@ class MockFileStorage implements FileStorage {
 
   clear(): void {
     this.files.clear();
+    this.getExternalSignedUrlCalls = [];
   }
 }
 
@@ -201,7 +214,7 @@ describe('File Storage Service', () => {
   });
 
   describe('getFileUrl', () => {
-    it('returns signed URL for file', async () => {
+    it('returns signed URL for file using external endpoint (Issue #2483)', async () => {
       const data = Buffer.from('url test');
       const uploaded = await uploadFile(pool, mockStorage, {
         filename: 'url.txt',
@@ -210,9 +223,25 @@ describe('File Storage Service', () => {
       });
 
       const result = await getFileUrl(pool, mockStorage, uploaded.id, 3600);
-      expect(result.url).toContain('mock-storage.example.com');
+      expect(result.url).toContain('mock-external.example.com');
       expect(result.url).toContain('expires=3600');
       expect(result.metadata.original_filename).toBe('url.txt');
+    });
+
+    it('uses getExternalSignedUrl, not getSignedUrl (Issue #2483)', async () => {
+      const data = Buffer.from('external url test');
+      const uploaded = await uploadFile(pool, mockStorage, {
+        filename: 'external.txt',
+        content_type: 'text/plain',
+        data,
+      });
+
+      await getFileUrl(pool, mockStorage, uploaded.id, 7200);
+
+      // Verify getExternalSignedUrl was called
+      expect(mockStorage.getExternalSignedUrlCalls).toHaveLength(1);
+      expect(mockStorage.getExternalSignedUrlCalls[0].key).toBe(uploaded.storage_key);
+      expect(mockStorage.getExternalSignedUrlCalls[0].expiresIn).toBe(7200);
     });
 
     it('throws FileNotFoundError for non-existent file', async () => {
