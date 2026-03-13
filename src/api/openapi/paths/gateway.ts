@@ -16,11 +16,15 @@ export function gatewayPaths(): OpenApiDomainModule {
     schemas: {
       GatewayStatus: {
         type: 'object',
-        required: ['connected'],
+        required: ['connected', 'configured'],
         properties: {
           connected: {
             type: 'boolean',
             description: 'Whether the API server is currently connected to the OpenClaw gateway via WebSocket',
+          },
+          configured: {
+            type: 'boolean',
+            description: 'Whether OPENCLAW_GATEWAY_URL is set and the gateway connection was attempted. When false, the gateway is not in use and no degraded banner should be shown.',
           },
           gateway_url: {
             type: 'string',

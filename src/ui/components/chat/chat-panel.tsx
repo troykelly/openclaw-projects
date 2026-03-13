@@ -59,7 +59,7 @@ export function ChatPanel(): React.JSX.Element | null {
         <ChatConnectionBanner
           status="connected"
           gatewayConnected={
-            gatewayStatus.loading || !gatewayStatus.configured
+            gatewayStatus.loading || (!gatewayStatus.configured && !gatewayStatus.error)
               ? undefined
               : gatewayStatus.connected
           }
