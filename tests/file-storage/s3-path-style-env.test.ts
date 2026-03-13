@@ -137,4 +137,19 @@ describe('createS3StorageFromEnv — S3_FORCE_PATH_STYLE handling (#2500)', () =
     // No endpoint, no explicit setting: forcePathStyle = undefined ?? !!undefined = false
     expect(s3Instances[0]._config.forcePathStyle).toBe(false);
   });
+
+  it('treats empty string S3_FORCE_PATH_STYLE as false (not a recognised truthy value)', async () => {
+    process.env.S3_ENDPOINT = 'http://seaweedfs:8333';
+    // Explicitly set to empty string — the var is defined but not 'true'
+    process.env.S3_FORCE_PATH_STYLE = '';
+
+    const { createS3StorageFromEnv } = await import('../../src/api/file-storage/s3-storage.ts');
+    const storage = createS3StorageFromEnv();
+
+    expect(storage).not.toBeNull();
+    expect(s3Instances).toHaveLength(1);
+    // Variable is defined (not undefined) so undefined branch is not taken;
+    // '' !== 'true' → force_path_style: false → forcePathStyle: false
+    expect(s3Instances[0]._config.forcePathStyle).toBe(false);
+  });
 });
