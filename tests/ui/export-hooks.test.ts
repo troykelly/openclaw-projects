@@ -156,12 +156,12 @@ describe('useCreateExport (#2479)', () => {
 describe('useExportStatus (#2479)', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('fetches export status by ID', async () => {
+  it('fetches export status using poll URL', async () => {
     mockGet.mockResolvedValue(pendingExport);
     const { Wrapper } = createWrapper();
 
     const { result } = renderHook(
-      () => useExportStatus('export-1'),
+      () => useExportStatus('/exports/export-1'),
       { wrapper: Wrapper },
     );
 
@@ -170,7 +170,7 @@ describe('useExportStatus (#2479)', () => {
     expect(result.current.data).toEqual(pendingExport);
   });
 
-  it('is disabled when exportId is null', () => {
+  it('is disabled when pollUrl is null', () => {
     const { Wrapper } = createWrapper();
 
     const { result } = renderHook(
@@ -184,7 +184,7 @@ describe('useExportStatus (#2479)', () => {
 
   it('provides exportKeys factory', () => {
     expect(exportKeys.all).toEqual(['exports']);
-    expect(exportKeys.detail('abc')).toEqual(['exports', 'detail', 'abc']);
+    expect(exportKeys.detail('/exports/abc')).toEqual(['exports', 'detail', '/exports/abc']);
   });
 });
 

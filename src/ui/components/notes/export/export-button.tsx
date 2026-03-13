@@ -7,7 +7,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { Download, Loader2, CheckCircle2, XCircle } from 'lucide-react';
+import { Download, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/ui/components/ui/button';
 import {
@@ -30,6 +30,31 @@ const FORMATS: { value: ExportFormat; label: string; description: string }[] = [
   { value: 'odf', label: S.format.odf.label, description: S.format.odf.description },
 ];
 
+/** Only allow https: (and http: for localhost dev) download URLs. */
+function isSafeDownloadUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:';
+  } catch {
+    return false;
+  }
+}
+
+/** Trigger a browser download for a validated URL. */
+function triggerDownload(url: string, filename: string): void {
+  if (!isSafeDownloadUrl(url)) {
+    console.error('[ExportButton] Refusing to download unsafe URL:', url);
+    return;
+  }
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
 export interface ExportButtonProps {
   sourceType: ExportSourceType;
   sourceId: string;
@@ -38,36 +63,38 @@ export interface ExportButtonProps {
 }
 
 export function ExportButton({ sourceType, sourceId, sourceName, disabled }: ExportButtonProps) {
-  const [activeExportId, setActiveExportId] = useState<string | null>(null);
+  const [pollUrl, setPollUrl] = useState<string | null>(null);
   const createExport = useCreateExport();
-  const { data: exportStatus } = useExportStatus(activeExportId);
+  const { data: exportStatus, isError: isPollingError } = useExportStatus(pollUrl);
 
-  const isExporting = createExport.isPending || (activeExportId !== null && exportStatus?.status !== 'ready' && exportStatus?.status !== 'failed' && exportStatus?.status !== 'expired');
+  const isExporting = createExport.isPending || (pollUrl !== null && exportStatus?.status !== 'ready' && exportStatus?.status !== 'failed' && exportStatus?.status !== 'expired' && !isPollingError);
 
-  // Handle export completion
+  // Handle export completion or polling error
   useEffect(() => {
-    if (!exportStatus || !activeExportId) return;
+    if (!pollUrl) return;
+
+    // Polling query failed — surface error and reset
+    if (isPollingError) {
+      toast.error(S.progress.failed);
+      setPollUrl(null);
+      return;
+    }
+
+    if (!exportStatus) return;
 
     if (exportStatus.status === 'ready' && exportStatus.download_url) {
-      // Trigger browser download
-      const a = document.createElement('a');
-      a.href = exportStatus.download_url;
-      a.download = exportStatus.original_filename || `${sourceName}.${exportStatus.format}`;
-      a.style.display = 'none';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-
+      const filename = exportStatus.original_filename || `${sourceName}.${exportStatus.format}`;
+      triggerDownload(exportStatus.download_url, filename);
       toast.success(S.progress.ready);
-      setActiveExportId(null);
+      setPollUrl(null);
     } else if (exportStatus.status === 'failed') {
       toast.error(exportStatus.error_message || S.progress.failed);
-      setActiveExportId(null);
+      setPollUrl(null);
     } else if (exportStatus.status === 'expired') {
       toast.error(S.progress.expired);
-      setActiveExportId(null);
+      setPollUrl(null);
     }
-  }, [exportStatus, activeExportId, sourceName]);
+  }, [exportStatus, pollUrl, sourceName, isPollingError]);
 
   const handleFormatSelect = useCallback(
     (format: ExportFormat) => {
@@ -77,17 +104,16 @@ export function ExportButton({ sourceType, sourceId, sourceName, disabled }: Exp
           onSuccess: (data) => {
             if (data.status === 'ready' && data.download_url) {
               // Sync export — download immediately
-              const a = document.createElement('a');
-              a.href = data.download_url;
-              a.download = data.original_filename || `${sourceName}.${format}`;
-              a.style.display = 'none';
-              document.body.appendChild(a);
-              a.click();
-              document.body.removeChild(a);
+              const filename = data.original_filename || `${sourceName}.${format}`;
+              triggerDownload(data.download_url, filename);
               toast.success(S.progress.ready);
+            } else if (data.poll_url) {
+              // Async export — start polling using server-provided poll_url
+              setPollUrl(data.poll_url);
+              toast(S.progress.preparing);
             } else {
-              // Async export — start polling
-              setActiveExportId(data.id);
+              // Fallback: construct poll URL from export ID
+              setPollUrl(`/exports/${encodeURIComponent(data.id)}`);
               toast(S.progress.preparing);
             }
           },

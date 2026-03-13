@@ -19,30 +19,30 @@ const TERMINAL_STATES: ExportStatus[] = ['ready', 'failed', 'expired'];
 export const exportKeys = {
   all: ['exports'] as const,
   details: () => [...exportKeys.all, 'detail'] as const,
-  detail: (id: string) => [...exportKeys.details(), id] as const,
+  detail: (pollUrl: string) => [...exportKeys.details(), pollUrl] as const,
 };
 
 /**
- * Poll export status by ID.
+ * Poll export status using a poll URL.
  *
- * Fetches `/exports/:id` at the configured interval until the export
- * reaches a terminal state (ready, failed, expired).
+ * Fetches the given poll URL path at the configured interval until the
+ * export reaches a terminal state (ready, failed, expired).
  *
- * @param exportId - Export UUID, or null to disable the query
+ * @param pollUrl - API path to poll (e.g. `/exports/:id`), or null to disable
  * @param options - Optional configuration
  */
 export function useExportStatus(
-  exportId: string | null,
+  pollUrl: string | null,
   options?: { pollInterval?: number },
 ) {
   const pollInterval = options?.pollInterval ?? POLL_INTERVAL_MS;
-  const queryKey = useNamespaceQueryKey(exportKeys.detail(exportId ?? ''));
+  const queryKey = useNamespaceQueryKey(exportKeys.detail(pollUrl ?? ''));
 
   return useQuery<ExportResponse>({
     queryKey,
     queryFn: ({ signal }) =>
-      apiClient.get<ExportResponse>(`/exports/${encodeURIComponent(exportId!)}`, { signal }),
-    enabled: !!exportId,
+      apiClient.get<ExportResponse>(pollUrl!, { signal }),
+    enabled: !!pollUrl,
     refetchInterval: (query) => {
       const data = query.state.data;
       if (data && TERMINAL_STATES.includes(data.status)) {
