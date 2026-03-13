@@ -492,6 +492,8 @@ export class GatewayConnectionService {
       params: {
         minProtocol: GATEWAY_PROTOCOL_VERSION,
         maxProtocol: GATEWAY_PROTOCOL_VERSION,
+        role: 'operator',
+        scopes: ['operator.read', 'operator.write'],
         client: {
           id: 'node-host',
           version: PKG_VERSION,

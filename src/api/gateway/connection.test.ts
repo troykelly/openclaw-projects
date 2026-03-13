@@ -236,6 +236,9 @@ describe('GatewayConnectionService', () => {
       expect(parsed.params?.auth?.token).toBe('fallback-token');
       expect(parsed.params?.minProtocol).toBe(3);
       expect(parsed.params?.maxProtocol).toBe(3);
+      expect(parsed.params?.role).toBe('operator');
+      expect(parsed.params?.scopes).toContain('operator.read');
+      expect(parsed.params?.scopes).toContain('operator.write');
       expect(parsed.params?.client?.id).toBe('node-host');
       expect(parsed.params?.client?.platform).toBe('node');
       expect(parsed.params?.client?.mode).toBe('backend');
