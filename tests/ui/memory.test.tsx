@@ -150,7 +150,7 @@ describe('MemoryEditor', () => {
     expect(screen.getByLabelText(/Title/)).toBeInTheDocument();
     expect(screen.getByText('Content')).toBeInTheDocument();
     expect(screen.getByPlaceholderText(/Write your memory content/)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Tags/)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Add a tag')).toBeInTheDocument();
   });
 
   it('pre-fills form when editing', () => {
@@ -191,7 +191,7 @@ describe('MemoryEditor', () => {
 
     const tagInput = screen.getByPlaceholderText('Add a tag');
     fireEvent.change(tagInput, { target: { value: 'test-tag' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+    fireEvent.click(screen.getAllByRole('button', { name: 'Add' })[0]);
 
     expect(screen.getByText('test-tag ×')).toBeInTheDocument();
 
