@@ -41,6 +41,22 @@ export function MemoryEditor({ memory, open, onOpenChange, onSubmit, className }
   const [upsertTagInput, setUpsertTagInput] = useState('');
   const [upsertTags, setUpsertTags] = useState<string[]>([]);
 
+  // Reset form state when memory changes or dialog opens with a different memory
+  React.useEffect(() => {
+    if (open) {
+      setTitle(memory?.title ?? '');
+      setContent(memory?.content ?? '');
+      setTags(memory?.tags ?? []);
+      setPinned(memory?.pinned ?? false);
+      setTtlSeconds(undefined);
+      setCustomTtlInput('');
+      setTagInput('');
+      setUpsertTagInput('');
+      setUpsertTags([]);
+      setActiveTab('edit');
+    }
+  }, [open, memory?.id]);
+
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
 
   const insertMarkdown = useCallback(

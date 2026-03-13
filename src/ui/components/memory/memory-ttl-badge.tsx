@@ -17,6 +17,11 @@ function getTimeRemaining(expiresAt: string): {
 } {
   const now = Date.now();
   const expiry = new Date(expiresAt).getTime();
+
+  if (Number.isNaN(expiry)) {
+    return { label: 'Invalid date', urgency: 'expired' };
+  }
+
   const diffMs = expiry - now;
 
   if (diffMs <= 0) {

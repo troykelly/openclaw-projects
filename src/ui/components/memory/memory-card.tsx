@@ -56,6 +56,8 @@ export function MemoryCard({ memory, onClick, onEdit, onDelete, onSupersededClic
   return (
     <div
       data-testid="memory-card"
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
       className={cn(
         'group relative rounded-lg border bg-card p-4 transition-colors hover:bg-accent/50',
         onClick && 'cursor-pointer',
@@ -64,6 +66,12 @@ export function MemoryCard({ memory, onClick, onEdit, onDelete, onSupersededClic
         className,
       )}
       onClick={() => onClick?.(memory)}
+      onKeyDown={(e) => {
+        if (onClick && (e.key === 'Enter' || e.key === ' ')) {
+          e.preventDefault();
+          onClick(memory);
+        }
+      }}
     >
       {/* Pinned indicator */}
       {memory.pinned && (
@@ -122,9 +130,9 @@ export function MemoryCard({ memory, onClick, onEdit, onDelete, onSupersededClic
         )}
 
         {isSuperseded && (
-          <Badge
-            variant="outline"
-            className="cursor-pointer gap-1 text-xs text-muted-foreground"
+          <button
+            type="button"
+            className="inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             aria-label="Memory is superseded"
             onClick={(e) => {
               e.stopPropagation();
@@ -132,7 +140,7 @@ export function MemoryCard({ memory, onClick, onEdit, onDelete, onSupersededClic
             }}
           >
             Superseded
-          </Badge>
+          </button>
         )}
       </div>
 

@@ -32,6 +32,11 @@ function getLinkedItemIcon(kind: MemoryItem['linked_item_kind']) {
 function formatTtlDetail(expiresAt: string): { expiryText: string; countdownText: string; isExpired: boolean } {
   const now = Date.now();
   const expiry = new Date(expiresAt).getTime();
+
+  if (Number.isNaN(expiry)) {
+    return { expiryText: 'Invalid date', countdownText: 'unknown', isExpired: false };
+  }
+
   const diffMs = expiry - now;
   const isExpired = diffMs <= 0;
 
