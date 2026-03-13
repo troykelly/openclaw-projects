@@ -25,6 +25,11 @@ vi.mock('../webhooks/dispatcher.ts', () => ({
   enqueueWebhook: (...args: unknown[]) => mockEnqueueWebhook(...args),
 }));
 
+const mockValidateSsrf = vi.fn().mockReturnValue(null);
+vi.mock('../webhooks/ssrf.ts', () => ({
+  validateSsrf: (...args: unknown[]) => mockValidateSsrf(...args),
+}));
+
 // Import after mocks
 import {
   dispatchChatMessage,
@@ -195,6 +200,30 @@ describe('dispatchChatMessage', () => {
 
     const payload = (mockEnqueueWebhook.mock.calls[0][3] as Record<string, unknown>).payload as Record<string, unknown>;
     expect(payload.streaming_callback_url).toBe('http://localhost:3000/chat/sessions/sess-3/stream');
+  });
+
+  it('streaming_callback_url falls back to localhost when PUBLIC_BASE_URL is malformed', async () => {
+    mockGetStatus.mockReturnValue({ connected: false });
+    process.env.PUBLIC_BASE_URL = 'not a valid url !!';
+
+    await dispatchChatMessage(makeMockPool(), makeSession({ id: 'sess-4' }), makeMessage(), 'u@example.com');
+
+    const payload = (mockEnqueueWebhook.mock.calls[0][3] as Record<string, unknown>).payload as Record<string, unknown>;
+    // Should use safe fallback, not forward the malformed string
+    expect(payload.streaming_callback_url).toBe('http://localhost:3000/chat/sessions/sess-4/stream');
+  });
+
+  it('logs SSRF warning when callback URL targets a private address', async () => {
+    mockGetStatus.mockReturnValue({ connected: false });
+    process.env.PUBLIC_BASE_URL = 'https://example.com';
+    mockValidateSsrf.mockReturnValue('SSRF protection: private range');
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    await dispatchChatMessage(makeMockPool(), makeSession({ id: 'sess-5' }), makeMessage(), 'u@example.com');
+
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('private/internal address'));
+    errorSpy.mockRestore();
+    mockValidateSsrf.mockReturnValue(null);
   });
 
   // ── Error handling ───────────────────────────────────────────

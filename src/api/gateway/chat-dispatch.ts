@@ -16,6 +16,7 @@
 import type { Pool } from 'pg';
 import { getGatewayConnection } from './index.ts';
 import { enqueueWebhook } from '../webhooks/dispatcher.ts';
+import { validateSsrf } from '../webhooks/ssrf.ts';
 import { gwChatDispatchWs, gwChatDispatchHttp } from './metrics.ts';
 
 // ── Types ──────────────────────────────────────────────────────────
@@ -64,14 +65,20 @@ function resolveTimeoutMs(): number {
   return Number.isFinite(parsed) && parsed > 0 ? parsed * 1000 : DEFAULT_TIMEOUT_MS;
 }
 
+const SAFE_FALLBACK_BASE = 'http://localhost:3000';
+
 /**
  * Build an absolute streaming callback URL for the given session (#2493).
  *
  * Uses PUBLIC_BASE_URL to derive the API host. In production the API lives
  * at api.{hostname}; in local dev the API is same-origin.
+ *
+ * SSRF note: PUBLIC_BASE_URL is operator-controlled config, but we validate it
+ * and log a warning if it points to a private/internal network so that
+ * misconfigured deployments are detectable.
  */
 function buildStreamCallbackUrl(sessionId: string): string {
-  const publicBase = process.env.PUBLIC_BASE_URL || 'http://localhost:3000';
+  const publicBase = process.env.PUBLIC_BASE_URL || SAFE_FALLBACK_BASE;
   let apiBase: string;
   try {
     const parsed = new URL(publicBase);
@@ -80,9 +87,24 @@ function buildStreamCallbackUrl(sessionId: string): string {
     }
     apiBase = parsed.toString().replace(/\/$/, '');
   } catch {
-    apiBase = publicBase;
+    // Malformed PUBLIC_BASE_URL — fall back to safe default rather than
+    // forwarding an unparseable string to the gateway.
+    console.warn(`${LOG_PREFIX} PUBLIC_BASE_URL is not a valid URL, using fallback for streaming callback`);
+    apiBase = SAFE_FALLBACK_BASE;
   }
-  return `${apiBase}/chat/sessions/${sessionId}/stream`;
+
+  const ssrfBlock = validateSsrf(apiBase);
+  if (ssrfBlock) {
+    const allowPrivate = process.env.OPENCLAW_GATEWAY_ALLOW_PRIVATE === 'true';
+    if (!allowPrivate) {
+      console.error(
+        `${LOG_PREFIX} streaming_callback_url derived from PUBLIC_BASE_URL targets a private/internal address: ${ssrfBlock}` +
+        ` — set OPENCLAW_GATEWAY_ALLOW_PRIVATE=true if this is intentional`,
+      );
+    }
+  }
+
+  return `${apiBase}/chat/sessions/${encodeURIComponent(sessionId)}/stream`;
 }
 
 // ── Public API ─────────────────────────────────────────────────────
