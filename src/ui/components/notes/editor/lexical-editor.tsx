@@ -330,7 +330,7 @@ export function LexicalNoteEditor({
                 <CollaborationPlugin
                   id={yjsId ?? 'content'}
                   providerFactory={providerFactory}
-                  shouldBootstrap={false}
+                  shouldBootstrap={!!initialEditorStateFn}
                   username={currentUser?.name ?? 'Anonymous'}
                   cursorColor={currentUser?.color ?? '#3b82f6'}
                   cursorsContainerRef={cursorsContainerRef}
