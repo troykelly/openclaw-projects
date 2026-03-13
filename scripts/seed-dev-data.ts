@@ -19,6 +19,7 @@
  */
 import { Pool } from 'pg';
 import { existsSync } from 'node:fs';
+import { seedMemories, ALT_NAMESPACE } from './seed-dev-memories.ts';
 
 const defaultHost = existsSync('/.dockerenv') ? 'postgres' : 'localhost';
 const pool = new Pool({
@@ -78,6 +79,8 @@ const TRIAGE_TAP      = '10000000-0005-4000-a000-000000000003';
 // Comments
 const COMMENT_1       = '10000000-0006-4000-a000-000000000001';
 const COMMENT_2       = '10000000-0006-4000-a000-000000000002';
+
+// Memory seed UUIDs and logic are in seed-dev-memories.ts (Issue #2461)
 
 // ── Helpers ────────────────────────────────────────────────────────────
 
@@ -346,9 +349,22 @@ async function main() {
     email,
   );
 
+  // ── Memory Lifecycle Seed Data (Issue #2461) ─────────────────────────
+
+  // Ensure namespace_grant for alt namespace used by memory seeds
+  await pool.query(
+    `INSERT INTO namespace_grant (email, namespace, access, is_home)
+     VALUES ($1, $2, 'readwrite', false)
+     ON CONFLICT (email, namespace) DO NOTHING`,
+    [email, ALT_NAMESPACE],
+  );
+
+  // Seed all memory lifecycle entries (shared with tests)
+  await seedMemories(pool, namespace);
+
   console.log('\nSeed data created successfully!');
-  console.log(`  2 projects, 2 lists, 3 triage issues`);
-  console.log(`  Namespace: ${namespace}`);
+  console.log(`  2 projects, 2 lists, 3 triage issues, 23 memories`);
+  console.log(`  Namespace: ${namespace} (+ ${ALT_NAMESPACE} for isolation tests)`);
 
   await pool.end();
 }

@@ -43,13 +43,50 @@ export const TOOL_CATALOG: Record<string, ToolGuidance> = {
   },
   memory_store: {
     group: 'memory',
-    when_to_use: 'When you need to persist a preference, fact, decision, or context for future reference across sessions.',
-    when_not_to_use: 'When creating tasks (use todo_create) or projects (use project_create). Do not store transient or ephemeral information.',
+    when_to_use: 'When you need to persist a preference, fact, decision, or context for future reference across sessions. Use the ttl parameter for ephemeral working memories (e.g. ttl: "24h" for daily context, "7d" for weekly experiment tracking).',
+    when_not_to_use: 'When creating tasks (use todo_create) or projects (use project_create).',
     alternatives: ['skill_store_put'],
-    side_effects: ['Creates a new memory record with vector embedding.'],
+    side_effects: ['Creates a new memory record with vector embedding. Ephemeral memories (with ttl) auto-receive the "ephemeral" tag.'],
     prerequisites: [],
     example_calls: [
       { description: 'Store a food preference', params: { content: 'User prefers vegetarian meals', category: 'preference', tags: ['food'] } },
+      { description: 'Store ephemeral working memory with 24h TTL', params: { text: 'Meeting notes: discussed auth refactor', ttl: '24h', category: 'context' } },
+      { description: 'Store a pinned memory for context injection', params: { text: 'User timezone is Australia/Sydney', category: 'preference', pinned: true } },
+    ],
+  },
+  memory_digest: {
+    group: 'memory',
+    when_to_use: 'During end-of-day consolidation to cluster ephemeral working memories by topic. Identifies repeated themes worth promoting to permanent storage.',
+    when_not_to_use: 'When searching for specific memories (use memory_recall). When you want to delete memories (use memory_reap).',
+    alternatives: ['memory_recall'],
+    side_effects: [],
+    prerequisites: ['Memories with embeddings must exist in the time period. Memories without embeddings are excluded from clustering.'],
+    example_calls: [
+      { description: 'Digest today\'s memories', params: { since: '24h' } },
+      { description: 'Digest this week with tight clustering', params: { since: '7d', threshold: 0.9, include_content: true } },
+    ],
+  },
+  memory_reap: {
+    group: 'memory',
+    when_to_use: 'Weekly cleanup of expired/orphan memories (synaptic pruning). Also use on-demand when memory count seems high. Always preview first with dry_run: true (default).',
+    when_not_to_use: 'When you want to delete a specific memory (use memory_forget). When memories are not expired.',
+    alternatives: ['memory_forget'],
+    side_effects: ['When dry_run is false, permanently soft-deletes expired memories (sets is_active=false).'],
+    prerequisites: ['Expired memories must exist (expires_at < now()).'],
+    example_calls: [
+      { description: 'Preview what would be reaped (safe)', params: { dry_run: true } },
+      { description: 'Actually reap expired memories', params: { dry_run: false } },
+    ],
+  },
+  memory_promote: {
+    group: 'memory',
+    when_to_use: 'After reviewing memory_digest clusters — converts a cluster of ephemeral memories into a single permanent memory. Creates a new durable memory and marks sources as superseded.',
+    when_not_to_use: 'When storing a new standalone memory (use memory_store). When the cluster is not worth preserving.',
+    alternatives: ['memory_store'],
+    side_effects: ['Creates a new permanent memory record. Marks all source_ids as superseded by the new memory.'],
+    prerequisites: ['Run memory_digest first to identify clusters. Have the source memory IDs from the digest output.'],
+    example_calls: [
+      { description: 'Promote a cluster about auth decisions', params: { text: 'Team decided on JWT with refresh tokens for auth. OAuth2 for third-party.', category: 'decision', source_ids: ['id1', 'id2', 'id3'], tags: ['auth', 'architecture'] } },
     ],
   },
   memory_forget: {
@@ -1182,9 +1219,9 @@ export const TOOL_CATALOG: Record<string, ToolGuidance> = {
  */
 export const GROUP_CATALOG: Record<string, GroupGuidance> = {
   memory: {
-    description: 'Long-term memory storage and retrieval using semantic search (pgvector). Store preferences, facts, decisions, and context for future sessions.',
-    tools: ['memory_recall', 'memory_store', 'memory_forget'],
-    workflow_tips: 'Use memory_store proactively when users share preferences or important facts. Use memory_recall at the start of conversations to bootstrap context. Use memory_forget only when explicitly requested.',
+    description: 'Long-term memory storage, retrieval, and lifecycle management using semantic search (pgvector). Store preferences, facts, decisions, and context. Includes lifecycle tools for consolidation and cleanup.',
+    tools: ['memory_recall', 'memory_store', 'memory_forget', 'memory_digest', 'memory_reap', 'memory_promote'],
+    workflow_tips: 'Use memory_store proactively when users share preferences or important facts. Use ttl param for ephemeral working memories. Use memory_recall at the start of conversations to bootstrap context. Use memory_forget only when explicitly requested. End-of-day: memory_digest → review clusters → memory_promote important ones. Weekly: memory_reap to clean up expired memories.',
     related_skills: ['context_search'],
   },
   projects: {
