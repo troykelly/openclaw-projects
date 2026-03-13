@@ -20,6 +20,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/ui/c
 import { useCreateExport } from '@/ui/hooks/mutations/use-export-mutations';
 import { useExportStatus } from '@/ui/hooks/queries/use-export-status';
 import { NAMESPACE_STRINGS } from '@/ui/constants/namespace-strings';
+import { ApiRequestError } from '@/ui/lib/api-client';
 import type { ExportFormat, ExportSourceType } from '@/ui/lib/api-types';
 
 const S = NAMESPACE_STRINGS.export;
@@ -30,11 +31,13 @@ const FORMATS: { value: ExportFormat; label: string; description: string }[] = [
   { value: 'odf', label: S.format.odf.label, description: S.format.odf.description },
 ];
 
-/** Only allow https: (and http: for localhost dev) download URLs. */
+/** Only allow https: (and http: for localhost/loopback dev) download URLs. */
 function isSafeDownloadUrl(url: string): boolean {
   try {
     const parsed = new URL(url);
-    return parsed.protocol === 'https:' || parsed.protocol === 'http:';
+    if (parsed.protocol === 'https:') return true;
+    if (parsed.protocol === 'http:' && (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1' || parsed.hostname === '::1')) return true;
+    return false;
   } catch {
     return false;
   }
@@ -65,7 +68,7 @@ export interface ExportButtonProps {
 export function ExportButton({ sourceType, sourceId, sourceName, disabled }: ExportButtonProps) {
   const [pollUrl, setPollUrl] = useState<string | null>(null);
   const createExport = useCreateExport();
-  const { data: exportStatus, isError: isPollingError } = useExportStatus(pollUrl);
+  const { data: exportStatus, isError: isPollingError, error: pollingError } = useExportStatus(pollUrl);
 
   const isExporting = createExport.isPending || (pollUrl !== null && exportStatus?.status !== 'ready' && exportStatus?.status !== 'failed' && exportStatus?.status !== 'expired' && !isPollingError);
 
@@ -73,9 +76,13 @@ export function ExportButton({ sourceType, sourceId, sourceName, disabled }: Exp
   useEffect(() => {
     if (!pollUrl) return;
 
-    // Polling query failed — surface error and reset
+    // Polling query failed — check for 410 Gone (expired) vs generic error
     if (isPollingError) {
-      toast.error(S.progress.failed);
+      if (pollingError instanceof ApiRequestError && pollingError.status === 410) {
+        toast.error(S.progress.expired);
+      } else {
+        toast.error(S.progress.failed);
+      }
       setPollUrl(null);
       return;
     }
