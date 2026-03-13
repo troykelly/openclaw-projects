@@ -317,7 +317,7 @@ pnpm test:clean
 
 The script (`scripts/reset-test-db.sh`) connects using the same `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`, `PGDATABASE` environment variables as the test helpers (`tests/helpers/db.ts`).
 
-**Safety gate:** The script refuses to run unless `PGDATABASE` is in a known-safe allowlist (`openclaw`, `openclaw_test`, `openclaw_ci`, `test`, `postgres`). This prevents accidentally wiping a non-test database when your shell env points elsewhere. Customise the allowlist via `RESET_DB_SAFE_NAMES`.
+**Safety gate:** The script checks `PGDATABASE` against a known-safe allowlist (`openclaw`, `openclaw_test`, `openclaw_ci`, `test`, `postgres`). It refuses to run if the name is not on the list. Note that this is a name-based check only — it does not verify the host, so if your `PGHOST` happens to point at a staging or production server whose database is also named `openclaw`, the script will proceed. Always confirm your shell's `PGHOST` and `PGPORT` are pointing at your local devcontainer Postgres before running. Customise the allowlist via `RESET_DB_SAFE_NAMES`.
 
 ### When to Use Each Command
 
@@ -332,7 +332,7 @@ The script (`scripts/reset-test-db.sh`) connects using the same `PGHOST`, `PGPOR
 
 ### Why `pnpm test` Still Exists
 
-`pnpm test` runs both vitest projects in a single process and is retained for compatibility. CI does NOT call it directly — CI calls `pnpm test:unit` and `pnpm test:integration` as separate steps (see `.github/workflows/ci.yml`), each against a fresh Postgres instance, so consecutive-run contamination never occurs there. `pnpm test:clean` mirrors that CI behaviour locally.
+`pnpm test` runs both vitest projects in a single process and is retained for compatibility. CI does NOT call it directly — CI calls `pnpm test:unit` and `pnpm test:integration` as separate steps (see `.github/workflows/ci.yml`). Unit tests do not touch Postgres at all, so when integration tests run next they start against a clean database that has only been initialised by migrations. This prevents consecutive-run contamination. `pnpm test:clean` mirrors that CI behaviour locally by explicitly truncating all tables before running each project.
 
 ### Sequence Diagram
 
@@ -340,13 +340,14 @@ The script (`scripts/reset-test-db.sh`) connects using the same `PGHOST`, `PGPOR
 pnpm test        →  [unit project] + [integration project] in one vitest run
                     ↳ Second consecutive run: stale DB state → ~216 failures
 
-CI               →  pnpm test:unit   (fresh Postgres container)
-                    pnpm test:integration  (same fresh container)
-                    ↳ Always clean — no contamination possible
+CI               →  pnpm test:unit   (no DB access — always clean)
+                    pnpm test:integration  (same devcontainer Postgres, but
+                      unit tests never wrote to it, so integration starts clean)
+                    ↳ No contamination possible
 
 pnpm test:clean  →  reset-test-db.sh (TRUNCATE all tables, RESTART IDENTITY)
-                    → pnpm test:unit
-                    → pnpm test:integration
+                    → pnpm test:unit   (no DB access)
+                    → pnpm test:integration  (DB is now clean)
                     ↳ Mirrors CI isolation locally — always reliable
 ```
 
