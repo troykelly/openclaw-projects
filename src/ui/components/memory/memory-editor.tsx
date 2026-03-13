@@ -6,9 +6,20 @@ import { Button } from '@/ui/components/ui/button';
 import { Input } from '@/ui/components/ui/input';
 import { Textarea } from '@/ui/components/ui/textarea';
 import { Badge } from '@/ui/components/ui/badge';
+import { Switch } from '@/ui/components/ui/switch';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/ui/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/ui/components/ui/tabs';
 import type { MemoryItem, MemoryFormData } from './types';
+
+/** TTL preset definitions: label and duration in seconds */
+const TTL_PRESETS: Array<{ label: string; seconds: number }> = [
+  { label: '1h', seconds: 3600 },
+  { label: '6h', seconds: 21600 },
+  { label: '24h', seconds: 86400 },
+  { label: '3d', seconds: 259200 },
+  { label: '7d', seconds: 604800 },
+  { label: '30d', seconds: 2592000 },
+];
 
 export interface MemoryEditorProps {
   memory?: MemoryItem;
@@ -24,6 +35,11 @@ export function MemoryEditor({ memory, open, onOpenChange, onSubmit, className }
   const [tagInput, setTagInput] = useState('');
   const [tags, setTags] = useState<string[]>(memory?.tags ?? []);
   const [activeTab, setActiveTab] = useState<'edit' | 'preview'>('edit');
+  const [pinned, setPinned] = useState(memory?.pinned ?? false);
+  const [ttlSeconds, setTtlSeconds] = useState<number | undefined>(undefined);
+  const [customTtlInput, setCustomTtlInput] = useState('');
+  const [upsertTagInput, setUpsertTagInput] = useState('');
+  const [upsertTags, setUpsertTags] = useState<string[]>([]);
 
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
 
@@ -40,7 +56,6 @@ export function MemoryEditor({ memory, open, onOpenChange, onSubmit, className }
 
       setContent(newContent);
 
-      // Restore focus and selection
       setTimeout(() => {
         textarea.focus();
         const newStart = start + before.length;
@@ -63,12 +78,35 @@ export function MemoryEditor({ memory, open, onOpenChange, onSubmit, className }
     setTags(tags.filter((t) => t !== tagToRemove));
   };
 
+  const handleAddUpsertTag = () => {
+    const tag = upsertTagInput.trim();
+    if (tag && !upsertTags.includes(tag)) {
+      setUpsertTags([...upsertTags, tag]);
+      setUpsertTagInput('');
+    }
+  };
+
+  const handleRemoveUpsertTag = (tagToRemove: string) => {
+    setUpsertTags(upsertTags.filter((t) => t !== tagToRemove));
+  };
+
+  const handleCustomTtl = () => {
+    const hours = parseFloat(customTtlInput);
+    if (!Number.isNaN(hours) && hours > 0) {
+      setTtlSeconds(Math.round(hours * 3600));
+      setCustomTtlInput('');
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSubmit({
       title: title.trim(),
       content: content.trim(),
       tags: tags.length > 0 ? tags : undefined,
+      upsert_tags: upsertTags.length > 0 ? upsertTags : undefined,
+      ttl_seconds: ttlSeconds,
+      pinned,
     });
   };
 
@@ -77,7 +115,6 @@ export function MemoryEditor({ memory, open, onOpenChange, onSubmit, className }
   // Simple markdown to HTML conversion for preview
   const renderPreview = (text: string) => {
     return text.split('\n').map((line, i) => {
-      // Headers
       if (line.startsWith('### ')) {
         return (
           <h3 key={i} className="text-lg font-semibold mt-4 mb-2">
@@ -99,8 +136,6 @@ export function MemoryEditor({ memory, open, onOpenChange, onSubmit, className }
           </h1>
         );
       }
-
-      // List items
       if (line.startsWith('- ') || line.startsWith('* ')) {
         return (
           <li key={i} className="ml-4">
@@ -108,8 +143,6 @@ export function MemoryEditor({ memory, open, onOpenChange, onSubmit, className }
           </li>
         );
       }
-
-      // Numbered list
       if (/^\d+\. /.test(line)) {
         return (
           <li key={i} className="ml-4 list-decimal">
@@ -117,13 +150,9 @@ export function MemoryEditor({ memory, open, onOpenChange, onSubmit, className }
           </li>
         );
       }
-
-      // Empty line
       if (!line.trim()) {
         return <br key={i} />;
       }
-
-      // Regular paragraph
       return (
         <p key={i} className="my-1">
           {line}
@@ -247,6 +276,96 @@ export function MemoryEditor({ memory, open, onOpenChange, onSubmit, className }
                 ))}
               </div>
             )}
+          </div>
+
+          {/* Upsert tags (sliding window) */}
+          <div className="space-y-2">
+            <label htmlFor="memory-upsert-tags" className="text-sm font-medium">
+              Sliding Window Tags
+            </label>
+            <div className="flex gap-2">
+              <Input
+                id="memory-upsert-tags"
+                value={upsertTagInput}
+                onChange={(e) => setUpsertTagInput(e.target.value)}
+                placeholder="Add a sliding window tag"
+                aria-label="Sliding window tags"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleAddUpsertTag();
+                  }
+                }}
+              />
+              <Button type="button" variant="outline" onClick={handleAddUpsertTag}>
+                Add
+              </Button>
+            </div>
+            {upsertTags.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-2">
+                {upsertTags.map((tag) => (
+                  <Badge key={tag} variant="outline" className="cursor-pointer" onClick={() => handleRemoveUpsertTag(tag)}>
+                    {tag} ×
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* TTL picker */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium" id="ttl-label">
+              Time to Live (TTL)
+            </label>
+            <div className="flex flex-wrap gap-1.5" role="group" aria-labelledby="ttl-label">
+              <Button
+                type="button"
+                variant={ttlSeconds === undefined ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setTtlSeconds(undefined)}
+              >
+                None
+              </Button>
+              {TTL_PRESETS.map((preset) => (
+                <Button
+                  key={preset.label}
+                  type="button"
+                  variant={ttlSeconds === preset.seconds ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setTtlSeconds(preset.seconds)}
+                >
+                  {preset.label}
+                </Button>
+              ))}
+            </div>
+            <div className="flex gap-2 mt-1">
+              <Input
+                value={customTtlInput}
+                onChange={(e) => setCustomTtlInput(e.target.value)}
+                placeholder="Custom (hours)"
+                className="w-32"
+                type="number"
+                min="0"
+                step="0.5"
+                aria-label="Custom TTL in hours"
+              />
+              <Button type="button" variant="outline" size="sm" onClick={handleCustomTtl}>
+                Set
+              </Button>
+            </div>
+          </div>
+
+          {/* Pinned toggle */}
+          <div className="flex items-center justify-between">
+            <label htmlFor="memory-pinned" className="text-sm font-medium">
+              Pinned
+            </label>
+            <Switch
+              id="memory-pinned"
+              checked={pinned}
+              onCheckedChange={setPinned}
+              aria-label="Pinned"
+            />
           </div>
 
           <DialogFooter>

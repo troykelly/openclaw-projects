@@ -8,6 +8,16 @@ export interface MemoryItem {
   tags?: string[];
   created_at: Date;
   updated_at: Date;
+  /** ISO timestamp when this memory expires (TTL) */
+  expires_at?: string;
+  /** Whether this memory is pinned */
+  pinned?: boolean;
+  /** ID of the memory that supersedes this one */
+  superseded_by?: string;
+  /** IDs of memories that this memory supersedes */
+  supersedes?: string[];
+  /** Importance score (0-1) */
+  importance?: number;
 }
 
 export interface MemoryFilter {
@@ -20,4 +30,25 @@ export interface MemoryFormData {
   title: string;
   content: string;
   tags?: string[];
+  /** Tags to upsert (sliding window tags) */
+  upsert_tags?: string[];
+  /** TTL duration in seconds */
+  ttl_seconds?: number;
+  /** Whether this memory is pinned */
+  pinned?: boolean;
+}
+
+/** A lifecycle event for display in the timeline */
+export interface MemoryLifecycleEvent {
+  type: 'created' | 'updated' | 'superseded' | 'reaped';
+  timestamp: Date;
+  actor?: string;
+}
+
+/** A node in the supersession chain */
+export interface SupersessionNode {
+  id: string;
+  title: string;
+  /** Whether this memory still exists */
+  exists: boolean;
 }
