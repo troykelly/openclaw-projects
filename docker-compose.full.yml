@@ -415,7 +415,7 @@ services:
       RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-100}
       RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-60000}
       WEBHOOK_IP_WHITELIST_DISABLED: ${WEBHOOK_IP_WHITELIST_DISABLED:-true}
-      OPENCLAW_GATEWAY_URL: http://openclaw-gateway:18789
+      OPENCLAW_GATEWAY_URL: ${OPENCLAW_GATEWAY_URL:-http://openclaw-gateway:18789}
       OPENCLAW_GATEWAY_ALLOW_PRIVATE: ${OPENCLAW_GATEWAY_ALLOW_PRIVATE:-false}
       OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN:-}
       OPENCLAW_HOOK_TOKEN: ${OPENCLAW_HOOK_TOKEN:-}
@@ -435,6 +435,9 @@ services:
       SENTRY_SAMPLE_RATE: ${SENTRY_SAMPLE_RATE:-1.0}
       SENTRY_DEBUG: ${SENTRY_DEBUG:-false}
       SENTRY_SERVER_NAME: api
+    # Allow containers to reach services on the Docker host (e.g. OpenClaw gateway)
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     # Publish to localhost for Traefik (host networking mode)
     ports:
       - "[::1]:${API_HOST_PORT:-3001}:3001"       # IPv6 (preferred)
@@ -484,7 +487,7 @@ services:
       PGUSER: ${POSTGRES_USER:-openclaw}
       PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       PGDATABASE: ${POSTGRES_DB:-openclaw}
-      OPENCLAW_GATEWAY_URL: http://openclaw-gateway:18789
+      OPENCLAW_GATEWAY_URL: ${OPENCLAW_GATEWAY_URL:-http://openclaw-gateway:18789}
       OPENCLAW_GATEWAY_ALLOW_PRIVATE: ${OPENCLAW_GATEWAY_ALLOW_PRIVATE:-false}
       OPENCLAW_HOOK_TOKEN: ${OPENCLAW_HOOK_TOKEN:-}   # Gateway hooks auth (separate from API M2M token)
       OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN:-}
@@ -514,6 +517,9 @@ services:
       SENTRY_SAMPLE_RATE: ${SENTRY_SAMPLE_RATE:-1.0}
       SENTRY_DEBUG: ${SENTRY_DEBUG:-false}
       SENTRY_SERVER_NAME: worker
+    # Allow containers to reach services on the Docker host (e.g. OpenClaw gateway)
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:9000/health"]
       interval: 10s

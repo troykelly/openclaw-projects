@@ -184,12 +184,28 @@ describe('GatewayConnectionService', () => {
       expect(svc.getStatus().connected).toBe(false);
     });
 
-    it('fails startup when neither OPENCLAW_GATEWAY_TOKEN nor OPENCLAW_HOOK_TOKEN is set', async () => {
+    it('schedules reconnect when neither OPENCLAW_GATEWAY_TOKEN nor OPENCLAW_HOOK_TOKEN is set', async () => {
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
       const svc = makeService({
         OPENCLAW_GATEWAY_TOKEN: undefined,
         OPENCLAW_HOOK_TOKEN: undefined,
       });
-      await expect(svc.initialize()).rejects.toThrow(/token/i);
+      // Should NOT throw — resolves and schedules reconnect
+      await svc.initialize();
+      expect(svc.getStatus().connected).toBe(false);
+      expect(svc.getStatus().configured).toBe(true);
+
+      // Should have logged an error about missing token
+      const tokenErrors = errorSpy.mock.calls.filter(
+        (args) => typeof args[0] === 'string' && /token/i.test(args.join(' ')),
+      );
+      expect(tokenErrors.length).toBeGreaterThanOrEqual(1);
+
+      // Should schedule reconnect — advance past backoff and check for retry
+      await vi.advanceTimersByTimeAsync(2000);
+
+      errorSpy.mockRestore();
+      await svc.shutdown();
     });
 
     it('uses OPENCLAW_HOOK_TOKEN as fallback when OPENCLAW_GATEWAY_TOKEN is unset', async () => {
@@ -383,9 +399,38 @@ describe('GatewayConnectionService', () => {
       const svc = makeService();
       const status = svc.getStatus();
       expect(status.connected).toBe(false);
+      expect(status.configured).toBe(false);
       expect(status.gateway_url).toBeNull();
       expect(status.connected_at).toBeNull();
       expect(status.last_tick_at).toBeNull();
+    });
+
+    it('getStatus() returns configured=false when OPENCLAW_GATEWAY_URL is unset', async () => {
+      const svc = makeService({ OPENCLAW_GATEWAY_URL: undefined });
+      await svc.initialize();
+
+      const status = svc.getStatus();
+      expect(status.configured).toBe(false);
+      expect(status.connected).toBe(false);
+    });
+
+    it('getStatus() returns configured=true when OPENCLAW_GATEWAY_URL is set (even if connection fails)', async () => {
+      const svc = makeService();
+      const initPromise = svc.initialize();
+      await vi.advanceTimersByTimeAsync(0);
+
+      // Open but then close immediately (connection fails)
+      const ws = getMockInstances()[0];
+      ws._emitOpen();
+      ws._emitClose(1006);
+      await vi.advanceTimersByTimeAsync(0);
+      await initPromise;
+
+      const status = svc.getStatus();
+      expect(status.configured).toBe(true);
+      expect(status.connected).toBe(false);
+
+      await svc.shutdown();
     });
 
     it('getStatus() returns connected=true after successful handshake', async () => {
@@ -398,6 +443,7 @@ describe('GatewayConnectionService', () => {
 
       const status = svc.getStatus();
       expect(status.connected).toBe(true);
+      expect(status.configured).toBe(true);
       expect(status.gateway_url).toBe('gateway.example.com');
       expect(status.connected_at).toBeTruthy();
 
@@ -661,11 +707,27 @@ describe('GatewayConnectionService', () => {
       await svc.shutdown();
     });
 
-    it('SSRF: rejects private-CIDR gateway URL by default', async () => {
+    it('SSRF: logs error and schedules reconnect for private-CIDR gateway URL by default', async () => {
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
       (validateSsrf as Mock).mockReturnValue('SSRF protection: loopback address not allowed');
 
       const svc = makeService({ OPENCLAW_GATEWAY_URL: 'https://127.0.0.1:8080' });
-      await expect(svc.initialize()).rejects.toThrow(/SSRF/i);
+      // Should NOT throw — resolves and schedules reconnect
+      await svc.initialize();
+      expect(svc.getStatus().connected).toBe(false);
+      expect(svc.getStatus().configured).toBe(true);
+      expect(getMockInstances()).toHaveLength(0); // No WS created
+
+      // Should have logged a clear error about SSRF
+      const ssrfErrors = errorSpy.mock.calls.filter(
+        (args) => args.join(' ').includes('SSRF'),
+      );
+      expect(ssrfErrors.length).toBeGreaterThanOrEqual(1);
+      // Error should mention OPENCLAW_GATEWAY_ALLOW_PRIVATE
+      expect(ssrfErrors[0].join(' ')).toContain('OPENCLAW_GATEWAY_ALLOW_PRIVATE');
+
+      errorSpy.mockRestore();
+      await svc.shutdown();
     });
 
     it('SSRF: allows private-CIDR if OPENCLAW_GATEWAY_ALLOW_PRIVATE=true', async () => {
@@ -688,11 +750,24 @@ describe('GatewayConnectionService', () => {
       await svc.shutdown();
     });
 
-    it('SSRF: rejects .internal hostname suffix by default (#2281)', async () => {
+    it('SSRF: logs error and schedules reconnect for .internal hostname suffix (#2281)', async () => {
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
       (validateSsrf as Mock).mockReturnValue('SSRF protection: blocked hostname suffix: .internal');
 
       const svc = makeService({ OPENCLAW_GATEWAY_URL: 'http://host.docker.internal:18789' });
-      await expect(svc.initialize()).rejects.toThrow(/SSRF/i);
+      // Should NOT throw — resolves and schedules reconnect
+      await svc.initialize();
+      expect(svc.getStatus().connected).toBe(false);
+      expect(svc.getStatus().configured).toBe(true);
+
+      // Should have logged SSRF error with guidance
+      const ssrfErrors = errorSpy.mock.calls.filter(
+        (args) => args.join(' ').includes('SSRF'),
+      );
+      expect(ssrfErrors.length).toBeGreaterThanOrEqual(1);
+
+      errorSpy.mockRestore();
+      await svc.shutdown();
     });
 
     it('SSRF: allows .internal hostname suffix with OPENCLAW_GATEWAY_ALLOW_PRIVATE=true (#2281)', async () => {
