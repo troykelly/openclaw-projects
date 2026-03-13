@@ -24,10 +24,11 @@ COPY components.json ./
 # Sentry/GlitchTip source map upload — build ARGs (all optional).
 # When SENTRY_AUTH_TOKEN is set, @sentry/vite-plugin uploads source maps
 # during build and deletes .map files from the output directory.
+# SENTRY_AUTH_TOKEN is passed via BuildKit secret mount (not ARG) to avoid
+# exposing the token in image layers/history.
 ARG VITE_SENTRY_DSN
 ARG VITE_SENTRY_ENVIRONMENT
 ARG VITE_SENTRY_RELEASE
-ARG SENTRY_AUTH_TOKEN
 ARG SENTRY_ORG
 ARG SENTRY_PROJECT
 ARG SENTRY_URL
@@ -36,11 +37,14 @@ ARG SENTRY_URL
 # Default Vite base is /static/app/ (for Fastify); Docker/nginx serves from root.
 # Sentry env vars are passed inline so @sentry/vite-plugin can upload source maps
 # when configured. ARGs are available during build but must be forwarded explicitly.
-RUN VITE_BASE=/ \
+# SENTRY_AUTH_TOKEN is read from a BuildKit secret mount — it is only available
+# during this RUN instruction and is never stored in the image.
+RUN --mount=type=secret,id=sentry_auth_token \
+    VITE_BASE=/ \
     VITE_SENTRY_DSN="${VITE_SENTRY_DSN}" \
     VITE_SENTRY_ENVIRONMENT="${VITE_SENTRY_ENVIRONMENT}" \
     VITE_SENTRY_RELEASE="${VITE_SENTRY_RELEASE}" \
-    SENTRY_AUTH_TOKEN="${SENTRY_AUTH_TOKEN}" \
+    SENTRY_AUTH_TOKEN="$(cat /run/secrets/sentry_auth_token 2>/dev/null || echo '')" \
     SENTRY_ORG="${SENTRY_ORG}" \
     SENTRY_PROJECT="${SENTRY_PROJECT}" \
     SENTRY_URL="${SENTRY_URL}" \

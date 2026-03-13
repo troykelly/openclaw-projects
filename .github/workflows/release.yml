@@ -61,7 +61,7 @@ jobs:
           node-version: '22'
 
       - name: Install pnpm
-        uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
 
       - name: Extract and validate version from tag
         id: version
@@ -186,7 +186,7 @@ jobs:
           git push origin main
 
       - name: Upload bumped version files
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: version-bumped-files
           path: |
@@ -340,7 +340,7 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Download bumped version files
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: version-bumped-files
 
@@ -364,7 +364,7 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -425,7 +425,7 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Download bumped version files
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: version-bumped-files
 
@@ -450,7 +450,7 @@ jobs:
           scope: '@troykelly'
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -536,7 +536,7 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Download bumped version files
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: version-bumped-files
 
@@ -607,13 +607,16 @@ jobs:
             ${{ matrix.image.name == 'app' && format('VITE_SENTRY_DSN={0}', secrets.VITE_SENTRY_DSN) || '' }}
             ${{ matrix.image.name == 'app' && format('VITE_SENTRY_ENVIRONMENT=production') || '' }}
             ${{ matrix.image.name == 'app' && format('VITE_SENTRY_RELEASE={0}', needs.validate.outputs.version) || '' }}
-            ${{ matrix.image.name == 'app' && format('SENTRY_AUTH_TOKEN={0}', secrets.SENTRY_AUTH_TOKEN) || '' }}
             ${{ matrix.image.name == 'app' && format('SENTRY_ORG={0}', secrets.SENTRY_ORG) || '' }}
             ${{ matrix.image.name == 'app' && format('SENTRY_PROJECT={0}', secrets.SENTRY_PROJECT) || '' }}
             ${{ matrix.image.name == 'app' && format('SENTRY_URL={0}', secrets.SENTRY_URL) || '' }}
+          # SENTRY_AUTH_TOKEN is passed as a BuildKit secret (not build-arg) to prevent
+          # exposure in image layers/history. Only needed for the 'app' image build.
+          secrets: |
+            ${{ matrix.image.name == 'app' && format('sentry_auth_token={0}', secrets.SENTRY_AUTH_TOKEN) || '' }}
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@e368e328979b113139d6f9068e03accaed98a518 # master
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
         # Informational only — do not fail the build if Trivy itself has
         # transient download/install issues.
         continue-on-error: true
@@ -625,11 +628,10 @@ jobs:
           exit-code: '0'
 
       - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@bb471cdcf4dda2c934c5b656f554d43c1434ed13 # v4
-        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@0d579ffd059c29b07949a3cce3983f0780820c98 # v4
+        if: always() && hashFiles('trivy-results-${{ matrix.image.name }}.sarif') != ''
         with:
           sarif_file: 'trivy-results-${{ matrix.image.name }}.sarif'
-        if: always()
 
   # ──────────────────────────────────────────────────────────────
   # 3d. Finalize Sentry/GlitchTip release (optional)
@@ -668,7 +670,7 @@ jobs:
 
       - name: Install pnpm
         if: steps.sentry-check.outputs.configured == 'true'
-        uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
 
       - name: Install dependencies
         if: steps.sentry-check.outputs.configured == 'true'
