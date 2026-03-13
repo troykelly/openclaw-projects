@@ -54,7 +54,7 @@ describe('Vite config — @sentry/vite-plugin', () => {
   });
 });
 
-describe('docker/app/Dockerfile — Sentry build ARGs', () => {
+describe('docker/app/Dockerfile — Sentry build config', () => {
   let dockerfile: string;
 
   beforeAll(() => {
@@ -73,8 +73,10 @@ describe('docker/app/Dockerfile — Sentry build ARGs', () => {
     expect(dockerfile).toContain('ARG VITE_SENTRY_RELEASE');
   });
 
-  it('should accept SENTRY_AUTH_TOKEN as build ARG', () => {
-    expect(dockerfile).toContain('ARG SENTRY_AUTH_TOKEN');
+  it('should receive SENTRY_AUTH_TOKEN via BuildKit secret mount (not ARG)', () => {
+    expect(dockerfile).not.toContain('ARG SENTRY_AUTH_TOKEN');
+    expect(dockerfile).toContain('--mount=type=secret,id=sentry_auth_token');
+    expect(dockerfile).toContain('/run/secrets/sentry_auth_token');
   });
 
   it('should accept SENTRY_ORG as build ARG', () => {
@@ -114,8 +116,9 @@ describe('release.yml — Sentry release finalization', () => {
     );
   });
 
-  it('should pass Sentry build args for the app image build', () => {
-    expect(releaseYml).toContain('SENTRY_AUTH_TOKEN');
+  it('should pass Sentry config for the app image build', () => {
+    // SENTRY_AUTH_TOKEN is now passed as a BuildKit secret, not a build-arg
+    expect(releaseYml).toContain('sentry_auth_token');
     expect(releaseYml).toContain('SENTRY_ORG');
     expect(releaseYml).toContain('SENTRY_PROJECT');
     expect(releaseYml).toContain('SENTRY_URL');
