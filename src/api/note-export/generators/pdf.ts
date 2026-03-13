@@ -84,7 +84,7 @@ export function resolveChromiumPath(): string {
  */
 export function sanitiseHtml(html: string): string {
   const window = new JSDOM('').window;
-  const purify = DOMPurify(window as unknown as Window);
+  const purify = DOMPurify(window as unknown as Parameters<typeof DOMPurify>[0]);
   return purify.sanitize(html, {
     FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed', 'form', 'input', 'textarea'],
     FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus', 'onblur'],

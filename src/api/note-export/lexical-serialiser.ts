@@ -87,10 +87,9 @@ export async function serialiseToHtml(lexicalState: string): Promise<string> {
 
   // Set up jsdom for server-side HTML generation
   const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>');
-  // @ts-expect-error — Lexical requires global document for HTML generation
-  global.document = dom.window.document;
-  // @ts-expect-error — Lexical requires global window for HTML generation
-  global.window = dom.window;
+  // Lexical requires global document/window for HTML generation
+  (global as Record<string, unknown>).document = dom.window.document;
+  (global as Record<string, unknown>).window = dom.window;
 
   try {
     const editorState = editor.parseEditorState(lexicalState);
@@ -105,10 +104,8 @@ export async function serialiseToHtml(lexicalState: string): Promise<string> {
     // If Lexical parsing fails, fall back to markdown treatment
     return markdownToSimpleHtml(lexicalState);
   } finally {
-    // @ts-expect-error — Clean up globals
-    delete global.document;
-    // @ts-expect-error — Clean up globals
-    delete global.window;
+    delete (global as Record<string, unknown>).document;
+    delete (global as Record<string, unknown>).window;
   }
 }
 
