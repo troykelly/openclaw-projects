@@ -43,4 +43,51 @@ export const NAMESPACE_STRINGS = {
     loadFailed: 'Failed to load namespaces',
     noAccess: 'No namespace access. Contact your administrator.',
   },
+
+  /** Export / download strings (Epic #2475, Issue #2480). */
+  export: {
+    /** Button / trigger */
+    button: {
+      tooltip: 'Download',
+      label: 'Download',
+    },
+    /** Format options */
+    format: {
+      pdf: {
+        label: 'PDF',
+        description: 'Best for sharing and printing',
+      },
+      docx: {
+        label: 'Word Document (.docx)',
+        description: 'Edit in Microsoft Word or Google Docs',
+      },
+      odf: {
+        label: 'OpenDocument (.odf)',
+        description: 'Open with LibreOffice or compatible software',
+      },
+    },
+    /** Progress and status messages */
+    progress: {
+      preparing: 'Preparing your download...',
+      preparingNotebook: (count: number) => `Preparing notebook (${count} note${count !== 1 ? 's' : ''})...`,
+      ready: 'Download ready',
+      failed: 'Export failed — please try again',
+      failedNoRetry: 'Export failed',
+      expired: 'Export link has expired',
+    },
+    /** Actions */
+    actions: {
+      retry: 'Retry',
+      dismiss: 'Dismiss',
+      downloadAgain: 'Download again',
+    },
+    /** Accessibility labels */
+    aria: {
+      exportButton: (noteName: string) => `Download ${noteName}`,
+      exportButtonInProgress: 'Export in progress',
+      exportProgress: (format: string) => `Preparing ${format} export`,
+      dismissProgress: 'Dismiss export progress',
+      formatPicker: 'Choose download format',
+    },
+  },
 } as const;
