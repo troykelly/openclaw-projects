@@ -124,7 +124,20 @@ export async function generatePdf(input: PdfGeneratorInput): Promise<Buffer> {
 
   try {
     const page = await browser.newPage();
-    await page.setContent(fullHtml, { waitUntil: 'networkidle0' });
+
+    // Block all outbound network requests to prevent SSRF via img/src, SVG references, etc.
+    await page.setRequestInterception(true);
+    page.on('request', (request) => {
+      // Only allow data: URIs (inline images); block all http/https/file requests
+      if (request.url().startsWith('data:')) {
+        request.continue();
+      } else {
+        request.abort('blockedbyclient');
+      }
+    });
+
+    // Use domcontentloaded instead of networkidle0 to avoid waiting on (blocked) requests
+    await page.setContent(fullHtml, { waitUntil: 'domcontentloaded' });
 
     const pdfBuffer = await page.pdf({
       format: pageSize,

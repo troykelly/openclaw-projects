@@ -32,12 +32,18 @@ import {
 function createMockPool() {
   const queryResults: Array<{ rows: Record<string, unknown>[]; rowCount: number }> = [];
 
+  const queryFn = vi.fn().mockImplementation((_sql: string, _params?: unknown[]) => {
+    if (queryResults.length > 0) {
+      return Promise.resolve(queryResults.shift());
+    }
+    return Promise.resolve({ rows: [], rowCount: 0 });
+  });
+
   const pool = {
-    query: vi.fn().mockImplementation((_sql: string, _params?: unknown[]) => {
-      if (queryResults.length > 0) {
-        return Promise.resolve(queryResults.shift());
-      }
-      return Promise.resolve({ rows: [], rowCount: 0 });
+    query: queryFn,
+    connect: vi.fn().mockResolvedValue({
+      query: queryFn,
+      release: vi.fn(),
     }),
     pushResult(result: { rows: Record<string, unknown>[]; rowCount: number }) {
       queryResults.push(result);
@@ -61,9 +67,12 @@ function createMockStorage() {
 
 describe('Export Service', () => {
   describe('createExportJob', () => {
-    it('inserts note_export and internal_job records', async () => {
+    it('inserts note_export and internal_job records in a transaction', async () => {
       const pool = createMockPool();
       const now = new Date();
+
+      // Result for BEGIN
+      pool.pushResult({ rows: [], rowCount: 0 });
 
       // Result for INSERT INTO note_export
       pool.pushResult({
@@ -92,7 +101,10 @@ describe('Export Service', () => {
       // Result for INSERT INTO internal_job
       pool.pushResult({ rows: [], rowCount: 1 });
 
-      // Result for NOTIFY
+      // Result for COMMIT
+      pool.pushResult({ rows: [], rowCount: 0 });
+
+      // Result for NOTIFY (on pool, not client)
       pool.pushResult({ rows: [], rowCount: 0 });
 
       const result = await createExportJob(pool as unknown as import('pg').Pool, {
@@ -107,8 +119,8 @@ describe('Export Service', () => {
       expect(result.status).toBe('pending');
       expect(result.format).toBe('pdf');
 
-      // Should have made 3 queries: INSERT note_export, INSERT internal_job, NOTIFY
-      expect(pool.query).toHaveBeenCalledTimes(3);
+      // Should have used pool.connect for transaction
+      expect(pool.connect).toHaveBeenCalledTimes(1);
     });
   });
 

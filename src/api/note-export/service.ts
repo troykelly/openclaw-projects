@@ -69,38 +69,53 @@ function mapRow(row: Record<string, unknown>): NoteExport {
 /**
  * Creates a new export job in pending state.
  * Also inserts an internal_job record for the worker to pick up.
+ * All inserts are wrapped in a transaction to prevent orphaned records.
  */
 export async function createExportJob(
   pool: Pool,
   params: CreateExportParams,
 ): Promise<NoteExport> {
-  const result = await pool.query(
-    `INSERT INTO note_export (namespace, requested_by, source_type, source_id, format, options)
-     VALUES ($1, $2, $3, $4, $5, $6)
-     RETURNING *`,
-    [
-      params.namespace,
-      params.requested_by,
-      params.source_type,
-      params.source_id,
-      params.format,
-      JSON.stringify(params.options ?? {}),
-    ],
-  );
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
 
-  const exportRow = mapRow(result.rows[0]);
+    const result = await client.query(
+      `INSERT INTO note_export (namespace, requested_by, source_type, source_id, format, options)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING *`,
+      [
+        params.namespace,
+        params.requested_by,
+        params.source_type,
+        params.source_id,
+        params.format,
+        JSON.stringify(params.options ?? {}),
+      ],
+    );
 
-  // Enqueue internal_job for worker pickup
-  await pool.query(
-    `INSERT INTO internal_job (kind, payload, run_at)
-     VALUES ('export.generate', $1, NOW())`,
-    [JSON.stringify({ export_id: exportRow.id })],
-  );
+    const exportRow = mapRow(result.rows[0]);
 
-  // Notify worker immediately
-  await pool.query(`NOTIFY internal_job_ready`);
+    // Enqueue internal_job for worker pickup
+    await client.query(
+      `INSERT INTO internal_job (kind, payload, run_at)
+       VALUES ('export.generate', $1, NOW())`,
+      [JSON.stringify({ export_id: exportRow.id })],
+    );
 
-  return exportRow;
+    await client.query('COMMIT');
+
+    // Notify worker outside transaction (best-effort; worker fallback polling covers missed NOTIFYs)
+    await pool.query(`NOTIFY internal_job_ready`).catch(() => {
+      // Non-fatal: worker will pick up job on next poll cycle
+    });
+
+    return exportRow;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 /**
@@ -382,12 +397,17 @@ export async function expireExports(
   for (const row of result.rows) {
     const r = row as { id: string; storage_key: string | null };
 
-    // Delete S3 object if exists
+    // Delete S3 object if exists — only mark as expired if deletion succeeds
     if (r.storage_key) {
       try {
         await storage.delete(r.storage_key);
       } catch (err) {
-        console.warn(`[Export] Failed to delete S3 object ${r.storage_key}:`, (err as Error).message);
+        console.warn(
+          `[Export] Failed to delete S3 object ${r.storage_key} for export ${r.id}, will retry on next expiry cycle:`,
+          (err as Error).message,
+        );
+        // Skip marking as expired so it gets retried next cycle
+        continue;
       }
     }
 
