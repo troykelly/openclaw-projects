@@ -144,6 +144,8 @@ const APPLICATION_TABLES = [
   'channel_default',
   'inbound_destination',
   'prompt_template',
+  // Note export (Epic #2475)
+  'note_export',
   // Async/queue tables (no FKs today, but still want consistent cleanup)
   'webhook_outbox',
   'internal_job',
