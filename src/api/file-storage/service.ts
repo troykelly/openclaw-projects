@@ -154,7 +154,12 @@ export async function downloadFile(pool: Pool, storage: FileStorage, fileId: str
 }
 
 /**
- * Get a signed URL for a file
+ * Get a signed URL for a file.
+ * Uses getExternalSignedUrl so that the presigned URL contains the external
+ * endpoint hostname — required for browser and agent downloads to work when
+ * the internal S3 endpoint is not reachable from outside the Docker network.
+ * Falls back to the internal client when no external endpoint is configured.
+ * (Issue #2483)
  */
 export async function getFileUrl(
   pool: Pool,
@@ -168,7 +173,7 @@ export async function getFileUrl(
     throw new FileNotFoundError(fileId);
   }
 
-  const url = await storage.getSignedUrl(metadata.storage_key, expiresIn);
+  const url = await storage.getExternalSignedUrl(metadata.storage_key, expiresIn);
 
   return { url, metadata };
 }
