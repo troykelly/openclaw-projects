@@ -216,6 +216,114 @@ describe('OpenAPI Memory Spec Accuracy (#2456)', () => {
     }
   });
 
+  describe('New endpoint spec details match implementation', () => {
+    it('POST /memories/reap request supports dry_run parameter', () => {
+      const paths = getPaths();
+      const reapPath = paths['/memories/reap'] as Record<string, unknown>;
+      const postOp = reapPath.post as Record<string, unknown>;
+      const requestBody = postOp.requestBody as Record<string, unknown>;
+      const content = requestBody.content as Record<string, unknown>;
+      const jsonSchema = (content['application/json'] as Record<string, unknown>).schema as Record<string, unknown>;
+      const props = jsonSchema.properties as Record<string, unknown>;
+
+      expect(props.dry_run).toBeDefined();
+    });
+
+    it('POST /memories/reap response includes reaped count', () => {
+      const paths = getPaths();
+      const reapPath = paths['/memories/reap'] as Record<string, unknown>;
+      const postOp = reapPath.post as Record<string, unknown>;
+      const responses = postOp.responses as Record<string, unknown>;
+      const ok = responses['200'] as Record<string, unknown>;
+      const content = ok.content as Record<string, unknown>;
+      const jsonSchema = (content['application/json'] as Record<string, unknown>).schema as Record<string, unknown>;
+      const props = jsonSchema.properties as Record<string, unknown>;
+
+      expect(props.reaped).toBeDefined();
+      // Should not have the old 'deleted' field
+      expect(props.deleted).toBeUndefined();
+    });
+
+    it('POST /memories/digest requires since and before parameters', () => {
+      const paths = getPaths();
+      const digestPath = paths['/memories/digest'] as Record<string, unknown>;
+      const postOp = digestPath.post as Record<string, unknown>;
+      const requestBody = postOp.requestBody as Record<string, unknown>;
+      const content = requestBody.content as Record<string, unknown>;
+      const jsonSchema = (content['application/json'] as Record<string, unknown>).schema as Record<string, unknown>;
+      const required = jsonSchema.required as string[];
+      const props = jsonSchema.properties as Record<string, unknown>;
+
+      expect(props.since).toBeDefined();
+      expect(props.before).toBeDefined();
+      expect(required).toContain('since');
+      expect(required).toContain('before');
+    });
+
+    it('POST /memories/digest response includes clusters and orphans', () => {
+      const paths = getPaths();
+      const digestPath = paths['/memories/digest'] as Record<string, unknown>;
+      const postOp = digestPath.post as Record<string, unknown>;
+      const responses = postOp.responses as Record<string, unknown>;
+      const ok = responses['200'] as Record<string, unknown>;
+      const content = ok.content as Record<string, unknown>;
+      const jsonSchema = (content['application/json'] as Record<string, unknown>).schema as Record<string, unknown>;
+      const props = jsonSchema.properties as Record<string, unknown>;
+
+      expect(props.clusters).toBeDefined();
+      expect(props.orphans).toBeDefined();
+      expect(props.total_memories).toBeDefined();
+      expect(props.total_clusters).toBeDefined();
+      expect(props.total_orphans).toBeDefined();
+    });
+
+    it('POST /memories/bulk-supersede request uses target_id and source_ids', () => {
+      const paths = getPaths();
+      const bulkPath = paths['/memories/bulk-supersede'] as Record<string, unknown>;
+      const postOp = bulkPath.post as Record<string, unknown>;
+      const requestBody = postOp.requestBody as Record<string, unknown>;
+      const content = requestBody.content as Record<string, unknown>;
+      const jsonSchema = (content['application/json'] as Record<string, unknown>).schema as Record<string, unknown>;
+      const required = jsonSchema.required as string[];
+      const props = jsonSchema.properties as Record<string, unknown>;
+
+      expect(props.target_id).toBeDefined();
+      expect(props.source_ids).toBeDefined();
+      expect(props.deactivate_sources).toBeDefined();
+      expect(required).toContain('target_id');
+      expect(required).toContain('source_ids');
+    });
+
+    it('POST /memories/bulk-supersede response includes superseded and target_id', () => {
+      const paths = getPaths();
+      const bulkPath = paths['/memories/bulk-supersede'] as Record<string, unknown>;
+      const postOp = bulkPath.post as Record<string, unknown>;
+      const responses = postOp.responses as Record<string, unknown>;
+      const ok = responses['200'] as Record<string, unknown>;
+      const content = ok.content as Record<string, unknown>;
+      const jsonSchema = (content['application/json'] as Record<string, unknown>).schema as Record<string, unknown>;
+      const props = jsonSchema.properties as Record<string, unknown>;
+
+      expect(props.superseded).toBeDefined();
+      expect(props.target_id).toBeDefined();
+    });
+
+    it('POST /memory legacy spec only requires content', () => {
+      const paths = getPaths();
+      const memoryPath = paths['/memory'] as Record<string, unknown>;
+      const postOp = memoryPath.post as Record<string, unknown>;
+      const requestBody = postOp.requestBody as Record<string, unknown>;
+      const content = requestBody.content as Record<string, unknown>;
+      const jsonSchema = (content['application/json'] as Record<string, unknown>).schema as Record<string, unknown>;
+      const required = jsonSchema.required as string[];
+
+      expect(required).toContain('content');
+      // Should NOT require title or linked_item_id
+      expect(required).not.toContain('title');
+      expect(required).not.toContain('linked_item_id');
+    });
+  });
+
   describe('Legacy endpoints marked as deprecated', () => {
     it('GET /memory is marked deprecated', () => {
       const paths = getPaths();
