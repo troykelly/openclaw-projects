@@ -336,6 +336,8 @@ export interface Memory {
   address?: string | null;
   /** Short human-friendly place name */
   place_label?: string | null;
+  /** Whether this memory is pinned */
+  pinned: boolean;
   /** Namespace for data scoping */
   namespace?: string;
   /** Number of file attachments */
@@ -462,6 +464,77 @@ export interface RelatedMemory {
 /** Response from GET /memories/:id/related */
 export interface RelatedMemoriesResponse {
   related: RelatedMemory[];
+}
+
+// ---------------------------------------------------------------------------
+// Memory Lifecycle (digest, reap, bulk-supersede)
+// ---------------------------------------------------------------------------
+
+/** A cluster of related memories from the digest endpoint. */
+export interface MemoryCluster {
+  /** Topic label for the cluster */
+  topic: string;
+  /** Centroid memory ID */
+  centroid_id: string;
+  /** Number of memories in the cluster */
+  size: number;
+  /** Average similarity score within cluster */
+  avg_similarity: number;
+  /** Time span of memories in cluster */
+  time_span: { start: string; end: string };
+  /** Memory IDs in this cluster */
+  memory_ids: string[];
+  /** Memories in this cluster (populated when expanded) */
+  memories: Memory[];
+}
+
+/** Request body for POST /api/memories/digest */
+export interface DigestRequest {
+  namespace?: string;
+  min_cluster_size?: number;
+  similarity_threshold?: number;
+}
+
+/** Response from POST /api/memories/digest */
+export interface DigestResponse {
+  total_memories: number;
+  clusters: MemoryCluster[];
+  orphans: Memory[];
+}
+
+/** Request body for POST /api/memories/reap */
+export interface ReapRequest {
+  namespace?: string;
+  dry_run?: boolean;
+  soft_delete?: boolean;
+}
+
+/** Response from POST /api/memories/reap */
+export interface ReapResponse {
+  reaped_count: number;
+  dry_run: boolean;
+  soft_delete: boolean;
+  reaped_ids: string[];
+}
+
+/** Request body for POST /api/memories/bulk-supersede */
+export interface BulkSupersedeRequest {
+  /** IDs of memories to supersede */
+  source_ids: string[];
+  /** ID of the target memory that supersedes them */
+  target_id: string;
+}
+
+/** Response from POST /api/memories/bulk-supersede */
+export interface BulkSupersedeResponse {
+  superseded_count: number;
+  target_id: string;
+  superseded_ids: string[];
+}
+
+/** Memory with upsert indicator. */
+export interface UpsertResult extends Memory {
+  upserted: boolean;
 }
 
 // ---------------------------------------------------------------------------

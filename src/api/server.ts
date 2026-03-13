@@ -9320,9 +9320,35 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
+  // ─── Legacy Memory API deprecation (#2452) ────────────────────────────
+  // All legacy /memory endpoints are deprecated in favour of /memories/unified.
+  // We add Deprecation, Sunset, and tracking headers to every response.
+  const LEGACY_SUNSET_DATE = 'Sat, 30 Aug 2026 00:00:00 GMT'; // ~2 releases
+  const LEGACY_DEPRECATION_DATE = 'Thu, 13 Mar 2026 00:00:00 GMT'; // today
+
+  /**
+   * Adds RFC 8594 Deprecation + Sunset headers and a tracking header to
+   * responses from legacy /memory endpoints.
+   */
+  function setDeprecationHeaders(
+    req: FastifyRequest,
+    reply: FastifyReply,
+    method: string,
+    routePattern: string,
+  ): void {
+    reply.header('Deprecation', LEGACY_DEPRECATION_DATE);
+    reply.header('Sunset', LEGACY_SUNSET_DATE);
+    reply.header('Link', '</api/memories/unified>; rel="successor-version"');
+    reply.header('X-Deprecated-Endpoint', `${method} ${routePattern}`);
+    // Log deprecation usage for migration tracking
+    req.log.info({ deprecated_endpoint: `${method} ${routePattern}` }, 'Legacy memory endpoint called');
+  }
+
   // Global Memory API (issue #120)
   // GET /api/memory - List all memory items with pagination and search
+  // DEPRECATED: Use GET /memories/unified instead (#2452)
   app.get('/memory', async (req, reply) => {
+    setDeprecationHeaders(req, reply, 'GET', '/memory');
     const query = req.query as {
       limit?: string;
       offset?: string;
@@ -9430,7 +9456,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // Memory CRUD API (issue #121)
   // POST /api/memory - Create a new memory (linked_item_id optional)
+  // DEPRECATED: Use POST /memories/unified instead (#2452)
   app.post('/memory', async (req, reply) => {
+    setDeprecationHeaders(req, reply, 'POST', '/memory');
     const { createMemory, generateTitleFromContent, validateExpiresAt } = await import('./memory/index.ts');
 
     const body = req.body as {
@@ -9531,7 +9559,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // PUT /api/memory/:id - Update a memory
+  // DEPRECATED: Use PATCH /memories/:id instead (#2452)
   app.put('/memory/:id', async (req, reply) => {
+    setDeprecationHeaders(req, reply, 'PUT', '/memory/:id');
     const params = req.params as { id: string };
     const body = req.body as { title?: string; content?: string; type?: string; tags?: string[] };
 
@@ -9602,7 +9632,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // DELETE /api/memory/:id - Delete a memory (#2436 namespace isolation)
+  // DEPRECATED: Use DELETE /memories/:id instead (#2452)
   app.delete('/memory/:id', async (req, reply) => {
+    setDeprecationHeaders(req, reply, 'DELETE', '/memory/:id');
     const { deleteMemory } = await import('./memory/index.ts');
     const params = req.params as { id: string };
     const pool = createPool();
