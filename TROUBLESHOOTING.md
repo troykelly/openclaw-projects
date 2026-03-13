@@ -305,17 +305,19 @@ pnpm exec vitest run src/api/memory/deduplication.test.ts
 
 ### `pnpm test:clean` Script
 
-`pnpm test:clean` resets DB state before running the full suite. It:
+`pnpm test:clean` resets DB state before running unit then integration tests. It:
 
-1. Truncates all application tables via `scripts/reset-test-db.sh`
-2. Resets PostgreSQL sequences (via `TRUNCATE … RESTART IDENTITY CASCADE`)
-3. Runs `pnpm test:unit` then `pnpm test:integration` sequentially
+1. Runs `scripts/reset-test-db.sh` — truncates all application tables with `RESTART IDENTITY CASCADE`
+2. Runs `pnpm test:unit` (parallel, no DB)
+3. Runs `pnpm test:integration` (serial, real Postgres)
 
 ```bash
 pnpm test:clean
 ```
 
 The script (`scripts/reset-test-db.sh`) connects using the same `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`, `PGDATABASE` environment variables as the test helpers (`tests/helpers/db.ts`).
+
+**Safety gate:** The script refuses to run unless `PGDATABASE` is in a known-safe allowlist (`openclaw`, `openclaw_test`, `openclaw_ci`, `test`, `postgres`). This prevents accidentally wiping a non-test database when your shell env points elsewhere. Customise the allowlist via `RESET_DB_SAFE_NAMES`.
 
 ### When to Use Each Command
 
@@ -330,7 +332,7 @@ The script (`scripts/reset-test-db.sh`) connects using the same `PGHOST`, `PGPOR
 
 ### Why `pnpm test` Still Exists
 
-`pnpm test` is what CI calls. CI always starts from a clean Postgres instance so consecutive-run contamination never occurs there. Locally, prefer `pnpm test:clean` for the same reliability.
+`pnpm test` runs both vitest projects in a single process and is retained for compatibility. CI does NOT call it directly — CI calls `pnpm test:unit` and `pnpm test:integration` as separate steps (see `.github/workflows/ci.yml`), each against a fresh Postgres instance, so consecutive-run contamination never occurs there. `pnpm test:clean` mirrors that CI behaviour locally.
 
 ### Sequence Diagram
 
@@ -338,10 +340,14 @@ The script (`scripts/reset-test-db.sh`) connects using the same `PGHOST`, `PGPOR
 pnpm test        →  [unit project] + [integration project] in one vitest run
                     ↳ Second consecutive run: stale DB state → ~216 failures
 
+CI               →  pnpm test:unit   (fresh Postgres container)
+                    pnpm test:integration  (same fresh container)
+                    ↳ Always clean — no contamination possible
+
 pnpm test:clean  →  reset-test-db.sh (TRUNCATE all tables, RESTART IDENTITY)
                     → pnpm test:unit
                     → pnpm test:integration
-                    ↳ Always reliable, mirrors CI isolation
+                    ↳ Mirrors CI isolation locally — always reliable
 ```
 
 ---

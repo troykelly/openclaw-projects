@@ -10,6 +10,16 @@
 #   ./scripts/reset-test-db.sh         # manual invocation
 #   pnpm test:clean                     # preferred — runs this then full suite
 #
+# Safety gate:
+#   The script will REFUSE to run unless PGDATABASE matches one of the
+#   known-safe test database names OR the ALLOW_RESET_DB_OVERRIDE env var
+#   is set to "yes-i-know-what-i-am-doing".
+#   This prevents accidentally wiping a production or staging database if
+#   your shell happens to point at a non-test target.
+#
+# Known-safe database names (configurable via RESET_DB_SAFE_NAMES):
+#   openclaw, openclaw_test, openclaw_ci, test, postgres
+#
 # Environment variables (mirrors tests/helpers/db.ts defaults):
 #   PGHOST      — default: "postgres" inside devcontainer, "localhost" outside
 #   PGPORT      — default: 5432
@@ -18,6 +28,10 @@
 #   PGDATABASE  — default: openclaw
 
 set -euo pipefail
+
+# ---------------------------------------------------------------------------
+# Connection defaults
+# ---------------------------------------------------------------------------
 
 # Detect whether we are inside a devcontainer (Docker-in-Docker environment).
 # Inside the devcontainer, Postgres is reachable via the "postgres" hostname.
@@ -36,9 +50,43 @@ PGDATABASE="${PGDATABASE:-openclaw}"
 
 export PGPASSWORD
 
+# ---------------------------------------------------------------------------
+# Safety gate — refuse to truncate obviously non-test databases.
+# ---------------------------------------------------------------------------
+
+# Comma-separated list of database names this script is allowed to reset.
+# Override via RESET_DB_SAFE_NAMES if your CI uses a different name.
+RESET_DB_SAFE_NAMES="${RESET_DB_SAFE_NAMES:-openclaw,openclaw_test,openclaw_ci,test,postgres}"
+
+db_is_safe() {
+  local db="$1"
+  IFS=',' read -ra safe_names <<< "${RESET_DB_SAFE_NAMES}"
+  for name in "${safe_names[@]}"; do
+    if [ "${db}" = "${name}" ]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+if [ "${ALLOW_RESET_DB_OVERRIDE:-}" != "yes-i-know-what-i-am-doing" ]; then
+  if ! db_is_safe "${PGDATABASE}"; then
+    echo "[reset-test-db] ERROR: Refusing to truncate '${PGDATABASE}'." >&2
+    echo "[reset-test-db] Database name is not in the safe-list: ${RESET_DB_SAFE_NAMES}" >&2
+    echo "[reset-test-db] To override (dangerous!), set:" >&2
+    echo "[reset-test-db]   ALLOW_RESET_DB_OVERRIDE=yes-i-know-what-i-am-doing" >&2
+    echo "[reset-test-db] Or add your database name to:" >&2
+    echo "[reset-test-db]   RESET_DB_SAFE_NAMES=${RESET_DB_SAFE_NAMES},${PGDATABASE}" >&2
+    exit 1
+  fi
+fi
+
 echo "[reset-test-db] Connecting to ${PGUSER}@${PGHOST}:${PGPORT}/${PGDATABASE}"
 
+# ---------------------------------------------------------------------------
 # Verify connectivity before proceeding.
+# ---------------------------------------------------------------------------
+
 if ! psql -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -d "${PGDATABASE}" \
      -c "SELECT 1" --quiet --tuples-only > /dev/null 2>&1; then
   echo "[reset-test-db] ERROR: Cannot connect to Postgres. Is the devcontainer running?" >&2
@@ -46,9 +94,12 @@ if ! psql -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -d "${PGDATABASE}" \
   exit 1
 fi
 
+# ---------------------------------------------------------------------------
 # Application tables in FK-safe order (children first, parents last).
 # This list mirrors APPLICATION_TABLES in tests/helpers/db.ts.
 # Keep both in sync when adding new tables.
+# ---------------------------------------------------------------------------
+
 TABLES=(
   list_item
   list
@@ -156,8 +207,12 @@ TABLES=(
   auth_magic_link
 )
 
-# Build a comma-separated quoted table list, filtering to tables that actually
-# exist in the current schema (safe against partial migrations / new tables).
+# ---------------------------------------------------------------------------
+# Discover which of the listed tables actually exist in schema 'public'.
+# Filtering here means the script is safe to run against a partially-migrated
+# database (e.g. right after a fresh migration, before all tables exist).
+# ---------------------------------------------------------------------------
+
 TABLE_CSV=$(printf "'%s'," "${TABLES[@]}")
 TABLE_CSV="${TABLE_CSV%,}"  # strip trailing comma
 
@@ -171,13 +226,27 @@ if [ -z "${EXISTING}" ]; then
   exit 0
 fi
 
-# Build TRUNCATE statement with quoted identifiers.
-TRUNCATE_LIST=$(echo "${EXISTING}" | tr '\n' ',' | sed 's/,$//' | sed 's/,/", "/g')
-TRUNCATE_SQL="TRUNCATE TABLE \"${TRUNCATE_LIST}\" RESTART IDENTITY CASCADE;"
+# ---------------------------------------------------------------------------
+# Build and execute the TRUNCATE statement.
+#
+# Tables are schema-qualified as public."tablename" to be immune to
+# search_path configuration on the connected role.
+# The table list comes from pg_tables discovery (not user input), so there
+# is no SQL injection risk, but we still quote identifiers for safety.
+# ---------------------------------------------------------------------------
 
-echo "[reset-test-db] Truncating $(echo "${EXISTING}" | wc -l | tr -d ' ') tables..."
+TABLE_COUNT=$(echo "${EXISTING}" | wc -l | tr -d ' ')
+
+TRUNCATE_LIST=$(echo "${EXISTING}" | while IFS= read -r tbl; do
+  printf 'public."%s",' "${tbl}"
+done)
+TRUNCATE_LIST="${TRUNCATE_LIST%,}"  # strip trailing comma
+
+TRUNCATE_SQL="TRUNCATE TABLE ${TRUNCATE_LIST} RESTART IDENTITY CASCADE;"
+
+echo "[reset-test-db] Truncating ${TABLE_COUNT} tables in public schema..."
 
 psql -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -d "${PGDATABASE}" \
   --quiet -c "${TRUNCATE_SQL}"
 
-echo "[reset-test-db] Done. Database is clean."
+echo "[reset-test-db] Done. Database '${PGDATABASE}' is clean."
