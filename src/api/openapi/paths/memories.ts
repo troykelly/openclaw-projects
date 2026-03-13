@@ -86,8 +86,8 @@ export function memoriesPaths(): OpenApiDomainModule {
         type: 'object',
         required: ['content'],
         properties: {
-          title: { type: 'string', description: 'Short title for the memory; auto-generated from content if omitted', example: 'User notification preferences' },
-          content: { type: 'string', description: 'Full text content of the memory', example: 'User prefers dark mode and metric units' },
+          title: { type: 'string', maxLength: 500, description: 'Short title for the memory; auto-generated from content if omitted', example: 'User notification preferences' },
+          content: { type: 'string', maxLength: 100000, description: 'Full text content of the memory', example: 'User prefers dark mode and metric units' },
           memory_type: {
             type: 'string',
             enum: ['preference', 'fact', 'note', 'decision', 'context', 'reference', 'entity', 'other'],
@@ -102,14 +102,14 @@ export function memoriesPaths(): OpenApiDomainModule {
           created_by_agent: { type: 'string', description: 'Identifier of the agent creating this memory', example: 'agent:openclaw-assistant' },
           created_by_human: { type: 'boolean', description: 'Whether this memory is being created by a human', example: false },
           source_url: { type: 'string', description: 'URL of the source material', example: 'https://docs.example.com/preferences' },
-          importance: { type: 'number', description: 'Importance score from 0 (trivial) to 1 (critical)', example: 0.8 },
-          confidence: { type: 'number', description: 'Confidence score from 0 (uncertain) to 1 (certain)', example: 0.95 },
+          importance: { type: 'number', minimum: 0, maximum: 1, description: 'Importance score from 0 (trivial) to 1 (critical)', example: 0.8 },
+          confidence: { type: 'number', minimum: 0, maximum: 1, description: 'Confidence score from 0 (uncertain) to 1 (certain)', example: 0.95 },
           expires_at: { type: 'string', format: 'date-time', description: 'Expiration timestamp after which the memory can be cleaned up', example: '2026-12-31T23:59:59Z' },
-          tags: { type: 'array', items: { type: 'string' }, description: 'Tags for categorizing the memory', example: ['ui', 'settings'] },
+          tags: { type: 'array', items: { type: 'string', maxLength: 100 }, maxItems: 50, description: 'Tags for categorizing the memory', example: ['ui', 'settings'] },
           lat: { type: 'number', minimum: -90, maximum: 90, description: 'Latitude coordinate for location tagging', example: -33.8688 },
           lng: { type: 'number', minimum: -180, maximum: 180, description: 'Longitude coordinate for location tagging', example: 151.2093 },
-          address: { type: 'string', description: 'Street address for location tagging', example: '123 George St, Sydney NSW 2000' },
-          place_label: { type: 'string', description: 'Human-readable place label for location tagging', example: 'Sydney CBD Office' },
+          address: { type: 'string', maxLength: 500, description: 'Street address for location tagging', example: '123 George St, Sydney NSW 2000' },
+          place_label: { type: 'string', maxLength: 200, description: 'Human-readable place label for location tagging', example: 'Sydney CBD Office' },
         },
       },
 
@@ -260,11 +260,12 @@ export function memoriesPaths(): OpenApiDomainModule {
     },
 
     paths: {
-      // -- Legacy Memory API (/memory) --------------------------------------
+      // -- Legacy Memory API (/memory) — DEPRECATED (#2452) --------------------
       '/memory': {
         get: {
           operationId: 'listMemoriesLegacy',
-          summary: 'List memory items with pagination and search (legacy)',
+          deprecated: true,
+          summary: 'List memory items with pagination and search (legacy — use GET /memories/unified)',
           tags: ['Memories (Legacy)'],
           parameters: [
             namespaceParam(),
@@ -313,7 +314,8 @@ export function memoriesPaths(): OpenApiDomainModule {
         },
         post: {
           operationId: 'createMemoryLegacy',
-          summary: 'Create a memory linked to a work item (legacy)',
+          deprecated: true,
+          summary: 'Create a memory linked to a work item (legacy — use POST /memories/unified)',
           tags: ['Memories (Legacy)'],
           parameters: [namespaceParam()],
           requestBody: jsonBody({
@@ -338,7 +340,8 @@ export function memoriesPaths(): OpenApiDomainModule {
         parameters: [uuidParam('id', 'Memory UUID')],
         put: {
           operationId: 'updateMemoryLegacy',
-          summary: 'Update a memory (legacy, full replace)',
+          deprecated: true,
+          summary: 'Update a memory (legacy — use PATCH /memories/:id)',
           tags: ['Memories (Legacy)'],
           requestBody: jsonBody({
             type: 'object',
@@ -357,7 +360,8 @@ export function memoriesPaths(): OpenApiDomainModule {
         },
         delete: {
           operationId: 'deleteMemoryLegacy',
-          summary: 'Delete a memory (legacy)',
+          deprecated: true,
+          summary: 'Delete a memory (legacy — use DELETE /memories/:id)',
           tags: ['Memories (Legacy)'],
           responses: {
             '204': { description: 'Memory deleted' },
@@ -408,9 +412,9 @@ export function memoriesPaths(): OpenApiDomainModule {
           responses: {
             '200': jsonResponse('Search results', {
               type: 'object',
-              required: ['memories'],
+              required: ['results', 'search_type'],
               properties: {
-                memories: {
+                results: {
                   type: 'array',
                   description: 'Memories matching the search query, ordered by relevance',
                   items: {
@@ -420,15 +424,17 @@ export function memoriesPaths(): OpenApiDomainModule {
                         type: 'object',
                         properties: {
                           similarity: { type: 'number', description: 'Cosine similarity score (0-1)', example: 0.89 },
+                          score: { type: 'number', nullable: true, description: 'Alias for similarity score', example: 0.89 },
                         },
                       },
                     ],
                   },
                 },
                 search_type: { type: 'string', enum: ['semantic', 'fulltext'], description: 'Which search method was used', example: 'semantic' },
+                embedding_provider: { type: 'string', nullable: true, description: 'Embedding provider used for the query (null for fulltext search)', example: 'openai' },
               },
             }),
-            ...errorResponses(400, 401, 500),
+            ...errorResponses(400, 401, 403, 429, 500),
           },
         },
       },
@@ -474,7 +480,7 @@ export function memoriesPaths(): OpenApiDomainModule {
           requestBody: jsonBody(ref('UnifiedMemoryCreateInput')),
           responses: {
             '201': jsonResponse('Memory created', ref('Memory')),
-            ...errorResponses(400, 401, 500),
+            ...errorResponses(400, 401, 403, 429, 500),
           },
         },
         get: {
@@ -564,7 +570,7 @@ export function memoriesPaths(): OpenApiDomainModule {
                 total: { type: 'integer', description: 'Total number of memories matching the filters', example: 42 },
               },
             }),
-            ...errorResponses(400, 401, 500),
+            ...errorResponses(400, 401, 403, 429, 500),
           },
         },
       },
@@ -641,7 +647,7 @@ export function memoriesPaths(): OpenApiDomainModule {
           }),
           responses: {
             '200': jsonResponse('Updated memory', ref('Memory')),
-            ...errorResponses(400, 401, 404, 500),
+            ...errorResponses(400, 401, 403, 404, 429, 500),
           },
         },
         delete: {
@@ -650,7 +656,7 @@ export function memoriesPaths(): OpenApiDomainModule {
           tags: ['Memories'],
           responses: {
             '204': { description: 'Memory deleted' },
-            ...errorResponses(400, 401, 404, 500),
+            ...errorResponses(400, 401, 403, 404, 429, 500),
           },
         },
       },
@@ -1097,7 +1103,7 @@ export function memoriesPaths(): OpenApiDomainModule {
                 namespace: { type: 'string', nullable: true, description: 'Namespace scope applied (null = all accessible namespaces)', example: 'acme-corp' },
               },
             }),
-            ...errorResponses(400, 401, 403, 500),
+            ...errorResponses(400, 401, 403, 429, 500),
           },
         },
       },
@@ -1139,7 +1145,7 @@ export function memoriesPaths(): OpenApiDomainModule {
                 namespace: { type: 'string', nullable: true, description: 'Namespace scope applied (null = all accessible namespaces)', example: 'acme-corp' },
               },
             }),
-            ...errorResponses(400, 401, 403, 500),
+            ...errorResponses(400, 401, 403, 429, 500),
           },
         },
       },
@@ -1187,7 +1193,7 @@ export function memoriesPaths(): OpenApiDomainModule {
                 skipped_ids: { type: 'array', items: { type: 'string', format: 'uuid' }, description: 'Source IDs that were not found or already superseded', example: [] },
               },
             }),
-            ...errorResponses(400, 401, 403, 404, 500),
+            ...errorResponses(400, 401, 403, 404, 429, 500),
           },
         },
       },
@@ -1246,7 +1252,7 @@ export function memoriesPaths(): OpenApiDomainModule {
                 upserted: { type: 'boolean', description: 'true = existing slot was updated; false = new memory was created', example: false },
               },
             }),
-            ...errorResponses(400, 401, 403, 500),
+            ...errorResponses(400, 401, 403, 429, 500),
           },
         },
       },
