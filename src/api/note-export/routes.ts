@@ -108,19 +108,20 @@ function parseExportBody(
   return { format: format as ExportFormat, options };
 }
 
-/** Verify user has access to the namespace */
+/** Verify user has access to the namespace (optionally require readwrite) */
 async function verifyNamespaceAccess(
   pool: Pool,
   email: string,
   namespace: string,
   identityType: 'user' | 'm2m',
+  requireWrite = false,
 ): Promise<boolean> {
   if (identityType === 'm2m') return true;
 
-  const result = await pool.query(
-    `SELECT 1 FROM namespace_grant WHERE email = $1 AND namespace = $2`,
-    [email, namespace],
-  );
+  const query = requireWrite
+    ? `SELECT 1 FROM namespace_grant WHERE email = $1 AND namespace = $2 AND access = 'readwrite'`
+    : `SELECT 1 FROM namespace_grant WHERE email = $1 AND namespace = $2`;
+  const result = await pool.query(query, [email, namespace]);
   return result.rows.length > 0;
 }
 
@@ -230,8 +231,8 @@ export async function exportRoutesPlugin(
 
     const params = req.params as { ns: string; id: string };
 
-    // Namespace access check
-    const hasAccess = await verifyNamespaceAccess(pool, identity.email, params.ns, identity.type);
+    // Namespace access check (write required for export creation)
+    const hasAccess = await verifyNamespaceAccess(pool, identity.email, params.ns, identity.type, true);
     if (!hasAccess) {
       return reply.code(403).send({ error: 'No access to namespace' });
     }
@@ -282,12 +283,7 @@ export async function exportRoutesPlugin(
           });
         }
       } catch {
-        // Fall through to return pending/failed status
-      }
-
-      const current = await getExportById(pool, exportJob.id);
-      if (current) {
-        return reply.code(200).send(formatExportResponse(current));
+        // Sync generation failed — fall through to return 202 (async fallback)
       }
     }
 
@@ -310,7 +306,7 @@ export async function exportRoutesPlugin(
 
     const params = req.params as { ns: string; id: string };
 
-    const hasAccess = await verifyNamespaceAccess(pool, identity.email, params.ns, identity.type);
+    const hasAccess = await verifyNamespaceAccess(pool, identity.email, params.ns, identity.type, true);
     if (!hasAccess) {
       return reply.code(403).send({ error: 'No access to namespace' });
     }
@@ -372,18 +368,25 @@ export async function exportRoutesPlugin(
       return reply.code(403).send({ error: 'Access denied' });
     }
 
-    // Expired exports return 410
-    if (exportRow.status === 'expired') {
+    // Expired exports return 410 (check both status and expires_at to catch
+    // exports that expired between cron runs)
+    if (exportRow.status === 'expired' || exportRow.expires_at < new Date()) {
       return reply.code(410).send({ error: 'Export has expired' });
     }
 
     const response = formatExportResponse(exportRow);
 
     // Include download_url for ready exports (regenerated on each GET)
+    // Cap the presigned URL TTL so it doesn't outlive expires_at
     if (exportRow.status === 'ready' && exportRow.storage_key) {
+      const secsUntilExpiry = Math.max(0, Math.floor((exportRow.expires_at.getTime() - Date.now()) / 1000));
+      const urlTtl = Math.min(EXPORT_PRESIGNED_URL_TTL, secsUntilExpiry);
+      if (urlTtl <= 0) {
+        return reply.code(410).send({ error: 'Export has expired' });
+      }
       const downloadUrl = await storage.getExternalSignedUrl(
         exportRow.storage_key,
-        EXPORT_PRESIGNED_URL_TTL,
+        urlTtl,
       );
       return reply.send({ ...response, download_url: downloadUrl });
     }
@@ -477,7 +480,7 @@ export async function exportRoutesPlugin(
 
     const params = req.params as { ns: string; export_id: string };
 
-    const hasAccess = await verifyNamespaceAccess(pool, identity.email, params.ns, identity.type);
+    const hasAccess = await verifyNamespaceAccess(pool, identity.email, params.ns, identity.type, true);
     if (!hasAccess) {
       return reply.code(403).send({ error: 'No access to namespace' });
     }
@@ -492,12 +495,13 @@ export async function exportRoutesPlugin(
       return reply.code(403).send({ error: 'Access denied' });
     }
 
-    // Delete S3 object if ready
+    // Delete S3 object if present — fail the request if deletion fails
+    // to prevent orphaned objects in storage
     if (exportRow.storage_key) {
       try {
         await storage.delete(exportRow.storage_key);
-      } catch {
-        // Non-fatal: object may already be deleted
+      } catch (err) {
+        return reply.code(500).send({ error: 'Failed to delete export file from storage' });
       }
     }
 
