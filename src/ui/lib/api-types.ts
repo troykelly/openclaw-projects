@@ -2378,3 +2378,46 @@ export interface SymphonyFeedEvent {
   timestamp: string;
   namespace: string;
 }
+
+// ---------------------------------------------------------------------------
+// Note / Notebook Exports (Epic #2475)
+// ---------------------------------------------------------------------------
+
+export type ExportFormat = 'pdf' | 'docx' | 'odf';
+
+export type ExportStatus = 'pending' | 'generating' | 'ready' | 'failed' | 'expired';
+
+export type ExportSourceType = 'note' | 'notebook';
+
+export interface ExportOptions {
+  page_size?: 'A4' | 'Letter';
+  include_metadata?: boolean;
+}
+
+export interface ExportRequest {
+  format: ExportFormat;
+  options?: ExportOptions;
+}
+
+export interface ExportResponse {
+  id: string;
+  status: ExportStatus;
+  format: ExportFormat;
+  source_type: ExportSourceType;
+  source_id: string;
+  original_filename: string | null;
+  size_bytes: number | null;
+  download_url?: string | null;
+  poll_url?: string | null;
+  error_message: string | null;
+  expires_at: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ExportListResponse {
+  exports: ExportResponse[];
+  total: number;
+  limit: number;
+  offset: number;
+}

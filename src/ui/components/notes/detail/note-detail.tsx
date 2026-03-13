@@ -41,6 +41,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/ui/c
 import { Switch } from '@/ui/components/ui/switch';
 import { Label } from '@/ui/components/ui/label';
 import { NoteEditor } from '../editor';
+import { ExportButton } from '../export';
 import { useYjsProvider } from '@/ui/hooks/use-yjs-provider';
 import type { YjsConnectionStatus } from '@/ui/hooks/use-yjs-provider';
 import type { Note, NoteVisibility, Notebook } from '../types';
@@ -395,6 +396,15 @@ export function NoteDetail({
                 <TooltipContent>Share</TooltipContent>
               </Tooltip>
             </TooltipProvider>
+          )}
+
+          {/* Export / Download button (#2479) */}
+          {note && !isNew && (
+            <ExportButton
+              sourceType="note"
+              sourceId={note.id}
+              sourceName={note.title}
+            />
           )}
 
           {/* History button */}
