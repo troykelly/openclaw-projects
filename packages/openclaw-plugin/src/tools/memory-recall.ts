@@ -85,6 +85,8 @@ export interface MemoryRecallToolOptions {
   logger: Logger;
   config: PluginConfig;
   user_id: string;
+  /** Namespace to scope search results to (Issue #2437 — always send X-Namespace header) */
+  namespace?: string;
 }
 
 /** Tool definition */
@@ -125,7 +127,7 @@ function formatMemoriesAsText(memories: Memory[]): string {
  * Creates the memory_recall tool.
  */
 export function createMemoryRecallTool(options: MemoryRecallToolOptions): MemoryRecallTool {
-  const { client, logger, config, user_id } = options;
+  const { client, logger, config, user_id, namespace } = options;
 
   return {
     name: 'memory_recall',
@@ -189,8 +191,8 @@ export function createMemoryRecallTool(options: MemoryRecallToolOptions): Memory
 
         const path = `/memories/search?${queryParams.toString()}`;
 
-        // Call API
-        const response = await client.get<{ results: Array<{ id: string; content: string; type?: string; memory_type?: string; tags?: string[]; similarity?: number; created_at?: string; updated_at?: string; lat?: number | null; lng?: number | null; address?: string | null; place_label?: string | null }>; search_type: string }>(path, { user_id });
+        // Call API — always include namespace header for scoped search (Issue #2437)
+        const response = await client.get<{ results: Array<{ id: string; content: string; type?: string; memory_type?: string; tags?: string[]; similarity?: number; created_at?: string; updated_at?: string; lat?: number | null; lng?: number | null; address?: string | null; place_label?: string | null }>; search_type: string }>(path, { user_id, namespace });
 
         if (!response.success) {
           logger.error('memory_recall API error', {

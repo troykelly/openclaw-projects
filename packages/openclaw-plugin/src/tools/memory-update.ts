@@ -66,6 +66,8 @@ export interface MemoryUpdateToolOptions {
   logger: Logger;
   config: PluginConfig;
   user_id: string;
+  /** Namespace to scope updates to (Issue #2437 — always send X-Namespace header) */
+  namespace?: string;
 }
 
 /** Tool definition */
@@ -80,7 +82,7 @@ export interface MemoryUpdateTool {
  * Creates the memory_update tool.
  */
 export function createMemoryUpdateTool(options: MemoryUpdateToolOptions): MemoryUpdateTool {
-  const { client, logger, user_id } = options;
+  const { client, logger, user_id, namespace } = options;
 
   return {
     name: 'memory_update',
@@ -137,8 +139,8 @@ export function createMemoryUpdateTool(options: MemoryUpdateToolOptions): Memory
           payload.pinned = pinned;
         }
 
-        // Call API
-        const response = await client.patch<UpdatedMemory>(`/memories/${memory_id}`, payload, { user_id });
+        // Call API — always include namespace header (Issue #2437)
+        const response = await client.patch<UpdatedMemory>(`/memories/${memory_id}`, payload, { user_id, namespace });
 
         if (!response.success) {
           if (response.error.code === 'NOT_FOUND') {

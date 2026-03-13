@@ -325,10 +325,10 @@ describe('memory_store tool', () => {
       );
     });
 
-    it('should warn when text contains potential credentials', async () => {
+    it('should BLOCK storage when text contains potential credentials (Issue #2438)', async () => {
       const mockPost = vi.fn().mockResolvedValue({
         success: true,
-        data: { id: 'mem-1', content: 'api key is sk-abc123' },
+        data: { id: 'mem-1', content: 'test' },
       });
       const client = { ...mockApiClient, post: mockPost };
 
@@ -340,9 +340,83 @@ describe('memory_store tool', () => {
       });
 
       // Use a longer key that matches the pattern (20+ chars after sk-)
-      await tool.execute({ content: 'api key is sk-abc123xyz456def789ghijk' });
+      const result = await tool.execute({ content: 'api key is sk-abc123xyz456def789ghijk' });
 
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toContain('credential');
+      }
+      // API should NOT be called
+      expect(mockPost).not.toHaveBeenCalled();
+      // Should warn/log the block
       expect(mockLogger.warn).toHaveBeenCalledWith(expect.stringContaining('credential'), expect.any(Object));
+    });
+
+    it('should allow storage with allow_sensitive=true and audit log (Issue #2438)', async () => {
+      const mockPost = vi.fn().mockResolvedValue({
+        success: true,
+        data: { id: 'mem-1', content: 'test' },
+      });
+      const client = { ...mockApiClient, post: mockPost };
+
+      const tool = createMemoryStoreTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        user_id: 'agent-1',
+      });
+
+      // Explicit opt-in
+      const result = await tool.execute({
+        content: 'api key is sk-abc123xyz456def789ghijk',
+        allow_sensitive: true,
+      });
+
+      expect(result.success).toBe(true);
+      expect(mockPost).toHaveBeenCalled();
+      // Must log audit entry (warn)
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('audit'),
+        expect.objectContaining({ allow_sensitive: true }),
+      );
+    });
+
+    it('should block AWS access key format (Issue #2438)', async () => {
+      const tool = createMemoryStoreTool({
+        client: mockApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        user_id: 'agent-1',
+      });
+
+      const result = await tool.execute({ content: 'My AWS key is AKIAIOSFODNN7EXAMPLE' });
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toContain('credential');
+      }
+    });
+
+    it('should store normal content without credential warnings (Issue #2438)', async () => {
+      const mockPost = vi.fn().mockResolvedValue({
+        success: true,
+        data: { id: 'mem-1', content: 'test' },
+      });
+      const client = { ...mockApiClient, post: mockPost };
+
+      const tool = createMemoryStoreTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        user_id: 'agent-1',
+      });
+
+      const result = await tool.execute({ content: 'User prefers dark mode in VS Code' });
+
+      expect(result.success).toBe(true);
+      expect(mockPost).toHaveBeenCalled();
+      // No warnings for normal content
+      expect(mockLogger.warn).not.toHaveBeenCalled();
     });
   });
 
@@ -793,6 +867,190 @@ describe('memory_store tool', () => {
       if (result.success) {
         expect(result.data.details.user_id).toBe('my-agent');
       }
+    });
+  });
+
+  describe('TTL shorthand (Issue #2434)', () => {
+    it('should convert ttl="24h" to expires_at and add ephemeral tag', async () => {
+      const mockPost = vi.fn().mockResolvedValue({
+        success: true,
+        data: { id: 'mem-123', content: 'Working note' },
+      });
+      const client = { ...mockApiClient, post: mockPost };
+
+      const tool = createMemoryStoreTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        user_id: 'agent-1',
+      });
+
+      const before = new Date();
+      const result = await tool.execute({ text: 'Working note', ttl: '24h' });
+      const after = new Date();
+
+      expect(result.success).toBe(true);
+      const payload = mockPost.mock.calls[0][1] as Record<string, unknown>;
+
+      // expires_at should be present and in ISO format
+      expect(typeof payload.expires_at).toBe('string');
+      const expiresAt = new Date(payload.expires_at as string);
+      // Should be roughly 24h from now
+      const diffMs = expiresAt.getTime() - before.getTime();
+      expect(diffMs).toBeGreaterThan(23 * 60 * 60 * 1000);
+      expect(diffMs).toBeLessThan(25 * 60 * 60 * 1000 + (after.getTime() - before.getTime()));
+
+      // Should auto-add ephemeral tag
+      expect(payload.tags).toContain('ephemeral');
+    });
+
+    it('should reject invalid ttl format', async () => {
+      const tool = createMemoryStoreTool({
+        client: mockApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        user_id: 'agent-1',
+      });
+
+      const result = await tool.execute({ text: 'test', ttl: 'forever' });
+      expect(result.success).toBe(false);
+    });
+
+    it('should reject ttl="0h" (zero TTL)', async () => {
+      const tool = createMemoryStoreTool({
+        client: mockApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        user_id: 'agent-1',
+      });
+
+      const result = await tool.execute({ text: 'test', ttl: '0h' });
+      expect(result.success).toBe(false);
+    });
+
+    it('should reject when both ttl and expires_at are provided', async () => {
+      const tool = createMemoryStoreTool({
+        client: mockApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        user_id: 'agent-1',
+      });
+
+      const result = await tool.execute({
+        text: 'test',
+        ttl: '24h',
+        expires_at: '2026-12-31T00:00:00Z',
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it('should not set expires_at when no ttl is provided (permanent)', async () => {
+      const mockPost = vi.fn().mockResolvedValue({
+        success: true,
+        data: { id: 'mem-123', content: 'Permanent fact' },
+      });
+      const client = { ...mockApiClient, post: mockPost };
+
+      const tool = createMemoryStoreTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        user_id: 'agent-1',
+      });
+
+      await tool.execute({ text: 'Permanent fact' });
+
+      const payload = mockPost.mock.calls[0][1] as Record<string, unknown>;
+      expect(payload.expires_at).toBeUndefined();
+    });
+
+    it('should not add ephemeral tag when no ttl is provided', async () => {
+      const mockPost = vi.fn().mockResolvedValue({
+        success: true,
+        data: { id: 'mem-123', content: 'test' },
+      });
+      const client = { ...mockApiClient, post: mockPost };
+
+      const tool = createMemoryStoreTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        user_id: 'agent-1',
+      });
+
+      await tool.execute({ text: 'test', tags: ['work'] });
+
+      const payload = mockPost.mock.calls[0][1] as Record<string, unknown>;
+      expect(payload.tags).not.toContain('ephemeral');
+    });
+
+    it('should accept ttl="7d" (7 days)', async () => {
+      const mockPost = vi.fn().mockResolvedValue({
+        success: true,
+        data: { id: 'mem-123', content: 'test' },
+      });
+      const client = { ...mockApiClient, post: mockPost };
+
+      const tool = createMemoryStoreTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        user_id: 'agent-1',
+      });
+
+      const result = await tool.execute({ text: 'test', ttl: '7d' });
+      expect(result.success).toBe(true);
+
+      const payload = mockPost.mock.calls[0][1] as Record<string, unknown>;
+      expect(payload.expires_at).toBeDefined();
+      expect(payload.tags).toContain('ephemeral');
+    });
+
+    it('should include expires_at in response details when ttl is provided', async () => {
+      const mockPost = vi.fn().mockResolvedValue({
+        success: true,
+        data: { id: 'mem-123', content: 'test' },
+      });
+      const client = { ...mockApiClient, post: mockPost };
+
+      const tool = createMemoryStoreTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        user_id: 'agent-1',
+      });
+
+      const result = await tool.execute({ text: 'test', ttl: '24h' });
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.details.expires_at).toBeDefined();
+      }
+    });
+  });
+
+  describe('namespace header (Issue #2437)', () => {
+    it('should send namespace header when namespace is configured', async () => {
+      const mockPost = vi.fn().mockResolvedValue({
+        success: true,
+        data: { id: 'mem-123', content: 'test' },
+      });
+      const client = { ...mockApiClient, post: mockPost };
+
+      const tool = createMemoryStoreTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        user_id: 'agent-1',
+        namespace: 'my-namespace',
+      });
+
+      await tool.execute({ text: 'test' });
+
+      expect(mockPost).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.any(Object),
+        expect.objectContaining({ namespace: 'my-namespace' }),
+      );
     });
   });
 });
