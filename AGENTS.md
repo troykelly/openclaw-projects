@@ -61,6 +61,7 @@ OpenClaw agents have workspace files (`MEMORY.md`, `memory/YYYY-MM-DD.md`). This
 2. **Development / Coding Runbook:** `CODING-RUNBOOK.md`
 3. **Issue Handling Protocol:** `TROUBLESHOOTING.md`
 4. **Frontend Knowledge (mandatory for UI work):** `docs/knowledge/frontend-2026.md`
+5. **Agent API Guides:** `docs/agent-guide/` (project management, note export, etc.)
 
 If these conflict, **ask Troy** before proceeding.
 
