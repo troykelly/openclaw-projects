@@ -212,6 +212,9 @@ importers:
       picomatch:
         specifier: ^4.0.3
         version: 4.0.3
+      puppeteer-core:
+        specifier: ^24.38.0
+        version: 24.38.0
       radix-ui:
         specifier: ^1.4.3
         version: 1.4.3(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -318,9 +321,6 @@ importers:
       jsdom:
         specifier: ^28.1.0
         version: 28.1.0
-      puppeteer-core:
-        specifier: ^24.38.0
-        version: 24.38.0
       tailwindcss:
         specifier: ^4.2.1
         version: 4.2.1

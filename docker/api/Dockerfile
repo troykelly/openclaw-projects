@@ -70,9 +70,30 @@ LABEL org.opencontainers.image.created="${BUILD_DATE}" \
       org.opencontainers.image.vendor="Troy Kelly" \
       org.opencontainers.image.licenses="MIT"
 
-# Install curl for healthcheck (Issue #958)
-RUN apt-get update && apt-get install -y --no-install-recommends curl openssh-client \
+# Install curl for healthcheck (Issue #958),
+# chromium + shared libs for PDF export via puppeteer-core (Issue #2481),
+# pandoc for DOCX/ODF export (Issue #2481)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    openssh-client \
+    chromium \
+    libglib2.0-0 \
+    libnss3 \
+    libatk1.0-0 \
+    libcups2 \
+    libdrm2 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxrandr2 \
+    libgbm1 \
+    libasound2 \
+    libxshmfence1 \
+    pandoc \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Puppeteer-core configuration: use system Chromium, skip download (Issue #2481)
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
 WORKDIR /app
 
