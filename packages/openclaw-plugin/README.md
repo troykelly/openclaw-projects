@@ -711,6 +711,84 @@ When an inbound SMS or email arrives, the plugin automatically links the message
 - Secrets are never logged (config is redacted in logs)
 - Error messages are sanitized to prevent information leakage
 
+## Logging
+
+The plugin uses a unified logging system that integrates with the OpenClaw host's `PluginLogger` interface. All log output is routed through the host logger for consistent formatting, routing, and level control.
+
+### Using the Logger
+
+The plugin provides a `Logger` interface with component-scoped child loggers:
+
+```typescript
+import { createPluginLogger, createFallbackLogger } from '@troykelly/openclaw-projects';
+
+// During plugin registration, the host logger is available via api.logger:
+const logger = createPluginLogger(api.logger);
+
+// Create component-scoped child loggers:
+const memoryLogger = logger.child('memory');
+memoryLogger.info('Recall completed', { count: 5 });
+// Output: [openclaw-projects:memory] Recall completed {"count":5}
+
+// For tests or standalone use (no host logger available):
+const testLogger = createPluginLogger(createFallbackLogger());
+```
+
+### Component Names
+
+Each subsystem uses a canonical component name for scoped logging:
+
+| Component | Used By |
+|-----------|---------|
+| `memory` | memory-store, recall, forget, list, update, digest, promote, reap |
+| `hooks` | auto-recall, auto-capture, graph-aware recall |
+| `api` | API client (requests, retries, rate limits) |
+| `contacts` | contact search, create, get, update, merge |
+| `projects` | project list, create, search |
+| `todos` | todo list, create, complete, search |
+| `comms` | email-send, sms-send, threads, message-search |
+| `terminal` | terminal connections, sessions, tunnels, search |
+| `dev` | dev sessions, dev prompts |
+| `notes` | notes, notebooks |
+| `skills` | skill-store operations |
+| `links` | entity links, relationships |
+| `files` | file-share |
+| `namespace` | namespace resolution, refresh |
+| `oauth` | OAuth gateway RPC methods |
+| `gate` | inbound-gate (spam, rate limiting) |
+| `autolinker` | auto-linker utility |
+| `cli` | CLI commands |
+
+### Adding a New Component Logger
+
+To add logging for a new component:
+
+1. In the registration function, create a child logger: `const myLogger = logger.child('mycomponent');`
+2. Pass it to your tool/handler factory or use it directly in inline handlers.
+3. All messages will automatically be prefixed with `[openclaw-projects:mycomponent]`.
+
+### Rules
+
+- **Never use raw `console.*` calls** in plugin source (except CLI user-facing output and the fallback logger). The biome `lint/suspicious/noConsole` rule enforces this.
+- **Never manually add `[openclaw-projects]` or `[plugins]` prefixes** to log messages. The logger adapter handles prefixing automatically.
+- Structured data passed as the second argument is flattened into the message string with sensitive fields redacted.
+
+### API Migration (Breaking Change)
+
+The `createLogger()` export is **deprecated**. Use `createPluginLogger()` + `createFallbackLogger()` instead:
+
+```typescript
+// Before (deprecated)
+import { createLogger } from '@troykelly/openclaw-projects';
+const logger = createLogger('my-component');
+
+// After
+import { createPluginLogger, createFallbackLogger } from '@troykelly/openclaw-projects';
+const logger = createPluginLogger(createFallbackLogger(), 'my-component');
+```
+
+`createLogger()` is retained for backward compatibility but will be removed in a future version. The `Logger.namespace` property has been removed.
+
 ## Troubleshooting
 
 > **First step for any issue:** Run `openclaw openclaw-projects status` to check connectivity, authentication, and latency. See [Health Check](#health-check-status-command) above for expected output.
