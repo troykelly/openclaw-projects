@@ -185,6 +185,16 @@ jobs:
           git remote set-url origin "https://x-access-token:${REPO_PAT}@github.com/${{ github.repository }}.git"
           git push origin main
 
+      - name: Verify release version consistency
+        env:
+          FILE_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          # Strip build metadata for comparison
+          CHECK_VERSION="${FILE_VERSION%%+*}"
+          echo "Verifying release version consistency for ${CHECK_VERSION}..."
+          bash scripts/verify-release-versions.sh --version "${CHECK_VERSION}" --mode ci
+
       - name: Upload bumped version files
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:

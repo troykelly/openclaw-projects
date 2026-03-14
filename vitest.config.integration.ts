@@ -43,6 +43,7 @@ export default defineProject({
       'tests/docker/**',
       'tests/frontend/**',
       'tests/workflows/**',
+      'tests/ci/**',
       'tests/openclaw-contract/**',
       'tests/command_palette.test.ts',
       'tests/generate_title.test.ts',
