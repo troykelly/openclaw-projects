@@ -82,12 +82,15 @@ Invalid timezone strings return `400 Bad Request`:
 }
 ```
 
-Common invalid forms that are rejected:
+Common invalid forms:
 
-- Timezone abbreviations: `"EST"`, `"PST"`, `"AEST"`
 - Empty string: `""`
 - Whitespace-only: `"   "`
 - Non-IANA identifiers: `"Funky/Timezone"`, `"Eastern Time"`
+
+Note: Some timezone abbreviations (e.g. `"EST"`, `"PST"`) may be accepted by
+certain Node.js runtimes and canonicalized to their IANA equivalent. Agents
+should always use full IANA identifiers for consistency.
 
 ### Omitting Timezone
 

@@ -133,6 +133,24 @@ describe('PATCH /settings — timezone validation (Issue #2511)', () => {
 
   // ── Omitted / null timezone → 200, unchanged ──────────────────────
 
+  it('leaves timezone unchanged when timezone is null', async () => {
+    // Set timezone first
+    await app.inject({
+      method: 'PATCH',
+      url: '/settings',
+      payload: { timezone: 'Australia/Sydney' },
+    });
+
+    // Send null timezone — should leave unchanged
+    const res = await app.inject({
+      method: 'PATCH',
+      url: '/settings',
+      payload: { timezone: null, theme: 'dark' },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().timezone).toBe('Australia/Sydney');
+  });
+
   it('leaves timezone unchanged when not provided', async () => {
     // Set timezone first
     await app.inject({
