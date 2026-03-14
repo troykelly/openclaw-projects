@@ -20,7 +20,16 @@ let _defaultTimezone: string | undefined;
  * Called once by the app root when user settings load.
  */
 export function setDefaultTimezone(tz: string | undefined): void {
-  _defaultTimezone = tz;
+  if (tz) {
+    try {
+      Intl.DateTimeFormat(undefined, { timeZone: tz });
+      _defaultTimezone = tz;
+    } catch {
+      // Invalid timezone — keep the previous default
+    }
+  } else {
+    _defaultTimezone = undefined;
+  }
 }
 
 /**

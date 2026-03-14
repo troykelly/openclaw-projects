@@ -294,7 +294,7 @@ async function fetchStats(pool: Pool, timezone = 'UTC'): Promise<BootstrapStats>
       (SELECT COUNT(*) FROM work_item WHERE status NOT IN ('completed', 'cancelled', 'archived')) as open_items,
       (SELECT COUNT(*) FROM work_item
        WHERE not_after IS NOT NULL
-         AND not_after::date = (NOW() AT TIME ZONE $1)::date
+         AND (not_after AT TIME ZONE $1)::date = (NOW() AT TIME ZONE $1)::date
          AND status NOT IN ('completed', 'cancelled', 'archived')) as due_today,
       (SELECT COUNT(*) FROM work_item
        WHERE not_after IS NOT NULL
