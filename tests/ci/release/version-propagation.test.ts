@@ -374,8 +374,8 @@ describe('symphony-worker in release body', () => {
 describe('Container provenance SHA', () => {
   it('should use github.sha for VCS_REF build arg', () => {
     const releaseYml = readFileSync(resolve(ROOT, '.github/workflows/release.yml'), 'utf-8');
-    expect(releaseYml).toContain('VCS_REF=${{ github.sha }}');
-    expect(releaseYml).toContain('OCI_REVISION=${{ github.sha }}');
+    expect(releaseYml).toContain('VCS_REF=${{ needs.validate.outputs.version_bump_sha }}');
+    expect(releaseYml).toContain('OCI_REVISION=${{ needs.validate.outputs.version_bump_sha }}');
   });
 });
 
