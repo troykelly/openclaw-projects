@@ -280,6 +280,44 @@ jobs:
           # Credentials are NOT persisted (persist-credentials: false on checkout).
           git remote set-url origin "https://x-access-token:${REPO_PAT}@github.com/${{ github.repository }}.git"
 
+      # #2578 — Verify release version consistency BEFORE edge-restore.
+      # verify-release-versions.sh checks that compose files reference :VERSION.
+      # It must run while files still contain :VERSION (after version bump commit
+      # but before the edge-restore step resets them back to :edge).
+      - name: Verify release version consistency
+        if: steps.reentry-guard.outputs.skip != 'true'
+        env:
+          FILE_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          # Strip build metadata for comparison
+          CHECK_VERSION="${FILE_VERSION%%+*}"
+          echo "Verifying release version consistency for ${CHECK_VERSION}..."
+          bash scripts/verify-release-versions.sh --version "${CHECK_VERSION}" --mode ci
+
+      # #2577 — Upload versioned compose files BEFORE edge-restore.
+      # The artifact must capture files with :VERSION tags, not :edge.
+      # Downstream jobs (publish-npm, publish-github-packages, publish-containers,
+      # release) download this artifact to overlay versioned files onto their
+      # own checkout. Moving upload after edge-restore would deliver :edge files.
+      - name: Upload bumped version files
+        if: steps.reentry-guard.outputs.skip != 'true'
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: version-bumped-files
+          path: |
+            package.json
+            packages/openclaw-plugin/package.json
+            packages/openclaw-plugin/openclaw.plugin.json
+            packages/openclaw-plugin/tests/__snapshots__/schema-snapshots.test.ts.snap
+            pnpm-lock.yaml
+            docker-compose.yml
+            docker-compose.traefik.yml
+            docker-compose.quickstart.yml
+            docker-compose.full.yml
+          if-no-files-found: error
+          retention-days: 3
+
       # #2526 — Restore compose files to :edge for main branch.
       # The version bump commit has versioned tags; this commit restores :edge
       # so that main always references edge builds for development.
@@ -336,34 +374,6 @@ jobs:
           # Reset remote URL to remove REPO_PAT from .git/config
           # (minimize exposure of branch-protection-bypass token)
           git remote set-url origin "https://github.com/${{ github.repository }}.git"
-
-      - name: Verify release version consistency
-        env:
-          FILE_VERSION: ${{ steps.version.outputs.version }}
-        run: |
-          set -euo pipefail
-          # Strip build metadata for comparison
-          CHECK_VERSION="${FILE_VERSION%%+*}"
-          echo "Verifying release version consistency for ${CHECK_VERSION}..."
-          bash scripts/verify-release-versions.sh --version "${CHECK_VERSION}" --mode ci
-
-      - name: Upload bumped version files
-        if: steps.reentry-guard.outputs.skip != 'true'
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
-        with:
-          name: version-bumped-files
-          path: |
-            package.json
-            packages/openclaw-plugin/package.json
-            packages/openclaw-plugin/openclaw.plugin.json
-            packages/openclaw-plugin/tests/__snapshots__/schema-snapshots.test.ts.snap
-            pnpm-lock.yaml
-            docker-compose.yml
-            docker-compose.traefik.yml
-            docker-compose.quickstart.yml
-            docker-compose.full.yml
-          if-no-files-found: error
-          retention-days: 3
 
       - name: Determine release type
         if: steps.reentry-guard.outputs.skip != 'true'
@@ -879,8 +889,15 @@ jobs:
       contents: write
 
     steps:
+      # #2576 — Checkout the version-bumped commit, not the original trigger SHA.
+      # By the time this job runs, the tag has been force-pushed to point at
+      # VERSION_BUMP_SHA (the chore(release) commit). Using the default checkout
+      # (github.sha = original trigger commit) would give us :edge compose files.
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          ref: ${{ needs.validate.outputs.version_bump_sha }}
+          fetch-depth: 0
 
       # #2527 — Compose files are now versioned in the tag checkout itself
       # (via #2524 and #2525). No sed replacement needed — just copy them.
