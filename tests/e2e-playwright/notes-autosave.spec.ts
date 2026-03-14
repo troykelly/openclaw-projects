@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { Pool } from 'pg';
 import { createTestPool, truncateAllTables } from '../helpers/db.ts';
 import { NotesPageObject } from './helpers/notes-page.ts';
+import { bypassAuth } from './helpers/auth-bypass.ts';
 
 /**
  * Notes save E2E tests.
@@ -24,8 +25,9 @@ test.describe('Notes Save E2E (Issues #785, #2256)', () => {
     pool = createTestPool();
   });
 
-  test.beforeEach(async () => {
+  test.beforeEach(async ({ page }) => {
     await truncateAllTables(pool);
+    await bypassAuth(page);
   });
 
   test.afterAll(async () => {
