@@ -18,7 +18,7 @@ import { createOAuthGatewayMethods, registerOAuthGatewayRpcMethods } from './gat
 // the SDK may poll getNotifications automatically, producing 401s (#2076).
 // Implementation kept in gateway/rpc-methods.ts for future use.
 import { createAutoCaptureHook, createGraphAwareRecallHook } from './hooks.js';
-import { createLogger, type Logger } from './logger.js';
+import { createFallbackLogger, createPluginLogger, type Logger } from './logger.js';
 import {
   createContextSearchTool,
   createLinksQueryTool,
@@ -136,6 +136,13 @@ import { reverseGeocode } from './utils/nominatim.js';
 import { resolveTtl } from './utils/temporal.js';
 
 /** Plugin state stored during registration */
+/**
+ * Internal plugin state.
+ *
+ * `logger` is the internal Logger (with `child()` support and structured data),
+ * NOT the raw PluginLogger from the host. The type flow is:
+ *   `api.logger: PluginLogger` → `createPluginLogger(api.logger): Logger` → `PluginState.logger: Logger`
+ */
 interface PluginState {
   config: PluginConfig;
   logger: Logger;
@@ -4544,7 +4551,8 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
   // OpenClaw's loader does NOT await the register function — it checks if the
   // result is thenable and logs a warning. All registrations must happen
   // synchronously during this call.
-  const logger = api.logger ?? createLogger('openclaw-projects');
+  const hostLogger = api.logger ?? createFallbackLogger();
+  const logger = createPluginLogger(hostLogger);
 
   // The SDK provides plugin-specific config via api.pluginConfig (from
   // plugins.entries.<id>.config). Fall back to api.config for older SDKs

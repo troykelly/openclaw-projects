@@ -36,7 +36,7 @@ export type {
 
 import type { PluginConfig } from './config.js';
 import { validateConfig, validateRawConfig, redactConfig } from './config.js';
-import { createLogger, type Logger } from './logger.js';
+import { createLogger, createPluginLogger, createFallbackLogger, type Logger, type PluginLogger } from './logger.js';
 import { createApiClient, type ApiClient } from './api-client.js';
 import { extractContext, getUserScopeKey, type PluginContext } from './context.js';
 import {
@@ -339,8 +339,8 @@ export {
 } from './config.js';
 export type { SecretConfig } from './secrets.js';
 export { resolveSecret, resolveSecretSync, resolveSecrets, clearSecretCache, clearCachedSecret } from './secrets.js';
-export type { Logger } from './logger.js';
-export { createLogger, redactSensitive } from './logger.js';
+export type { Logger, PluginLogger } from './logger.js';
+export { createLogger, createPluginLogger, createFallbackLogger, redactSensitive } from './logger.js';
 export type { ApiClient, ApiResponse, ApiError } from './api-client.js';
 export { createApiClient } from './api-client.js';
 export type {
