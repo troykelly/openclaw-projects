@@ -432,7 +432,10 @@ describe('refreshNamespacesAsync (Issue #1537)', () => {
       debug: vi.fn(),
       warn: vi.fn(),
       error: vi.fn(),
+      child: vi.fn(),
     };
+    // child() returns the same mock logger so assertions on warn/info still work
+    mockLogger.child.mockReturnValue(mockLogger);
 
     const mockApiClient = {
       get: vi.fn().mockResolvedValue(overrides.fetchResponse ?? {
