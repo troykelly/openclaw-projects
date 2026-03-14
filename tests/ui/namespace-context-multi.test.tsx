@@ -402,4 +402,69 @@ describe('API-fetch fallback when bootstrap is empty (Issue #2405)', () => {
     expect(result.current.grants).toHaveLength(0);
     expect(result.current.activeNamespace).toBe('default');
   });
+
+  it('does not clobber localStorage before grants load (#2563)', async () => {
+    // Pre-populate localStorage with a previously saved namespace
+    localStorage.setItem('openclaw-active-namespaces', JSON.stringify(['my-saved-ns']));
+
+    // No bootstrap data — simulates production static nginx
+    const apiGrants = [
+      { namespace: 'my-saved-ns', access: 'readwrite', is_home: true },
+    ];
+
+    let resolveFn: (value: unknown) => void;
+    const fetchPromise = new Promise((resolve) => { resolveFn = resolve; });
+    mockApiGet.mockReturnValue(fetchPromise);
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: 0 } },
+    });
+    const Wrapper = ({ children }: { children: React.ReactNode }) => (
+      <QueryClientProvider client={queryClient}>
+        <NamespaceProvider>{children}</NamespaceProvider>
+      </QueryClientProvider>
+    );
+
+    renderHook(() => useNamespace(), { wrapper: Wrapper });
+
+    // Before grants arrive, localStorage should NOT have been overwritten
+    // with ['default'] — the persist effect must be guarded by isNamespaceReady
+    const storedBeforeGrants = localStorage.getItem('openclaw-active-namespaces');
+    expect(storedBeforeGrants).toBe(JSON.stringify(['my-saved-ns']));
+
+    // Now resolve the API fetch
+    await act(async () => {
+      resolveFn!({
+        namespace_grants: apiGrants,
+        active_namespaces: ['my-saved-ns'],
+      });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // After grants load, localStorage should reflect the resolved namespace
+    const storedAfterGrants = localStorage.getItem('openclaw-active-namespaces');
+    expect(storedAfterGrants).toBe(JSON.stringify(['my-saved-ns']));
+  });
+
+  it('setActiveNamespace writes to both legacy and multi-namespace localStorage keys (#2563)', () => {
+    setBootstrapData({ namespace_grants: MULTI_GRANTS });
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: 0 } },
+    });
+    const Wrapper = ({ children }: { children: React.ReactNode }) => (
+      <QueryClientProvider client={queryClient}>
+        <NamespaceProvider>{children}</NamespaceProvider>
+      </QueryClientProvider>
+    );
+
+    const { result } = renderHook(() => useNamespace(), { wrapper: Wrapper });
+
+    act(() => {
+      result.current.setActiveNamespace('household');
+    });
+
+    expect(localStorage.getItem('openclaw-active-namespace')).toBe('household');
+    expect(localStorage.getItem('openclaw-active-namespaces')).toBe(JSON.stringify(['household']));
+  });
 });
