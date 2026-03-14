@@ -146,6 +146,27 @@ describe('SymphonyFeedHub', () => {
       expect(mock.getClosed()).not.toBeNull();
       expect(mock.getClosed()!.code).toBe(4001);
     });
+
+    it('sends auth_timeout message before closing on auth timeout', async () => {
+      hub = new SymphonyFeedHub({
+        verifyJwt: createVerifier(),
+        resolveNamespaces: createResolver(),
+      });
+
+      const mock = createMockSocket();
+
+      await hub.handleConnection(mock.socket);
+
+      // Advance past auth timeout
+      await vi.advanceTimersByTimeAsync(AUTH_TIMEOUT_MS + 100);
+
+      // Should have sent auth_timeout message before closing
+      const authTimeoutMsgs = mock.sentMessages.filter(
+        m => JSON.parse(m).type === 'auth_timeout',
+      );
+      expect(authTimeoutMsgs.length).toBe(1);
+      expect(JSON.parse(authTimeoutMsgs[0]).error).toBe('Authentication timeout');
+    });
   });
 
   describe('emitEvent', () => {

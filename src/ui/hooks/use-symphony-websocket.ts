@@ -14,6 +14,9 @@ import type { SymphonyFeedEvent } from '@/ui/lib/api-types.ts';
 
 export type SymphonyWsStatus = 'connecting' | 'connected' | 'authenticating' | 'disconnected' | 'error';
 
+/** Close code 4001: permanent auth failure — do not reconnect. */
+const CLOSE_CODE_AUTH_FAILURE = 4001;
+
 export interface UseSymphonyWebSocketOptions {
   /** Whether the WebSocket should be connected. */
   enabled?: boolean;
@@ -43,6 +46,7 @@ export function useSymphonyWebSocket({
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectDelayRef = useRef(INITIAL_RECONNECT_DELAY);
   const manualDisconnectRef = useRef(false);
+  const connectRef = useRef<(() => void) | null>(null);
   const onEventRef = useRef(onEvent);
   const queryClient = useQueryClient();
 
@@ -50,6 +54,15 @@ export function useSymphonyWebSocket({
 
   const connect = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN || wsRef.current?.readyState === WebSocket.CONNECTING) {
+      return;
+    }
+
+    // Guard: do not attempt connection without a valid access token.
+    // The backend will close with 4001 after 5s if no auth message arrives,
+    // causing an infinite reconnect loop.
+    const token = getAccessToken();
+    if (!token) {
+      setStatus('error');
       return;
     }
 
@@ -65,10 +78,10 @@ export function useSymphonyWebSocket({
 
     ws.onopen = () => {
       setStatus('authenticating');
-      // Send auth message with JWT
-      const token = getAccessToken();
-      if (token) {
-        ws.send(JSON.stringify({ type: 'auth', token }));
+      // Send auth message with JWT (token was validated above, re-read for freshness)
+      const freshToken = getAccessToken();
+      if (freshToken) {
+        ws.send(JSON.stringify({ type: 'auth', token: freshToken }));
       }
     };
 
@@ -85,7 +98,7 @@ export function useSymphonyWebSocket({
           return;
         }
 
-        if (msg.type === 'auth_failed' || msg.type === 'auth_error') {
+        if (msg.type === 'auth_failed' || msg.type === 'auth_error' || msg.type === 'auth_timeout') {
           setStatus('error');
           // Prevent reconnect loop on persistent auth failure
           manualDisconnectRef.current = true;
@@ -140,7 +153,7 @@ export function useSymphonyWebSocket({
       }
     };
 
-    ws.onclose = () => {
+    ws.onclose = (event: CloseEvent) => {
       wsRef.current = null;
 
       if (manualDisconnectRef.current) {
@@ -148,18 +161,30 @@ export function useSymphonyWebSocket({
         return;
       }
 
+      // Close code 4001 = permanent auth failure — do not reconnect
+      if (event.code === CLOSE_CODE_AUTH_FAILURE) {
+        setStatus('error');
+        return;
+      }
+
       setStatus('disconnected');
 
-      // Schedule reconnection with exponential backoff
+      // Schedule reconnection with exponential backoff.
+      // Use connectRef to avoid stale closure capturing an old `connect`.
       const delay = reconnectDelayRef.current;
       reconnectDelayRef.current = Math.min(delay * 2, MAX_RECONNECT_DELAY);
-      reconnectTimeoutRef.current = setTimeout(connect, delay);
+      reconnectTimeoutRef.current = setTimeout(() => {
+        connectRef.current?.();
+      }, delay);
     };
 
     ws.onerror = () => {
       setStatus('error');
     };
   }, [queryClient]);
+
+  // Keep connectRef in sync so reconnect timeouts always call the latest connect
+  connectRef.current = connect;
 
   const disconnect = useCallback(() => {
     manualDisconnectRef.current = true;

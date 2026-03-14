@@ -183,6 +183,8 @@ export class SymphonyFeedHub {
         if (!conn.userEmail) {
           symphonyFeedAuthTimeouts.inc();
           console.warn(`${LOG_PREFIX} Auth timeout for connection ${connId}`);
+          // Send auth_timeout message before closing so the client knows why
+          this.sendMessage(conn, { type: 'auth_timeout', error: 'Authentication timeout' });
           this.cleanupConnection(conn, 4001, 'Authentication timeout');
         }
       }, AUTH_TIMEOUT_MS);
