@@ -150,14 +150,17 @@ export function NamespaceProvider({ children }: { children: React.ReactNode }): 
     }
   }, [fetchedGrants]);
 
-  // Persist to localStorage whenever activeNamespaces changes
+  // Persist to localStorage whenever activeNamespaces changes.
+  // Guard with isNamespaceReady to avoid clobbering stored selection
+  // with ['default'] before grants load (#2563).
   React.useEffect(() => {
+    if (!isNamespaceReady) return;
     try {
       localStorage.setItem(ACTIVE_NAMESPACES_KEY, JSON.stringify(activeNamespaces));
     } catch {
       // localStorage may be unavailable
     }
-  }, [activeNamespaces]);
+  }, [activeNamespaces, isNamespaceReady]);
 
   // Sync namespace resolver for api-client header injection (#2349)
   React.useEffect(() => {
@@ -185,6 +188,7 @@ export function NamespaceProvider({ children }: { children: React.ReactNode }): 
       setNamespaceVersion((v) => v + 1);
       try {
         localStorage.setItem(ACTIVE_NAMESPACE_KEY, namespace);
+        localStorage.setItem(ACTIVE_NAMESPACES_KEY, JSON.stringify([namespace]));
       } catch {
         // localStorage may be unavailable
       }
