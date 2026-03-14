@@ -287,6 +287,50 @@ describe('release.yml workflow', () => {
       expect(run).toContain('chore(release): restore :edge image tags [skip ci]');
     });
 
+    // #2577 — artifact upload must occur BEFORE the edge-restore step
+    // If the artifact is uploaded after the edge restore, the compose files in the artifact
+    // will contain :edge tags instead of the pinned version tags.
+    it('version-bumped-files artifact upload should occur before edge-restore step', () => {
+      const steps = workflow.jobs.validate.steps;
+      const uploadIdx = steps.findIndex(
+        (s) =>
+          s.uses?.includes('actions/upload-artifact') ||
+          s.name?.toLowerCase().includes('upload bumped'),
+      );
+      const restoreIdx = steps.findIndex(
+        (s) =>
+          s.name?.toLowerCase().includes('restore') && s.name?.toLowerCase().includes('edge'),
+      );
+      expect(uploadIdx, 'upload-artifact step must exist').toBeGreaterThanOrEqual(0);
+      expect(restoreIdx, 'edge-restore step must exist').toBeGreaterThanOrEqual(0);
+      expect(
+        uploadIdx,
+        'upload-artifact step must come BEFORE edge-restore step (artifact must capture :VERSION files)',
+      ).toBeLessThan(restoreIdx);
+    });
+
+    // #2578 — verify-release-versions step must occur BEFORE the edge-restore step
+    // If verification runs after the edge restore, compose files are :edge and the check
+    // for versioned tags will always fail on real release runs.
+    it('verify-release-versions step should appear before edge-restore step', () => {
+      const steps = workflow.jobs.validate.steps;
+      const verifyIdx = steps.findIndex(
+        (s) =>
+          s.name?.toLowerCase().includes('verify release') ||
+          (s.run?.includes('verify-release-versions.sh') ?? false),
+      );
+      const restoreIdx = steps.findIndex(
+        (s) =>
+          s.name?.toLowerCase().includes('restore') && s.name?.toLowerCase().includes('edge'),
+      );
+      expect(verifyIdx, 'verify step must exist').toBeGreaterThanOrEqual(0);
+      expect(restoreIdx, 'edge-restore step must exist').toBeGreaterThanOrEqual(0);
+      expect(
+        verifyIdx,
+        'verify-release-versions step must come BEFORE edge-restore step (must run while files have :VERSION tags)',
+      ).toBeLessThan(restoreIdx);
+    });
+
     // #2533 — atomic push for multi-ref mutations
     it('should use git push --atomic for multi-ref pushes', () => {
       const steps = workflow.jobs.validate.steps;
@@ -377,6 +421,22 @@ describe('release.yml workflow', () => {
     it('should checkout code', () => {
       const checkout = releaseSteps.find((s) => s.uses?.includes('actions/checkout'));
       expect(checkout).toBeDefined();
+    });
+
+    // #2576 — release job checkout must use the tag ref, not implicit github.sha
+    // Without an explicit ref, actions/checkout uses github.sha (the original trigger SHA,
+    // before the validate job force-pushed the tag to the version-bump commit). This means
+    // compose files in the release assets contain :edge instead of the pinned version.
+    it('release job checkout should use the tag ref, not implicit github.sha', () => {
+      const checkoutStep = releaseSteps.find((s) => s.uses?.startsWith('actions/checkout'));
+      expect(checkoutStep).toBeDefined();
+      expect(
+        checkoutStep?.with?.ref,
+        'checkout must specify ref: pointing to the tag — absent ref means github.sha which is pre-force-push',
+      ).toBeDefined();
+      // The ref must reference the tag output from the validate job
+      const ref = String(checkoutStep?.with?.ref ?? '');
+      expect(ref).toContain('validate.outputs.tag');
     });
 
     // #2527 — the release job should copy compose files from tag checkout, NOT use sed
