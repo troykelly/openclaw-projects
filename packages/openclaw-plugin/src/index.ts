@@ -294,7 +294,7 @@ function createPluginInstance(config: PluginConfig, logger: Logger, runtime: unk
  * to produce a fully initialized plugin instance.
  */
 export function register(ctx: RegistrationContext): PluginInstance {
-  const logger = ctx.logger ?? createLogger('openclaw-projects');
+  const logger = ctx.logger ?? createPluginLogger(createFallbackLogger());
 
   // Validate as raw config first to check structure
   const rawConfig = validateRawConfig(ctx.config);

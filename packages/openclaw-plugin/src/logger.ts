@@ -32,6 +32,10 @@ const SENSITIVE_FIELDS = new Set([
   'webhook_token',
   'connection_token',
   'otp',
+  'postmarktoken',
+  'twilioauthtoken',
+  'twilioaccount',
+  'twilioaccountsid',
 ]);
 
 /** Patterns in string values that indicate a secret (regardless of field name). */
