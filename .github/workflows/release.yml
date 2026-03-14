@@ -337,6 +337,16 @@ jobs:
           # (minimize exposure of branch-protection-bypass token)
           git remote set-url origin "https://github.com/${{ github.repository }}.git"
 
+      - name: Verify release version consistency
+        env:
+          FILE_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          # Strip build metadata for comparison
+          CHECK_VERSION="${FILE_VERSION%%+*}"
+          echo "Verifying release version consistency for ${CHECK_VERSION}..."
+          bash scripts/verify-release-versions.sh --version "${CHECK_VERSION}" --mode ci
+
       - name: Upload bumped version files
         if: steps.reentry-guard.outputs.skip != 'true'
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
