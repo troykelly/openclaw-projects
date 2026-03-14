@@ -20,6 +20,7 @@ import type {
 } from '@/ui/lib/api-types.ts';
 import { useRealtimeOptional } from '@/ui/components/realtime/realtime-context.tsx';
 import { useNamespaceQueryKey } from '@/ui/hooks/use-namespace-query-key';
+import { namespaceAwareInvalidation } from '@/ui/lib/namespace-invalidation';
 
 /** Query key factory for chat. */
 export const chatKeys = {
@@ -47,21 +48,21 @@ export function useRealtimeChatInvalidation(): void {
     if (!realtime) return;
 
     const cleanupMsg = realtime.addEventHandler('chat:message_received', (event) => {
-      void queryClient.invalidateQueries({ queryKey: chatKeys.unreadCount() });
-      void queryClient.invalidateQueries({ queryKey: chatKeys.sessions() });
+      void queryClient.invalidateQueries(namespaceAwareInvalidation(chatKeys.unreadCount()));
+      void queryClient.invalidateQueries(namespaceAwareInvalidation(chatKeys.sessions()));
       // Invalidate messages for the specific session so agent replies appear (#2493)
       const payload = event.payload as { session_id?: string } | null;
       if (typeof payload?.session_id === 'string') {
-        void queryClient.invalidateQueries({ queryKey: chatKeys.messages(payload.session_id) });
+        void queryClient.invalidateQueries(namespaceAwareInvalidation(chatKeys.messages(payload.session_id)));
       }
     });
 
     const cleanupSession = realtime.addEventHandler('chat:session_created', () => {
-      void queryClient.invalidateQueries({ queryKey: chatKeys.sessions() });
+      void queryClient.invalidateQueries(namespaceAwareInvalidation(chatKeys.sessions()));
     });
 
     const cleanupEnded = realtime.addEventHandler('chat:session_ended', () => {
-      void queryClient.invalidateQueries({ queryKey: chatKeys.sessions() });
+      void queryClient.invalidateQueries(namespaceAwareInvalidation(chatKeys.sessions()));
     });
 
     return () => {
@@ -85,7 +86,7 @@ export function useRealtimeAgentInvalidation(): void {
   useEffect(() => {
     if (!realtime) return;
     const cleanup = realtime.addEventHandler('agent:status_changed', () => {
-      void queryClient.invalidateQueries({ queryKey: chatKeys.agents() });
+      void queryClient.invalidateQueries(namespaceAwareInvalidation(chatKeys.agents()));
     });
     return cleanup;
   }, [realtime, queryClient]);
