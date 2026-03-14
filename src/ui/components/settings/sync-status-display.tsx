@@ -7,6 +7,7 @@
 import { RefreshCw, CheckCircle, Clock } from 'lucide-react';
 import { Button } from '@/ui/components/ui/button';
 import type { OAuthFeature } from './types';
+import { formatDate } from '@/ui/lib/date-format';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -39,7 +40,7 @@ const FEATURE_LABELS: Record<OAuthFeature, string> = {
 function formatSyncTime(dateStr: string | null): string {
   if (!dateStr) return 'Never synced';
   const date = new Date(dateStr);
-  return date.toLocaleDateString(undefined, {
+  return formatDate(date, undefined, {
     month: 'short',
     day: 'numeric',
     hour: '2-digit',

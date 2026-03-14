@@ -12,6 +12,7 @@
  * Uses TanStack Query hooks for data fetching and mutations.
  */
 import React, { useState, useMemo, useCallback, useRef } from 'react';
+import { formatDateTime } from '@/ui/lib/date-format';
 import {
   Search,
   Package,
@@ -65,13 +66,7 @@ import {
 /** Format a date string for display. */
 function formatDate(dateStr: string | null | undefined): string {
   if (!dateStr) return '--';
-  return new Date(dateStr).toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  return formatDateTime(new Date(dateStr));
 }
 
 /** Format a relative time from now. */

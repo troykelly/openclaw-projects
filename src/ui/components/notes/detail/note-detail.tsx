@@ -45,6 +45,7 @@ import { ExportButton } from '../export';
 import { useYjsProvider } from '@/ui/hooks/use-yjs-provider';
 import type { YjsConnectionStatus } from '@/ui/hooks/use-yjs-provider';
 import type { Note, NoteVisibility, Notebook } from '../types';
+import { formatDate, formatDateTime } from '@/ui/lib/date-format';
 
 /** Metadata save debounce delay (5 seconds) */
 const METADATA_SAVE_DELAY_MS = 5000;
@@ -55,7 +56,7 @@ const METADATA_SAVE_DELAY_MS = 5000;
  */
 function generateAutoTitle(): string {
   const now = new Date();
-  return now.toLocaleString('en-US', {
+  return formatDateTime(now, undefined, {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
@@ -505,7 +506,7 @@ export function NoteDetail({
         {/* Version info */}
         {note && !isNew && (
           <span className="text-xs text-muted-foreground">
-            v{note.version} · Updated {note.updated_at.toLocaleDateString()}
+            v{note.version} · Updated {formatDate(new Date(note.updated_at))}
           </span>
         )}
       </div>

@@ -6,6 +6,7 @@ import { Button } from '@/ui/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/ui/components/ui/dropdown-menu';
 import { MemoryTtlBadge } from './memory-ttl-badge';
 import type { MemoryItem } from './types';
+import { formatDate } from '@/ui/lib/date-format';
 
 function getLinkedItemIcon(kind: MemoryItem['linked_item_kind']) {
   switch (kind) {
@@ -158,7 +159,7 @@ export function MemoryCard({ memory, onClick, onEdit, onDelete, onSupersededClic
           )}
         </div>
 
-        <span>{memory.updated_at.toLocaleDateString()}</span>
+        <span>{formatDate(new Date(memory.updated_at))}</span>
       </div>
 
       {/* Tags */}

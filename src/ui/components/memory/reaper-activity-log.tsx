@@ -7,6 +7,7 @@ import { useState, useMemo } from 'react';
 import { Skull } from 'lucide-react';
 import { cn } from '@/ui/lib/utils';
 import { Button } from '@/ui/components/ui/button';
+import { formatDateTime } from '@/ui/lib/date-format';
 
 /** A single reaper event entry. */
 export interface ReaperEvent {
@@ -87,7 +88,7 @@ export function ReaperActivityLog({ events, className, pageSize = 10 }: ReaperAc
           <tbody>
             {paged.map((event) => (
               <tr key={event.id} className="border-b last:border-b-0">
-                <td className="px-4 py-2">{new Date(event.timestamp).toLocaleString()}</td>
+                <td className="px-4 py-2">{formatDateTime(event.timestamp)}</td>
                 <td className="px-4 py-2">{event.namespace}</td>
                 <td className="px-4 py-2 text-right">{event.count}</td>
                 <td className="px-4 py-2">

@@ -12,6 +12,7 @@ import { Link } from 'react-router';
 import { Card, CardContent } from '@/ui/components/ui/card';
 import { Badge } from '@/ui/components/ui/badge';
 import { EmptyState, SkeletonTable } from '@/ui/components/feedback';
+import { formatShortDate } from '@/ui/lib/date-format';
 import { priorityColors } from '@/ui/lib/work-item-utils';
 import { Circle, Clock, AlertCircle, CheckCircle2, XCircle, ArrowUp, ArrowDown, ChevronsUpDown } from 'lucide-react';
 
@@ -211,10 +212,7 @@ export function ListView({ items, isLoading, project_id }: ListViewProps): React
                     </td>
                     <td className="px-4 py-3 text-sm text-muted-foreground">
                       {item.not_after
-                        ? new Date(item.not_after).toLocaleDateString(undefined, {
-                            month: 'short',
-                            day: 'numeric',
-                          })
+                        ? formatShortDate(new Date(item.not_after))
                         : '--'}
                     </td>
                   </tr>

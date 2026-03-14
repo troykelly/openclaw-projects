@@ -24,6 +24,7 @@ import { Button } from '@/ui/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/ui/components/ui/card';
 import { Plus, Search, FolderOpen, Calendar, Clock, Activity, ArrowRight, CheckCircle2, Circle, AlertTriangle, Loader2 } from 'lucide-react';
 import { AnalyticsSection } from '@/ui/components/analytics';
+import { formatDate as fmtDate, formatShortDate } from '@/ui/lib/date-format';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -52,7 +53,7 @@ function getGreeting(): string {
 
 /** Format today's date as a readable string. */
 function formatCurrentDate(): string {
-  return new Date().toLocaleDateString(undefined, {
+  return fmtDate(new Date(), undefined, {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
@@ -92,7 +93,7 @@ function formatRelativeTime(dateStr: string): string {
   if (diffHours < 24) return `${diffHours}h ago`;
   if (diffDays < 7) return `${diffDays}d ago`;
 
-  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  return formatShortDate(date);
 }
 
 /** Get a human-readable label for an activity action. */

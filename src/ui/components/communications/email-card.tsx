@@ -4,6 +4,7 @@ import { cn } from '@/ui/lib/utils';
 import { Button } from '@/ui/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/ui/components/ui/dropdown-menu';
 import type { LinkedEmail } from './types';
+import { formatDate, formatShortDate, formatTime } from '@/ui/lib/date-format';
 
 export interface EmailCardProps {
   email: LinkedEmail;
@@ -77,13 +78,13 @@ function formatEmailDate(date: Date): string {
   const days = Math.floor(diff / (1000 * 60 * 60 * 24));
 
   if (days === 0) {
-    return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    return formatTime(date);
   }
   if (days === 1) {
     return 'Yesterday';
   }
   if (days < 7) {
-    return date.toLocaleDateString([], { weekday: 'short' });
+    return formatDate(date, undefined, { weekday: 'short', year: undefined, month: undefined, day: undefined });
   }
-  return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  return formatShortDate(date);
 }

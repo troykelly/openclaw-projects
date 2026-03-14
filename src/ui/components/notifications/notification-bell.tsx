@@ -11,6 +11,7 @@ import { Button } from '@/ui/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/ui/components/ui/popover';
 import { ScrollArea } from '@/ui/components/ui/scroll-area';
 import { cn } from '@/ui/lib/utils';
+import { formatDate } from '@/ui/lib/date-format';
 import { useNotifications, useUnreadNotificationCount, useRealtimeNotificationInvalidation } from '@/ui/hooks/queries/use-notifications';
 import { useMarkNotificationRead, useMarkAllNotificationsRead, useDismissNotification } from '@/ui/hooks/mutations/use-notifications';
 import type { Notification as ApiNotification } from '@/ui/lib/api-types';
@@ -53,7 +54,7 @@ function formatTime(dateString: string): string {
   if (diffMins < 60) return `${diffMins}m ago`;
   if (diffHours < 24) return `${diffHours}h ago`;
   if (diffDays < 7) return `${diffDays}d ago`;
-  return date.toLocaleDateString();
+  return formatDate(date);
 }
 
 export function NotificationBell({ onNotificationClick }: NotificationBellProps): React.JSX.Element {

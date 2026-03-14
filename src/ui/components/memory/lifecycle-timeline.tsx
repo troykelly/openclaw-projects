@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { Plus, RefreshCw, ArrowRightLeft, Trash2 } from 'lucide-react';
 import { cn } from '@/ui/lib/utils';
+import { formatDateTime } from '@/ui/lib/date-format';
 import type { MemoryLifecycleEvent } from './types';
 
 export interface LifecycleTimelineProps {
@@ -40,7 +41,7 @@ export function LifecycleTimeline({ events, className }: LifecycleTimelineProps)
               <div className="flex-1">
                 <div className="font-medium">{config.label}</div>
                 <div className="text-xs text-muted-foreground">
-                  {event.timestamp.toLocaleString()}
+                  {formatDateTime(event.timestamp)}
                   {event.actor && (
                     <span> by <span className="font-medium">{event.actor}</span></span>
                   )}

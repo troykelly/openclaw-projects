@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/ui/components/ui/car
 import { ArrowLeftRight, Trash2 } from 'lucide-react';
 import { TunnelDirectionDiagram } from './tunnel-direction-diagram';
 import type { TerminalTunnel } from '@/ui/lib/api-types';
+import { formatDateTime } from '@/ui/lib/date-format';
 
 interface TunnelCardProps {
   tunnel: TerminalTunnel;
@@ -39,7 +40,7 @@ export function TunnelCard({ tunnel, onDelete }: TunnelCardProps): React.JSX.Ele
         )}
         <div className="flex items-center justify-between">
           <span className="text-xs text-muted-foreground">
-            Created {new Date(tunnel.created_at).toLocaleString()}
+            Created {formatDateTime(tunnel.created_at)}
           </span>
           {tunnel.status === 'active' && onDelete && (
             <Button size="sm" variant="ghost" className="text-red-500 h-7" onClick={() => onDelete(tunnel.id)}>

@@ -30,6 +30,7 @@ import { useTerminalHealth } from '@/ui/hooks/queries/use-terminal-health';
 import { useCreateTerminalSession } from '@/ui/hooks/queries/use-terminal-sessions';
 import { ApiRequestError } from '@/ui/lib/api-client';
 import type { TerminalConnection } from '@/ui/lib/api-types';
+import { formatDateTime } from '@/ui/lib/date-format';
 
 /** Extract a user-friendly error message from a mutation error. */
 function formatMutationError(error: unknown, fallback: string): string {
@@ -272,12 +273,12 @@ export function ConnectionDetailPage(): React.JSX.Element {
             {connection.notes && <p className="text-xs text-muted-foreground whitespace-pre-wrap">{connection.notes}</p>}
             <div className="flex justify-between">
               <span className="text-muted-foreground">Created</span>
-              <span className="text-xs">{new Date(connection.created_at).toLocaleString()}</span>
+              <span className="text-xs">{formatDateTime(connection.created_at)}</span>
             </div>
             {connection.last_connected_at && (
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Last Connected</span>
-                <span className="text-xs">{new Date(connection.last_connected_at).toLocaleString()}</span>
+                <span className="text-xs">{formatDateTime(connection.last_connected_at)}</span>
               </div>
             )}
           </CardContent>

@@ -8,6 +8,7 @@ import { Card, CardContent } from '@/ui/components/ui/card';
 import { Activity, Loader2 } from 'lucide-react';
 import { ActivityFilters } from '@/ui/components/terminal/activity-filters';
 import { useTerminalActivity } from '@/ui/hooks/queries/use-terminal-activity';
+import { formatDateTime } from '@/ui/lib/date-format';
 
 export function TerminalActivityPage(): React.JSX.Element {
   const [actionFilter, setActionFilter] = useState('all');
@@ -72,7 +73,7 @@ export function TerminalActivityPage(): React.JSX.Element {
                     )}
                   </div>
                   <span className="text-xs text-muted-foreground shrink-0">
-                    {new Date(item.created_at).toLocaleString()}
+                    {formatDateTime(item.created_at)}
                   </span>
                 </div>
               ))}

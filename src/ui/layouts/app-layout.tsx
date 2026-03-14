@@ -14,6 +14,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router';
 import { LoginForm } from '@/ui/components/auth/login-form';
 import { TimezoneBannerConnected } from '@/ui/components/timezone/TimezoneBannerConnected';
+import { TimezoneSync } from '@/ui/components/timezone/TimezoneSync';
 import { ChatBubble, ChatPanel } from '@/ui/components/chat';
 import { CommandPalette, type SearchResult } from '@/ui/components/command-palette';
 import { KeyboardShortcutsHandler } from '@/ui/components/keyboard-shortcuts-handler';
@@ -367,6 +368,7 @@ function AuthenticatedLayout(): React.JSX.Element {
         onHomeClick={() => navigate('/dashboard')}
         header={email ? <NotificationBell user_email={email} /> : undefined}
       >
+        <TimezoneSync />
         <TimezoneBannerConnected />
         <Outlet />
       </AppShell>

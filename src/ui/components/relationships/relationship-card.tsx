@@ -8,6 +8,7 @@ import { Button } from '@/ui/components/ui/button';
 import { cn } from '@/ui/lib/utils';
 import { RelationshipBadge } from './relationship-badge';
 import type { ContactRelationship, Contact } from './types';
+import { formatDate as fmtDate } from '@/ui/lib/date-format';
 
 export interface RelationshipCardProps {
   relationship: ContactRelationship;
@@ -19,7 +20,7 @@ export interface RelationshipCardProps {
 
 function formatDate(dateString: string): string {
   const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', {
+  return fmtDate(date, undefined, {
     month: 'short',
     day: 'numeric',
     year: 'numeric',

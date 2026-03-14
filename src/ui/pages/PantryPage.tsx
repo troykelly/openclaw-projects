@@ -22,6 +22,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/ui/components/ui/textarea';
 import { useNamespaceQueryKey } from '@/ui/hooks/use-namespace-query-key';
 import { apiClient } from '@/ui/lib/api-client';
+import { formatDate } from '@/ui/lib/date-format';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -264,7 +265,7 @@ export function PantryPage(): React.JSX.Element {
                       {item.use_by_date && (
                         <span className="flex items-center gap-1">
                           {(expiringSoon || expired) && <AlertTriangle className="size-3" data-testid={`expiry-warning-${item.id}`} />}
-                          Use by: {new Date(item.use_by_date).toLocaleDateString()}
+                          Use by: {formatDate(item.use_by_date)}
                         </span>
                       )}
                     </div>

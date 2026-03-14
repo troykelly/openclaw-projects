@@ -17,6 +17,7 @@ import { Badge } from '@/ui/components/ui/badge';
 import { Card, CardContent } from '@/ui/components/ui/card';
 import { ScrollArea } from '@/ui/components/ui/scroll-area';
 import { Plus, ArrowUpCircle, MessageSquare, UserPlus, Brain, Mail, Bot, Settings, Activity, Filter, RefreshCw } from 'lucide-react';
+import { formatDate, formatTime } from '@/ui/lib/date-format';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -154,11 +155,7 @@ function formatDayLabel(date: Date): string {
   if (itemDay.getTime() === today.getTime()) return 'Today';
   if (itemDay.getTime() === yesterday.getTime()) return 'Yesterday';
 
-  return date.toLocaleDateString(undefined, {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-  });
+  return formatDate(date, undefined, { weekday: 'long', month: 'long', day: 'numeric', year: undefined });
 }
 
 /** Format a relative or absolute time. */
@@ -172,7 +169,7 @@ function formatTimestamp(date: Date): string {
   if (diffMins < 60) return `${diffMins}m ago`;
   if (diffHours < 24) return `${diffHours}h ago`;
 
-  return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  return formatTime(date);
 }
 
 /** Get a day key for grouping (YYYY-MM-DD). */

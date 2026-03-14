@@ -7,6 +7,7 @@ import { Button } from '@/ui/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/ui/components/ui/card';
 import { Shield, Trash2, Eye } from 'lucide-react';
 import type { TerminalKnownHost } from '@/ui/lib/api-types';
+import { formatDate } from '@/ui/lib/date-format';
 
 interface KnownHostCardProps {
   knownHost: TerminalKnownHost;
@@ -31,7 +32,7 @@ export function KnownHostCard({ knownHost, onDelete, onVerify }: KnownHostCardPr
         </div>
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <span>
-            Trusted {new Date(knownHost.trusted_at).toLocaleDateString()}
+            Trusted {formatDate(knownHost.trusted_at)}
             {knownHost.trusted_by && ` by ${knownHost.trusted_by}`}
           </span>
           <div className="flex items-center gap-1">

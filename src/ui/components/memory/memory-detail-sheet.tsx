@@ -10,6 +10,7 @@ import { MemoryTtlBadge } from './memory-ttl-badge';
 import { SupersessionChain } from './supersession-chain';
 import { LifecycleTimeline } from './lifecycle-timeline';
 import type { MemoryItem, MemoryLifecycleEvent, SupersessionNode } from './types';
+import { formatDate, formatDateTime } from '@/ui/lib/date-format';
 
 function getLinkedItemIcon(kind: MemoryItem['linked_item_kind']) {
   switch (kind) {
@@ -40,7 +41,7 @@ function formatTtlDetail(expiresAt: string): { expiryText: string; countdownText
   const diffMs = expiry - now;
   const isExpired = diffMs <= 0;
 
-  const expiryText = new Date(expiresAt).toLocaleString();
+  const expiryText = formatDateTime(expiresAt);
 
   if (isExpired) {
     const agoMs = Math.abs(diffMs);
@@ -184,12 +185,12 @@ export function MemoryDetailSheet({
 
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Calendar className="size-4" />
-                <span>Created: {memory.created_at.toLocaleDateString()}</span>
+                <span>Created: {formatDate(new Date(memory.created_at))}</span>
               </div>
 
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Calendar className="size-4" />
-                <span>Updated: {memory.updated_at.toLocaleDateString()}</span>
+                <span>Updated: {formatDate(new Date(memory.updated_at))}</span>
               </div>
             </div>
 

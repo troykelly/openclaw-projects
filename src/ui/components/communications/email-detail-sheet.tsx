@@ -6,6 +6,7 @@ import { ScrollArea } from '@/ui/components/ui/scroll-area';
 import { Separator } from '@/ui/components/ui/separator';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/ui/components/ui/sheet';
 import type { LinkedEmail } from './types';
+import { formatDate, formatTime } from '@/ui/lib/date-format';
 
 export interface EmailDetailSheetProps {
   email: LinkedEmail | null;
@@ -65,14 +66,14 @@ export function EmailDetailSheet({ email, open, onOpenChange, onUnlink }: EmailD
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Calendar className="size-4" />
                 <span>
-                  {email.date.toLocaleDateString([], {
+                  {formatDate(email.date, undefined, {
                     weekday: 'long',
                     year: 'numeric',
                     month: 'long',
                     day: 'numeric',
                   })}{' '}
                   at{' '}
-                  {email.date.toLocaleTimeString([], {
+                  {formatTime(email.date, undefined, {
                     hour: 'numeric',
                     minute: '2-digit',
                   })}

@@ -21,6 +21,7 @@ import {
 } from '@/ui/hooks/queries/use-terminal-credentials';
 import { useTerminalConnections } from '@/ui/hooks/queries/use-terminal-connections';
 import type { TerminalKeyPairResponse } from '@/ui/lib/api-types';
+import { formatDate } from '@/ui/lib/date-format';
 
 export function CredentialsPage(): React.JSX.Element {
   const [createOpen, setCreateOpen] = useState(false);
@@ -94,7 +95,7 @@ export function CredentialsPage(): React.JSX.Element {
                   </p>
                 )}
                 <p className="text-xs text-muted-foreground">
-                  Created {new Date(cred.created_at).toLocaleDateString()}
+                  Created {formatDate(cred.created_at)}
                 </p>
                 {selectedCredentialId === cred.id && (
                   <div className="pt-2 border-t border-border">

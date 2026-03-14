@@ -7,6 +7,7 @@ import * as React from 'react';
 import { Badge } from '@/ui/components/ui/badge';
 import { Terminal as TerminalIcon, FileText, MessageSquare, AlertCircle, Monitor } from 'lucide-react';
 import type { TerminalSessionEntry } from '@/ui/lib/api-types';
+import { formatTime } from '@/ui/lib/date-format';
 
 interface EntryTimelineProps {
   entries: TerminalSessionEntry[];
@@ -50,7 +51,7 @@ export function EntryTimeline({ entries }: EntryTimelineProps): React.JSX.Elemen
               <div className="flex items-center gap-2 mb-1">
                 <Badge variant="outline" className="text-[10px]">{config.label}</Badge>
                 <span className="text-[10px] text-muted-foreground">
-                  {new Date(entry.captured_at).toLocaleTimeString()}
+                  {formatTime(entry.captured_at)}
                 </span>
               </div>
               <pre className="text-xs font-mono whitespace-pre-wrap break-words text-foreground/80 bg-muted/30 rounded p-2 max-h-48 overflow-y-auto">

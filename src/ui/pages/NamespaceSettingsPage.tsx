@@ -21,6 +21,7 @@ import { Label } from '@/ui/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/components/ui/select';
 import { useCreateNamespace, useInviteMember, useRemoveGrant, useUpdateGrant } from '@/ui/hooks/mutations/use-namespace-mutations';
 import { useNamespaceDetail, useNamespaceList } from '@/ui/hooks/queries/use-namespaces';
+import { formatDate } from '@/ui/lib/date-format';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -374,7 +375,7 @@ function NamespaceDetailView({ ns }: { ns: string }) {
                           </Badge>
                         )}
                       </div>
-                      <p className="text-xs text-muted-foreground">Joined {new Date(member.created_at).toLocaleDateString()}</p>
+                      <p className="text-xs text-muted-foreground">Joined {formatDate(member.created_at)}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">

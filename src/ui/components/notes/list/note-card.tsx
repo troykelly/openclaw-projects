@@ -11,6 +11,7 @@ import { Button } from '@/ui/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/ui/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/ui/components/ui/tooltip';
 import type { Note } from '../types';
+import { formatDate } from '@/ui/lib/date-format';
 
 function getVisibilityIcon(visibility: Note['visibility']) {
   switch (visibility) {
@@ -190,7 +191,7 @@ export function NoteCard({ note, onClick, onEdit, onDelete, onShare, onTogglePin
           )}
         </div>
 
-        <span>{note.updated_at.toLocaleDateString()}</span>
+        <span>{formatDate(new Date(note.updated_at))}</span>
       </div>
 
       {/* Tags */}

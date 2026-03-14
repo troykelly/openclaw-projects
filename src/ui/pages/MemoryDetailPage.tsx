@@ -44,6 +44,7 @@ import {
   useSimilarMemories,
 } from '@/ui/hooks/queries/use-memories';
 import type { Memory, MemoryAttachment } from '@/ui/lib/api-types';
+import { formatDateTime } from '@/ui/lib/date-format';
 import { NamespaceBadge } from '@/ui/components/namespace';
 
 /** Get icon for a memory type. */
@@ -100,13 +101,7 @@ function getTypeBadgeClass(type: string | undefined): string {
 
 /** Format a date string for display. */
 function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  return formatDateTime(dateStr);
 }
 
 /** Format file size for display. */
