@@ -33,6 +33,7 @@ describe('TimezoneMismatchBanner', () => {
     expect(screen.getByText('Your device timezone has changed')).toBeInTheDocument();
     expect(screen.getByText(/Your account is set to America \/ New York/)).toBeInTheDocument();
     expect(screen.getByText(/your device reports Europe \/ London/)).toBeInTheDocument();
+    expect(screen.getByText(/Keeping your timezone up to date ensures accurate date display and scheduling/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Update to Europe \/ London/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Keep America \/ New York/i })).toBeInTheDocument();
   });

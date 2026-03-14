@@ -104,7 +104,7 @@ export function TimezoneMismatchBanner({
         </h2>
         <p className="mt-1 text-sm text-amber-800 dark:text-amber-200">
           Your account is set to {displayStored} but your device reports {displayBrowser}.
-          Updating will affect how reminders, quiet hours, and dates are shown across the app.
+          Keeping your timezone up to date ensures accurate date display and scheduling as features roll out.
         </p>
 
         {error && (
