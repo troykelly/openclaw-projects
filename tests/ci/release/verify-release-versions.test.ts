@@ -308,6 +308,70 @@ describe('check-version-consistency.sh (Phase 1 script)', () => {
   });
 });
 
+describe('Documentation version verification', () => {
+  let tempDir: string;
+
+  beforeEach(() => {
+    tempDir = createTempDir();
+  });
+
+  afterEach(() => {
+    rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  it('should warn when docs/deployment.md references :latest for project images', () => {
+    const version = '0.0.60';
+    // Set up a minimal fixture with docs
+    createComposeFile(tempDir, 'docker-compose.yml', version);
+    createComposeFile(tempDir, 'docker-compose.traefik.yml', version);
+    createComposeFile(tempDir, 'docker-compose.quickstart.yml', version);
+    createComposeFile(tempDir, 'docker-compose.full.yml', version);
+    createPackageJson(tempDir, version);
+    createPackageJson(tempDir, version, 'packages/openclaw-plugin');
+    createPluginJson(tempDir, version);
+
+    // Create docs with :latest references
+    mkdirSync(join(tempDir, 'docs'), { recursive: true });
+    writeFileSync(join(tempDir, 'docs/deployment.md'), [
+      '# Deployment',
+      `| \`${IMAGE_PREFIX}db:latest\` | PostgreSQL |`,
+      `| \`${IMAGE_PREFIX}api:latest\` | API |`,
+    ].join('\n'));
+
+    mkdirSync(join(tempDir, 'scripts'), { recursive: true });
+    copyFileSync(VERIFY_SCRIPT, join(tempDir, 'scripts/verify-release-versions.sh'));
+
+    const result = runVerifyScript(['--version', version, '--mode', 'release'], tempDir);
+    // The script currently warns but doesn't fail on docs — this is tracked by #2531
+    expect(result.stdout).toContain('WARN');
+  });
+
+  it('should pass docs check when no :latest references exist', () => {
+    const version = '0.0.60';
+    createComposeFile(tempDir, 'docker-compose.yml', version);
+    createComposeFile(tempDir, 'docker-compose.traefik.yml', version);
+    createComposeFile(tempDir, 'docker-compose.quickstart.yml', version);
+    createComposeFile(tempDir, 'docker-compose.full.yml', version);
+    createPackageJson(tempDir, version);
+    createPackageJson(tempDir, version, 'packages/openclaw-plugin');
+    createPluginJson(tempDir, version);
+
+    // Create docs without :latest references
+    mkdirSync(join(tempDir, 'docs'), { recursive: true });
+    writeFileSync(join(tempDir, 'docs/deployment.md'), [
+      '# Deployment',
+      'Use docker compose to deploy.',
+    ].join('\n'));
+
+    mkdirSync(join(tempDir, 'scripts'), { recursive: true });
+    copyFileSync(VERIFY_SCRIPT, join(tempDir, 'scripts/verify-release-versions.sh'));
+
+    const result = runVerifyScript(['--version', version, '--mode', 'release'], tempDir);
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('PASSED');
+  });
+});
+
 describe('Verification script integration with compose files', () => {
   let tempDir: string;
 

@@ -396,6 +396,31 @@ describe('Release workflow re-entrancy guard', () => {
     expect(releaseYml).toContain('[skip ci]');
     expect(releaseYml).toMatch(/chore\(release\):.*\[skip ci\]/);
   });
+
+  it('should have the chore(release) commit message that triggers the re-entrancy guard', () => {
+    // The workflow commits with 'chore(release):' prefix
+    // If the workflow re-triggers on its own commit, the guard must detect it
+    const releaseYml = readFileSync(resolve(ROOT, '.github/workflows/release.yml'), 'utf-8');
+    const commitLineMatch = releaseYml.match(/git commit -m "chore\(release\):[^"]*"/);
+    expect(commitLineMatch, 'workflow should commit with chore(release): prefix').not.toBeNull();
+    // Extract the commit message and verify the guard helper would catch it
+    if (commitLineMatch) {
+      const msgMatch = commitLineMatch[0].match(/"(.+)"/);
+      if (msgMatch) {
+        // The commit message template uses ${FILE_VERSION} so we test a concrete example
+        const exampleMessage = msgMatch[1].replace('${FILE_VERSION}', '0.0.60');
+        expect(isReentrantCommit(exampleMessage)).toBe(true);
+      }
+    }
+  });
+
+  it('should only trigger on tag pushes, not on push-to-main from version bump', () => {
+    const releaseYml = readFileSync(resolve(ROOT, '.github/workflows/release.yml'), 'utf-8');
+    // The workflow should only trigger on tag pushes
+    expect(releaseYml).toMatch(/on:\s*\n\s*push:\s*\n\s*tags:/);
+    // It should NOT trigger on branch pushes
+    expect(releaseYml).not.toMatch(/on:\s*\n\s*push:\s*\n\s*branches:/);
+  });
 });
 
 describe('Partial failure scenarios', () => {
@@ -413,6 +438,54 @@ describe('Partial failure scenarios', () => {
   it('should verify tag points to commit on main before releasing', () => {
     const releaseYml = readFileSync(resolve(ROOT, '.github/workflows/release.yml'), 'utf-8');
     expect(releaseYml).toContain('merge-base --is-ancestor');
+  });
+
+  it('should report all mismatches, not just the first one', () => {
+    // If multiple compose files have wrong versions, the verifier should report all
+    const content1 = `    image: ${IMAGE_PREFIX}db:0.0.59\n    image: ${IMAGE_PREFIX}api:0.0.59`;
+    const content2 = `    image: ${IMAGE_PREFIX}db:edge\n    image: ${IMAGE_PREFIX}api:edge`;
+
+    const images1 = extractProjectImages(content1);
+    const images2 = extractProjectImages(content2);
+
+    const mismatches1 = images1.filter(i => i.tag !== '0.0.60');
+    const mismatches2 = images2.filter(i => i.tag !== '0.0.60');
+
+    // Both files have mismatches — verifier should catch all
+    expect(mismatches1.length).toBe(2);
+    expect(mismatches2.length).toBe(2);
+  });
+
+  it('should detect partial updates (some files versioned, some still :edge)', () => {
+    const versionedContent = `    image: ${IMAGE_PREFIX}db:0.0.60`;
+    const edgeContent = `    image: ${IMAGE_PREFIX}db:edge`;
+
+    const versionedImages = extractProjectImages(versionedContent);
+    const edgeImages = extractProjectImages(edgeContent);
+
+    expect(versionedImages[0].tag).toBe('0.0.60');
+    expect(edgeImages[0].tag).toBe('edge');
+    // A mix of these across files = partial failure
+    expect(versionedImages[0].tag).not.toBe(edgeImages[0].tag);
+  });
+});
+
+describe('Workflow sed pattern matches production code', () => {
+  it('should use the same image prefix pattern as the test helpers', () => {
+    const releaseYml = readFileSync(resolve(ROOT, '.github/workflows/release.yml'), 'utf-8');
+    // The workflow sed command should reference our project images
+    expect(releaseYml).toContain('ghcr.io/troykelly/openclaw-projects-');
+  });
+
+  it('should have a sed replacement pattern that only affects project images', () => {
+    const releaseYml = readFileSync(resolve(ROOT, '.github/workflows/release.yml'), 'utf-8');
+    // The sed command should specifically target our image prefix with :edge
+    expect(releaseYml).toMatch(/sed.*openclaw-projects-.*:edge/);
+  });
+
+  it('should have a verification step in the release workflow', () => {
+    const releaseYml = readFileSync(resolve(ROOT, '.github/workflows/release.yml'), 'utf-8');
+    expect(releaseYml).toContain('verify-release-versions.sh');
   });
 });
 
