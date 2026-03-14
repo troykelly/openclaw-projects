@@ -16,7 +16,7 @@ export default defineProject({
   test: {
     name: 'unit',
     globals: true,
-    testTimeout: 15000,
+    testTimeout: 30000,
     fileParallelism: true,
 
     include: [

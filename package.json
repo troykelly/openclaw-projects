@@ -16,7 +16,7 @@
     "test:e2e:auth": "RUN_E2E=true vitest run --config vitest.config.e2e-auth.ts",
     "test:gateway": "vitest run packages/openclaw-plugin/tests/gateway",
     "test:playwright": "pnpm run css:build && pnpm run app:build && playwright test",
-    "test:clean": "bash scripts/reset-test-db.sh && pnpm test:unit && pnpm test:integration",
+    "test:clean": "bash scripts/reset-test-db.sh && pnpm test:unit && pnpm test:integration && pnpm test:docker",
     "test:full": "bash scripts/test-full.sh",
     "test:e2e:setup": "./scripts/check-e2e-ports.sh && docker compose -f docker-compose.test.yml up -d && ./scripts/wait-for-services.sh",
     "test:e2e:teardown": "docker compose -f docker-compose.test.yml down -v",
