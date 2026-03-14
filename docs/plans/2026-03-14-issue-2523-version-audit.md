@@ -4,7 +4,7 @@ Part of Epic #2522: Correctly update compose files and docs in tagged version re
 
 ## Summary
 
-This audit catalogs every file in the repository that contains version references, image tags, or version-dependent content. It establishes ground truth for what the release workflow must update and what it must leave alone.
+This audit catalogs all **release-relevant** files in the repository that contain version references, image tags, or version-dependent content. It establishes ground truth for what the release workflow must update and what it must leave alone. Files outside the release scope (e.g., example projects, historical plan docs) are excluded unless they could cause user confusion.
 
 **Current release version**: `0.0.60`
 **Current image tag on main**: `:edge`
@@ -126,7 +126,12 @@ These files contain `:edge` image tags that must be replaced with the release ve
 15. `ops/README.md` — generic reference, no specific version
 16. `docker/traefik/examples/` — third-party images only
 17. `docs/plans/` — historical plan documents
-18. `tests/` — test assertions about image naming patterns
+18. `examples/cloudflare-email-worker/package.json` — independent example, own version
+
+### Test Guardrails (should remain aligned but not auto-updated)
+
+19. `tests/workflows/release.test.ts` — validates release workflow structure; changes to the release flow (issues #2524-#2528) will require corresponding test updates
+20. `tests/docker/basic-compose.test.ts` — validates compose file image naming patterns
 
 ---
 
@@ -180,7 +185,8 @@ sequenceDiagram
     Test->>Test: Full test suite (unit + integration + E2E)
 
     Test->>NPM: Tests passed
-    NPM->>NPM: Publish to npmjs.org + GitHub Packages
+    NPM->>NPM: Publish to npmjs.org
+    Note over NPM: Separate publish-github-packages job runs in parallel
 
     Test->>Cont: Tests passed
     Cont->>Cont: Build 9 container images
@@ -188,6 +194,7 @@ sequenceDiagram
     Note over Cont: Tags: X.Y.Z, X.Y, X, latest, sha
 
     NPM->>Rel: npm published
+    Note over Rel: Also waits on publish-github-packages
     Cont->>Rel: containers published
 
     Rel->>Rel: Generate versioned compose files
@@ -221,14 +228,14 @@ sequenceDiagram
 
 A test script has been created at `scripts/check-version-consistency.sh` that:
 
-- When `VERSION` is set: fails if any production compose file contains `:edge` references
+- When `VERSION` is set: fails if any production compose file contains image tags not matching `:VERSION` (positive match, not just absence of `:edge`)
 - When `VERSION` is not set: validates all production compose files consistently use `:edge`
 - Verifies excluded files (devcontainer, test) do not use published image tags
 - Reports image coverage across all compose files
 
 Current behavior on main (expected):
 - Without `VERSION`: **PASSES** (all compose files use `:edge`)
-- With `VERSION=0.0.60`: **FAILS** (compose files still have `:edge` — this is the bug)
+- With `VERSION=0.0.60`: **FAILS** (compose files have `:edge` instead of `:0.0.60` — this is the bug)
 
 This script will be integrated into CI verification per issue #2528.
 

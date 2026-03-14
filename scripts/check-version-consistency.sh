@@ -48,18 +48,19 @@ if [ -n "${VERSION:-}" ]; then
   for file in "${PROD_COMPOSE_FILES[@]}"; do
     filepath="${REPO_ROOT}/${file}"
     if [ ! -f "${filepath}" ]; then
-      echo "WARNING: ${file} not found"
+      echo "FAIL: ${file} not found (required production compose file)"
+      ERRORS=$((ERRORS + 1))
       continue
     fi
 
-    # Find any project image references with :edge tag
-    edge_refs=$(grep -n "${IMAGE_PREFIX}[^:]*:edge" "${filepath}" || true)
-    if [ -n "${edge_refs}" ]; then
-      echo "FAIL: ${file} contains :edge references when VERSION=${VERSION} is set:"
-      echo "${edge_refs}"
+    # Positive check: every project image tag must equal VERSION
+    wrong_version_refs=$(grep -n "${IMAGE_PREFIX}" "${filepath}" | grep -v ":${VERSION}" || true)
+    if [ -n "${wrong_version_refs}" ]; then
+      echo "FAIL: ${file} contains project images not pinned to :${VERSION}:"
+      echo "${wrong_version_refs}"
       ERRORS=$((ERRORS + 1))
     else
-      echo "PASS: ${file} — no :edge references"
+      echo "PASS: ${file} — all project images pinned to :${VERSION}"
     fi
   done
 else
@@ -70,7 +71,8 @@ else
   for file in "${PROD_COMPOSE_FILES[@]}"; do
     filepath="${REPO_ROOT}/${file}"
     if [ ! -f "${filepath}" ]; then
-      echo "WARNING: ${file} not found"
+      echo "FAIL: ${file} not found (required production compose file)"
+      ERRORS=$((ERRORS + 1))
       continue
     fi
 
@@ -99,8 +101,9 @@ for file in "${EXCLUDED_FILES[@]}"; do
   # Excluded files should use build context, not published images
   published_refs=$(grep -n "${IMAGE_PREFIX}" "${filepath}" || true)
   if [ -n "${published_refs}" ]; then
-    echo "INFO: ${file} references published images (expected: build context)"
+    echo "FAIL: ${file} references published images (expected: build context only)"
     echo "${published_refs}"
+    ERRORS=$((ERRORS + 1))
   else
     echo "PASS: ${file} — uses build context (no published image references)"
   fi
