@@ -192,7 +192,7 @@ export function createPluginLogger(hostLogger: PluginLogger, component?: string)
     info: (msg, data?) => hostLogger.info(format(msg, data)),
     warn: (msg, data?) => hostLogger.warn(format(msg, data)),
     error: (msg, data?) => hostLogger.error(format(msg, data)),
-    debug: (msg, data?) => hostLogger.debug?.(format(msg, data)),
+    debug: (msg, data?) => { if (hostLogger.debug) hostLogger.debug(format(msg, data)); },
     child: (comp) => {
       if (depth >= MAX_CHILD_DEPTH) {
         // Return a logger at the current depth — do not nest further
@@ -212,9 +212,13 @@ export function createPluginLogger(hostLogger: PluginLogger, component?: string)
  */
 export function createFallbackLogger(): PluginLogger {
   return {
+    // biome-ignore lint/suspicious/noConsole: fallback logger — no host logger available
     info: (msg) => console.info(msg),
+    // biome-ignore lint/suspicious/noConsole: fallback logger — no host logger available
     warn: (msg) => console.warn(msg),
+    // biome-ignore lint/suspicious/noConsole: fallback logger — no host logger available
     error: (msg) => console.error(msg),
+    // biome-ignore lint/suspicious/noConsole: fallback logger — no host logger available
     debug: (msg) => console.debug(msg),
   };
 }

@@ -239,8 +239,7 @@ export function toAgentToolResult(result: ToolResult): AgentToolResult {
     if (moduleLogger) {
       moduleLogger.error(validationMsg);
     } else {
-      // eslint-disable-next-line no-console -- fallback before logger is initialized
-      console.error(`[openclaw-projects] ${validationMsg}`);
+      createPluginLogger(createFallbackLogger()).error(validationMsg);
     }
     return {
       content: [{ type: 'text' as const, text: '(invalid tool result)' }],
@@ -6317,15 +6316,15 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
         try {
           const response = await apiClient.get('/health', { user_id: state.agentId, user_email: state.agentEmail });
           if (response.success) {
-            // eslint-disable-next-line no-console -- CLI output
+            // biome-ignore lint/suspicious/noConsole: CLI user-facing output
             console.log('Plugin Status: Connected');
           } else {
-            // eslint-disable-next-line no-console -- CLI output
+            // biome-ignore lint/suspicious/noConsole: CLI user-facing output
             console.error(`Plugin Status: Error - ${response.error.message}`);
           }
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
-          // eslint-disable-next-line no-console -- CLI output
+          // biome-ignore lint/suspicious/noConsole: CLI user-facing output
           console.error(`Plugin Status: Error - Unable to connect: ${message}`);
         }
       });
@@ -6341,10 +6340,10 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
           limit: options.limit ? Number.parseInt(options.limit, 10) : 5,
         });
         if (result.success && result.data) {
-          // eslint-disable-next-line no-console -- CLI output
+          // biome-ignore lint/suspicious/noConsole: CLI user-facing output
           console.log(result.data.content);
         } else {
-          // eslint-disable-next-line no-console -- CLI output
+          // biome-ignore lint/suspicious/noConsole: CLI user-facing output
           console.error('Error:', result.error);
         }
       });

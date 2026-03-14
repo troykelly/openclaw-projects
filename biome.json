@@ -103,11 +103,22 @@
   },
   "overrides": [
     {
+      "includes": ["packages/openclaw-plugin/src/**"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noConsole": "warn"
+          }
+        }
+      }
+    },
+    {
       "includes": ["**/tests/**", "**/*.test.ts"],
       "linter": {
         "rules": {
           "suspicious": {
-            "noExplicitAny": "off"
+            "noExplicitAny": "off",
+            "noConsole": "off"
           },
           "style": {
             "noNonNullAssertion": "off"

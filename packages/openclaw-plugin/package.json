@@ -28,6 +28,7 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "lint": "biome lint .",
+    "lint:no-manual-prefix": "! grep -rn --include='*.ts' -E '\\[(openclaw-projects|plugins)\\]' src/ --exclude='logger.ts' --exclude='startup.ts' | grep -v 'biome-ignore' | grep -v '// eslint-disable' | grep -qv '^$'",
     "prepublishOnly": "pnpm run clean && pnpm run build && pnpm run test && pnpm run typecheck && pnpm run lint"
   },
   "repository": {
