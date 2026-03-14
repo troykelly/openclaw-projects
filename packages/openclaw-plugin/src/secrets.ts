@@ -18,6 +18,7 @@ import { execSync } from 'node:child_process';
 import { readFileSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { createPluginLogger, createFallbackLogger, type Logger } from './logger.js';
 
 /** Default timeout for command execution in milliseconds */
 const DEFAULT_COMMAND_TIMEOUT = 5000;
@@ -55,22 +56,27 @@ function expandTilde(filePath: string): string {
   return filePath;
 }
 
+/** Fallback logger for secrets module when no logger is threaded from caller. */
+const secretsLogger = createPluginLogger(createFallbackLogger(), 'secrets');
+
 /**
  * Checks file permissions and warns if world-readable.
  */
-function checkFilePermissions(filePath: string): void {
+function checkFilePermissions(filePath: string, logger: Logger = secretsLogger): void {
   try {
     const stats = statSync(filePath);
     const mode = stats.mode & 0o777;
     if (mode & 0o004) {
-      console.warn(
-        `[Secrets] Warning: Secret file ${filePath} is world-readable (mode ${mode.toString(8)}). ` +
+      logger.warn(
+        `Secret file ${filePath} is world-readable (mode ${mode.toString(8)}). ` +
           'Consider restricting permissions with: chmod 600 ' +
           filePath,
       );
     }
   } catch (error) {
-    console.warn(`[Secrets] Could not check permissions for ${filePath}: ${(error as Error).message}`);
+    logger.warn(`Could not check permissions for ${filePath}`, {
+      error: (error as Error).message,
+    });
   }
 }
 
@@ -107,10 +113,10 @@ function resolveFromCommand(command: string, timeout: number): string {
 /**
  * Resolves a secret from a file.
  */
-function resolveFromFile(filePath: string): string {
+function resolveFromFile(filePath: string, logger?: Logger): string {
   const expandedPath = expandTilde(filePath);
 
-  checkFilePermissions(expandedPath);
+  checkFilePermissions(expandedPath, logger);
 
   try {
     const content = readFileSync(expandedPath, 'utf-8');
@@ -134,9 +140,10 @@ function resolveFromFile(filePath: string): string {
  *
  * @param config - Secret configuration
  * @param cacheKey - Optional key to cache the resolved secret
+ * @param logger - Optional logger for diagnostics (defaults to fallback)
  * @returns The resolved secret, or undefined if not configured
  */
-export async function resolveSecret(config: SecretConfig, cacheKey?: string): Promise<string | undefined> {
+export async function resolveSecret(config: SecretConfig, cacheKey?: string, logger?: Logger): Promise<string | undefined> {
   // Check cache first
   if (cacheKey && secretCache.has(cacheKey)) {
     return secretCache.get(cacheKey);
@@ -151,7 +158,7 @@ export async function resolveSecret(config: SecretConfig, cacheKey?: string): Pr
   }
   // Priority 2: File
   else if (config.file?.trim()) {
-    resolved = resolveFromFile(config.file);
+    resolved = resolveFromFile(config.file, logger);
   }
   // Priority 3: Direct
   else if (config.direct !== undefined) {
@@ -176,9 +183,10 @@ export async function resolveSecret(config: SecretConfig, cacheKey?: string): Pr
  *
  * @param config - Secret configuration
  * @param cacheKey - Optional key to cache the resolved secret
+ * @param logger - Optional logger for diagnostics (defaults to fallback)
  * @returns The resolved secret, or undefined if not configured
  */
-export function resolveSecretSync(config: SecretConfig, cacheKey?: string): string | undefined {
+export function resolveSecretSync(config: SecretConfig, cacheKey?: string, logger?: Logger): string | undefined {
   // Check cache first
   if (cacheKey && secretCache.has(cacheKey)) {
     return secretCache.get(cacheKey);
@@ -193,7 +201,7 @@ export function resolveSecretSync(config: SecretConfig, cacheKey?: string): stri
   }
   // Priority 2: File
   else if (config.file?.trim()) {
-    resolved = resolveFromFile(config.file);
+    resolved = resolveFromFile(config.file, logger);
   }
   // Priority 3: Direct
   else if (config.direct !== undefined) {
