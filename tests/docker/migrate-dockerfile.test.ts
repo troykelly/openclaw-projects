@@ -25,6 +25,26 @@ const canRunDocker = (() => {
 })();
 
 /**
+ * Check if Docker container stdout is capturable from Node.js.
+ * In some Docker-in-Docker / socket-forwarding setups (e.g. devcontainers),
+ * docker run exits 0 but produces empty stdout through execSync/spawnSync.
+ * Tests that assert on container output must be skipped in these environments.
+ * See #2554.
+ */
+const canCaptureDockerOutput = (() => {
+  if (!canRunDocker) return false;
+  try {
+    const result = spawnSync(
+      'docker', ['run', '--rm', 'alpine', 'echo', 'docker-stdout-test'],
+      { encoding: 'utf-8', timeout: 30000 },
+    );
+    return result.stdout.includes('docker-stdout-test');
+  } catch {
+    return false;
+  }
+})();
+
+/**
  * Check if buildx supports a given platform
  */
 function canBuildPlatform(platform: string): boolean {
@@ -161,14 +181,14 @@ describe('Migrate Dockerfile hardening', () => {
       expect(output).not.toMatch(/uid=0\(root\)/);
     });
 
-    it.skipIf(!canRunDocker)('migrations directory is present', () => {
+    it.skipIf(!canCaptureDockerOutput)('migrations directory is present', () => {
       const result = spawnSync('docker', ['run', '--rm', '--entrypoint', 'ls', IMAGE_NAME, '-la', '/migrations'], { encoding: 'utf-8' });
 
       expect(result.status).toBe(0);
       expect(result.stdout).toContain('001_init.up.sql');
     });
 
-    it.skipIf(!canRunDocker)('migrate binary is executable', () => {
+    it.skipIf(!canCaptureDockerOutput)('migrate binary is executable', () => {
       const result = spawnSync('docker', ['run', '--rm', IMAGE_NAME, '--version'], { encoding: 'utf-8' });
 
       // migrate tool should output version info

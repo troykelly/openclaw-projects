@@ -26,6 +26,7 @@ export default defineConfig({
   test: {
     projects: [
       "vitest.config.unit.ts",
+      "vitest.config.docker.ts",
       "vitest.config.integration.ts",
     ],
   },

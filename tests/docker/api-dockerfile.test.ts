@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from 'vitest';
-import { execSync } from 'child_process';
+import { execSync, spawnSync } from 'child_process';
 import { readFileSync, existsSync } from 'fs';
 import { resolve } from 'path';
 
@@ -15,10 +15,26 @@ const DOCKERIGNORE_PATH = resolve(ROOT_DIR, 'docker/api/.dockerignore');
 const canRunDocker = (() => {
   try {
     execSync('docker info', { stdio: 'ignore' });
-    // Verify credential helper works by attempting an image pull.
-    // hello-world is tiny and validates registry auth works end-to-end.
     execSync('docker pull hello-world', { stdio: 'ignore', timeout: 30000 });
     return true;
+  } catch {
+    return false;
+  }
+})();
+
+/**
+ * Check if Docker container stdout is capturable from Node.js.
+ * In Docker-in-Docker / socket-forwarding setups (e.g. devcontainers),
+ * docker run exits 0 but produces empty stdout. See #2554.
+ */
+const canCaptureDockerOutput = (() => {
+  if (!canRunDocker) return false;
+  try {
+    const result = spawnSync(
+      'docker', ['run', '--rm', 'alpine', 'echo', 'docker-stdout-test'],
+      { encoding: 'utf-8', timeout: 30000 },
+    );
+    return result.stdout.includes('docker-stdout-test');
   } catch {
     return false;
   }
@@ -156,7 +172,7 @@ describe('API Docker image build and runtime', () => {
     expect(result).toBeTruthy();
   });
 
-  it.skipIf(!canRunDocker)('runs as non-root user (UID 1000)', () => {
+  it.skipIf(!canCaptureDockerOutput)('runs as non-root user (UID 1000)', () => {
     const result = execSync(`docker run --rm ${IMAGE_NAME} id -u`, { cwd: ROOT_DIR, encoding: 'utf-8' });
     expect(result.trim()).toBe('1000');
   });
