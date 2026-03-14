@@ -22,9 +22,11 @@ Epic: #2509
 |---------|-----------------|--------|
 | Frontend date rendering | Browser timezone via `toLocaleString()` | Dates may differ from stored preference |
 | Bootstrap `due_today` | PostgreSQL `CURRENT_DATE` (server TZ) | Incorrect "due today" for non-UTC users |
-| Note export (PDF/DOCX) | Server timezone (UTC) | Exported dates always in UTC |
+| Note export metadata | API returns ISO timestamps | Export record dates in UTC (generators don't embed dates in documents) |
 | Email digest scheduling | Not implemented | N/A until built |
 | Reminders / `not_before` | UTC `timestamptz` — correct server-side | UI should display in user timezone |
+| Agent context service | `toISOString().split('T')[0]` for due dates | Agent sees UTC day, may shift for non-UTC users |
+| Webhook payloads | UTC ISO timestamps in reminder/nudge payloads | OpenClaw receives UTC; agent must interpret |
 | Recurrence service | No timezone awareness | Recurrence patterns may drift |
 | Calendar API | No timezone parameter | Calendar queries are timezone-agnostic |
 
@@ -40,3 +42,10 @@ The #2510 banner states: "Updating will affect how reminders, quiet hours, and d
 - #2518 — Backend: Use user timezone in bootstrap `due_today`
 - #2519 — Backend: Use user timezone in note export
 - #2520 — Backend: Email digest timezone tracking
+
+## Codex Review Addenda
+
+- **Agent context service** (`src/api/context/service.ts:225,293`): Formats `not_after` dates using `toISOString().split('T')[0]`, showing UTC calendar day to agents. Non-UTC users may see a shifted "due" day.
+- **Webhook payloads** (`src/api/webhooks/payloads.ts:124,145`): Reminder and nudge webhooks send UTC ISO timestamps to OpenClaw. Job dedup keys (`src/api/jobs/processor.ts`, `src/api/server.ts:718,749`) also use UTC day boundaries.
+- **Email ingress** (`src/api/cloudflare-email/`, `src/api/postmark/`): Store provider timestamps as absolute instants — correct behavior, not a timezone gap.
+- **Note export correction**: PDF/DOCX generators convert note content, not date metadata. #2519 scope reduced to export API record timestamps only.
