@@ -111,10 +111,10 @@ All images are published to GitHub Container Registry:
 
 | Image | Description |
 |-------|-------------|
-| `ghcr.io/troykelly/openclaw-projects-db` | PostgreSQL 18 with pgvector, pg_cron, TimescaleDB |
-| `ghcr.io/troykelly/openclaw-projects-api` | Node.js/Fastify API server |
-| `ghcr.io/troykelly/openclaw-projects-app` | React frontend with Nginx |
-| `ghcr.io/troykelly/openclaw-projects-migrate` | Database migration runner |
+| `ghcr.io/troykelly/openclaw-projects-db:edge` | PostgreSQL 18 with pgvector, pg_cron, TimescaleDB |
+| `ghcr.io/troykelly/openclaw-projects-api:edge` | Node.js/Fastify API server |
+| `ghcr.io/troykelly/openclaw-projects-app:edge` | React frontend with Nginx |
+| `ghcr.io/troykelly/openclaw-projects-migrate:edge` | Database migration runner |
 
 ### Image Tag Scheme
 

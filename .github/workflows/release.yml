@@ -7,11 +7,24 @@
 #
 # Part of Issue #1538
 #
+# Workflow interaction notes (#2534):
+#   - The version bump commit pushed to main has [skip ci], so it does NOT
+#     trigger ci.yml or containers.yml (GitHub Actions skips push events
+#     with [skip ci] in commit message for branch pushes).
+#   - The edge-restore commit also has [skip ci] for the same reason.
+#   - Tag force-pushes do NOT respect [skip ci]; the re-entrancy guard
+#     (commit message check) prevents infinite loops on tag re-triggers.
+#   - containers.yml only triggers on push to main (not tags), so the tag
+#     force-push does not trigger it.
+#
 # Rollback procedure:
 #   1. npm unpublish @troykelly/openclaw-projects@<version> (within 72h)
 #   2. Delete image tags: gh api -X DELETE repos/troykelly/openclaw-projects/packages/...
 #   3. Delete GitHub Release: gh release delete v<version> --yes
 #   4. Delete git tag: git tag -d v<version> && git push origin :refs/tags/v<version>
+#   5. If version bump commit landed on main, revert it:
+#      git revert <version-bump-sha> && git push origin main
+#   6. If edge-restore commit landed, it is safe to leave (main already has :edge)
 
 name: Release
 
@@ -46,6 +59,8 @@ jobs:
       prerelease: ${{ steps.release-type.outputs.prerelease }}
       npm_tag: ${{ steps.release-type.outputs.npm_tag }}
       docker_latest: ${{ steps.release-type.outputs.docker_latest }}
+      version_bump_sha: ${{ steps.commit-bump.outputs.version_bump_sha }}
+      skip: ${{ steps.reentry-guard.outputs.skip }}
 
     steps:
       - name: Checkout repository
@@ -55,15 +70,36 @@ jobs:
           ref: main
           persist-credentials: false
 
+      # Re-entrancy guard (#2525): When the tag is force-pushed to point to
+      # the version bump commit, this workflow re-triggers. We detect this by
+      # checking if the tagged commit's message starts with "chore(release):".
+      # [skip ci] does NOT prevent tag push triggers — only this guard works.
+      - name: Re-entrancy guard (skip if tag points to release commit)
+        id: reentry-guard
+        env:
+          TAG_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          COMMIT_MSG=$(git log -1 --format=%s "${TAG_SHA}" 2>/dev/null || echo "")
+          if [[ "${COMMIT_MSG}" == chore\(release\):* ]]; then
+            echo "::notice::Tag already points to a release commit — skipping re-run"
+            echo "skip=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "skip=false" >> "${GITHUB_OUTPUT}"
+          fi
+
       - name: Setup Node.js
+        if: steps.reentry-guard.outputs.skip != 'true'
         uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
         with:
           node-version: '22'
 
       - name: Install pnpm
+        if: steps.reentry-guard.outputs.skip != 'true'
         uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
 
       - name: Extract and validate version from tag
+        if: steps.reentry-guard.outputs.skip != 'true'
         id: version
         env:
           GIT_TAG_REF: ${{ github.ref }}
@@ -93,6 +129,7 @@ jobs:
           echo "tag=v${TAG}" >> "${GITHUB_OUTPUT}"
 
       - name: Verify tag points to a commit on main
+        if: steps.reentry-guard.outputs.skip != 'true'
         env:
           TAG_COMMIT: ${{ github.sha }}
         run: |
@@ -110,6 +147,7 @@ jobs:
           echo "Verified: tag commit ${TAG_COMMIT} is an ancestor of main HEAD"
 
       - name: Bump version in all package files
+        if: steps.reentry-guard.outputs.skip != 'true'
         env:
           FILE_VERSION: ${{ steps.version.outputs.version }}
         run: |
@@ -144,7 +182,49 @@ jobs:
           # Update lockfile to reflect new versions
           pnpm install --lockfile-only
 
+      # #2524 — Update compose file image tags from :edge to the release version.
+      # Only production compose files are updated; devcontainer and test files
+      # use build context and are excluded.
+      - name: Update compose file image tags for release version
+        if: steps.reentry-guard.outputs.skip != 'true'
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          # Strip build metadata — Docker tags do not support + character
+          FILE_VERSION="${RELEASE_VERSION%%+*}"
+
+          echo "Updating compose file image tags to ${FILE_VERSION}..."
+
+          for f in docker-compose.yml docker-compose.traefik.yml docker-compose.quickstart.yml docker-compose.full.yml; do
+            BEFORE=$(grep -c "ghcr.io/troykelly/openclaw-projects-[^:]*:edge" "${f}" || true)
+            # Only replace project images (ghcr.io/troykelly/openclaw-projects-*), not third-party
+            sed -i "s|ghcr.io/troykelly/openclaw-projects-\([^:]*\):edge|ghcr.io/troykelly/openclaw-projects-\1:${FILE_VERSION}|g" "${f}"
+            AFTER=$(grep -c "ghcr.io/troykelly/openclaw-projects-[^:]*:${FILE_VERSION}" "${f}" || true)
+            echo "UPDATED: ${f} — ${BEFORE} :edge → ${AFTER} :${FILE_VERSION}"
+          done
+
+      # #2524 — Validate that compose files no longer contain :edge for project images
+      - name: Validate compose files after version bump
+        if: steps.reentry-guard.outputs.skip != 'true'
+        run: |
+          set -euo pipefail
+          ERRORS=0
+          for f in docker-compose.yml docker-compose.traefik.yml docker-compose.quickstart.yml docker-compose.full.yml; do
+            REMAINING=$(grep -c "ghcr.io/troykelly/openclaw-projects-[^:]*:edge" "${f}" || true)
+            if [ "${REMAINING}" -gt 0 ]; then
+              echo "::error::${f} still has ${REMAINING} :edge references after version bump"
+              ERRORS=$((ERRORS + 1))
+            fi
+          done
+          if [ "${ERRORS}" -gt 0 ]; then
+            echo "::error::Compose file version bump failed — :edge references remain"
+            exit 1
+          fi
+          echo "All compose files validated — no :edge references remain"
+
       - name: Update test snapshots for new version
+        if: steps.reentry-guard.outputs.skip != 'true'
         run: |
           set -euo pipefail
           # Install dependencies so we can build and run snapshot tests.
@@ -153,7 +233,11 @@ jobs:
           pnpm --filter @troykelly/openclaw-projects run build
           pnpm exec vitest run packages/openclaw-plugin/tests/schema-snapshots.test.ts -u
 
+      # Commit version bump (package files + compose files) and capture SHA.
+      # Does NOT push yet — push happens atomically after edge restore (#2533).
       - name: Commit version bump to main
+        id: commit-bump
+        if: steps.reentry-guard.outputs.skip != 'true'
         env:
           RELEASE_VERSION: ${{ steps.version.outputs.version }}
           REPO_PAT: ${{ secrets.REPO_PAT }}
@@ -164,6 +248,8 @@ jobs:
           # Check if anything changed
           if git diff --quiet && git diff --cached --quiet; then
             echo "No version changes needed — files already at ${FILE_VERSION}"
+            echo "VERSION_BUMP_SHA=$(git rev-parse HEAD)" >> "${GITHUB_ENV}"
+            echo "version_bump_sha=$(git rev-parse HEAD)" >> "${GITHUB_OUTPUT}"
             exit 0
           fi
 
@@ -175,17 +261,84 @@ jobs:
             packages/openclaw-plugin/package.json \
             packages/openclaw-plugin/openclaw.plugin.json \
             packages/openclaw-plugin/tests/__snapshots__/schema-snapshots.test.ts.snap \
-            pnpm-lock.yaml
+            pnpm-lock.yaml \
+            docker-compose.yml \
+            docker-compose.traefik.yml \
+            docker-compose.quickstart.yml \
+            docker-compose.full.yml
 
           git commit -m "chore(release): v${FILE_VERSION} [skip ci]"
 
-          # Push using REPO_PAT to bypass branch protection.
-          # Credentials are NOT persisted (persist-credentials: false on checkout)
-          # so we configure the remote URL with the token only for the push.
+          # Capture the version bump commit SHA explicitly (#2525, #2526).
+          # Do NOT use HEAD~1 later — that is fragile if multiple commits are created.
+          VERSION_BUMP_SHA=$(git rev-parse HEAD)
+          echo "VERSION_BUMP_SHA=${VERSION_BUMP_SHA}" >> "${GITHUB_ENV}"
+          echo "version_bump_sha=${VERSION_BUMP_SHA}" >> "${GITHUB_OUTPUT}"
+          echo "Version bump commit: ${VERSION_BUMP_SHA}"
+
+          # Configure remote URL with REPO_PAT to bypass branch protection.
+          # Credentials are NOT persisted (persist-credentials: false on checkout).
           git remote set-url origin "https://x-access-token:${REPO_PAT}@github.com/${{ github.repository }}.git"
-          git push origin main
+
+      # #2526 — Restore compose files to :edge for main branch.
+      # The version bump commit has versioned tags; this commit restores :edge
+      # so that main always references edge builds for development.
+      - name: Restore compose files to :edge after version bump
+        if: steps.reentry-guard.outputs.skip != 'true'
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          FILE_VERSION="${RELEASE_VERSION%%+*}"
+
+          echo "Restoring compose file image tags to :edge..."
+
+          for f in docker-compose.yml docker-compose.traefik.yml docker-compose.quickstart.yml docker-compose.full.yml; do
+            sed -i "s|ghcr.io/troykelly/openclaw-projects-\([^:]*\):${FILE_VERSION}|ghcr.io/troykelly/openclaw-projects-\1:edge|g" "${f}"
+          done
+
+          git add \
+            docker-compose.yml \
+            docker-compose.traefik.yml \
+            docker-compose.quickstart.yml \
+            docker-compose.full.yml
+
+          git commit -m "chore(release): restore :edge image tags [skip ci]"
+
+      # #2525 — Re-point the tag to the version bump commit (not the edge restore).
+      # Uses the explicitly captured VERSION_BUMP_SHA, not HEAD~1.
+      - name: Re-point tag to version bump commit and push
+        if: steps.reentry-guard.outputs.skip != 'true'
+        env:
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+
+          echo "Moving tag ${RELEASE_TAG} to version bump commit ${VERSION_BUMP_SHA}"
+          git tag -f "${RELEASE_TAG}" "${VERSION_BUMP_SHA}"
+
+          # #2533 — Use --atomic to ensure all-or-nothing push semantics.
+          # This pushes main (with both version bump + edge restore commits)
+          # and the force-updated tag in a single atomic transaction.
+          # Note: --force-with-lease is used for the tag only (it's being moved).
+          # main is a fast-forward push and does not need --force.
+          echo "Pushing main + tag atomically..."
+          git push --atomic origin main "+refs/tags/${RELEASE_TAG}"
+
+          # Verify remote refs match expected values
+          REMOTE_TAG_SHA=$(git ls-remote origin "refs/tags/${RELEASE_TAG}" | cut -f1)
+          if [ "${REMOTE_TAG_SHA}" != "${VERSION_BUMP_SHA}" ]; then
+            echo "::error::Tag push verification failed: remote tag SHA (${REMOTE_TAG_SHA}) != expected (${VERSION_BUMP_SHA})"
+            exit 1
+          fi
+          echo "Verified: remote tag ${RELEASE_TAG} points to ${VERSION_BUMP_SHA}"
+
+          # Reset remote URL to remove REPO_PAT from .git/config
+          # (minimize exposure of branch-protection-bypass token)
+          git remote set-url origin "https://github.com/${{ github.repository }}.git"
 
       - name: Upload bumped version files
+        if: steps.reentry-guard.outputs.skip != 'true'
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: version-bumped-files
@@ -195,10 +348,15 @@ jobs:
             packages/openclaw-plugin/openclaw.plugin.json
             packages/openclaw-plugin/tests/__snapshots__/schema-snapshots.test.ts.snap
             pnpm-lock.yaml
+            docker-compose.yml
+            docker-compose.traefik.yml
+            docker-compose.quickstart.yml
+            docker-compose.full.yml
           if-no-files-found: error
           retention-days: 3
 
       - name: Determine release type
+        if: steps.reentry-guard.outputs.skip != 'true'
         id: release-type
         env:
           RELEASE_VERSION: ${{ steps.version.outputs.version }}
@@ -234,6 +392,7 @@ jobs:
   test:
     name: Test suite
     needs: validate
+    if: needs.validate.outputs.skip != 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -329,6 +488,7 @@ jobs:
   publish-npm:
     name: Publish to npm
     needs: [validate, test]
+    if: needs.validate.outputs.skip != 'true'
     runs-on: ubuntu-latest
     environment: release
     permissions:
@@ -414,6 +574,7 @@ jobs:
   publish-github-packages:
     name: Publish to GitHub Packages
     needs: [validate, test]
+    if: needs.validate.outputs.skip != 'true'
     runs-on: ubuntu-latest
     environment: release
     permissions:
@@ -492,6 +653,7 @@ jobs:
   publish-containers:
     name: Build ${{ matrix.image.name }}
     needs: [validate, test]
+    if: needs.validate.outputs.skip != 'true'
     runs-on: ubuntu-latest
     environment: release
     permissions:
@@ -599,10 +761,10 @@ jobs:
           provenance: true
           build-args: |
             BUILD_DATE=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.created'] }}
-            VCS_REF=${{ github.sha }}
+            VCS_REF=${{ needs.validate.outputs.version_bump_sha }}
             VERSION=${{ needs.validate.outputs.version }}
             OCI_CREATED=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.created'] }}
-            OCI_REVISION=${{ github.sha }}
+            OCI_REVISION=${{ needs.validate.outputs.version_bump_sha }}
             OCI_VERSION=${{ needs.validate.outputs.version }}
             ${{ matrix.image.name == 'app' && format('VITE_SENTRY_DSN={0}', secrets.VITE_SENTRY_DSN) || '' }}
             ${{ matrix.image.name == 'app' && format('VITE_SENTRY_ENVIRONMENT=production') || '' }}
@@ -639,6 +801,7 @@ jobs:
   finalize-sentry-release:
     name: Finalize Sentry release
     needs: [validate, publish-containers]
+    if: needs.validate.outputs.skip != 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -700,6 +863,7 @@ jobs:
   release:
     name: Create GitHub Release
     needs: [validate, publish-npm, publish-github-packages, publish-containers]
+    if: needs.validate.outputs.skip != 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -708,19 +872,16 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
-      - name: Generate versioned compose files
-        env:
-          RELEASE_VERSION: ${{ needs.validate.outputs.version }}
+      # #2527 — Compose files are now versioned in the tag checkout itself
+      # (via #2524 and #2525). No sed replacement needed — just copy them.
+      - name: Copy compose files from tag checkout
         run: |
           set -euo pipefail
           mkdir -p release
 
           for f in docker-compose.yml docker-compose.traefik.yml docker-compose.quickstart.yml docker-compose.full.yml; do
-            # Only replace project images (ghcr.io/troykelly/openclaw-projects-*), not third-party
-            # Main branch compose files use :edge; replace with the release version
-            sed "s|ghcr.io/troykelly/openclaw-projects-\([^:]*\):edge|ghcr.io/troykelly/openclaw-projects-\1:${RELEASE_VERSION}|g" \
-              "${f}" > "release/${f}"
-            echo "Generated release/${f}"
+            cp "${f}" "release/${f}"
+            echo "Copied release/${f}"
           done
 
       - name: Validate generated compose files
@@ -767,6 +928,8 @@ jobs:
           RELEASE_VERSION: ${{ needs.validate.outputs.version }}
         run: |
           set -euo pipefail
+          # Strip build metadata — Docker tags don't support + character
+          RELEASE_VERSION="${RELEASE_VERSION%%+*}"
           cat > release/RELEASE_BODY.md << BODYEOF
           ## Installation
 
@@ -791,6 +954,7 @@ jobs:
           | ha-connector | \`docker pull ghcr.io/troykelly/openclaw-projects-ha-connector:${RELEASE_VERSION}\` |
           | prompt-guard | \`docker pull ghcr.io/troykelly/openclaw-projects-prompt-guard:${RELEASE_VERSION}\` |
           | tmux-worker | \`docker pull ghcr.io/troykelly/openclaw-projects-tmux-worker:${RELEASE_VERSION}\` |
+          | symphony-worker | \`docker pull ghcr.io/troykelly/openclaw-projects-symphony-worker:${RELEASE_VERSION}\` |
           BODYEOF
 
       - name: Create GitHub Release (draft)
