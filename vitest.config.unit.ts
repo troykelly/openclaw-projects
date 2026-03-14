@@ -25,9 +25,9 @@ export default defineProject({
       // Co-located UI source tests
       'src/ui/**/*.test.{ts,tsx}',
 
-      // ── Docker / devcontainer / workflow config tests ──────────────
+      // ── Devcontainer / workflow config tests ─────────────────────────
+      // Docker tests moved to vitest.config.docker.ts (#2554)
       'tests/devcontainer/**/*.test.ts',
-      'tests/docker/**/*.test.ts',
       'tests/frontend/**/*.test.ts',
       'tests/workflows/**/*.test.ts',
 
