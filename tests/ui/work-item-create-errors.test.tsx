@@ -64,7 +64,6 @@ describe('WorkItemCreateDialog — Error Handling (#2295)', () => {
           expect.stringContaining('Failed to load parent items'),
         );
       },
-      { timeout: 5000 },
     );
   });
 
@@ -89,7 +88,6 @@ describe('WorkItemCreateDialog — Error Handling (#2295)', () => {
       () => {
         expect(toast.error).toHaveBeenCalled();
       },
-      { timeout: 5000 },
     );
   });
 });

@@ -10,12 +10,10 @@
  */
 import * as React from 'react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, configure } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { createMemoryRouter, RouterProvider, type RouteObject } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-
-configure({ asyncUtilTimeout: 5000 });
 
 // ── Mock API client ──────────────────────────────────────────────────
 const mockGet = vi.fn();

@@ -156,7 +156,6 @@ describe('WorkItemDetailPage — Navigation (#2295)', () => {
       () => {
         expect(screen.getByText('Parent Epic')).toBeInTheDocument();
       },
-      { timeout: 5000 },
     );
 
     // Click the parent breadcrumb
@@ -181,7 +180,6 @@ describe('WorkItemDetailPage — Navigation (#2295)', () => {
       () => {
         expect(screen.getAllByText('Test Work Item').length).toBeGreaterThan(0);
       },
-      { timeout: 5000 },
     );
 
     // The delete callback should use navigate('/work-items') not window.location.href

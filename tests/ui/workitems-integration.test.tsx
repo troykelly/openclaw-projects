@@ -8,11 +8,7 @@
  */
 import * as React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, configure } from '@testing-library/react';
-
-// Increase asyncUtilTimeout for CI — React.lazy module resolution is slower
-// under resource contention in parallel CI workers.
-configure({ asyncUtilTimeout: 10000 });
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { WorkItemDetail } from '@/ui/lib/api-types';

@@ -170,7 +170,7 @@ describe('HostHealthPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('page-symphony-hosts')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
   });
 
   it('renders host status cards for all hosts', async () => {
@@ -178,7 +178,7 @@ describe('HostHealthPage', () => {
 
     await waitFor(() => {
       expect(screen.getAllByTestId(/^host-card-/)).toHaveLength(3);
-    }, { timeout: 5000 });
+    });
   });
 
   it('shows online status indicator', async () => {
@@ -186,7 +186,7 @@ describe('HostHealthPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('host-card-host-001')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
 
     const card = screen.getByTestId('host-card-host-001');
     expect(within(card).getByTestId('host-status-badge')).toHaveTextContent(/online/i);
@@ -197,7 +197,7 @@ describe('HostHealthPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('host-card-host-002')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
 
     const card = screen.getByTestId('host-card-host-002');
     expect(within(card).getByTestId('host-status-badge')).toHaveTextContent(/degraded/i);
@@ -208,7 +208,7 @@ describe('HostHealthPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('host-card-host-003')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
 
     const card = screen.getByTestId('host-card-host-003');
     expect(within(card).getByTestId('host-status-badge')).toHaveTextContent(/offline/i);
@@ -219,7 +219,7 @@ describe('HostHealthPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('host-card-host-001')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
 
     const card = screen.getByTestId('host-card-host-001');
     expect(within(card).getByTestId('host-sessions')).toHaveTextContent(/2.*\/.*5/);
@@ -230,7 +230,7 @@ describe('HostHealthPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('host-card-host-001')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
 
     const card = screen.getByTestId('host-card-host-001');
     expect(within(card).getByTestId('host-disk-usage')).toBeInTheDocument();
@@ -241,7 +241,7 @@ describe('HostHealthPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('host-card-host-001')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
 
     const card = screen.getByTestId('host-card-host-001');
     expect(within(card).getAllByTestId(/^container-/)).toHaveLength(2);
@@ -252,7 +252,7 @@ describe('HostHealthPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('host-card-host-002')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
 
     const card = screen.getByTestId('host-card-host-002');
     expect(within(card).getByTestId('circuit-breaker-state')).toHaveTextContent(/half_open/i);
@@ -263,7 +263,7 @@ describe('HostHealthPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('host-card-host-001')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
 
     const card = screen.getByTestId('host-card-host-001');
     expect(within(card).getByTestId('drain-host-button')).toBeInTheDocument();
@@ -274,7 +274,7 @@ describe('HostHealthPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('host-card-host-003')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
 
     const card = screen.getByTestId('host-card-host-003');
     expect(within(card).getByTestId('activate-host-button')).toBeInTheDocument();
@@ -285,7 +285,7 @@ describe('HostHealthPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('host-card-host-001')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
 
     const card = screen.getByTestId('host-card-host-001');
     fireEvent.click(within(card).getByTestId('drain-host-button'));

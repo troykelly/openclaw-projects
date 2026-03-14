@@ -188,12 +188,12 @@ describe('ConnectionsPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('page-connections')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
 
     await waitFor(() => {
       expect(screen.getByText('prod-web-1')).toBeInTheDocument();
       expect(screen.getByText('local-dev')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
   });
 
   it('renders connection cards with status indicators', async () => {
@@ -202,7 +202,7 @@ describe('ConnectionsPage', () => {
     await waitFor(() => {
       const cards = screen.getAllByTestId('connection-card');
       expect(cards).toHaveLength(2);
-    }, { timeout: 5000 });
+    });
   });
 
   it('shows empty state when no connections match search', async () => {
@@ -217,7 +217,7 @@ describe('ConnectionsPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/No connections/)).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
   });
 
   it('has new connection button', async () => {
@@ -225,7 +225,7 @@ describe('ConnectionsPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText('New Connection')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
   });
 
   it('has import SSH config button', async () => {
@@ -233,7 +233,7 @@ describe('ConnectionsPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Import SSH Config')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
   });
 
   // -------------------------------------------------------------------------
@@ -245,7 +245,7 @@ describe('ConnectionsPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText('prod-web-1')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
 
     // Find and click the Test button for the first connection
     const testButtons = screen.getAllByRole('button', { name: /test/i });
@@ -256,7 +256,7 @@ describe('ConnectionsPage', () => {
         '/terminal/connections/conn-1/test',
         { trust_host_key: false },
       );
-    }, { timeout: 5000 });
+    });
   });
 
   it('displays test success result on the connection card', async () => {
@@ -265,7 +265,7 @@ describe('ConnectionsPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText('prod-web-1')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
 
     const testButtons = screen.getAllByRole('button', { name: /test/i });
     fireEvent.click(testButtons[0]);
@@ -273,7 +273,7 @@ describe('ConnectionsPage', () => {
     await waitFor(() => {
       expect(screen.getByTestId('test-result')).toBeInTheDocument();
       expect(screen.getByText(/Connected.*42ms/)).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
   });
 
   it('displays test failure result on the connection card', async () => {
@@ -282,7 +282,7 @@ describe('ConnectionsPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText('prod-web-1')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
 
     const testButtons = screen.getAllByRole('button', { name: /test/i });
     fireEvent.click(testButtons[0]);
@@ -290,7 +290,7 @@ describe('ConnectionsPage', () => {
     await waitFor(() => {
       expect(screen.getByTestId('test-result')).toBeInTheDocument();
       expect(screen.getByText('Connection refused')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
   });
 
   it('shows host key dialog when test fails with verification error', async () => {
@@ -299,14 +299,14 @@ describe('ConnectionsPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText('prod-web-1')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
 
     const testButtons = screen.getAllByRole('button', { name: /test/i });
     fireEvent.click(testButtons[0]);
 
     await waitFor(() => {
       expect(screen.getByTestId('host-key-details')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
 
     // Fingerprint appears in both the card result and the dialog — verify at least one
     const fingerprints = screen.getAllByText(/SHA256:xyz789ghi012/);
@@ -323,7 +323,7 @@ describe('ConnectionsPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText('prod-web-1')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
 
     // Click test button — triggers host key dialog
     const testButtons = screen.getAllByRole('button', { name: /test/i });
@@ -331,7 +331,7 @@ describe('ConnectionsPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('host-key-details')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
 
     // Click "Trust & Connect" in the dialog
     const trustButton = screen.getByRole('button', { name: /trust.*connect/i });
@@ -344,7 +344,7 @@ describe('ConnectionsPage', () => {
         '/terminal/connections/conn-1/test',
         { trust_host_key: true, expected_fingerprint: 'SHA256:xyz789ghi012' },
       );
-    }, { timeout: 5000 });
+    });
   });
 
   // Issue #2133: SSH config import response alignment
@@ -362,14 +362,14 @@ describe('ConnectionsPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Import SSH Config')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
 
     // Open import dialog
     fireEvent.click(screen.getByText('Import SSH Config'));
 
     await waitFor(() => {
       expect(screen.getByTestId('ssh-config-input')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
 
     // Enter SSH config text
     const textarea = screen.getByTestId('ssh-config-input');
@@ -384,7 +384,7 @@ describe('ConnectionsPage', () => {
         '/terminal/connections/import-ssh-config',
         { config_text: expect.any(String) },
       );
-    }, { timeout: 5000 });
+    });
   });
 
   it('SshConfigImportResponse type matches backend { imported, count } shape', async () => {
@@ -405,14 +405,14 @@ describe('ConnectionsPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText('prod-web-1')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
 
     const testButtons = screen.getAllByRole('button', { name: /test/i });
     fireEvent.click(testButtons[0]);
 
     await waitFor(() => {
       expect(screen.getByTestId('test-result')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
 
     // Host key dialog should not be present
     expect(screen.queryByTestId('host-key-details')).not.toBeInTheDocument();

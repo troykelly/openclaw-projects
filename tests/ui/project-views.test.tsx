@@ -6,11 +6,7 @@
  */
 import * as React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, configure } from '@testing-library/react';
-
-// Increase asyncUtilTimeout — React.lazy module resolution is slower
-// under resource contention in parallel test workers.
-configure({ asyncUtilTimeout: 5000 });
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { WorkItemsResponse, WorkItemTreeResponse, WorkItemDetail, BacklogResponse } from '@/ui/lib/api-types';
@@ -259,11 +255,9 @@ describe('ProjectListPage', () => {
 
       renderPage('/work-items');
 
-      // Increased timeout: React.lazy module loading can exceed the default
-      // 1000ms waitFor timeout when running under full test-suite load.
       await waitFor(() => {
         expect(screen.getByTestId('page-project-list')).toBeInTheDocument();
-      }, { timeout: 5000 });
+      });
     });
   });
 
@@ -360,11 +354,9 @@ describe('ProjectDetailPage', () => {
 
       renderPage('/projects/proj-1');
 
-      // Increased timeout: React.lazy module loading can exceed the default
-      // 1000ms waitFor timeout when running under full test-suite load.
       await waitFor(() => {
         expect(screen.getByTestId('page-project-detail')).toBeInTheDocument();
-      }, { timeout: 5000 });
+      });
     });
   });
 

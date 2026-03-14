@@ -409,7 +409,7 @@ describe('SymphonyDashboardPage', () => {
     // Wait for active runs to render (data loaded)
     await waitFor(() => {
       expect(screen.getByTestId('active-runs-list')).toBeInTheDocument();
-    }, { timeout: 3000 });
+    });
 
     // Stats bar shows active count
     expect(screen.getByTestId('stat-active')).toHaveTextContent('2');
@@ -439,7 +439,7 @@ describe('SymphonyDashboardPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('no-active-runs')).toBeInTheDocument();
-    }, { timeout: 3000 });
+    });
 
     expect(screen.getByTestId('no-queued-runs')).toBeInTheDocument();
   });
@@ -453,6 +453,6 @@ describe('SymphonyDashboardPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('ws-status')).toBeInTheDocument();
-    }, { timeout: 3000 });
+    });
   });
 });

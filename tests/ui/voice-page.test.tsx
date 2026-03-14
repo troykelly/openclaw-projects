@@ -78,7 +78,7 @@ describe('VoicePage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('page-voice')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
 
     expect(screen.getByText('Voice & Speech')).toBeInTheDocument();
   });
@@ -119,7 +119,7 @@ describe('VoicePage', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Configuration')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
   });
 
   it('shows conversation history', async () => {
@@ -151,7 +151,7 @@ describe('VoicePage', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Conversation History')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
   });
 
   it('shows empty state when no conversations', async () => {
@@ -167,7 +167,7 @@ describe('VoicePage', () => {
 
     await waitFor(() => {
       expect(screen.getByText('No conversations yet.')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
   });
 
   it('fetches agents from /chat/agents on mount', async () => {
@@ -185,7 +185,7 @@ describe('VoicePage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('page-voice')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
 
     expect(mockApiClient.get).toHaveBeenCalledWith('/chat/agents');
   });
@@ -224,7 +224,7 @@ describe('VoicePage', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Voice Assistant')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
 
     // Should not show the raw agent ID
     expect(screen.queryByText('agent-voice-1')).not.toBeInTheDocument();
@@ -266,7 +266,7 @@ describe('VoicePage', () => {
     // Wait for config to load and the Edit button to appear
     await waitFor(() => {
       expect(screen.getByText('Configuration')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
 
     // Click Edit button to open dialog
     const editBtn = screen.getByRole('button', { name: /edit/i });
@@ -275,7 +275,7 @@ describe('VoicePage', () => {
     // Dialog should appear with the agent selector
     await waitFor(() => {
       expect(screen.getByTestId('voice-default-agent-select')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
 
     // Should show the Default Agent label in the dialog
     expect(screen.getByLabelText('Default Agent')).toBeInTheDocument();
@@ -316,7 +316,7 @@ describe('VoicePage', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Configuration')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
 
     // Open edit dialog
     fireEvent.click(screen.getByText('Edit'));

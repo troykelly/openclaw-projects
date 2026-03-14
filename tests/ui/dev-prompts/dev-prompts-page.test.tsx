@@ -123,7 +123,6 @@ describe('DevPromptsPage', () => {
       () => {
         expect(screen.getByTestId('page-dev-prompts')).toBeInTheDocument();
       },
-      { timeout: 5000 },
     );
 
     expect(screen.getByText('Dev Prompts')).toBeInTheDocument();
@@ -147,7 +146,6 @@ describe('DevPromptsPage', () => {
       () => {
         expect(screen.getByText(/no dev prompts found/i)).toBeInTheDocument();
       },
-      { timeout: 5000 },
     );
   });
 
@@ -160,7 +158,6 @@ describe('DevPromptsPage', () => {
       () => {
         expect(screen.getByText('New Feature Request')).toBeInTheDocument();
       },
-      { timeout: 5000 },
     );
 
     expect(screen.getByText('My Custom Prompt')).toBeInTheDocument();
@@ -175,7 +172,6 @@ describe('DevPromptsPage', () => {
       () => {
         expect(screen.getByTestId('category-filter')).toBeInTheDocument();
       },
-      { timeout: 5000 },
     );
   });
 
@@ -188,7 +184,6 @@ describe('DevPromptsPage', () => {
       () => {
         expect(screen.getByPlaceholderText(/search prompts/i)).toBeInTheDocument();
       },
-      { timeout: 5000 },
     );
   });
 
@@ -201,7 +196,6 @@ describe('DevPromptsPage', () => {
       () => {
         expect(screen.getByTestId('create-prompt-button')).toBeInTheDocument();
       },
-      { timeout: 5000 },
     );
 
     fireEvent.click(screen.getByTestId('create-prompt-button'));
@@ -220,7 +214,6 @@ describe('DevPromptsPage', () => {
       () => {
         expect(screen.getByText('New Feature Request')).toBeInTheDocument();
       },
-      { timeout: 5000 },
     );
 
     expect(screen.getByText('system')).toBeInTheDocument();
@@ -235,7 +228,6 @@ describe('DevPromptsPage', () => {
       () => {
         expect(screen.getByText('creation')).toBeInTheDocument();
       },
-      { timeout: 5000 },
     );
 
     expect(screen.getByText('custom')).toBeInTheDocument();
@@ -250,7 +242,6 @@ describe('DevPromptsPage', () => {
       () => {
         expect(screen.getByTestId('prompt-list-error')).toBeInTheDocument();
       },
-      { timeout: 5000 },
     );
 
     expect(screen.getByText(/failed to load prompts/i)).toBeInTheDocument();

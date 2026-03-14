@@ -186,7 +186,7 @@ describe('RunDetailPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('page-symphony-run-detail')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
   });
 
   it('displays the run status badge', async () => {
@@ -194,7 +194,7 @@ describe('RunDetailPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('run-status-badge')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
 
     expect(screen.getByTestId('run-status-badge')).toHaveTextContent(/running/i);
   });
@@ -204,7 +204,7 @@ describe('RunDetailPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('provisioning-timeline')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
 
     const timeline = screen.getByTestId('provisioning-timeline');
     const steps = within(timeline).getAllByTestId(/^provisioning-step-/);
@@ -216,7 +216,7 @@ describe('RunDetailPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('provisioning-step-disk_check')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
 
     expect(screen.getByTestId('provisioning-step-disk_check')).toHaveTextContent(/completed/i);
   });
@@ -226,7 +226,7 @@ describe('RunDetailPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('run-event-log')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
   });
 
   it('renders token/cost breakdown', async () => {
@@ -234,7 +234,7 @@ describe('RunDetailPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('token-cost-breakdown')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
 
     expect(screen.getByTestId('token-cost-breakdown')).toHaveTextContent(/3\.45/);
   });
@@ -244,7 +244,7 @@ describe('RunDetailPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('run-manifest')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
 
     expect(screen.getByTestId('run-manifest')).toHaveTextContent(/claude-code/);
   });
@@ -254,7 +254,7 @@ describe('RunDetailPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('run-actions')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
 
     expect(screen.getByTestId('cancel-run-button')).toBeInTheDocument();
   });
@@ -264,7 +264,7 @@ describe('RunDetailPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('view-pr-link')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
   });
 
   it('shows view issue link when issue exists', async () => {
@@ -272,7 +272,7 @@ describe('RunDetailPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('view-issue-link')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
   });
 
   it('displays failure history for failed runs', async () => {
@@ -280,7 +280,7 @@ describe('RunDetailPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('failure-aggregation')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
 
     const failureSection = screen.getByTestId('failure-aggregation');
     expect(within(failureSection).getAllByTestId(/^failure-attempt-/)).toHaveLength(2);
@@ -291,7 +291,7 @@ describe('RunDetailPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('run-error-message')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
 
     expect(screen.getByTestId('run-error-message')).toHaveTextContent(/SSH connection lost/);
   });
@@ -301,7 +301,7 @@ describe('RunDetailPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('provisioning-step-env_sync')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
 
     expect(screen.getByTestId('provisioning-step-env_sync')).toHaveTextContent(/failed/i);
   });
@@ -311,7 +311,7 @@ describe('RunDetailPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('retry-run-button')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
   });
 
   it('shows cancel confirmation dialog when cancel is clicked', async () => {
@@ -319,13 +319,13 @@ describe('RunDetailPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('cancel-run-button')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
 
     fireEvent.click(screen.getByTestId('cancel-run-button'));
 
     await waitFor(() => {
       expect(screen.getByTestId('cancel-confirm-dialog')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
   });
 
   it('displays event log entries with timestamps', async () => {
@@ -333,7 +333,7 @@ describe('RunDetailPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('run-event-log')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
 
     const eventLog = screen.getByTestId('run-event-log');
     const entries = within(eventLog).getAllByTestId(/^event-entry-/);
@@ -345,6 +345,6 @@ describe('RunDetailPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Fix login bug')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
   });
 });

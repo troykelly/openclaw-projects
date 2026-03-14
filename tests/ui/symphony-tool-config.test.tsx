@@ -155,7 +155,7 @@ describe('ToolConfigPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('page-symphony-tools')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
   });
 
   it('renders tool config cards for all tools', async () => {
@@ -163,7 +163,7 @@ describe('ToolConfigPage', () => {
 
     await waitFor(() => {
       expect(screen.getAllByTestId(/^tool-card-/)).toHaveLength(2);
-    }, { timeout: 5000 });
+    });
   });
 
   it('displays tool name and command', async () => {
@@ -171,7 +171,7 @@ describe('ToolConfigPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('tool-card-tool-001')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
 
     const card = screen.getByTestId('tool-card-tool-001');
     expect(within(card).getByText('claude-code')).toBeInTheDocument();
@@ -182,7 +182,7 @@ describe('ToolConfigPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('tool-card-tool-001')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
 
     const card = screen.getByTestId('tool-card-tool-001');
     expect(within(card).getByTestId('tool-auth-credential')).toHaveTextContent('GitHub Token');
@@ -193,7 +193,7 @@ describe('ToolConfigPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('tool-card-tool-002')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
 
     const card = screen.getByTestId('tool-card-tool-002');
     expect(within(card).getByTestId('tool-no-auth-warning')).toBeInTheDocument();
@@ -204,7 +204,7 @@ describe('ToolConfigPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('tool-card-tool-001')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
 
     const card = screen.getByTestId('tool-card-tool-001');
     expect(within(card).getByTestId('tool-feature-flags')).toBeInTheDocument();
@@ -215,7 +215,7 @@ describe('ToolConfigPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('tool-card-tool-001')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
 
     const card = screen.getByTestId('tool-card-tool-001');
     expect(within(card).getByTestId('tool-task-types')).toHaveTextContent(/implementation/i);
@@ -226,7 +226,7 @@ describe('ToolConfigPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('tool-card-tool-001')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
 
     const card = screen.getByTestId('tool-card-tool-001');
     expect(within(card).getByTestId('tool-default-for')).toHaveTextContent(/implementation/i);
@@ -237,7 +237,7 @@ describe('ToolConfigPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('create-tool-button')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
   });
 
   it('opens create dialog when create button clicked', async () => {
@@ -245,13 +245,13 @@ describe('ToolConfigPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('create-tool-button')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
 
     fireEvent.click(screen.getByTestId('create-tool-button'));
 
     await waitFor(() => {
       expect(screen.getByTestId('tool-create-dialog')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
   });
 
   it('shows delete button for each tool', async () => {
@@ -259,7 +259,7 @@ describe('ToolConfigPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('tool-card-tool-001')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
 
     const card = screen.getByTestId('tool-card-tool-001');
     expect(within(card).getByTestId('delete-tool-button')).toBeInTheDocument();

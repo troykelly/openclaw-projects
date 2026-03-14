@@ -202,7 +202,7 @@ describe('SymphonyConfigPage', () => {
     // waitFor timeout under full test-suite parallel load
     await waitFor(() => {
       expect(screen.getByTestId('page-symphony-config')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
   });
 
   it('renders orchestration toggle after load', async () => {
@@ -211,7 +211,7 @@ describe('SymphonyConfigPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('orchestration-toggle')).toBeInTheDocument();
-    }, { timeout: 3000 });
+    });
 
     expect(screen.getByText('Enabled')).toBeInTheDocument();
   });
@@ -222,7 +222,7 @@ describe('SymphonyConfigPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('orchestration-toggle')).toBeInTheDocument();
-    }, { timeout: 3000 });
+    });
 
     fireEvent.click(screen.getByTestId('orchestration-toggle'));
 
@@ -239,7 +239,7 @@ describe('SymphonyConfigPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('repos-section')).toBeInTheDocument();
-    }, { timeout: 3000 });
+    });
 
     expect(screen.getByTestId('repo-item')).toBeInTheDocument();
     expect(screen.getByText('troykelly/openclaw-projects')).toBeInTheDocument();
@@ -251,7 +251,7 @@ describe('SymphonyConfigPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('add-repo-button')).toBeInTheDocument();
-    }, { timeout: 3000 });
+    });
 
     fireEvent.click(screen.getByTestId('add-repo-button'));
 
@@ -266,7 +266,7 @@ describe('SymphonyConfigPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('config-error')).toBeInTheDocument();
-    }, { timeout: 3000 });
+    });
   });
 
   it('renders config tabs', async () => {
@@ -275,7 +275,7 @@ describe('SymphonyConfigPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('config-tabs')).toBeInTheDocument();
-    }, { timeout: 3000 });
+    });
 
     // All tab triggers should be present
     expect(screen.getByRole('tab', { name: /Repositories/i })).toBeInTheDocument();
@@ -292,7 +292,7 @@ describe('SymphonyConfigPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('repo-item')).toBeInTheDocument();
-    }, { timeout: 3000 });
+    });
 
     expect(screen.getByTestId('remove-repo')).toBeInTheDocument();
   });
@@ -303,7 +303,7 @@ describe('SymphonyConfigPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('orchestration-toggle')).toBeInTheDocument();
-    }, { timeout: 3000 });
+    });
 
     // The toggle should show "Enabled" badge
     expect(screen.getByText('Enabled')).toBeInTheDocument();

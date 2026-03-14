@@ -216,7 +216,6 @@ describe('SymphonyConfigPage breadcrumb navigation (AC 3)', () => {
           screen.getByTestId('symphony-config-breadcrumb'),
         ).toBeTruthy();
       },
-      { timeout: 3000 },
     );
 
     const breadcrumb = screen.getByTestId('symphony-config-breadcrumb');
@@ -393,7 +392,6 @@ describe('RunDetailPage breadcrumb navigation (AC 5)', () => {
           screen.getByTestId('breadcrumb-symphony-dashboard'),
         ).toBeTruthy();
       },
-      { timeout: 5000 },
     );
 
     // Breadcrumb should link to /symphony (the dashboard)
@@ -472,7 +470,6 @@ describe('ProjectListPage project navigation (AC 1)', () => {
       () => {
         expect(screen.getByTestId(`project-link-${MOCK_PROJECT_ID}`)).toBeTruthy();
       },
-      { timeout: 5000 },
     );
 
     // Project-kind items should have a link to /projects/:id
