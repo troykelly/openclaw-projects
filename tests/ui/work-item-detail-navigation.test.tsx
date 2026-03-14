@@ -91,6 +91,8 @@ function renderDetailPage(initialPath = '/work-items/item-1') {
     },
   });
 
+  // React.lazy is needed to avoid "Cannot access mockApiClient before
+  // initialization" — vi.mock hoisting requires deferred import (#2555)
   const WorkItemDetailPage = React.lazy(() =>
     import('@/ui/pages/WorkItemDetailPage.js').then((m) => ({ default: m.WorkItemDetailPage })),
   );
@@ -152,11 +154,13 @@ describe('WorkItemDetailPage — Navigation (#2295)', () => {
   it('clicking parent breadcrumb uses navigate instead of window.location.href', async () => {
     renderDetailPage();
 
+    // Increased timeout: React.lazy import can be slow under heavy
+    // parallel test load (#2555)
     await waitFor(
       () => {
         expect(screen.getByText('Parent Epic')).toBeInTheDocument();
       },
-      { timeout: 5000 },
+      { timeout: 15000 },
     );
 
     // Click the parent breadcrumb
@@ -181,7 +185,7 @@ describe('WorkItemDetailPage — Navigation (#2295)', () => {
       () => {
         expect(screen.getAllByText('Test Work Item').length).toBeGreaterThan(0);
       },
-      { timeout: 5000 },
+      { timeout: 15000 },
     );
 
     // The delete callback should use navigate('/work-items') not window.location.href

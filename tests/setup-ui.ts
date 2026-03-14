@@ -1,5 +1,13 @@
 import '@testing-library/jest-dom/vitest';
 
+// Increase default asyncUtilTimeout for waitFor/findBy* queries in jsdom.
+// React.lazy and lazy routes can exceed the default 1000ms timeout when the
+// full test suite runs in parallel under heavy CPU load (#2555).
+if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+  const { configure } = await import('@testing-library/dom');
+  configure({ asyncUtilTimeout: 15000 });
+}
+
 // Mock localStorage for jsdom environment
 // Note: jsdom provides localStorage but it may not work properly in all cases
 if (typeof window !== 'undefined') {
