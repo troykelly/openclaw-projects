@@ -46,6 +46,7 @@ import { InboundRoutingSection } from './inbound-routing-section';
 import { LocationSection } from './location-section';
 import { NotificationPreferencesSection } from './notification-preferences-section';
 import type { DefaultView, EmailDigestFrequency, Theme } from './types';
+import { TimezoneCombobox } from './timezone-combobox';
 import { useSettings } from './use-settings';
 import { WebhookManagementSection } from './webhook-management-section';
 
@@ -53,23 +54,7 @@ import { WebhookManagementSection } from './webhook-management-section';
 // Constants
 // ---------------------------------------------------------------------------
 
-const COMMON_TIMEZONES = [
-  'UTC',
-  'America/New_York',
-  'America/Chicago',
-  'America/Denver',
-  'America/Los_Angeles',
-  'America/Anchorage',
-  'Pacific/Honolulu',
-  'Europe/London',
-  'Europe/Paris',
-  'Europe/Berlin',
-  'Asia/Tokyo',
-  'Asia/Shanghai',
-  'Asia/Singapore',
-  'Australia/Sydney',
-  'Australia/Melbourne',
-];
+// COMMON_TIMEZONES removed in #2513 — replaced by full IANA list via TimezoneCombobox
 
 const ITEMS_PER_PAGE_OPTIONS = [10, 25, 50, 75, 100];
 
@@ -374,18 +359,7 @@ function AppearanceSection({
         </CardHeader>
         <CardContent>
           <SettingRow label="Timezone" description="Your timezone for displaying dates and times">
-            <Select value={timezone} onValueChange={onTimezoneChange}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {COMMON_TIMEZONES.map((tz) => (
-                  <SelectItem key={tz} value={tz}>
-                    {tz.replace(/_/g, ' ')}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <TimezoneCombobox value={timezone} onValueChange={onTimezoneChange} />
           </SettingRow>
         </CardContent>
       </Card>
