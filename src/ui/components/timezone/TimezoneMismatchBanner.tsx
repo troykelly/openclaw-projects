@@ -41,23 +41,32 @@ export function TimezoneMismatchBanner({
   const displayBrowser = formatTimezone(browserTimezone);
   const displayStored = formatTimezone(storedTimezone);
 
+  /** Move focus out of the banner before unmounting to avoid focus loss. */
+  const returnFocus = useCallback(() => {
+    if (bannerRef.current?.contains(document.activeElement)) {
+      (document.activeElement as HTMLElement | null)?.blur();
+    }
+  }, []);
+
   const handleUpdate = useCallback(async () => {
     setIsUpdating(true);
     setError(null);
     try {
       await onUpdate();
+      returnFocus();
       setHidden(true);
     } catch {
       setError('Failed to update timezone. Try again or update in ');
     } finally {
       setIsUpdating(false);
     }
-  }, [onUpdate]);
+  }, [onUpdate, returnFocus]);
 
   const handleDismiss = useCallback(() => {
     onDismiss(browserTimezone);
+    returnFocus();
     setHidden(true);
-  }, [browserTimezone, onDismiss]);
+  }, [browserTimezone, onDismiss, returnFocus]);
 
   // Escape key dismisses only when focus is inside the banner
   useEffect(() => {

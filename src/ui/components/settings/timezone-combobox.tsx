@@ -54,6 +54,7 @@ export function TimezoneCombobox({ value, onValueChange }: TimezoneComboboxProps
           variant="outline"
           role="combobox"
           aria-expanded={open}
+          aria-label="Timezone"
           className="w-[240px] justify-between"
           data-testid="timezone-combobox-trigger"
         >

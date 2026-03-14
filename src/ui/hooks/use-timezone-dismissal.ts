@@ -26,9 +26,11 @@ function readDismissed(): string[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
-    const parsed = JSON.parse(raw) as DismissalData;
+    const parsed = JSON.parse(raw) as Partial<DismissalData>;
     if (Array.isArray(parsed.dismissedBrowserTimezones)) {
-      return parsed.dismissedBrowserTimezones;
+      return parsed.dismissedBrowserTimezones.filter(
+        (entry): entry is string => typeof entry === 'string',
+      );
     }
     return [];
   } catch {

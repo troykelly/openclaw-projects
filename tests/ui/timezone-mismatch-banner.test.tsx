@@ -110,4 +110,42 @@ describe('TimezoneMismatchBanner', () => {
     const closeBtn = screen.getByRole('button', { name: /close|dismiss/i });
     expect(closeBtn).toBeVisible();
   });
+
+  it('hides banner after successful update', async () => {
+    render(<TimezoneMismatchBanner {...defaultProps} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Update to/i }));
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('timezone-mismatch-banner')).not.toBeInTheDocument();
+    });
+  });
+
+  it('dismisses on Escape key when focus is inside banner', async () => {
+    render(<TimezoneMismatchBanner {...defaultProps} />);
+
+    // Focus a button inside the banner
+    const keepBtn = screen.getByRole('button', { name: /Keep/i });
+    keepBtn.focus();
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+
+    expect(defaultProps.onDismiss).toHaveBeenCalledWith('Europe/London');
+  });
+
+  it('does not dismiss on Escape key when focus is outside banner', () => {
+    render(
+      <div>
+        <button type="button">Outside</button>
+        <TimezoneMismatchBanner {...defaultProps} />
+      </div>,
+    );
+
+    // Focus the outside button
+    screen.getByRole('button', { name: 'Outside' }).focus();
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+
+    expect(defaultProps.onDismiss).not.toHaveBeenCalled();
+  });
 });

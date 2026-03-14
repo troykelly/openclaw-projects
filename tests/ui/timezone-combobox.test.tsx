@@ -18,6 +18,7 @@ import {
   formatTimezoneDisplay,
   canonicalizeTimezone,
 } from '@/ui/components/settings/timezone-utils';
+import { TimezoneCombobox } from '@/ui/components/settings/timezone-combobox';
 
 describe('timezone-utils', () => {
   describe('getAllTimezones', () => {
@@ -92,5 +93,32 @@ describe('timezone-utils', () => {
     it('returns the same timezone if already canonical', () => {
       expect(canonicalizeTimezone('America/New_York')).toBe('America/New_York');
     });
+  });
+});
+
+describe('TimezoneCombobox', () => {
+  it('renders trigger with current timezone display name', () => {
+    const onValueChange = vi.fn();
+    render(<TimezoneCombobox value="America/New_York" onValueChange={onValueChange} />);
+
+    const trigger = screen.getByRole('combobox', { name: /timezone/i });
+    expect(trigger).toBeInTheDocument();
+    expect(trigger).toHaveTextContent('America / New York');
+  });
+
+  it('renders trigger with canonical display for alias value', () => {
+    const onValueChange = vi.fn();
+    render(<TimezoneCombobox value="US/Pacific" onValueChange={onValueChange} />);
+
+    const trigger = screen.getByRole('combobox', { name: /timezone/i });
+    expect(trigger).toHaveTextContent('America / Los Angeles');
+  });
+
+  it('has aria-label for accessibility', () => {
+    const onValueChange = vi.fn();
+    render(<TimezoneCombobox value="UTC" onValueChange={onValueChange} />);
+
+    const trigger = screen.getByRole('combobox', { name: /timezone/i });
+    expect(trigger).toHaveAttribute('aria-label', 'Timezone');
   });
 });
