@@ -37,7 +37,7 @@ export function bootstrapPaths(): OpenApiDomainModule {
               },
               timezone: {
                 type: 'string',
-                description: 'User IANA timezone',
+                description: 'Canonical IANA timezone identifier (always stored in canonical form)',
                 example: 'Australia/Sydney',
               },
             },
@@ -508,7 +508,7 @@ export function bootstrapPaths(): OpenApiDomainModule {
           timezone: {
             type: 'string',
             nullable: true,
-            description: 'IANA timezone string for date/time display and reminder scheduling',
+            description: 'Canonical IANA timezone identifier. Always stored in canonical form (e.g. alias "US/Pacific" is stored as "America/Los_Angeles"). Used for date/time display and reminder scheduling.',
             example: 'Australia/Sydney',
           },
           geo_auto_inject: {
@@ -599,7 +599,7 @@ export function bootstrapPaths(): OpenApiDomainModule {
           },
           timezone: {
             type: 'string',
-            description: 'IANA timezone string',
+            description: "IANA timezone identifier (e.g. 'Australia/Sydney', 'UTC', 'America/New_York'). Invalid values return 400. Aliases (e.g. 'US/Pacific') are accepted and normalized to their canonical form (e.g. 'America/Los_Angeles').",
             example: 'Australia/Sydney',
           },
           geo_auto_inject: {
