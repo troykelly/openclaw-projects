@@ -37,11 +37,12 @@ describe('TimezoneMismatchBanner', () => {
     expect(screen.getByRole('button', { name: /Keep America \/ New York/i })).toBeInTheDocument();
   });
 
-  it('has role="status" and aria-live="polite"', () => {
+  it('has implicit role="status" via <output> and aria-live="polite"', () => {
     render(<TimezoneMismatchBanner {...defaultProps} />);
 
     const banner = screen.getByRole('status');
     expect(banner).toHaveAttribute('aria-live', 'polite');
+    expect(banner.tagName).toBe('OUTPUT');
   });
 
   it('does not auto-focus on mount', () => {

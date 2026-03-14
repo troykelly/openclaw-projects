@@ -73,11 +73,10 @@ export function TimezoneMismatchBanner({
   if (hidden) return null;
 
   return (
-    <div
+    <output
       ref={bannerRef}
-      role="status"
       aria-live="polite"
-      className="relative mx-4 mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950"
+      className="relative mx-4 mb-4 block rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950"
       data-testid="timezone-mismatch-banner"
     >
       {/* Close button */}
@@ -132,6 +131,6 @@ export function TimezoneMismatchBanner({
           </Button>
         </div>
       </div>
-    </div>
+    </output>
   );
 }

@@ -7,7 +7,7 @@
  * @see Issue #2512 — Epic #2509
  */
 import { useMemo } from 'react';
-import { useSettings, type SettingsState } from '@/ui/components/settings/use-settings';
+import { useSettings } from '@/ui/components/settings/use-settings';
 
 export interface TimezoneDetectionResult {
   /** Canonical browser timezone, or null if detection failed. */
