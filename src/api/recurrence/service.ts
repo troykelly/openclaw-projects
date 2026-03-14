@@ -364,13 +364,13 @@ function truncateToDay(d: Date): string {
  * Generate upcoming instances for all templates
  * This is typically called by a scheduled job
  */
-export async function generateUpcomingInstances(pool: Pool, daysAhead: number = 14): Promise<{ generated: number; errors: string[] }> {
+export async function generateUpcomingInstances(pool: Pool, daysAhead: number = 14, referenceTime?: Date): Promise<{ generated: number; errors: string[] }> {
   const errors: string[] = [];
   let generated = 0;
 
   // Capture a single reference time for the entire run so that the RRule
   // generator and the lookahead window use a consistent "now".
-  const now = new Date();
+  const now = referenceTime ?? new Date();
 
   // Get all active templates
   const templates = await pool.query(

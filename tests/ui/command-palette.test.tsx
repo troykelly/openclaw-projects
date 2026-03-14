@@ -409,7 +409,6 @@ describe('CommandPalette', () => {
           expect(screen.getByText('Fix login bug')).toBeInTheDocument();
           expect(screen.getByText('Auth module')).toBeInTheDocument();
         },
-        { timeout: 5000 },
       );
     });
 
@@ -425,7 +424,6 @@ describe('CommandPalette', () => {
         () => {
           expect(screen.getByText('Jane Doe')).toBeInTheDocument();
         },
-        { timeout: 5000 },
       );
     });
 
@@ -441,7 +439,6 @@ describe('CommandPalette', () => {
         () => {
           expect(screen.getByText('Fix login bug')).toBeInTheDocument();
         },
-        { timeout: 5000 },
       );
 
       fireEvent.click(screen.getByText('Fix login bug'));
@@ -463,7 +460,6 @@ describe('CommandPalette', () => {
         () => {
           expect(screen.getByText('Searching...')).toBeInTheDocument();
         },
-        { timeout: 5000 },
       );
     });
 

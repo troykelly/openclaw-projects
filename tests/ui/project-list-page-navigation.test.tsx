@@ -114,7 +114,6 @@ describe('ProjectListPage — Navigation (#2295)', () => {
         () => {
           expect(screen.getByText('Create Work Item')).toBeInTheDocument();
         },
-        { timeout: 5000 },
       );
 
       // Click the create button — it should open the dialog, NOT be a noop
@@ -126,7 +125,6 @@ describe('ProjectListPage — Navigation (#2295)', () => {
           expect(screen.getByText('Create Work Item', { selector: 'h2, [role="heading"]' })).toBeInTheDocument();
           expect(screen.getByLabelText(/title/i)).toBeInTheDocument();
         },
-        { timeout: 5000 },
       );
     });
   });

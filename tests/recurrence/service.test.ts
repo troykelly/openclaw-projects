@@ -386,6 +386,8 @@ describe('Recurrence Service', () => {
     it('called N times never produces more instances than the first call', async () => {
       // Regression test for #2420: now() drift in dedup query caused duplicates
       // when generateUpcomingInstances was called multiple times in succession.
+      // Fix for #2560: pin referenceTime so midnight-crossing drift cannot add
+      // an extra occurrence between successive calls.
       const template = await createRecurrenceTemplate(pool, {
         title: 'Idempotency Stress Test',
         recurrenceRule: 'RRULE:FREQ=DAILY',
@@ -400,8 +402,12 @@ describe('Recurrence Service', () => {
       expect(check.rows).toHaveLength(1);
       expect(check.rows[0].is_recurrence_template).toBe(true);
 
+      // Pin a stable reference time so that all calls use the same window,
+      // eliminating flakiness from wall-clock drift between calls.
+      const stableNow = new Date();
+
       // First call establishes baseline
-      const firstResult = await generateUpcomingInstances(pool, 7);
+      const firstResult = await generateUpcomingInstances(pool, 7, stableNow);
       expect(firstResult.errors).toHaveLength(0);
       expect(firstResult.generated).toBeGreaterThan(0);
       const baselineCount = (await getInstances(pool, template.id)).length;
@@ -410,7 +416,7 @@ describe('Recurrence Service', () => {
       // Call N more times in rapid succession — count must never grow
       const additionalCalls = 5;
       for (let i = 0; i < additionalCalls; i++) {
-        const result = await generateUpcomingInstances(pool, 7);
+        const result = await generateUpcomingInstances(pool, 7, stableNow);
         const currentCount = (await getInstances(pool, template.id)).length;
         expect(currentCount).toBe(baselineCount);
       }

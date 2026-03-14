@@ -1,4 +1,11 @@
 import '@testing-library/jest-dom/vitest';
+import { configure } from '@testing-library/dom';
+
+// Increase the default waitFor timeout from 1000ms to 15000ms (#2555).
+// React.lazy / lazy routes can take 5-15s to resolve under full suite load
+// (340+ files in parallel). Individual test files should NOT override this
+// with lower values unless they have a specific reason.
+configure({ asyncUtilTimeout: 15_000 });
 
 // Mock localStorage for jsdom environment
 // Note: jsdom provides localStorage but it may not work properly in all cases

@@ -27,6 +27,7 @@ export default defineConfig({
     projects: [
       "vitest.config.unit.ts",
       "vitest.config.integration.ts",
+      "vitest.config.docker.ts",
     ],
   },
 });

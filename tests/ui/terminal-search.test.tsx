@@ -109,11 +109,11 @@ describe('TerminalSearchPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('page-terminal-search')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
 
     await waitFor(() => {
       expect(screen.getByTestId('terminal-search-filters')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
   });
 
   it('renders search query input', async () => {
@@ -121,7 +121,7 @@ describe('TerminalSearchPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('search-query-input')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
   });
 
   it('shows page heading', async () => {
@@ -129,7 +129,7 @@ describe('TerminalSearchPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Terminal Search')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
   });
 
   // Issue #2132: kind filter must send string[] to backend
@@ -149,7 +149,7 @@ describe('TerminalSearchPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('terminal-search-filters')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
 
     const input = screen.getByTestId('search-query-input');
     fireEvent.change(input, { target: { value: 'test query' } });
@@ -165,6 +165,6 @@ describe('TerminalSearchPage', () => {
       // When "all" is selected, kind should be undefined (not sent as string or empty array)
       const callArgs = mockApiClient.post.mock.calls[0][1];
       expect(callArgs.kind).toBeUndefined();
-    }, { timeout: 5000 });
+    });
   });
 });

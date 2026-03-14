@@ -203,7 +203,6 @@ describe('DevSessionsPage — Symphony integration', () => {
       () => {
         expect(screen.getByText('Orchestrated Fix')).toBeInTheDocument();
       },
-      { timeout: 5000 },
     );
 
     // The orchestrated session should have a badge
@@ -221,7 +220,6 @@ describe('DevSessionsPage — Symphony integration', () => {
       () => {
         expect(screen.getByTestId('page-dev-sessions')).toBeInTheDocument();
       },
-      { timeout: 5000 },
     );
 
     expect(screen.getByTestId('orchestrated-filter')).toBeInTheDocument();
@@ -246,7 +244,6 @@ describe('DevSessionsPage — Symphony integration', () => {
       () => {
         expect(screen.getByText('Linked Session')).toBeInTheDocument();
       },
-      { timeout: 5000 },
     );
 
     const runLink = screen.getByTestId('symphony-run-link-ds-3');
@@ -302,7 +299,6 @@ describe('SessionsListPage — Symphony integration', () => {
       () => {
         expect(screen.getByText('symphony-run-1')).toBeInTheDocument();
       },
-      { timeout: 5000 },
     );
 
     // Orchestrated sessions show purpose badge
@@ -327,7 +323,6 @@ describe('SessionsListPage — Symphony integration', () => {
       () => {
         expect(screen.getByText('symphony-run-1')).toBeInTheDocument();
       },
-      { timeout: 5000 },
     );
 
     // Read-only indicator should be present for orchestrated sessions
@@ -432,7 +427,6 @@ describe('ProjectDetailPage — Symphony tab', () => {
       () => {
         expect(screen.getByTestId('page-project-detail')).toBeInTheDocument();
       },
-      { timeout: 5000 },
     );
 
     // Existing tabs
@@ -453,7 +447,6 @@ describe('ProjectDetailPage — Symphony tab', () => {
       () => {
         expect(screen.getByText(/not enabled/i)).toBeInTheDocument();
       },
-      { timeout: 5000 },
     );
   });
 
@@ -471,7 +464,6 @@ describe('ProjectDetailPage — Symphony tab', () => {
       () => {
         expect(screen.getByTestId('symphony-config-summary')).toBeInTheDocument();
       },
-      { timeout: 5000 },
     );
   });
 
@@ -525,7 +517,6 @@ describe('ProjectDetailPage — Symphony tab', () => {
       () => {
         expect(screen.getByTestId('symphony-runs-list')).toBeInTheDocument();
       },
-      { timeout: 5000 },
     );
   });
 });
@@ -607,7 +598,6 @@ describe('WorkItemDetailPage — Symphony run history', () => {
       () => {
         expect(screen.getByTestId('symphony-section')).toBeInTheDocument();
       },
-      { timeout: 5000 },
     );
 
     // Run history should be visible
@@ -625,7 +615,6 @@ describe('WorkItemDetailPage — Symphony run history', () => {
       () => {
         expect(screen.getByTestId('symphony-section')).toBeInTheDocument();
       },
-      { timeout: 5000 },
     );
 
     expect(screen.getByTestId('symphony-active-indicator')).toBeInTheDocument();
@@ -672,7 +661,6 @@ describe('WorkItemDetailPage — Symphony run history', () => {
       () => {
         expect(screen.getByText('Fix login bug')).toBeInTheDocument();
       },
-      { timeout: 5000 },
     );
 
     // Symphony section should not be rendered when no data
@@ -690,7 +678,6 @@ describe('WorkItemDetailPage — Symphony run history', () => {
       () => {
         expect(screen.getByTestId('symphony-section')).toBeInTheDocument();
       },
-      { timeout: 5000 },
     );
 
     const link = screen.getByTestId('symphony-run-link-run-linked');
@@ -734,7 +721,6 @@ describe('WorkItemDetailPage — Symphony run history', () => {
       () => {
         expect(screen.getByText('Fix login bug')).toBeInTheDocument();
       },
-      { timeout: 5000 },
     );
 
     // Symphony error message should appear after query fails
@@ -742,7 +728,6 @@ describe('WorkItemDetailPage — Symphony run history', () => {
       () => {
         expect(screen.getByText('Unable to load Symphony data')).toBeInTheDocument();
       },
-      { timeout: 5000 },
     );
   });
 });

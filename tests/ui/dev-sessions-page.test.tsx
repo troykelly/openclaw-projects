@@ -76,7 +76,6 @@ describe('DevSessionsPage', () => {
       () => {
         expect(screen.getByTestId('page-dev-sessions')).toBeInTheDocument();
       },
-      { timeout: 5000 },
     );
 
     expect(screen.getByText('Dev Sessions')).toBeInTheDocument();
@@ -100,7 +99,6 @@ describe('DevSessionsPage', () => {
       () => {
         expect(screen.getByText('No dev sessions found.')).toBeInTheDocument();
       },
-      { timeout: 5000 },
     );
   });
 
@@ -126,7 +124,6 @@ describe('DevSessionsPage', () => {
       () => {
         expect(screen.getByText('Fix auth bug')).toBeInTheDocument();
       },
-      { timeout: 5000 },
     );
   });
 
@@ -139,7 +136,6 @@ describe('DevSessionsPage', () => {
       () => {
         expect(screen.getByTestId('status-filter')).toBeInTheDocument();
       },
-      { timeout: 5000 },
     );
   });
 });
