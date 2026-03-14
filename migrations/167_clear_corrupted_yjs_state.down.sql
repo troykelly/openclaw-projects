@@ -1,0 +1,4 @@
+-- Migration 167 DOWN: No-op
+-- Cannot restore cleared yjs_state — the affected entries had corrupted Yjs keys
+-- ('default' instead of 'root') and were not usable. Notes will rebuild yjs_state
+-- from their content column on next collaborative edit.
