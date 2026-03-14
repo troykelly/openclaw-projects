@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { Pool } from 'pg';
 import { createTestPool, ensureTestNamespace } from './helpers/db.ts';
-import { runMigrate } from './helpers/migrate.ts';
+import { runMigrate, stepsToRollbackTo } from './helpers/migrate.ts';
 
 /**
  * Tests for Issue #2476 — note_export schema (Migration 166)
@@ -278,8 +278,10 @@ describe('note_export Schema (Migration 166)', () => {
 
   describe('migration reversibility', () => {
     it('down migration removes all objects cleanly', async () => {
-      // Run down for migration 166
-      await runMigrate('down', 1);
+      // Roll back migration 166 and any later migrations that may have been added.
+      // stepsToRollbackTo(166) returns the count of migrations at version >= 166,
+      // ensuring we always reach a state where migration 166 itself is undone.
+      await runMigrate('down', stepsToRollbackTo(166));
 
       // Table should not exist
       const tableCheck = await pool.query(
