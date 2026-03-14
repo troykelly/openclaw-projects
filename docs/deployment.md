@@ -126,9 +126,13 @@ All images are published to GitHub Container Registry. There are nine service im
 | Tag | Meaning |
 |-----|---------|
 | `:edge` | Built from the `main` branch. Development/unstable — may change at any time. Do NOT use in production. |
-| `:<version>` (e.g. `:0.0.61`) | Built from the corresponding tagged release. Immutable and recommended for production. |
+| `:<major>.<minor>.<patch>` (e.g. `:0.0.61`) | Exact release version. Immutable — recommended for production. |
+| `:<major>.<minor>` (e.g. `:0.0`) | Points to the latest patch in that minor line. Updates on new patches. |
+| `:<major>` (e.g. `:0`) | Points to the latest release in that major line. Updates on new releases. |
+| `:latest` | Points to the most recent stable release. Updates on every release. Not suitable for pinned production deployments. |
+| `:<sha>` (e.g. `:abc1234`) | The specific commit SHA of the version-bump commit. Fully immutable. |
 
-> **Note:** `:latest` is not published. There is no `:latest` tag — use an explicit version tag for production.
+> **Production recommendation:** Use an exact version tag (e.g. `:0.0.61`) or the release asset compose files — these are fully pinned to a single immutable image. Avoid `:latest`, `:<major>`, and `:<major>.<minor>` in production as they change on new releases.
 
 > **Warning:** Compose files on the `main` branch always reference `:edge` images. If you `git checkout main` and run `docker compose up`, you will get the latest development build — not a stable release. To deploy a specific version, see [Deploying a Specific Version](#deploying-a-specific-version).
 
@@ -1259,8 +1263,13 @@ Clone the repository and check out a specific tag. Compose files in tagged commi
 git clone https://github.com/troykelly/openclaw-projects.git
 cd openclaw-projects
 git checkout v0.0.61
-docker compose -f docker-compose.production.yml pull
-docker compose -f docker-compose.production.yml up -d
+# Choose the compose file appropriate for your deployment:
+#   docker-compose.yml           — basic
+#   docker-compose.quickstart.yml — quickstart with defaults
+#   docker-compose.traefik.yml   — production with TLS/WAF
+#   docker-compose.full.yml      — full with OpenClaw Gateway
+docker compose -f docker-compose.traefik.yml pull
+docker compose -f docker-compose.traefik.yml up -d
 ```
 
 This is safe for production use — all project images in the checked-out compose files will be pinned to the exact release version.

@@ -97,11 +97,11 @@ Features:
 
 ### Image Tags
 
-- `:edge` — built from `main`, unstable, for development only
-- `:<version>` (e.g. `:0.0.61`) — stable tagged release, recommended for production
-- `:latest` is **not** published — always use an explicit version tag
+- `:edge` — built from `main`, unstable, for development only. Do NOT use in production.
+- `:<version>` (e.g. `:0.0.61`) — exact release version, immutable, recommended for production
+- `:latest` — updated on every stable release; convenient but not suitable for pinned deployments
 
-For production use, download versioned compose files from the [GitHub Releases page](https://github.com/troykelly/openclaw-projects/releases) or `git checkout v<version>` — both give you compose files pinned to that exact release.
+For production use, download versioned compose files from the [GitHub Releases page](https://github.com/troykelly/openclaw-projects/releases) or `git checkout v<version>` — both give you compose files pinned to that exact release version.
 
 See **[docs/deployment.md](docs/deployment.md)** for the full deployment guide, including:
 - Image tag scheme and versioning
