@@ -18,7 +18,7 @@
  * Reference: docs/knowledge/openclaw-hook-contract.md
  */
 
-import type { Logger } from '../logger.js';
+import type { PluginLogger } from '../logger.js';
 
 /** JSON Schema for tool parameters */
 export interface JSONSchema {
@@ -535,8 +535,14 @@ export interface OpenClawPluginApi {
 
   // ── Runtime ───────────────────────────────────────────────────────────────
 
-  /** Logger instance */
-  logger: Logger;
+  /**
+   * Logger instance from the host.
+   *
+   * This is the host-provided PluginLogger (string-only methods).
+   * Internally, the plugin wraps this via `createPluginLogger(api.logger)`
+   * to produce a Logger with `child()` support and structured data flattening.
+   */
+  logger: PluginLogger;
 
   /**
    * Plugin runtime utilities.

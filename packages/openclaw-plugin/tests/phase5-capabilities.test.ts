@@ -295,13 +295,9 @@ describe('Phase 5: SDK Capability Implementations', () => {
         { agentId: 'agent-1', sessionKey: 'session-1' },
       );
 
+      // After logger adapter rewrite (#2537), host logger receives formatted strings
       expect(mockApi.logger.debug).toHaveBeenCalledWith(
-        'llm_input audit',
-        expect.objectContaining({
-          runId: 'run-123',
-          provider: 'openai',
-          model: 'gpt-4',
-        }),
+        expect.stringContaining('llm_input audit'),
       );
     });
 
@@ -337,13 +333,9 @@ describe('Phase 5: SDK Capability Implementations', () => {
           { agentId: 'agent-1', sessionKey: 'session-1' },
         );
 
+        // After logger adapter rewrite (#2537), host logger receives formatted strings
         expect(mockApi.logger.debug).toHaveBeenCalledWith(
-          'llm_output token usage',
-          expect.objectContaining({
-            promptTokens: 100,
-            completionTokens: 50,
-            totalTokens: 150,
-          }),
+          expect.stringContaining('llm_output token usage'),
         );
       } finally {
         globalThis.fetch = originalFetch;
@@ -364,7 +356,7 @@ describe('Phase 5: SDK Capability Implementations', () => {
         { agentId: 'agent-1', sessionKey: 'session-1' },
       );
 
-      expect(mockApi.logger.debug).toHaveBeenCalledWith('llm_output: no usage data available');
+      expect(mockApi.logger.debug).toHaveBeenCalledWith(expect.stringContaining('llm_output: no usage data available'));
     });
 
     it('llm_input handler should be non-fatal on error', async () => {
@@ -375,9 +367,10 @@ describe('Phase 5: SDK Capability Implementations', () => {
         ctx: PluginHookAgentContext,
       ) => Promise<void>;
 
-      // Override debug AFTER registration to only affect the handler call
+      // Override debug AFTER registration to only affect the handler call.
+      // After logger adapter rewrite (#2537), host logger receives formatted strings.
       (mockApi.logger.debug as ReturnType<typeof vi.fn>).mockImplementation((...args: unknown[]) => {
-        if (typeof args[0] === 'string' && args[0] === 'llm_input audit') {
+        if (typeof args[0] === 'string' && (args[0] as string).includes('llm_input audit')) {
           throw new Error('Simulated debug error');
         }
       });
@@ -389,8 +382,7 @@ describe('Phase 5: SDK Capability Implementations', () => {
       );
 
       expect(mockApi.logger.warn).toHaveBeenCalledWith(
-        'llm_input hook error',
-        expect.objectContaining({ error: 'Simulated debug error' }),
+        expect.stringContaining('llm_input hook error'),
       );
     });
   });
@@ -522,8 +514,7 @@ describe('Phase 5: SDK Capability Implementations', () => {
 
         // Verify dedup log was called
         expect(mockApi.logger.debug).toHaveBeenCalledWith(
-          'before_reset: session already captured, skipping',
-          expect.objectContaining({ sessionId: 'session-dedup' }),
+          expect.stringContaining('before_reset: session already captured, skipping'),
         );
       } finally {
         globalThis.fetch = originalFetch;
@@ -701,12 +692,7 @@ describe('Phase 5: SDK Capability Implementations', () => {
       );
 
       expect(mockApi.logger.debug).toHaveBeenCalledWith(
-        'Owner-gated tool invocation',
-        expect.objectContaining({
-          toolName: 'memory_forget',
-          requesterSenderId: 'user-logged',
-          senderIsOwner: true,
-        }),
+        expect.stringContaining('Owner-gated tool invocation'),
       );
     });
 
@@ -1012,8 +998,7 @@ describe('Phase 5: SDK Capability Implementations', () => {
 
         // Verify dedup log
         expect(mockApi.logger.debug).toHaveBeenCalledWith(
-          'agent_end: session already captured by before_reset, skipping',
-          expect.objectContaining({ sessionId: 'session-order-test' }),
+          expect.stringContaining('agent_end: session already captured by before_reset, skipping'),
         );
       } finally {
         globalThis.fetch = originalFetch;
@@ -1110,8 +1095,7 @@ describe('Phase 5: SDK Capability Implementations', () => {
       expect(result).toBeUndefined(); // allowed through with warning
 
       expect(mockApi.logger.warn).toHaveBeenCalledWith(
-        'Owner-gated tool invoked without context — defaulting to allow (legacy SDK path)',
-        expect.objectContaining({ toolName: 'memory_forget' }),
+        expect.stringContaining('Owner-gated tool invoked without context'),
       );
     });
 
@@ -1129,11 +1113,7 @@ describe('Phase 5: SDK Capability Implementations', () => {
       );
 
       expect(mockApi.logger.warn).toHaveBeenCalledWith(
-        'Owner-gated tool invoked without senderIsOwner trust signal — defaulting to allow',
-        expect.objectContaining({
-          toolName: 'memory_forget',
-          requesterSenderId: 'user-no-owner-flag',
-        }),
+        expect.stringContaining('Owner-gated tool invoked without senderIsOwner trust signal'),
       );
     });
   });

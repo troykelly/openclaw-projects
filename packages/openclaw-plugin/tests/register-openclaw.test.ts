@@ -219,12 +219,15 @@ describe('OpenClaw 2026 API Registration', () => {
     it('should log registration success', () => {
       registerOpenClaw(mockApi);
 
-      expect(mockApi.logger.info).toHaveBeenCalledWith(
-        'OpenClaw Projects plugin registered',
-        expect.objectContaining({
-          toolCount: 109,
-        }),
+      // After logger adapter rewrite (#2537), the host logger receives
+      // formatted strings with [openclaw-projects] prefix and flattened data.
+      const infoCalls = (mockApi.logger.info as ReturnType<typeof vi.fn>).mock.calls;
+      const registrationLog = infoCalls.find(
+        (call: unknown[]) => typeof call[0] === 'string' && call[0].includes('OpenClaw Projects plugin registered'),
       );
+      expect(registrationLog).toBeDefined();
+      expect(registrationLog![0]).toContain('[openclaw-projects]');
+      expect(registrationLog![0]).toContain('"toolCount":109');
     });
 
     it('should fall back to registerHook with snake_case names if api.on is not available', () => {

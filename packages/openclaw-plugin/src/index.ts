@@ -36,7 +36,7 @@ export type {
 
 import type { PluginConfig } from './config.js';
 import { validateConfig, validateRawConfig, redactConfig } from './config.js';
-import { createLogger, type Logger } from './logger.js';
+import { createLogger, createPluginLogger, createFallbackLogger, type Logger, type PluginLogger } from './logger.js';
 import { createApiClient, type ApiClient } from './api-client.js';
 import { extractContext, getUserScopeKey, type PluginContext } from './context.js';
 import {
@@ -145,89 +145,95 @@ function createPluginInstance(config: PluginConfig, logger: Logger, runtime: unk
     config.userScoping ?? 'agent',
   );
 
+  // Create component-scoped child loggers
+  const memoryLogger = logger.child('memory');
+  const projectsLogger = logger.child('projects');
+  const todosLogger = logger.child('todos');
+  const contactsLogger = logger.child('contacts');
+
   // Create tools
   const tools: PluginTools = {
     memoryRecall: createMemoryRecallTool({
       client: apiClient,
-      logger,
+      logger: memoryLogger,
       config,
       user_id,
     }),
     memoryStore: createMemoryStoreTool({
       client: apiClient,
-      logger,
+      logger: memoryLogger,
       config,
       user_id,
     }),
     memoryForget: createMemoryForgetTool({
       client: apiClient,
-      logger,
+      logger: memoryLogger,
       config,
       user_id,
     }),
     memoryList: createMemoryListTool({
       client: apiClient,
-      logger,
+      logger: memoryLogger,
       config,
       user_id,
     }),
     memoryUpdate: createMemoryUpdateTool({
       client: apiClient,
-      logger,
+      logger: memoryLogger,
       config,
       user_id,
     }),
     projectList: createProjectListTool({
       client: apiClient,
-      logger,
+      logger: projectsLogger,
       config,
       user_id,
     }),
     projectGet: createProjectGetTool({
       client: apiClient,
-      logger,
+      logger: projectsLogger,
       config,
       user_id,
     }),
     projectCreate: createProjectCreateTool({
       client: apiClient,
-      logger,
+      logger: projectsLogger,
       config,
       user_id,
     }),
     todoList: createTodoListTool({
       client: apiClient,
-      logger,
+      logger: todosLogger,
       config,
       user_id,
     }),
     todoCreate: createTodoCreateTool({
       client: apiClient,
-      logger,
+      logger: todosLogger,
       config,
       user_id,
     }),
     todoComplete: createTodoCompleteTool({
       client: apiClient,
-      logger,
+      logger: todosLogger,
       config,
       user_id,
     }),
     contactSearch: createContactSearchTool({
       client: apiClient,
-      logger,
+      logger: contactsLogger,
       config,
       user_id,
     }),
     contactGet: createContactGetTool({
       client: apiClient,
-      logger,
+      logger: contactsLogger,
       config,
       user_id,
     }),
     contactCreate: createContactCreateTool({
       client: apiClient,
-      logger,
+      logger: contactsLogger,
       config,
       user_id,
     }),
@@ -288,7 +294,7 @@ function createPluginInstance(config: PluginConfig, logger: Logger, runtime: unk
  * to produce a fully initialized plugin instance.
  */
 export function register(ctx: RegistrationContext): PluginInstance {
-  const logger = ctx.logger ?? createLogger('openclaw-projects');
+  const logger = ctx.logger ?? createPluginLogger(createFallbackLogger());
 
   // Validate as raw config first to check structure
   const rawConfig = validateRawConfig(ctx.config);
@@ -339,8 +345,8 @@ export {
 } from './config.js';
 export type { SecretConfig } from './secrets.js';
 export { resolveSecret, resolveSecretSync, resolveSecrets, clearSecretCache, clearCachedSecret } from './secrets.js';
-export type { Logger } from './logger.js';
-export { createLogger, redactSensitive } from './logger.js';
+export type { Logger, PluginLogger } from './logger.js';
+export { createLogger, createPluginLogger, createFallbackLogger, redactSensitive } from './logger.js';
 export type { ApiClient, ApiResponse, ApiError } from './api-client.js';
 export { createApiClient } from './api-client.js';
 export type {

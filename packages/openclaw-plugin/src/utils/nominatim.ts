@@ -3,6 +3,8 @@
  * Resolves lat/lng to human-readable address and place label.
  */
 
+import { createPluginLogger, createFallbackLogger, type Logger } from '../logger.js';
+
 export interface GeocodedLocation {
   address: string;
   place_label: string;
@@ -10,6 +12,9 @@ export interface GeocodedLocation {
 
 const geocodeCache = new Map<string, GeocodedLocation>();
 const MAX_CACHE_SIZE = 500;
+
+/** Fallback logger for standalone use when no logger is passed. */
+const nominatimLogger = createPluginLogger(createFallbackLogger(), 'api');
 
 /**
  * Rounds coordinates to ~100m precision for cache key deduplication.
@@ -26,6 +31,7 @@ export async function reverseGeocode(
   lat: number,
   lng: number,
   nominatimUrl: string,
+  logger: Logger = nominatimLogger,
 ): Promise<GeocodedLocation | null> {
   const key = cacheKey(lat, lng);
   if (geocodeCache.has(key)) return geocodeCache.get(key)!;
@@ -37,7 +43,7 @@ export async function reverseGeocode(
       signal: AbortSignal.timeout(5000),
     });
     if (!response.ok) {
-      console.warn(`[Nominatim] Reverse geocode failed: HTTP ${response.status} for (${lat}, ${lng})`);
+      logger.warn(`Reverse geocode failed: HTTP ${response.status} for (${lat}, ${lng})`);
       return null;
     }
 
@@ -66,7 +72,7 @@ export async function reverseGeocode(
     return result;
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
-    console.warn(`[Nominatim] Reverse geocode error for (${lat}, ${lng}): ${msg}`);
+    logger.warn(`Reverse geocode error for (${lat}, ${lng})`, { error: msg });
     return null;
   }
 }

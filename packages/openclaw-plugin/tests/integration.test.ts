@@ -8,13 +8,16 @@ import { register, type RegistrationContext } from '../src/index.js';
 import type { Logger } from '../src/logger.js';
 
 describe('Integration Tests', () => {
-  const createMockLogger = (): Logger => ({
-    namespace: 'test',
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-    debug: vi.fn(),
-  });
+  const createMockLogger = (): Logger => {
+    const logger: Logger = {
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      debug: vi.fn(),
+      child: () => logger,
+    };
+    return logger;
+  };
 
   describe('Full Plugin Lifecycle', () => {
     it('should register plugin with valid config', () => {

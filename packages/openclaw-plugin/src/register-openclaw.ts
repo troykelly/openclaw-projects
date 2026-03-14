@@ -18,7 +18,8 @@ import { createOAuthGatewayMethods, registerOAuthGatewayRpcMethods } from './gat
 // the SDK may poll getNotifications automatically, producing 401s (#2076).
 // Implementation kept in gateway/rpc-methods.ts for future use.
 import { createAutoCaptureHook, createGraphAwareRecallHook } from './hooks.js';
-import { createLogger, type Logger } from './logger.js';
+import { createFallbackLogger, createPluginLogger, type Logger } from './logger.js';
+import { emitStartupBanner } from './startup.js';
 import {
   createContextSearchTool,
   createLinksQueryTool,
@@ -135,7 +136,21 @@ import { injectionLogLimiter } from './utils/injection-log-rate-limiter.js';
 import { reverseGeocode } from './utils/nominatim.js';
 import { resolveTtl } from './utils/temporal.js';
 
+/**
+ * Module-level logger, set during registerOpenClaw().
+ * Used by toAgentToolResult() for schema validation errors since
+ * it is a standalone exported function without a logger parameter.
+ */
+let moduleLogger: Logger | undefined;
+
 /** Plugin state stored during registration */
+/**
+ * Internal plugin state.
+ *
+ * `logger` is the internal Logger (with `child()` support and structured data),
+ * NOT the raw PluginLogger from the host. The type flow is:
+ *   `api.logger: PluginLogger` → `createPluginLogger(api.logger): Logger` → `PluginState.logger: Logger`
+ */
 interface PluginState {
   config: PluginConfig;
   logger: Logger;
@@ -219,10 +234,13 @@ export function toAgentToolResult(result: ToolResult): AgentToolResult {
     // Do NOT throw — returning an error result is safer than crashing.
     // Log enough context to diagnose which tool produced bad output.
     const dataShape = result.data ? Object.keys(result.data).join(',') : 'none';
-    console.error(
-      `[openclaw-plugin] toAgentToolResult: output failed schema validation (#2230). ` +
-        `success=${result.success} dataKeys=${dataShape} zodError=${parsed.error.message}`,
-    );
+    const validationMsg = `toAgentToolResult: output failed schema validation (#2230). ` +
+        `success=${result.success} dataKeys=${dataShape} zodError=${parsed.error.message}`;
+    if (moduleLogger) {
+      moduleLogger.error(validationMsg);
+    } else {
+      createPluginLogger(createFallbackLogger()).error(validationMsg);
+    }
     return {
       content: [{ type: 'text' as const, text: '(invalid tool result)' }],
       isError: true,
@@ -1953,14 +1971,14 @@ export async function refreshNamespacesAsync(state: PluginState): Promise<void> 
     );
 
     if (!response.success) {
-      state.logger.warn('Namespace discovery failed, keeping cached list', { error: response.error.message });
+      state.logger.child('namespace').warn('Namespace discovery failed, keeping cached list', { error: response.error.message });
       // Do NOT update timestamp on failure — let the next check retry sooner
       return;
     }
 
     const items = Array.isArray(response.data) ? response.data : [];
     if (items.length === 0) {
-      state.logger.warn(
+      state.logger.child('namespace').warn(
         'Namespace discovery returned empty list — M2M tokens may lack namespace grants. ' +
           'Ensure the server returns all namespaces for M2M tokens with api:full scope (#1561).',
       );
@@ -1978,9 +1996,9 @@ export async function refreshNamespacesAsync(state: PluginState): Promise<void> 
     state.resolvedNamespace.recall = discovered;
     // Stamp only after successful fetch
     state.lastNamespaceRefreshMs = Date.now();
-    state.logger.info('Namespace list refreshed via dynamic discovery', { namespaces: discovered });
+    state.logger.child('namespace').info('Namespace list refreshed via dynamic discovery', { namespaces: discovered });
   } catch (error) {
-    state.logger.warn('Namespace discovery error, keeping cached list', {
+    state.logger.child('namespace').warn('Namespace discovery error, keeping cached list', {
       error: error instanceof Error ? error.message : String(error),
     });
     // Do NOT update timestamp on failure — let the next check retry sooner
@@ -1989,10 +2007,28 @@ export async function refreshNamespacesAsync(state: PluginState): Promise<void> 
   }
 }
 
+/** Component-scoped loggers passed to createToolHandlers (#2540). */
+interface ToolChildLoggers {
+  memory: Logger;
+  projects: Logger;
+  todos: Logger;
+  contacts: Logger;
+  comms: Logger;
+  links: Logger;
+  files: Logger;
+  skills: Logger;
+  namespace: Logger;
+  api: Logger;
+  dev: Logger;
+  notes: Logger;
+  context: Logger;
+  guide: Logger;
+}
+
 /**
  * Create tool execution handlers
  */
-function createToolHandlers(state: PluginState) {
+function createToolHandlers(state: PluginState, childLoggers: ToolChildLoggers) {
   const { config, logger, apiClient } = state;
 
   // Issue #1644: Read user_id from mutable state on every call.
@@ -2144,7 +2180,7 @@ function createToolHandlers(state: PluginState) {
           },
         };
       } catch (error) {
-        logger.error('memory_recall failed', { error });
+        childLoggers.memory.error('memory_recall failed', { error: error instanceof Error ? error.message : String(error) });
         return { success: false, error: 'Failed to search memories' };
       }
     },
@@ -2184,7 +2220,7 @@ function createToolHandlers(state: PluginState) {
 
       // Credential blocking (Issue #2438): block by default, opt-in via allow_sensitive
       if (!allow_sensitive && mayContainCredentials(memoryText)) {
-        logger.warn('memory_store blocked: possible credential detected', {
+        childLoggers.memory.warn('memory_store blocked: possible credential detected', {
           user_id: state.agentId,
           namespace: getStoreNamespace(params),
         });
@@ -2196,7 +2232,7 @@ function createToolHandlers(state: PluginState) {
         };
       }
       if (allow_sensitive) {
-        logger.info('memory_store: allow_sensitive=true — storing without credential check', {
+        childLoggers.memory.info('memory_store: allow_sensitive=true — storing without credential check', {
           user_id: state.agentId,
           namespace: getStoreNamespace(params),
         });
@@ -2272,7 +2308,7 @@ function createToolHandlers(state: PluginState) {
           },
         };
       } catch (error) {
-        logger.error('memory_store failed', { error });
+        childLoggers.memory.error('memory_store failed', { error: error instanceof Error ? error.message : String(error) });
         return { success: false, error: 'Failed to store memory' };
       }
     },
@@ -2343,7 +2379,7 @@ function createToolHandlers(state: PluginState) {
 
         return { success: false, error: 'Either memory_id or query is required' };
       } catch (error) {
-        logger.error('memory_forget failed', { error });
+        childLoggers.memory.error('memory_forget failed', { error: error instanceof Error ? error.message : String(error) });
         return { success: false, error: 'Failed to forget memory' };
       }
     },
@@ -2428,7 +2464,7 @@ function createToolHandlers(state: PluginState) {
           },
         };
       } catch (error) {
-        logger.error('memory_list failed', { error });
+        childLoggers.memory.error('memory_list failed', { error: error instanceof Error ? error.message : String(error) });
         return { success: false, error: 'Failed to list memories' };
       }
     },
@@ -2498,7 +2534,7 @@ function createToolHandlers(state: PluginState) {
           },
         };
       } catch (error) {
-        logger.error('memory_update failed', { error });
+        childLoggers.memory.error('memory_update failed', { error: error instanceof Error ? error.message : String(error) });
         return { success: false, error: 'Failed to update memory' };
       }
     },
@@ -2528,7 +2564,7 @@ function createToolHandlers(state: PluginState) {
           data: { content, details: { count: projects.length, projects } },
         };
       } catch (error) {
-        logger.error('project_list failed', { error });
+        childLoggers.projects.error('project_list failed', { error: error instanceof Error ? error.message : String(error) });
         return { success: false, error: 'Failed to list projects' };
       }
     },
@@ -2555,7 +2591,7 @@ function createToolHandlers(state: PluginState) {
           },
         };
       } catch (error) {
-        logger.error('project_get failed', { error });
+        childLoggers.projects.error('project_get failed', { error: error instanceof Error ? error.message : String(error) });
         return { success: false, error: 'Failed to get project' };
       }
     },
@@ -2590,7 +2626,7 @@ function createToolHandlers(state: PluginState) {
           },
         };
       } catch (error) {
-        logger.error('project_create failed', { error });
+        childLoggers.projects.error('project_create failed', { error: error instanceof Error ? error.message : String(error) });
         return { success: false, error: 'Failed to create project' };
       }
     },
@@ -2656,7 +2692,7 @@ function createToolHandlers(state: PluginState) {
           data: { content, details: { count: todos.length, total, todos } },
         };
       } catch (error) {
-        logger.error('todo_list failed', { error });
+        childLoggers.todos.error('todo_list failed', { error: error instanceof Error ? error.message : String(error) });
         return { success: false, error: 'Failed to list todos' };
       }
     },
@@ -2695,7 +2731,7 @@ function createToolHandlers(state: PluginState) {
           },
         };
       } catch (error) {
-        logger.error('todo_create failed', { error });
+        childLoggers.todos.error('todo_create failed', { error: error instanceof Error ? error.message : String(error) });
         return { success: false, error: 'Failed to create todo' };
       }
     },
@@ -2719,7 +2755,7 @@ function createToolHandlers(state: PluginState) {
           data: { content: `Todo ${todoId} marked as complete` },
         };
       } catch (error) {
-        logger.error('todo_complete failed', { error });
+        childLoggers.todos.error('todo_complete failed', { error: error instanceof Error ? error.message : String(error) });
         return { success: false, error: 'Failed to complete todo' };
       }
     },
@@ -2822,19 +2858,19 @@ function createToolHandlers(state: PluginState) {
           },
         };
       } catch (error) {
-        logger.error('todo_search failed', { error });
+        childLoggers.todos.error('todo_search failed', { error: error instanceof Error ? error.message : String(error) });
         return { success: false, error: 'Failed to search work items' };
       }
     },
 
     async project_search(params: Record<string, unknown>): Promise<ToolResult> {
-      const tool = createProjectSearchTool({ client: apiClient, logger, config, user_id: getAgentId() });
+      const tool = createProjectSearchTool({ client: apiClient, logger: childLoggers.projects, config, user_id: getAgentId() });
       return tool.execute(params as Parameters<typeof tool.execute>[0]);
     },
 
     async context_search(params: Record<string, unknown>): Promise<ToolResult> {
       const contextNs = getRecallNamespaces(params);
-      const tool = createContextSearchTool({ client: apiClient, logger, config, user_id: getAgentId(), namespaces: contextNs.length > 0 ? contextNs : undefined });
+      const tool = createContextSearchTool({ client: apiClient, logger: childLoggers.context, config, user_id: getAgentId(), namespaces: contextNs.length > 0 ? contextNs : undefined });
       return tool.execute(params as Parameters<typeof tool.execute>[0]);
     },
 
@@ -2861,7 +2897,7 @@ function createToolHandlers(state: PluginState) {
           data: { content, details: { count: contacts.length, contacts } },
         };
       } catch (error) {
-        logger.error('contact_search failed', { error });
+        childLoggers.contacts.error('contact_search failed', { error: error instanceof Error ? error.message : String(error) });
         return { success: false, error: 'Failed to search contacts' };
       }
     },
@@ -2905,7 +2941,7 @@ function createToolHandlers(state: PluginState) {
           data: { content: lines.join('\n'), details: { contact } },
         };
       } catch (error) {
-        logger.error('contact_get failed', { error });
+        childLoggers.contacts.error('contact_get failed', { error: error instanceof Error ? error.message : String(error) });
         return { success: false, error: 'Failed to get contact' };
       }
     },
@@ -2962,7 +2998,7 @@ function createToolHandlers(state: PluginState) {
           },
         };
       } catch (error) {
-        logger.error('contact_create failed', { error });
+        childLoggers.contacts.error('contact_create failed', { error: error instanceof Error ? error.message : String(error) });
         return { success: false, error: 'Failed to create contact' };
       }
     },
@@ -3000,7 +3036,7 @@ function createToolHandlers(state: PluginState) {
           },
         };
       } catch (error) {
-        logger.error('contact_update failed', { error });
+        childLoggers.contacts.error('contact_update failed', { error: error instanceof Error ? error.message : String(error) });
         return { success: false, error: 'Failed to update contact' };
       }
     },
@@ -3029,7 +3065,7 @@ function createToolHandlers(state: PluginState) {
           },
         };
       } catch (error) {
-        logger.error('contact_merge failed', { error });
+        childLoggers.contacts.error('contact_merge failed', { error: error instanceof Error ? error.message : String(error) });
         return { success: false, error: 'Failed to merge contacts' };
       }
     },
@@ -3054,7 +3090,7 @@ function createToolHandlers(state: PluginState) {
           },
         };
       } catch (error) {
-        logger.error('contact_tag_add failed', { error });
+        childLoggers.contacts.error('contact_tag_add failed', { error: error instanceof Error ? error.message : String(error) });
         return { success: false, error: 'Failed to add tags' };
       }
     },
@@ -3079,7 +3115,7 @@ function createToolHandlers(state: PluginState) {
           },
         };
       } catch (error) {
-        logger.error('contact_tag_remove failed', { error });
+        childLoggers.contacts.error('contact_tag_remove failed', { error: error instanceof Error ? error.message : String(error) });
         return { success: false, error: 'Failed to remove tag' };
       }
     },
@@ -3134,7 +3170,7 @@ function createToolHandlers(state: PluginState) {
           },
         };
       } catch (error) {
-        logger.error('contact_resolve failed', { error });
+        childLoggers.contacts.error('contact_resolve failed', { error: error instanceof Error ? error.message : String(error) });
         return { success: false, error: 'Failed to resolve sender identity' };
       }
     },
@@ -3177,7 +3213,7 @@ function createToolHandlers(state: PluginState) {
         };
       }
 
-      logger.info('sms_send invoked', {
+      childLoggers.comms.info('sms_send invoked', {
         user_id: state.agentId,
         bodyLength: body.length,
         hasIdempotencyKey: !!idempotency_key,
@@ -3191,7 +3227,7 @@ function createToolHandlers(state: PluginState) {
         }>('/twilio/sms/send', { to, body, idempotency_key }, reqOpts());
 
         if (!response.success) {
-          logger.error('sms_send API error', {
+          childLoggers.comms.error('sms_send API error', {
             user_id: state.agentId,
             status: response.error.status,
             code: response.error.code,
@@ -3204,7 +3240,7 @@ function createToolHandlers(state: PluginState) {
 
         const { message_id, thread_id, status } = response.data;
 
-        logger.debug('sms_send completed', {
+        childLoggers.comms.debug('sms_send completed', {
           user_id: state.agentId,
           message_id,
           status,
@@ -3218,7 +3254,7 @@ function createToolHandlers(state: PluginState) {
           },
         };
       } catch (error) {
-        logger.error('sms_send failed', {
+        childLoggers.comms.error('sms_send failed', {
           user_id: state.agentId,
           error: error instanceof Error ? error.message : String(error),
         });
@@ -3277,7 +3313,7 @@ function createToolHandlers(state: PluginState) {
         };
       }
 
-      logger.info('email_send invoked', {
+      childLoggers.comms.info('email_send invoked', {
         user_id: state.agentId,
         subjectLength: subject.length,
         bodyLength: body.length,
@@ -3294,7 +3330,7 @@ function createToolHandlers(state: PluginState) {
         }>('/postmark/email/send', { to, subject, body, html_body, thread_id, idempotency_key }, reqOpts());
 
         if (!response.success) {
-          logger.error('email_send API error', {
+          childLoggers.comms.error('email_send API error', {
             user_id: state.agentId,
             status: response.error.status,
             code: response.error.code,
@@ -3307,7 +3343,7 @@ function createToolHandlers(state: PluginState) {
 
         const { message_id, thread_id: responseThreadId, status } = response.data;
 
-        logger.debug('email_send completed', {
+        childLoggers.comms.debug('email_send completed', {
           user_id: state.agentId,
           message_id,
           status,
@@ -3321,7 +3357,7 @@ function createToolHandlers(state: PluginState) {
           },
         };
       } catch (error) {
-        logger.error('email_send failed', {
+        childLoggers.comms.error('email_send failed', {
           user_id: state.agentId,
           error: error instanceof Error ? error.message : String(error),
         });
@@ -3362,7 +3398,7 @@ function createToolHandlers(state: PluginState) {
         };
       }
 
-      logger.info('message_search invoked', {
+      childLoggers.comms.info('message_search invoked', {
         user_id: state.agentId,
         queryLength: query.length,
         channel,
@@ -3407,7 +3443,7 @@ function createToolHandlers(state: PluginState) {
         }>(`/search?${queryParams}`, reqOpts());
 
         if (!response.success) {
-          logger.error('message_search API error', {
+          childLoggers.comms.error('message_search API error', {
             user_id: state.agentId,
             status: response.error.status,
             code: response.error.code,
@@ -3431,7 +3467,7 @@ function createToolHandlers(state: PluginState) {
           similarity: r.score,
         }));
 
-        logger.debug('message_search completed', {
+        childLoggers.comms.debug('message_search completed', {
           user_id: state.agentId,
           resultCount: messages.length,
           total,
@@ -3450,7 +3486,7 @@ function createToolHandlers(state: PluginState) {
             if (detection.detected) {
               const logDecision = injectionLogLimiter.shouldLog(state.agentId);
               if (logDecision.log) {
-                logger.warn(
+                childLoggers.comms.warn(
                   logDecision.summary ? 'injection detection log summary for previous window' : 'potential prompt injection detected in message_search result',
                   {
                     user_id: state.agentId,
@@ -3498,7 +3534,7 @@ function createToolHandlers(state: PluginState) {
           },
         };
       } catch (error) {
-        logger.error('message_search failed', {
+        childLoggers.comms.error('message_search failed', {
           user_id: state.agentId,
           error: error instanceof Error ? error.message : String(error),
         });
@@ -3521,7 +3557,7 @@ function createToolHandlers(state: PluginState) {
         limit?: number;
       };
 
-      logger.info('thread_list invoked', {
+      childLoggers.comms.info('thread_list invoked', {
         user_id: state.agentId,
         channel,
         hasContactId: !!contact_id,
@@ -3560,7 +3596,7 @@ function createToolHandlers(state: PluginState) {
         }>(`/search?${queryParams}`, reqOpts());
 
         if (!response.success) {
-          logger.error('thread_list API error', {
+          childLoggers.comms.error('thread_list API error', {
             user_id: state.agentId,
             status: response.error.status,
             code: response.error.code,
@@ -3575,7 +3611,7 @@ function createToolHandlers(state: PluginState) {
         const results = response.data.results ?? response.data.threads ?? [];
         const total = response.data.total ?? results.length;
 
-        logger.debug('thread_list completed', {
+        childLoggers.comms.debug('thread_list completed', {
           user_id: state.agentId,
           threadCount: results.length,
           total,
@@ -3612,7 +3648,7 @@ function createToolHandlers(state: PluginState) {
           },
         };
       } catch (error) {
-        logger.error('thread_list failed', {
+        childLoggers.comms.error('thread_list failed', {
           user_id: state.agentId,
           error: error instanceof Error ? error.message : String(error),
         });
@@ -3638,7 +3674,7 @@ function createToolHandlers(state: PluginState) {
         };
       }
 
-      logger.info('thread_get invoked', {
+      childLoggers.comms.info('thread_get invoked', {
         user_id: state.agentId,
         thread_id,
         message_limit,
@@ -3666,7 +3702,7 @@ function createToolHandlers(state: PluginState) {
         }>(`/threads/${thread_id}/history?${queryParams}`, reqOpts());
 
         if (!response.success) {
-          logger.error('thread_get API error', {
+          childLoggers.comms.error('thread_get API error', {
             user_id: state.agentId,
             thread_id,
             status: response.error.status,
@@ -3680,7 +3716,7 @@ function createToolHandlers(state: PluginState) {
 
         const { thread, messages } = response.data;
 
-        logger.debug('thread_get completed', {
+        childLoggers.comms.debug('thread_get completed', {
           user_id: state.agentId,
           thread_id,
           message_count: messages.length,
@@ -3702,7 +3738,7 @@ function createToolHandlers(state: PluginState) {
             if (detection.detected) {
               const logDecision = injectionLogLimiter.shouldLog(state.agentId);
               if (logDecision.log) {
-                logger.warn(
+                childLoggers.comms.warn(
                   logDecision.summary ? 'injection detection log summary for previous window' : 'potential prompt injection detected in thread_get result',
                   {
                     user_id: state.agentId,
@@ -3745,7 +3781,7 @@ function createToolHandlers(state: PluginState) {
           },
         };
       } catch (error) {
-        logger.error('thread_get failed', {
+        childLoggers.comms.error('thread_get failed', {
           user_id: state.agentId,
           thread_id,
           error: error instanceof Error ? error.message : String(error),
@@ -3773,7 +3809,7 @@ function createToolHandlers(state: PluginState) {
         };
       }
 
-      logger.info('relationship_set invoked', {
+      childLoggers.links.info('relationship_set invoked', {
         user_id: state.agentId,
         contactALength: contact_a.length,
         contactBLength: contact_b.length,
@@ -3831,7 +3867,7 @@ function createToolHandlers(state: PluginState) {
           },
         };
       } catch (error) {
-        logger.error('relationship_set failed', { error });
+        childLoggers.links.error('relationship_set failed', { error: error instanceof Error ? error.message : String(error) });
         return { success: false, error: 'Failed to set relationship' };
       }
     },
@@ -3849,7 +3885,7 @@ function createToolHandlers(state: PluginState) {
         };
       }
 
-      logger.info('relationship_query invoked', {
+      childLoggers.links.info('relationship_query invoked', {
         user_id: state.agentId,
         contactLength: contact.length,
         hasTypeFilter: !!type_filter,
@@ -3943,7 +3979,7 @@ function createToolHandlers(state: PluginState) {
           },
         };
       } catch (error) {
-        logger.error('relationship_query failed', { error });
+        childLoggers.links.error('relationship_query failed', { error: error instanceof Error ? error.message : String(error) });
         return { success: false, error: 'Failed to query relationships' };
       }
     },
@@ -3974,7 +4010,7 @@ function createToolHandlers(state: PluginState) {
         };
       }
 
-      logger.info('file_share invoked', {
+      childLoggers.files.info('file_share invoked', {
         user_id: state.agentId,
         file_id: fileId,
         expires_in: expiresIn,
@@ -3998,7 +4034,7 @@ function createToolHandlers(state: PluginState) {
         }>(`/files/${fileId}/share`, body, reqOpts());
 
         if (!response.success) {
-          logger.error('file_share API error', {
+          childLoggers.files.error('file_share API error', {
             user_id: state.agentId,
             file_id: fileId,
             status: response.error.status,
@@ -4012,7 +4048,7 @@ function createToolHandlers(state: PluginState) {
 
         const { url, share_token, expires_at, filename, content_type, size_bytes } = response.data;
 
-        logger.debug('file_share completed', {
+        childLoggers.files.debug('file_share completed', {
           user_id: state.agentId,
           file_id: fileId,
           share_token,
@@ -4056,7 +4092,7 @@ function createToolHandlers(state: PluginState) {
           },
         };
       } catch (error) {
-        logger.error('file_share failed', {
+        childLoggers.files.error('file_share failed', {
           user_id: state.agentId,
           file_id: fileId,
           error: error instanceof Error ? error.message : String(error),
@@ -4076,7 +4112,7 @@ function createToolHandlers(state: PluginState) {
     // This is acceptable because skill store operations are scoped by API key, not user_id.
     // A follow-up issue should refactor tool modules to accept getter functions.
     ...(() => {
-      const toolOptions = { client: apiClient, logger, config, user_id: getAgentId() };
+      const toolOptions = { client: apiClient, logger: childLoggers.skills, config, user_id: getAgentId() };
       const putTool = createSkillStorePutTool(toolOptions);
       const getTool = createSkillStoreGetTool(toolOptions);
       const listTool = createSkillStoreListTool(toolOptions);
@@ -4098,7 +4134,7 @@ function createToolHandlers(state: PluginState) {
 
     // Entity link tools: delegate to tool modules (Issue #1220)
     ...(() => {
-      const toolOptions = { client: apiClient, logger, config, user_id: getAgentId() };
+      const toolOptions = { client: apiClient, logger: childLoggers.links, config, user_id: getAgentId() };
       // NOTE: Same caveat as skill store tools above (Issue #1644).
       const setTool = createLinksSetTool(toolOptions);
       const queryTool = createLinksQueryTool(toolOptions);
@@ -4135,7 +4171,7 @@ function createToolHandlers(state: PluginState) {
           : items.map((t) => `- **${t.label}** [${t.channel_type}]${t.is_default ? ' (default)' : ''}`).join('\n');
         return { success: true, data: { content, details: { items, total: response.data.total ?? items.length } } };
       } catch (error) {
-        logger.error('prompt_template_list failed', { error });
+        childLoggers.comms.error('prompt_template_list failed', { error: error instanceof Error ? error.message : String(error) });
         return { success: false, error: 'Failed to list prompt templates' };
       }
     },
@@ -4153,7 +4189,7 @@ function createToolHandlers(state: PluginState) {
         const t = response.data;
         return { success: true, data: { content: `**${t.label}** [${t.channel_type}]${t.is_default ? ' (default)' : ''}\n\n${t.content}`, details: t } };
       } catch (error) {
-        logger.error('prompt_template_get failed', { error });
+        childLoggers.comms.error('prompt_template_get failed', { error: error instanceof Error ? error.message : String(error) });
         return { success: false, error: 'Failed to get prompt template' };
       }
     },
@@ -4176,7 +4212,7 @@ function createToolHandlers(state: PluginState) {
         }
         return { success: true, data: { content: `Created prompt template "${response.data.label}" (${response.data.id})`, details: response.data } };
       } catch (error) {
-        logger.error('prompt_template_create failed', { error });
+        childLoggers.comms.error('prompt_template_create failed', { error: error instanceof Error ? error.message : String(error) });
         return { success: false, error: 'Failed to create prompt template' };
       }
     },
@@ -4194,7 +4230,7 @@ function createToolHandlers(state: PluginState) {
         }
         return { success: true, data: { content: `Updated prompt template "${response.data.label}"`, details: response.data } };
       } catch (error) {
-        logger.error('prompt_template_update failed', { error });
+        childLoggers.comms.error('prompt_template_update failed', { error: error instanceof Error ? error.message : String(error) });
         return { success: false, error: 'Failed to update prompt template' };
       }
     },
@@ -4208,7 +4244,7 @@ function createToolHandlers(state: PluginState) {
         }
         return { success: true, data: { content: `Deleted prompt template ${id}`, details: { id } } };
       } catch (error) {
-        logger.error('prompt_template_delete failed', { error });
+        childLoggers.comms.error('prompt_template_delete failed', { error: error instanceof Error ? error.message : String(error) });
         return { success: false, error: 'Failed to delete prompt template' };
       }
     },
@@ -4246,7 +4282,7 @@ function createToolHandlers(state: PluginState) {
           : items.map((d) => `- **${d.address}** [${d.channel_type}]${d.display_name ? ` — ${d.display_name}` : ''}${d.agent_id ? ` (agent: ${d.agent_id})` : ''}`).join('\n');
         return { success: true, data: { content, details: { items, total: response.data.total ?? items.length } } };
       } catch (error) {
-        logger.error('inbound_destination_list failed', { error });
+        childLoggers.comms.error('inbound_destination_list failed', { error: error instanceof Error ? error.message : String(error) });
         return { success: false, error: 'Failed to list inbound destinations' };
       }
     },
@@ -4269,7 +4305,7 @@ function createToolHandlers(state: PluginState) {
         if (d.context_id) lines.push(`Context: ${d.context_id}`);
         return { success: true, data: { content: lines.join('\n'), details: d } };
       } catch (error) {
-        logger.error('inbound_destination_get failed', { error });
+        childLoggers.comms.error('inbound_destination_get failed', { error: error instanceof Error ? error.message : String(error) });
         return { success: false, error: 'Failed to get inbound destination' };
       }
     },
@@ -4287,7 +4323,7 @@ function createToolHandlers(state: PluginState) {
         }
         return { success: true, data: { content: `Updated inbound destination "${response.data.address}"`, details: response.data } };
       } catch (error) {
-        logger.error('inbound_destination_update failed', { error });
+        childLoggers.comms.error('inbound_destination_update failed', { error: error instanceof Error ? error.message : String(error) });
         return { success: false, error: 'Failed to update inbound destination' };
       }
     },
@@ -4309,7 +4345,7 @@ function createToolHandlers(state: PluginState) {
           : items.map((d) => `- **${d.channel_type}**: agent=${d.agent_id}${d.prompt_template_id ? ` prompt=${d.prompt_template_id}` : ''}`).join('\n');
         return { success: true, data: { content, details: { items } } };
       } catch (error) {
-        logger.error('channel_default_list failed', { error });
+        childLoggers.comms.error('channel_default_list failed', { error: error instanceof Error ? error.message : String(error) });
         return { success: false, error: 'Failed to list channel defaults' };
       }
     },
@@ -4330,7 +4366,7 @@ function createToolHandlers(state: PluginState) {
         if (d.context_id) lines.push(`Context: ${d.context_id}`);
         return { success: true, data: { content: lines.join('\n'), details: d } };
       } catch (error) {
-        logger.error('channel_default_get failed', { error });
+        childLoggers.comms.error('channel_default_get failed', { error: error instanceof Error ? error.message : String(error) });
         return { success: false, error: 'Failed to get channel default' };
       }
     },
@@ -4353,7 +4389,7 @@ function createToolHandlers(state: PluginState) {
         }
         return { success: true, data: { content: `Set ${channel_type} default → agent: ${response.data.agent_id}`, details: response.data } };
       } catch (error) {
-        logger.error('channel_default_set failed', { error });
+        childLoggers.comms.error('channel_default_set failed', { error: error instanceof Error ? error.message : String(error) });
         return { success: false, error: 'Failed to set channel default' };
       }
     },
@@ -4383,7 +4419,7 @@ function createToolHandlers(state: PluginState) {
         }).join('\n');
         return { success: true, data: { content, details: { items } } };
       } catch (error) {
-        logger.error('namespace_list failed', { error });
+        childLoggers.namespace.error('namespace_list failed', { error: error instanceof Error ? error.message : String(error) });
         return { success: false, error: 'Failed to list namespaces' };
       }
     },
@@ -4401,7 +4437,7 @@ function createToolHandlers(state: PluginState) {
         }
         return { success: true, data: { content: `Created namespace **${response.data.namespace}**.`, details: response.data } };
       } catch (error) {
-        logger.error('namespace_create failed', { error });
+        childLoggers.namespace.error('namespace_create failed', { error: error instanceof Error ? error.message : String(error) });
         return { success: false, error: 'Failed to create namespace' };
       }
     },
@@ -4425,7 +4461,7 @@ function createToolHandlers(state: PluginState) {
         const d = response.data;
         return { success: true, data: { content: `Granted **${d.access}** access to **${d.namespace}** for ${d.email}.`, details: d } };
       } catch (error) {
-        logger.error('namespace_grant failed', { error });
+        childLoggers.namespace.error('namespace_grant failed', { error: error instanceof Error ? error.message : String(error) });
         return { success: false, error: 'Failed to grant namespace access' };
       }
     },
@@ -4442,7 +4478,7 @@ function createToolHandlers(state: PluginState) {
           reqOpts(),
         );
         if (!response.success) {
-          logger.warn('namespace_members API call failed', {
+          childLoggers.namespace.warn('namespace_members API call failed', {
             namespace,
             status: response.error?.status,
             message: response.error?.message,
@@ -4462,7 +4498,7 @@ function createToolHandlers(state: PluginState) {
         ].join('\n');
         return { success: true, data: { content, details: data } };
       } catch (error) {
-        logger.error('namespace_members failed', { error });
+        childLoggers.namespace.error('namespace_members failed', { error: error instanceof Error ? error.message : String(error) });
         return { success: false, error: 'Failed to list namespace members' };
       }
     },
@@ -4479,7 +4515,7 @@ function createToolHandlers(state: PluginState) {
         }
         return { success: true, data: { content: `Revoked grant ${grant_id} from namespace **${namespace}**.`, details: { grant_id, namespace } } };
       } catch (error) {
-        logger.error('namespace_revoke failed', { error });
+        childLoggers.namespace.error('namespace_revoke failed', { error: error instanceof Error ? error.message : String(error) });
         return { success: false, error: 'Failed to revoke namespace access' };
       }
     },
@@ -4487,47 +4523,47 @@ function createToolHandlers(state: PluginState) {
     // ── API Onboarding tools (#1784, #1785, #1786) ──────────────────────
 
     async api_onboard(params: Record<string, unknown>): Promise<ToolResult> {
-      const tool = createApiOnboardTool({ client: apiClient, logger, config, user_id: getAgentId() });
+      const tool = createApiOnboardTool({ client: apiClient, logger: childLoggers.api, config, user_id: getAgentId() });
       return tool.execute(params as Parameters<typeof tool.execute>[0]);
     },
 
     async api_recall(params: Record<string, unknown>): Promise<ToolResult> {
-      const tool = createApiRecallTool({ client: apiClient, logger, config, user_id: getAgentId() });
+      const tool = createApiRecallTool({ client: apiClient, logger: childLoggers.api, config, user_id: getAgentId() });
       return tool.execute(params as Parameters<typeof tool.execute>[0]);
     },
 
     async api_get(params: Record<string, unknown>): Promise<ToolResult> {
-      const tool = createApiGetTool({ client: apiClient, logger, config, user_id: getAgentId() });
+      const tool = createApiGetTool({ client: apiClient, logger: childLoggers.api, config, user_id: getAgentId() });
       return tool.execute(params as Parameters<typeof tool.execute>[0]);
     },
 
     async api_list(params: Record<string, unknown>): Promise<ToolResult> {
-      const tool = createApiListTool({ client: apiClient, logger, config, user_id: getAgentId() });
+      const tool = createApiListTool({ client: apiClient, logger: childLoggers.api, config, user_id: getAgentId() });
       return tool.execute(params as Parameters<typeof tool.execute>[0]);
     },
 
     async api_update(params: Record<string, unknown>): Promise<ToolResult> {
-      const tool = createApiUpdateTool({ client: apiClient, logger, config, user_id: getAgentId() });
+      const tool = createApiUpdateTool({ client: apiClient, logger: childLoggers.api, config, user_id: getAgentId() });
       return tool.execute(params as Parameters<typeof tool.execute>[0]);
     },
 
     async api_credential_manage(params: Record<string, unknown>): Promise<ToolResult> {
-      const tool = createApiCredentialManageTool({ client: apiClient, logger, config, user_id: getAgentId() });
+      const tool = createApiCredentialManageTool({ client: apiClient, logger: childLoggers.api, config, user_id: getAgentId() });
       return tool.execute(params as Parameters<typeof tool.execute>[0]);
     },
 
     async api_refresh(params: Record<string, unknown>): Promise<ToolResult> {
-      const tool = createApiRefreshTool({ client: apiClient, logger, config, user_id: getAgentId() });
+      const tool = createApiRefreshTool({ client: apiClient, logger: childLoggers.api, config, user_id: getAgentId() });
       return tool.execute(params as Parameters<typeof tool.execute>[0]);
     },
 
     async api_remove(params: Record<string, unknown>): Promise<ToolResult> {
-      const tool = createApiRemoveTool({ client: apiClient, logger, config, user_id: getAgentId() });
+      const tool = createApiRemoveTool({ client: apiClient, logger: childLoggers.api, config, user_id: getAgentId() });
       return tool.execute(params as Parameters<typeof tool.execute>[0]);
     },
 
     async api_restore(params: Record<string, unknown>): Promise<ToolResult> {
-      const tool = createApiRestoreTool({ client: apiClient, logger, config, user_id: getAgentId() });
+      const tool = createApiRestoreTool({ client: apiClient, logger: childLoggers.api, config, user_id: getAgentId() });
       return tool.execute(params as Parameters<typeof tool.execute>[0]);
     },
   };
@@ -4544,7 +4580,31 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
   // OpenClaw's loader does NOT await the register function — it checks if the
   // result is thenable and logs a warning. All registrations must happen
   // synchronously during this call.
-  const logger = api.logger ?? createLogger('openclaw-projects');
+  const hostLogger = api.logger ?? createFallbackLogger();
+  const logger = createPluginLogger(hostLogger);
+  moduleLogger = logger;
+
+  // Create component-scoped child loggers (#2540)
+  const namespaceLogger = logger.child('namespace');
+  const memoryLogger = logger.child('memory');
+  const hooksLogger = logger.child('hooks');
+  const contactsLogger = logger.child('contacts');
+  const projectsLogger = logger.child('projects');
+  const todosLogger = logger.child('todos');
+  const commsLogger = logger.child('comms');
+  const filesLogger = logger.child('files');
+  const linksLogger = logger.child('links');
+  const skillsLogger = logger.child('skills');
+  const notesLogger = logger.child('notes');
+  const oauthLogger = logger.child('oauth');
+  const gateLogger = logger.child('gate');
+  const cliLogger = logger.child('cli');
+  const apiLogger = logger.child('api');
+  const devLogger = logger.child('dev');
+  const terminalLogger = logger.child('terminal');
+  const contextLogger = logger.child('context');
+  const guideLogger = logger.child('guide');
+  const autolinkerLogger = logger.child('autolinker');
 
   // The SDK provides plugin-specific config via api.pluginConfig (from
   // plugins.entries.<id>.config). Fall back to api.config for older SDKs
@@ -4557,9 +4617,9 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
   } catch (error: unknown) {
     if (error instanceof ZodError) {
       const issues = error.issues.map((i) => `  - ${i.path.join('.')}: ${i.message}`).join('\n');
-      logger.error(`[openclaw-projects] Invalid plugin configuration:\n${issues}`);
+      logger.error(`Invalid plugin configuration:\n${issues}`);
     } else {
-      logger.error(`[openclaw-projects] Invalid plugin configuration: ${error instanceof Error ? error.message : String(error)}`);
+      logger.error(`Invalid plugin configuration: ${error instanceof Error ? error.message : String(error)}`);
     }
     return;
   }
@@ -4568,10 +4628,10 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
   try {
     config = resolveConfigSecretsSync(rawConfig);
   } catch (error: unknown) {
-    logger.error(`[openclaw-projects] Failed to resolve secrets: ${error instanceof Error ? error.message : String(error)}`);
+    logger.error(`Failed to resolve secrets: ${error instanceof Error ? error.message : String(error)}`);
     return;
   }
-  const apiClient = createApiClient({ config, logger });
+  const apiClient = createApiClient({ config, logger: apiLogger });
 
   // Extract context and user ID
   const context = extractContext(api.runtime);
@@ -4588,7 +4648,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
   const resolvedNamespace = resolveNamespaceConfig(config.namespace, context.agent.agentId, config.agentNamespaces);
   // Issue #1537: detect whether static recall was explicitly configured
   const hasStaticRecall = Array.isArray(config.namespace?.recall) && config.namespace.recall.length > 0;
-  logger.info('Namespace config resolved', {
+  namespaceLogger.info('Namespace config resolved', {
     agentId: context.agent.agentId,
     defaultNamespace: resolvedNamespace.default,
     recallNamespaces: resolvedNamespace.recall,
@@ -4615,15 +4675,30 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
         { namespace: resolvedNamespace.default, isAgent: true, user_id, user_email },
       ).then((res) => {
         const count = res.success ? res.data.synced : 0;
-        logger.info(`[openclaw-projects] Agent sync: pushed ${count} agents`);
+        logger.info(`Agent sync: pushed ${count} agents`);
       }).catch((err: unknown) => {
-        logger.warn(`[openclaw-projects] Agent sync failed: ${err instanceof Error ? err.message : String(err)}`);
+        logger.warn(`Agent sync failed: ${err instanceof Error ? err.message : String(err)}`);
       });
     }
   }
 
-  // Create tool handlers
-  const handlers = createToolHandlers(state);
+  // Create tool handlers with component-scoped loggers (#2540)
+  const handlers = createToolHandlers(state, {
+    memory: memoryLogger,
+    projects: projectsLogger,
+    todos: todosLogger,
+    contacts: contactsLogger,
+    comms: commsLogger,
+    links: linksLogger,
+    files: filesLogger,
+    skills: skillsLogger,
+    namespace: namespaceLogger,
+    api: apiLogger,
+    dev: devLogger,
+    notes: notesLogger,
+    context: contextLogger,
+    guide: guideLogger,
+  });
 
   // Register all 32 tools with correct OpenClaw Gateway execute signature
   // Signature: (toolCallId: string, params: T, signal?: AbortSignal, onUpdate?: (partial: any) => void) => AgentToolResult
@@ -5243,7 +5318,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
   // dynamic user_id and namespace getters (Issue #2437).
   {
     const memLifecycleToolOpts = Object.defineProperties(
-      { client: apiClient, logger, config, user_id: '', namespace: '' },
+      { client: apiClient, logger: memoryLogger, config, user_id: '', namespace: '' },
       {
         user_id: { get: () => state.agentId, enumerable: true },
         namespace: { get: () => state.resolvedNamespace.default, enumerable: true },
@@ -5271,7 +5346,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
   // Use getter for user_id so terminal tools always read the current
   // state.agentId, not the value at registration time (Issue #1858, Codex review).
   const termToolOpts = Object.defineProperty(
-    { client: apiClient, logger, config, user_id: '' },
+    { client: apiClient, logger: terminalLogger, config, user_id: '' },
     'user_id',
     { get: () => state.agentId, enumerable: true },
   );
@@ -5315,7 +5390,11 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
   }
 
   // ── Dev session tools (Issue #1896) ────────────────────────────
-  // Reuses termToolOpts (same shape: client, logger, config, user_id getter).
+  const devToolOpts = Object.defineProperty(
+    { client: apiClient, logger: devLogger, config, user_id: '' },
+    'user_id',
+    { get: () => state.agentId, enumerable: true },
+  );
 
   const devSessionToolFactories = [
     createDevSessionCreateTool,
@@ -5328,7 +5407,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
 
   for (const factory of devSessionToolFactories) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- factory functions have heterogeneous option types that share the same shape
-    const tool = (factory as (opts: typeof termToolOpts) => { name: string; description: string; parameters: unknown; execute: (params: any) => Promise<any> })(termToolOpts);
+    const tool = (factory as (opts: typeof devToolOpts) => { name: string; description: string; parameters: unknown; execute: (params: any) => Promise<any> })(devToolOpts);
 
     tools.push({
       name: tool.name,
@@ -5344,7 +5423,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
   // ── Note tools (Issue #1921) ─────────────────────────────────
   // Note/notebook tools need agentEmail for M2M identity resolution (#2233).
   const noteToolOpts = Object.defineProperties(
-    { client: apiClient, logger, config, user_id: '', agentEmail: undefined as string | undefined },
+    { client: apiClient, logger: notesLogger, config, user_id: '', agentEmail: undefined as string | undefined },
     {
       user_id: { get: () => state.agentId, enumerable: true },
       agentEmail: { get: () => state.agentEmail, enumerable: true },
@@ -5427,7 +5506,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
 
   for (const factory of devPromptToolFactories) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- factory functions have heterogeneous option types that share the same shape
-    const tool = (factory as (opts: typeof termToolOpts) => { name: string; description: string; parameters: unknown; execute: (params: any) => Promise<any> })(termToolOpts);
+    const tool = (factory as (opts: typeof devToolOpts) => { name: string; description: string; parameters: unknown; execute: (params: any) => Promise<any> })(devToolOpts);
 
     tools.push({
       name: tool.name,
@@ -5564,7 +5643,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     // Falls back to basic memory search if the graph-aware endpoint is unavailable.
     const autoRecallHook = createGraphAwareRecallHook({
       client: apiClient,
-      logger,
+      logger: hooksLogger,
       config,
       getAgentId: () => state.agentId,
       getAgentEmail: () => state.agentEmail,
@@ -5586,7 +5665,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     ): Promise<PluginHookBeforeAgentStartResult | undefined> => {
       // Issue #1655: Detect concurrent session conflict
       if (state.activeSessionKey && ctx.sessionKey && state.activeSessionKey !== ctx.sessionKey) {
-        logger.warn('Concurrent session detected — agent identity may be stale', {
+        hooksLogger.warn('Concurrent session detected — agent identity may be stale', {
           previousSession: state.activeSessionKey,
           newSession: ctx.sessionKey,
           previousAgentId: state.agentId,
@@ -5600,7 +5679,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
         const previousId = state.agentId;
         state.agentId = resolvedId;
         state.resolvedNamespace = resolveNamespaceConfig(config.namespace, resolvedId, config.agentNamespaces);
-        logger.info('Agent ID resolved from hook context', {
+        hooksLogger.info('Agent ID resolved from hook context', {
           previousId,
           resolvedId,
           defaultNamespace: state.resolvedNamespace.default,
@@ -5608,7 +5687,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
         });
       }
 
-      logger.debug('Auto-recall hook triggered', {
+      hooksLogger.debug('Auto-recall hook triggered', {
         promptLength: event.prompt?.length ?? 0,
       });
 
@@ -5622,7 +5701,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
         }
       } catch (error) {
         // Hook errors should never crash the agent
-        logger.error('Auto-recall hook failed', {
+        hooksLogger.error('Auto-recall hook failed', {
           error: error instanceof Error ? error.message : String(error),
         });
       }
@@ -5637,7 +5716,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     // Create the auto-capture hook using the consolidated hooks.ts implementation
     const autoCaptureHook = createAutoCaptureHook({
       client: apiClient,
-      logger,
+      logger: hooksLogger,
       config,
       getAgentId: () => state.agentId,
       timeoutMs: HOOK_TIMEOUT_MS * 2, // Allow more time for capture (10s)
@@ -5653,13 +5732,13 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
       if (resolvedId !== state.agentId) {
         state.agentId = resolvedId;
         state.resolvedNamespace = resolveNamespaceConfig(config.namespace, resolvedId, config.agentNamespaces);
-        logger.info('Agent ID resolved from agent_end context', {
+        hooksLogger.info('Agent ID resolved from agent_end context', {
           resolvedId,
           defaultNamespace: state.resolvedNamespace.default,
         });
       }
 
-      logger.debug('Auto-capture hook triggered', {
+      hooksLogger.debug('Auto-capture hook triggered', {
         message_count: event.messages?.length ?? 0,
         success: event.success,
       });
@@ -5667,7 +5746,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
       // #2052 review fix #4: Check dedup before capturing (bidirectional dedup)
       const sessionId = ctx.sessionId ?? ctx.sessionKey;
       if (sessionId && state.sessionCapturedKeys.has(sessionId)) {
-        logger.debug('agent_end: session already captured by before_reset, skipping', { sessionId });
+        hooksLogger.debug('agent_end: session already captured by before_reset, skipping', { sessionId });
       } else {
         try {
           // Convert the event messages to the format expected by the capture hook
@@ -5697,7 +5776,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
         } catch (error) {
           // Hook errors should never crash the agent
           // #2052 review fix #2: Do NOT mark as captured — allow before_reset to retry
-          logger.error('Auto-capture hook failed', {
+          hooksLogger.error('Auto-capture hook failed', {
             error: error instanceof Error ? error.message : String(error),
           });
         }
@@ -5745,13 +5824,13 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
 
       // Skip if no thread ID (nothing to link to)
       if (!threadId) {
-        logger.debug('Auto-link skipped: no thread_id in message_received event');
+        autolinkerLogger.debug('Auto-link skipped: no thread_id in message_received event');
         return;
       }
 
       // Skip if no content and no sender info (nothing to match on)
       if (!event.content && !event.from) {
-        logger.debug('Auto-link skipped: no content or sender info in event');
+        autolinkerLogger.debug('Auto-link skipped: no content or sender info in event');
         return;
       }
 
@@ -5766,7 +5845,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
       try {
         await autoLinkInboundMessage({
           client: apiClient,
-          logger,
+          logger: autolinkerLogger,
           getAgentId: () => state.agentId,
           message: {
             thread_id: threadId,
@@ -5777,7 +5856,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
         });
       } catch (error) {
         // Hook errors should never crash inbound message processing
-        logger.error('Auto-link hook failed', {
+        autolinkerLogger.error('Auto-link hook failed', {
           error: error instanceof Error ? error.message : String(error),
         });
       }
@@ -5800,7 +5879,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
   if (config.autoRecall && typeof api.on === 'function') {
     const autoRecallHookForPromptBuild = createGraphAwareRecallHook({
       client: apiClient,
-      logger,
+      logger: hooksLogger,
       config,
       getAgentId: () => state.agentId,
       getAgentEmail: () => state.agentEmail,
@@ -5817,7 +5896,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
         const previousId = state.agentId;
         state.agentId = resolvedId;
         state.resolvedNamespace = resolveNamespaceConfig(config.namespace, resolvedId, config.agentNamespaces);
-        logger.info('Agent ID resolved from before_prompt_build context', {
+        hooksLogger.info('Agent ID resolved from before_prompt_build context', {
           previousId,
           resolvedId,
         });
@@ -5853,7 +5932,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
         }
       }
 
-      logger.debug('before_prompt_build auto-recall triggered', {
+      hooksLogger.debug('before_prompt_build auto-recall triggered', {
         promptLength: event.prompt?.length ?? 0,
         messageCount: event.messages?.length ?? 0,
         searchQueryLength: searchQuery.length,
@@ -5865,7 +5944,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
           return { prependContext: result.prependContext };
         }
       } catch (error) {
-        logger.error('before_prompt_build auto-recall failed', {
+        hooksLogger.error('before_prompt_build auto-recall failed', {
           error: error instanceof Error ? error.message : String(error),
         });
       }
@@ -5876,10 +5955,10 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     try {
       api.on('before_prompt_build', beforePromptBuildHandler);
       beforePromptBuildRegistered = true;
-      logger.debug('Registered before_prompt_build hook for enhanced auto-recall (#2050)');
+      hooksLogger.debug('Registered before_prompt_build hook for enhanced auto-recall (#2050)');
     } catch {
       // Graceful fallback: older SDK may not support this hook name
-      logger.debug('before_prompt_build hook not available — auto-recall uses before_agent_start only');
+      hooksLogger.debug('before_prompt_build hook not available — auto-recall uses before_agent_start only');
     }
   }
 
@@ -5891,7 +5970,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     } else {
       api.registerHook('before_agent_start', beforeAgentStartRecallHandler as (event: unknown) => Promise<unknown>);
     }
-    logger.debug('Registered before_agent_start hook for auto-recall (before_prompt_build not available)');
+    hooksLogger.debug('Registered before_agent_start hook for auto-recall (before_prompt_build not available)');
   }
 
   // ── #2051: Register llm_input/llm_output hooks for token usage analytics ──
@@ -5899,7 +5978,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     // llm_input: audit logging of prompt metadata (not content)
     const llmInputHandler = async (event: PluginHookLlmInputEvent, ctx: PluginHookAgentContext): Promise<void> => {
       try {
-        logger.debug('llm_input audit', {
+        hooksLogger.debug('llm_input audit', {
           runId: event.runId,
           sessionId: event.sessionId ?? ctx.sessionId,
           provider: event.provider,
@@ -5908,7 +5987,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
         });
       } catch (error) {
         // Non-fatal: never crash the agent for analytics
-        logger.warn('llm_input hook error', {
+        hooksLogger.warn('llm_input hook error', {
           error: error instanceof Error ? error.message : String(error),
         });
       }
@@ -5919,7 +5998,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
       try {
         const usage = event.usage;
         if (!usage) {
-          logger.debug('llm_output: no usage data available');
+          hooksLogger.debug('llm_output: no usage data available');
           return;
         }
 
@@ -5935,17 +6014,17 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
           timestamp: event.timestamp ?? Date.now(),
         };
 
-        logger.debug('llm_output token usage', usageData);
+        hooksLogger.debug('llm_output token usage', usageData);
 
         // Post usage data to backend (fire-and-forget)
         apiClient.post('/analytics/token-usage', usageData, { user_id: state.agentId }).catch((err) => {
-          logger.warn('Failed to post token usage analytics', {
+          hooksLogger.warn('Failed to post token usage analytics', {
             error: err instanceof Error ? err.message : String(err),
           });
         });
       } catch (error) {
         // Non-fatal: never crash the agent for analytics
-        logger.warn('llm_output hook error', {
+        hooksLogger.warn('llm_output hook error', {
           error: error instanceof Error ? error.message : String(error),
         });
       }
@@ -5954,9 +6033,9 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     try {
       api.on('llm_input', llmInputHandler);
       api.on('llm_output', llmOutputHandler);
-      logger.debug('Registered llm_input/llm_output hooks for token analytics (#2051)');
+      hooksLogger.debug('Registered llm_input/llm_output hooks for token analytics (#2051)');
     } catch {
-      logger.debug('llm_input/llm_output hooks not available in this SDK version');
+      hooksLogger.debug('llm_input/llm_output hooks not available in this SDK version');
     }
   }
 
@@ -5964,7 +6043,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
   if (config.autoCapture && typeof api.on === 'function') {
     const autoCaptureHookForReset = createAutoCaptureHook({
       client: apiClient,
-      logger,
+      logger: hooksLogger,
       config,
       getAgentId: () => state.agentId,
       timeoutMs: HOOK_TIMEOUT_MS * 2,
@@ -5976,7 +6055,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
 
         // Deduplication: avoid double-capture if agent_end also fires after reset
         if (sessionId && state.sessionCapturedKeys.has(sessionId)) {
-          logger.debug('before_reset: session already captured, skipping', { sessionId });
+          hooksLogger.debug('before_reset: session already captured, skipping', { sessionId });
           return;
         }
 
@@ -5990,11 +6069,11 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
         // Try to capture from messages in the event
         const messages = Array.isArray(event.messages) ? event.messages : [];
         if (messages.length === 0) {
-          logger.debug('before_reset: no messages to archive');
+          hooksLogger.debug('before_reset: no messages to archive');
           return;
         }
 
-        logger.debug('before_reset: archiving session data', {
+        hooksLogger.debug('before_reset: archiving session data', {
           sessionId,
           messageCount: messages.length,
           hasSessionFile: !!event.sessionFile,
@@ -6027,7 +6106,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
         }
       } catch (error) {
         // Non-fatal: never crash the agent during reset
-        logger.warn('before_reset hook error', {
+        hooksLogger.warn('before_reset hook error', {
           error: error instanceof Error ? error.message : String(error),
         });
       }
@@ -6035,9 +6114,9 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
 
     try {
       api.on('before_reset', beforeResetHandler);
-      logger.debug('Registered before_reset hook for session archival (#2052)');
+      hooksLogger.debug('Registered before_reset hook for session archival (#2052)');
     } catch {
-      logger.debug('before_reset hook not available in this SDK version');
+      hooksLogger.debug('before_reset hook not available in this SDK version');
     }
   }
 
@@ -6057,7 +6136,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
 
       // Guard ctx — legacy registerHook callers may pass only the event arg
       if (!ctx || typeof ctx !== 'object') {
-        logger.warn('Owner-gated tool invoked without context — defaulting to allow (legacy SDK path)', { toolName });
+        gateLogger.warn('Owner-gated tool invoked without context — defaulting to allow (legacy SDK path)', { toolName });
         return;
       }
 
@@ -6066,7 +6145,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
       const requesterSenderId = typeof ctx.requesterSenderId === 'string' ? ctx.requesterSenderId : undefined;
 
       // Log the invocation with sender info
-      logger.debug('Owner-gated tool invocation', {
+      gateLogger.debug('Owner-gated tool invocation', {
         toolName,
         requesterSenderId,
         senderIsOwner,
@@ -6075,7 +6154,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
       // Backwards compatible: undefined senderIsOwner is treated as owner
       // Review fix #3: log warning when trust signal is missing so operators know
       if (senderIsOwner === undefined) {
-        logger.warn('Owner-gated tool invoked without senderIsOwner trust signal — defaulting to allow', {
+        gateLogger.warn('Owner-gated tool invoked without senderIsOwner trust signal — defaulting to allow', {
           toolName,
           requesterSenderId,
         });
@@ -6084,7 +6163,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
       if (senderIsOwner === true) return;
 
       // Non-owner: block with clear error message
-      logger.warn('Owner-gated tool blocked for non-owner', {
+      gateLogger.warn('Owner-gated tool blocked for non-owner', {
         toolName,
         requesterSenderId,
         senderIsOwner,
@@ -6099,21 +6178,21 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     if (typeof api.on === 'function') {
       try {
         api.on('before_tool_call', beforeToolCallHandler);
-        logger.debug('Registered before_tool_call hook for owner-gated access (#2053)');
+        gateLogger.debug('Registered before_tool_call hook for owner-gated access (#2053)');
       } catch {
-        logger.debug('before_tool_call hook not available in this SDK version');
+        gateLogger.debug('before_tool_call hook not available in this SDK version');
       }
     } else if (typeof api.registerHook === 'function') {
       // Review fix #6: Legacy fallback for older SDKs without api.on
       try {
         api.registerHook('before_tool_call', beforeToolCallHandler as (event: unknown) => Promise<unknown>);
-        logger.debug('Registered before_tool_call hook via legacy registerHook for owner-gated access (#2053)');
+        gateLogger.debug('Registered before_tool_call hook via legacy registerHook for owner-gated access (#2053)');
       } catch {
-        logger.warn('Owner-gated tool access not available — destructive tools are ungated on this SDK version (#2053)');
+        gateLogger.warn('Owner-gated tool access not available — destructive tools are ungated on this SDK version (#2053)');
       }
     } else {
       // Review fix #6: No hook mechanism available at all
-      logger.warn('Neither api.on nor api.registerHook available — destructive tools are ungated (#2053)');
+      gateLogger.warn('Neither api.on nor api.registerHook available — destructive tools are ungated (#2053)');
     }
   }
 
@@ -6153,14 +6232,14 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
             const senderIsOwner = ctx.senderIsOwner;
             if (senderIsOwner === false) {
               const senderId = typeof ctx.requesterSenderId === 'string' ? ctx.requesterSenderId : 'unknown';
-              logger.warn('Owner-gated /forget command blocked for non-owner', { requesterSenderId: senderId });
+              gateLogger.warn('Owner-gated /forget command blocked for non-owner', { requesterSenderId: senderId });
               return {
                 text: `Access denied: /forget requires owner-level access. Current sender (${senderId}) is not the owner.`,
                 success: false,
               };
             }
             if (senderIsOwner === undefined) {
-              logger.warn('/forget command invoked without senderIsOwner trust signal — defaulting to allow');
+              gateLogger.warn('/forget command invoked without senderIsOwner trust signal — defaulting to allow');
             }
 
             // Determine if input is a UUID (memory_id) or a search query
@@ -6207,13 +6286,13 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
         api.registerCommand(cmd);
       } catch {
         // Graceful degradation: older SDK may not support registerCommand
-        logger.debug(`registerCommand not available for /${cmd.name} — skipping`);
+        cliLogger.debug(`registerCommand not available for /${cmd.name} — skipping`);
         break; // If one fails, they'll all fail
       }
     }
-    logger.debug('Registered slash commands: /remember, /forget, /recall (#2054)');
+    cliLogger.debug('Registered slash commands: /remember, /forget, /recall (#2054)');
   } else {
-    logger.debug('api.registerCommand not available — slash commands not registered (#2054)');
+    cliLogger.debug('api.registerCommand not available — slash commands not registered (#2054)');
   }
 
   // Notification gateway RPC methods NOT registered — see #2076.
@@ -6222,7 +6301,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
 
   // Register OAuth Gateway RPC methods (Issue #1054)
   const oauthGatewayMethods = createOAuthGatewayMethods({
-    logger,
+    logger: oauthLogger,
     apiClient,
     getAgentId: () => state.agentId,
   });
@@ -6237,12 +6316,15 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
         try {
           const response = await apiClient.get('/health', { user_id: state.agentId, user_email: state.agentEmail });
           if (response.success) {
+            // biome-ignore lint/suspicious/noConsole: CLI user-facing output
             console.log('Plugin Status: Connected');
           } else {
+            // biome-ignore lint/suspicious/noConsole: CLI user-facing output
             console.error(`Plugin Status: Error - ${response.error.message}`);
           }
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
+          // biome-ignore lint/suspicious/noConsole: CLI user-facing output
           console.error(`Plugin Status: Error - Unable to connect: ${message}`);
         }
       });
@@ -6258,8 +6340,10 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
           limit: options.limit ? Number.parseInt(options.limit, 10) : 5,
         });
         if (result.success && result.data) {
+          // biome-ignore lint/suspicious/noConsole: CLI user-facing output
           console.log(result.data.content);
         } else {
+          // biome-ignore lint/suspicious/noConsole: CLI user-facing output
           console.error('Error:', result.error);
         }
       });
@@ -6273,6 +6357,23 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     );
   }
 
+  // Emit structured startup banner (#2536)
+  emitStartupBanner(logger, {
+    agentId: context.agent.agentId,
+    namespace: {
+      default: state.resolvedNamespace.default,
+      recall: state.resolvedNamespace.recall,
+    },
+    autoRecall: config.autoRecall,
+    autoCapture: config.autoCapture,
+    twilioAccountSid: config.twilioAccountSid,
+    postmarkToken: config.postmarkToken,
+  }, {
+    toolCount: tools.length,
+    hookCount: (config.autoRecall ? 1 : 0) + (config.autoCapture ? 2 : 0) + 1 + 2, // recall/capture + message_received + llm_input/llm_output + before_tool_call
+    cliCount: 2, // status, recall
+  });
+
   logger.info('OpenClaw Projects plugin registered', {
     agentId: context.agent.agentId,
     sessionId: context.session.sessionId,
@@ -6282,7 +6383,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
   });
 
   // Issue #1564: Log resolved namespace config on startup for debugging
-  logger.debug('Namespace config resolved', {
+  namespaceLogger.debug('Namespace config resolved', {
     default: state.resolvedNamespace.default,
     recall: state.resolvedNamespace.recall,
     hasStaticRecall,
@@ -6294,7 +6395,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
   const refreshInterval = config.namespaceRefreshIntervalMs ?? 300_000;
   if (refreshInterval > 0 && !hasStaticRecall) {
     refreshNamespacesAsync(state).catch((err) => {
-      logger.warn('Initial namespace discovery failed', { error: err instanceof Error ? err.message : String(err) });
+      namespaceLogger.warn('Initial namespace discovery failed', { error: err instanceof Error ? err.message : String(err) });
     });
   }
 };

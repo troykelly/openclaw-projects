@@ -5,7 +5,7 @@
  */
 
 import type { PluginConfig } from './config.js';
-import { createLogger, type Logger } from './logger.js';
+import { createPluginLogger, createFallbackLogger, type Logger } from './logger.js';
 
 /** API error response */
 export interface ApiError {
@@ -113,7 +113,7 @@ export class ApiClient {
     // Ensure URL doesn't have trailing slash
     this.baseUrl = options.config.apiUrl.replace(/\/$/, '');
     this.apiKey = options.config.apiKey;
-    this.logger = options.logger ?? createLogger('api-client');
+    this.logger = options.logger ?? createPluginLogger(createFallbackLogger(), 'api');
     this.timeout = options.config.timeout;
     this.maxRetries = options.config.maxRetries;
   }
