@@ -372,6 +372,14 @@ export async function generateUpcomingInstances(pool: Pool, daysAhead: number = 
   // generator and the lookahead window use a consistent "now".
   const now = new Date();
 
+  // Anchor the lookahead window to the start of today (UTC) so that `endDate`
+  // is stable across multiple rapid calls.  Without this, `endDate` advances
+  // by wall-clock milliseconds on each call, causing the boundary to creep
+  // forward and admit one extra daily occurrence (the idempotency regression
+  // described in #2522 / #2420).  All recurrence rules in this system are
+  // daily-or-coarser, so day-level granularity is sufficient.
+  const todayUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+
   // Get all active templates
   const templates = await pool.query(
     `SELECT
@@ -385,8 +393,8 @@ export async function generateUpcomingInstances(pool: Pool, daysAhead: number = 
     [now],
   );
 
-  const endDate = new Date(now);
-  endDate.setDate(endDate.getDate() + daysAhead);
+  const endDate = new Date(todayUtc);
+  endDate.setUTCDate(endDate.getUTCDate() + daysAhead);
 
   for (const template of templates.rows) {
     try {
