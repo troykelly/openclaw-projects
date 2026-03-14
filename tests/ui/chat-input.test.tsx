@@ -158,6 +158,24 @@ describe('ChatInput', () => {
     expect(screen.getByLabelText('Send message')).not.toBeDisabled();
   });
 
+  it('calls mutate with onError handler that shows a toast (#2561)', () => {
+    render(
+      <WithActiveSession sessionId="sess-1">
+        <ChatInput />
+      </WithActiveSession>,
+      { wrapper: createWrapper() },
+    );
+
+    fireEvent.change(screen.getByLabelText('Chat message'), { target: { value: 'Hello' } });
+    fireEvent.click(screen.getByLabelText('Send message'));
+
+    expect(mockMutateFn).toHaveBeenCalledTimes(1);
+    const callArgs = mockMutateFn.mock.calls[0];
+    // Second argument is the options object with onSuccess and onError
+    expect(callArgs[1]).toHaveProperty('onError');
+    expect(typeof callArgs[1].onError).toBe('function');
+  });
+
   it('shows session ended state when session is ended', () => {
     setupDefaultMocks('ended');
 

@@ -9,6 +9,7 @@
 
 import * as React from 'react';
 import { Send, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { cn } from '@/ui/lib/utils';
 import { useChat } from '@/ui/contexts/chat-context';
 import { useSendChatMessage } from '@/ui/hooks/mutations/use-chat';
@@ -71,6 +72,9 @@ export function ChatInput(): React.JSX.Element {
           setContent('');
           clearDraft(activeSessionId);
           textareaRef.current?.focus();
+        },
+        onError: () => {
+          toast.error('Failed to send message. Please try again.');
         },
       },
     );
