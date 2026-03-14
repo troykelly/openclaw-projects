@@ -20,7 +20,8 @@ This document analyzes the user experience for deploying openclaw-projects from 
 
 **Current State:** Works correctly. The release workflow generates versioned compose files via `sed` replacement of `:edge` with the release version (e.g., `:0.0.60`). These are attached to the GitHub Release as assets.
 
-**Issues Found:** None for this persona. The release asset compose files are the happy path.
+**Issues Found:**
+- The compose files require a `.env` with secrets (`POSTGRES_PASSWORD`, `COOKIE_SECRET`, etc.). Documentation now directs users to download the codebase tarball from the same release for `.env.example`, or use `./scripts/setup.sh` from a repo clone.
 
 ### 2. Git Tag Deployer
 

@@ -1232,7 +1232,11 @@ Each GitHub Release includes compose files with image tags already pinned to the
    - `docker-compose.quickstart.yml` — quickstart with defaults
    - `docker-compose.traefik.yml` — production with TLS/WAF
    - `docker-compose.full.yml` — full deployment with OpenClaw Gateway
-4. Run the downloaded compose file:
+4. Prepare your environment file. The compose files require a `.env` file with secrets and configuration. You can either:
+   - Download the codebase tarball from the same release and use its `.env.example` as a starting point
+   - Or run `./scripts/setup.sh` from a repository clone to generate one automatically
+
+5. Run the downloaded compose file:
 
 ```bash
 # Example: deploy v0.0.60
@@ -1293,7 +1297,17 @@ services:
     image: ghcr.io/troykelly/openclaw-projects-migrate:0.0.60
   worker:
     image: ghcr.io/troykelly/openclaw-projects-worker:0.0.60
+  symphony-worker:
+    image: ghcr.io/troykelly/openclaw-projects-symphony-worker:0.0.60
+  tmux-worker:
+    image: ghcr.io/troykelly/openclaw-projects-tmux-worker:0.0.60
+  ha-connector:
+    image: ghcr.io/troykelly/openclaw-projects-ha-connector:0.0.60
+  prompt-guard:
+    image: ghcr.io/troykelly/openclaw-projects-prompt-guard:0.0.60
 ```
+
+> **Important:** You must pin **all** project services to avoid a mixed-version deployment where some services run `:edge` while others run the pinned version.
 
 Alternatively, download the compose files directly from the [GitHub Releases page](https://github.com/troykelly/openclaw-projects/releases) — they already have the correct version tags. See [Deploying a Specific Version](#deploying-a-specific-version).
 
