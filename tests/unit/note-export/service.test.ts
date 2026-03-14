@@ -26,6 +26,7 @@ import {
   getExportById,
   runExportJob,
   getDownloadUrl,
+  resolveUserTimezone,
 } from '../../../src/api/note-export/service.ts';
 
 /** Creates a mock Pool */
@@ -372,6 +373,38 @@ describe('Export Service', () => {
 
       // Should have updated status to failed
       expect(pool.query).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('resolveUserTimezone (#2519)', () => {
+    it('returns stored timezone for user', async () => {
+      const pool = createMockPool();
+      pool.pushResult({
+        rows: [{ timezone: 'Australia/Sydney' }],
+        rowCount: 1,
+      });
+
+      const tz = await resolveUserTimezone(pool as unknown as import('pg').Pool, 'user@test.com');
+      expect(tz).toBe('Australia/Sydney');
+    });
+
+    it('falls back to UTC when no user_setting row exists', async () => {
+      const pool = createMockPool();
+      pool.pushResult({ rows: [], rowCount: 0 });
+
+      const tz = await resolveUserTimezone(pool as unknown as import('pg').Pool, 'unknown@test.com');
+      expect(tz).toBe('UTC');
+    });
+
+    it('falls back to UTC when timezone column is null', async () => {
+      const pool = createMockPool();
+      pool.pushResult({
+        rows: [{ timezone: null }],
+        rowCount: 1,
+      });
+
+      const tz = await resolveUserTimezone(pool as unknown as import('pg').Pool, 'user@test.com');
+      expect(tz).toBe('UTC');
     });
   });
 });

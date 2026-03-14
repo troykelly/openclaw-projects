@@ -23,6 +23,7 @@ vi.mock('../../src/api/note-export/service.ts', () => ({
   createExportJob: vi.fn(),
   getExportById: vi.fn(),
   runExportJob: vi.fn(),
+  resolveUserTimezone: vi.fn().mockResolvedValue('UTC'),
 }));
 
 import { createExportJob, getExportById, runExportJob } from '../../src/api/note-export/service.ts';

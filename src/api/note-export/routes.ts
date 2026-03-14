@@ -20,6 +20,7 @@ import {
   createExportJob,
   getExportById,
   runExportJob,
+  resolveUserTimezone,
 } from './service.ts';
 
 /** Sync threshold: notes under this size are exported synchronously (default 50KB) */
@@ -254,14 +255,19 @@ export async function exportRoutesPlugin(
       return reply.code(404).send({ error: 'Note not found' });
     }
 
-    // Create export job
+    // Resolve user timezone for date rendering in exported documents
+    const userTimezone = identity.type === 'user'
+      ? await resolveUserTimezone(pool, identity.email)
+      : 'UTC';
+
+    // Create export job with timezone context
     const exportJob = await createExportJob(pool, {
       namespace: params.ns,
       requested_by: identity.email,
       source_type: 'note',
       source_id: params.id,
       format: parsed.format,
-      options: parsed.options,
+      options: { ...parsed.options, timezone: userTimezone },
     });
 
     // Sync or async based on content size
@@ -325,6 +331,11 @@ export async function exportRoutesPlugin(
       return reply.code(404).send({ error: 'Notebook not found' });
     }
 
+    // Resolve user timezone for date rendering in exported documents
+    const nbUserTimezone = identity.type === 'user'
+      ? await resolveUserTimezone(pool, identity.email)
+      : 'UTC';
+
     // Notebooks always async
     const exportJob = await createExportJob(pool, {
       namespace: params.ns,
@@ -332,7 +343,7 @@ export async function exportRoutesPlugin(
       source_type: 'notebook',
       source_id: params.id,
       format: parsed.format,
-      options: parsed.options,
+      options: { ...parsed.options, timezone: nbUserTimezone },
     });
 
     return reply.code(202).send({

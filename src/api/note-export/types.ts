@@ -22,6 +22,8 @@ export interface ExportOptions {
   page_size?: PageSize;
   margin?: string;
   include_toc?: boolean;
+  /** IANA timezone for date rendering in exported documents (defaults to UTC) */
+  timezone?: string;
 }
 
 /** Database row for note_export */
