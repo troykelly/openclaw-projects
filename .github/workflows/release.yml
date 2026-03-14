@@ -60,6 +60,7 @@ jobs:
       npm_tag: ${{ steps.release-type.outputs.npm_tag }}
       docker_latest: ${{ steps.release-type.outputs.docker_latest }}
       version_bump_sha: ${{ steps.commit-bump.outputs.version_bump_sha }}
+      skip: ${{ steps.reentry-guard.outputs.skip }}
 
     steps:
       - name: Checkout repository
@@ -319,8 +320,10 @@ jobs:
           # #2533 — Use --atomic to ensure all-or-nothing push semantics.
           # This pushes main (with both version bump + edge restore commits)
           # and the force-updated tag in a single atomic transaction.
+          # Note: --force-with-lease is used for the tag only (it's being moved).
+          # main is a fast-forward push and does not need --force.
           echo "Pushing main + tag atomically..."
-          git push --atomic --force origin main "refs/tags/${RELEASE_TAG}"
+          git push --atomic origin main "+refs/tags/${RELEASE_TAG}"
 
           # Verify remote refs match expected values
           REMOTE_TAG_SHA=$(git ls-remote origin "refs/tags/${RELEASE_TAG}" | cut -f1)
@@ -329,6 +332,10 @@ jobs:
             exit 1
           fi
           echo "Verified: remote tag ${RELEASE_TAG} points to ${VERSION_BUMP_SHA}"
+
+          # Reset remote URL to remove REPO_PAT from .git/config
+          # (minimize exposure of branch-protection-bypass token)
+          git remote set-url origin "https://github.com/${{ github.repository }}.git"
 
       - name: Upload bumped version files
         if: steps.reentry-guard.outputs.skip != 'true'
@@ -385,6 +392,7 @@ jobs:
   test:
     name: Test suite
     needs: validate
+    if: needs.validate.outputs.skip != 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -480,6 +488,7 @@ jobs:
   publish-npm:
     name: Publish to npm
     needs: [validate, test]
+    if: needs.validate.outputs.skip != 'true'
     runs-on: ubuntu-latest
     environment: release
     permissions:
@@ -565,6 +574,7 @@ jobs:
   publish-github-packages:
     name: Publish to GitHub Packages
     needs: [validate, test]
+    if: needs.validate.outputs.skip != 'true'
     runs-on: ubuntu-latest
     environment: release
     permissions:
@@ -643,6 +653,7 @@ jobs:
   publish-containers:
     name: Build ${{ matrix.image.name }}
     needs: [validate, test]
+    if: needs.validate.outputs.skip != 'true'
     runs-on: ubuntu-latest
     environment: release
     permissions:
@@ -790,6 +801,7 @@ jobs:
   finalize-sentry-release:
     name: Finalize Sentry release
     needs: [validate, publish-containers]
+    if: needs.validate.outputs.skip != 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -851,6 +863,7 @@ jobs:
   release:
     name: Create GitHub Release
     needs: [validate, publish-npm, publish-github-packages, publish-containers]
+    if: needs.validate.outputs.skip != 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -915,6 +928,8 @@ jobs:
           RELEASE_VERSION: ${{ needs.validate.outputs.version }}
         run: |
           set -euo pipefail
+          # Strip build metadata — Docker tags don't support + character
+          RELEASE_VERSION="${RELEASE_VERSION%%+*}"
           cat > release/RELEASE_BODY.md << BODYEOF
           ## Installation
 

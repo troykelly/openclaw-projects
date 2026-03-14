@@ -22,6 +22,7 @@ interface WorkflowStep {
 interface WorkflowJob {
   name?: string;
   'runs-on': string;
+  if?: string;
   permissions?: Record<string, string>;
   environment?: string;
   outputs?: Record<string, string>;
@@ -339,7 +340,7 @@ describe('release.yml workflow', () => {
       expect(step).toBeDefined();
     });
 
-    it('should output version, tag, prerelease, npm_tag, and docker_latest', () => {
+    it('should output version, tag, prerelease, npm_tag, docker_latest, and skip', () => {
       const outputs = workflow.jobs.validate.outputs;
       expect(outputs).toBeDefined();
       expect(outputs?.version).toBeDefined();
@@ -347,6 +348,18 @@ describe('release.yml workflow', () => {
       expect(outputs?.prerelease).toBeDefined();
       expect(outputs?.npm_tag).toBeDefined();
       expect(outputs?.docker_latest).toBeDefined();
+      expect(outputs?.skip).toBeDefined();
+    });
+
+    // Re-entrancy guard must propagate skip to downstream jobs
+    it('should propagate re-entrancy skip to all downstream jobs', () => {
+      const downstreamJobs = ['test', 'publish-npm', 'publish-github-packages', 'publish-containers', 'release', 'finalize-sentry-release'];
+      for (const jobName of downstreamJobs) {
+        const job = workflow.jobs[jobName];
+        expect(job).toBeDefined();
+        const ifCondition = String(job.if ?? '');
+        expect(ifCondition).toContain('skip');
+      }
     });
   });
 
