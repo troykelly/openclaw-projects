@@ -3385,6 +3385,19 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }
     }
 
+    // Issue #2511: Validate and canonicalize timezone before SQL building
+    if ('timezone' in body && body.timezone != null) {
+      const { canonicalizeTimezone } = await import('./timezone.ts');
+      const canonical = canonicalizeTimezone(body.timezone);
+      if (canonical === null) {
+        return reply.code(400).send({
+          error: 'Invalid timezone: must be a valid IANA timezone identifier (e.g. "America/New_York", "UTC", "Australia/Sydney")',
+        });
+      }
+      // Replace raw input with canonical form
+      (body as Record<string, unknown>).timezone = canonical;
+    }
+
     // Build dynamic update
     const updates: string[] = [];
     const params: unknown[] = [email];
