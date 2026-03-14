@@ -145,89 +145,95 @@ function createPluginInstance(config: PluginConfig, logger: Logger, runtime: unk
     config.userScoping ?? 'agent',
   );
 
+  // Create component-scoped child loggers
+  const memoryLogger = logger.child('memory');
+  const projectsLogger = logger.child('projects');
+  const todosLogger = logger.child('todos');
+  const contactsLogger = logger.child('contacts');
+
   // Create tools
   const tools: PluginTools = {
     memoryRecall: createMemoryRecallTool({
       client: apiClient,
-      logger,
+      logger: memoryLogger,
       config,
       user_id,
     }),
     memoryStore: createMemoryStoreTool({
       client: apiClient,
-      logger,
+      logger: memoryLogger,
       config,
       user_id,
     }),
     memoryForget: createMemoryForgetTool({
       client: apiClient,
-      logger,
+      logger: memoryLogger,
       config,
       user_id,
     }),
     memoryList: createMemoryListTool({
       client: apiClient,
-      logger,
+      logger: memoryLogger,
       config,
       user_id,
     }),
     memoryUpdate: createMemoryUpdateTool({
       client: apiClient,
-      logger,
+      logger: memoryLogger,
       config,
       user_id,
     }),
     projectList: createProjectListTool({
       client: apiClient,
-      logger,
+      logger: projectsLogger,
       config,
       user_id,
     }),
     projectGet: createProjectGetTool({
       client: apiClient,
-      logger,
+      logger: projectsLogger,
       config,
       user_id,
     }),
     projectCreate: createProjectCreateTool({
       client: apiClient,
-      logger,
+      logger: projectsLogger,
       config,
       user_id,
     }),
     todoList: createTodoListTool({
       client: apiClient,
-      logger,
+      logger: todosLogger,
       config,
       user_id,
     }),
     todoCreate: createTodoCreateTool({
       client: apiClient,
-      logger,
+      logger: todosLogger,
       config,
       user_id,
     }),
     todoComplete: createTodoCompleteTool({
       client: apiClient,
-      logger,
+      logger: todosLogger,
       config,
       user_id,
     }),
     contactSearch: createContactSearchTool({
       client: apiClient,
-      logger,
+      logger: contactsLogger,
       config,
       user_id,
     }),
     contactGet: createContactGetTool({
       client: apiClient,
-      logger,
+      logger: contactsLogger,
       config,
       user_id,
     }),
     contactCreate: createContactCreateTool({
       client: apiClient,
-      logger,
+      logger: contactsLogger,
       config,
       user_id,
     }),

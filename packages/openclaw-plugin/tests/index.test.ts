@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import * as pluginExports from '../src/index.js';
+import type { Logger } from '../src/logger.js';
 import {
   register,
   plugin,
@@ -37,6 +38,17 @@ import {
   ContactGetParamsSchema,
   ContactCreateParamsSchema,
 } from '../src/index.js';
+
+const createMockLogger = (): Logger => {
+  const logger: Logger = {
+    info: () => {},
+    warn: () => {},
+    error: () => {},
+    debug: () => {},
+    child: () => logger,
+  };
+  return logger;
+};
 
 describe('Plugin Entry Point', () => {
   describe('exports', () => {
@@ -76,7 +88,7 @@ describe('Plugin Entry Point', () => {
     it('should be callable with context', () => {
       const mockContext = {
         config: { apiUrl: 'http://example.com', apiKey: 'test-key' },
-        logger: { info: () => {}, error: () => {}, warn: () => {}, debug: () => {} },
+        logger: createMockLogger(),
       };
       // Should not throw
       expect(() => register(mockContext)).not.toThrow();
@@ -85,7 +97,7 @@ describe('Plugin Entry Point', () => {
     it('should return plugin instance', () => {
       const mockContext = {
         config: { apiUrl: 'http://example.com', apiKey: 'test-key' },
-        logger: { info: () => {}, error: () => {}, warn: () => {}, debug: () => {}, namespace: 'test' },
+        logger: createMockLogger(),
       };
       const result = register(mockContext);
       expect(result).toBeDefined();
@@ -94,7 +106,7 @@ describe('Plugin Entry Point', () => {
     it('should return instance with memoryRecall tool', () => {
       const mockContext = {
         config: { apiUrl: 'http://example.com', apiKey: 'test-key' },
-        logger: { info: () => {}, error: () => {}, warn: () => {}, debug: () => {}, namespace: 'test' },
+        logger: createMockLogger(),
       };
       const result = register(mockContext);
       expect(result.tools).toBeDefined();
@@ -105,7 +117,7 @@ describe('Plugin Entry Point', () => {
     it('should return instance with memoryStore tool', () => {
       const mockContext = {
         config: { apiUrl: 'http://example.com', apiKey: 'test-key' },
-        logger: { info: () => {}, error: () => {}, warn: () => {}, debug: () => {}, namespace: 'test' },
+        logger: createMockLogger(),
       };
       const result = register(mockContext);
       expect(result.tools).toBeDefined();
@@ -116,7 +128,7 @@ describe('Plugin Entry Point', () => {
     it('should return instance with memoryForget tool', () => {
       const mockContext = {
         config: { apiUrl: 'http://example.com', apiKey: 'test-key' },
-        logger: { info: () => {}, error: () => {}, warn: () => {}, debug: () => {}, namespace: 'test' },
+        logger: createMockLogger(),
       };
       const result = register(mockContext);
       expect(result.tools).toBeDefined();
@@ -127,7 +139,7 @@ describe('Plugin Entry Point', () => {
     it('should return instance with projectList tool', () => {
       const mockContext = {
         config: { apiUrl: 'http://example.com', apiKey: 'test-key' },
-        logger: { info: () => {}, error: () => {}, warn: () => {}, debug: () => {}, namespace: 'test' },
+        logger: createMockLogger(),
       };
       const result = register(mockContext);
       expect(result.tools).toBeDefined();
@@ -138,7 +150,7 @@ describe('Plugin Entry Point', () => {
     it('should return instance with projectGet tool', () => {
       const mockContext = {
         config: { apiUrl: 'http://example.com', apiKey: 'test-key' },
-        logger: { info: () => {}, error: () => {}, warn: () => {}, debug: () => {}, namespace: 'test' },
+        logger: createMockLogger(),
       };
       const result = register(mockContext);
       expect(result.tools).toBeDefined();
@@ -149,7 +161,7 @@ describe('Plugin Entry Point', () => {
     it('should return instance with projectCreate tool', () => {
       const mockContext = {
         config: { apiUrl: 'http://example.com', apiKey: 'test-key' },
-        logger: { info: () => {}, error: () => {}, warn: () => {}, debug: () => {}, namespace: 'test' },
+        logger: createMockLogger(),
       };
       const result = register(mockContext);
       expect(result.tools).toBeDefined();
@@ -160,7 +172,7 @@ describe('Plugin Entry Point', () => {
     it('should return instance with todoList tool', () => {
       const mockContext = {
         config: { apiUrl: 'http://example.com', apiKey: 'test-key' },
-        logger: { info: () => {}, error: () => {}, warn: () => {}, debug: () => {}, namespace: 'test' },
+        logger: createMockLogger(),
       };
       const result = register(mockContext);
       expect(result.tools).toBeDefined();
@@ -171,7 +183,7 @@ describe('Plugin Entry Point', () => {
     it('should return instance with todoCreate tool', () => {
       const mockContext = {
         config: { apiUrl: 'http://example.com', apiKey: 'test-key' },
-        logger: { info: () => {}, error: () => {}, warn: () => {}, debug: () => {}, namespace: 'test' },
+        logger: createMockLogger(),
       };
       const result = register(mockContext);
       expect(result.tools).toBeDefined();
@@ -182,7 +194,7 @@ describe('Plugin Entry Point', () => {
     it('should return instance with todoComplete tool', () => {
       const mockContext = {
         config: { apiUrl: 'http://example.com', apiKey: 'test-key' },
-        logger: { info: () => {}, error: () => {}, warn: () => {}, debug: () => {}, namespace: 'test' },
+        logger: createMockLogger(),
       };
       const result = register(mockContext);
       expect(result.tools).toBeDefined();
@@ -193,7 +205,7 @@ describe('Plugin Entry Point', () => {
     it('should return instance with contactSearch tool', () => {
       const mockContext = {
         config: { apiUrl: 'http://example.com', apiKey: 'test-key' },
-        logger: { info: () => {}, error: () => {}, warn: () => {}, debug: () => {}, namespace: 'test' },
+        logger: createMockLogger(),
       };
       const result = register(mockContext);
       expect(result.tools).toBeDefined();
@@ -204,7 +216,7 @@ describe('Plugin Entry Point', () => {
     it('should return instance with contactGet tool', () => {
       const mockContext = {
         config: { apiUrl: 'http://example.com', apiKey: 'test-key' },
-        logger: { info: () => {}, error: () => {}, warn: () => {}, debug: () => {}, namespace: 'test' },
+        logger: createMockLogger(),
       };
       const result = register(mockContext);
       expect(result.tools).toBeDefined();
@@ -215,7 +227,7 @@ describe('Plugin Entry Point', () => {
     it('should return instance with contactCreate tool', () => {
       const mockContext = {
         config: { apiUrl: 'http://example.com', apiKey: 'test-key' },
-        logger: { info: () => {}, error: () => {}, warn: () => {}, debug: () => {}, namespace: 'test' },
+        logger: createMockLogger(),
       };
       const result = register(mockContext);
       expect(result.tools).toBeDefined();
@@ -226,7 +238,7 @@ describe('Plugin Entry Point', () => {
     it('should return instance with hooks', () => {
       const mockContext = {
         config: { apiUrl: 'http://example.com', apiKey: 'test-key' },
-        logger: { info: () => {}, error: () => {}, warn: () => {}, debug: () => {}, namespace: 'test' },
+        logger: createMockLogger(),
       };
       const result = register(mockContext);
       expect(result.hooks).toBeDefined();
@@ -237,7 +249,7 @@ describe('Plugin Entry Point', () => {
     it('should return instance with healthCheck', () => {
       const mockContext = {
         config: { apiUrl: 'http://example.com', apiKey: 'test-key' },
-        logger: { info: () => {}, error: () => {}, warn: () => {}, debug: () => {}, namespace: 'test' },
+        logger: createMockLogger(),
       };
       const result = register(mockContext);
       expect(typeof result.healthCheck).toBe('function');
@@ -246,7 +258,7 @@ describe('Plugin Entry Point', () => {
     it('should return instance with CLI commands', () => {
       const mockContext = {
         config: { apiUrl: 'http://example.com', apiKey: 'test-key' },
-        logger: { info: () => {}, error: () => {}, warn: () => {}, debug: () => {}, namespace: 'test' },
+        logger: createMockLogger(),
       };
       const result = register(mockContext);
       expect(result.cli).toBeDefined();
