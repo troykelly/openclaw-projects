@@ -32,6 +32,14 @@ const mockCreateExportJob = vi.mocked(createExportJob);
 const mockGetExportById = vi.mocked(getExportById);
 const mockRunExportJob = vi.mocked(runExportJob);
 
+// Use a far-future expires_at so that the route's inline expiry check
+// (exportRow.expires_at < new Date()) never triggers during tests, regardless
+// of how long the CI run takes or when pg_cron fires.  The assertion in the
+// "formats dates as ISO strings" test below must match this constant.
+const TEST_EXPIRES_AT = new Date('2099-12-31T12:00:00Z');
+const TEST_CREATED_AT = new Date('2026-03-13T12:00:00Z');
+const TEST_UPDATED_AT = new Date('2026-03-13T12:00:00Z');
+
 function makeExportRow(overrides: Record<string, unknown> = {}) {
   return {
     id: EXPORT_UUID,
@@ -48,9 +56,9 @@ function makeExportRow(overrides: Record<string, unknown> = {}) {
     size_bytes: null,
     attempt_count: 0,
     started_at: null,
-    expires_at: new Date('2026-03-14T12:00:00Z'),
-    created_at: new Date('2026-03-13T12:00:00Z'),
-    updated_at: new Date('2026-03-13T12:00:00Z'),
+    expires_at: TEST_EXPIRES_AT,
+    created_at: TEST_CREATED_AT,
+    updated_at: TEST_UPDATED_AT,
   } as Record<string, unknown>;
   // Return as Record to allow overrides to set any property
 }
@@ -71,9 +79,9 @@ function makeTypedExportRow(overrides: Record<string, unknown> = {}) {
     size_bytes: null,
     attempt_count: 0,
     started_at: null,
-    expires_at: new Date('2026-03-14T12:00:00Z'),
-    created_at: new Date('2026-03-13T12:00:00Z'),
-    updated_at: new Date('2026-03-13T12:00:00Z'),
+    expires_at: TEST_EXPIRES_AT,
+    created_at: TEST_CREATED_AT,
+    updated_at: TEST_UPDATED_AT,
     ...overrides,
   };
   return base;
@@ -475,8 +483,8 @@ describe('Export Routes (Issue #2478)', () => {
     it('returns exports after direct DB insert', async () => {
       const { app } = buildTestApp();
       await pool.query(
-        `INSERT INTO note_export (id, namespace, requested_by, source_type, source_id, format)
-         VALUES ($1, $2, $3, 'note', $4, 'pdf')`,
+        `INSERT INTO note_export (id, namespace, requested_by, source_type, source_id, format, expires_at)
+         VALUES ($1, $2, $3, 'note', $4, 'pdf', NOW() + INTERVAL '1 year')`,
         [EXPORT_UUID, TEST_NS, TEST_USER, NOTE_UUID],
       );
 
@@ -495,13 +503,13 @@ describe('Export Routes (Issue #2478)', () => {
     it('filters by status', async () => {
       const { app } = buildTestApp();
       await pool.query(
-        `INSERT INTO note_export (namespace, requested_by, source_type, source_id, format, status)
-         VALUES ($1, $2, 'note', $3, 'pdf', 'pending')`,
+        `INSERT INTO note_export (namespace, requested_by, source_type, source_id, format, status, expires_at)
+         VALUES ($1, $2, 'note', $3, 'pdf', 'pending', NOW() + INTERVAL '1 year')`,
         [TEST_NS, TEST_USER, NOTE_UUID],
       );
       await pool.query(
-        `INSERT INTO note_export (namespace, requested_by, source_type, source_id, format, status, storage_key)
-         VALUES ($1, $2, 'note', $3, 'pdf', 'ready', 'exports/test.pdf')`,
+        `INSERT INTO note_export (namespace, requested_by, source_type, source_id, format, status, storage_key, expires_at)
+         VALUES ($1, $2, 'note', $3, 'pdf', 'ready', 'exports/test.pdf', NOW() + INTERVAL '1 year')`,
         [TEST_NS, TEST_USER, NOTE_UUID],
       );
 
@@ -521,8 +529,8 @@ describe('Export Routes (Issue #2478)', () => {
       const { app } = buildTestApp();
       for (let i = 0; i < 3; i++) {
         await pool.query(
-          `INSERT INTO note_export (namespace, requested_by, source_type, source_id, format)
-           VALUES ($1, $2, 'note', $3, 'pdf')`,
+          `INSERT INTO note_export (namespace, requested_by, source_type, source_id, format, expires_at)
+           VALUES ($1, $2, 'note', $3, 'pdf', NOW() + INTERVAL '1 year')`,
           [TEST_NS, TEST_USER, NOTE_UUID],
         );
       }
@@ -544,8 +552,8 @@ describe('Export Routes (Issue #2478)', () => {
     it('does not show other users exports', async () => {
       const { app } = buildTestApp();
       await pool.query(
-        `INSERT INTO note_export (namespace, requested_by, source_type, source_id, format)
-         VALUES ($1, 'other@example.com', 'note', $2, 'pdf')`,
+        `INSERT INTO note_export (namespace, requested_by, source_type, source_id, format, expires_at)
+         VALUES ($1, 'other@example.com', 'note', $2, 'pdf', NOW() + INTERVAL '1 year')`,
         [TEST_NS, NOTE_UUID],
       );
 
@@ -647,7 +655,7 @@ describe('Export Routes (Issue #2478)', () => {
 
       expect(res.statusCode).toBe(200);
       const body = res.json();
-      expect(body.expires_at).toBe('2026-03-14T12:00:00.000Z');
+      expect(body.expires_at).toBe('2099-12-31T12:00:00.000Z');
       expect(body.created_at).toBe('2026-03-13T12:00:00.000Z');
       await app.close();
     });
