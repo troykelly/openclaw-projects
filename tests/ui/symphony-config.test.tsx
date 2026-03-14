@@ -198,9 +198,11 @@ describe('SymphonyConfigPage', () => {
     mockGet.mockImplementation(() => new Promise(() => {}));
     renderConfigPage();
 
+    // Increased timeout: React.lazy module loading can exceed default 1000ms
+    // waitFor timeout under full test-suite parallel load
     await waitFor(() => {
       expect(screen.getByTestId('page-symphony-config')).toBeInTheDocument();
-    });
+    }, { timeout: 5000 });
   });
 
   it('renders orchestration toggle after load', async () => {
