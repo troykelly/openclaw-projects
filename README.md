@@ -95,7 +95,17 @@ Features:
 - ModSecurity WAF with OWASP Core Rule Set
 - Security headers and rate limiting
 
+### Image Tags
+
+- `:edge` — built from `main`, unstable, for development only
+- `:<version>` (e.g. `:0.0.61`) — stable tagged release, recommended for production
+- `:latest` is **not** published — always use an explicit version tag
+
+For production use, download versioned compose files from the [GitHub Releases page](https://github.com/troykelly/openclaw-projects/releases) or `git checkout v<version>` — both give you compose files pinned to that exact release.
+
 See **[docs/deployment.md](docs/deployment.md)** for the full deployment guide, including:
+- Image tag scheme and versioning
+- Deploying a specific version
 - Environment variable reference
 - DNS provider configuration (Cloudflare, Route53, etc.)
 - Running behind another load balancer

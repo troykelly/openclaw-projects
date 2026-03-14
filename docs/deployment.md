@@ -107,22 +107,28 @@ openclaw-projects consists of the following components:
 
 ### Container Images
 
-All images are published to GitHub Container Registry:
+All images are published to GitHub Container Registry. There are nine service images in total:
 
 | Image | Description |
 |-------|-------------|
-| `ghcr.io/troykelly/openclaw-projects-db:edge` | PostgreSQL 18 with pgvector, pg_cron, TimescaleDB |
-| `ghcr.io/troykelly/openclaw-projects-api:edge` | Node.js/Fastify API server |
-| `ghcr.io/troykelly/openclaw-projects-app:edge` | React frontend with Nginx |
-| `ghcr.io/troykelly/openclaw-projects-migrate:edge` | Database migration runner |
+| `ghcr.io/troykelly/openclaw-projects-db` | PostgreSQL 18 with pgvector, pg_cron, TimescaleDB |
+| `ghcr.io/troykelly/openclaw-projects-api` | Node.js/Fastify API server |
+| `ghcr.io/troykelly/openclaw-projects-app` | React frontend with Nginx |
+| `ghcr.io/troykelly/openclaw-projects-migrate` | Database migration runner |
+| `ghcr.io/troykelly/openclaw-projects-worker` | Background job worker |
+| `ghcr.io/troykelly/openclaw-projects-tmux-worker` | Terminal session worker |
+| `ghcr.io/troykelly/openclaw-projects-symphony-worker` | Symphony orchestration worker |
+| `ghcr.io/troykelly/openclaw-projects-ha-connector` | Home Assistant connector |
+| `ghcr.io/troykelly/openclaw-projects-prompt-guard` | Prompt injection guard |
 
 ### Image Tag Scheme
 
 | Tag | Meaning |
 |-----|---------|
-| `:edge` | Built from the `main` branch. Development/unstable — may change at any time. |
-| `:<version>` (e.g. `:0.0.60`) | Built from the corresponding tagged release. Immutable and recommended for production. |
-| `:latest` | Points to the most recent stable release. Convenient but may change on new releases. |
+| `:edge` | Built from the `main` branch. Development/unstable — may change at any time. Do NOT use in production. |
+| `:<version>` (e.g. `:0.0.61`) | Built from the corresponding tagged release. Immutable and recommended for production. |
+
+> **Note:** `:latest` is not published. There is no `:latest` tag — use an explicit version tag for production.
 
 > **Warning:** Compose files on the `main` branch always reference `:edge` images. If you `git checkout main` and run `docker compose up`, you will get the latest development build — not a stable release. To deploy a specific version, see [Deploying a Specific Version](#deploying-a-specific-version).
 
@@ -1247,22 +1253,44 @@ All project images in the release asset compose files reference the exact versio
 
 ### Option 2: Git Checkout a Tag
 
-You can also clone the repository and check out a specific tag. After the epic #2522 release workflow fixes are complete, compose files in tagged commits will reference the correct versioned images:
+Clone the repository and check out a specific tag. Compose files in tagged commits reference exact versioned images (e.g. `:0.0.61`), not `:edge`. The CI release workflow re-points the git tag to a version-bump commit before the tag is published, ensuring `git checkout v0.0.61` gives you compose files with `:0.0.61` tags.
 
 ```bash
 git clone https://github.com/troykelly/openclaw-projects.git
 cd openclaw-projects
-git checkout v0.0.60
-docker compose up -d
+git checkout v0.0.61
+docker compose -f docker-compose.production.yml pull
+docker compose -f docker-compose.production.yml up -d
 ```
 
-> **Note:** Until the release workflow is updated (see epic #2522), compose files at tagged commits still reference `:edge` images. Use Option 1 (release asset compose files) for guaranteed version consistency.
+This is safe for production use — all project images in the checked-out compose files will be pinned to the exact release version.
 
 ### What About the `main` Branch?
 
 Compose files on the `main` branch reference `:edge` images. The `:edge` tag is rebuilt on every push to `main` and represents the latest development state. This is intentional — `main` is the development branch.
 
 > **Warning:** Do not use `main` branch compose files for production deployments. The `:edge` images may contain unreleased or breaking changes. Always deploy from a specific version using one of the options above.
+
+### How the Release Workflow Works
+
+Understanding the CI release process helps explain why `git checkout v<version>` gives you versioned compose files:
+
+1. A tag (e.g. `v0.0.61`) is pushed to trigger the release workflow.
+2. CI updates all compose files: `:edge` image tags are replaced with the release version (e.g. `:0.0.61`).
+3. The version bump commit (with versioned compose files) is pushed to `main`.
+4. The git tag is **re-pointed** to that version bump commit (not the original trigger commit). This is what makes `git checkout v0.0.61` give you compose files with `:0.0.61`.
+5. A follow-up commit immediately restores compose files to `:edge` on `main`, so the development branch stays on edge images.
+6. A GitHub Release is created with the versioned compose files attached as release assets.
+
+This means two deployment approaches always agree: downloading release assets and checking out the git tag both produce compose files pinned to the same version.
+
+### Container Provenance
+
+Each container image published in a release includes:
+- SBOM (software bill of materials) attestation
+- Build provenance attestation signed by GitHub Actions OIDC
+
+The version bump commit SHA is embedded in each image as `VCS_REF` and `OCI_REVISION` build arguments. This SHA is also included in the GitHub Release notes, providing a traceable link from release → commit → images.
 
 ---
 
