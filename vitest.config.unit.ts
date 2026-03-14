@@ -31,6 +31,9 @@ export default defineProject({
       'tests/frontend/**/*.test.ts',
       'tests/workflows/**/*.test.ts',
 
+      // ── CI / documentation validation tests ─────────────────────
+      'tests/ci/**/*.test.ts',
+
       // ── Pure utility / logic tests under tests/ ────────────────────
       'tests/command_palette.test.ts',
       'tests/generate_title.test.ts',

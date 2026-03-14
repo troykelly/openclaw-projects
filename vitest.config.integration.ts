@@ -38,6 +38,7 @@ export default defineProject({
 
       // ── Unit tests (run by the unit project) ───────────────────────
       'tests/ui/**',
+      'tests/ci/**',
       'tests/devcontainer/**',
       'tests/docker/**',
       'tests/frontend/**',

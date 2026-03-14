@@ -16,6 +16,7 @@ This guide covers deploying openclaw-projects using Docker Compose, from simple 
 - [SeaweedFS Configuration](#seaweedfs-configuration)
 - [Optional Services](#optional-services)
 - [Backup and Restore](#backup-and-restore)
+- [Deploying a Specific Version](#deploying-a-specific-version)
 - [Upgrading Containers](#upgrading-containers)
 - [Troubleshooting](#troubleshooting)
 - [Breaking Changes](#breaking-changes)
@@ -110,10 +111,20 @@ All images are published to GitHub Container Registry:
 
 | Image | Description |
 |-------|-------------|
-| `ghcr.io/troykelly/openclaw-projects-db:latest` | PostgreSQL 18 with pgvector, pg_cron, TimescaleDB |
-| `ghcr.io/troykelly/openclaw-projects-api:latest` | Node.js/Fastify API server |
-| `ghcr.io/troykelly/openclaw-projects-app:latest` | React frontend with Nginx |
-| `ghcr.io/troykelly/openclaw-projects-migrate:latest` | Database migration runner |
+| `ghcr.io/troykelly/openclaw-projects-db` | PostgreSQL 18 with pgvector, pg_cron, TimescaleDB |
+| `ghcr.io/troykelly/openclaw-projects-api` | Node.js/Fastify API server |
+| `ghcr.io/troykelly/openclaw-projects-app` | React frontend with Nginx |
+| `ghcr.io/troykelly/openclaw-projects-migrate` | Database migration runner |
+
+### Image Tag Scheme
+
+| Tag | Meaning |
+|-----|---------|
+| `:edge` | Built from the `main` branch. Development/unstable — may change at any time. |
+| `:<version>` (e.g. `:0.0.60`) | Built from the corresponding tagged release. Immutable and recommended for production. |
+| `:latest` | Points to the most recent stable release. Convenient but may change on new releases. |
+
+> **Warning:** Compose files on the `main` branch always reference `:edge` images. If you `git checkout main` and run `docker compose up`, you will get the latest development build — not a stable release. To deploy a specific version, see [Deploying a Specific Version](#deploying-a-specific-version).
 
 ### Internal Ports
 
@@ -1206,6 +1217,51 @@ chmod 600 /etc/traefik/acme/acme.json
 
 ---
 
+## Deploying a Specific Version
+
+There are two ways to deploy a specific version of openclaw-projects.
+
+### Option 1: Download Compose Files from GitHub Releases (Recommended)
+
+Each GitHub Release includes compose files with image tags already pinned to the release version. This is the simplest and most reliable approach.
+
+1. Go to the [GitHub Releases page](https://github.com/troykelly/openclaw-projects/releases)
+2. Find the release you want (e.g. `v0.0.60`)
+3. Download the appropriate compose file from the release assets:
+   - `docker-compose.yml` — basic deployment
+   - `docker-compose.quickstart.yml` — quickstart with defaults
+   - `docker-compose.traefik.yml` — production with TLS/WAF
+   - `docker-compose.full.yml` — full deployment with OpenClaw Gateway
+4. Run the downloaded compose file:
+
+```bash
+# Example: deploy v0.0.60
+docker compose -f docker-compose.yml up -d
+```
+
+All project images in the release asset compose files reference the exact version (e.g. `ghcr.io/troykelly/openclaw-projects-api:0.0.60`), ensuring every service runs the same release.
+
+### Option 2: Git Checkout a Tag
+
+You can also clone the repository and check out a specific tag. After the epic #2522 release workflow fixes are complete, compose files in tagged commits will reference the correct versioned images:
+
+```bash
+git clone https://github.com/troykelly/openclaw-projects.git
+cd openclaw-projects
+git checkout v0.0.60
+docker compose up -d
+```
+
+> **Note:** Until the release workflow is updated (see epic #2522), compose files at tagged commits still reference `:edge` images. Use Option 1 (release asset compose files) for guaranteed version consistency.
+
+### What About the `main` Branch?
+
+Compose files on the `main` branch reference `:edge` images. The `:edge` tag is rebuilt on every push to `main` and represents the latest development state. This is intentional — `main` is the development branch.
+
+> **Warning:** Do not use `main` branch compose files for production deployments. The `:edge` images may contain unreleased or breaking changes. Always deploy from a specific version using one of the options above.
+
+---
+
 ## Upgrading Containers
 
 ### Pull Latest Images
@@ -1220,20 +1276,26 @@ docker compose -f docker-compose.traefik.yml pull
 docker compose -f docker-compose.traefik.yml up -d
 ```
 
-### Specific Version
+### Pin to a Specific Version
 
-Pin to specific versions in your override file:
+If you are using the compose files from the repository (not from a GitHub Release asset), you can pin to a specific version with an override file:
 
 ```yaml
 # docker-compose.override.yml
 services:
   api:
-    image: ghcr.io/troykelly/openclaw-projects-api:v1.2.3
+    image: ghcr.io/troykelly/openclaw-projects-api:0.0.60
   app:
-    image: ghcr.io/troykelly/openclaw-projects-app:v1.2.3
+    image: ghcr.io/troykelly/openclaw-projects-app:0.0.60
   db:
-    image: ghcr.io/troykelly/openclaw-projects-db:v1.2.3
+    image: ghcr.io/troykelly/openclaw-projects-db:0.0.60
+  migrate:
+    image: ghcr.io/troykelly/openclaw-projects-migrate:0.0.60
+  worker:
+    image: ghcr.io/troykelly/openclaw-projects-worker:0.0.60
 ```
+
+Alternatively, download the compose files directly from the [GitHub Releases page](https://github.com/troykelly/openclaw-projects/releases) — they already have the correct version tags. See [Deploying a Specific Version](#deploying-a-specific-version).
 
 ### Database Migrations
 
