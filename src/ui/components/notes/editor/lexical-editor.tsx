@@ -35,12 +35,14 @@ import { ListPlugin } from '@lexical/react/LexicalListPlugin';
 import { LinkPlugin } from '@lexical/react/LexicalLinkPlugin';
 import { MarkdownShortcutPlugin } from '@lexical/react/LexicalMarkdownShortcutPlugin';
 import { $convertFromMarkdownString, $convertToMarkdownString, TRANSFORMERS } from '@lexical/markdown';
+import { $generateNodesFromDOM } from '@lexical/html';
 import { HeadingNode, QuoteNode } from '@lexical/rich-text';
 import { ListNode, ListItemNode } from '@lexical/list';
 import { LinkNode, AutoLinkNode } from '@lexical/link';
 import { CodeNode, CodeHighlightNode } from '@lexical/code';
 import { TableNode, TableRowNode, TableCellNode } from '@lexical/table';
 import { TablePlugin } from '@lexical/react/LexicalTablePlugin';
+import { $getRoot, $insertNodes } from 'lexical';
 import type { LexicalEditor } from 'lexical';
 import type { Provider } from '@lexical/yjs';
 import type { Doc } from 'yjs';
@@ -176,17 +178,46 @@ export function LexicalNoteEditor({
     [yjsDoc, yjsProvider],
   );
 
-  const initialEditorStateFn = useMemo(
-    () =>
-      initialContent
-        ? (editor: LexicalEditor) => {
-            editor.update(() => {
-              $convertFromMarkdownString(initialContent, TRANSFORMERS);
-            });
-          }
-        : undefined,
-    [initialContent],
+  /**
+   * Bootstrap editor from REST content. Handles both markdown and XML content (#2562).
+   * Pre-#2472 notes may have content stored as XML (from Y.XmlText.toString()).
+   * Detect XML and parse via DOM, falling back to markdown conversion.
+   *
+   * useCallback with stable ref prevents CollaborationPlugin reconnect loop
+   * that occurred when useMemo([initialContent]) created new function references
+   * on React Query background refetches.
+   */
+  const initialContentRef = useRef(initialContent);
+  initialContentRef.current = initialContent;
+
+  const initialEditorStateFn = useCallback(
+    (editor: LexicalEditor) => {
+      const content = initialContentRef.current;
+      if (!content) return;
+
+      editor.update(() => {
+        // Detect XML/HTML content: starts with < and contains XML tags
+        const trimmed = content.trimStart();
+        if (trimmed.startsWith('<') && /<\/?[a-zA-Z][\s\S]*?>/.test(trimmed)) {
+          // Parse as HTML/XML — handles legacy Y.XmlText.toString() output
+          const parser = new DOMParser();
+          const dom = parser.parseFromString(`<body>${content}</body>`, 'text/html');
+          const nodes = $generateNodesFromDOM(editor, dom);
+          const root = $getRoot();
+          root.clear();
+          root.selectEnd();
+          $insertNodes(nodes);
+        } else {
+          $convertFromMarkdownString(content, TRANSFORMERS);
+        }
+      });
+    },
+    // Intentionally empty — we read from the ref to keep the callback identity stable
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
   );
+
+  const shouldBootstrap = !!initialContentRef.current;
 
   // Lexical editor config
   const initialConfig = {
@@ -330,7 +361,7 @@ export function LexicalNoteEditor({
                 <CollaborationPlugin
                   id={yjsId ?? 'content'}
                   providerFactory={providerFactory}
-                  shouldBootstrap={!!initialEditorStateFn}
+                  shouldBootstrap={shouldBootstrap}
                   username={currentUser?.name ?? 'Anonymous'}
                   cursorColor={currentUser?.color ?? '#3b82f6'}
                   cursorsContainerRef={cursorsContainerRef}

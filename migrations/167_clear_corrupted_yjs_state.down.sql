@@ -1,0 +1,3 @@
+-- Migration 167 DOWN: No-op
+-- Cannot restore cleared yjs_state — the data was corrupted and is not recoverable.
+-- Notes will rebuild yjs_state from content on next collaborative edit.

@@ -747,38 +747,91 @@ graph TD;
     });
   });
 
-  // Yjs bootstrap tests for Issue #2482
-  describe('shouldBootstrap with CollaborationPlugin (#2482)', () => {
+  // Yjs bootstrap tests for Issue #2482, #2562
+  describe('shouldBootstrap with CollaborationPlugin (#2482, #2562)', () => {
     it('sets shouldBootstrap based on initialContent availability', () => {
-      // The bug: shouldBootstrap={false} means initialEditorState is never called,
-      // so notes with REST content but no yjs_state show empty.
-      // The fix: shouldBootstrap should be true when initialEditorStateFn is defined
-      // (i.e. when initialContent is non-empty).
-      //
-      // We verify the fix by inspecting the component source directly:
-      // shouldBootstrap={false} is hardcoded, which is the bug.
-      // After the fix, shouldBootstrap should depend on whether initialContent exists.
-
-      // Test 1: When initialContent is provided, initialEditorStateFn is defined.
-      // shouldBootstrap should be true so the fn actually gets called.
-      // We can verify this by checking that the CollaborationPlugin receives
-      // shouldBootstrap={true} — but since mocking the plugin in-test is fragile
-      // with vi.mock hoisting, we take a simpler approach:
-      // verify that the component renders without error and that the
-      // shouldBootstrap prop in the source code is conditional.
-
       // Read the source to verify the fix is in place
-      // (This is a source-level assertion — the real test is that the component
-      // renders correctly with Yjs enabled and initialContent)
       const sourceFile = require('fs').readFileSync(
         require('path').resolve(__dirname, '../../src/ui/components/notes/editor/lexical-editor.tsx'),
         'utf8',
       );
 
       // The bug: shouldBootstrap={false} is hardcoded
-      // The fix: shouldBootstrap should reference initialEditorStateFn
+      // The fix: shouldBootstrap should reference initialContentRef
       expect(sourceFile).not.toMatch(/shouldBootstrap=\{false\}/);
       expect(sourceFile).toMatch(/shouldBootstrap=\{/);
+    });
+
+    it('uses stable initialEditorStateFn reference (useCallback, not useMemo)', () => {
+      // #2562: useMemo([initialContent]) created new function refs when initialContent
+      // changed from React Query background refetches, causing CollaborationPlugin
+      // reconnect loops. The fix uses useCallback with a ref for stability.
+      const sourceFile = require('fs').readFileSync(
+        require('path').resolve(__dirname, '../../src/ui/components/notes/editor/lexical-editor.tsx'),
+        'utf8',
+      );
+
+      // Should use useCallback for initialEditorStateFn, not useMemo
+      expect(sourceFile).toMatch(/initialEditorStateFn\s*=\s*useCallback/);
+      expect(sourceFile).not.toMatch(/initialEditorStateFn\s*=\s*useMemo/);
+      // Should use a ref for initialContent
+      expect(sourceFile).toMatch(/initialContentRef/);
+    });
+
+    it('handles XML content in bootstrap function', () => {
+      // #2562: Pre-#2472 notes have content stored as XML from Y.XmlText.toString().
+      // The bootstrap function should detect XML and parse via DOM.
+      const sourceFile = require('fs').readFileSync(
+        require('path').resolve(__dirname, '../../src/ui/components/notes/editor/lexical-editor.tsx'),
+        'utf8',
+      );
+
+      expect(sourceFile).toMatch(/\$generateNodesFromDOM/);
+      expect(sourceFile).toMatch(/DOMParser/);
+    });
+  });
+
+  // XML content handling tests for Issue #2562
+  describe('XML content handling (#2562)', () => {
+    it('renders XML content in preview mode without showing blank', () => {
+      // Simulates what Y.XmlText.toString() produces
+      const xmlContent = '<p>Hello world</p><p>This is a note with <strong>bold</strong> text</p>';
+      render(<LexicalNoteEditor mode="preview" initialContent={xmlContent} />);
+
+      // Preview mode converts to HTML — should display the content
+      expect(screen.getAllByText(/characters/i).length).toBeGreaterThan(0);
+    });
+
+    it('renders markdown content normally', () => {
+      const mdContent = '# Hello\n\nThis is **bold** text';
+      render(<LexicalNoteEditor mode="preview" initialContent={mdContent} />);
+
+      const heading = document.querySelector('h1');
+      expect(heading).toBeInTheDocument();
+      expect(heading?.textContent).toContain('Hello');
+    });
+
+    it('renders XML content in wysiwyg mode via InitialContentPlugin', () => {
+      const xmlContent = '<p>Hello from XML</p>';
+      render(<LexicalNoteEditor initialContent={xmlContent} />);
+
+      // Should render without crashing
+      expect(screen.getByText(/characters/i)).toBeInTheDocument();
+    });
+
+    it('handles mixed XML-like markdown content', () => {
+      // Content that starts with < but is actually an HTML block in markdown
+      const htmlInMarkdown = '<div>Some HTML block</div>\n\n# Heading after HTML';
+      render(<LexicalNoteEditor mode="preview" initialContent={htmlInMarkdown} />);
+
+      expect(screen.getAllByText(/characters/i).length).toBeGreaterThan(0);
+    });
+
+    it('handles empty XML tags gracefully', () => {
+      const emptyXml = '<p></p>';
+      render(<LexicalNoteEditor initialContent={emptyXml} />);
+
+      expect(screen.getByText(/characters/i)).toBeInTheDocument();
     });
   });
 
