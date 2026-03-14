@@ -266,6 +266,93 @@ You're following this protocol correctly when:
 
 ---
 
+## Local Test Suite Isolation (DB State Contamination)
+
+### Problem
+
+Running `pnpm test` (unit + integration combined) **consecutively** in the devcontainer can produce ~216 spurious failures across ~74 test files. These failures are **not real bugs** — CI on `main` is consistently green.
+
+**Root cause:** Integration tests share the single devcontainer PostgreSQL instance. Each integration test file runs `truncateAllTables()` in `beforeEach`, but when the entire suite is re-run without a Postgres restart, residual state (especially around sequences, deduplication tables, and notification state) bleeds across runs.
+
+### Known Failure Clusters
+
+| Test file | Failure pattern |
+|-----------|----------------|
+| `src/api/memory/deduplication.test.ts` | ID mismatch from stale `notification_dedup` rows |
+| `src/api/memory/core-api.test.ts` | Upsert-by-tag logic collides with stale memory rows |
+| `src/api/prompt-template/service.test.ts` | Deadlock in test setup (`TRUNCATE` vs server pool lock) |
+| `tests/ui/chat-rich-card.test.tsx` | `window is not defined` — jsdom env not initialized (unit test leaking into integration runner) |
+
+### Workaround: Run Tests Separately
+
+Instead of `pnpm test` (which runs unit + integration in one process), run the two projects independently:
+
+```bash
+# Unit tests only — no DB, always reliable, runs in parallel
+pnpm test:unit
+
+# Integration tests only — runs serially against real Postgres
+pnpm test:integration
+
+# Clean DB state first, then run integration (most reliable locally)
+pnpm test:clean
+
+# Targeted run before pushing — fastest feedback loop
+pnpm exec vitest run src/api/memory/deduplication.test.ts
+```
+
+**Trust CI as the final arbiter.** If your tests pass in CI, the code is correct — consecutive local `pnpm test` failures from this pattern do not block shipping.
+
+### `pnpm test:clean` Script
+
+`pnpm test:clean` resets DB state before running unit then integration tests. It:
+
+1. Runs `scripts/reset-test-db.sh` — truncates all application tables with `RESTART IDENTITY CASCADE`
+2. Runs `pnpm test:unit` (parallel, no DB)
+3. Runs `pnpm test:integration` (serial, real Postgres)
+
+```bash
+pnpm test:clean
+```
+
+The script (`scripts/reset-test-db.sh`) connects using the same `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`, `PGDATABASE` environment variables as the test helpers (`tests/helpers/db.ts`).
+
+**Safety gate:** The script checks `PGDATABASE` against a known-safe allowlist (`openclaw`, `openclaw_test`, `openclaw_ci`, `test`, `postgres`). It refuses to run if the name is not on the list. Note that this is a name-based check only — it does not verify the host, so if your `PGHOST` happens to point at a staging or production server whose database is also named `openclaw`, the script will proceed. Always confirm your shell's `PGHOST` and `PGPORT` are pointing at your local devcontainer Postgres before running. Customise the allowlist via `RESET_DB_SAFE_NAMES`.
+
+### When to Use Each Command
+
+| Situation | Command |
+|-----------|---------|
+| Active development — iterative feedback | `pnpm test:changed` |
+| Checking unit tests only | `pnpm test:unit` |
+| Checking integration tests only | `pnpm test:integration` |
+| Full suite, clean DB state | `pnpm test:clean` |
+| Before pushing a branch | `pnpm test:clean` then verify CI |
+| Investigating one failing file | `pnpm exec vitest run <file>` |
+
+### Why `pnpm test` Still Exists
+
+`pnpm test` runs both vitest projects in a single process and is retained for compatibility. CI does NOT call it directly — CI calls `pnpm test:unit` and `pnpm test:integration` as separate steps (see `.github/workflows/ci.yml`). Unit tests do not touch Postgres at all, so when integration tests run next they start against a clean database that has only been initialised by migrations. This prevents consecutive-run contamination. `pnpm test:clean` mirrors that CI behaviour locally by explicitly truncating all tables before running each project.
+
+### Sequence Diagram
+
+```
+pnpm test        →  [unit project] + [integration project] in one vitest run
+                    ↳ Second consecutive run: stale DB state → ~216 failures
+
+CI               →  pnpm test:unit   (no DB access — always clean)
+                    pnpm test:integration  (same devcontainer Postgres, but
+                      unit tests never wrote to it, so integration starts clean)
+                    ↳ No contamination possible
+
+pnpm test:clean  →  reset-test-db.sh (TRUNCATE all tables, RESTART IDENTITY)
+                    → pnpm test:unit   (no DB access)
+                    → pnpm test:integration  (DB is now clean)
+                    ↳ Mirrors CI isolation locally — always reliable
+```
+
+---
+
 ## Questions?
 
 There are no questions. This is the protocol. Follow it.
