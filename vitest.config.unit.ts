@@ -49,6 +49,7 @@ export default defineProject({
       'tests/embeddings/providers.test.ts',
       'tests/embeddings/service.test.ts',
       'tests/file-storage/content-disposition-sanitization.test.ts',
+      'tests/file-storage/s3-path-style-env.test.ts',
       'tests/file-storage/s3-presigned-external-endpoint.test.ts',
       'tests/file-storage/sharing-presigned-url.test.ts',
       'tests/oauth/config.test.ts',

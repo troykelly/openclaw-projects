@@ -179,6 +179,9 @@ export function createS3StorageFromEnv(): S3Storage | null {
     region,
     access_key_id: access_key_id,
     secret_access_key: secret_access_key,
-    force_path_style: process.env.S3_FORCE_PATH_STYLE === 'true',
+    force_path_style:
+      process.env.S3_FORCE_PATH_STYLE !== undefined
+        ? process.env.S3_FORCE_PATH_STYLE === 'true'
+        : undefined,
   });
 }
