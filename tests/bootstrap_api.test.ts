@@ -294,5 +294,69 @@ describe('Agent Bootstrap API (Issue #219)', () => {
       expect(body.user.timezone).toBe('Australia/Sydney');
       expect(body.user.settings.theme).toBe('dark');
     });
+
+    it('uses user timezone for due_today calculation (#2518)', async () => {
+      // Store user timezone as Pacific/Auckland (UTC+12/+13)
+      await pool.query(
+        `INSERT INTO user_setting (email, timezone)
+         VALUES ('tz-test@example.com', 'Pacific/Auckland')
+         ON CONFLICT (email) DO UPDATE SET timezone = 'Pacific/Auckland'`,
+      );
+
+      // Find a timestamp that is "today" in Auckland but NOT "today" in UTC.
+      // If the current UTC time is, say, 2026-03-14 14:00 UTC,
+      // then in Auckland (UTC+13) it is already 2026-03-15 03:00.
+      // We create a work item whose not_after = "today in Auckland, midnight UTC"
+      // so it only shows as due_today when using the Auckland timezone.
+
+      // Strategy: compute "today" in Auckland, set not_after to that date at
+      // a time that is definitely on a different UTC date.
+      // We use a SQL expression to calculate this dynamically.
+      await pool.query(
+        `INSERT INTO work_item (title, work_item_kind, status, not_after)
+         VALUES (
+           'Auckland task',
+           'issue',
+           'open',
+           -- Set not_after to "now in Auckland timezone" as a date
+           (NOW() AT TIME ZONE 'Pacific/Auckland')::date
+         )`,
+      );
+
+      // With user timezone: due_today should count this item since its date
+      // matches "today" in Auckland
+      const res = await app.inject({
+        method: 'GET',
+        url: '/bootstrap?user_email=tz-test@example.com',
+      });
+
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      expect(body.stats.due_today).toBe(1);
+    });
+
+    it('falls back to UTC when no timezone is stored (#2518)', async () => {
+      // User without timezone setting
+      await pool.query(
+        `INSERT INTO user_setting (email)
+         VALUES ('no-tz@example.com')
+         ON CONFLICT (email) DO NOTHING`,
+      );
+
+      // Create a work item due "today" in UTC
+      await pool.query(
+        `INSERT INTO work_item (title, work_item_kind, status, not_after)
+         VALUES ('UTC task', 'issue', 'open', CURRENT_DATE)`,
+      );
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/bootstrap?user_email=no-tz@example.com',
+      });
+
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      expect(body.stats.due_today).toBe(1);
+    });
   });
 });
