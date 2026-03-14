@@ -148,6 +148,154 @@ describe('release.yml workflow', () => {
       expect(run).toContain('packages/openclaw-plugin/openclaw.plugin.json');
     });
 
+    // #2524 — compose files must be updated in version bump
+    it('should update compose file image tags during version bump', () => {
+      const step = workflow.jobs.validate.steps.find((s) =>
+        s.name?.toLowerCase().includes('update compose')
+      );
+      expect(step).toBeDefined();
+      const run = step?.run ?? '';
+      // Must update all 4 production compose files
+      expect(run).toContain('docker-compose.yml');
+      expect(run).toContain('docker-compose.traefik.yml');
+      expect(run).toContain('docker-compose.quickstart.yml');
+      expect(run).toContain('docker-compose.full.yml');
+      // Must use the correct sed pattern for project images only
+      expect(run).toContain('ghcr.io/troykelly/openclaw-projects-');
+      // Must NOT touch devcontainer or test compose files
+      expect(run).not.toContain('docker-compose.devcontainer.yml');
+      expect(run).not.toContain('docker-compose.test.yml');
+    });
+
+    // #2524 — compose files must be included in git add
+    it('should include compose files in version bump commit', () => {
+      const step = workflow.jobs.validate.steps.find((s) =>
+        s.name?.toLowerCase().includes('commit version bump')
+      );
+      const run = step?.run ?? '';
+      expect(run).toContain('docker-compose.yml');
+      expect(run).toContain('docker-compose.traefik.yml');
+      expect(run).toContain('docker-compose.quickstart.yml');
+      expect(run).toContain('docker-compose.full.yml');
+    });
+
+    // #2524 — compose files must be in artifact upload
+    it('should include compose files in version-bumped-files artifact', () => {
+      const step = workflow.jobs.validate.steps.find((s) =>
+        s.name?.toLowerCase().includes('upload bumped')
+      );
+      expect(step).toBeDefined();
+      const path = String(step?.with?.path ?? '');
+      expect(path).toContain('docker-compose.yml');
+      expect(path).toContain('docker-compose.traefik.yml');
+      expect(path).toContain('docker-compose.quickstart.yml');
+      expect(path).toContain('docker-compose.full.yml');
+    });
+
+    // #2524 — post-sed validation for compose files
+    it('should validate compose files after version bump sed replacement', () => {
+      const steps = workflow.jobs.validate.steps;
+      const sedStepIdx = steps.findIndex((s) =>
+        s.name?.toLowerCase().includes('update compose')
+      );
+      const validationStep = steps.find(
+        (s, i) => i > sedStepIdx && s.name?.toLowerCase().includes('validate compose')
+      );
+      expect(validationStep).toBeDefined();
+      const run = validationStep?.run ?? '';
+      // Should verify no :edge references remain in production compose files
+      expect(run).toContain(':edge');
+    });
+
+    // #2525 — re-entrancy guard using commit message check
+    it('should have a re-entrancy guard that checks commit message', () => {
+      const step = workflow.jobs.validate.steps.find((s) =>
+        s.name?.toLowerCase().includes('re-entrancy') ||
+        s.name?.toLowerCase().includes('reentranc')
+      );
+      expect(step).toBeDefined();
+      const run = step?.run ?? '';
+      // Must check commit message for chore(release) pattern, not draft release
+      expect(run).toContain('chore');
+      expect(run).toContain('release');
+      // Must read the commit message
+      expect(run).toContain('git log');
+    });
+
+    // #2525 — tag re-pointing to version bump commit
+    it('should re-point tag to version bump commit', () => {
+      const step = workflow.jobs.validate.steps.find((s) =>
+        s.name?.toLowerCase().includes('re-point tag') ||
+        s.name?.toLowerCase().includes('move tag')
+      );
+      expect(step).toBeDefined();
+      const run = step?.run ?? '';
+      expect(run).toContain('git tag -f');
+      expect(run).toContain('git push');
+      expect(run).toContain('--force');
+    });
+
+    // #2525 — tag must use captured SHA, not HEAD~1
+    it('should capture version bump SHA explicitly for tag re-pointing', () => {
+      const step = workflow.jobs.validate.steps.find((s) =>
+        s.name?.toLowerCase().includes('commit version bump')
+      );
+      const run = step?.run ?? '';
+      // Must capture SHA explicitly
+      expect(run).toContain('VERSION_BUMP_SHA');
+    });
+
+    // #2525/#2526 — no step should use HEAD~1 as a git ref (comments are ok)
+    it('should not use HEAD~1 as a git ref in any step', () => {
+      const steps = workflow.jobs.validate.steps;
+      for (const step of steps) {
+        const run = step.run ?? '';
+        // Check for HEAD~1 used as an actual git command argument, not in comments
+        const lines = run.split('\n').filter((l) => !l.trimStart().startsWith('#'));
+        const codeOnly = lines.join('\n');
+        expect(codeOnly).not.toContain('HEAD~1');
+      }
+    });
+
+    // #2525 — output version_bump_sha for other steps
+    it('should output version_bump_sha', () => {
+      const outputs = workflow.jobs.validate.outputs;
+      expect(outputs?.version_bump_sha).toBeDefined();
+    });
+
+    // #2526 — restore compose files to :edge after version bump
+    it('should restore compose files to :edge after tagging', () => {
+      const step = workflow.jobs.validate.steps.find((s) =>
+        s.name?.toLowerCase().includes('restore') && s.name?.toLowerCase().includes('edge')
+      );
+      expect(step).toBeDefined();
+      const run = step?.run ?? '';
+      expect(run).toContain(':edge');
+      expect(run).toContain('docker-compose.yml');
+      expect(run).toContain('docker-compose.traefik.yml');
+      expect(run).toContain('docker-compose.quickstart.yml');
+      expect(run).toContain('docker-compose.full.yml');
+    });
+
+    // #2526 — restore commit message
+    it('should use correct commit message for edge restore', () => {
+      const step = workflow.jobs.validate.steps.find((s) =>
+        s.name?.toLowerCase().includes('restore') && s.name?.toLowerCase().includes('edge')
+      );
+      const run = step?.run ?? '';
+      expect(run).toContain('chore(release): restore :edge image tags [skip ci]');
+    });
+
+    // #2533 — atomic push for multi-ref mutations
+    it('should use git push --atomic for multi-ref pushes', () => {
+      const steps = workflow.jobs.validate.steps;
+      const hasAtomicPush = steps.some((s) => {
+        const run = s.run ?? '';
+        return run.includes('--atomic');
+      });
+      expect(hasAtomicPush).toBe(true);
+    });
+
     it('should update lockfile after version bump', () => {
       const step = workflow.jobs.validate.steps.find((s) =>
         s.name?.toLowerCase().includes('bump version')
@@ -163,7 +311,17 @@ describe('release.yml workflow', () => {
       expect(step).toBeDefined();
       const run = step?.run ?? '';
       expect(run).toContain('[skip ci]');
-      expect(run).toContain('git push origin main');
+    });
+
+    it('should push main via the atomic push step (not in commit step)', () => {
+      const pushStep = workflow.jobs.validate.steps.find((s) =>
+        s.name?.toLowerCase().includes('re-point tag') ||
+        s.name?.toLowerCase().includes('move tag')
+      );
+      expect(pushStep).toBeDefined();
+      const run = pushStep?.run ?? '';
+      expect(run).toContain('git push');
+      expect(run).toContain('origin main');
     });
 
     it('should skip commit if versions already match', () => {
@@ -208,12 +366,17 @@ describe('release.yml workflow', () => {
       expect(checkout).toBeDefined();
     });
 
-    it('should generate versioned compose files', () => {
-      const step = releaseSteps.find((s) => s.name?.toLowerCase().includes('versioned compose'));
+    // #2527 — the release job should copy compose files from tag checkout, NOT use sed
+    it('should copy compose files from tag checkout instead of generating with sed', () => {
+      const step = releaseSteps.find((s) => s.name?.toLowerCase().includes('copy compose'));
       expect(step).toBeDefined();
+      const run = step?.run ?? '';
+      // Should use cp, not sed
+      expect(run).toContain('cp');
+      expect(run).not.toContain('sed');
     });
 
-    it('should validate generated compose files', () => {
+    it('should validate compose files from tag checkout', () => {
       const step = releaseSteps.find((s) => s.name?.toLowerCase().includes('validate'));
       expect(step).toBeDefined();
     });
@@ -226,6 +389,26 @@ describe('release.yml workflow', () => {
     it('should generate release body', () => {
       const step = releaseSteps.find((s) => s.name?.toLowerCase().includes('release body'));
       expect(step).toBeDefined();
+    });
+
+    // #2535 — symphony-worker must appear in release body
+    it('should include symphony-worker in release body', () => {
+      const step = releaseSteps.find((s) => s.name?.toLowerCase().includes('release body'));
+      const run = step?.run ?? '';
+      expect(run).toContain('symphony-worker');
+    });
+
+    // #2535 — all 9 container images should be in release body
+    it('should include all 9 container images in release body', () => {
+      const step = releaseSteps.find((s) => s.name?.toLowerCase().includes('release body'));
+      const run = step?.run ?? '';
+      const expectedImages = [
+        'db', 'api', 'app', 'migrate', 'worker',
+        'ha-connector', 'prompt-guard', 'tmux-worker', 'symphony-worker',
+      ];
+      for (const img of expectedImages) {
+        expect(run).toContain(`openclaw-projects-${img}`);
+      }
     });
 
     describe('draft-then-undraft pattern', () => {
@@ -307,6 +490,27 @@ describe('release.yml workflow', () => {
       expect(names).toContain('prompt-guard');
       expect(names).toContain('tmux-worker');
       expect(names).toContain('symphony-worker');
+    });
+
+    // #2535 — container provenance SHA must use version_bump_sha, not github.sha
+    it('should use version_bump_sha for container build VCS_REF and OCI_REVISION', () => {
+      const buildStep = workflow.jobs['publish-containers'].steps.find((s) =>
+        s.name?.toLowerCase().includes('build and push')
+      );
+      expect(buildStep).toBeDefined();
+      const buildArgs = String(buildStep?.with?.['build-args'] ?? '');
+      // Should reference the version_bump_sha output, not github.sha
+      expect(buildArgs).toContain('version_bump_sha');
+      expect(buildArgs).not.toContain('github.sha');
+    });
+  });
+
+  // #2534 — workflow interaction documentation
+  describe('workflow interaction', () => {
+    it('should document workflow interaction with ci.yml and containers.yml in comments', () => {
+      const content = readFileSync(WORKFLOW_PATH, 'utf-8');
+      // The workflow should contain comments about interaction with other workflows
+      expect(content).toContain('containers.yml');
     });
   });
 });
