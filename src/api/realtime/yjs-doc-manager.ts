@@ -307,19 +307,26 @@ export class YjsDocManager {
 
     const row = result.rows[0];
     const doc = new Y.Doc();
+    let bootstrapped = false;
 
     if (row.yjs_state) {
       // Load existing Yjs state
       Y.applyUpdate(doc, new Uint8Array(row.yjs_state));
+    } else if (row.content && typeof row.content === 'string' && row.content.length > 0) {
+      // Bootstrap server-side Yjs doc from REST content when yjs_state is NULL.
+      // Without this, the empty server doc overwrites client content during sync,
+      // causing notes to appear blank. Issue #2596.
+      const xmlText = doc.get('root', Y.XmlText);
+      xmlText.insert(0, row.content);
+      bootstrapped = true;
     }
-    // If yjs_state is NULL, the doc starts empty — CollaborationPlugin will initialize it
-    // from the note's content on the client side via initialEditorState
+    // If both yjs_state and content are empty, the doc starts empty as expected
 
     return {
       doc,
       noteId,
       clients: new Map(),
-      dirty: false,
+      dirty: bootstrapped,
       persistTimer: null,
       maxFlushTimer: null,
       evictionTimer: null,
