@@ -660,6 +660,8 @@ services:
     environment:
       API_HOST: api
       API_PORT: "3001"
+      # IndieAuth redirect_uri discovery. Issue #2592.
+      OAUTH_REDIRECT_URI: ${OAUTH_REDIRECT_URI:-https://api.${DOMAIN}/api/oauth/callback}
     # Publish to localhost for Traefik (host networking mode)
     # Default host port 8081 avoids conflict with ModSecurity on 8080
     ports:

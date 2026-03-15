@@ -1494,7 +1494,10 @@ export async function terminalRoutesPlugin(
   // ================================================================
 
   // WS /api/terminal/sessions/:id/attach — WebSocket terminal attach
-  app.get('/terminal/sessions/:id/attach', { websocket: true }, async (socket: WebSocket, req: FastifyRequest) => {
+  // Use { wsHandler } instead of { websocket: true } so that @fastify/otel
+  // (Sentry) doesn't wrap the WebSocket handler. Issue #2592.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- @fastify/websocket wsHandler type not exported
+  app.get('/terminal/sessions/:id/attach', { wsHandler: async (socket: any, req: FastifyRequest) => {
     const params = req.params as { id: string };
     const query = req.query as { token?: string };
 
@@ -1647,6 +1650,8 @@ export async function terminalRoutesPlugin(
     socket.on('error', () => {
       grpcStream.end();
     });
+  } } as Record<string, unknown>, async (_req, reply) => {
+    reply.code(404).send();
   });
 
   // ================================================================

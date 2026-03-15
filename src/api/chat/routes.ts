@@ -1030,7 +1030,13 @@ export async function chatRoutesPlugin(
   }
 
   // GET /api/chat/ws — WebSocket upgrade with ticket authentication
-  app.get('/chat/ws', { websocket: true }, async (socket: WebSocket, req: FastifyRequest) => {
+  // Use { wsHandler } instead of { websocket: true } so that @fastify/otel
+  // (Sentry) doesn't wrap the WebSocket handler. The OTel wrapper expects
+  // (FastifyRequest, Reply) but @fastify/websocket calls wsHandler with
+  // (WebSocket, FastifyRequest), crashing on socket.routeOptions.config.
+  // Issue #2592.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- @fastify/websocket wsHandler type not exported
+  app.get('/chat/ws', { wsHandler: async (socket: any, req: FastifyRequest) => {
     const query = req.query as { ticket?: string; session_id?: string };
     const ticket = query.ticket;
     const sessionId = query.session_id;
@@ -1219,6 +1225,8 @@ export async function chatRoutesPlugin(
         }
       }
     });
+  } } as Record<string, unknown>, async (_req, reply) => {
+    reply.code(404).send();
   });
 
   // ================================================================
