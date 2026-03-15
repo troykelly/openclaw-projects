@@ -574,6 +574,14 @@ export async function listMemories(pool: Pool, options: ListMemoriesOptions = {}
     conditions.push('superseded_by IS NULL');
   }
 
+  // Exclude deactivated memories (e.g. reaped by cleanup-expired or
+  // deactivated by bulk-supersede) to align with digestMemories (#2590).
+  // Skip when include_superseded=true (show all states) or
+  // include_expired=true (expired soft-deletes set is_active=false).
+  if (!options.include_superseded && !options.include_expired) {
+    conditions.push('is_active = true');
+  }
+
   // Temporal filters (issue #1272)
   if (options.created_after !== undefined) {
     conditions.push(`created_at >= $${paramIndex}`);
@@ -878,7 +886,7 @@ export async function searchMemories(pool: Pool, query: string, options: SearchM
         const queryEmbedding = embeddingResult.embedding;
         // Build semantic search conditions with proper indexing
         // $1 = embedding, $2 = min_similarity, then filter params, then limit/offset
-        const semanticConditions: string[] = ['(expires_at IS NULL OR expires_at > NOW())', 'superseded_by IS NULL'];
+        const semanticConditions: string[] = ['(expires_at IS NULL OR expires_at > NOW())', 'superseded_by IS NULL', 'is_active = true'];
         const semanticParams: unknown[] = [];
         let semanticIdx = 3; // Start after embedding and min_similarity
 
@@ -980,7 +988,7 @@ export async function searchMemories(pool: Pool, query: string, options: SearchM
   // Fall back to text search
   // Build text search conditions with proper indexing
   // $1 = query text, then filter params, then limit/offset
-  const textConditions: string[] = ['(expires_at IS NULL OR expires_at > NOW())', 'superseded_by IS NULL'];
+  const textConditions: string[] = ['(expires_at IS NULL OR expires_at > NOW())', 'superseded_by IS NULL', 'is_active = true'];
   const textParams: unknown[] = [query];
   let textIdx = 2; // Start after query
 

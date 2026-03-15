@@ -270,7 +270,7 @@ export class ApiClient {
           success: false,
           error: {
             status: response.status,
-            message: errorBody.message || response.statusText,
+            message: errorBody.error || errorBody.message || response.statusText,
             code: getErrorCode(response.status),
             details: errorBody.details,
             retryAfter: retryAfter ? Number.parseInt(retryAfter, 10) : undefined,
