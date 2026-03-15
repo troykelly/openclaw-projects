@@ -136,9 +136,16 @@ export async function agentRoutesPlugin(
       );
 
       for (const agent of payload.agents) {
+        // Use ON CONFLICT to prevent race conditions when concurrent
+        // syncs target the same namespace. Issue #2592.
         await client.query(
           `INSERT INTO gateway_agent_cache (namespace, agent_id, display_name, avatar_url, is_default)
-           VALUES ($1, $2, $3, $4, $5)`,
+           VALUES ($1, $2, $3, $4, $5)
+           ON CONFLICT (namespace, agent_id) DO UPDATE SET
+             display_name = EXCLUDED.display_name,
+             avatar_url = EXCLUDED.avatar_url,
+             is_default = EXCLUDED.is_default,
+             synced_at = NOW()`,
           [namespace, agent.id, agent.display_name, agent.avatar_url, agent.is_default],
         );
       }

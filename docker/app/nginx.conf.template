@@ -50,10 +50,18 @@ server {
     }
 
     # index.html - no cache (always fetch latest)
+    # Inject IndieAuth <link rel="redirect_uri"> tag when OAUTH_REDIRECT_URI is set.
+    # HA fetches the client_id URL (PUBLIC_BASE_URL = this nginx) and scans the
+    # first 10 kB for this tag to validate cross-domain redirect_uri. Issue #2592.
     location = /index.html {
         add_header Cache-Control "no-cache, no-store, must-revalidate" always;
         add_header Pragma "no-cache" always;
         add_header Expires "0" always;
+        # Disable pre-compressed serving so sub_filter can process the response.
+        gzip_static off;
+        sub_filter '</head>' '<link rel="redirect_uri" href="${OAUTH_REDIRECT_URI}" />\n</head>';
+        sub_filter_once on;
+        sub_filter_types text/html;
     }
 
     # SPA fallback: serve index.html for unmatched routes

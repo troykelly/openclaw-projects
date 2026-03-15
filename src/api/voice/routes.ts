@@ -98,7 +98,10 @@ export async function voiceRoutesPlugin(
   // Issue #1432
   // ============================================================
 
-  app.get('/ws/conversation', { websocket: true }, async (socket, req) => {
+  // Use { wsHandler } instead of { websocket: true } so that @fastify/otel
+  // (Sentry) doesn't wrap the WebSocket handler. Issue #2592.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- @fastify/websocket wsHandler type not exported
+  app.get('/ws/conversation', { wsHandler: async (socket: any, req: FastifyRequest) => {
     // Authenticate via JWT
     let user_email: string | null = null;
     let namespace = 'default';
@@ -150,6 +153,8 @@ export async function voiceRoutesPlugin(
     }
 
     hub.addClient(socket, namespace, user_email);
+  } } as Record<string, unknown>, async (_req, reply) => {
+    reply.code(404).send();
   });
 
   // ============================================================
