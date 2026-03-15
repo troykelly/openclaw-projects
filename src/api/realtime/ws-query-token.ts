@@ -19,6 +19,21 @@ import type { IncomingMessage } from 'node:http';
  * @returns The token string, or `null` if absent.
  */
 export function extractWsQueryToken(req: { url?: string }): string | null {
+  return extractWsQueryParam(req, 'token');
+}
+
+/**
+ * Extract an arbitrary query parameter from a request URL.
+ *
+ * Works with both Fastify requests and raw Node.js IncomingMessage objects —
+ * always parses from `req.url` rather than relying on `req.query` which may
+ * be `undefined` in @fastify/websocket wsHandler callbacks.
+ *
+ * Issue #2404, #2592
+ *
+ * @returns The parameter value, or `null` if absent.
+ */
+export function extractWsQueryParam(req: { url?: string }, name: string): string | null {
   const url = req.url;
   if (!url) return null;
 
@@ -27,5 +42,5 @@ export function extractWsQueryToken(req: { url?: string }): string | null {
   if (qIdx === -1) return null;
 
   const params = new URLSearchParams(url.slice(qIdx + 1));
-  return params.get('token');
+  return params.get(name);
 }

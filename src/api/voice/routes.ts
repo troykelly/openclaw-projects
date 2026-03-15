@@ -12,6 +12,7 @@ import type { Pool } from 'pg';
 import { requireMinRole, RoleError } from '../auth/middleware.ts';
 import { getAuthIdentity } from '../auth/middleware.ts';
 import { isAuthDisabled, verifyAccessToken } from '../auth/jwt.ts';
+import { extractWsQueryParam } from '../realtime/ws-query-token.ts';
 import { VoiceConversationHub } from './hub.ts';
 import { getConfig, upsertConfig } from './routing.ts';
 import type {
@@ -106,15 +107,18 @@ export async function voiceRoutesPlugin(
     let user_email: string | null = null;
     let namespace = 'default';
 
+    // Parse from req.url — req.query may be undefined in wsHandler (Issue #2404, #2592)
+    const queryToken = extractWsQueryParam(req, 'token');
+    const queryNamespace = extractWsQueryParam(req, 'namespace');
+
     const identity = await getAuthIdentity(req);
     if (identity) {
       user_email = identity.email;
     } else if (!isAuthDisabled()) {
       // Try JWT from query string
-      const query = req.query as { token?: string; namespace?: string };
-      if (query.token) {
+      if (queryToken) {
         try {
-          const payload = await verifyAccessToken(query.token);
+          const payload = await verifyAccessToken(queryToken);
           user_email = payload.sub;
         } catch {
           socket.close(4001, 'Unauthorized');
@@ -128,27 +132,25 @@ export async function voiceRoutesPlugin(
 
     // Resolve namespace from context, validating any user-supplied value
     if (req.namespaceContext) {
-      const query = req.query as { namespace?: string };
-      if (query.namespace) {
+      if (queryNamespace) {
         // User requested a specific namespace — verify it's in their grants
-        if (!req.namespaceContext.queryNamespaces.includes(query.namespace)) {
+        if (!req.namespaceContext.queryNamespaces.includes(queryNamespace)) {
           socket.close(4003, 'Namespace access denied');
           return;
         }
-        namespace = query.namespace;
+        namespace = queryNamespace;
       } else {
         namespace = req.namespaceContext.storeNamespace;
       }
     } else if (isAuthDisabled()) {
       // Auth disabled: still validate namespace from query, but don't blindly trust
-      const query = req.query as { namespace?: string };
-      if (query.namespace) {
+      if (queryNamespace) {
         // Validate namespace format to prevent injection
-        if (!/^[a-z0-9][a-z0-9._-]*$/.test(query.namespace) || query.namespace.length > 63) {
+        if (!/^[a-z0-9][a-z0-9._-]*$/.test(queryNamespace) || queryNamespace.length > 63) {
           socket.close(4003, 'Invalid namespace');
           return;
         }
-        namespace = query.namespace;
+        namespace = queryNamespace;
       }
     }
 
