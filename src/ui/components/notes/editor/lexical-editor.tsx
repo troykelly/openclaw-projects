@@ -222,13 +222,18 @@ export function LexicalNoteEditor({
   // and the Yjs doc stays empty. Issue #2596.
   const shouldBootstrap = initialContentRef.current !== undefined;
 
-  // Lexical editor config
+  // Lexical editor config.
+  // editorState MUST be null when CollaborationPlugin is active — Lexical's
+  // default state (root + empty paragraph) conflicts with the Yjs sync layer,
+  // causing error #94 in syncChildrenFromLexical. Issue #2596.
+  // Ref: https://lexical.dev/docs/collaboration/react
   const initialConfig = {
     namespace: 'NoteEditor',
     theme,
     onError,
     nodes: [HeadingNode, QuoteNode, ListNode, ListItemNode, LinkNode, AutoLinkNode, CodeNode, CodeHighlightNode, TableNode, TableRowNode, TableCellNode],
     editable: !readOnly,
+    editorState: yjsEnabled ? null : undefined,
   };
 
   if (readOnly) {
