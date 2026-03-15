@@ -1,6 +1,6 @@
 {
   "name": "@troykelly/openclaw-projects",
-  "version": "0.0.62",
+  "version": "0.0.63",
   "description": "OpenClaw memory plugin with projects, todos, and contacts integration",
   "type": "module",
   "main": "dist/index.js",
