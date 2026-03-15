@@ -217,7 +217,10 @@ export function LexicalNoteEditor({
     [],
   );
 
-  const shouldBootstrap = !!initialContentRef.current;
+  // Use !== undefined so empty-string content still triggers bootstrap.
+  // Without this, notes with empty content never call initialEditorStateFn
+  // and the Yjs doc stays empty. Issue #2596.
+  const shouldBootstrap = initialContentRef.current !== undefined;
 
   // Lexical editor config
   const initialConfig = {
