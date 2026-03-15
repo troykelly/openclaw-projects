@@ -21,6 +21,9 @@ interface ManagedDoc {
   noteId: string;
   clients: Map<string, string>; // clientId -> userEmail
   dirty: boolean;
+  /** True when yjs_state was NULL but content had text. Prevents persisting
+   *  an empty Yjs state that would overwrite existing REST content. #2596 */
+  hasRestContent: boolean;
   persistTimer: ReturnType<typeof setTimeout> | null;
   maxFlushTimer: ReturnType<typeof setTimeout> | null;
   evictionTimer: ReturnType<typeof setTimeout> | null;
@@ -225,6 +228,21 @@ export class YjsDocManager {
       const xmlText = managed.doc.get('root', Y.XmlText);
       const content = xmlText.toString();
 
+      // Guard: don't overwrite existing REST content with empty Yjs state.
+      // When yjs_state was NULL, the server doc starts empty. If the client
+      // connects and disconnects before bootstrapping content (e.g. rapid
+      // reconnect, rate limiting), the empty state would erase the content
+      // field. Only persist once the Yjs doc actually has content. Issue #2596.
+      if (managed.hasRestContent && content.length === 0) {
+        console.log(`[YjsDocManager] Skipping empty persist for ${noteId} — REST content exists`);
+        managed.dirty = false;
+        return;
+      }
+      // Once we persist non-empty content, clear the guard
+      if (managed.hasRestContent && content.length > 0) {
+        managed.hasRestContent = false;
+      }
+
       // Check state size and warn if too large
       if (state.byteLength > 1024 * 1024) {
         console.warn(`[YjsDocManager] Large yjs_state for ${noteId}: ${state.byteLength} bytes`);
@@ -312,14 +330,17 @@ export class YjsDocManager {
       // Load existing Yjs state
       Y.applyUpdate(doc, new Uint8Array(row.yjs_state));
     }
-    // If yjs_state is NULL, the doc starts empty — CollaborationPlugin will initialize it
-    // from the note's content on the client side via initialEditorState
+    // When yjs_state is NULL, the doc starts empty. The client-side
+    // CollaborationPlugin will bootstrap from REST content via initialEditorState.
+    // We set hasRestContent so persistDoc knows not to overwrite non-empty
+    // content with an empty Yjs state. Issue #2596.
 
     return {
       doc,
       noteId,
       clients: new Map(),
       dirty: false,
+      hasRestContent: !row.yjs_state && !!row.content && row.content.length > 0,
       persistTimer: null,
       maxFlushTimer: null,
       evictionTimer: null,
