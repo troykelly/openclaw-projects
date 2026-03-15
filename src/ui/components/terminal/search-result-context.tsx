@@ -9,6 +9,7 @@ import { Badge } from '@/ui/components/ui/badge';
 import { Card, CardContent, CardHeader } from '@/ui/components/ui/card';
 import { ArrowRight } from 'lucide-react';
 import type { TerminalSearchItem } from '@/ui/lib/api-types';
+import { formatDateTime } from '@/ui/lib/date-format';
 
 interface SearchResultContextProps {
   result: TerminalSearchItem;
@@ -24,7 +25,7 @@ export function SearchResultContext({ result }: SearchResultContextProps): React
             Score: {(result.similarity * 100).toFixed(0)}%
           </span>
           <span className="text-xs text-muted-foreground">
-            {new Date(result.captured_at).toLocaleString()}
+            {formatDateTime(result.captured_at)}
           </span>
         </div>
         <Link

@@ -17,6 +17,7 @@ import { ChatSkeletonLoader } from './chat-skeleton-loader';
 import { useChatAgentPreferences } from './use-chat-agent-preferences';
 import { AgentPickerPopover } from './agent-picker-popover';
 import type { ChatSession, ChatAgent } from '@/ui/lib/api-types';
+import { formatShortDate } from '@/ui/lib/date-format';
 
 /** Format a timestamp to relative time. */
 function formatRelativeTime(dateStr: string): string {
@@ -31,7 +32,7 @@ function formatRelativeTime(dateStr: string): string {
   if (diffMin < 60) return `${diffMin}m`;
   if (diffHour < 24) return `${diffHour}h`;
   if (diffDay < 7) return `${diffDay}d`;
-  return new Date(dateStr).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  return formatShortDate(dateStr);
 }
 
 export function ChatSessionList(): React.JSX.Element {

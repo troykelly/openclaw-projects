@@ -11,6 +11,7 @@ import React from 'react';
 import { Link } from 'react-router';
 import { Badge } from '@/ui/components/ui/badge';
 import { EmptyState, Skeleton } from '@/ui/components/feedback';
+import { formatShortDate } from '@/ui/lib/date-format';
 import { priorityColors } from '@/ui/lib/work-item-utils';
 import { Circle, Clock, AlertCircle, CheckCircle2, XCircle } from 'lucide-react';
 
@@ -129,10 +130,7 @@ export function BoardView({ items, isLoading }: BoardViewProps): React.JSX.Eleme
                       {item.not_after && (
                         <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
                           <Clock className="size-3" />
-                          {new Date(item.not_after).toLocaleDateString(undefined, {
-                            month: 'short',
-                            day: 'numeric',
-                          })}
+                          {formatShortDate(new Date(item.not_after))}
                         </span>
                       )}
                     </div>

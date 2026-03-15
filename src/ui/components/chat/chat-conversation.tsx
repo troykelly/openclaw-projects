@@ -13,6 +13,7 @@ import { useChatMessages } from '@/ui/hooks/queries/use-chat';
 import { ChatMessageBubble } from './chat-message-bubble';
 import { ChatNewMessagesPill } from './chat-new-messages-pill';
 import { ChatSkeletonLoader } from './chat-skeleton-loader';
+import { formatDate } from '@/ui/lib/date-format';
 
 /** Check if two dates are on different days. */
 function isDifferentDay(a: string, b: string): boolean {
@@ -33,8 +34,8 @@ function formatDateSeparator(dateStr: string): string {
 
   if (diffDays === 0) return 'Today';
   if (diffDays === 1) return 'Yesterday';
-  if (diffDays < 7) return date.toLocaleDateString(undefined, { weekday: 'long' });
-  return date.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
+  if (diffDays < 7) return formatDate(date, undefined, { weekday: 'long', year: undefined, month: undefined, day: undefined });
+  return formatDate(date, undefined, { month: 'long' });
 }
 
 export function ChatConversation(): React.JSX.Element {

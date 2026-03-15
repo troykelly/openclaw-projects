@@ -9,6 +9,7 @@ import { Button } from '@/ui/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/ui/components/ui/card';
 import { Check, Copy } from 'lucide-react';
 import type { TerminalEnrollmentToken } from '@/ui/lib/api-types';
+import { formatDateTime } from '@/ui/lib/date-format';
 
 interface EnrollmentScriptGeneratorProps {
   token: TerminalEnrollmentToken;
@@ -22,7 +23,7 @@ export function EnrollmentScriptGenerator({ token, apiBaseUrl }: EnrollmentScrip
 
   const script = `#!/bin/bash
 # Enrollment script for: ${token.label}
-# Token expires: ${token.expires_at ? new Date(token.expires_at).toLocaleString() : 'Never'}
+# Token expires: ${token.expires_at ? formatDateTime(token.expires_at) : 'Never'}
 # Max uses: ${token.max_uses ?? 'Unlimited'}
 
 curl -X POST ${apiBaseUrl}/terminal/enroll \\

@@ -29,6 +29,7 @@ import { BoardView } from './project-views/BoardView';
 import { CalendarView } from './project-views/CalendarView';
 import { ListView } from './project-views/ListView';
 import { TreeView } from './project-views/TreeView';
+import { formatDate as fmtDate, formatShortDate } from '@/ui/lib/date-format';
 
 /** Format a relative time string from a Date. */
 function formatRelativeTime(date: Date): string {
@@ -42,17 +43,13 @@ function formatRelativeTime(date: Date): string {
   if (diffMins < 60) return `${diffMins}m ago`;
   if (diffHours < 24) return `${diffHours}h ago`;
   if (diffDays < 7) return `${diffDays}d ago`;
-  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  return formatShortDate(date);
 }
 
 /** Format a date as a short human-readable string. */
 function formatDate(dateStr: string | null | undefined): string {
   if (!dateStr) return '--';
-  return new Date(dateStr).toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
+  return fmtDate(new Date(dateStr));
 }
 
 /**
@@ -432,7 +429,7 @@ function ProjectMemoriesView({ project_id }: { project_id: string }): React.JSX.
                 <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{memory.content}</p>
               </div>
               <span className="text-xs text-muted-foreground shrink-0">
-                {new Date(memory.updated_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                {formatShortDate(memory.updated_at)}
               </span>
             </div>
           </CardContent>

@@ -13,6 +13,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/ui/components/ui/tooltip';
 import { Separator } from '@/ui/components/ui/separator';
 import type { Note, NoteVersion } from '../types';
+import { formatDate as fmtDate } from '@/ui/lib/date-format';
 
 export interface VersionHistoryProps {
   open: boolean;
@@ -36,7 +37,7 @@ function formatDate(date: Date): string {
   if (diffHours < 24) return `${diffHours}h ago`;
   if (diffDays < 7) return `${diffDays}d ago`;
 
-  return date.toLocaleDateString(undefined, {
+  return fmtDate(date, undefined, {
     month: 'short',
     day: 'numeric',
     year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,

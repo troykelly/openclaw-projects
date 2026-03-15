@@ -8,6 +8,7 @@ import { ChevronDown, ChevronRight, Sparkles, X } from 'lucide-react';
 import { cn } from '@/ui/lib/utils';
 import { Button } from '@/ui/components/ui/button';
 import type { MemoryCluster } from '@/ui/lib/api-types';
+import { formatDate } from '@/ui/lib/date-format';
 
 export interface ClusterCardProps {
   cluster: MemoryCluster;
@@ -20,8 +21,8 @@ export function ClusterCard({ cluster, onPromote, onDismiss, className }: Cluste
   const [expanded, setExpanded] = useState(false);
 
   const similarityPercent = Math.round(cluster.avg_similarity * 100);
-  const startDate = new Date(cluster.time_span.start).toLocaleDateString();
-  const endDate = new Date(cluster.time_span.end).toLocaleDateString();
+  const startDate = formatDate(cluster.time_span.start);
+  const endDate = formatDate(cluster.time_span.end);
 
   return (
     <div className={cn('rounded-lg border', className)}>

@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/ui/components/ui/car
 import { Server, Clock, Hash, FileText } from 'lucide-react';
 import { SessionStatusBadge } from './session-status-badge';
 import type { TerminalSession } from '@/ui/lib/api-types';
+import { formatDateTime } from '@/ui/lib/date-format';
 
 interface SessionInfoSidebarProps {
   session: TerminalSession;
@@ -17,7 +18,7 @@ interface SessionInfoSidebarProps {
 
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return 'N/A';
-  return new Date(dateStr).toLocaleString();
+  return formatDateTime(dateStr);
 }
 
 export function SessionInfoSidebar({ session }: SessionInfoSidebarProps): React.JSX.Element {

@@ -7,6 +7,7 @@ import { Activity as ActivityIcon, Clock, TrendingUp } from 'lucide-react';
 import { cn } from '@/ui/lib/utils';
 import type { Activity } from './types';
 import { calculateStats, getActivityLabel, FILTER_CATEGORIES } from './activity-utils';
+import { formatDate } from '@/ui/lib/date-format';
 
 export interface ActivityStatsProps {
   activities: Activity[];
@@ -55,7 +56,7 @@ export function ActivityStats({ activities, className }: ActivityStatsProps) {
         </div>
         <div className="text-lg font-semibold truncate">
           {stats.lastInteraction
-            ? stats.lastInteraction.toLocaleDateString('en-US', {
+            ? formatDate(stats.lastInteraction, undefined, {
                 month: 'short',
                 day: 'numeric',
               })

@@ -4,6 +4,7 @@
 import { Badge } from '@/ui/components/ui/badge';
 import { GitBranchIcon } from 'lucide-react';
 import { useDevSession } from '@/ui/hooks/queries/use-dev-sessions';
+import { formatDateTime } from '@/ui/lib/date-format';
 
 export interface SessionDetailProps {
   sessionId: string;
@@ -56,7 +57,7 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
             Last Capture
             {session.last_capture_at && (
               <span className="ml-1 font-normal text-muted-foreground">
-                ({new Date(session.last_capture_at).toLocaleString()})
+                ({formatDateTime(session.last_capture_at)})
               </span>
             )}
           </h4>
@@ -72,8 +73,8 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
       )}
 
       <div className="flex gap-4 text-xs text-muted-foreground">
-        <span>Started: {new Date(session.started_at).toLocaleString()}</span>
-        {session.completed_at && <span>Completed: {new Date(session.completed_at).toLocaleString()}</span>}
+        <span>Started: {formatDateTime(session.started_at)}</span>
+        {session.completed_at && <span>Completed: {formatDateTime(session.completed_at)}</span>}
         {session.context_pct != null && <span>Context: {session.context_pct}%</span>}
       </div>
 

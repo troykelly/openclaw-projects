@@ -21,6 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useNamespaceQueryKey } from '@/ui/hooks/use-namespace-query-key';
 import { apiClient } from '@/ui/lib/api-client';
 import type { ChatAgent, ChatAgentsResponse } from '@/ui/lib/api-types';
+import { formatDateTime, formatTime } from '@/ui/lib/date-format';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -251,7 +252,7 @@ export function VoicePage(): React.JSX.Element {
                 <div key={conv.id} className="flex items-center justify-between gap-3 rounded-lg border border-border p-3">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-foreground truncate">{conv.user_email ?? conv.device_id ?? 'Unknown'}</p>
-                    <p className="text-xs text-muted-foreground">Last active: {new Date(conv.last_active_at).toLocaleString()}</p>
+                    <p className="text-xs text-muted-foreground">Last active: {formatDateTime(conv.last_active_at)}</p>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     <Button variant="ghost" size="icon" title="View" onClick={() => setViewingConversation(conv.id)}>
@@ -362,7 +363,7 @@ export function VoicePage(): React.JSX.Element {
             <DialogTitle>Conversation</DialogTitle>
             <DialogDescription>
               {conversationDetail
-                ? `With ${conversationDetail.user_email ?? 'Unknown'} - ${new Date(conversationDetail.created_at).toLocaleString()}`
+                ? `With ${conversationDetail.user_email ?? 'Unknown'} - ${formatDateTime(conversationDetail.created_at)}`
                 : 'Loading...'}
             </DialogDescription>
           </DialogHeader>
@@ -378,7 +379,7 @@ export function VoicePage(): React.JSX.Element {
                 <div key={msg.id} className={`rounded-lg p-3 ${msg.role === 'user' ? 'bg-muted ml-8' : 'bg-primary/10 mr-8'}`}>
                   <p className="text-xs font-medium text-muted-foreground mb-1">{msg.role === 'user' ? 'You' : 'Assistant'}</p>
                   <p className="text-sm text-foreground">{msg.text}</p>
-                  <p className="text-xs text-muted-foreground mt-1">{new Date(msg.timestamp).toLocaleTimeString()}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{formatTime(msg.timestamp)}</p>
                 </div>
               ))}
             </div>

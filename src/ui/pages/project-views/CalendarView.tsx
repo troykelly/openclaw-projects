@@ -12,6 +12,7 @@ import { Link } from 'react-router';
 import { Badge } from '@/ui/components/ui/badge';
 import { Button } from '@/ui/components/ui/button';
 import { EmptyState, Skeleton } from '@/ui/components/feedback';
+import { formatDate } from '@/ui/lib/date-format';
 import { priorityColors } from '@/ui/lib/work-item-utils';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
@@ -107,7 +108,7 @@ export function CalendarView({ items, isLoading }: CalendarViewProps): React.JSX
 
   const grid = useMemo(() => buildCalendarGrid(currentYear, currentMonth), [currentYear, currentMonth]);
 
-  const monthLabel = new Date(currentYear, currentMonth).toLocaleDateString(undefined, {
+  const monthLabel = formatDate(new Date(currentYear, currentMonth), undefined, {
     month: 'long',
     year: 'numeric',
   });

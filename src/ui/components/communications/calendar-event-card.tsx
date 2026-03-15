@@ -5,6 +5,7 @@ import { Button } from '@/ui/components/ui/button';
 import { Badge } from '@/ui/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/ui/components/ui/dropdown-menu';
 import type { LinkedCalendarEvent } from './types';
+import { formatDate, formatTime } from '@/ui/lib/date-format';
 
 export interface CalendarEventCardProps {
   event: LinkedCalendarEvent;
@@ -30,7 +31,7 @@ export function CalendarEventCard({ event, onClick, onUnlink, className }: Calen
     >
       {/* Date box */}
       <div className={cn('flex size-12 shrink-0 flex-col items-center justify-center rounded-lg', isToday ? 'bg-primary text-primary-foreground' : 'bg-muted')}>
-        <span className="text-[10px] font-medium uppercase">{event.startTime.toLocaleDateString([], { weekday: 'short' })}</span>
+        <span className="text-[10px] font-medium uppercase">{formatDate(event.startTime, undefined, { weekday: 'short' })}</span>
         <span className="text-lg font-bold">{event.startTime.getDate()}</span>
       </div>
 
@@ -105,10 +106,6 @@ export function CalendarEventCard({ event, onClick, onUnlink, className }: Calen
       </div>
     </div>
   );
-}
-
-function formatTime(date: Date): string {
-  return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 }
 
 function isSameDay(d1: Date, d2: Date): boolean {

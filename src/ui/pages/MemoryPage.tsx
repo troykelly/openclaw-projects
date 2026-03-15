@@ -13,6 +13,7 @@
  * - Metadata editing: importance, confidence, expiration, source (#1719)
  * - Geolocation display (#1728)
  * - Memory-contact linking (#1723)
+ * - Timezone-aware date formatting (#2517)
  * - Related memories + similarity (#1724)
  * - Supersede/version chain (#1725)
  * - File attachment display (#1726)
@@ -54,6 +55,7 @@ import {
   X,
 } from 'lucide-react';
 import React, { useCallback, useMemo, useState } from 'react';
+import { formatDate as fmtDate } from '@/ui/lib/date-format';
 import { useNavigate } from 'react-router';
 import { EmptyState, ErrorState, Skeleton, SkeletonList } from '@/ui/components/feedback';
 import { BulkMemoryActionBar } from '@/ui/components/memory/bulk-action-bar';
@@ -151,11 +153,7 @@ function getTypeBadgeClass(type: string | undefined): string {
 
 /** Format a date string for display. */
 function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
+  return fmtDate(new Date(dateStr));
 }
 
 /** Calculate the date threshold for a date range preset. */

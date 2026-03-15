@@ -184,7 +184,7 @@ export async function runExportJob(
       );
     }
 
-    // Generate document
+    // Generate document (timezone is already injected into options by the route handler)
     const buffer = await generateDocument(exportRow.format, content, title, exportRow.options);
 
     // Build S3 key using opaque UUID (not derived from user input)
@@ -220,6 +220,18 @@ export async function runExportJob(
 
     throw err; // Re-throw so the worker marks the internal_job as failed
   }
+}
+
+/**
+ * Resolves the user's stored timezone from user_setting, falling back to UTC.
+ */
+export async function resolveUserTimezone(pool: Pool, userEmail: string): Promise<string> {
+  const result = await pool.query(
+    `SELECT timezone FROM user_setting WHERE email = $1`,
+    [userEmail],
+  );
+  if (result.rows.length === 0) return 'UTC';
+  return (result.rows[0] as { timezone: string | null }).timezone ?? 'UTC';
 }
 
 /**

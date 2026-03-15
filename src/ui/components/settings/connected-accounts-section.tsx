@@ -43,6 +43,7 @@ import {
   type OAuthPermissionLevel,
   type OAuthProviderInfo,
 } from './types';
+import { formatDate as fmtDate } from '@/ui/lib/date-format';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -67,7 +68,7 @@ function formatPermission(level: OAuthPermissionLevel): string {
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return 'Never';
   const date = new Date(dateStr);
-  return date.toLocaleDateString(undefined, {
+  return fmtDate(date, undefined, {
     year: 'numeric',
     month: 'short',
     day: 'numeric',

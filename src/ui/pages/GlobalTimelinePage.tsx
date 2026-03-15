@@ -14,6 +14,7 @@ import { Skeleton, ErrorState, EmptyState } from '@/ui/components/feedback';
 import { Button } from '@/ui/components/ui/button';
 import { Card, CardContent } from '@/ui/components/ui/card';
 import { ScrollArea, ScrollBar } from '@/ui/components/ui/scroll-area';
+import { formatDate } from '@/ui/lib/date-format';
 
 /** Supported zoom levels for the timeline view. */
 type TimelineZoomLevel = 'day' | 'week' | 'month' | 'quarter';
@@ -137,7 +138,7 @@ export function GlobalTimelinePage(): React.JSX.Element {
   const markerInterval = zoom === 'day' ? dayMs : zoom === 'week' ? 7 * dayMs : zoom === 'month' ? 30 * dayMs : 90 * dayMs;
   const dateMarkers: { x: number; label: string }[] = [];
   for (let d = minDate; d <= maxDate; d += markerInterval) {
-    dateMarkers.push({ x: dateToX(d), label: new Date(d).toLocaleDateString() });
+    dateMarkers.push({ x: dateToX(d), label: formatDate(d) });
   }
 
   return (

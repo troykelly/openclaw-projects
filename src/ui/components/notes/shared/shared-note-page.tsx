@@ -18,6 +18,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/ui/components/ui/tooltip';
 import { NoteEditor } from '../editor';
 import type { Note } from '../types';
+import { formatDate } from '@/ui/lib/date-format';
 
 export type SharedNoteStatus = 'loading' | 'accessible' | 'not-found' | 'access-denied' | 'error';
 
@@ -194,7 +195,7 @@ export function SharedNotePage({ status, note, canEdit = false, onSave, onReques
                 </span>
                 <span className="flex items-center gap-1">
                   <Calendar className="size-4" />
-                  {note.updated_at.toLocaleDateString()}
+                  {formatDate(new Date(note.updated_at))}
                 </span>
                 <Badge variant="outline" className="text-xs">
                   {canEdit ? (

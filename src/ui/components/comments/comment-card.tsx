@@ -34,7 +34,7 @@ function formatRelativeTime(dateString: string): string {
   if (diffHours < 24) return `${diffHours}h ago`;
   if (diffDays < 7) return `${diffDays}d ago`;
 
-  return date.toLocaleDateString();
+  return formatDate(date);
 }
 
 function isEdited(comment: Comment): boolean {

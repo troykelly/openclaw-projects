@@ -19,6 +19,7 @@ import { useState, useCallback, useMemo, useEffect, useRef, type ErrorInfo } fro
 import { useParams, useNavigate } from 'react-router';
 import { ArrowLeft } from 'lucide-react';
 import { cn, validateUrlParam } from '@/ui/lib/utils';
+import { formatDateTime } from '@/ui/lib/date-format';
 import { Button } from '@/ui/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/ui/components/ui/dialog';
 import { Skeleton, SkeletonList, ErrorState, EmptyState, useAnnounce } from '@/ui/components/feedback';
@@ -245,14 +246,7 @@ function NotesPageContent(): React.JSX.Element {
   const handleAddNote = useCallback(async () => {
     try {
       const now = new Date();
-      const autoTitle = now.toLocaleString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: false,
-      });
+      const autoTitle = formatDateTime(now);
       const body: CreateNoteBody = {
         title: autoTitle,
         content: '',

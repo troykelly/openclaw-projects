@@ -16,6 +16,7 @@ import {
 } from '@/ui/hooks/queries/use-terminal-enrollment';
 import { getApiBaseUrl } from '@/ui/lib/api-config';
 import type { TerminalEnrollmentToken } from '@/ui/lib/api-types';
+import { formatDateTime } from '@/ui/lib/date-format';
 
 export function EnrollmentPage(): React.JSX.Element {
   const [createOpen, setCreateOpen] = useState(false);
@@ -73,7 +74,7 @@ export function EnrollmentPage(): React.JSX.Element {
                 {token.expires_at && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Expires</span>
-                    <span>{new Date(token.expires_at).toLocaleString()}</span>
+                    <span>{formatDateTime(token.expires_at)}</span>
                   </div>
                 )}
                 {token.allowed_tags.length > 0 && (

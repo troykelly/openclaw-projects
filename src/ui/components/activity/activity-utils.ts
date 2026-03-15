@@ -3,6 +3,7 @@
  * Issue #396: Implement contact activity timeline
  */
 import type { Activity, ActivityGroup, ActivityType, ActivityStatistics } from './types';
+import { formatDate } from '@/ui/lib/date-format';
 
 /** Activity type labels */
 const ACTIVITY_LABELS: Record<ActivityType, string> = {
@@ -71,7 +72,7 @@ function getDateLabel(date: Date): string {
   if (activityDate >= monthAgo) {
     return 'This Month';
   }
-  return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  return formatDate(date, undefined, { month: 'long', year: 'numeric' });
 }
 
 /** Group activities by date */
@@ -134,12 +135,14 @@ export function calculateStats(activities: Activity[]): ActivityStatistics {
 }
 
 /** Format timestamp for display */
-export function formatTimestamp(timestamp: string): string {
+export function formatTimestamp(timestamp: string, timezone?: string): string {
   const date = new Date(timestamp);
-  return date.toLocaleDateString('en-US', {
+  const opts: Intl.DateTimeFormatOptions = {
     month: 'short',
     day: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
-  });
+    ...(timezone ? { timeZone: timezone } : {}),
+  };
+  return formatDate(date, timezone, opts);
 }

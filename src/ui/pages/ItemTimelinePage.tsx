@@ -14,6 +14,7 @@ import { Button } from '@/ui/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/ui/components/ui/card';
 import { ScrollArea, ScrollBar } from '@/ui/components/ui/scroll-area';
 import { ChevronRight, BarChart3 } from 'lucide-react';
+import { formatDate } from '@/ui/lib/date-format';
 
 export function ItemTimelinePage(): React.JSX.Element {
   const { id } = useParams<{ id: string }>();
@@ -101,7 +102,7 @@ export function ItemTimelinePage(): React.JSX.Element {
               {[0.25, 0.5, 0.75, 1].map((pct) => {
                 const x = labelWidth + pct * (chartWidth - labelWidth - 20);
                 const dateVal = minDate + pct * (maxDate - minDate);
-                const label = new Date(dateVal).toLocaleDateString();
+                const label = formatDate(dateVal);
                 return (
                   <g key={pct}>
                     <line x1={x} y1={0} x2={x} y2={chartHeight} className="stroke-border" strokeDasharray="4,4" />

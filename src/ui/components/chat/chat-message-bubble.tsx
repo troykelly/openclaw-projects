@@ -12,6 +12,7 @@ import { cn } from '@/ui/lib/utils';
 import type { ChatMessage } from '@/ui/lib/api-types';
 import { ChatMessageStatus } from './chat-message-status';
 import type { StreamState } from '@/ui/hooks/use-chat-stream';
+import { formatTime as fmtTime } from '@/ui/lib/date-format';
 
 interface ChatMessageBubbleProps {
   message: ChatMessage;
@@ -28,10 +29,7 @@ interface ChatMessageBubbleProps {
 
 /** Format a timestamp to a short time string. */
 function formatTime(dateStr: string): string {
-  return new Date(dateStr).toLocaleTimeString(undefined, {
-    hour: 'numeric',
-    minute: '2-digit',
-  });
+  return fmtTime(new Date(dateStr));
 }
 
 /** Animated cursor shown during streaming (reduced-motion aware). */

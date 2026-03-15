@@ -7,6 +7,7 @@ import { ScrollArea } from '@/ui/components/ui/scroll-area';
 import { Separator } from '@/ui/components/ui/separator';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/ui/components/ui/sheet';
 import type { LinkedCalendarEvent, CalendarAttendee } from './types';
+import { formatDate, formatTime } from '@/ui/lib/date-format';
 
 function getStatusIcon(status: CalendarAttendee['status']) {
   switch (status) {
@@ -77,7 +78,7 @@ export function CalendarEventDetailSheet({ event, open, onOpenChange, onUnlink, 
               <div className="flex items-center gap-2">
                 <Calendar className="size-4 text-muted-foreground" />
                 <span>
-                  {event.startTime.toLocaleDateString([], {
+                  {formatDate(event.startTime, undefined, {
                     weekday: 'long',
                     year: 'numeric',
                     month: 'long',
@@ -170,6 +171,3 @@ export function CalendarEventDetailSheet({ event, open, onOpenChange, onUnlink, 
   );
 }
 
-function formatTime(date: Date): string {
-  return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-}

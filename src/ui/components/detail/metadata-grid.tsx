@@ -2,6 +2,7 @@ import * as React from 'react';
 import { useState } from 'react';
 import { Calendar, Clock, User, AlertCircle, Pencil, Check, X } from 'lucide-react';
 import { cn } from '@/ui/lib/utils';
+import { formatDate as fmtDate } from '@/ui/lib/date-format';
 import { Button } from '@/ui/components/ui/button';
 import { Input } from '@/ui/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/components/ui/select';
@@ -9,11 +10,7 @@ import type { WorkItemStatus, WorkItemPriority } from './types';
 
 function formatDate(date: Date | undefined): string {
   if (!date) return 'Not set';
-  return date.toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
+  return fmtDate(date);
 }
 
 function formatMinutes(minutes: number | undefined): string {

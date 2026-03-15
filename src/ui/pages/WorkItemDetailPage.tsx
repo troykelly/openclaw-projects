@@ -67,6 +67,7 @@ import {
   Users, Clock, MessageSquare, Paperclip, Link2, Copy, BarChart3, Repeat, UserPlus, Plus, X,
   Download, Trash2, Wand2, Loader2,
 } from 'lucide-react';
+import { formatShortDate } from '@/ui/lib/date-format';
 
 /** Format a relative time string from a Date. */
 function formatRelativeTime(date: Date): string {
@@ -80,7 +81,7 @@ function formatRelativeTime(date: Date): string {
   if (diffMins < 60) return `${diffMins}m ago`;
   if (diffHours < 24) return `${diffHours}h ago`;
   if (diffDays < 7) return `${diffDays}d ago`;
-  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  return formatShortDate(date);
 }
 
 /** Format bytes into human-readable size. */

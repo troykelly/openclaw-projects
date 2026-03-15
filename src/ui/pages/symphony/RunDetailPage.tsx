@@ -56,6 +56,7 @@ import type {
   SymphonyRunDetail,
   SymphonyAttemptSummary,
 } from '@/ui/lib/api-types';
+import { formatTime } from '@/ui/lib/date-format';
 
 // ---------------------------------------------------------------------------
 // Status helpers
@@ -107,7 +108,7 @@ function formatDuration(ms: number | null): string {
 
 function formatTimestamp(ts: string): string {
   const d = new Date(ts);
-  return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  return formatTime(d, undefined, { second: '2-digit' });
 }
 
 /** Validate that a URL points to a known trusted host (GitHub). */

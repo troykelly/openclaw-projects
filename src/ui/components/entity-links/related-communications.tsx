@@ -9,6 +9,7 @@ import { Badge } from '@/ui/components/ui/badge';
 import { Card, CardContent } from '@/ui/components/ui/card';
 import type { EntityLink } from '@/ui/lib/api-types';
 import { useEntityLinksToTarget } from '@/ui/hooks/queries/use-entity-links';
+import { formatDate } from '@/ui/lib/date-format';
 
 const SOURCE_ICONS: Record<string, React.FC<{ className?: string }>> = {
   message: Mail,
@@ -66,7 +67,7 @@ function RelatedCommItem({ link }: { link: EntityLink }) {
             </Badge>
           </div>
         </div>
-        <span className="text-xs text-muted-foreground shrink-0">{date.toLocaleDateString()}</span>
+        <span className="text-xs text-muted-foreground shrink-0">{formatDate(date)}</span>
       </CardContent>
     </Card>
   );

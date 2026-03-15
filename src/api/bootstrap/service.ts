@@ -284,14 +284,17 @@ async function fetchKeyContacts(pool: Pool, limit: number, queryNamespaces: stri
 
 /**
  * Fetches statistics.
+ *
+ * @param pool - Database connection pool
+ * @param timezone - IANA timezone string for due_today calculation (defaults to 'UTC')
  */
-async function fetchStats(pool: Pool): Promise<BootstrapStats> {
-  const result = await pool.query(`
-    SELECT
+async function fetchStats(pool: Pool, timezone = 'UTC'): Promise<BootstrapStats> {
+  const result = await pool.query(
+    `SELECT
       (SELECT COUNT(*) FROM work_item WHERE status NOT IN ('completed', 'cancelled', 'archived')) as open_items,
       (SELECT COUNT(*) FROM work_item
        WHERE not_after IS NOT NULL
-         AND not_after::date = CURRENT_DATE
+         AND (not_after AT TIME ZONE $1)::date = (NOW() AT TIME ZONE $1)::date
          AND status NOT IN ('completed', 'cancelled', 'archived')) as due_today,
       (SELECT COUNT(*) FROM work_item
        WHERE not_after IS NOT NULL
@@ -299,8 +302,9 @@ async function fetchStats(pool: Pool): Promise<BootstrapStats> {
          AND status NOT IN ('completed', 'cancelled', 'archived')) as overdue,
       (SELECT COUNT(*) FROM work_item WHERE work_item_kind::text = 'project') as total_projects,
       (SELECT COUNT(*) FROM memory) as total_memories,
-      (SELECT COUNT(*) FROM contact) as total_contacts
-  `);
+      (SELECT COUNT(*) FROM contact) as total_contacts`,
+    [timezone],
+  );
 
   const row = result.rows[0] as {
     open_items: string;
@@ -337,9 +341,12 @@ export async function getBootstrapContext(pool: Pool, options: BootstrapOptions 
   const user_email = options.user_email ?? '';
   const nsScope = options.queryNamespaces ?? ['default'];
 
-  // Execute queries in parallel for performance
-  const [user, preferences, active_projects, pending_reminders, recent_activity, unread_messages, key_contacts, stats] = await Promise.all([
-    sections.has('user') && user_email ? fetchUser(pool, user_email) : Promise.resolve(null),
+  // Fetch user first so we can use their timezone for stats
+  const user = sections.has('user') && user_email ? await fetchUser(pool, user_email) : null;
+  const userTimezone = user?.timezone ?? 'UTC';
+
+  // Execute remaining queries in parallel for performance
+  const [preferences, active_projects, pending_reminders, recent_activity, unread_messages, key_contacts, stats] = await Promise.all([
     sections.has('preferences') && user_email ? fetchPreferences(pool, user_email, limits.preferences, nsScope) : Promise.resolve([]),
     sections.has('projects') ? fetchActiveProjects(pool, limits.projects, nsScope) : Promise.resolve([]),
     sections.has('reminders') ? fetchPendingReminders(pool, limits.reminders, nsScope) : Promise.resolve([]),
@@ -347,7 +354,7 @@ export async function getBootstrapContext(pool: Pool, options: BootstrapOptions 
     sections.has('messages') ? fetchUnreadMessages(pool) : Promise.resolve(0),
     sections.has('contacts') ? fetchKeyContacts(pool, limits.contacts, nsScope) : Promise.resolve([]),
     sections.has('stats')
-      ? fetchStats(pool)
+      ? fetchStats(pool, userTimezone)
       : Promise.resolve({
           open_items: 0,
           due_today: 0,

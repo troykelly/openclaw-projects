@@ -60,6 +60,7 @@ import {
   useDrainHost,
   useActivateHost,
 } from '@/ui/hooks/mutations/use-symphony-mutations.ts';
+import { formatDateTime } from '@/ui/lib/date-format';
 
 export function SymphonyConfigPage(): React.JSX.Element {
   const { id: projectId } = useParams<{ id: string }>();
@@ -285,7 +286,7 @@ function ReposSection({ projectId, repos }: { projectId: string; repos: Array<{ 
                 <div className="text-sm font-medium">{r.org}/{r.repo}</div>
                 <div className="text-xs text-muted-foreground">
                   Branch: {r.default_branch} | Strategy: {r.sync_strategy}
-                  {r.last_synced_at && ` | Last sync: ${new Date(r.last_synced_at).toLocaleString()}`}
+                  {r.last_synced_at && ` | Last sync: ${formatDateTime(r.last_synced_at)}`}
                 </div>
               </div>
               <Button
