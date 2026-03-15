@@ -236,7 +236,7 @@ services:
   # Database (unchanged from Traefik compose)
   # =============================================================================
   db:
-    image: ghcr.io/troykelly/openclaw-projects-db:0.0.62
+    image: ghcr.io/troykelly/openclaw-projects-db:edge
     container_name: openclaw-db
     restart: unless-stopped
     environment:
@@ -318,7 +318,7 @@ services:
   # Database Migrations (unchanged from Traefik compose)
   # =============================================================================
   migrate:
-    image: ghcr.io/troykelly/openclaw-projects-migrate:0.0.62
+    image: ghcr.io/troykelly/openclaw-projects-migrate:edge
     container_name: openclaw-migrate
     restart: "no"
     depends_on:
@@ -342,7 +342,7 @@ services:
   # API Server (unchanged from Traefik compose)
   # =============================================================================
   api:
-    image: ghcr.io/troykelly/openclaw-projects-api:0.0.62
+    image: ghcr.io/troykelly/openclaw-projects-api:edge
     container_name: openclaw-api
     restart: unless-stopped
     depends_on:
@@ -471,7 +471,7 @@ services:
   # Background Worker (job processing, notifications, embeddings)
   # =============================================================================
   worker:
-    image: ghcr.io/troykelly/openclaw-projects-worker:0.0.62
+    image: ghcr.io/troykelly/openclaw-projects-worker:edge
     container_name: openclaw-worker
     restart: unless-stopped
     depends_on:
@@ -546,7 +546,7 @@ services:
   # Symphony Worker (orchestration loop — claims runs, provisions hosts, launches agents)
   # =============================================================================
   symphony-worker:
-    image: ghcr.io/troykelly/openclaw-projects-symphony-worker:0.0.62
+    image: ghcr.io/troykelly/openclaw-projects-symphony-worker:edge
     container_name: openclaw-symphony-worker
     restart: unless-stopped
     depends_on:
@@ -598,7 +598,7 @@ services:
   # HA Connector (Home Assistant WebSocket connector for geolocation)
   # =============================================================================
   ha-connector:
-    image: ghcr.io/troykelly/openclaw-projects-ha-connector:0.0.62
+    image: ghcr.io/troykelly/openclaw-projects-ha-connector:edge
     container_name: openclaw-ha-connector
     restart: unless-stopped
     depends_on:
@@ -651,7 +651,7 @@ services:
   # Frontend App (unchanged from Traefik compose)
   # =============================================================================
   app:
-    image: ghcr.io/troykelly/openclaw-projects-app:0.0.62
+    image: ghcr.io/troykelly/openclaw-projects-app:edge
     container_name: openclaw-app
     restart: unless-stopped
     depends_on:
@@ -732,7 +732,7 @@ services:
   # TMux Worker (terminal session management via gRPC)
   # =============================================================================
   tmux-worker:
-    image: ghcr.io/troykelly/openclaw-projects-tmux-worker:0.0.62
+    image: ghcr.io/troykelly/openclaw-projects-tmux-worker:edge
     container_name: openclaw-tmux-worker
     restart: unless-stopped
     depends_on:
@@ -929,7 +929,7 @@ services:
   # cached model from the persistent volume.
   # If PromptGuard is unavailable, injection detection falls back to regex.
   prompt-guard:
-    image: ghcr.io/troykelly/openclaw-projects-prompt-guard:0.0.62
+    image: ghcr.io/troykelly/openclaw-projects-prompt-guard:edge
     container_name: openclaw-prompt-guard
     restart: unless-stopped
     environment:
