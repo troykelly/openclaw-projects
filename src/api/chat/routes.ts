@@ -17,6 +17,7 @@ import type { WebSocket } from 'ws';
 import { getAuthIdentity } from '../auth/middleware.ts';
 import { isAuthDisabled } from '../auth/jwt.ts';
 import { isValidUUID } from '../utils/validation.ts';
+import { extractWsQueryParam } from '../realtime/ws-query-token.ts';
 import { enqueueWebhook } from '../webhooks/dispatcher.ts';
 import { dispatchChatMessage, abortChatRun, type ChatSession as GwChatSession, type ChatMessageRecord as GwChatMessage } from '../gateway/chat-dispatch.ts';
 import {
@@ -1030,10 +1031,16 @@ export async function chatRoutesPlugin(
   }
 
   // GET /api/chat/ws — WebSocket upgrade with ticket authentication
-  app.get('/chat/ws', { websocket: true }, async (socket: WebSocket, req: FastifyRequest) => {
-    const query = req.query as { ticket?: string; session_id?: string };
-    const ticket = query.ticket;
-    const sessionId = query.session_id;
+  // Use { wsHandler } instead of { websocket: true } so that @fastify/otel
+  // (Sentry) doesn't wrap the WebSocket handler. The OTel wrapper expects
+  // (FastifyRequest, Reply) but @fastify/websocket calls wsHandler with
+  // (WebSocket, FastifyRequest), crashing on socket.routeOptions.config.
+  // Issue #2592.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- @fastify/websocket wsHandler type not exported
+  app.get('/chat/ws', { wsHandler: async (socket: any, req: FastifyRequest) => {
+    // Parse from req.url — req.query may be undefined in wsHandler (Issue #2404, #2592)
+    const ticket = extractWsQueryParam(req, 'ticket');
+    const sessionId = extractWsQueryParam(req, 'session_id');
 
     if (!ticket || !sessionId) {
       socket.close(4400, 'ticket and session_id query parameters required');
@@ -1219,6 +1226,8 @@ export async function chatRoutesPlugin(
         }
       }
     });
+  } } as Record<string, unknown>, async (_req, reply) => {
+    reply.code(404).send();
   });
 
   // ================================================================

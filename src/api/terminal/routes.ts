@@ -28,6 +28,7 @@ import type { WebSocket } from 'ws';
 
 import { getAuthIdentity, resolveNamespaces } from '../auth/middleware.ts';
 import { isAuthDisabled, verifyAccessToken } from '../auth/jwt.ts';
+import { extractWsQueryParam } from '../realtime/ws-query-token.ts';
 import {
   encryptCredential,
   parseEncryptionKey,
@@ -1494,9 +1495,13 @@ export async function terminalRoutesPlugin(
   // ================================================================
 
   // WS /api/terminal/sessions/:id/attach — WebSocket terminal attach
-  app.get('/terminal/sessions/:id/attach', { websocket: true }, async (socket: WebSocket, req: FastifyRequest) => {
+  // Use { wsHandler } instead of { websocket: true } so that @fastify/otel
+  // (Sentry) doesn't wrap the WebSocket handler. Issue #2592.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- @fastify/websocket wsHandler type not exported
+  app.get('/terminal/sessions/:id/attach', { wsHandler: async (socket: any, req: FastifyRequest) => {
     const params = req.params as { id: string };
-    const query = req.query as { token?: string };
+    // Parse from req.url — req.query may be undefined in wsHandler (Issue #2404, #2592)
+    const queryToken = extractWsQueryParam(req, 'token');
 
     if (!UUID_REGEX.test(params.id)) {
       socket.close(4400, 'Invalid session ID');
@@ -1507,18 +1512,18 @@ export async function terminalRoutesPlugin(
     let authenticated = false;
     if (isAuthDisabled()) {
       authenticated = true;
-    } else if (query.token) {
+    } else if (queryToken) {
       // Issue #2191, Sub-item 6: Deprecation logging for query-token auth
       logQueryTokenUsage(app.log, params.id, req.ip);
       try {
-        await verifyAccessToken(query.token);
+        await verifyAccessToken(queryToken);
         authenticated = true;
         // Issue #2072: The preHandler hook that resolves namespace context uses
         // getAuthIdentity(req) which only checks the Authorization header. WebSocket
         // auth arrives via query param, so namespace context is never set. Inject
         // the token as a Bearer header so resolveNamespaces can extract the identity.
         if (!req.namespaceContext) {
-          (req.headers as Record<string, string>).authorization = `Bearer ${query.token}`;
+          (req.headers as Record<string, string>).authorization = `Bearer ${queryToken}`;
           req.namespaceContext = await resolveNamespaces(req, pool);
         }
       } catch {
@@ -1539,8 +1544,8 @@ export async function terminalRoutesPlugin(
     // The JWT arrives in ?token= query param, but the global preHandler
     // namespace resolution hook only checks req.headers.authorization.
     // Re-resolve namespaces now that we've confirmed the token is valid.
-    if (query.token && !req.namespaceContext) {
-      (req.headers as Record<string, string>).authorization = `Bearer ${query.token}`;
+    if (queryToken && !req.namespaceContext) {
+      (req.headers as Record<string, string>).authorization = `Bearer ${queryToken}`;
       req.namespaceContext = await resolveNamespaces(req, pool);
     }
 
@@ -1647,6 +1652,8 @@ export async function terminalRoutesPlugin(
     socket.on('error', () => {
       grpcStream.end();
     });
+  } } as Record<string, unknown>, async (_req, reply) => {
+    reply.code(404).send();
   });
 
   // ================================================================
