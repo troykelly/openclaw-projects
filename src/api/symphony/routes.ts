@@ -1357,10 +1357,15 @@ export async function symphonyRoutesPlugin(
   });
 
   // GET /symphony/feed — WebSocket endpoint (handles its own JWT auth via message handshake)
-  app.get('/symphony/feed', { websocket: true }, async (socket, req) => {
+  // Use { wsHandler } instead of { websocket: true } so that @fastify/otel
+  // (Sentry) doesn't wrap the WebSocket handler. Issue #2592.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- @fastify/websocket wsHandler type not exported
+  app.get('/symphony/feed', { wsHandler: async (socket: any, req: FastifyRequest) => {
     const auth = req.headers.authorization;
     const headerToken = auth?.startsWith('Bearer ') ? auth.slice(7) : undefined;
     await feedHub.handleConnection(socket, headerToken);
+  } } as Record<string, unknown>, async (_req, reply) => {
+    reply.code(404).send();
   });
 
   // GET /symphony/feed/stats — connection statistics (namespace-scoped)

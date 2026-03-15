@@ -30,7 +30,7 @@ export function ContactPicker({ contacts, selectedContactId, onSelect, className
   const filtered = React.useMemo(() => {
     if (!search.trim()) return contacts;
     const q = search.toLowerCase();
-    return contacts.filter((c) => c.display_name.toLowerCase().includes(q));
+    return contacts.filter((c) => (c.display_name ?? '').toLowerCase().includes(q));
   }, [contacts, search]);
 
   const handleSelect = (contactId: string) => {
