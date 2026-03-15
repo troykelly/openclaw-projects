@@ -418,8 +418,14 @@ jobs:
       contents: read
 
     steps:
+      # #2588 — Use github.sha (the commit that was tagged when the workflow
+      # was triggered) instead of the default ref. The validate job force-pushes
+      # the tag to the version bump commit (#2525), which causes checkout@v6 to
+      # reject the default ref with "ref may have been updated after trigger".
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          ref: ${{ github.sha }}
 
       - name: Build + start devcontainer services
         run: |
@@ -516,8 +522,12 @@ jobs:
       id-token: write  # npm provenance
 
     steps:
+      # #2588 — Pin to github.sha to avoid checkout@v6 rejection after
+      # validate force-pushes the tag. Artifact overlay provides version-bumped files.
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          ref: ${{ github.sha }}
 
       - name: Download bumped version files
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -602,8 +612,12 @@ jobs:
       packages: write
 
     steps:
+      # #2588 — Pin to github.sha to avoid checkout@v6 rejection after
+      # validate force-pushes the tag. Artifact overlay provides version-bumped files.
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          ref: ${{ github.sha }}
 
       - name: Download bumped version files
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -714,8 +728,12 @@ jobs:
             dockerfile: docker/symphony-worker/Dockerfile
 
     steps:
+      # #2588 — Pin to github.sha to avoid checkout@v6 rejection after
+      # validate force-pushes the tag. Artifact overlay provides version-bumped files.
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          ref: ${{ github.sha }}
 
       - name: Download bumped version files
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -839,10 +857,13 @@ jobs:
             echo "::notice::Sentry not configured — skipping release finalization"
           fi
 
+      # #2588 — Pin to github.sha to avoid checkout@v6 rejection after
+      # validate force-pushes the tag.
       - name: Checkout repository
         if: steps.sentry-check.outputs.configured == 'true'
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
+          ref: ${{ github.sha }}
           fetch-depth: 0
 
       - name: Setup Node.js
