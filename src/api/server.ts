@@ -10689,11 +10689,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         since?: string;
         before?: string;
         namespace_id?: string;
+        namespace?: string; // Accept both forms (#2590: plugin sends body.namespace)
         similarity_threshold?: number;
         min_cluster_size?: number;
         include_content?: boolean;
         max_memories?: number;
       };
+
+      // Accept body.namespace as alias for body.namespace_id (#2590)
+      const effectiveNamespaceId = body.namespace_id ?? body.namespace;
 
       if (!body.since || !body.before) {
         return reply.code(400).send({ error: 'since and before are required' });
@@ -10709,11 +10713,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }
 
       // Validate and resolve namespace (#2439: namespace_id must be within caller's grants)
-      const nsResolution = resolveAndValidateNamespaceId(body.namespace_id, queryNamespaces, reply);
+      const nsResolution = resolveAndValidateNamespaceId(effectiveNamespaceId, queryNamespaces, reply);
       if (!nsResolution) return; // 403 already sent
       // Digest requires a single namespace — use provided/first effective, or 'default' in dev
       const namespace =
-        body.namespace_id ??
+        effectiveNamespaceId ??
         (queryNamespaces.length > 0 ? queryNamespaces[0] : 'default');
 
       // Server-side cap (#2439): clamp to env-configured maximum, reject non-finite values
