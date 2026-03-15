@@ -66,12 +66,40 @@ describe('listMemories is_active filter (#2590)', () => {
 
     await cleanupExpiredMemories(pool, { namespaces: [ns] });
 
-    // include_superseded disables both the superseded_by and is_active filters
+    // include_superseded disables the superseded_by and is_active filters
     const result = await listMemories(pool, {
       queryNamespaces: [ns],
       include_superseded: true,
       include_expired: true,
     });
+    expect(result.total).toBe(2);
+  });
+
+  it('include_expired=true shows soft-deleted expired memories', async () => {
+    const ns = 'test-include-expired-reaped';
+
+    await createMemory(pool, {
+      namespace: ns,
+      title: 'Active Memory',
+      content: 'Content for active memory expired reaped test',
+    });
+
+    await createMemory(pool, {
+      namespace: ns,
+      title: 'Expired and Reaped',
+      content: 'Content for expired reaped memory test',
+      expires_at: new Date('2020-01-01T00:00:00Z'),
+    });
+
+    await cleanupExpiredMemories(pool, { namespaces: [ns] });
+
+    // include_expired=true should show soft-deleted expired memories
+    // even with include_superseded=false (default)
+    const result = await listMemories(pool, {
+      queryNamespaces: [ns],
+      include_expired: true,
+    });
+    // Both active and the expired-reaped (is_active=false) should appear
     expect(result.total).toBe(2);
   });
 });

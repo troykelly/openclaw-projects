@@ -572,8 +572,13 @@ export async function listMemories(pool: Pool, options: ListMemoriesOptions = {}
   // Exclude superseded unless requested
   if (!options.include_superseded) {
     conditions.push('superseded_by IS NULL');
-    // Also exclude deactivated memories (e.g. reaped by cleanup-expired)
-    // to align with digestMemories' is_active filter (#2590)
+  }
+
+  // Exclude deactivated memories (e.g. reaped by cleanup-expired or
+  // deactivated by bulk-supersede) to align with digestMemories (#2590).
+  // Skip when include_superseded=true (show all states) or
+  // include_expired=true (expired soft-deletes set is_active=false).
+  if (!options.include_superseded && !options.include_expired) {
     conditions.push('is_active = true');
   }
 
