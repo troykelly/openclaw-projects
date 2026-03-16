@@ -745,6 +745,111 @@ services:
           memory: 1G
 
   # =============================================================================
+  # Symphony Worker (orchestrator for agent runs)
+  # =============================================================================
+  symphony-worker:
+    image: ghcr.io/troykelly/openclaw-projects-symphony-worker:edge
+    container_name: openclaw-symphony-worker
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      NODE_ENV: production
+      PGHOST: db
+      PGPORT: 5432
+      PGUSER: ${POSTGRES_USER:-openclaw}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      PGDATABASE: ${POSTGRES_DB:-openclaw}
+      SYMPHONY_NAMESPACE: ${SYMPHONY_NAMESPACE:-default}
+      SYMPHONY_HEALTH_PORT: 9001
+      SYMPHONY_POOL_MAX: ${SYMPHONY_POOL_MAX:-5}
+      # Error tracking (Sentry / GlitchTip)
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-production}
+      SENTRY_TRACES_SAMPLE_RATE: ${SENTRY_TRACES_SAMPLE_RATE:-0.1}
+      SENTRY_SAMPLE_RATE: ${SENTRY_SAMPLE_RATE:-1.0}
+      SENTRY_DEBUG: ${SENTRY_DEBUG:-false}
+      SENTRY_SERVER_NAME: symphony-worker
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    # Container hardening
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777,size=64M
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1G
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+
+  # =============================================================================
+  # HA Connector (Home Assistant WebSocket bridge)
+  # =============================================================================
+  ha-connector:
+    image: ghcr.io/troykelly/openclaw-projects-ha-connector:edge
+    container_name: openclaw-ha-connector
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      NODE_ENV: production
+      PGHOST: db
+      PGPORT: 5432
+      PGUSER: ${POSTGRES_USER:-openclaw}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      PGDATABASE: ${POSTGRES_DB:-openclaw}
+      HA_CONNECTOR_HEALTH_PORT: 9001
+      HA_CONNECTOR_POOL_MAX: 5
+      OAUTH_TOKEN_ENCRYPTION_KEY: ${OAUTH_TOKEN_ENCRYPTION_KEY:-}
+      GEO_TOKEN_ENCRYPTION_KEY: ${GEO_TOKEN_ENCRYPTION_KEY:-}
+      # Error tracking (Sentry / GlitchTip)
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-production}
+      SENTRY_TRACES_SAMPLE_RATE: ${SENTRY_TRACES_SAMPLE_RATE:-0.1}
+      SENTRY_SAMPLE_RATE: ${SENTRY_SAMPLE_RATE:-1.0}
+      SENTRY_DEBUG: ${SENTRY_DEBUG:-false}
+      SENTRY_SERVER_NAME: ha-connector
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9001/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    # Container hardening
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777,size=64M
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+        reservations:
+          cpus: "0.1"
+          memory: 64M
+
+  # =============================================================================
   # Frontend App (React SPA served via static server)
   # =============================================================================
   app:
