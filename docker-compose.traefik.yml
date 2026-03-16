@@ -259,7 +259,7 @@ services:
   # Database (PostgreSQL with TimescaleDB, pgvector, pg_cron)
   # =============================================================================
   db:
-    image: ghcr.io/troykelly/openclaw-projects-db:edge
+    image: ghcr.io/troykelly/openclaw-projects-db:0.0.66
     container_name: openclaw-db
     restart: unless-stopped
     environment:
@@ -352,7 +352,7 @@ services:
   # Database Migrations (runs once and exits)
   # =============================================================================
   migrate:
-    image: ghcr.io/troykelly/openclaw-projects-migrate:edge
+    image: ghcr.io/troykelly/openclaw-projects-migrate:0.0.66
     container_name: openclaw-migrate
     restart: "no"
     depends_on:
@@ -377,7 +377,7 @@ services:
   # API Server (Fastify)
   # =============================================================================
   api:
-    image: ghcr.io/troykelly/openclaw-projects-api:edge
+    image: ghcr.io/troykelly/openclaw-projects-api:0.0.66
     container_name: openclaw-api
     restart: unless-stopped
     depends_on:
@@ -527,7 +527,7 @@ services:
   # Background Worker (job processing, notifications, embeddings)
   # =============================================================================
   worker:
-    image: ghcr.io/troykelly/openclaw-projects-worker:edge
+    image: ghcr.io/troykelly/openclaw-projects-worker:0.0.66
     container_name: openclaw-worker
     restart: unless-stopped
     depends_on:
@@ -638,7 +638,7 @@ services:
   # TMux Worker (terminal session management via gRPC)
   # =============================================================================
   tmux-worker:
-    image: ghcr.io/troykelly/openclaw-projects-tmux-worker:edge
+    image: ghcr.io/troykelly/openclaw-projects-tmux-worker:0.0.66
     container_name: openclaw-tmux-worker
     restart: unless-stopped
     depends_on:
@@ -748,7 +748,7 @@ services:
   # Symphony Worker (orchestrator for agent runs)
   # =============================================================================
   symphony-worker:
-    image: ghcr.io/troykelly/openclaw-projects-symphony-worker:edge
+    image: ghcr.io/troykelly/openclaw-projects-symphony-worker:0.0.66
     container_name: openclaw-symphony-worker
     restart: unless-stopped
     depends_on:
@@ -800,7 +800,7 @@ services:
   # HA Connector (Home Assistant WebSocket bridge)
   # =============================================================================
   ha-connector:
-    image: ghcr.io/troykelly/openclaw-projects-ha-connector:edge
+    image: ghcr.io/troykelly/openclaw-projects-ha-connector:0.0.66
     container_name: openclaw-ha-connector
     restart: unless-stopped
     depends_on:
@@ -853,7 +853,7 @@ services:
   # Frontend App (React SPA served via static server)
   # =============================================================================
   app:
-    image: ghcr.io/troykelly/openclaw-projects-app:edge
+    image: ghcr.io/troykelly/openclaw-projects-app:0.0.66
     container_name: openclaw-app
     restart: unless-stopped
     depends_on:
@@ -910,7 +910,7 @@ services:
   # cached model from the persistent volume.
   # If PromptGuard is unavailable, injection detection falls back to regex.
   prompt-guard:
-    image: ghcr.io/troykelly/openclaw-projects-prompt-guard:edge
+    image: ghcr.io/troykelly/openclaw-projects-prompt-guard:0.0.66
     container_name: openclaw-prompt-guard
     restart: unless-stopped
     environment:
