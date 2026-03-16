@@ -19,6 +19,8 @@
  *
  * Issue #757: Refactored into smaller modules for maintainability.
  * Issue #2256: When yjsEnabled, CollaborationPlugin replaces HistoryPlugin and InitialContentPlugin.
+ * Issue #2599: LexicalCollaboration wrapper provides per-instance CollaborationContext, fixing
+ *   Lexical errors #94 (syncChildrenFromLexical crash) and #319 (UNSAFE_GLOBAL_CONTEXT fallback).
  * Issue #2343: LexicalComposer stays mounted (hidden via CSS) during mode switches so Yjs
  *   connection is preserved. ContentSyncPlugin runs alongside CollaborationPlugin to keep
  *   markdownContent in sync for char/word count and mode switching.
@@ -30,6 +32,7 @@ import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin';
 import { ContentEditable } from '@lexical/react/LexicalContentEditable';
 import { HistoryPlugin } from '@lexical/react/LexicalHistoryPlugin';
 import { CollaborationPlugin } from '@lexical/react/LexicalCollaborationPlugin';
+import { LexicalCollaboration } from '@lexical/react/LexicalCollaborationContext';
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary';
 import { ListPlugin } from '@lexical/react/LexicalListPlugin';
 import { LinkPlugin } from '@lexical/react/LexicalLinkPlugin';
@@ -335,6 +338,10 @@ export function LexicalNoteEditor({
 
       {/* WYSIWYG pane — always mounted so Yjs stays connected (#2343) */}
       <div className={cn('flex flex-col h-full', { hidden: mode !== 'wysiwyg' })}>
+        {/* LexicalCollaboration provides a per-instance CollaborationContext with its own
+            yjsDocMap, preventing warning #319 (UNSAFE_GLOBAL_CONTEXT) and the stale binding
+            that causes error #94 in syncChildrenFromLexical. Issue #2599. */}
+        <LexicalCollaboration>
         <LexicalComposer initialConfig={initialConfig}>
           <EditorRefPlugin editorRef={editorRef} />
           <ToolbarPlugin />
@@ -399,6 +406,7 @@ export function LexicalNoteEditor({
             {saving && <span className="text-primary">Saving...</span>}
           </div>
         </LexicalComposer>
+        </LexicalCollaboration>
       </div>
     </div>
   );
