@@ -598,6 +598,11 @@ services:
       # the API directly. These vars are kept for envsubst compatibility.
       API_HOST: api
       API_PORT: "3000"
+      # Required for nginx envsubst: the nginx.conf.template uses
+      # ${OAUTH_REDIRECT_URI} in sub_filter for IndieAuth discovery (#2592).
+      # If undefined, envsubst leaves the literal ${...} and nginx crashes
+      # with "unknown oauth_redirect_uri variable". Issue #2605.
+      OAUTH_REDIRECT_URI: ${OAUTH_REDIRECT_URI:-}
     ports:
       - "[::1]:${FRONTEND_PORT:-8080}:8080"       # IPv6 (preferred)
       - "127.0.0.1:${FRONTEND_PORT:-8080}:8080"  # IPv4 fallback
