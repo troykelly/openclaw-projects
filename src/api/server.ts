@@ -173,7 +173,22 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // trustProxy: true — this server is always deployed behind a reverse proxy
   // (Traefik → ModSecurity → Fastify). Required for correct request.protocol
   // (X-Forwarded-Proto) and request.ip (X-Forwarded-For). Issue #1413.
-  const app = Fastify({ logger: options.logger ?? false, trustProxy: true });
+  const app = Fastify({
+    logger: options.logger ?? false,
+    trustProxy: true,
+    // Strip /api prefix from incoming requests. Traefik redirects DOMAIN/api/*
+    // to api.DOMAIN/* (stripping the prefix), but direct requests to
+    // api.DOMAIN/api/* (e.g., OAuth redirect URIs) arrive with the prefix intact.
+    // All Fastify routes are registered without the /api prefix, so strip it
+    // here before routing and auth hooks run. (Issue #2565)
+    rewriteUrl(req) {
+      const url = req.url ?? '/';
+      if (url.startsWith('/api/') || url === '/api') {
+        return url.slice(4) || '/';
+      }
+      return url;
+    },
+  });
 
   // Validate OAuth startup configuration (Issue #1080)
   const oauthValidation = validateOAuthStartup();
