@@ -749,17 +749,19 @@ graph TD;
 
   // Yjs bootstrap tests for Issue #2482, #2562
   describe('shouldBootstrap with CollaborationPlugin (#2482, #2562)', () => {
-    it('sets shouldBootstrap based on initialContent availability', () => {
-      // Read the source to verify the fix is in place
+    it('uses server-side bootstrap (shouldBootstrap={false}) per Lexical docs (#2602)', () => {
+      // Per Lexical collaboration docs, shouldBootstrap and initialEditorState
+      // must NOT be used in production. Content is bootstrapped server-side
+      // via @lexical/headless + createBinding in yjs-headless-bootstrap.ts.
       const sourceFile = require('fs').readFileSync(
         require('path').resolve(__dirname, '../../src/ui/components/notes/editor/lexical-editor.tsx'),
         'utf8',
       );
 
-      // The bug: shouldBootstrap={false} is hardcoded
-      // The fix: shouldBootstrap should reference initialContentRef
-      expect(sourceFile).not.toMatch(/shouldBootstrap=\{false\}/);
-      expect(sourceFile).toMatch(/shouldBootstrap=\{/);
+      // shouldBootstrap must be false — server handles bootstrap
+      expect(sourceFile).toMatch(/shouldBootstrap=\{false\}/);
+      // initialEditorState must not be passed to CollaborationPlugin
+      expect(sourceFile).not.toMatch(/initialEditorState=\{initialEditorStateFn\}/);
     });
 
     it('uses stable initialEditorStateFn reference (useCallback, not useMemo)', () => {

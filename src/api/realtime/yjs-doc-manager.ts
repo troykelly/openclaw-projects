@@ -15,6 +15,7 @@ import {
   YJS_EMBEDDING_IDLE_MS,
 } from './yjs-types.ts';
 import { triggerNoteEmbedding } from '../embeddings/note-integration.ts';
+import { bootstrapYjsDocFromContent } from './yjs-headless-bootstrap.ts';
 
 interface ManagedDoc {
   doc: Y.Doc;
@@ -329,18 +330,20 @@ export class YjsDocManager {
     if (row.yjs_state) {
       // Load existing Yjs state
       Y.applyUpdate(doc, new Uint8Array(row.yjs_state));
+    } else if (row.content && typeof row.content === 'string' && row.content.length > 0) {
+      // Bootstrap Yjs doc from REST content using headless Lexical editor.
+      // Per Lexical docs, content MUST be bootstrapped server-side — client-side
+      // shouldBootstrap/initialEditorState causes error #94. Issue #2602.
+      bootstrapYjsDocFromContent(doc, row.content);
     }
-    // When yjs_state is NULL, the doc starts empty. The client-side
-    // CollaborationPlugin will bootstrap from REST content via initialEditorState.
-    // We set hasRestContent so persistDoc knows not to overwrite non-empty
-    // content with an empty Yjs state. Issue #2596.
+    // If both yjs_state and content are empty, the doc starts empty as expected.
 
     return {
       doc,
       noteId,
       clients: new Map(),
-      dirty: false,
-      hasRestContent: !row.yjs_state && !!row.content && row.content.length > 0,
+      dirty: !row.yjs_state && !!row.content && row.content.length > 0,
+      hasRestContent: false,
       persistTimer: null,
       maxFlushTimer: null,
       evictionTimer: null,
