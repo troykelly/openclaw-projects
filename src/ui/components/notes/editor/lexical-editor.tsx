@@ -376,11 +376,10 @@ export function LexicalNoteEditor({
                 <CollaborationPlugin
                   id={yjsId ?? 'content'}
                   providerFactory={providerFactory}
-                  shouldBootstrap={shouldBootstrap}
+                  shouldBootstrap={false}
                   username={currentUser?.name ?? 'Anonymous'}
                   cursorColor={currentUser?.color ?? '#3b82f6'}
                   cursorsContainerRef={cursorsContainerRef}
-                  initialEditorState={initialEditorStateFn}
                 />
                 <ContentSyncPlugin onChange={handleLexicalChange} />
               </>
