@@ -15,6 +15,7 @@ import * as Y from 'yjs';
 import { createHeadlessEditor } from '@lexical/headless';
 import { createBinding, syncLexicalUpdateToYjs } from '@lexical/yjs';
 import { $createParagraphNode, $createTextNode, $getRoot, $isElementNode } from 'lexical';
+import { $convertFromMarkdownString, TRANSFORMERS } from '@lexical/markdown';
 import { HeadingNode, QuoteNode } from '@lexical/rich-text';
 import { ListNode, ListItemNode } from '@lexical/list';
 import { LinkNode, AutoLinkNode } from '@lexical/link';
@@ -57,17 +58,26 @@ export function bootstrapYjsDocFromContent(doc: Y.Doc, content: string): void {
     },
   });
 
-  // Populate the editor with content as paragraphs
+  // Populate the editor with content.
+  // Detect XML (legacy pre-#2472 content) vs markdown.
   editor.update(
     () => {
-      const root = $getRoot();
-      const lines = content.split('\n');
-      for (const line of lines) {
-        const paragraph = $createParagraphNode();
-        if (line.length > 0) {
-          paragraph.append($createTextNode(line));
+      const trimmed = content.trimStart();
+      if (trimmed.startsWith('<') && /<\/?[a-zA-Z][\s\S]*?>/.test(trimmed)) {
+        // Legacy XML content — insert as plain text paragraphs since
+        // DOMParser is not available in Node.js without jsdom.
+        const root = $getRoot();
+        const lines = content.split('\n');
+        for (const line of lines) {
+          const paragraph = $createParagraphNode();
+          if (line.length > 0) {
+            paragraph.append($createTextNode(line));
+          }
+          root.append(paragraph);
         }
-        root.append(paragraph);
+      } else {
+        // Markdown content — convert to proper Lexical nodes
+        $convertFromMarkdownString(content, TRANSFORMERS);
       }
     },
     { discrete: true },
